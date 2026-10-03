@@ -1,0 +1,21 @@
+name: batch_rollout_bounds
+seed: 1
+team_a:
+  - "3/3 card:scarlet_survivor"
+  - "1/4 card:flittering_bat"
+team_b:
+  - "2/2 card:aureate_laureate"
+  - "3/1 card:southsea_busker"
+batch:
+  base_seed: 42
+  n: 200
+expect_stats:
+  a_win_rate:
+    min: 0.40
+    max: 1.00
+  b_win_rate:
+    min: 0.00
+    max: 0.40
+  draw_rate:
+    min: 0.00
+    max: 0.50

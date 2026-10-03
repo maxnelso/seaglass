@@ -1,0 +1,13 @@
+name: tier1_deathrattles_and_rally
+seed: 7
+hero_tier_a: 1
+hero_tier_b: 1
+team_a:
+  - "1/1 card:harmless_bonehead"
+  - "1/4 card:flittering_bat"
+  - "2/3 card:tusked_camper"
+team_b:
+  - "1/1 card:cord_puller"
+  - "1/1 card:buzzing_vermin"
+expect:
+  result: team_a_win

@@ -1,0 +1,15 @@
+name: turn1_buy_and_play
+seed: 10
+catalog: tier1
+steps:
+  - start_turn
+  - buy: 0
+  - play: { hand: 0, pos: 0 }
+  - end_turn
+expect:
+  turn: 1
+  tavern_tier: 1
+  gold: 0
+  board_count: 1
+  hand_count: 0
+  shop_count: 2

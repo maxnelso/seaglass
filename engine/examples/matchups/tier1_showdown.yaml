@@ -1,0 +1,17 @@
+name: tier1_deathrattle_and_rally_showdown
+seed: 42
+hero_tier_a: 1
+hero_tier_b: 1
+batch:
+  base_seed: 2026
+  n: 10000
+team_a:
+  - "1/1 card:harmless_bonehead"
+  - "1/4 card:flittering_bat"
+  - "2/3 card:tusked_camper"
+  - "3/3 card:scarlet_survivor"
+team_b:
+  - "2/1 card:risen_rider"
+  - "1/1 card:buzzing_vermin"
+  - "2/1 card:crackling_cyclone"
+  - "1/4 card:glim_guardian"

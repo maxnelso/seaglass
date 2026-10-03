@@ -1,0 +1,15 @@
+name: yshaarj_awakens_and_resummons_first_two_aberrations
+seed: 7
+hero_tier_a: 1
+hero_tier_b: 1
+deity_a: yshaarj
+deity_stats_a: [4, 4]
+team_a:
+  - "5/3 card:zoatroid"
+  - "4/3 card:joyous"
+  - "3/2 card:zoatroid"
+  - "3/2 card:zoatroid"
+team_b:
+  - "10/22 taunt tier:1"
+expect:
+  result: team_a_win

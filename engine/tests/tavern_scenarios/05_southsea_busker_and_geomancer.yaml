@@ -1,0 +1,16 @@
+name: southsea_busker_and_razorfen_geomancer
+seed: 50
+catalog: tier1
+steps:
+  - start_turn
+  - give_hand: "Southsea Busker"
+  - give_hand: "Razorfen Geomancer"
+  - play: { hand: 0, pos: 0 }
+  - play: { hand: 0, pos: 1 }
+  - play: { hand: 0, pos: 0 }
+  - play: { hand: 0, pos: 0 }
+expect:
+  bonus_gold_next_turn: 1
+  board_count: 2
+  hand_count: 0
+  board_first_stats: [5, 3]

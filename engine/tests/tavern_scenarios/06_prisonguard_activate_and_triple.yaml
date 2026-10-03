@@ -1,0 +1,16 @@
+name: suspicious_prisonguard_activate_and_triple
+seed: 60
+catalog: tier1
+steps:
+  - start_turn
+  - give_board: "Flighty Scout"
+  - give_board: "Suspicious Prisonguard"
+  - activate: { pos: 1, target: 0 }
+  - give_hand: "Suspicious Prisonguard"
+  - give_hand: "Suspicious Prisonguard"
+  - play: { hand: 0, pos: 1 }
+expect:
+  gold: 2
+  board_count: 2
+  board_has_golden: true
+  board_first_stats: [6, 6]

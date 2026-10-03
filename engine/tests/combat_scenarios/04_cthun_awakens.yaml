@@ -1,0 +1,16 @@
+name: cthun_awakens_after_four_aberrations_die
+seed: 7
+hero_tier_a: 1
+hero_tier_b: 1
+deity_a: cthun
+deity_stats_a: [6, 6]
+team_a:
+  - "3/2 card:zoatroid"
+  - "3/2 card:zoatroid"
+  - "3/2 card:zoatroid"
+  - "3/2 card:zoatroid"
+  - "2/5 tier:1"
+team_b:
+  - "4/22 taunt tier:1"
+expect:
+  result: team_a_win

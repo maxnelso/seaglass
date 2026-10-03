@@ -1,0 +1,31 @@
+//! `seaglass`: Deterministic headless Hearthstone Battlegrounds game engine.
+//!
+//! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`) and the
+//! **Combat Phase** (`docs/combat.md`).
+
+pub mod cards;
+pub mod combat;
+pub mod events;
+pub mod model;
+pub mod rng;
+pub mod scenario;
+pub mod sim;
+pub mod tavern;
+
+#[cfg(feature = "python")]
+pub mod python;
+
+pub use cards::{catalog_for, full_catalog, tier1_catalog, CardTemplate};
+pub use combat::{resolve_battle, BattleResult};
+pub use events::Event;
+pub use model::{
+    BattleOutcome, CardId, DeityKind, DeityState, GameState, Keyword, PlayerAuras, Side, Tribe,
+    Unit, UnitId,
+};
+pub use rng::Rng;
+pub use scenario::{parse_unit, run_scenario, teams_and_state, Defaults, Scenario};
+pub use sim::{simulate, simulate_batch, BattleDistribution, DamageStats};
+pub use tavern::{
+    base_copies_for_tier, base_upgrade_cost, run_tavern_scenario, shop_capacity, CardPool,
+    TavernAction, TavernExpectSpec, TavernScenario, TavernState, TavernStepSpec,
+};

@@ -1,0 +1,14 @@
+name: dune_dweller_and_bubble_gunner
+seed: 40
+catalog: tier1
+steps:
+  - start_turn
+  - give_hand: "Dune Dweller"
+  - give_hand: "Bubble Gunner"
+  - play: { hand: 0, pos: 0 }
+  - play: { hand: 0, pos: 1 }
+  - refresh
+expect:
+  board_count: 2
+  board_first_stats: [3, 3]
+  shop_count: 3
