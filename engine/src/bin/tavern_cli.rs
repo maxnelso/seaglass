@@ -18,6 +18,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
     use cards::spells::*;
     use cards::tier1::*;
     use cards::tier2::*;
+    use cards::tier3::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",
@@ -206,15 +207,189 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (wandering_willbreaker::ID, true) => {
             "On sell: Get 4 random Tavern spells; after casting 2, discard the rest."
         }
+        // Tier 3 Minions
+        (abyssal_envoy::ID, false) => {
+            "Taunt. Deathrattle: Summon highest-Health Aberration that died this combat."
+        }
+        (abyssal_envoy::ID, true) => {
+            "Taunt. Deathrattle: Summon 2 highest-Health Aberrations that died this combat."
+        }
+        (accord_o_tron::ID, false) => "Magnetic. At the start of your turn, gain 1 Gold.",
+        (accord_o_tron::ID, true) => "Magnetic. At the start of your turn, gain 2 Gold.",
+        (amber_guardian::ID, false) => {
+            "Start of Combat: Give another friendly Dragon +2/+2 and Divine Shield."
+        }
+        (amber_guardian::ID, true) => {
+            "Start of Combat: Give 2 other friendly Dragons +4/+4 and Divine Shield."
+        }
+        (annoy_o_module::ID, _) => "Magnetic, Divine Shield, Taunt.",
+        (auto_accelerator::ID, false) => "Battlecry: Get a random Magnetic Volumizer.",
+        (auto_accelerator::ID, true) => "Battlecry: Get 2 random Magnetic Volumizers.",
+        (azsharan_cutlassier::ID, false) => {
+            "Deathrattle: Give leftmost minion in hand +2/+2 per bonus keyword on board."
+        }
+        (azsharan_cutlassier::ID, true) => {
+            "Deathrattle: Give leftmost minion in hand +4/+4 per bonus keyword on board."
+        }
+        (blue_whelp::ID, false) => "Rally: Give friendly Dragons +4 Health.",
+        (blue_whelp::ID, true) => "Rally: Give friendly Dragons +8 Health.",
+        (cadaver_caretaker::ID, false) => "Deathrattle: Summon three 1/1 Skeletons.",
+        (cadaver_caretaker::ID, true) => "Deathrattle: Summon three 2/2 Skeletons.",
+        (deadly_spore::ID, _) => "Venomous.",
+        (devout_hellcaller::ID, false) => {
+            "After a friendly Demon deals damage twice, gain +2/+2 permanently."
+        }
+        (devout_hellcaller::ID, true) => {
+            "After a friendly Demon deals damage twice, gain +4/+4 permanently."
+        }
+        (diremuck_forager::ID, false) => {
+            "Start of Combat: Give a minion in hand +2/+2 and summon it for combat."
+        }
+        (diremuck_forager::ID, true) => {
+            "Start of Combat: Give a minion in hand +4/+4 and summon it for combat."
+        }
+        (disguised_graverobber::ID, false) => {
+            "Activate (0g): Destroy a friendly Undead to get 4 Gold."
+        }
+        (disguised_graverobber::ID, true) => {
+            "Activate (0g): Destroy a friendly Undead to get 8 Gold."
+        }
+        (drifting_sacrifice::ID, false) => {
+            "Battlecry & Deathrattle: Summon a 0/2 Tentacle with Taunt."
+        }
+        (drifting_sacrifice::ID, true) => {
+            "Battlecry & Deathrattle: Summon two 0/2 Tentacles with Taunt."
+        }
+        (fearless_foodie::ID, _) => "Battlecry: Get a Gem Confiscation.",
+        (fetid_corroder::ID, false) => "Battlecry & Deathrattle: Get a Sludge Corrosion.",
+        (fetid_corroder::ID, true) => "Battlecry & Deathrattle: Get 2 Sludge Corrosions.",
+        (fruit_vendor::ID, false) => "After you cast a Tavern spell, give your minions +1 Health.",
+        (fruit_vendor::ID, true) => "After you cast a Tavern spell, give your minions +2 Health.",
+        (gem_rat::ID, false) => "At the end of your turn, get a Gem Day.",
+        (gem_rat::ID, true) => "At the end of your turn, get 2 Gem Days.",
+        (greedy_conniver::ID, _) => {
+            "Activate (4g): Discover a Tier 7 minion that unlocks in 3 turns."
+        }
+        (handless_forsaken::ID, false) => "Deathrattle: Summon a 2/1 Hand with Reborn.",
+        (handless_forsaken::ID, true) => "Deathrattle: Summon a 4/2 Hand with Reborn.",
+        (hired_mount::ID, _) => "Start of Combat: Get a Lockbox that opens immediately.",
+        (iron_groundskeeper::ID, _) => "Activate (0g): Toggle Taunt on another minion.",
+        (locked_up_mutineer::ID, false) => "Deathrattle: Accelerate your Lockboxes by 1 turn.",
+        (locked_up_mutineer::ID, true) => "Deathrattle: Accelerate your Lockboxes by 2 turns.",
+        (malchezaar_prince_of_dance::ID, false) => {
+            "2 Refreshes each turn cost Health instead of Gold."
+        }
+        (malchezaar_prince_of_dance::ID, true) => {
+            "4 Refreshes each turn cost Health instead of Gold."
+        }
+        (mangled_bandit::ID, false) => "Start of Turn: Discard a spell to get 4 Blood Gems.",
+        (mangled_bandit::ID, true) => "Start of Turn: Discard a spell to get 8 Blood Gems.",
+        (mummifier::ID, false) => {
+            "Deathrattle: Give a friendly Undead Reborn (plain) or +4 Attack (golden)."
+        }
+        (mummifier::ID, true) => "Deathrattle: Give 2 friendly Undead Reborn.",
+        (prosthetic_hand::ID, _) => "Magnetic, Reborn. Can Magnetize to Undead or Mechs.",
+        (relentless_deflector::ID, _) => {
+            "Has Taunt while this has Divine Shield. Avenge (4): Gain Divine Shield."
+        }
+        (rescue_bot::ID, false) => "Rally: Give other friendly minions +2 Attack.",
+        (rescue_bot::ID, true) => "Rally: Give other friendly minions +4 Attack.",
+        (roaring_recruiter::ID, false) => "When you sell this, get a random Chromadrake.",
+        (roaring_recruiter::ID, true) => "When you sell this, get 2 random Chromadrakes.",
+        (shoalfin_mystic::ID, false) => {
+            "Battlecry: Your Tavern spells that give stats give an extra +1/+1."
+        }
+        (shoalfin_mystic::ID, true) => {
+            "Battlecry: Your Tavern spells that give stats give an extra +2/+2."
+        }
+        (sly_infiltrator::ID, false) => "Rally: Give a minion in your hand +4/+4.",
+        (sly_infiltrator::ID, true) => "Rally: Give a minion in your hand +8/+8.",
+        (sprightly_scarab::ID, false) => {
+            "Choose One: Give a Beast +2/+2 & Reborn; or +4 Attack & Windfury."
+        }
+        (sprightly_scarab::ID, true) => {
+            "Choose One: Give a Beast +4/+4 & Reborn; or +8 Attack & Windfury."
+        }
+        (tasty_lobster::ID, false) => "Deathrattle: Your Deity has +3/+3 this game.",
+        (tasty_lobster::ID, true) => "Deathrattle: Your Deity has +6/+6 this game.",
+        (thorned_trailblazer::ID, false) => {
+            "1 Choose One card each turn has both effects combined."
+        }
+        (thorned_trailblazer::ID, true) => {
+            "2 Choose One cards each turn have both effects combined."
+        }
+        (timecapn_hooktail::ID, false) => {
+            "Choose One: Tavern spells give an extra +1 Attack; or +1 Health."
+        }
+        (timecapn_hooktail::ID, true) => {
+            "Choose One: Tavern spells give an extra +2 Attack; or +2 Health."
+        }
+        (trapped_clapper::ID, false) => {
+            "Activate (2g): Give stats equal to cards in hand; get a Tavern Coin."
+        }
+        (trapped_clapper::ID, true) => {
+            "Activate (2g): Give double stats equal to cards in hand; get 2 Tavern Coins."
+        }
+        (treasure_parrot::ID, false) => {
+            "Taunt. After this deals damage twice, get a Tavern Coin."
+        }
+        (treasure_parrot::ID, true) => {
+            "Taunt. After this deals damage twice, get 2 Tavern Coins."
+        }
+        (trench_fighter::ID, false) => "At the end of your turn, get a Golden Touch.",
+        (trench_fighter::ID, true) => "At the end of your turn, get 2 Golden Touches.",
+        (unwilling_slacker::ID, false) => {
+            "On sell: Choose One — Give your minions +2 Attack; or +2 Health."
+        }
+        (unwilling_slacker::ID, true) => {
+            "On sell: Choose One — Give your minions +4 Attack; or +4 Health."
+        }
+        (vicious_mindslasher::ID, false) => {
+            "After you discard a card, give 3 friendly minions +2/+2."
+        }
+        (vicious_mindslasher::ID, true) => {
+            "After you discard a card, give 3 friendly minions +4/+4."
+        }
+        (waveling::ID, false) => {
+            "On sell: Tavern Refreshes give a minion in the Tavern +4/+4 this game."
+        }
+        (waveling::ID, true) => {
+            "On sell: Tavern Refreshes give 2 minions in the Tavern +4/+4 this game."
+        }
+        (wildfire_elemental::ID, false) => {
+            "After this attacks and kills a minion, deal excess damage to an adjacent minion."
+        }
+        (wildfire_elemental::ID, true) => {
+            "After this attacks and kills a minion, deal excess damage to both adjacent minions."
+        }
+        (wolf_pup::ID, false) => "Rally: Permanently gain +1/+1 for each friendly Beast.",
+        (wolf_pup::ID, true) => "Rally: Permanently gain +2/+2 for each friendly Beast.",
         // Tokens & Spells
         (tokens::TOKEN_ABERRANT_TENTACLE, _) => "Taunt.",
         (tokens::TOKEN_WATER_DROPLET, _) => "Token Elemental.",
         (tokens::TOKEN_DEMON_FODDER, _) => "Feeds itself to a friendly Demon on Refresh.",
         (tokens::TOKEN_FISHBAIT, _) => "Cannot gain stats. Deathrattle: Give killer +5/+5.",
+        (tokens::TOKEN_HELPING_HAND, _) => "Reborn.",
+        (tokens::TOKEN_BLUE_CHROMADRAKE, _) => "Battlecry: Give a Dragon +2/+2 and random keyword.",
+        (tokens::TOKEN_BLACK_CHROMADRAKE, _) => {
+            "Battlecry: Give a Dragon +2/+2 and random keyword."
+        }
+        (tokens::TOKEN_GREEN_CHROMADRAKE, _) => {
+            "Battlecry: Give a Dragon +2/+2 and random keyword."
+        }
+        (tokens::TOKEN_BRONZE_CHROMADRAKE, _) => {
+            "Battlecry: Give a Dragon +2/+2 and random keyword."
+        }
+        (tokens::TOKEN_RED_CHROMADRAKE, _) => "Battlecry: Give a Dragon +2/+2 and random keyword.",
         (tokens::SPELL_BLOOD_GEM, _) => "Spell: Give a friendly minion +1/+1 (plus Gem bonuses).",
         (tokens::SPELL_TAVERN_COIN, _) => "Spell: Gain 1 Gold.",
         (tokens::SPELL_LOCKBOX, _) => "Unplayable. Opens in 5 turns for a Golden typed minion.",
         (tokens::SPELL_GEM_DAY, _) => "Choose One: Blood Gems give +1 Attack; or +1 Health.",
+        (tokens::SPELL_SLUDGE_CORROSION, _) => "Spell: Give a friendly minion +2/+2.",
+        (tokens::SPELL_GEM_CONFISCATION, _) => {
+            "Spell: Play 2 Blood Gems on a minion; steals all Gems from neighbors."
+        }
+        (tokens::SPELL_GOLDEN_TOUCH, _) => "Spell: Make a random minion in the Tavern Golden.",
         (SPELL_A_NEW_SPROUT, _) => "Spell (3g): Discover a Tier 1 minion.",
         (SPELL_ALLIANCE_FLAG, _) => "Spell (1g): Choose One — Give a minion +3/+1 or +1/+3.",
         (SPELL_ENCHANTED_LASSO, _) => "Spell (2g): Steal a random minion from the Tavern.",
@@ -228,9 +403,38 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (SPELL_HASTY_EXCAVATION, _) => "Spell (3 HP): Gain 1 Gold. Costs Health instead of Gold.",
         (SPELL_LEAF_THROUGH_THE_PAGES, _) => "Spell (1g): Gain 2 free Refreshes.",
         (SPELL_MIGHT_OF_STORMWIND, _) => "Spell (2g): Give 4 friendly minions +1/+2.",
-        (SPELL_SEARCH_THROUGH_TIME, _) => "Spell (2g): Discover a minion from your Tier (locked 1 turn).",
+        (SPELL_SEARCH_THROUGH_TIME, _) => {
+            "Spell (2g): Discover a minion from your Tier (locked 1 turn)."
+        }
         (SPELL_STRIKE_OIL, _) => "Spell (3g): Increase your maximum Gold by 1.",
         (SPELL_WINNERS_BREAD, _) => "Spell (2g): Give a minion +2/+3 (and 1 Blood Gem if you win).",
+        (SPELL_CAREFUL_INVESTMENT, _) => "Spell (1g): Gain 2 Gold next turn.",
+        (SPELL_FRIENDLY_BOUNTY, _) => "Spell (1g): Give your minions +1/+1.",
+        (SPELL_HEALTHY_BOUNTY, _) => "Spell (1g): Give a minion +6 Health.",
+        (SPELL_HOSTILE_BOUNTY, _) => "Spell (1g): Give a minion +6 Attack.",
+        (SPELL_OVERCONFIDENCE, _) => {
+            "Spell (1g): If you win next combat, gain 3 Gold (or 1 Gold on tie)."
+        }
+        (SPELL_PLANAR_TELESCOPE, _) => {
+            "Spell (3g): Discover a minion of your most common type."
+        }
+        (SPELL_REPAIR_JOB, _) => "Spell (2g): Give a random Magnetic Volumizer to a minion.",
+        (SPELL_ROBUST_EVOLUTION, _) => {
+            "Spell (2g): Choose One — Set a minion's Attack or Health to highest on board."
+        }
+        (SPELL_SEAFOOD_STEW, _) => "Spell (2g): Give a minion +1/+1 per friendly minion type.",
+        (SPELL_SELFISH_BOUNTY, _) => "Spell (1g): Give a minion +3/+3.",
+        (SPELL_SHINY_RING, _) => "Spell (2g): Give your minions +1/+1.",
+        (SPELL_STAFF_OF_ENRICHMENT, _) => {
+            "Spell (3g): Give minions in the Tavern +1/+1 this game."
+        }
+        (SPELL_TIME_MANAGEMENT, _) => {
+            "Spell (2g): Give your minions +2/+2 (or next turn if you have <= 4 Gold)."
+        }
+        (SPELL_TRICKY_TROUSERS, _) => {
+            "Spell (1g): Give a minion +1/+2 and toggle its Taunt."
+        }
+        (SPELL_WEALTHY_BOUNTY, _) => "Spell (1g): Get a Tavern Coin.",
         _ => "",
     }
 }
@@ -278,6 +482,13 @@ fn format_tribe(t: Tribe) -> &'static str {
         Tribe::Pirate => "Pirate",
         Tribe::Quilboar => "Quilboar",
         Tribe::Undead => "Undead",
+        Tribe::UndeadMech => "Undead/Mech",
+        Tribe::DragonPirate => "Dragon/Pirate",
+        Tribe::BeastPirate => "Beast/Pirate",
+        Tribe::ElementalDemon => "Elem/Demon",
+        Tribe::MechMurloc => "Mech/Murloc",
+        Tribe::DemonDragon => "Demon/Dragon",
+        Tribe::DemonQuilboar => "Demon/Quilboar",
         Tribe::All => "All",
     }
 }

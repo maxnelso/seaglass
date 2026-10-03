@@ -16,7 +16,8 @@ pub mod tavern;
 pub mod python;
 
 pub use cards::{
-    catalog_for, full_catalog, tier1_catalog, tier2_catalog, ActivateTargetKind, CardTemplate,
+    catalog_for, full_catalog, solo_tier_3_catalog, tier1_catalog, tier2_catalog, tier3_catalog,
+    ActivateTargetKind, CardTemplate,
 };
 pub use combat::{resolve_battle, BattleResult};
 pub use events::Event;

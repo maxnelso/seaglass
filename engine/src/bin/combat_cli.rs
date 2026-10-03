@@ -78,6 +78,13 @@ fn format_tribe(t: Tribe) -> &'static str {
         Tribe::Pirate => "Pirate",
         Tribe::Quilboar => "Quilboar",
         Tribe::Undead => "Undead",
+        Tribe::UndeadMech => "Undead/Mech",
+        Tribe::DragonPirate => "Dragon/Pirate",
+        Tribe::BeastPirate => "Beast/Pirate",
+        Tribe::ElementalDemon => "Elem/Demon",
+        Tribe::MechMurloc => "Mech/Murloc",
+        Tribe::DemonDragon => "Demon/Dragon",
+        Tribe::DemonQuilboar => "Demon/Quilboar",
         Tribe::All => "All",
     }
 }

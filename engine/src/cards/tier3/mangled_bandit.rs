@@ -1,18 +1,18 @@
-//! `Brain Rotter` (`BG36_099`) — Tier 2 Aberration (`3/4`).
-//! **Activate (0):** Discard a card in hand to give your **Deity** `+2/+2` (`+4/+4` if Golden).
+//! `Mangled Bandit` (`BG28_582`) — Tier 3 Quilboar (`3/3`).
+//! **Activate (0):** Discard a card in hand to get `3` (`6` if Golden) **Blood Gems**.
 
-use crate::cards::CardTemplate;
+use crate::cards::{tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
-pub const ID: CardId = 203;
-pub const NAME: &str = "Brain Rotter";
+pub const ID: CardId = 324;
+pub const NAME: &str = "Mangled Bandit";
 pub const ACTIVATE_COST: u32 = 0;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 4, 2)
-        .with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, NAME, 3, 3, 3)
+        .with_tribe(Tribe::Quilboar)
         .with_activate_cost(ACTIVATE_COST)
 }
 
@@ -31,7 +31,10 @@ pub fn on_activate(
     }
     let is_golden = state.board[source_pos].is_golden;
     state.discard_hand_card(hand_idx, pool, rng);
-    let mult = if is_golden { 2 } else { 1 };
-    state.auras.deity.attack += 2 * mult;
-    state.auras.deity.health += 2 * mult;
+    let count = if is_golden { 6 } else { 3 };
+    for _ in 0..count {
+        if state.hand.len() < 10 {
+            state.hand.push(tokens::make_blood_gem());
+        }
+    }
 }

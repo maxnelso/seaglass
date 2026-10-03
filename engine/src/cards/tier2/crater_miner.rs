@@ -6,7 +6,8 @@ use crate::cards::tokens::{
 };
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 206;
 pub const NAME: &str = "Crater Miner";
@@ -15,11 +16,9 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 2, 2).with_tribe(Tribe::Quilboar)
 }
 
-pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {
+pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     let g = unit.is_golden;
-    let opts = vec![
-        make_choice_option(CHOICE_CRATER_GEMS, "Take the Gems", g),
-        make_choice_option(CHOICE_CRATER_GEM_DAY, "Mine Deeper", g),
-    ];
-    state.push_discover(opts);
+    let opt0 = make_choice_option(CHOICE_CRATER_GEMS, "Take the Gems", g);
+    let opt1 = make_choice_option(CHOICE_CRATER_GEM_DAY, "Mine Deeper", g);
+    state.resolve_choose_one(opt0, opt1, pool, rng);
 }

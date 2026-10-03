@@ -2,7 +2,9 @@
 
 use crate::cards::tokens::{
     self, CHOICE_ALLIANCE_ATK, CHOICE_ALLIANCE_HP, CHOICE_BOTANIST_ATK, CHOICE_BOTANIST_HP,
-    CHOICE_CRATER_GEMS, CHOICE_CRATER_GEM_DAY, CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP,
+    CHOICE_CRATER_GEMS, CHOICE_CRATER_GEM_DAY, CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS,
+    CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP, CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY,
+    CHOICE_SLY_GEMS, CHOICE_SLY_REFRESHES, CHOICE_TIME_MGMT_LATER, CHOICE_TIME_MGMT_NOW,
 };
 use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::combat::{resolve_battle, BattleResult};
@@ -158,12 +160,28 @@ impl CardPool {
     }
 
     /// Draw up to `count` distinct `card_id`s of exact `tier` (used for Triple Reward Discover).
+    /// Falls back to the highest available tier `<= exact_tier` if `exact_tier` has no entries in the pool.
     pub fn draw_discover_options(
         &mut self,
         exact_tier: u32,
         count: usize,
         rng: &mut Rng,
     ) -> Vec<Unit> {
+        let target_tier = if self
+            .entries
+            .iter()
+            .any(|e| e.template.tavern_tier == exact_tier && e.remaining > 0)
+        {
+            exact_tier
+        } else {
+            self.entries
+                .iter()
+                .filter(|e| e.template.tavern_tier <= exact_tier && e.remaining > 0)
+                .map(|e| e.template.tavern_tier)
+                .max()
+                .unwrap_or(exact_tier)
+        };
+
         let mut options = Vec::with_capacity(count);
         let mut chosen_ids = Vec::with_capacity(count);
 
@@ -172,7 +190,7 @@ impl CardPool {
                 .entries
                 .iter()
                 .filter(|e| {
-                    e.template.tavern_tier == exact_tier
+                    e.template.tavern_tier == target_tier
                         && e.remaining > 0
                         && !chosen_ids.contains(&e.template.card_id)
                 })
@@ -185,8 +203,56 @@ impl CardPool {
 
             let mut pick = rng.below(total_copies as usize) as u32;
             for entry in &mut self.entries {
-                if entry.template.tavern_tier == exact_tier
+                if entry.template.tavern_tier == target_tier
                     && entry.remaining > 0
+                    && !chosen_ids.contains(&entry.template.card_id)
+                {
+                    if pick < entry.remaining {
+                        entry.remaining -= 1;
+                        chosen_ids.push(entry.template.card_id);
+                        options.push(entry.template.instantiate());
+                        break;
+                    }
+                    pick -= entry.remaining;
+                }
+            }
+        }
+        options
+    }
+
+    /// Draw up to `count` distinct `card_id`s matching `tribe` with `tavern_tier <= max_tier` (`Planar Telescope`).
+    pub fn draw_discover_by_tribe(
+        &mut self,
+        tribe: Tribe,
+        max_tier: u32,
+        count: usize,
+        rng: &mut Rng,
+    ) -> Vec<Unit> {
+        let mut options = Vec::with_capacity(count);
+        let mut chosen_ids = Vec::with_capacity(count);
+
+        for _ in 0..count {
+            let total_copies: u32 = self
+                .entries
+                .iter()
+                .filter(|e| {
+                    e.template.tavern_tier <= max_tier
+                        && e.remaining > 0
+                        && e.template.tribe.matches(tribe)
+                        && !chosen_ids.contains(&e.template.card_id)
+                })
+                .map(|e| e.remaining)
+                .sum();
+
+            if total_copies == 0 {
+                break;
+            }
+
+            let mut pick = rng.below(total_copies as usize) as u32;
+            for entry in &mut self.entries {
+                if entry.template.tavern_tier <= max_tier
+                    && entry.remaining > 0
+                    && entry.template.tribe.matches(tribe)
                     && !chosen_ids.contains(&entry.template.card_id)
                 {
                     if pick < entry.remaining {
@@ -328,7 +394,7 @@ impl TavernState {
         cards::sync_unit_auras(unit, &self.auras);
     }
 
-    /// Apply Tavern-wide shop buffs (`Dune Dweller` + global unit auras) to a newly drawn shop minion.
+    /// Apply Tavern-wide shop buffs (`Dune Dweller`, `Staff of Enrichment`, + global unit auras) to a newly drawn shop minion.
     pub fn apply_shop_auras(&self, unit: &mut Unit) {
         if unit.is_spell {
             return;
@@ -341,6 +407,9 @@ impl TavernState {
                 self.auras.tavern_elemental_atk,
                 self.auras.tavern_elemental_hp,
             );
+        }
+        if self.auras.tavern_all_atk != 0 || self.auras.tavern_all_hp != 0 {
+            unit.add_stats(self.auras.tavern_all_atk, self.auras.tavern_all_hp);
         }
     }
 
@@ -368,6 +437,138 @@ impl TavernState {
         self.hand.push(card);
         if !is_spell {
             self.check_and_resolve_triple(cid);
+        }
+    }
+
+    /// Discard the card at `hand[hand_idx]`, returning non-spells to `pool` and firing `cards::on_discard_hand_card`.
+    pub fn discard_hand_card(
+        &mut self,
+        hand_idx: usize,
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) -> Option<Unit> {
+        if hand_idx >= self.hand.len() {
+            return None;
+        }
+        let discarded = self.hand.remove(hand_idx);
+        pool.return_unit(&discarded);
+        cards::on_discard_hand_card(self, &discarded, pool, rng);
+        Some(discarded)
+    }
+
+    /// Resolve a Choose-One prompt (`opt0` vs `opt1`).
+    /// If a friendly `Thorned Trailblazer` has charges remaining, consumes 1 charge and applies both options immediately.
+    pub fn resolve_choose_one(
+        &mut self,
+        opt0: Unit,
+        opt1: Unit,
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) {
+        if let Some(tb) = self
+            .board
+            .iter_mut()
+            .find(|u| u.trailblazer_charges_left > 0)
+        {
+            tb.trailblazer_charges_left -= 1;
+            self.apply_choice_option(&opt0, pool, rng);
+            self.apply_choice_option(&opt1, pool, rng);
+            self.pending_choice_target = None;
+        } else {
+            self.push_discover(vec![opt0, opt1]);
+        }
+    }
+
+    /// Apply a single `CHOICE_*` option unit.
+    pub fn apply_choice_option(&mut self, chosen: &Unit, _pool: &mut CardPool, _rng: &mut Rng) {
+        let mult = if chosen.is_golden { 2 } else { 1 };
+        match chosen.card_id {
+            CHOICE_CRATER_GEMS => {
+                for _ in 0..(2 * mult) {
+                    self.add_to_hand(tokens::make_blood_gem());
+                }
+            }
+            CHOICE_CRATER_GEM_DAY => {
+                for _ in 0..mult {
+                    self.add_to_hand(tokens::make_gem_day());
+                }
+            }
+            CHOICE_GEM_DAY_ATK => {
+                self.auras.blood_gem_bonus_atk += 1;
+            }
+            CHOICE_GEM_DAY_HP => {
+                self.auras.blood_gem_bonus_hp += 1;
+            }
+            CHOICE_BOTANIST_ATK => {
+                self.auras.spell_bonus_atk += mult;
+            }
+            CHOICE_BOTANIST_HP => {
+                self.auras.spell_bonus_hp += mult;
+            }
+            CHOICE_ALLIANCE_ATK => {
+                if let Some(pos) = self.pending_choice_target {
+                    if pos < self.board.len() {
+                        let (atk, hp) = self.auras.spell_stat_buff(3, 1);
+                        self.board[pos].add_stats(atk, hp);
+                    }
+                }
+            }
+            CHOICE_ALLIANCE_HP => {
+                if let Some(pos) = self.pending_choice_target {
+                    if pos < self.board.len() {
+                        let (atk, hp) = self.auras.spell_stat_buff(1, 3);
+                        self.board[pos].add_stats(atk, hp);
+                    }
+                }
+            }
+            CHOICE_FOODIE_BUFF_GEMS => {
+                self.auras.blood_gem_bonus_atk += mult;
+                self.auras.blood_gem_bonus_hp += mult;
+            }
+            CHOICE_FOODIE_GET_GEMS => {
+                for _ in 0..(4 * mult) {
+                    self.add_to_hand(tokens::make_blood_gem());
+                }
+            }
+            CHOICE_SLY_REFRESHES => {
+                self.auras.free_refreshes += (2 * mult) as u32;
+            }
+            CHOICE_SLY_GEMS => {
+                for _ in 0..(3 * mult) {
+                    self.add_to_hand(tokens::make_blood_gem());
+                }
+            }
+            CHOICE_SCARAB_REBORN => {
+                if let Some(pos) = self.pending_choice_target {
+                    if pos < self.board.len() {
+                        self.board[pos].add_stats(mult, mult);
+                        self.board[pos].reborn = true;
+                    }
+                }
+            }
+            CHOICE_SCARAB_WINDFURY => {
+                if let Some(pos) = self.pending_choice_target {
+                    if pos < self.board.len() {
+                        self.board[pos].add_stats(4 * mult, 0);
+                        self.board[pos].windfury = true;
+                    }
+                }
+            }
+            CHOICE_TIME_MGMT_NOW => {
+                let (atk, hp) = self.auras.spell_stat_buff(2, 2);
+                for b in &mut self.board {
+                    b.add_stats(atk, hp);
+                }
+                for h in &mut self.hand {
+                    if !h.is_spell {
+                        h.add_stats(atk, hp);
+                    }
+                }
+            }
+            CHOICE_TIME_MGMT_LATER => {
+                self.auras.time_management_next_turn += 2;
+            }
+            _ => {}
         }
     }
 
@@ -400,6 +601,23 @@ impl TavernState {
         self.hand[hand_idx] = golden;
     }
 
+    /// Open any `Lockbox` in `hand` that already has `lockbox_turns_left == 0` (`Hired Mount`).
+    pub fn open_ready_lockboxes(&mut self, rng: &mut Rng) {
+        for idx in 0..self.hand.len() {
+            if self.hand[idx].card_id == tokens::SPELL_LOCKBOX
+                && self.hand[idx].lockbox_turns_left == 0
+            {
+                self.open_lockbox_at(idx, rng);
+            }
+        }
+    }
+
+    /// Check whether a friendly minion (`Malchezaar, Prince of Dance`) can pay Health for a `Refresh`.
+    pub fn has_health_refresh(&self) -> bool {
+        self.board.iter().any(|u| u.malchezaar_refreshes_left > 0)
+            && (self.health > 1 || cards::board_prevents_hero_damage(&self.board))
+    }
+
     /// Effective Gold cost to buy `card` from `shop` (taking `next_spell_discount` into account).
     pub fn effective_spell_buy_cost(&self, card: &Unit) -> u32 {
         if card.costs_health {
@@ -418,6 +636,30 @@ impl TavernState {
         self.health -= amount;
         if cards::on_hero_damage_taken(&mut self.board) {
             self.health += amount;
+        }
+    }
+
+    /// Resolve `Waveling` buffs (`+4/+4` to a random minion in the Tavern per stack) on shop `Refresh`.
+    fn resolve_refresh_waveling(&mut self, rng: &mut Rng) {
+        if self.auras.waveling_stacks == 0 {
+            return;
+        }
+        for _ in 0..self.auras.waveling_stacks {
+            let minion_indices: Vec<usize> = self
+                .shop
+                .iter()
+                .enumerate()
+                .filter(|(_, u)| !u.is_spell)
+                .map(|(i, _)| i)
+                .collect();
+            if !minion_indices.is_empty() {
+                let idx = if minion_indices.len() == 1 {
+                    minion_indices[0]
+                } else {
+                    minion_indices[rng.below(minion_indices.len())]
+                };
+                self.shop[idx].add_stats(4, 4);
+            }
         }
     }
 
@@ -475,6 +717,22 @@ impl TavernState {
             }
         }
 
+        if self.auras.time_management_next_turn > 0 {
+            let stacks = self.auras.time_management_next_turn;
+            self.auras.time_management_next_turn = 0;
+            let (atk, hp) = self.auras.spell_stat_buff(2, 2);
+            for _ in 0..stacks {
+                for b in &mut self.board {
+                    b.add_stats(atk, hp);
+                }
+                for h in &mut self.hand {
+                    if !h.is_spell {
+                        h.add_stats(atk, hp);
+                    }
+                }
+            }
+        }
+
         for idx in 0..self.hand.len() {
             if self.hand[idx].locked_turns > 0 {
                 self.hand[idx].locked_turns -= 1;
@@ -495,6 +753,7 @@ impl TavernState {
         self.gold = (self.max_gold + self.bonus_gold_next_turn)
             .min(10 + self.auras.base_max_gold_bonus);
         self.bonus_gold_next_turn = 0;
+        cards::on_start_turn_board(self);
 
         if self.turn > 1 && self.tavern_tier < 6 {
             self.upgrade_cost = self.upgrade_cost.saturating_sub(1);
@@ -529,6 +788,7 @@ impl TavernState {
                 self.shop
                     .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
             }
+            self.resolve_refresh_waveling(rng);
         }
     }
 
@@ -565,13 +825,26 @@ impl TavernState {
 
         let res = resolve_battle(&board_a, opponent_board, &game_state, seed);
 
-        self.auras.eternal_knights_died = res.eternal_knights_died_a;
+        self.auras = res.auras_a.clone();
+        let overconf = self.auras.overconfidence_stacks;
+        self.auras.overconfidence_stacks = 0;
+        if overconf > 0 {
+            match res.outcome {
+                BattleOutcome::AWin => self.bonus_gold_next_turn += 3 * overconf,
+                BattleOutcome::Draw => self.bonus_gold_next_turn += overconf,
+                BattleOutcome::BWin => {}
+            }
+        }
         self.hand = res.hand_a.clone();
+        let mut lockbox_rng = Rng::new(seed ^ 0x9E37_79B9_7F4A_7C15);
+        self.open_ready_lockboxes(&mut lockbox_rng);
         self.sync_all_auras();
 
+        let mut post_units = res.survivors_a.clone();
+        post_units.extend_from_slice(&res.dead_units_a);
         for (idx, tavern_unit) in self.board.iter_mut().enumerate() {
             if let Some(pre) = pre_combat_snapshot.get(idx) {
-                cards::on_post_combat_unit(pre, &res.survivors_a, tavern_unit);
+                cards::on_post_combat_unit(pre, &post_units, tavern_unit);
             }
         }
 
@@ -629,7 +902,7 @@ impl TavernState {
                     }
                 } else if card.magnetic
                     && board_pos < self.board.len()
-                    && self.board[board_pos].tribe.matches(Tribe::Mech)
+                    && self.board[board_pos].tribe.matches(card.tribe)
                 {
                     true
                 } else {
@@ -669,7 +942,9 @@ impl TavernState {
                     }
                 }
             }
-            TavernAction::Refresh => self.gold >= 1 || self.auras.free_refreshes > 0,
+            TavernAction::Refresh => {
+                self.gold >= 1 || self.auras.free_refreshes > 0 || self.has_health_refresh()
+            }
             TavernAction::UpgradeTavern => self.tavern_tier < 6 && self.gold >= self.upgrade_cost,
             TavernAction::ToggleFreeze => true,
             TavernAction::ChooseDiscover { .. } => false,
@@ -723,7 +998,7 @@ impl TavernState {
                 }
             } else if card.magnetic {
                 for (b_pos, target) in self.board.iter().enumerate() {
-                    if target.tribe.matches(Tribe::Mech) {
+                    if target.tribe.matches(card.tribe) {
                         actions.push(TavernAction::Play {
                             hand_index: h_idx,
                             board_pos: b_pos,
@@ -788,7 +1063,7 @@ impl TavernState {
             }
         }
 
-        if self.gold >= 1 || self.auras.free_refreshes > 0 {
+        if self.gold >= 1 || self.auras.free_refreshes > 0 || self.has_health_refresh() {
             actions.push(TavernAction::Refresh);
         }
         if self.tavern_tier < 6 && self.gold >= self.upgrade_cost {
@@ -845,8 +1120,19 @@ impl TavernState {
                                 h.willbreaker_remaining -= 1;
                             }
                         }
-                        self.hand
-                            .retain(|h| h.willbreaker_group != grp || h.willbreaker_remaining > 0);
+                        let mut expired_indices: Vec<usize> = self
+                            .hand
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, h)| {
+                                h.willbreaker_group == grp && h.willbreaker_remaining == 0
+                            })
+                            .map(|(i, _)| i)
+                            .collect();
+                        expired_indices.reverse();
+                        for exp_idx in expired_indices {
+                            self.discard_hand_card(exp_idx, pool, rng);
+                        }
                     }
                     cards::spells::cast_spell(self, card, board_pos, pool, rng);
                     return Ok(false);
@@ -856,10 +1142,10 @@ impl TavernState {
                 let played_tribe = card.tribe;
                 let was_tripled_golden = card.is_golden && !card.intrinsic_golden;
 
-                // Check for Magnetic fusion onto the Mech immediately to the right (`board[board_pos]`).
+                // Check for Magnetic fusion onto the compatible minion immediately to the right (`board[board_pos]`).
                 if card.magnetic
                     && board_pos < self.board.len()
-                    && self.board[board_pos].tribe.matches(Tribe::Mech)
+                    && self.board[board_pos].tribe.matches(card.tribe)
                 {
                     cards::on_first_play_or_magnetize(self, &mut card);
                     let target = &mut self.board[board_pos];
@@ -877,9 +1163,10 @@ impl TavernState {
                     cards::after_play_minion(self, played_card_id, played_tribe, board_pos, true);
                 } else {
                     cards::on_first_play_or_magnetize(self, &mut card);
-                    cards::on_play_battlecry(self, &mut card, pool, rng);
-                    self.board.insert(board_pos, card);
-                    cards::after_play_minion(self, played_card_id, played_tribe, board_pos, false);
+                    cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
+                    let insert_idx = board_pos.min(self.board.len());
+                    self.board.insert(insert_idx, card);
+                    cards::after_play_minion(self, played_card_id, played_tribe, insert_idx, false);
                 }
 
                 if was_tripled_golden {
@@ -921,6 +1208,15 @@ impl TavernState {
             TavernAction::Refresh => {
                 if self.auras.free_refreshes > 0 {
                     self.auras.free_refreshes -= 1;
+                } else if self.has_health_refresh() {
+                    if let Some(m) = self
+                        .board
+                        .iter_mut()
+                        .find(|u| u.malchezaar_refreshes_left > 0)
+                    {
+                        m.malchezaar_refreshes_left -= 1;
+                    }
+                    self.deal_hero_damage(1);
                 } else {
                     self.gold -= 1;
                 }
@@ -939,6 +1235,7 @@ impl TavernState {
                     self.shop
                         .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
                 }
+                self.resolve_refresh_waveling(rng);
                 self.resolve_refresh_fodder(rng);
                 Ok(false)
             }
@@ -963,48 +1260,8 @@ impl TavernState {
                 let chosen = opts.remove(option_index);
 
                 if tokens::is_choice_option(chosen.card_id) {
-                    let mult = if chosen.is_golden { 2 } else { 1 };
-                    match chosen.card_id {
-                        CHOICE_CRATER_GEMS => {
-                            for _ in 0..(2 * mult) {
-                                self.add_to_hand(tokens::make_blood_gem());
-                            }
-                        }
-                        CHOICE_CRATER_GEM_DAY => {
-                            for _ in 0..mult {
-                                self.add_to_hand(tokens::make_gem_day());
-                            }
-                        }
-                        CHOICE_GEM_DAY_ATK => {
-                            self.auras.blood_gem_bonus_atk += 1;
-                        }
-                        CHOICE_GEM_DAY_HP => {
-                            self.auras.blood_gem_bonus_hp += 1;
-                        }
-                        CHOICE_BOTANIST_ATK => {
-                            self.auras.spell_bonus_atk += mult;
-                        }
-                        CHOICE_BOTANIST_HP => {
-                            self.auras.spell_bonus_hp += mult;
-                        }
-                        CHOICE_ALLIANCE_ATK => {
-                            if let Some(pos) = self.pending_choice_target.take() {
-                                if pos < self.board.len() {
-                                    let (atk, hp) = self.auras.spell_stat_buff(3, 1);
-                                    self.board[pos].add_stats(atk, hp);
-                                }
-                            }
-                        }
-                        CHOICE_ALLIANCE_HP => {
-                            if let Some(pos) = self.pending_choice_target.take() {
-                                if pos < self.board.len() {
-                                    let (atk, hp) = self.auras.spell_stat_buff(1, 3);
-                                    self.board[pos].add_stats(atk, hp);
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
+                    self.apply_choice_option(&chosen, pool, rng);
+                    self.pending_choice_target = None;
                     return Ok(false);
                 }
 
@@ -1099,6 +1356,25 @@ impl TavernState {
         golden.magnetic = copies.iter().any(|u| u.magnetic);
         golden.threshold_triggered = copies.iter().any(|u| u.threshold_triggered);
         golden.scout_tier = copies.iter().map(|u| u.scout_tier).max().unwrap_or(1);
+        let sum_sot_gold: u32 = copies.iter().map(|u| u.sot_gold_bonus).sum();
+        golden.sot_gold_bonus = if card_id == cards::tier3::accord_o_tron::ID {
+            sum_sot_gold.saturating_sub(1).max(2)
+        } else {
+            sum_sot_gold
+        };
+        if card_id == cards::tier3::malchezaar_prince_of_dance::ID {
+            golden.malchezaar_refreshes_left = 4;
+        }
+        if card_id == cards::tier3::thorned_trailblazer::ID {
+            golden.trailblazer_charges_left = 2;
+        }
+        golden.perm_atk_gained = copies.iter().map(|u| u.perm_atk_gained).sum();
+        golden.perm_hp_gained = copies.iter().map(|u| u.perm_hp_gained).sum();
+        golden.blood_gems_played = copies.iter().map(|u| u.blood_gems_played).sum();
+        golden.blood_gem_stats_applied = (
+            copies.iter().map(|u| u.blood_gem_stats_applied.0).sum(),
+            copies.iter().map(|u| u.blood_gem_stats_applied.1).sum(),
+        );
         golden.eternal_knight_stacks_applied = self.auras.eternal_knights_died;
         golden.volumizer_stacks_applied = (
             self.auras.volumizer_bonus_atk,

@@ -31,7 +31,7 @@ pub const BONUS_KEYWORDS: [Keyword; 6] = [
     Keyword::Stealth,
 ];
 
-/// Minion tribe classification (Patch 36.6.3).
+/// Minion tribe classification (Patch 36.6.3), including dual-tribe combinations.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Tribe {
@@ -47,21 +47,71 @@ pub enum Tribe {
     Pirate,
     Quilboar,
     Undead,
+    UndeadMech,
+    DragonPirate,
+    BeastPirate,
+    ElementalDemon,
+    MechMurloc,
+    DemonDragon,
+    DemonQuilboar,
     All,
 }
 
+/// All 10 base single minion tribes in Patch 36.6.3.
+pub const SINGLE_TRIBES: [Tribe; 10] = [
+    Tribe::Aberration,
+    Tribe::Beast,
+    Tribe::Demon,
+    Tribe::Dragon,
+    Tribe::Elemental,
+    Tribe::Mech,
+    Tribe::Murloc,
+    Tribe::Pirate,
+    Tribe::Quilboar,
+    Tribe::Undead,
+];
+
 impl Tribe {
-    /// Returns `true` if `self` counts as `target` tribe.
+    /// Returns `true` if this tribe classification includes the given base `single` tribe.
+    #[inline]
+    pub fn has_single(self, single: Tribe) -> bool {
+        match self {
+            Tribe::None => false,
+            Tribe::All => matches!(
+                single,
+                Tribe::Aberration
+                    | Tribe::Beast
+                    | Tribe::Demon
+                    | Tribe::Dragon
+                    | Tribe::Elemental
+                    | Tribe::Mech
+                    | Tribe::Murloc
+                    | Tribe::Pirate
+                    | Tribe::Quilboar
+                    | Tribe::Undead
+            ),
+            Tribe::UndeadMech => matches!(single, Tribe::Undead | Tribe::Mech),
+            Tribe::DragonPirate => matches!(single, Tribe::Dragon | Tribe::Pirate),
+            Tribe::BeastPirate => matches!(single, Tribe::Beast | Tribe::Pirate),
+            Tribe::ElementalDemon => matches!(single, Tribe::Elemental | Tribe::Demon),
+            Tribe::MechMurloc => matches!(single, Tribe::Mech | Tribe::Murloc),
+            Tribe::DemonDragon => matches!(single, Tribe::Demon | Tribe::Dragon),
+            Tribe::DemonQuilboar => matches!(single, Tribe::Demon | Tribe::Quilboar),
+            other => other == single,
+        }
+    }
+
+    /// Returns `true` if `self` and `target` share at least one minion tribe.
     /// `Tribe::None` matches nothing (not even `Tribe::All`).
     pub fn matches(self, target: Tribe) -> bool {
         if self == Tribe::None || target == Tribe::None {
             return false;
         }
-        if self == Tribe::All || target == Tribe::All {
-            return true;
-        }
-        self == target
+        SINGLE_TRIBES
+            .into_iter()
+            .any(|single| self.has_single(single) && target.has_single(single))
     }
+
     /// Canonical lowercase string name for this tribe.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -76,6 +126,13 @@ impl Tribe {
             Tribe::Pirate => "pirate",
             Tribe::Quilboar => "quilboar",
             Tribe::Undead => "undead",
+            Tribe::UndeadMech => "undead_mech",
+            Tribe::DragonPirate => "dragon_pirate",
+            Tribe::BeastPirate => "beast_pirate",
+            Tribe::ElementalDemon => "elemental_demon",
+            Tribe::MechMurloc => "mech_murloc",
+            Tribe::DemonDragon => "demon_dragon",
+            Tribe::DemonQuilboar => "demon_quilboar",
             Tribe::All => "all",
         }
     }
@@ -132,15 +189,18 @@ pub struct PlayerAuras {
     /// Bonus Attack/Health applied to Elementals in the Tavern (`Dune Dweller`).
     pub tavern_elemental_atk: i32,
     pub tavern_elemental_hp: i32,
+    /// Bonus Attack/Health applied to all minions in the Tavern (`Staff of Enrichment`).
+    pub tavern_all_atk: i32,
+    pub tavern_all_hp: i32,
     /// Bonus Attack/Health applied to summoned Beetles (`Buzzing Vermin` / `Forest Rover`).
     pub beetle_bonus_atk: i32,
     pub beetle_bonus_hp: i32,
     /// Bonus Attack applied to friendly Undead (`Nerubian Deathswarmer`).
     pub undead_bonus_attack: i32,
-    /// Bonus Attack/Health added to Blood Gems (`Gem Day` / `Crater Miner`).
+    /// Bonus Attack/Health added to Blood Gems (`Gem Day` / `Crater Miner` / `Fearless Foodie`).
     pub blood_gem_bonus_atk: i32,
     pub blood_gem_bonus_hp: i32,
-    /// Extra Attack/Health granted by Tavern spells that give stats (`Intrepid Botanist`).
+    /// Extra Attack/Health granted by Tavern spells that give stats (`Intrepid Botanist`, `Azsharan Cutlassier`, `Blue Whelp`, `Shoalfin Mystic`).
     pub spell_bonus_atk: i32,
     pub spell_bonus_hp: i32,
     /// Bonus Attack/Health applied to Volumizers wherever they are (`Red`/`Blue`/`Green Volumizer`).
@@ -148,14 +208,22 @@ pub struct PlayerAuras {
     pub volumizer_bonus_hp: i32,
     /// Bonus stats added to future `Fire Baller` and `Snow Baller` sell triggers.
     pub baller_bonus: i32,
+    /// Number of `(+2, +1)` improvement stacks added to future `Tasty Lobster` Deathrattles.
+    pub tasty_lobster_stacks: i32,
     /// Number of friendly `Eternal Knight`s that have died this game.
     pub eternal_knights_died: u32,
-    /// Number of `Demon Fodder`s to add on the next 3 shop Refreshes (`Laboratory Assistant`).
+    /// Number of `Waveling` Deathrattle stacks (each gives a random Tavern minion `+4/+4` on Refresh).
+    pub waveling_stacks: u32,
+    /// Number of `Demon Fodder`s to add on the next 3 shop Refreshes (`Laboratory Assistant` / `Trapped Clapper`).
     pub fodder_per_refresh: [u32; 3],
-    /// Free shop Refreshes remaining (`Leaf Through the Pages`).
+    /// Free shop Refreshes remaining (`Leaf Through the Pages` / `Sly Infiltrator`).
     pub free_refreshes: u32,
     /// Permanent bonus to maximum Gold (`Strike Oil`).
     pub base_max_gold_bonus: u32,
+    /// Stacks of `Overconfidence` active for the next combat (`+3` Gold on win, `+1` on tie).
+    pub overconfidence_stacks: u32,
+    /// Number of `+2/+2` board buffs queued for the start of next turn (`Time Management`).
+    pub time_management_next_turn: u32,
     /// Total spells cast this game.
     pub spells_played: u32,
     /// Cost reduction on the next Tavern spell bought (`Ominous Seer`).
@@ -234,13 +302,29 @@ pub struct Unit {
     pub undead_attack_applied: i32,
     /// True if this unit cannot gain positive stats (`Fishbait`).
     pub cant_gain_stats: bool,
-    /// True if this unit has triggered its once-per-game stat threshold (`Scarlet Survivor`)
+    /// True if this unit has triggered its once-per-game stat threshold (`Scarlet Survivor`, `Treasure Parrot`)
     /// or its first-time Volumizer play/magnetize effect.
     pub threshold_triggered: bool,
     /// True if this unit's `Activate` ability has already been used this Tavern turn.
     pub activated_this_turn: bool,
     /// Extra end-of-turn Health bonus transferred from magnetized `Lullabot`s.
     pub eot_health_bonus: i32,
+    /// Extra start-of-turn Gold bonus transferred from magnetized `Accord-o-Tron`s.
+    pub sot_gold_bonus: u32,
+    /// Remaining Refreshes this turn that cost Health instead of Gold (`Malchezaar, Prince of Dance`).
+    pub malchezaar_refreshes_left: u32,
+    /// Remaining Choose-One combined charges this turn (`Thorned Trailblazer`).
+    pub trailblazer_charges_left: u32,
+    /// Friendly death counter for `Avenge (X)` effects in combat (`Relentless Deflector`).
+    pub avenge_counter: u32,
+    /// Cumulative damage dealt by this unit (`Treasure Parrot`).
+    pub damage_dealt_counter: i32,
+    /// Permanent Attack/Health gained during combat (`Devout Hellcaller`).
+    pub perm_atk_gained: i32,
+    pub perm_hp_gained: i32,
+    /// Total Blood Gems played on this unit and total `(atk, hp)` granted by them (`Gem Confiscation`).
+    pub blood_gems_played: u32,
+    pub blood_gem_stats_applied: (i32, i32),
 }
 
 impl Unit {
@@ -286,6 +370,15 @@ impl Unit {
             threshold_triggered: false,
             activated_this_turn: false,
             eot_health_bonus: 0,
+            sot_gold_bonus: 0,
+            malchezaar_refreshes_left: 0,
+            trailblazer_charges_left: 0,
+            avenge_counter: 0,
+            damage_dealt_counter: 0,
+            perm_atk_gained: 0,
+            perm_hp_gained: 0,
+            blood_gems_played: 0,
+            blood_gem_stats_applied: (0, 0),
         }
     }
 
@@ -374,7 +467,12 @@ impl Unit {
     pub fn play_blood_gems(&mut self, count: u32, auras: &PlayerAuras) {
         let (g_atk, g_hp) = auras.blood_gem_stats();
         let c = count as i32;
-        self.add_stats(g_atk * c, g_hp * c);
+        let d_atk = g_atk * c;
+        let d_hp = g_hp * c;
+        self.blood_gems_played += count;
+        self.blood_gem_stats_applied.0 += d_atk;
+        self.blood_gem_stats_applied.1 += d_hp;
+        self.add_stats(d_atk, d_hp);
     }
 
     /// Refresh `max_attack` and `max_health` from current stats.

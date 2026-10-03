@@ -3,12 +3,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use seaglass::cards::{spells, tier2, tokens};
+use seaglass::cards::{spells, tier1, tier2, tier3, tokens};
 use seaglass::{
     catalog_for, full_catalog, parse_unit, run_scenario, run_tavern_scenario, simulate,
-    simulate_batch, tier1_catalog, tier2_catalog, BattleOutcome, CardPool, Defaults, DeityKind,
-    Event, GameState, Keyword, Rng, Scenario, Side, TavernAction, TavernScenario, TavernState,
-    Tribe, Unit,
+    simulate_batch, tier1_catalog, tier2_catalog, tier3_catalog, BattleOutcome, CardPool,
+    Defaults, DeityKind, Event, GameState, Keyword, Rng, Scenario, Side, TavernAction,
+    TavernScenario, TavernState, Tribe, Unit,
 };
 
 fn collect_yaml_files(dir: &Path) -> Vec<PathBuf> {
@@ -113,7 +113,7 @@ fn tier1_catalog_contains_all_21_live_solo_minions() {
 fn tier2_catalog_contains_all_34_live_solo_minions_and_15_spells() {
     let cards = tier2_catalog();
     assert_eq!(cards.len(), 34);
-    assert_eq!(full_catalog().len(), 55);
+    assert_eq!(full_catalog().len(), 98);
 
     let names: Vec<&str> = cards.iter().map(|c| c.name.as_str()).collect();
     let expected = [
@@ -165,6 +165,23 @@ fn tier2_catalog_contains_all_34_live_solo_minions_and_15_spells() {
     assert_eq!(spells::tier1_spells().len(), 8);
     assert_eq!(spells::tier2_spells().len(), 7);
     assert_eq!(spells::spells_up_to_tier(2).len(), 15);
+}
+
+#[test]
+fn tier3_catalog_contains_all_43_live_solo_minions_and_15_spells() {
+    let cards = tier3_catalog();
+    assert_eq!(cards.len(), 43);
+
+    for (idx, card) in cards.iter().enumerate() {
+        assert_eq!(card.tavern_tier, 3);
+        assert!(card.card_id >= 301 && card.card_id <= 343);
+        for other in &cards[idx + 1..] {
+            assert_ne!(card.card_id, other.card_id);
+        }
+    }
+
+    assert_eq!(spells::tier3_spells().len(), 15);
+    assert_eq!(spells::spells_up_to_tier(3).len(), 30);
 }
 
 #[test]
@@ -627,3 +644,253 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     assert_eq!(state.board[0].attack, 8);
     assert_eq!(state.board[0].health, 9);
 }
+
+#[test]
+fn tier3_combat_mechanics_work_end_to_end() {
+    let defaults = Defaults::default();
+
+    // 1. Wildfire Elemental excess damage cleave (plain hits 1 adjacent, Golden hits both adjacent)
+    let board_wf_a = vec![
+        parse_unit("12/6 golden card:wildfire_elemental", &defaults).unwrap(),
+    ];
+    let board_wf_b = vec![
+        parse_unit("1/4", &defaults).unwrap(),
+        parse_unit("1/2 taunt", &defaults).unwrap(),
+        parse_unit("1/4", &defaults).unwrap(),
+    ];
+    let res_wf = simulate(&board_wf_a, &board_wf_b, &GameState::default(), 1);
+    assert_eq!(res_wf.outcome, BattleOutcome::AWin);
+    // Single attack by Side::A killed the 1/2 Taunt and cleaved 10 excess damage to BOTH 1/4 neighbors!
+    let attacks_a = res_wf
+        .events
+        .iter()
+        .filter(|e| matches!(e, Event::AttackDeclared { side: Side::A, .. }))
+        .count();
+    assert_eq!(attacks_a, 1);
+
+    // 2. Amber Guardian + Blue Whelp + Roaring Recruiter + Diremuck Forager
+    let board_dr_a = vec![
+        parse_unit("2/6 card:blue_whelp", &defaults).unwrap(),
+        parse_unit("5/5 card:amber_guardian", &defaults).unwrap(),
+        parse_unit("2/6 card:roaring_recruiter", &defaults).unwrap(),
+        parse_unit("4/3 card:diremuck_forager", &defaults).unwrap(),
+    ];
+    let board_dr_b = vec![parse_unit("2/2", &defaults).unwrap()];
+    let mut state_dr = GameState::default();
+    state_dr
+        .hand_a
+        .push(Unit::new("Hand Murloc", 3, 3).with_tribe(Tribe::Murloc));
+    let res_dr = simulate(&board_dr_a, &board_dr_b, &state_dr, 7);
+    assert_eq!(res_dr.outcome, BattleOutcome::AWin);
+    // Hand Murloc (3/3) was summoned onto the board by Diremuck Forager!
+    assert_eq!(res_dr.survivors_a.len(), 5);
+    assert!(res_dr.survivors_a.iter().any(|u| u.name == "Hand Murloc"));
+    // Blue Whelp attacked first: Roaring Recruiter gave it +3/+1, and Blue Whelp Rally incremented spell_bonus_hp!
+    assert_eq!(res_dr.auras_a.spell_bonus_hp, 1);
+
+    // 3. Relentless Deflector (Taunt while Divine Shield; Avenge (3) gains Divine Shield + Taunt)
+    let mut deflector = tier3::relentless_deflector::template().instantiate();
+    seaglass::cards::sync_unit_auras(&mut deflector, &Default::default());
+    assert!(!deflector.divine_shield);
+    assert!(!deflector.taunt);
+    for _ in 0..3 {
+        tier3::relentless_deflector::on_friendly_death(&mut deflector);
+    }
+    assert!(deflector.divine_shield);
+    assert!(deflector.taunt);
+    deflector.divine_shield = false;
+    seaglass::cards::sync_unit_auras(&mut deflector, &Default::default());
+    assert!(!deflector.taunt);
+
+    // 4. Devout Hellcaller + Tasty Lobster + Waveling persistent combat effects
+    let mut t_state = TavernState::new();
+    t_state.auras.deity.kind = DeityKind::CThun;
+    t_state.board.push(tier3::malchezaar_prince_of_dance::template().instantiate()); // Friendly Demon attacks first
+    t_state.board.push(tier3::devout_hellcaller::template().instantiate()); // 4/4 Demon
+    t_state.board.push(tier3::tasty_lobster::template().instantiate());
+    t_state.board.push(tier3::waveling::template().instantiate());
+    let opp_board = vec![
+        Unit::new("Enemy1", 6, 4).with_keyword(Keyword::Taunt),
+        Unit::new("Enemy2", 6, 4).with_keyword(Keyword::Taunt),
+        Unit::new("Enemy3", 6, 4).with_keyword(Keyword::Taunt),
+    ];
+    let c_res = t_state.resolve_combat_against(&opp_board, 2, &Default::default(), &[], 42);
+    // Malchezaar (Demon) dealt damage, so Devout Hellcaller permanently gained +2/+2 on the Tavern board!
+    assert_eq!(t_state.board[1].attack, 6);
+    assert_eq!(t_state.board[1].health, 6);
+    // Tasty Lobster and Waveling died and incremented persistent aura stacks!
+    assert_eq!(c_res.auras_a.tasty_lobster_stacks, 1);
+    assert_eq!(c_res.auras_a.waveling_stacks, 1);
+}
+
+#[test]
+fn tier3_tavern_minions_and_spells_work_end_to_end() {
+    let templates = full_catalog();
+    let mut pool = CardPool::new(templates);
+    let mut rng = Rng::new(2026);
+    let mut state = TavernState::new().with_shop_spells(true);
+    state.tavern_tier = 3;
+    state.start_turn(&mut pool, &mut rng);
+    state.gold = 30;
+
+    // 1. Prosthetic Hand (Undead/Mech Magnetic) can magnetize onto an Undead OR a Mech!
+    state.board.clear();
+    state.hand.clear();
+    state.board.push(tier1::risen_rider::template().instantiate()); // 2/1 Undead
+    state.add_to_hand(tier3::prosthetic_hand::template().instantiate()); // 3/1 Undead/Mech Magnetic Reborn
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board.len(), 1);
+    assert_eq!(state.board[0].attack, 5);
+    assert_eq!(state.board[0].health, 2);
+
+    // 2. Accord-o-Tron Magnetized grants +1 Gold at Start of Turn
+    state.board.clear();
+    state.board.push(tier1::cord_puller::template().instantiate());
+    state.add_to_hand(tier3::accord_o_tron::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].sot_gold_bonus, 1);
+
+    // 3. Thorned Trailblazer combines both Choose-One effects on Fearless Foodie!
+    state.board.push(tier3::thorned_trailblazer::template().instantiate());
+    state.add_to_hand(tier3::fearless_foodie::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 2,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Both options fired without pausing for discover_pending:
+    // Blood Gems gained +1/+1 AND 4 Blood Gems were added to hand!
+    assert!(state.discover_pending.is_none());
+    assert_eq!(state.auras.blood_gem_bonus_atk, 1);
+    assert_eq!(state.auras.blood_gem_bonus_hp, 1);
+    assert_eq!(state.hand.len(), 4);
+    assert!(state
+        .hand
+        .iter()
+        .all(|c| c.card_id == tokens::SPELL_BLOOD_GEM));
+
+    // 4. Gem Confiscation: play 2 Blood Gems on neighbor, then cast Gem Confiscation on target to steal them!
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].blood_gems_played, 2);
+    assert_eq!(state.board[0].blood_gem_stats_applied, (4, 4));
+    state.hand.clear();
+    state.add_to_hand(tokens::make_gem_confiscation());
+    let pre_tb_atk = state.board[1].attack;
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 1,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // board[1] played 3 Blood Gems (+6/+6) AND stole 2 Blood Gems (+4/+4) from board[0] = +10/+10!
+    assert_eq!(state.board[1].attack - pre_tb_atk, 10);
+    assert_eq!(state.board[0].blood_gems_played, 0);
+
+    // 5. Fetid Corroder + Abyssal Envoy: discarding Sludge Corrosion casts it twice AND generates a random Tavern spell!
+    state.board.clear();
+    state.hand.clear();
+    state.add_to_hand(tier3::fetid_corroder::template().instantiate());
+    state.add_to_hand(tier3::abyssal_envoy::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 1,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Hand now has Sludge Corrosion at index 0. Activate Abyssal Envoy (board[1]) targeting hand[0]!
+    assert_eq!(state.hand[0].card_id, tokens::SPELL_SLUDGE_CORROSION);
+    let pre_corroder_atk = state.board[0].attack;
+    state
+        .step(
+            TavernAction::Activate {
+                board_pos: 1,
+                target_pos: Some(0),
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Abyssal Envoy replaced the discarded card with a random Tavern spell in hand!
+    assert_eq!(state.hand.len(), 1);
+    assert!(state.hand[0].is_spell);
+    // Sludge Corrosion cast twice when discarded (+1/+1 twice = +2/+2)!
+    assert_eq!(state.board[0].attack - pre_corroder_atk, 2);
+
+    // 6. Malchezaar, Prince of Dance health refresh + Soul Rewinder
+    state.board.clear();
+    state.hand.clear();
+    state.board.push(tier2::soul_rewinder::template().instantiate());
+    state
+        .board
+        .push(tier3::malchezaar_prince_of_dance::template().instantiate());
+    state.gold = 0;
+    let pre_hp = state.health;
+    // Even with 0 Gold, Refresh is legal because Malchezaar has 2 health refreshes!
+    state
+        .step(TavernAction::Refresh, &mut pool, &mut rng)
+        .unwrap();
+    assert_eq!(state.health, pre_hp); // Rewound by Soul Rewinder!
+    assert_eq!(state.board[0].health, 4); // Soul Rewinder gained +1 Health (3 -> 4)!
+    assert_eq!(state.board[1].malchezaar_refreshes_left, 1);
+}
+

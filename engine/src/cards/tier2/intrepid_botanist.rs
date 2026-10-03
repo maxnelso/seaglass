@@ -6,7 +6,8 @@ use crate::cards::tokens::{
 };
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 215;
 pub const NAME: &str = "Intrepid Botanist";
@@ -15,11 +16,9 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 4, 2).with_tribe(Tribe::None)
 }
 
-pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {
+pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     let g = unit.is_golden;
-    let opts = vec![
-        make_choice_option(CHOICE_BOTANIST_ATK, "Pristine Lilies", g),
-        make_choice_option(CHOICE_BOTANIST_HP, "Giant Dewdrop", g),
-    ];
-    state.push_discover(opts);
+    let opt0 = make_choice_option(CHOICE_BOTANIST_ATK, "Pristine Lilies", g);
+    let opt1 = make_choice_option(CHOICE_BOTANIST_HP, "Giant Dewdrop", g);
+    state.resolve_choose_one(opt0, opt1, pool, rng);
 }

@@ -44,12 +44,16 @@ pub fn on_activate(
 
     let mut hand_summoned = Vec::new();
     let mut generated_hand = Vec::new();
+    let mut dummy_events = Vec::new();
     let rally_summons = cards::on_rally(
-        &mut state.board[beast_pos],
-        &state.auras,
+        crate::model::Side::A,
+        &mut state.board,
+        beast_pos,
+        &mut state.auras,
         &state.hand,
         &mut hand_summoned,
         &mut generated_hand,
+        &mut dummy_events,
     );
     for card in generated_hand {
         if state.hand.len() < 10 {

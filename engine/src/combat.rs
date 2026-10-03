@@ -21,6 +21,10 @@ pub struct BattleResult {
     pub hand_b: Vec<Unit>,
     pub eternal_knights_died_a: u32,
     pub eternal_knights_died_b: u32,
+    pub auras_a: PlayerAuras,
+    pub auras_b: PlayerAuras,
+    pub dead_units_a: Vec<Unit>,
+    pub dead_units_b: Vec<Unit>,
 }
 
 /// Per-side combat state tracked during a single battle.
@@ -35,6 +39,7 @@ struct SideCombatState {
     aberration_deaths: u32,
     deity_awakened: bool,
     dead_aberrations: Vec<Unit>,
+    dead_units: Vec<Unit>,
 }
 
 impl SideCombatState {
@@ -60,6 +65,7 @@ impl SideCombatState {
             aberration_deaths: 0,
             deity_awakened: false,
             dead_aberrations: Vec::new(),
+            dead_units: Vec::new(),
         }
     }
 
@@ -138,13 +144,23 @@ pub fn resolve_battle(
     cards::on_start_of_combat(
         Side::A,
         &mut side_a.board,
+        &side_a.auras,
+        &side_a.hand,
+        &mut side_a.hand_summoned,
         &mut side_a.combat_beast_bonus_atk,
+        &mut next_id,
+        &mut rng,
         &mut events,
     );
     cards::on_start_of_combat(
         Side::B,
         &mut side_b.board,
+        &side_b.auras,
+        &side_b.hand,
+        &mut side_b.hand_summoned,
         &mut side_b.combat_beast_bonus_atk,
+        &mut next_id,
+        &mut rng,
         &mut events,
     );
 
@@ -209,6 +225,10 @@ pub fn resolve_battle(
         hand_b: side_b.hand,
         eternal_knights_died_a: side_a.auras.eternal_knights_died,
         eternal_knights_died_b: side_b.auras.eternal_knights_died,
+        auras_a: side_a.auras,
+        auras_b: side_b.auras,
+        dead_units_a: side_a.dead_units,
+        dead_units_b: side_b.dead_units,
     }
 }
 
@@ -289,11 +309,14 @@ fn perform_one_strike(
     let pre_hp = atk_side.board[initial_atk_pos].health;
     let mut generated_hand = Vec::new();
     let rally_summons = cards::on_rally(
-        &mut atk_side.board[initial_atk_pos],
-        &atk_side.auras,
+        side,
+        &mut atk_side.board,
+        initial_atk_pos,
+        &mut atk_side.auras,
         &atk_side.hand,
         &mut atk_side.hand_summoned,
         &mut generated_hand,
+        events,
     );
     let post_atk = atk_side.board[initial_atk_pos].attack;
     let post_hp = atk_side.board[initial_atk_pos].health;
@@ -358,6 +381,7 @@ fn perform_one_strike(
     let target_id = def_side.board[def_pos].id;
     let target_attack = def_side.board[def_pos].attack;
     let target_venomous = def_side.board[def_pos].venomous;
+    let def_pre_hp = def_side.board[def_pos].health;
 
     // 3. Emit AttackDeclared.
     events.push(Event::AttackDeclared {
@@ -379,6 +403,15 @@ fn perform_one_strike(
     }
     if def_took_damage {
         cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
+        cards::on_damage_dealt(
+            side,
+            &mut atk_side.board,
+            attacker_id,
+            attacker_attack,
+            &mut atk_side.hand,
+            &mut atk_side.hand_summoned,
+            events,
+        );
     }
 
     let (def_consumed_venom, atk_took_damage) = apply_damage(
@@ -393,6 +426,62 @@ fn perform_one_strike(
     }
     if atk_took_damage {
         cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
+        cards::on_damage_dealt(
+            side.other(),
+            &mut def_side.board,
+            target_id,
+            target_attack,
+            &mut def_side.hand,
+            &mut def_side.hand_summoned,
+            events,
+        );
+    }
+
+    // 4b. Excess attack damage to adjacent enemies (e.g., `Wildfire Elemental`).
+    if def_took_damage && def_side.board[def_pos].health <= 0 {
+        let excess = (attacker_attack - def_pre_hp).max(0);
+        let has_cleave = cards::deals_excess_damage_to_neighbors(atk_side.board[atk_pos].card_id);
+        let is_golden_cleave = atk_side.board[atk_pos].is_golden;
+        if excess > 0 && has_cleave {
+            let mut neighbors = Vec::with_capacity(2);
+            if def_pos > 0 {
+                neighbors.push(def_pos - 1);
+            }
+            if def_pos + 1 < def_side.board.len() {
+                neighbors.push(def_pos + 1);
+            }
+            let targets: Vec<usize> = if !is_golden_cleave && !neighbors.is_empty() {
+                let pick = if neighbors.len() == 1 {
+                    0
+                } else {
+                    rng.below(neighbors.len())
+                };
+                vec![neighbors[pick]]
+            } else {
+                neighbors
+            };
+            for n_pos in targets {
+                let (_, n_took_damage) = apply_damage(
+                    &mut def_side.board[n_pos],
+                    excess,
+                    attacker_id,
+                    false,
+                    events,
+                );
+                if n_took_damage {
+                    cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
+                    cards::on_damage_dealt(
+                        side,
+                        &mut atk_side.board,
+                        attacker_id,
+                        excess,
+                        &mut atk_side.hand,
+                        &mut atk_side.hand_summoned,
+                        events,
+                    );
+                }
+            }
+        }
     }
 
     // 5. Emit Deaths (defending side first left->right, then attacking side left->right).
@@ -550,7 +639,8 @@ fn resolve_deaths(
 
         // Unit died.
         side_state.friendly_deaths_this_combat += 1;
-        cards::on_unit_died(&unit, &mut side_state.auras);
+        side_state.dead_units.push(unit.clone());
+        cards::on_unit_died(&unit, &mut rebuilt, &mut side_state.auras);
 
         if unit.tribe.matches(Tribe::Aberration) {
             if !unit.is_deity {
@@ -568,6 +658,8 @@ fn resolve_deaths(
                 board: &mut rebuilt,
                 cursor: &mut cursor,
                 auras: &mut side_state.auras,
+                hand: &mut side_state.hand,
+                hand_summoned: &mut side_state.hand_summoned,
                 dead_aberrations: &side_state.dead_aberrations,
                 combat_beast_bonus_atk: side_state.combat_beast_bonus_atk,
                 next_id,
