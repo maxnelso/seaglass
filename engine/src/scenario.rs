@@ -1,18 +1,19 @@
 //! Declarative YAML combat scenario parser and runner (`docs/scenarios.md` Part 1).
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::cards::tier1;
 use crate::model::{BattleOutcome, DeityKind, GameState, Keyword, Tribe, Unit};
 use crate::sim::{simulate, simulate_batch};
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Defaults {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tavern_tier: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResultSpec {
     TeamAWin,
@@ -31,38 +32,44 @@ impl ResultSpec {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Expect {
     pub result: ResultSpec,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub survivors_a: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub survivors_b: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hero_damage: Option<u32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Batch {
     pub base_seed: u64,
     pub n: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Range {
     pub min: f64,
     pub max: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExpectStats {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub a_win_rate: Option<Range>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub b_win_rate: Option<Range>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draw_rate: Option<Range>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scenario {
     pub name: String,
@@ -72,16 +79,23 @@ pub struct Scenario {
     pub hero_tier_a: u32,
     #[serde(default = "default_hero_tier")]
     pub hero_tier_b: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deity_a: Option<DeityKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deity_b: Option<DeityKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deity_stats_a: Option<[i32; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deity_stats_b: Option<[i32; 2]>,
     #[serde(default)]
     pub defaults: Defaults,
     pub team_a: Vec<String>,
     pub team_b: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expect: Option<Expect>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub batch: Option<Batch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expect_stats: Option<ExpectStats>,
 }
 

@@ -1,0 +1,19 @@
+[package]
+name = "seaglass_replay"
+version = "0.1.0"
+edition = "2021"
+description = "Hearthstone Battlegrounds Power.log parser, inspector, and scenario exporter for seaglass"
+default-run = "replay_cli"
+
+[lib]
+name = "seaglass_replay"
+path = "src/lib.rs"
+
+[[bin]]
+name = "replay_cli"
+path = "src/main.rs"
+
+[dependencies]
+seaglass = { path = "../engine" }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
