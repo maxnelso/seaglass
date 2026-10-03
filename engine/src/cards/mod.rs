@@ -1,16 +1,110 @@
-//! Card templates, catalogs, and modular per-card hook dispatch.
+//! Card templates, catalogs, and unified tier-agnostic per-card hook dispatch.
 //!
-//! Each card in the catalog lives in its own module under `src/cards/tier1/`,
-//! while Deities live in `src/cards/deities.rs` and generated tokens/spells live
-//! in `src/cards/tokens.rs`.
+//! Card definitions are organized by folder (`src/cards/tier1/`, `src/cards/tier2/`,
+//! `src/cards/deities.rs`, `src/cards/spells.rs`, `src/cards/tokens.rs`), while all
+//! Tavern and Combat hooks are dispatched uniformly by `CardId` in this module without
+//! any tier-specific branching.
 
 pub mod deities;
+pub mod spells;
 pub mod tier1;
+pub mod tier2;
 pub mod tokens;
 
-use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
+use crate::combat::MAX_BOARD_SIZE;
+use crate::events::Event;
+use crate::model::{CardId, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
+
+/// Target domain required by a minion's `Activate` ability (`docs/tavern.md` §5.3).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ActivateTargetKind {
+    /// Untargeted (`Clever Castaway`, `Decoy Conjurer`).
+    None,
+    /// Requires another friendly minion on `board` (`Suspicious Prisonguard`).
+    BoardOther,
+    /// Requires a card in `hand` (`Brain Rotter`).
+    HandCard,
+    /// Requires a card in `shop` (`Lurking Lionfish`).
+    ShopCard,
+}
+
+/// Unified execution context passed to every `Deathrattle` handler.
+///
+/// Supports both summoning tokens at the dying minion's board slot (`cursor`)
+/// and buffing friendly minions on the board in a single general hook.
+pub struct DeathrattleContext<'a> {
+    pub side: Side,
+    pub board: &'a mut Vec<Unit>,
+    pub cursor: &'a mut usize,
+    pub auras: &'a mut PlayerAuras,
+    pub dead_aberrations: &'a [Unit],
+    pub combat_beast_bonus_atk: i32,
+    pub next_id: &'a mut UnitId,
+    pub rng: &'a mut Rng,
+    pub events: &'a mut Vec<Event>,
+}
+
+impl<'a> DeathrattleContext<'a> {
+    /// Summon `token` at the dying minion's current board position (`*self.cursor`)
+    /// if the board has space (`< MAX_BOARD_SIZE`), applying all active combat auras.
+    pub fn summon(&mut self, source_id: UnitId, mut token: Unit) {
+        if self.board.len() >= MAX_BOARD_SIZE {
+            return;
+        }
+        token.id = *self.next_id;
+        *self.next_id += 1;
+        sync_unit_auras(&mut token, self.auras);
+        if token.tribe.matches(Tribe::Beast) && self.combat_beast_bonus_atk != 0 {
+            token.add_stats(self.combat_beast_bonus_atk, 0);
+        }
+        token.sync_max_stats();
+        check_stat_thresholds(&mut token);
+        self.events.push(Event::UnitSummoned {
+            side: self.side,
+            source: source_id,
+            unit: token.id,
+            name: token.name.clone(),
+            attack: token.attack,
+            health: token.health,
+            reason: "Deathrattle",
+        });
+        self.board.insert(*self.cursor, token);
+        *self.cursor += 1;
+    }
+
+    /// Buff `self.board[board_idx]` by `(atk_delta, hp_delta)` and emit a `StatBuff` event.
+    pub fn buff_unit(
+        &mut self,
+        board_idx: usize,
+        atk_delta: i32,
+        hp_delta: i32,
+        reason: &'static str,
+    ) {
+        if board_idx >= self.board.len() {
+            return;
+        }
+        let u = &mut self.board[board_idx];
+        u.add_stats(atk_delta, hp_delta);
+        self.events.push(Event::StatBuff {
+            side: self.side,
+            unit: u.id,
+            atk_delta,
+            hp_delta,
+            attack: u.attack,
+            health: u.health,
+            reason,
+        });
+    }
+
+    /// Buff all friendly minions currently on `self.board` by `(atk_delta, hp_delta)`.
+    pub fn buff_all_friendly(&mut self, atk_delta: i32, hp_delta: i32, reason: &'static str) {
+        for idx in 0..self.board.len() {
+            self.buff_unit(idx, atk_delta, hp_delta, reason);
+        }
+    }
+}
 
 /// Static definition of a purchasable minion in the shared card pool.
 #[derive(Clone, Debug)]
@@ -146,9 +240,21 @@ pub fn solo_tier_1_catalog() -> Vec<CardTemplate> {
     tier1_catalog()
 }
 
-/// Full active catalog (currently Solo Tier 1).
+/// All 34 active Solo Tier 2 minions (Patch 36.6.3, including the 3 Volumizers).
+pub fn tier2_catalog() -> Vec<CardTemplate> {
+    tier2::catalog()
+}
+
+/// Alias for [`tier2_catalog`].
+pub fn solo_tier_2_catalog() -> Vec<CardTemplate> {
+    tier2_catalog()
+}
+
+/// Full active catalog (Solo Tier 1 + Solo Tier 2 = 55 minions).
 pub fn full_catalog() -> Vec<CardTemplate> {
-    tier1_catalog()
+    let mut cards = tier1_catalog();
+    cards.extend(tier2_catalog());
+    cards
 }
 
 /// Alias for [`full_catalog`].
@@ -164,82 +270,329 @@ pub fn default_test_catalog() -> Vec<CardTemplate> {
 /// Resolve a catalog name to its templates.
 pub fn catalog_for(name: &str) -> Result<Vec<CardTemplate>, String> {
     match name {
-        "tier1" | "solo_tier_1" | "full" | "solo_full" | "test" => Ok(tier1_catalog()),
+        "tier1" | "solo_tier_1" | "test" => Ok(tier1_catalog()),
+        "tier2" | "solo_tier_2" => Ok(tier2_catalog()),
+        "full" | "solo_full" | "tier1_2" => Ok(full_catalog()),
         other => Err(format!(
-            "unknown catalog {other:?}; expected one of: tier1, solo_tier_1, full, solo_full, test"
+            "unknown catalog {other:?}; expected one of: tier1, solo_tier_1, tier2, solo_tier_2, full, solo_full, tier1_2, test"
         )),
     }
 }
 
 // ---------------------------------------------------------------------------
-// Tavern & Combat Hook Dispatch
+// Unified Tier-Agnostic Tavern & Combat Hook Dispatch
 // ---------------------------------------------------------------------------
 
 /// Run stat-threshold checks whenever a unit's stats change (in Tavern or Combat).
 pub fn check_stat_thresholds(unit: &mut Unit) {
-    tier1::check_stat_thresholds(unit);
+    if unit.card_id == tier1::scarlet_survivor::ID {
+        tier1::scarlet_survivor::check_threshold(unit);
+    }
 }
 
-/// Apply on-play Battlecry when `unit` is played from `hand` onto `board`.
-pub fn on_play_battlecry(state: &mut TavernState, unit: &mut Unit, rng: &mut Rng) {
-    tier1::on_play_battlecry(state, unit, rng);
+/// Synchronize a unit's persistent "wherever this is" auras (`Undead` attack, `Eternal Knight`, `Volumizers`).
+pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
+    if unit.is_spell {
+        return;
+    }
+    tier2::nerubian_deathswarmer::sync_unit_undead_attack(unit, auras);
+    tier2::eternal_knight::sync_unit(unit, auras);
+    if matches!(
+        unit.card_id,
+        tier2::blue_volumizer::ID | tier2::green_volumizer::ID | tier2::red_volumizer::ID
+    ) {
+        let (app_atk, app_hp) = unit.volumizer_stacks_applied;
+        let d_atk = auras.volumizer_bonus_atk - app_atk;
+        let d_hp = auras.volumizer_bonus_hp - app_hp;
+        if d_atk != 0 || d_hp != 0 {
+            unit.volumizer_stacks_applied = (auras.volumizer_bonus_atk, auras.volumizer_bonus_hp);
+            unit.add_stats(d_atk, d_hp);
+        }
+    }
 }
 
-/// Apply board-wide observers after a minion of `(played_card_id, played_tribe)` is placed on `board`.
+/// Apply on-play Battlecry / Choose-One when `unit` is played from `hand` onto `board`.
+pub fn on_play_battlecry(
+    state: &mut TavernState,
+    unit: &mut Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    match unit.card_id {
+        tier1::joyous::ID => tier1::joyous::on_battlecry(state, unit),
+        tier1::ominous_seer::ID => tier1::ominous_seer::on_battlecry(state, unit),
+        tier1::dune_dweller::ID => tier1::dune_dweller::on_battlecry(state, unit),
+        tier1::bubble_gunner::ID => tier1::bubble_gunner::on_battlecry(unit, rng),
+        tier1::southsea_busker::ID => tier1::southsea_busker::on_battlecry(state, unit),
+        tier1::razorfen_geomancer::ID => tier1::razorfen_geomancer::on_battlecry(state, unit),
+        tier2::bilgewater_breakout::ID => {
+            tier2::bilgewater_breakout::on_battlecry(state, unit, rng)
+        }
+        tier2::crater_miner::ID => tier2::crater_miner::on_battlecry(state, unit),
+        tier2::electric_synthesizer::ID => tier2::electric_synthesizer::on_battlecry(state, unit),
+        tier2::forest_rover::ID => tier2::forest_rover::on_battlecry(state, unit),
+        tier2::intrepid_botanist::ID => tier2::intrepid_botanist::on_battlecry(state, unit),
+        tier2::laboratory_assistant::ID => tier2::laboratory_assistant::on_battlecry(state, unit),
+        tier2::mind_muck::ID => tier2::mind_muck::on_battlecry(state, unit, pool, rng),
+        tier2::nerubian_deathswarmer::ID => {
+            tier2::nerubian_deathswarmer::on_battlecry(state, unit)
+        }
+        _ => {}
+    }
+}
+
+/// Apply first-time play or Magnetize triggers (`Blue`/`Green`/`Red Volumizer`).
+pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
+    match unit.card_id {
+        tier2::blue_volumizer::ID => {
+            tier2::blue_volumizer::on_first_play_or_magnetize(state, unit)
+        }
+        tier2::green_volumizer::ID => {
+            tier2::green_volumizer::on_first_play_or_magnetize(state, unit)
+        }
+        tier2::red_volumizer::ID => tier2::red_volumizer::on_first_play_or_magnetize(state, unit),
+        _ => {}
+    }
+}
+
+/// Transfer card-specific properties (`Lullabot` end-of-turn Health bonus) when `source` is Magnetized onto `target`.
+pub fn on_magnetize_transfer(source: &Unit, target: &mut Unit) {
+    target.eot_health_bonus += source.eot_health_bonus;
+    if source.card_id == tier1::lullabot::ID {
+        target.eot_health_bonus += if source.is_golden { 2 } else { 1 };
+    }
+}
+
+/// Apply board-wide observers after a minion is played (`was_magnetized = false`) or Magnetized (`was_magnetized = true`).
 pub fn after_play_minion(
     state: &mut TavernState,
-    played_card_id: CardId,
+    _played_card_id: CardId,
     played_tribe: Tribe,
     board_pos: usize,
+    was_magnetized: bool,
 ) {
-    tier1::after_play_minion(state, played_card_id, played_tribe, board_pos);
+    if !was_magnetized {
+        tier1::wrath_weaver::after_play_minion(state, played_tribe, board_pos);
+    }
+    tier2::mechagnome_interpreter::after_play_or_magnetize_mech(
+        state,
+        played_tribe,
+        board_pos,
+        was_magnetized,
+    );
 }
 
 /// Apply On-Sell triggers when `sold` is sold from `board`.
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
-    tier1::on_sell(state, sold, pool, rng);
+    match sold.card_id {
+        tier1::zoatroid::ID => tier1::zoatroid::on_sell(state, sold),
+        tier2::fire_baller::ID => tier2::fire_baller::on_sell(state, sold),
+        tier2::patient_scout::ID => tier2::patient_scout::on_sell(state, sold, pool, rng),
+        tier2::sellemental::ID => tier2::sellemental::on_sell(state, sold),
+        tier2::snow_baller::ID => tier2::snow_baller::on_sell(state, sold),
+        tier2::tad::ID => tier2::tad::on_sell(state, sold, pool, rng),
+        tier2::wandering_willbreaker::ID => tier2::wandering_willbreaker::on_sell(state, sold, rng),
+        _ => {}
+    }
+}
+
+/// Apply Start-of-Turn triggers on a minion on `board` (`Patient Scout`).
+pub fn on_start_turn(unit: &mut Unit) {
+    if unit.card_id == tier2::patient_scout::ID {
+        tier2::patient_scout::on_start_turn(unit);
+    }
 }
 
 /// Apply End-of-Turn triggers across `board` and `hand` when `EndTurn` is taken.
 pub fn on_end_turn(state: &mut TavernState) {
-    tier1::on_end_turn(state);
+    tier1::lullabot::on_end_turn(state);
+    tier2::surfing_sylvar::on_end_turn(state);
+}
+
+/// Returns `true` if any minion on `board` rewinds hero damage (`Soul Rewinder`).
+pub fn board_prevents_hero_damage(board: &[Unit]) -> bool {
+    board.iter().any(|u| u.card_id == tier2::soul_rewinder::ID)
+}
+
+/// Trigger hero-damage observers (`Soul Rewinder`), returning `true` if the damage was rewound.
+pub fn on_hero_damage_taken(board: &mut [Unit]) -> bool {
+    tier2::soul_rewinder::on_hero_damage_taken(board)
 }
 
 /// Returns the Gold cost of a minion's `Activate` ability, if it has one.
 pub fn activate_cost(card_id: CardId) -> Option<u32> {
-    tier1::activate_cost(card_id)
+    match card_id {
+        tier1::suspicious_prisonguard::ID => Some(tier1::suspicious_prisonguard::ACTIVATE_COST),
+        tier2::brain_rotter::ID => Some(tier2::brain_rotter::ACTIVATE_COST),
+        tier2::clever_castaway::ID => Some(tier2::clever_castaway::ACTIVATE_COST),
+        tier2::decoy_conjurer::ID => Some(tier2::decoy_conjurer::ACTIVATE_COST),
+        tier2::lurking_lionfish::ID => Some(tier2::lurking_lionfish::ACTIVATE_COST),
+        _ => None,
+    }
 }
 
-/// Returns `true` if the `Activate` ability of `card_id` requires a target friendly minion.
-pub fn activate_requires_other_target(card_id: CardId) -> bool {
-    tier1::activate_requires_other_target(card_id)
+/// Returns the target domain required by a minion's `Activate` ability.
+pub fn activate_target_kind(card_id: CardId) -> ActivateTargetKind {
+    match card_id {
+        tier1::suspicious_prisonguard::ID => ActivateTargetKind::BoardOther,
+        tier2::brain_rotter::ID => ActivateTargetKind::HandCard,
+        tier2::lurking_lionfish::ID => ActivateTargetKind::ShopCard,
+        _ => ActivateTargetKind::None,
+    }
 }
 
 /// Execute a minion's `Activate` ability on `board`.
-pub fn on_activate(state: &mut TavernState, source_pos: usize, target_pos: Option<usize>) {
-    tier1::on_activate(state, source_pos, target_pos);
+pub fn on_activate(
+    state: &mut TavernState,
+    source_pos: usize,
+    target_pos: Option<usize>,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    match state.board[source_pos].card_id {
+        tier1::suspicious_prisonguard::ID => {
+            tier1::suspicious_prisonguard::on_activate(state, source_pos, target_pos)
+        }
+        tier2::brain_rotter::ID => {
+            tier2::brain_rotter::on_activate(state, source_pos, target_pos, pool)
+        }
+        tier2::clever_castaway::ID => tier2::clever_castaway::on_activate(state, source_pos, rng),
+        tier2::decoy_conjurer::ID => tier2::decoy_conjurer::on_activate(state, source_pos),
+        tier2::lurking_lionfish::ID => {
+            tier2::lurking_lionfish::on_activate(state, source_pos, target_pos, pool)
+        }
+        _ => {}
+    }
+}
+
+/// Apply Start-of-Combat hand summons (`Flighty Scout`).
+pub fn on_start_of_combat_hand(hand: &[Unit], board: &mut Vec<Unit>) {
+    tier1::flighty_scout::apply_start_of_combat_hand(hand, board);
+}
+
+/// Resolve Start-of-Combat board triggers for one side (`Electric Synthesizer`, `Humming Bird`).
+pub fn on_start_of_combat(
+    side: Side,
+    board: &mut [Unit],
+    combat_beast_bonus_atk: &mut i32,
+    events: &mut Vec<Event>,
+) {
+    let sources: Vec<(UnitId, CardId, bool)> = board
+        .iter()
+        .map(|u| (u.id, u.card_id, u.is_golden))
+        .collect();
+    for (id, card_id, is_golden) in sources {
+        if !board.iter().any(|u| u.id == id && u.health > 0) {
+            continue;
+        }
+        match card_id {
+            tier2::electric_synthesizer::ID => {
+                tier2::electric_synthesizer::on_start_of_combat(side, board, id, is_golden, events);
+            }
+            tier2::humming_bird::ID => {
+                tier2::humming_bird::on_start_of_combat(
+                    side,
+                    board,
+                    combat_beast_bonus_atk,
+                    is_golden,
+                    events,
+                );
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Resolve a minion's On-Attack (`Rally`) effect during combat.
 /// Returns any token(s) to be summoned immediately to the attacker's right.
-pub fn on_rally(attacker: &mut Unit) -> Vec<Unit> {
-    tier1::on_rally(attacker)
-}
-
-/// Resolve a dying minion's `Deathrattle` during combat.
-/// Returns any token(s) to be summoned at the dying unit's slot.
-pub fn on_deathrattle(
-    dying: &Unit,
+pub fn on_rally(
+    attacker: &mut Unit,
     auras: &PlayerAuras,
-    dead_aberrations: &[Unit],
+    hand: &[Unit],
+    hand_summoned: &mut [bool],
+    generated_hand: &mut Vec<Unit>,
 ) -> Vec<Unit> {
-    if dying.card_id == deities::CARD_YSHAARJ {
-        return deities::yshaarj_deathrattle_summons(dying.is_golden, dead_aberrations);
+    match attacker.card_id {
+        tier1::flittering_bat::ID => tier1::flittering_bat::on_rally(attacker),
+        tier1::glim_guardian::ID => tier1::glim_guardian::on_rally(attacker),
+        tier1::tusked_camper::ID => tier1::tusked_camper::on_rally(attacker, auras),
+        tier2::expert_aviator::ID => {
+            tier2::expert_aviator::on_rally(attacker, hand, hand_summoned)
+        }
+        tier2::roadboar::ID => tier2::roadboar::on_rally(attacker, generated_hand),
+        _ => Vec::new(),
     }
-    tier1::on_deathrattle(dying, auras)
 }
 
-/// Update dynamic combat auras that depend on total friendly minion deaths this combat (`Rot Hide Gnoll`).
-pub fn sync_friendly_death_auras(board: &mut [Unit], friendly_deaths_this_combat: u32) {
-    tier1::sync_friendly_death_auras(board, friendly_deaths_this_combat);
+/// Resolve board-wide observers when a friendly minion attacks (`Prodigious Tusker`).
+pub fn on_friendly_attack(
+    side: Side,
+    board: &mut [Unit],
+    attacker_id: UnitId,
+    auras: &PlayerAuras,
+    events: &mut Vec<Event>,
+) {
+    tier2::prodigious_tusker::on_friendly_attack(side, board, attacker_id, auras, events);
+}
+
+/// Resolve on-damage-taken triggers (`Very Hungry Winterfinner`).
+pub fn on_damage_taken(unit: &Unit, hand: &mut [Unit], rng: &mut Rng) {
+    tier2::very_hungry_winterfinner::on_damage_taken(unit, hand, rng);
+}
+
+/// Update persistent player aura counters when a friendly minion dies (`Eternal Knight`).
+pub fn on_unit_died(unit: &Unit, auras: &mut PlayerAuras) {
+    if unit.card_id == tier2::eternal_knight::ID {
+        auras.eternal_knights_died += 1;
+    }
+}
+
+/// Resolve a dying minion's `Deathrattle` (both token summons and board buffs) via [`DeathrattleContext`].
+pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
+    match dying.card_id {
+        deities::CARD_YSHAARJ => {
+            for token in
+                deities::yshaarj_deathrattle_summons(dying.is_golden, ctx.dead_aberrations)
+            {
+                ctx.summon(dying.id, token);
+            }
+        }
+        tier1::buzzing_vermin::ID => tier1::buzzing_vermin::on_deathrattle(dying, ctx),
+        tier1::cord_puller::ID => tier1::cord_puller::on_deathrattle(dying, ctx),
+        tier1::harmless_bonehead::ID => tier1::harmless_bonehead::on_deathrattle(dying, ctx),
+        tier2::forest_rover::ID => tier2::forest_rover::on_deathrattle(dying, ctx),
+        tier2::scarlet_skull::ID => tier2::scarlet_skull::on_deathrattle(dying, ctx),
+        tier2::underrot_spawn::ID => tier2::underrot_spawn::on_deathrattle(dying, ctx),
+        _ => {}
+    }
+}
+
+/// Synchronize dynamic combat/player auras across `board` and `hand` after deaths resolve.
+pub fn sync_combat_auras(
+    board: &mut [Unit],
+    hand: &mut [Unit],
+    auras: &PlayerAuras,
+    _friendly_deaths_this_combat: u32,
+) {
+    for u in board.iter_mut() {
+        sync_unit_auras(u, auras);
+    }
+    for h in hand.iter_mut() {
+        sync_unit_auras(h, auras);
+    }
+}
+
+/// Apply post-combat persistence from a surviving combat unit back to its Tavern counterpart (`Tarecgosa`).
+pub fn on_post_combat_unit(
+    pre_combat: &Unit,
+    post_combat_board: &[Unit],
+    tavern_unit: &mut Unit,
+) {
+    if tavern_unit.card_id == tier2::tarecgosa::ID {
+        tier2::tarecgosa::apply_post_combat_persistence(
+            pre_combat,
+            post_combat_board,
+            tavern_unit,
+        );
+    }
 }

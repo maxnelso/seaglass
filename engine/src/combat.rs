@@ -1,6 +1,6 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
-use crate::cards;
+use crate::cards::{self, DeathrattleContext};
 use crate::cards::deities::{self, DEITY_SACRIFICE_REQUIREMENT};
 use crate::events::Event;
 use crate::model::{BattleOutcome, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
@@ -17,6 +17,10 @@ pub struct BattleResult {
     pub survivors_b: Vec<Unit>,
     pub hero_damage: u32,
     pub events: Vec<Event>,
+    pub hand_a: Vec<Unit>,
+    pub hand_b: Vec<Unit>,
+    pub eternal_knights_died_a: u32,
+    pub eternal_knights_died_b: u32,
 }
 
 /// Per-side combat state tracked during a single battle.
@@ -24,6 +28,9 @@ struct SideCombatState {
     board: Vec<Unit>,
     ptr: Option<UnitId>,
     auras: PlayerAuras,
+    hand: Vec<Unit>,
+    hand_summoned: Vec<bool>,
+    combat_beast_bonus_atk: i32,
     friendly_deaths_this_combat: u32,
     aberration_deaths: u32,
     deity_awakened: bool,
@@ -31,24 +38,38 @@ struct SideCombatState {
 }
 
 impl SideCombatState {
-    fn new(mut board: Vec<Unit>, auras: PlayerAuras) -> Self {
+    fn new(mut board: Vec<Unit>, auras: PlayerAuras, mut hand: Vec<Unit>) -> Self {
         for u in &mut board {
-            if u.tribe.matches(Tribe::Undead) && auras.undead_bonus_attack != 0 {
-                u.add_stats(auras.undead_bonus_attack, 0);
-            }
+            cards::sync_unit_auras(u, &auras);
             u.sync_max_stats();
             cards::check_stat_thresholds(u);
         }
+        for h in &mut hand {
+            cards::sync_unit_auras(h, &auras);
+        }
+        let hand_summoned = vec![false; hand.len()];
         let ptr = board.first().map(|u| u.id);
         Self {
             board,
             ptr,
             auras,
+            hand,
+            hand_summoned,
+            combat_beast_bonus_atk: 0,
             friendly_deaths_this_combat: 0,
             aberration_deaths: 0,
             deity_awakened: false,
             dead_aberrations: Vec::new(),
         }
+    }
+
+    fn prepare_summoned_unit(&self, token: &mut Unit) {
+        cards::sync_unit_auras(token, &self.auras);
+        if token.tribe.matches(Tribe::Beast) && self.combat_beast_bonus_atk != 0 {
+            token.add_stats(self.combat_beast_bonus_atk, 0);
+        }
+        token.sync_max_stats();
+        cards::check_stat_thresholds(token);
     }
 
     #[inline]
@@ -110,8 +131,22 @@ pub fn resolve_battle(
         first_attacker,
     }];
 
-    let mut side_a = SideCombatState::new(units_a, state.auras_a.clone());
-    let mut side_b = SideCombatState::new(units_b, state.auras_b.clone());
+    let mut side_a = SideCombatState::new(units_a, state.auras_a.clone(), state.hand_a.clone());
+    let mut side_b = SideCombatState::new(units_b, state.auras_b.clone(), state.hand_b.clone());
+
+    // Start of Combat triggers: Side A first, then Side B, left-to-right.
+    cards::on_start_of_combat(
+        Side::A,
+        &mut side_a.board,
+        &mut side_a.combat_beast_bonus_atk,
+        &mut events,
+    );
+    cards::on_start_of_combat(
+        Side::B,
+        &mut side_b.board,
+        &mut side_b.combat_beast_bonus_atk,
+        &mut events,
+    );
 
     let mut current = first_attacker;
     let mut stalled_draw = false;
@@ -170,6 +205,10 @@ pub fn resolve_battle(
         survivors_b: side_b.board,
         hero_damage,
         events,
+        hand_a: side_a.hand,
+        hand_b: side_b.hand,
+        eternal_knights_died_a: side_a.auras.eternal_knights_died,
+        eternal_knights_died_b: side_b.auras.eternal_knights_died,
     }
 }
 
@@ -248,7 +287,14 @@ fn perform_one_strike(
     // 1. Fire On-Attack (Rally) hook before target selection and before damage.
     let pre_atk = atk_side.board[initial_atk_pos].attack;
     let pre_hp = atk_side.board[initial_atk_pos].health;
-    let rally_summons = cards::on_rally(&mut atk_side.board[initial_atk_pos]);
+    let mut generated_hand = Vec::new();
+    let rally_summons = cards::on_rally(
+        &mut atk_side.board[initial_atk_pos],
+        &atk_side.auras,
+        &atk_side.hand,
+        &mut atk_side.hand_summoned,
+        &mut generated_hand,
+    );
     let post_atk = atk_side.board[initial_atk_pos].attack;
     let post_hp = atk_side.board[initial_atk_pos].health;
     if post_atk != pre_atk || post_hp != pre_hp {
@@ -262,13 +308,19 @@ fn perform_one_strike(
             reason: "Rally",
         });
     }
+    for card in generated_hand {
+        if atk_side.hand.len() < 10 {
+            atk_side.hand.push(card);
+            atk_side.hand_summoned.push(false);
+        }
+    }
     if !rally_summons.is_empty() {
         let mut insert_pos = initial_atk_pos + 1;
         for mut token in rally_summons {
             if atk_side.board.len() < MAX_BOARD_SIZE {
                 token.id = *next_id;
                 *next_id += 1;
-                token.sync_max_stats();
+                atk_side.prepare_summoned_unit(&mut token);
                 events.push(Event::UnitSummoned {
                     side,
                     source: attacker_id,
@@ -283,6 +335,15 @@ fn perform_one_strike(
             }
         }
     }
+
+    // 1b. Fire friendly-attack observers.
+    cards::on_friendly_attack(
+        side,
+        &mut atk_side.board,
+        attacker_id,
+        &atk_side.auras,
+        events,
+    );
 
     let Some(atk_pos) = atk_side.board.iter().position(|u| u.id == attacker_id) else {
         return;
@@ -306,7 +367,7 @@ fn perform_one_strike(
     });
 
     // 4. Simultaneous damage (target first, then attacker).
-    let atk_consumed_venom = apply_damage(
+    let (atk_consumed_venom, def_took_damage) = apply_damage(
         &mut def_side.board[def_pos],
         attacker_attack,
         attacker_id,
@@ -316,8 +377,11 @@ fn perform_one_strike(
     if atk_consumed_venom {
         atk_side.board[atk_pos].venomous = false;
     }
+    if def_took_damage {
+        cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
+    }
 
-    let def_consumed_venom = apply_damage(
+    let (def_consumed_venom, atk_took_damage) = apply_damage(
         &mut atk_side.board[atk_pos],
         target_attack,
         target_id,
@@ -326,6 +390,9 @@ fn perform_one_strike(
     );
     if def_consumed_venom {
         def_side.board[def_pos].venomous = false;
+    }
+    if atk_took_damage {
+        cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
     }
 
     // 5. Emit Deaths (defending side first left->right, then attacking side left->right).
@@ -385,21 +452,21 @@ fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
 }
 
 /// Apply `amount` damage from `source_id` to `unit`.
-/// Returns `true` if `source_venomous` triggered and should be consumed on the source unit.
+/// Returns `(venomous_consumed, health_damage_dealt)`.
 fn apply_damage(
     unit: &mut Unit,
     amount: i32,
     source_id: UnitId,
     source_venomous: bool,
     events: &mut Vec<Event>,
-) -> bool {
+) -> (bool, bool) {
     if amount <= 0 {
-        return false;
+        return (false, false);
     }
     if unit.divine_shield {
         unit.divine_shield = false;
         events.push(Event::DivineShieldPopped { unit: unit.id });
-        false
+        (false, false)
     } else {
         unit.health -= amount;
         events.push(Event::DamageDealt {
@@ -415,9 +482,9 @@ fn apply_damage(
                 attacker: source_id,
                 target: unit.id,
             });
-            true
+            (true, true)
         } else {
-            false
+            (false, true)
         }
     }
 }
@@ -466,16 +533,24 @@ fn resolve_deaths(
     }
 
     let old_board = std::mem::take(&mut side_state.board);
-    let mut rebuilt = Vec::with_capacity(MAX_BOARD_SIZE);
+    // Living units always retain their board slots; summons insert at `cursor`
+    // while `rebuilt.len() < MAX_BOARD_SIZE`.
+    let mut rebuilt: Vec<Unit> = old_board
+        .iter()
+        .filter(|u| u.health > 0)
+        .cloned()
+        .collect();
+    let mut cursor: usize = 0;
 
     for unit in old_board {
         if unit.health > 0 {
-            rebuilt.push(unit);
+            cursor += 1;
             continue;
         }
 
         // Unit died.
         side_state.friendly_deaths_this_combat += 1;
+        cards::on_unit_died(&unit, &mut side_state.auras);
 
         if unit.tribe.matches(Tribe::Aberration) {
             if !unit.is_deity {
@@ -486,25 +561,20 @@ fn resolve_deaths(
             }
         }
 
-        // 1. Deathrattle summons
-        let dr_summons =
-            cards::on_deathrattle(&unit, &side_state.auras, &side_state.dead_aberrations);
-        for mut token in dr_summons {
-            if rebuilt.len() < MAX_BOARD_SIZE {
-                token.id = *next_id;
-                *next_id += 1;
-                token.sync_max_stats();
-                events.push(Event::UnitSummoned {
-                    side,
-                    source: unit.id,
-                    unit: token.id,
-                    name: token.name.clone(),
-                    attack: token.attack,
-                    health: token.health,
-                    reason: "Deathrattle",
-                });
-                rebuilt.push(token);
-            }
+        // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
+        {
+            let mut dr_ctx = DeathrattleContext {
+                side,
+                board: &mut rebuilt,
+                cursor: &mut cursor,
+                auras: &mut side_state.auras,
+                dead_aberrations: &side_state.dead_aberrations,
+                combat_beast_bonus_atk: side_state.combat_beast_bonus_atk,
+                next_id,
+                rng,
+                events,
+            };
+            cards::on_deathrattle(&unit, &mut dr_ctx);
         }
 
         // 2. Reborn resummon
@@ -525,7 +595,8 @@ fn resolve_deaths(
                 health: reborn_copy.health,
                 reason: "Reborn",
             });
-            rebuilt.push(reborn_copy);
+            rebuilt.insert(cursor, reborn_copy);
+            cursor += 1;
         }
     }
 
@@ -540,7 +611,7 @@ fn resolve_deaths(
         let mut deity_unit = deities::instantiate_deity(&side_state.auras.deity);
         deity_unit.id = *next_id;
         *next_id += 1;
-        deity_unit.sync_max_stats();
+        side_state.prepare_summoned_unit(&mut deity_unit);
         let deity_id = deity_unit.id;
         let deity_name = deity_unit.name.clone();
         let is_cthun = deity_unit.card_id == deities::CARD_CTHUN;
@@ -574,10 +645,15 @@ fn resolve_deaths(
         }
     }
 
-    // 4. Synchronize dynamic friendly-death auras (e.g. `Rot Hide Gnoll`).
+    // 4. Synchronize dynamic friendly-death and persistent auras.
     let before_aura: Vec<(UnitId, i32, i32)> =
         rebuilt.iter().map(|u| (u.id, u.attack, u.health)).collect();
-    cards::sync_friendly_death_auras(&mut rebuilt, side_state.friendly_deaths_this_combat);
+    cards::sync_combat_auras(
+        &mut rebuilt,
+        &mut side_state.hand,
+        &side_state.auras,
+        side_state.friendly_deaths_this_combat,
+    );
     for (u, (id, old_atk, old_hp)) in rebuilt.iter().zip(before_aura) {
         if u.attack != old_atk || u.health != old_hp {
             events.push(Event::StatBuff {

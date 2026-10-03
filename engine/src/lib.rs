@@ -15,7 +15,9 @@ pub mod tavern;
 #[cfg(feature = "python")]
 pub mod python;
 
-pub use cards::{catalog_for, full_catalog, tier1_catalog, CardTemplate};
+pub use cards::{
+    catalog_for, full_catalog, tier1_catalog, tier2_catalog, ActivateTargetKind, CardTemplate,
+};
 pub use combat::{resolve_battle, BattleResult};
 pub use events::Event;
 pub use model::{

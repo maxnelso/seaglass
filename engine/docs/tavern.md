@@ -13,12 +13,13 @@ The Tavern Phase is modeled as a **card-agnostic sequential decision state machi
 - **Shared Finite Card Pool (`CardPool`)**: Tier-dependent copy counts (`15 / 15 / 13 / 11 / 9 / 7`), uniform sampling without replacement across remaining copies, and pool return on shop refresh, minion sale, and unchosen Discover options.
 - **Bob's Shop**: Tier-dependent shop capacity, Refresh (`1` gold), and Freeze/Unfreeze toggle (`0` gold).
 - **Core Actions**: `Buy` (`3` gold, Shop $\to$ Hand), `Play` (`0` gold, Hand $\to$ Board slot or spell target), `Sell` (`+1` gold, Board $\to$ Pool), `Reposition` (`0` gold, reorder Board slots), `ChooseDiscover`, and `EndTurn`.
-- **Triples & Discover Sub-State**: Automatic combination of 3 non-golden copies across `board` and `hand` into 1 Golden copy in `hand` with summed buffs, plus a `discover_pending` sub-state when playing a tripled Golden minion to discover a minion of tier `min(6, tavern_tier + 1)`.
-- **General Tavern Hooks**: Battlecries, after-play board observers, on-sell triggers, end-of-turn triggers, hero self-damage interception, Spellcraft generation & expiration, hand spells, and persistent game-long scaling auras.
+- **Triples, Discover & Choose One Sub-State**: Automatic combination of 3 non-golden copies across `board` and `hand` into 1 Golden copy in `hand` with summed buffs, plus a `discover_pending` / `discover_queue` sub-state for Triple rewards, Discover effects (`Clever Castaway`, `Patient Scout`, `A New Sprout`, `Search Through Time`), and `Choose One` cards (`Crater Miner`, `Intrepid Botanist`, `Gem Day`, `Alliance Flag`).
+- **Tavern Spells (Tiers 1–2)**: All 8 Tier 1 and 7 Tier 2 Tavern Spells (`src/cards/spells.rs`), including shop spell offers, spell cost discounts (`Ominous Seer`), health-cost spells (`Hasty Excavation`), free refreshes (`Leaf Through the Pages`), max-gold increases (`Strike Oil`), hand-locked discovers (`Search Through Time`), next-combat win buffs (`Winner's Bread`), and spell stat scaling (`Intrepid Botanist`).
+- **General Tavern Hooks (Tiers 1–2)**: Battlecries, after-play/magnetize board observers (`Wrath Weaver`, `Mechagnome Interpreter`), Volumizer scaling (`Blue` / `Green` / `Red Volumizer`), `Activate` abilities targeting board/hand/shop (`Suspicious Prisonguard`, `Brain Rotter`, `Clever Castaway`, `Decoy Conjurer`, `Lurking Lionfish`), `Lockbox` countdown (`Bilgewater Breakout`), `Demon Fodder` refreshes (`Laboratory Assistant`), on-sell triggers (`Zoatroid`, `Fire Baller`, `Snow Baller`, `Patient Scout`, `Sellemental`, `Tad`, `Wandering Willbreaker`), end-of-turn triggers (`Lullabot`, `Surfing Sylvar`), and hero damage rewind (`Soul Rewinder`).
 
 ### Deferred to Later Phases
 - Hero Powers, Buddy meters, Quests, Trinkets, Darkmoon Prizes, and Anomalies.
-- Shop-sold Tavern Spells.
+- Tier 3–6 minions and Tier 3–6 Tavern Spells.
 
 ---
 

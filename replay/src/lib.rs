@@ -374,6 +374,173 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             "suspicious_prisonguard",
             Tribe::None,
         )),
+        // Tier 2 Minions
+        "BG36_520" => Some((
+            seaglass::cards::tier2::bilgewater_breakout::ID,
+            "bilgewater_breakout",
+            Tribe::Pirate,
+        )),
+        "BG34_170t2" => Some((
+            seaglass::cards::tier2::blue_volumizer::ID,
+            "blue_volumizer",
+            Tribe::Mech,
+        )),
+        "BG36_099" => Some((
+            seaglass::cards::tier2::brain_rotter::ID,
+            "brain_rotter",
+            Tribe::Aberration,
+        )),
+        "BGS_034" | "TB_BaconUps_149" => Some((
+            seaglass::cards::tier2::bronze_warden::ID,
+            "bronze_warden",
+            Tribe::Dragon,
+        )),
+        "BG36_342" => Some((
+            seaglass::cards::tier2::clever_castaway::ID,
+            "clever_castaway",
+            Tribe::Pirate,
+        )),
+        "BG31_320" => Some((
+            seaglass::cards::tier2::crater_miner::ID,
+            "crater_miner",
+            Tribe::Quilboar,
+        )),
+        "BG36_354" => Some((
+            seaglass::cards::tier2::decoy_conjurer::ID,
+            "decoy_conjurer",
+            Tribe::None,
+        )),
+        "BG26_963" => Some((
+            seaglass::cards::tier2::electric_synthesizer::ID,
+            "electric_synthesizer",
+            Tribe::Dragon,
+        )),
+        "BG25_008" => Some((
+            seaglass::cards::tier2::eternal_knight::ID,
+            "eternal_knight",
+            Tribe::Undead,
+        )),
+        "BG34_140" => Some((
+            seaglass::cards::tier2::expert_aviator::ID,
+            "expert_aviator",
+            Tribe::Murloc,
+        )),
+        "BG31_816" => Some((
+            seaglass::cards::tier2::fire_baller::ID,
+            "fire_baller",
+            Tribe::Elemental,
+        )),
+        "BG31_801" => Some((
+            seaglass::cards::tier2::forest_rover::ID,
+            "forest_rover",
+            Tribe::Beast,
+        )),
+        "BG34_170t3" => Some((
+            seaglass::cards::tier2::green_volumizer::ID,
+            "green_volumizer",
+            Tribe::Mech,
+        )),
+        "BG26_805" => Some((
+            seaglass::cards::tier2::humming_bird::ID,
+            "humming_bird",
+            Tribe::Beast,
+        )),
+        "BG32_237" => Some((
+            seaglass::cards::tier2::intrepid_botanist::ID,
+            "intrepid_botanist",
+            Tribe::None,
+        )),
+        "BG35_150" => Some((
+            seaglass::cards::tier2::laboratory_assistant::ID,
+            "laboratory_assistant",
+            Tribe::Demon,
+        )),
+        "BG36_201" => Some((
+            seaglass::cards::tier2::lurking_lionfish::ID,
+            "lurking_lionfish",
+            Tribe::Beast,
+        )),
+        "BG31_177" => Some((
+            seaglass::cards::tier2::mechagnome_interpreter::ID,
+            "mechagnome_interpreter",
+            Tribe::Mech,
+        )),
+        "BG23_357" => Some((
+            seaglass::cards::tier2::mind_muck::ID,
+            "mind_muck",
+            Tribe::Demon,
+        )),
+        "BG25_011" => Some((
+            seaglass::cards::tier2::nerubian_deathswarmer::ID,
+            "nerubian_deathswarmer",
+            Tribe::Undead,
+        )),
+        "BG24_715" => Some((
+            seaglass::cards::tier2::patient_scout::ID,
+            "patient_scout",
+            Tribe::None,
+        )),
+        "BG33_430" => Some((
+            seaglass::cards::tier2::prodigious_tusker::ID,
+            "prodigious_tusker",
+            Tribe::Quilboar,
+        )),
+        "BG34_170t" => Some((
+            seaglass::cards::tier2::red_volumizer::ID,
+            "red_volumizer",
+            Tribe::Mech,
+        )),
+        "BG20_101" => Some((
+            seaglass::cards::tier2::roadboar::ID,
+            "roadboar",
+            Tribe::Quilboar,
+        )),
+        "BG25_022" => Some((
+            seaglass::cards::tier2::scarlet_skull::ID,
+            "scarlet_skull",
+            Tribe::Undead,
+        )),
+        "BGS_115" | "TB_BaconUps_156" => Some((
+            seaglass::cards::tier2::sellemental::ID,
+            "sellemental",
+            Tribe::Elemental,
+        )),
+        "BG31_818" => Some((
+            seaglass::cards::tier2::snow_baller::ID,
+            "snow_baller",
+            Tribe::Elemental,
+        )),
+        "BG26_174" => Some((
+            seaglass::cards::tier2::soul_rewinder::ID,
+            "soul_rewinder",
+            Tribe::Demon,
+        )),
+        "BG32_235" => Some((
+            seaglass::cards::tier2::surfing_sylvar::ID,
+            "surfing_sylvar",
+            Tribe::Pirate,
+        )),
+        "BG22_202" => Some((seaglass::cards::tier2::tad::ID, "tad", Tribe::Murloc)),
+        "BG21_015" => Some((
+            seaglass::cards::tier2::tarecgosa::ID,
+            "tarecgosa",
+            Tribe::Dragon,
+        )),
+        "BG36_116" => Some((
+            seaglass::cards::tier2::underrot_spawn::ID,
+            "underrot_spawn",
+            Tribe::Aberration,
+        )),
+        "BG29_300" => Some((
+            seaglass::cards::tier2::very_hungry_winterfinner::ID,
+            "very_hungry_winterfinner",
+            Tribe::Murloc,
+        )),
+        "BG36_100" => Some((
+            seaglass::cards::tier2::wandering_willbreaker::ID,
+            "wandering_willbreaker",
+            Tribe::Aberration,
+        )),
         // Tokens
         "BG28_603t" => Some((tokens::TOKEN_BEETLE, "beetle", Tribe::Beast)),
         "BG36_200t" => Some((tokens::TOKEN_BAT, "bat", Tribe::Beast)),
@@ -386,6 +553,13 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             "aberrant_tentacle",
             Tribe::Aberration,
         )),
+        "BGS_115t" | "TB_BaconUps_156t" => Some((
+            tokens::TOKEN_WATER_DROPLET,
+            "water_droplet",
+            Tribe::Elemental,
+        )),
+        "BG35_150t" => Some((tokens::TOKEN_DEMON_FODDER, "demon_fodder", Tribe::Demon)),
+        "BG36_201t" => Some((tokens::TOKEN_FISHBAIT, "fishbait", Tribe::Beast)),
         _ => None,
     }
 }

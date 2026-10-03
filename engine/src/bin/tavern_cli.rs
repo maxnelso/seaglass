@@ -10,12 +10,14 @@ use std::io::{self, Write};
 
 use seaglass::cards::{self, tokens, CardTemplate};
 use seaglass::{
-    base_copies_for_tier, tier1_catalog, CardId, CardPool, DeityKind, Rng, TavernAction,
+    base_copies_for_tier, full_catalog, CardId, CardPool, DeityKind, Rng, TavernAction,
     TavernState, Tribe, Unit,
 };
 
 fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
+    use cards::spells::*;
     use cards::tier1::*;
+    use cards::tier2::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",
@@ -63,9 +65,172 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (ominous_seer::ID, true) => "Battlecry: The next Tavern spell you buy costs (2) less.",
         (suspicious_prisonguard::ID, false) => "Activate (1g): Give another minion +3/+3.",
         (suspicious_prisonguard::ID, true) => "Activate (1g): Give another minion +6/+6.",
+        // Tier 2 Minions
+        (bilgewater_breakout::ID, false) => {
+            "Battlecry: Get a Lockbox, or accelerate yours by 1 turn."
+        }
+        (bilgewater_breakout::ID, true) => {
+            "Battlecry: Get a Lockbox, or accelerate yours by 2 turns."
+        }
+        (blue_volumizer::ID, false) => {
+            "Magnetic. First play/Magnetize gives Volumizers +3 Health this game."
+        }
+        (blue_volumizer::ID, true) => {
+            "Magnetic. First play/Magnetize gives Volumizers +6 Health this game."
+        }
+        (brain_rotter::ID, false) => "Activate (0g): Discard a hand card to give Deity +2/+2.",
+        (brain_rotter::ID, true) => "Activate (0g): Discard a hand card to give Deity +4/+4.",
+        (bronze_warden::ID, _) => "Divine Shield, Reborn.",
+        (clever_castaway::ID, false) => "Activate (2g): Discover a Tavern spell.",
+        (clever_castaway::ID, true) => "Activate (2g): Discover 2 Tavern spells.",
+        (crater_miner::ID, false) => "Choose One: Get 2 Blood Gems; or Get a Gem Day.",
+        (crater_miner::ID, true) => "Choose One: Get 4 Blood Gems; or Get 2 Gem Days.",
+        (decoy_conjurer::ID, false) => "Activate (2g): Steal the highest-Attack minion in shop.",
+        (decoy_conjurer::ID, true) => "Activate (2g): Steal the 2 highest-Attack minions in shop.",
+        (electric_synthesizer::ID, false) => {
+            "Battlecry & Start of Combat: Give other Dragons +1/+1."
+        }
+        (electric_synthesizer::ID, true) => {
+            "Battlecry & Start of Combat: Give other Dragons +2/+2."
+        }
+        (eternal_knight::ID, false) => {
+            "Has +4/+2 for each friendly Eternal Knight that died this game."
+        }
+        (eternal_knight::ID, true) => {
+            "Has +8/+4 for each friendly Eternal Knight that died this game."
+        }
+        (expert_aviator::ID, false) => "Rally: Summon highest-Attack Murloc from hand for combat.",
+        (expert_aviator::ID, true) => {
+            "Rally: Summon 2 highest-Attack Murlocs from hand for combat."
+        }
+        (fire_baller::ID, false) => {
+            "On sell: Give your minions +1 Attack (upgrades future Ballers)."
+        }
+        (fire_baller::ID, true) => {
+            "On sell: Give your minions +2 Attack (upgrades future Ballers by 2)."
+        }
+        (forest_rover::ID, false) => {
+            "Battlecry: Beetles have +2/+1. Deathrattle: Summon a 2/2 Beetle."
+        }
+        (forest_rover::ID, true) => {
+            "Battlecry: Beetles have +4/+2. Deathrattle: Summon two 2/2 Beetles."
+        }
+        (green_volumizer::ID, false) => {
+            "Magnetic. First play/Magnetize gives Volumizers +1/+1 this game."
+        }
+        (green_volumizer::ID, true) => {
+            "Magnetic. First play/Magnetize gives Volumizers +2/+2 this game."
+        }
+        (humming_bird::ID, false) => "Start of Combat: Your Beasts have +1 Attack this combat.",
+        (humming_bird::ID, true) => "Start of Combat: Your Beasts have +2 Attack this combat.",
+        (intrepid_botanist::ID, false) => {
+            "Choose One: Tavern spells give an extra +1 Attack; or +1 Health."
+        }
+        (intrepid_botanist::ID, true) => {
+            "Choose One: Tavern spells give an extra +2 Attack; or +2 Health."
+        }
+        (laboratory_assistant::ID, false) => "Battlecry: Add a Fodder to your next 3 Refreshes.",
+        (laboratory_assistant::ID, true) => "Battlecry: Add 2 Fodders to your next 3 Refreshes.",
+        (lurking_lionfish::ID, _) => {
+            "Activate (2g): Replace a shop card with Fishbait for left-most Beast to attack."
+        }
+        (mechagnome_interpreter::ID, false) => {
+            "Whenever you play or Magnetize a Mech, give it +3/+1."
+        }
+        (mechagnome_interpreter::ID, true) => {
+            "Whenever you play or Magnetize a Mech, give it +6/+2."
+        }
+        (mind_muck::ID, false) => {
+            "Battlecry: Friendly Demon consumes a shop minion to gain its stats."
+        }
+        (mind_muck::ID, true) => {
+            "Battlecry: Friendly Demon consumes a shop minion to gain double its stats."
+        }
+        (nerubian_deathswarmer::ID, false) => "Battlecry: Your Undead have +1 Attack this game.",
+        (nerubian_deathswarmer::ID, true) => "Battlecry: Your Undead have +2 Attack this game.",
+        (patient_scout::ID, false) => "On sell: Discover a minion (tier upgrades each turn).",
+        (patient_scout::ID, true) => "On sell: Discover 2 minions (tier upgrades each turn).",
+        (prodigious_tusker::ID, false) => {
+            "Whenever another friendly minion attacks, play a Blood Gem on it."
+        }
+        (prodigious_tusker::ID, true) => {
+            "Whenever another friendly minion attacks, play 2 Blood Gems on it."
+        }
+        (red_volumizer::ID, false) => {
+            "Magnetic. First play/Magnetize gives Volumizers +3 Attack this game."
+        }
+        (red_volumizer::ID, true) => {
+            "Magnetic. First play/Magnetize gives Volumizers +6 Attack this game."
+        }
+        (roadboar::ID, false) => "Rally: Get a Blood Gem.",
+        (roadboar::ID, true) => "Rally: Get 2 Blood Gems.",
+        (scarlet_skull::ID, false) => "Reborn. Deathrattle: Give a friendly Undead +1/+2.",
+        (scarlet_skull::ID, true) => "Reborn. Deathrattle: Give a friendly Undead +2/+4.",
+        (sellemental::ID, false) => "On sell: Get a 3/3 Water Droplet.",
+        (sellemental::ID, true) => "On sell: Get two 3/3 Water Droplets.",
+        (snow_baller::ID, false) => {
+            "On sell: Give your minions +1 Health (upgrades future Ballers)."
+        }
+        (snow_baller::ID, true) => {
+            "On sell: Give your minions +2 Health (upgrades future Ballers by 2)."
+        }
+        (soul_rewinder::ID, false) => "After hero takes damage, rewind it and gain +2 Health.",
+        (soul_rewinder::ID, true) => "After hero takes damage, rewind it and gain +4 Health.",
+        (surfing_sylvar::ID, false) => {
+            "End of Turn: Give adjacent minions +1 Attack (repeats per Golden minion)."
+        }
+        (surfing_sylvar::ID, true) => {
+            "End of Turn: Give adjacent minions +2 Attack (repeats per Golden minion)."
+        }
+        (tad::ID, false) => "On sell: Get another random Murloc.",
+        (tad::ID, true) => "On sell: Get 2 other random Murlocs.",
+        (tarecgosa::ID, false) => "Permanently keeps Bonus Keywords and stats gained in combat.",
+        (tarecgosa::ID, true) => {
+            "Permanently keeps Bonus Keywords and double stats gained in combat."
+        }
+        (underrot_spawn::ID, false) => {
+            "Deathrattle: Summon a 0/2 Tentacle with Taunt; give minions +1 Attack."
+        }
+        (underrot_spawn::ID, true) => {
+            "Deathrattle: Summon two 0/2 Tentacles with Taunt; give minions +2 Attack."
+        }
+        (very_hungry_winterfinner::ID, false) => {
+            "Taunt. Whenever this takes damage, give a random minion in hand +2/+1."
+        }
+        (very_hungry_winterfinner::ID, true) => {
+            "Taunt. Whenever this takes damage, give a random minion in hand +4/+2."
+        }
+        (wandering_willbreaker::ID, false) => {
+            "On sell: Get 2 random Tavern spells; after casting 1, discard the other."
+        }
+        (wandering_willbreaker::ID, true) => {
+            "On sell: Get 4 random Tavern spells; after casting 2, discard the rest."
+        }
+        // Tokens & Spells
         (tokens::TOKEN_ABERRANT_TENTACLE, _) => "Taunt.",
-        (tokens::SPELL_BLOOD_GEM, _) => "Spell: Give a friendly minion +1/+1.",
+        (tokens::TOKEN_WATER_DROPLET, _) => "Token Elemental.",
+        (tokens::TOKEN_DEMON_FODDER, _) => "Feeds itself to a friendly Demon on Refresh.",
+        (tokens::TOKEN_FISHBAIT, _) => "Cannot gain stats. Deathrattle: Give killer +5/+5.",
+        (tokens::SPELL_BLOOD_GEM, _) => "Spell: Give a friendly minion +1/+1 (plus Gem bonuses).",
         (tokens::SPELL_TAVERN_COIN, _) => "Spell: Gain 1 Gold.",
+        (tokens::SPELL_LOCKBOX, _) => "Unplayable. Opens in 5 turns for a Golden typed minion.",
+        (tokens::SPELL_GEM_DAY, _) => "Choose One: Blood Gems give +1 Attack; or +1 Health.",
+        (SPELL_A_NEW_SPROUT, _) => "Spell (3g): Discover a Tier 1 minion.",
+        (SPELL_ALLIANCE_FLAG, _) => "Spell (1g): Choose One — Give a minion +3/+1 or +1/+3.",
+        (SPELL_ENCHANTED_LASSO, _) => "Spell (2g): Steal a random minion from the Tavern.",
+        (SPELL_FORTIFY, _) => "Spell (1g): Give a minion +3 Health and Taunt.",
+        (SPELL_RECRUIT_A_TRAINEE, _) => "Spell (2g): Get a random Tier 1 minion.",
+        (SPELL_TAVERN_DISH_BANANA, _) => "Spell (1g): Give a minion +2/+2.",
+        (SPELL_THEM_APPLES, _) => "Spell (1g): Give minions in the Tavern +1/+2.",
+        (SPELL_CHEFS_CHOICE, _) => {
+            "Spell (2g): Choose a minion. Get a different minion of the same type."
+        }
+        (SPELL_HASTY_EXCAVATION, _) => "Spell (3 HP): Gain 1 Gold. Costs Health instead of Gold.",
+        (SPELL_LEAF_THROUGH_THE_PAGES, _) => "Spell (1g): Gain 2 free Refreshes.",
+        (SPELL_MIGHT_OF_STORMWIND, _) => "Spell (2g): Give 4 friendly minions +1/+2.",
+        (SPELL_SEARCH_THROUGH_TIME, _) => "Spell (2g): Discover a minion from your Tier (locked 1 turn).",
+        (SPELL_STRIKE_OIL, _) => "Spell (3g): Increase your maximum Gold by 1.",
+        (SPELL_WINNERS_BREAD, _) => "Spell (2g): Give a minion +2/+3 (and 1 Blood Gem if you win).",
         _ => "",
     }
 }
@@ -550,7 +715,7 @@ fn main() {
         .find_map(|a| a.parse::<u64>().ok())
         .unwrap_or(42);
 
-    let templates = tier1_catalog();
+    let templates = full_catalog();
     let mut pool = CardPool::new(templates.clone());
     let mut rng = Rng::new(seed);
     let mut state = TavernState::new();

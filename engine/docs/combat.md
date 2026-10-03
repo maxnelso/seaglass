@@ -20,10 +20,12 @@ The combat loop is **card-agnostic**: it knows only about units, keywords, and g
 
 All trigger effects double in magnitude (or repeat) when the source unit is Golden (`is_golden == true`).
 
-1. **Start of Combat (§5.1 step 6)** — Resolved once before the first attack turn, Side A first, then Side B, in left-to-right board order. Used for pre-battle board/tribal buffs and keyword grants.
-2. **On-Attack / Rally (§5.3.1 step 2)** — Fires when an attacker declares a strike, **before target selection and before any damage**. May buff the attacker, summon a unit adjacent to the attacker (respecting the 7-unit cap), or trigger friendly "whenever a Rally triggers" observers on the attacking board.
-3. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** that unit's Reborn. May summon token(s) at the dying unit's slot (applying any side-wide summon auras and respecting the 7-unit cap) or buff friendly unit(s).
-4. **Stat-Threshold Observers** — Checked immediately whenever a unit's stats increase during combat (e.g., once-per-game threshold effects that grant a keyword upon reaching a target Attack/Health).
+1. **Start of Combat (§5.1 step 6)** — Resolved once before the first attack turn, Side A first, then Side B, in left-to-right board order. Used for pre-battle board/tribal buffs (`Electric Synthesizer`), combat-long tribal attack auras (`Humming Bird`), and hand summons (`Flighty Scout`).
+2. **On-Attack / Rally (§5.3.1 step 2)** — Fires when an attacker declares a strike, **before target selection and before any damage**. May buff the attacker (`Glim Guardian`, `Tusked Camper`), summon a unit adjacent to the attacker (`Flittering Bat`, `Expert Aviator` from hand), generate a hand card (`Roadboar`), or trigger friendly "whenever another friendly minion attacks" observers (`Prodigious Tusker`) on the attacking board in left-to-right order.
+3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
+4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** that unit's Reborn. May summon token(s) at the dying unit's slot (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
+5. **Stat-Threshold Observers** — Checked immediately whenever a unit's stats increase during combat (e.g., `Scarlet Survivor` gaining Divine Shield at 6 Attack).
+6. **Combat-to-Tavern Persistence** — `Tarecgosa` permanently retains Bonus Keywords and (`double` if Golden) stats gained during combat; hand buffs (`Very Hungry Winterfinner`), generated hand cards (`Roadboar`), and `Eternal Knight` death counters (`eternal_knights_died`) persist back to `TavernState`.
 
 ---
 

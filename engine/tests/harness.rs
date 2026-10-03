@@ -3,10 +3,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use seaglass::cards::{spells, tier2, tokens};
 use seaglass::{
-    catalog_for, parse_unit, run_scenario, run_tavern_scenario, simulate, simulate_batch,
-    tier1_catalog, BattleOutcome, CardPool, Defaults, DeityKind, Event, GameState, Keyword, Rng,
-    Scenario, Side, TavernAction, TavernScenario, TavernState, Tribe,
+    catalog_for, full_catalog, parse_unit, run_scenario, run_tavern_scenario, simulate,
+    simulate_batch, tier1_catalog, tier2_catalog, BattleOutcome, CardPool, Defaults, DeityKind,
+    Event, GameState, Keyword, Rng, Scenario, Side, TavernAction, TavernScenario, TavernState,
+    Tribe, Unit,
 };
 
 fn collect_yaml_files(dir: &Path) -> Vec<PathBuf> {
@@ -108,11 +110,67 @@ fn tier1_catalog_contains_all_21_live_solo_minions() {
 }
 
 #[test]
+fn tier2_catalog_contains_all_34_live_solo_minions_and_15_spells() {
+    let cards = tier2_catalog();
+    assert_eq!(cards.len(), 34);
+    assert_eq!(full_catalog().len(), 55);
+
+    let names: Vec<&str> = cards.iter().map(|c| c.name.as_str()).collect();
+    let expected = [
+        "Bilgewater Breakout",
+        "Blue Volumizer",
+        "Brain Rotter",
+        "Bronze Warden",
+        "Clever Castaway",
+        "Crater Miner",
+        "Decoy Conjurer",
+        "Electric Synthesizer",
+        "Eternal Knight",
+        "Expert Aviator",
+        "Fire Baller",
+        "Forest Rover",
+        "Green Volumizer",
+        "Humming Bird",
+        "Intrepid Botanist",
+        "Laboratory Assistant",
+        "Lurking Lionfish",
+        "Mechagnome Interpreter",
+        "Mind Muck",
+        "Nerubian Deathswarmer",
+        "Patient Scout",
+        "Prodigious Tusker",
+        "Red Volumizer",
+        "Roadboar",
+        "Scarlet Skull",
+        "Sellemental",
+        "Snow Baller",
+        "Soul Rewinder",
+        "Surfing Sylvar",
+        "Tad",
+        "Tarecgosa",
+        "Underrot Spawn",
+        "Very Hungry Winterfinner",
+        "Wandering Willbreaker",
+    ];
+    assert_eq!(names, expected);
+
+    for (idx, card) in cards.iter().enumerate() {
+        assert_eq!(card.tavern_tier, 2);
+        assert!(card.card_id >= 201 && card.card_id <= 234);
+        for other in &cards[idx + 1..] {
+            assert_ne!(card.card_id, other.card_id);
+        }
+    }
+
+    assert_eq!(spells::tier1_spells().len(), 8);
+    assert_eq!(spells::tier2_spells().len(), 7);
+    assert_eq!(spells::spells_up_to_tier(2).len(), 15);
+}
+
+#[test]
 fn cthun_and_yshaarj_awaken_after_4_friendly_aberrations_die() {
     let defaults = Defaults::default();
 
-    // Side A has 4 Zoatroids (3/2 Aberration) + 1 neutral 2/2, with C'Thun (5/5) as Deity.
-    // Side B has a big 6/30 taunt wall.
     let board_a = vec![
         parse_unit("3/2 card:zoatroid", &defaults).unwrap(),
         parse_unit("3/2 card:zoatroid", &defaults).unwrap(),
@@ -143,8 +201,6 @@ fn cthun_and_yshaarj_awaken_after_4_friendly_aberrations_die() {
         "expected C'Thun to awaken after 4 friendly Aberrations died"
     );
 
-    // Now test Y'Shaarj (4/4): when Y'Shaarj dies, it summons the first 2 Aberrations
-    // that died this combat with their maximum stats.
     let mut state_y = GameState::default();
     state_y.auras_a.deity.kind = DeityKind::YShaarj;
     state_y.auras_a.deity.attack = 4;
@@ -223,6 +279,351 @@ fn card_pool_tracks_copies_and_returns_triples() {
         )
         .unwrap();
     assert_eq!(state.board[0].card_id, bought_id);
-    assert!(!state.board[0]. tribe.matches(Tribe::None) || state.board[0].card_id == 121);
+    assert!(!state.board[0].tribe.matches(Tribe::None) || state.board[0].card_id == 121);
     assert!(!state.board[0].taunt || state.board[0].has_keyword(Keyword::Taunt));
+}
+
+#[test]
+fn tier2_combat_mechanics_work_end_to_end() {
+    let defaults = Defaults::default();
+
+    // 1. Electric Synthesizer + Tarecgosa + Prodigious Tusker + Roadboar + Expert Aviator
+    let board_a = vec![
+        parse_unit("2/4 card:roadboar", &defaults).unwrap(),
+        parse_unit("3/5 card:expert_aviator", &defaults).unwrap(),
+        parse_unit("3/4 card:electric_synthesizer", &defaults).unwrap(),
+        parse_unit("4/4 card:tarecgosa", &defaults).unwrap(),
+        parse_unit("2/5 card:prodigious_tusker", &defaults).unwrap(),
+    ];
+    // Defender has Very Hungry Winterfinner + Underrot Spawn
+    let board_b = vec![
+        parse_unit("2/6 card:very_hungry_winterfinner", &defaults).unwrap(),
+        parse_unit("2/2 card:underrot_spawn", &defaults).unwrap(),
+    ];
+
+    let mut state = GameState::default();
+    // Put a 6/6 Murloc in Side A's hand for Expert Aviator to summon,
+    // and a 2/2 Murloc in Side B's hand for Very Hungry Winterfinner to buff.
+    state
+        .hand_a
+        .push(Unit::new("Hand Murloc", 6, 6).with_tribe(Tribe::Murloc));
+    state
+        .hand_b
+        .push(Unit::new("B Hand Minion", 2, 2).with_tribe(Tribe::Murloc));
+
+    let res = simulate(&board_a, &board_b, &state, 42);
+    assert_eq!(res.outcome, BattleOutcome::AWin);
+    // Roadboar generated at least 1 Blood Gem into Side A's hand.
+    assert!(res
+        .hand_a
+        .iter()
+        .any(|c| c.card_id == tokens::SPELL_BLOOD_GEM));
+    // Very Hungry Winterfinner took damage and buffed Side B's hand minion from 2/2 -> at least 4/3.
+    assert!(res.hand_b[0].attack >= 4 && res.hand_b[0].health >= 3);
+
+    // 2. Underrot Spawn summons 0/2 Tentacle with Taunt first, then gives friendly minions +1 Attack
+    // so the summoned Tentacle is 1/2 with Taunt.
+    let board_u_a = vec![
+        parse_unit("2/2 card:underrot_spawn", &defaults).unwrap(),
+        parse_unit("1/5", &defaults).unwrap(),
+    ];
+    let board_u_b = vec![parse_unit("3/2", &defaults).unwrap()];
+    let res_u = simulate(&board_u_a, &board_u_b, &GameState::default(), 1);
+    assert_eq!(res_u.outcome, BattleOutcome::AWin);
+    // Tentacle (1/2) and the 1/5 (now 2/5) survive.
+    assert_eq!(res_u.survivors_a.len(), 2);
+    assert_eq!(res_u.survivors_a[0].attack, 1);
+    assert_eq!(res_u.survivors_a[0].health, 2);
+    assert!(res_u.survivors_a[0].taunt);
+    assert_eq!(res_u.survivors_a[1].attack, 2);
+
+    // 3. Eternal Knight aura increments mid-combat when a friendly Eternal Knight dies.
+    let board_ek_a = vec![
+        parse_unit("4/2 card:eternal_knight", &defaults).unwrap(),
+        parse_unit("4/2 card:eternal_knight", &defaults).unwrap(),
+    ];
+    let board_ek_b = vec![parse_unit("3/4", &defaults).unwrap()];
+    let res_ek = simulate(&board_ek_a, &board_ek_b, &GameState::default(), 1);
+    assert_eq!(res_ek.outcome, BattleOutcome::AWin);
+    assert_eq!(res_ek.eternal_knights_died_a, 1);
+    // Second Eternal Knight grew from 4/2 to 8/4 after the first died!
+    assert_eq!(res_ek.survivors_a[0].attack, 8);
+    assert!(res_ek.survivors_a[0].health > 0);
+}
+
+#[test]
+fn tier2_tavern_minions_and_spells_work_end_to_end() {
+    let templates = full_catalog();
+    let mut pool = CardPool::new(templates);
+    let mut rng = Rng::new(777);
+    let mut state = TavernState::new().with_shop_spells(true);
+    state.tavern_tier = 2;
+    state.start_turn(&mut pool, &mut rng);
+    state.gold = 20;
+
+    // Shop has 4 minions + 1 Tavern Spell = 5 items when include_shop_spells is true on Tier 2.
+    assert_eq!(state.shop.len(), 5);
+    assert!(state.shop.iter().any(|u| u.is_spell));
+
+    // 1. Volumizers + Mechagnome Interpreter
+    state.add_to_hand(tier2::mechagnome_interpreter::template().instantiate());
+    state.add_to_hand(tier2::red_volumizer::template().instantiate());
+    state.add_to_hand(tier2::blue_volumizer::template().instantiate());
+    state.add_to_hand(tier2::green_volumizer::template().instantiate());
+
+    // Play Mechagnome Interpreter at pos 0 (3/1 Mech)
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Play Red Volumizer standalone at pos 1 -> Volumizers gain +3/+0 (so Red is 6/1),
+    // and Mechagnome Interpreter gives it +3/+1 -> 9/2!
+    // Meanwhile Blue Volumizer in hand becomes 4/3 and Green Volumizer becomes 5/2!
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 1,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.volumizer_bonus_atk, 3);
+    assert_eq!(state.board[1].attack, 9);
+    assert_eq!(state.board[1].health, 2);
+
+    // Magnetize Blue Volumizer onto Red Volumizer at pos 1 ->
+    // Blue Volumizer triggers +0/+3 Volumizer aura (buffing Red on board +3 HP AND Blue itself +3 HP to 4/6),
+    // fuses 4/6 onto Red (9+4=13, 5+6=11), and Mechagnome Interpreter buffs target by +3/+1 -> 16/12!
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 1,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.volumizer_bonus_hp, 3);
+    assert_eq!(state.board[1].attack, 16);
+    assert_eq!(state.board[1].health, 12);
+
+    // Play Green Volumizer standalone at pos 2 -> +1/+1 Volumizer aura
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 2,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.volumizer_bonus_atk, 4);
+    assert_eq!(state.auras.volumizer_bonus_hp, 4);
+
+    // 2. Fire Baller & Snow Baller shared scaling
+    state.add_to_hand(tier2::fire_baller::template().instantiate());
+    state.add_to_hand(tier2::snow_baller::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Sell Snow Baller (at pos 0) -> gives board +1 HP, baller_bonus = 1
+    state
+        .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
+        .unwrap();
+    assert_eq!(state.auras.baller_bonus, 1);
+    // Sell Fire Baller (now at pos 0) -> gives board +2 Attack, baller_bonus = 2
+    state
+        .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
+        .unwrap();
+    assert_eq!(state.auras.baller_bonus, 2);
+
+    // 3. Lurking Lionfish Activate (2g) -> replaces shop[0] with Fishbait for left-most Beast to attack
+    state.board.clear();
+    state.hand.clear();
+    state.gold = 10;
+    state.board.push(tier2::lurking_lionfish::template().instantiate());
+    state
+        .step(
+            TavernAction::Activate {
+                board_pos: 0,
+                target_pos: Some(0),
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Lurking Lionfish (3/4 Beast) attacked 0/1 Fishbait, killed it, and gained +5/+5 -> 8/9!
+    assert_eq!(state.board[0].attack, 8);
+    assert_eq!(state.board[0].health, 9);
+
+    // 4. Laboratory Assistant + Demon Fodder on Refresh
+    state.add_to_hand(tier2::soul_rewinder::template().instantiate());
+    state.add_to_hand(tier2::laboratory_assistant::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 1,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 2,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 1]);
+    let total_demon_atk_before: i32 = state
+        .board
+        .iter()
+        .filter(|u| u.tribe.matches(Tribe::Demon))
+        .map(|u| u.attack)
+        .sum();
+    state
+        .step(TavernAction::Refresh, &mut pool, &mut rng)
+        .unwrap();
+    let total_demon_atk_after: i32 = state
+        .board
+        .iter()
+        .filter(|u| u.tribe.matches(Tribe::Demon))
+        .map(|u| u.attack)
+        .sum();
+    assert_eq!(total_demon_atk_after - total_demon_atk_before, 2);
+    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 0]);
+
+    // 5. Wandering Willbreaker -> sell gives 2 spells, casting 1 discards the other
+    state.hand.clear();
+    state.board.push(tier2::wandering_willbreaker::template().instantiate());
+    let wb_pos = state.board.len() - 1;
+    state
+        .step(TavernAction::Sell { board_pos: wb_pos }, &mut pool, &mut rng)
+        .unwrap();
+    assert_eq!(state.hand.len(), 2);
+    assert!(state.hand[0].willbreaker_group > 0);
+    assert_eq!(
+        state.hand[0].willbreaker_group,
+        state.hand[1].willbreaker_group
+    );
+    // Cast the first spell -> the second Willbreaker spell is automatically discarded!
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // If the cast spell opened a Discover/Choose-One, resolve it.
+    if state.discover_pending.is_some() {
+        state
+            .step(
+                TavernAction::ChooseDiscover { option_index: 0 },
+                &mut pool,
+                &mut rng,
+            )
+            .unwrap();
+    }
+    assert!(
+        !state.hand.iter().any(|c| c.willbreaker_group > 0),
+        "remaining Willbreaker spell should have been discarded"
+    );
+
+    // 6. Bilgewater Breakout + Lockbox acceleration
+    state.board.clear();
+    state.hand.clear();
+    for _ in 0..5 {
+        state.add_to_hand(tier2::bilgewater_breakout::template().instantiate());
+        let h_idx = state.hand.len() - 1;
+        state
+            .step(
+                TavernAction::Play {
+                    hand_index: h_idx,
+                    board_pos: 0,
+                },
+                &mut pool,
+                &mut rng,
+            )
+            .unwrap();
+        state
+            .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
+            .unwrap();
+    }
+    // 1st Bilgewater Breakout gave Lockbox (5 turns left); next 4 accelerated it by 4 turns -> 1 turn left.
+    assert_eq!(state.hand.len(), 1);
+    assert_eq!(state.hand[0].card_id, tokens::SPELL_LOCKBOX);
+    assert_eq!(state.hand[0].lockbox_turns_left, 1);
+    // Starting next turn opens the Lockbox into a Golden typed minion!
+    state.start_turn(&mut pool, &mut rng);
+    assert_eq!(state.hand.len(), 1);
+    assert!(!state.hand[0].is_spell);
+    assert!(state.hand[0].is_golden);
+    assert_ne!(state.hand[0].tribe, Tribe::None);
+
+    // 7. Tarecgosa + Winner's Bread persistence across resolve_combat_against
+    state.board.clear();
+    state.hand.clear();
+    state.board.push(tier2::tarecgosa::template().instantiate());
+    state
+        .board
+        .push(tier2::electric_synthesizer::template().instantiate());
+    state.add_to_hand(spells::spell_by_name("Winner's Bread").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Tarecgosa is now 6/7 with 1 stack of Winner's Bread.
+    assert_eq!(state.board[0].attack, 6);
+    assert_eq!(state.board[0].health, 7);
+    let opp = vec![Unit::new("Dummy", 1, 1)];
+    let c_res = state.resolve_combat_against(&opp, 1, & Default::default(), &[], 123);
+    assert_eq!(c_res.outcome, BattleOutcome::AWin);
+    // Tarecgosa permanently kept the +1/+1 Start of Combat buff from Electric Synthesizer -> 7/8!
+    assert_eq!(state.board[0].attack, 7);
+    assert_eq!(state.board[0].health, 8);
+    // Starting the next turn triggers Winner's Bread (+1 Blood Gem = +1/+1) -> 8/9!
+    state.start_turn(&mut pool, &mut rng);
+    assert_eq!(state.board[0].attack, 8);
+    assert_eq!(state.board[0].health, 9);
 }
