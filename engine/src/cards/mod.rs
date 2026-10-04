@@ -13,6 +13,7 @@ pub mod tier3;
 pub mod tier4;
 pub mod tier5;
 pub mod tier6;
+pub mod tier7;
 pub mod tokens;
 
 use crate::combat::MAX_BOARD_SIZE;
@@ -268,13 +269,19 @@ impl CardTemplate {
     }
 }
 
-/// Initialize or reset per-turn charges (`Malchezaar`, `Thorned Trailblazer`, `Drone Duplicator`, `Living Prison`, `Magicfin Mycologist`) on `unit`.
+/// Initialize or reset per-turn charges (`Malchezaar`, `Thorned Trailblazer`, `Drone Duplicator`, `Living Prison`, `Magicfin Mycologist`, `Stalwart Kodo`, `Stone Age Slab`) on `unit`.
 pub fn init_unit_turn_charges(unit: &mut Unit) {
     tier3::malchezaar_prince_of_dance::reset_turn_charges(unit);
     tier3::thorned_trailblazer::reset_turn_charges(unit);
     tier6::magicfin_mycologist::init_charges(unit);
     unit.extra_magnetize_this_turn = 0;
     unit.living_prison_stacks = 0;
+    if unit.card_id == tier7::stalwart_kodo::ID {
+        unit.kodo_triggers_left = 3;
+    }
+    if unit.card_id == tier7::stone_age_slab::ID {
+        unit.slab_charges_left = 1;
+    }
 }
 
 /// All 21 active Solo Tier 1 minions (Patch 36.6.3, excluding rotated Naga & Dark Paradox).
@@ -337,7 +344,17 @@ pub fn solo_tier_6_catalog() -> Vec<CardTemplate> {
     tier6_catalog()
 }
 
-/// Full active catalog (Solo Tier 1..=6 = 240 minions).
+/// All 12 active Solo Tier 7 minions (Patch 36.6.3).
+pub fn tier7_catalog() -> Vec<CardTemplate> {
+    tier7::catalog()
+}
+
+/// Alias for [`tier7_catalog`].
+pub fn solo_tier_7_catalog() -> Vec<CardTemplate> {
+    tier7_catalog()
+}
+
+/// Full active catalog (Solo Tier 1..=7 = 252 minions).
 pub fn full_catalog() -> Vec<CardTemplate> {
     let mut cards = tier1_catalog();
     cards.extend(tier2_catalog());
@@ -345,6 +362,7 @@ pub fn full_catalog() -> Vec<CardTemplate> {
     cards.extend(tier4_catalog());
     cards.extend(tier5_catalog());
     cards.extend(tier6_catalog());
+    cards.extend(tier7_catalog());
     cards
 }
 
@@ -367,6 +385,7 @@ pub fn catalog_for(name: &str) -> Result<Vec<CardTemplate>, String> {
         "tier4" | "solo_tier_4" => Ok(tier4_catalog()),
         "tier5" | "solo_tier_5" => Ok(tier5_catalog()),
         "tier6" | "solo_tier_6" => Ok(tier6_catalog()),
+        "tier7" | "solo_tier_7" => Ok(tier7_catalog()),
         "tier1_2" => {
             let mut c = tier1_catalog();
             c.extend(tier2_catalog());
@@ -393,9 +412,18 @@ pub fn catalog_for(name: &str) -> Result<Vec<CardTemplate>, String> {
             c.extend(tier5_catalog());
             Ok(c)
         }
-        "full" | "solo_full" | "tier1_6" => Ok(full_catalog()),
+        "tier1_6" => {
+            let mut c = tier1_catalog();
+            c.extend(tier2_catalog());
+            c.extend(tier3_catalog());
+            c.extend(tier4_catalog());
+            c.extend(tier5_catalog());
+            c.extend(tier6_catalog());
+            Ok(c)
+        }
+        "full" | "solo_full" | "tier1_7" => Ok(full_catalog()),
         other => Err(format!(
-            "unknown catalog {other:?}; expected one of: tier1, solo_tier_1, tier2, solo_tier_2, tier3, solo_tier_3, tier4, solo_tier_4, tier5, solo_tier_5, tier6, solo_tier_6, tier1_2, tier1_3, tier1_4, tier1_5, tier1_6, full, solo_full, test"
+            "unknown catalog {other:?}; expected one of: tier1, solo_tier_1, tier2, solo_tier_2, tier3, solo_tier_3, tier4, solo_tier_4, tier5, solo_tier_5, tier6, solo_tier_6, tier7, solo_tier_7, tier1_2, tier1_3, tier1_4, tier1_5, tier1_6, tier1_7, full, solo_full, test"
         )),
     }
 }
@@ -457,6 +485,9 @@ pub fn is_battlecry_minion(card_id: CardId) -> bool {
             | tier5::shipwrecked_rascal::ID
             | tier6::sanguine_champion::ID
             | tier6::silent_deliverer::ID
+            | tier7::captain_sanders::ID
+            | tier7::champion_of_sargeras::ID
+            | tier7::highkeeper_ra::ID
             | tokens::TOKEN_MAGICFIN_APPRENTICE
             | tokens::TOKEN_BLUE_CHROMADRAKE
             | tokens::TOKEN_BLACK_CHROMADRAKE
@@ -505,6 +536,10 @@ pub fn is_rally_minion(card_id: CardId) -> bool {
             | tier5::sanguine_refiner::ID
             | tier6::crimson_vindicator::ID
             | tier6::heroic_broodmother::ID
+            | tier7::highkeeper_ra::ID
+            | tier7::jailbird_juggernaut::ID
+            | tier7::obsidian_ravager::ID
+            | tier7::the_last_one_standing::ID
     )
 }
 
@@ -554,6 +589,9 @@ pub fn is_deathrattle_minion(card_id: CardId) -> bool {
             | tier6::nadina_the_red::ID
             | tier6::ravaging_scorpid::ID
             | tier6::sanguine_champion::ID
+            | tier7::champion_of_sargeras::ID
+            | tier7::highkeeper_ra::ID
+            | tier7::stitched_salvager::ID
             | tokens::TOKEN_SEWER_RAT
             | deities::CARD_YSHAARJ
     )
@@ -626,6 +664,7 @@ pub fn apply_combat_summon_modifiers(
     }
     tier5::lurking_leviathan::on_beast_summoned_combat(board, summoned_id, token);
     tier4::banana_slamma::on_beast_summoned(board, summoned_id, token);
+    tier7::stalwart_kodo::on_minion_summoned_in_combat(board, summoned_id, token);
     token.sync_max_stats();
     check_stat_thresholds(token);
 }
@@ -661,7 +700,7 @@ fn dispatch_single_play_battlecry(
         tier3::auto_accelerator::ID => tier3::auto_accelerator::on_battlecry(state, unit, rng),
         tier3::azsharan_cutlassier::ID => tier3::azsharan_cutlassier::on_battlecry(state, unit),
         tier3::disguised_graverobber::ID => {
-            tier3::disguised_graverobber::on_battlecry(state, unit, board_pos, pool)
+            tier3::disguised_graverobber::on_battlecry(state, unit, board_pos, pool, rng)
         }
         tier3::fearless_foodie::ID => {
             tier3::fearless_foodie::on_battlecry(state, unit, pool, rng)
@@ -711,6 +750,11 @@ fn dispatch_single_play_battlecry(
         tier6::veteran_brigand::ID => {
             tier6::veteran_brigand::on_battlecry(state, unit, pool, rng)
         }
+        tier7::captain_sanders::ID => {
+            tier7::captain_sanders::on_battlecry(state, unit, board_pos)
+        }
+        tier7::champion_of_sargeras::ID => tier7::champion_of_sargeras::on_battlecry(state, unit),
+        tier7::highkeeper_ra::ID => tier7::highkeeper_ra::on_battlecry(state, unit, rng),
         tokens::TOKEN_MAGICFIN_APPRENTICE => {
             tier6::magicfin_mycologist::on_apprentice_battlecry(state, unit, board_pos, pool, rng)
         }
@@ -891,16 +935,18 @@ pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) 
         tier5::resourceful_robot::on_end_turn(state, pool, rng);
         tier6::utility_drone::on_end_turn(state);
         tier6::young_murk_eye::on_end_turn(state, pool, rng);
+        tier7::futurefin::on_end_turn(state);
     }
 }
 
-/// Apply board-wide observers when a Tavern spell is cast (`Timecap'n Hooktail`, `Vicious Mindslasher`, `Charging Czarina`, `Living Azerite`, `Forsaken Weaver`).
+/// Apply board-wide observers when a Tavern spell is cast (`Timecap'n Hooktail`, `Vicious Mindslasher`, `Charging Czarina`, `Living Azerite`, `Forsaken Weaver`, `Sha of Fear`).
 pub fn on_cast_tavern_spell(state: &mut TavernState) {
     tier3::timecapn_hooktail::on_cast_tavern_spell(state);
     tier3::vicious_mindslasher::on_cast_tavern_spell(state);
     tier5::charging_czarina::on_cast_tavern_spell(state);
     tier5::living_azerite::on_cast_tavern_spell(state);
     tier6::forsaken_weaver::after_cast_tavern_spell(state);
+    tier7::sha_of_fear::on_cast_tavern_spell(state);
 }
 
 /// Apply board-wide observers when a targeted spell is cast on `board[target_pos]` (`Glambot`, `Twilight Tidehunter`, `Devilish Distractor`, `Shamanic Tidecaller`, `Gatekeeper Amalgam`).
@@ -1249,7 +1295,7 @@ pub fn on_rally(
     side: Side,
     board: &mut [Unit],
     attacker_pos: usize,
-    target: Option<&mut Unit>,
+    mut def_target: Option<(&mut [Unit], usize)>,
     auras: &mut PlayerAuras,
     hand: &[Unit],
     hand_summoned: &mut [bool],
@@ -1310,12 +1356,14 @@ pub fn on_rally(
             Vec::new()
         }
         tier4::heroic_underdog::ID => {
-            tier4::heroic_underdog::on_rally(&mut board[attacker_pos], target.as_deref());
+            let def_unit = def_target.as_ref().and_then(|(b, idx)| b.get(*idx));
+            tier4::heroic_underdog::on_rally(&mut board[attacker_pos], def_unit);
             Vec::new()
         }
         tier4::hoarding_hyena::ID => tier4::hoarding_hyena::on_rally(&board[attacker_pos]),
         tier4::sindorei_straight_shot::ID => {
-            tier4::sindorei_straight_shot::on_rally(target);
+            let def_unit = def_target.as_mut().and_then(|(b, idx)| b.get_mut(*idx));
+            tier4::sindorei_straight_shot::on_rally(def_unit);
             Vec::new()
         }
         tier5::bile_spitter::ID => {
@@ -1337,6 +1385,30 @@ pub fn on_rally(
         }
         tier6::heroic_broodmother::ID => {
             tier6::heroic_broodmother::on_rally(&mut board[attacker_pos]);
+            Vec::new()
+        }
+        tier7::highkeeper_ra::ID => {
+            tier7::highkeeper_ra::on_rally(is_golden, auras, generated_hand, rng);
+            Vec::new()
+        }
+        tier7::jailbird_juggernaut::ID => {
+            tier7::jailbird_juggernaut::on_rally(&board[attacker_pos])
+        }
+        tier7::obsidian_ravager::ID => {
+            if let Some((def_board, def_pos)) = def_target.as_mut() {
+                tier7::obsidian_ravager::on_rally(
+                    &board[attacker_pos],
+                    def_board,
+                    *def_pos,
+                    rng,
+                    events,
+                );
+            }
+            Vec::new()
+        }
+        tier7::the_last_one_standing::ID => {
+            let in_combat = def_target.is_some();
+            tier7::the_last_one_standing::on_rally(side, board, is_golden, in_combat, rng, events);
             Vec::new()
         }
         _ => Vec::new(),
@@ -1619,6 +1691,11 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
         tier6::nadina_the_red::ID => tier6::nadina_the_red::on_deathrattle(dying, ctx),
         tier6::ravaging_scorpid::ID => tier6::ravaging_scorpid::on_deathrattle(dying, ctx),
         tier6::sanguine_champion::ID => tier6::sanguine_champion::on_deathrattle(dying, ctx),
+        tier7::champion_of_sargeras::ID => {
+            tier7::champion_of_sargeras::on_deathrattle(ctx, dying.is_golden)
+        }
+        tier7::highkeeper_ra::ID => tier7::highkeeper_ra::on_deathrattle(ctx, dying.is_golden),
+        tier7::stitched_salvager::ID => tier7::stitched_salvager::on_deathrattle(dying, ctx),
         tokens::TOKEN_SEWER_RAT => tier5::sewer_lord::on_sewer_rat_deathrattle(dying, ctx),
         _ => {}
     }

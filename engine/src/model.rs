@@ -256,6 +256,8 @@ pub struct PlayerAuras {
     pub hero_power_id: u32,
     /// Total Deathrattles triggered this game (`Falling Sky Golem`).
     pub deathrattles_triggered: u32,
+    /// Queued Start-of-Combat left-most stat gains from the nearest enemy minion (`Sharing is Caring`).
+    pub sharing_is_caring_stacks: u32,
     /// Player's Old God Deity state (awakens after 4 friendly Aberration deaths in combat).
     pub deity: DeityState,
 }
@@ -408,6 +410,12 @@ pub struct Unit {
     pub magnetizations_count: u32,
     /// True if this Choose One card has both effects combined (`Fandral's Fortune`).
     pub fandral_combined: bool,
+    /// Remaining combat summon triggers for `Stalwart Kodo` (`3` per combat).
+    pub kodo_triggers_left: u8,
+    /// Remaining minion-buy triggers this turn for `Stone Age Slab` (`1` per turn).
+    pub slab_charges_left: u8,
+    /// Minions destroyed at Start of Combat and stored inside `Stitched Salvager` for its Deathrattle.
+    pub stitched_stored: Vec<Unit>,
 }
 
 impl Unit {
@@ -490,6 +498,9 @@ impl Unit {
             unbound_tempest_progress: 0,
             magnetizations_count: 0,
             fandral_combined: false,
+            kodo_triggers_left: 0,
+            slab_charges_left: 0,
+            stitched_stored: Vec::new(),
         }
     }
 

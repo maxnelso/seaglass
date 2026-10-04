@@ -17,7 +17,7 @@ fn setup_tavern(seed: u64) -> (TavernState, CardPool, Rng) {
 #[test]
 fn tier6_catalog_has_32_cards() {
     assert_eq!(solo_tier_6_catalog().len(), 32);
-    assert_eq!(full_catalog().len(), 240);
+    assert_eq!(full_catalog().len(), 252);
 }
 
 #[test]

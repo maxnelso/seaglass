@@ -42,6 +42,7 @@ pub fn after_buy_card(state: &mut TavernState, rng: &mut Rng) {
             board_idx,
             true,
         );
+        cards::tier7::polarizing_beatboxer::after_magnetize_to_minion(state, &vol, board_idx);
         let copies = if is_golden { 2 } else { 1 };
         for _ in 0..copies {
             state.add_to_hand(copy_template.clone());

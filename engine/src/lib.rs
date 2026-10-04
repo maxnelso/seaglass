@@ -17,8 +17,8 @@ pub mod python;
 
 pub use cards::{
     catalog_for, full_catalog, solo_tier_3_catalog, solo_tier_4_catalog, solo_tier_5_catalog,
-    solo_tier_6_catalog, tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, tier5_catalog,
-    tier6_catalog, ActivateTargetKind, CardTemplate,
+    solo_tier_6_catalog, solo_tier_7_catalog, tier1_catalog, tier2_catalog, tier3_catalog,
+    tier4_catalog, tier5_catalog, tier6_catalog, tier7_catalog, ActivateTargetKind, CardTemplate,
 };
 pub use combat::{resolve_battle, BattleResult};
 pub use events::Event;

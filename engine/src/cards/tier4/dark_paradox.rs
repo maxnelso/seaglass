@@ -23,7 +23,7 @@ pub fn on_rally(
     let tribe = spells::most_common_tribe(board, rng);
     let candidates: Vec<CardTemplate> = cards::full_catalog()
         .into_iter()
-        .filter(|t| t.card_id != ID && t.tribe.matches(tribe))
+        .filter(|t| t.tavern_tier <= 6 && t.card_id != ID && t.tribe.matches(tribe))
         .collect();
     if candidates.is_empty() {
         return;

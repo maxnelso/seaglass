@@ -15,6 +15,7 @@ pub const TOKEN_SATELLITE: CardId = 910;
 pub const TOKEN_SEWER_RAT: CardId = 911;
 pub const TOKEN_HALF_SHELL: CardId = 912;
 pub const TOKEN_MAGICFIN_APPRENTICE: CardId = 913;
+pub const TOKEN_BLOOD_GOLEM: CardId = 914;
 
 pub const TOKEN_BLUE_CHROMADRAKE: CardId = 920;
 pub const TOKEN_BLACK_CHROMADRAKE: CardId = 921;
@@ -339,6 +340,14 @@ pub fn make_magicfin_apprentice(taught_spell_id: CardId) -> Unit {
     u
 }
 
+/// `Blood Golem` (`BG23_013t` — Token summoned by `Jailbird Juggernaut` with dynamic stats).
+pub fn make_blood_golem(atk: i32, hp: i32, is_golden: bool) -> Unit {
+    Unit::new("Blood Golem", atk, hp)
+        .with_card_id(TOKEN_BLOOD_GOLEM)
+        .with_tavern_tier(1)
+        .with_golden(is_golden)
+}
+
 /// Helper to construct a Choose-One option card for `discover_pending`.
 pub fn make_choice_option(card_id: CardId, name: &str, is_golden: bool) -> Unit {
     let mut u = Unit::new(name, 0, 0)
@@ -347,3 +356,32 @@ pub fn make_choice_option(card_id: CardId, name: &str, is_golden: bool) -> Unit 
     u.is_spell = true;
     u
 }
+
+/// Instantiate a plain (non-Golden, unbuffed) copy of a token minion by `card_id`.
+pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
+    match unit.card_id {
+        TOKEN_ABERRANT_TENTACLE => Some(make_aberrant_tentacle()),
+        TOKEN_BEETLE => Some(make_beetle(false, auras)),
+        TOKEN_MICROBOT => Some(make_microbot(false)),
+        TOKEN_SKELETON => Some(make_skeleton(false, auras)),
+        TOKEN_BAT => Some(make_flittering_beast(false)),
+        TOKEN_WATER_DROPLET => Some(make_water_droplet()),
+        TOKEN_DEMON_FODDER => Some(make_demon_fodder(false)),
+        TOKEN_FISHBAIT => Some(make_fishbait(false)),
+        TOKEN_HELPING_HAND => Some(make_helping_hand(false, auras)),
+        TOKEN_SATELLITE => Some(make_satellite(false)),
+        TOKEN_SEWER_RAT => Some(make_sewer_rat(false)),
+        TOKEN_HALF_SHELL => Some(make_half_shell(false)),
+        TOKEN_MAGICFIN_APPRENTICE => {
+            Some(make_magicfin_apprentice(unit.taught_spell_id.unwrap_or(0)))
+        }
+        TOKEN_BLOOD_GOLEM => Some(make_blood_golem(1, 1, false)),
+        TOKEN_BLUE_CHROMADRAKE
+        | TOKEN_BLACK_CHROMADRAKE
+        | TOKEN_GREEN_CHROMADRAKE
+        | TOKEN_BRONZE_CHROMADRAKE
+        | TOKEN_RED_CHROMADRAKE => Some(make_chromadrake(unit.card_id, false)),
+        _ => None,
+    }
+}
+

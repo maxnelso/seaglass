@@ -192,9 +192,13 @@ fn card_311_diremuck_forager() {
 #[test]
 fn card_312_disguised_graverobber() {
     let (mut state, mut pool, mut rng) = setup_tavern(312);
-    state
-        .board
-        .push(tier2::eternal_knight::template().instantiate()); // 4/2 Undead
+    // Take 1 Eternal Knight out of the pool and place it on the board with buffs (+5/+5 and Taunt).
+    pool.take_copy(tier2::eternal_knight::ID);
+    assert_eq!(pool.remaining_copies(tier2::eternal_knight::ID), 14);
+    let mut knight = tier2::eternal_knight::template().instantiate();
+    knight.add_stats(5, 5);
+    knight.taunt = true;
+    state.board.push(knight);
     state.add_to_hand(tier3::disguised_graverobber::template().instantiate());
     state
         .step(
@@ -206,12 +210,72 @@ fn card_312_disguised_graverobber() {
             &mut rng,
         )
         .unwrap();
-    // Eternal Knight was destroyed -> eternal_knights_died == 1, and a plain copy in hand is now 8/4!
+    // Eternal Knight was destroyed -> eternal_knights_died == 1, and a plain copy in hand is 8/4 without Taunt or the +5/+5 buff!
+    // Pool count stays at 14 (1 returned when destroyed, 1 taken for the plain copy in hand).
     assert_eq!(state.auras.eternal_knights_died, 1);
+    assert_eq!(pool.remaining_copies(tier2::eternal_knight::ID), 14);
     assert_eq!(state.hand.len(), 1);
     assert_eq!(state.hand[0].card_id, tier2::eternal_knight::ID);
     assert_eq!(state.hand[0].attack, 8);
     assert_eq!(state.hand[0].health, 4);
+    assert!(!state.hand[0].taunt);
+
+    // Destroying an Undead with Deathrattle + Reborn triggers its Deathrattle AND Reborns it on board!
+    state.board.clear();
+    state.hand.clear();
+    state
+        .board
+        .push(tier2::scarlet_skull::template().instantiate()); // 2/1 Undead, Reborn, DR: Give a friendly Undead +1/+2
+    state
+        .board
+        .push(tier1::risen_rider::template().instantiate()); // 2/1 Undead, Taunt, Reborn
+    state.add_to_hand(tier3::disguised_graverobber::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Scarlet Skull died -> Risen Rider gained +1/+2 (2/1 -> 3/3), Reborn Scarlet Skull is on board without Reborn, and plain copy in hand has Reborn!
+    assert_eq!(state.board.len(), 3);
+    assert_eq!(state.board[1].card_id, tier2::scarlet_skull::ID);
+    assert!(!state.board[1].reborn);
+    assert_eq!(state.board[2].card_id, tier1::risen_rider::ID);
+    assert_eq!(state.board[2].attack, 3);
+    assert_eq!(state.board[2].health, 3);
+    assert_eq!(state.hand.len(), 1);
+    assert_eq!(state.hand[0].card_id, tier2::scarlet_skull::ID);
+    assert!(state.hand[0].reborn);
+
+    // Destroying a Golden Undead token with granted Taunt produces a plain (non-Golden, unbuffed) token in hand!
+    state.board.clear();
+    state.hand.clear();
+    let mut golden_hand = tokens::make_helping_hand(true, &state.auras); // 4/2 Golden Helping Hand with Reborn
+    golden_hand.reborn = false; // Suppose it already lost Reborn and gained Taunt
+    golden_hand.taunt = true;
+    state.board.push(golden_hand);
+    state.add_to_hand(tier3::disguised_graverobber::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert_eq!(state.hand[0].card_id, tokens::TOKEN_HELPING_HAND);
+    assert!(!state.hand[0].is_golden);
+    assert_eq!(state.hand[0].attack, 2);
+    assert_eq!(state.hand[0].health, 1);
+    assert!(state.hand[0].reborn);
+    assert!(!state.hand[0].taunt);
 }
 
 #[test]

@@ -28,7 +28,8 @@ pub fn base_copies_for_tier(tier: u32) -> u32 {
         4 => 11,
         5 => 9,
         6 => 7,
-        _ => panic!("invalid tavern tier {tier} (must be 1..=6)"),
+        7 => 5,
+        _ => panic!("invalid tavern tier {tier} (must be 1..=7)"),
     }
 }
 
@@ -322,6 +323,16 @@ impl CardPool {
             }
         }
         options
+    }
+
+    /// Take 1 copy of `card_id` from the shared card pool if available (`Disguised Graverobber`).
+    pub fn take_copy(&mut self, card_id: CardId) {
+        for entry in &mut self.entries {
+            if entry.template.card_id == card_id {
+                entry.remaining = entry.remaining.saturating_sub(1);
+                break;
+            }
+        }
     }
 
     /// Return a unit's copy (or 3 copies if tripled Golden) back to the shared card pool.
@@ -1491,7 +1502,7 @@ impl TavernState {
 
         match action {
             TavernAction::Buy { shop_index } => {
-                let unit = self.shop.remove(shop_index);
+                let mut unit = self.shop.remove(shop_index);
                 let bought_snapshot = unit.clone();
                 if unit.is_spell {
                     if unit.costs_health {
@@ -1512,6 +1523,7 @@ impl TavernState {
                             b.add_stats(unit.attack * mult, unit.health * mult);
                         }
                     }
+                    cards::tier7::stone_age_slab::on_buy_minion(self, &mut unit);
                     let cid = unit.card_id;
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
@@ -1595,6 +1607,9 @@ impl TavernState {
                             true,
                             pool,
                             rng,
+                        );
+                        cards::tier7::polarizing_beatboxer::after_magnetize_to_minion(
+                            self, &card, board_pos,
                         );
                     }
                     pool.return_unit(&card);

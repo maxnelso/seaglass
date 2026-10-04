@@ -3,7 +3,8 @@
 //! At the end of your turn, Magnetize a (`2` if Golden) random Volumizer(s) to this. Get a copy of it.
 
 use crate::cards::{
-    after_play_minion, on_first_play_or_magnetize, on_magnetize_transfer, tier2, CardTemplate,
+    after_play_minion, on_first_play_or_magnetize, on_magnetize_transfer, tier2, tier7,
+    CardTemplate,
 };
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
@@ -43,6 +44,7 @@ pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) 
             target.add_stats(vol.attack, vol.health);
             on_magnetize_transfer(&vol, target);
             after_play_minion(state, vol.card_id, Tribe::Mech, board_pos, true, pool, rng);
+            tier7::polarizing_beatboxer::after_magnetize_to_minion(state, &vol, board_pos);
 
             let mut copy = tpl.instantiate();
             state.apply_global_unit_auras(&mut copy);

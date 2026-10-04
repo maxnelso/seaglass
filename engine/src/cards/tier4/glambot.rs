@@ -36,6 +36,7 @@ pub fn after_cast_targeted_spell(state: &mut TavernState, target_pos: usize) {
                 true,
             );
             cards::sync_board_spell_auras(&state.board, &mut state.auras);
+            cards::tier7::polarizing_beatboxer::after_magnetize_to_minion(state, &sat, target_pos);
         }
     }
 }

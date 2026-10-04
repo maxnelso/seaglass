@@ -7,8 +7,8 @@ use seaglass::cards::{spells, tier1, tier2, tier3, tokens};
 use seaglass::{
     catalog_for, full_catalog, parse_unit, run_scenario, run_tavern_scenario, simulate,
     simulate_batch, tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, tier5_catalog,
-    tier6_catalog, BattleOutcome, CardPool, Defaults, DeityKind, Event, GameState, Keyword, Rng,
-    Scenario, Side, TavernAction, TavernScenario, TavernState, Tribe, Unit,
+    tier6_catalog, tier7_catalog, BattleOutcome, CardPool, Defaults, DeityKind, Event, GameState,
+    Keyword, Rng, Scenario, Side, TavernAction, TavernScenario, TavernState, Tribe, Unit,
 };
 
 fn collect_yaml_files(dir: &Path) -> Vec<PathBuf> {
@@ -113,7 +113,7 @@ fn tier1_catalog_contains_all_21_live_solo_minions() {
 fn tier2_catalog_contains_all_34_live_solo_minions_and_15_spells() {
     let cards = tier2_catalog();
     assert_eq!(cards.len(), 34);
-    assert_eq!(full_catalog().len(), 240);
+    assert_eq!(full_catalog().len(), 252);
 
     let names: Vec<&str> = cards.iter().map(|c| c.name.as_str()).collect();
     let expected = [
@@ -898,7 +898,7 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
 fn tier4_catalog_contains_all_58_live_solo_minions_and_16_spells() {
     let cards = tier4_catalog();
     assert_eq!(cards.len(), 58);
-    assert_eq!(full_catalog().len(), 240);
+    assert_eq!(full_catalog().len(), 252);
     assert_eq!(catalog_for("tier4").unwrap().len(), 58);
 
     for (idx, card) in cards.iter().enumerate() {
@@ -917,7 +917,7 @@ fn tier4_catalog_contains_all_58_live_solo_minions_and_16_spells() {
 fn tier5_catalog_contains_all_52_live_solo_minions_and_15_spells() {
     let cards = tier5_catalog();
     assert_eq!(cards.len(), 52);
-    assert_eq!(full_catalog().len(), 240);
+    assert_eq!(full_catalog().len(), 252);
     assert_eq!(catalog_for("tier5").unwrap().len(), 52);
 
     for (idx, card) in cards.iter().enumerate() {
@@ -936,7 +936,7 @@ fn tier5_catalog_contains_all_52_live_solo_minions_and_15_spells() {
 fn tier6_catalog_contains_all_32_live_solo_minions_and_5_spells() {
     let cards = tier6_catalog();
     assert_eq!(cards.len(), 32);
-    assert_eq!(full_catalog().len(), 240);
+    assert_eq!(full_catalog().len(), 252);
     assert_eq!(catalog_for("tier6").unwrap().len(), 32);
 
     for (idx, card) in cards.iter().enumerate() {
@@ -949,4 +949,23 @@ fn tier6_catalog_contains_all_32_live_solo_minions_and_5_spells() {
 
     assert_eq!(spells::tier6_spells().len(), 5);
     assert_eq!(spells::spells_up_to_tier(6).len(), 66);
+}
+
+#[test]
+fn tier7_catalog_contains_all_12_live_solo_minions_and_4_spells() {
+    let cards = tier7_catalog();
+    assert_eq!(cards.len(), 12);
+    assert_eq!(full_catalog().len(), 252);
+    assert_eq!(catalog_for("tier7").unwrap().len(), 12);
+
+    for (idx, card) in cards.iter().enumerate() {
+        assert_eq!(card.tavern_tier, 7);
+        assert!(card.card_id >= 701 && card.card_id <= 712);
+        for other in &cards[idx + 1..] {
+            assert_ne!(card.card_id, other.card_id);
+        }
+    }
+
+    assert_eq!(spells::tier7_spells().len(), 4);
+    assert_eq!(spells::spells_up_to_tier(7).len(), 70);
 }

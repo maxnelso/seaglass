@@ -1,4 +1,4 @@
-//! Tier 1, Tier 2, Tier 3, Tier 4, and Tier 5 Tavern Spells (`Patch 36.6.3`).
+//! Tier 1 through Tier 7 Tavern Spells (`Patch 36.6.3`).
 
 use crate::cards::tokens::{
     self, is_choice_option, make_choice_option, CHOICE_ALLIANCE_ATK, CHOICE_ALLIANCE_HP,
@@ -86,6 +86,12 @@ pub const SPELL_EYES_OF_THE_EARTH_MOTHER: CardId = 860;
 pub const SPELL_FANDRALS_FORTUNE: CardId = 861;
 pub const SPELL_LOST_STAFF_OF_HAMUUL: CardId = 862;
 pub const SPELL_PERFECT_VISION: CardId = 863;
+
+// Tier 7 Tavern Spells (4)
+pub const SPELL_HALLOWED_RITUAL: CardId = 864;
+pub const SPELL_MENAGERIE_TABLEWARE: CardId = 865;
+pub const SPELL_SACRED_GIFT: CardId = 866;
+pub const SPELL_SHARING_IS_CARING: CardId = 867;
 
 /// All 5 Bounty Tavern Spells (`Bigwig Bandit`, `Shipwrecked Rascal`, `Proud Privateer`).
 pub const BOUNTY_SPELL_IDS: [CardId; 5] = [
@@ -293,6 +299,22 @@ pub fn tier6_spells() -> Vec<Unit> {
     ]
 }
 
+/// All 4 active Tier 7 Tavern Spells (Patch 36.6.3).
+pub fn tier7_spells() -> Vec<Unit> {
+    vec![
+        make_tavern_spell(SPELL_HALLOWED_RITUAL, "Hallowed Ritual", 7, 5, false),
+        make_tavern_spell(
+            SPELL_MENAGERIE_TABLEWARE,
+            "Menagerie Tableware",
+            7,
+            4,
+            false,
+        ),
+        make_tavern_spell(SPELL_SACRED_GIFT, "Sacred Gift", 7, 4, false),
+        make_tavern_spell(SPELL_SHARING_IS_CARING, "Sharing is Caring", 7, 2, false),
+    ]
+}
+
 /// Return all Tavern Spells with `tavern_tier <= max_tier`.
 pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
     let mut list = tier1_spells();
@@ -311,6 +333,9 @@ pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
     if max_tier >= 6 {
         list.extend(tier6_spells());
     }
+    if max_tier >= 7 {
+        list.extend(tier7_spells());
+    }
     list
 }
 
@@ -328,7 +353,7 @@ pub fn spell_by_id(card_id: CardId) -> Option<Unit> {
         SPELL_CONFLAGRATION => return Some(tokens::make_conflagration()),
         _ => {}
     }
-    spells_up_to_tier(6).into_iter().find(|s| s.card_id == card_id)
+    spells_up_to_tier(7).into_iter().find(|s| s.card_id == card_id)
 }
 
 /// Look up a Tavern Spell or token spell by exact name.
@@ -345,7 +370,7 @@ pub fn spell_by_name(name: &str) -> Option<Unit> {
         "Conflagration" => return Some(tokens::make_conflagration()),
         _ => {}
     }
-    spells_up_to_tier(6).into_iter().find(|s| s.name == name)
+    spells_up_to_tier(7).into_iter().find(|s| s.name == name)
 }
 
 /// Draw a uniformly random Tavern Spell with `tavern_tier <= max_tier`.
@@ -467,19 +492,18 @@ pub fn spell_requires_board_target(card_id: CardId) -> bool {
             | SPELL_EYES_OF_THE_EARTH_MOTHER
             | SPELL_LOST_STAFF_OF_HAMUUL
             | SPELL_PERFECT_VISION
+            | SPELL_SACRED_GIFT
     )
 }
 
-/// Apply the `Misplaced Tea Set` effect (`Give a friendly minion of each type +4/+4`).
-pub fn apply_misplaced_tea_set(state: &mut TavernState, rng: &mut Rng) {
-    let (atk, hp) = state.auras.spell_stat_buff(4, 4);
+/// Select up to one distinct living friendly minion on `board` for each single tribe (`Misplaced Tea Set`, `Veteran Technican`, `The Last One Standing`).
+pub(crate) fn select_menagerie_targets(board: &[Unit], rng: &mut Rng) -> Vec<usize> {
     let mut chosen_indices: Vec<usize> = Vec::new();
     for &tribe in &SINGLE_TRIBES {
-        let candidates: Vec<usize> = state
-            .board
+        let candidates: Vec<usize> = board
             .iter()
             .enumerate()
-            .filter(|(i, u)| !chosen_indices.contains(i) && u.tribe.matches(tribe))
+            .filter(|(i, u)| u.health > 0 && !chosen_indices.contains(i) && u.tribe.matches(tribe))
             .map(|(i, _)| i)
             .collect();
         if !candidates.is_empty() {
@@ -491,6 +515,13 @@ pub fn apply_misplaced_tea_set(state: &mut TavernState, rng: &mut Rng) {
             chosen_indices.push(pick);
         }
     }
+    chosen_indices
+}
+
+/// Apply the `Misplaced Tea Set` effect (`Give a friendly minion of each type +4/+4`).
+pub fn apply_misplaced_tea_set(state: &mut TavernState, rng: &mut Rng) {
+    let (atk, hp) = state.auras.spell_stat_buff(4, 4);
+    let chosen_indices = select_menagerie_targets(&state.board, rng);
     for idx in chosen_indices {
         state.board[idx].add_stats(atk, hp);
     }
@@ -1229,6 +1260,32 @@ pub fn cast_spell(
                     target.sync_max_stats();
                     crate::cards::check_stat_thresholds(target);
                 }
+            }
+            SPELL_HALLOWED_RITUAL => {
+                let mut opts = pool.draw_discover_options(7, 3, rng);
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_MENAGERIE_TABLEWARE => {
+                let repeats = 1 + select_menagerie_targets(&state.board, rng).len();
+                let (atk, hp) = state.auras.spell_stat_buff(3, 3);
+                for _ in 0..repeats {
+                    for u in &mut state.board {
+                        u.add_stats(atk, hp);
+                    }
+                }
+            }
+            SPELL_SACRED_GIFT => {
+                if board_pos < state.board.len() {
+                    state.board[board_pos].apply_keyword(Keyword::DivineShield, false);
+                }
+            }
+            SPELL_SHARING_IS_CARING => {
+                state.auras.sharing_is_caring_stacks += 1;
             }
             _ => {
                 if board_pos < state.board.len() {

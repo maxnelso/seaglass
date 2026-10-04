@@ -22,6 +22,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
     use cards::tier4::*;
     use cards::tier5::*;
     use cards::tier6::*;
+    use cards::tier7::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",
@@ -1111,7 +1112,81 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (young_murk_eye::ID, true) => {
             "End of Turn: Adjacent minions trigger their Battlecries twice."
         }
+        // Tier 7 Minions
+        (captain_sanders::ID, false) => {
+            "Battlecry: Make a friendly minion from Tier 6 or below Golden."
+        }
+        (captain_sanders::ID, true) => {
+            "Battlecry: Make 2 friendly minions from Tier 6 or below Golden."
+        }
+        (champion_of_sargeras::ID, false) => {
+            "Battlecry & Deathrattle: Give minions in the Tavern +8/+8 this game."
+        }
+        (champion_of_sargeras::ID, true) => {
+            "Battlecry & Deathrattle: Give minions in the Tavern +16/+16 this game."
+        }
+        (futurefin::ID, false) => {
+            "End of Turn: Give this minion's stats to the left-most minion in your hand."
+        }
+        (futurefin::ID, true) => {
+            "End of Turn: Give double this minion's stats to the left-most minion in your hand."
+        }
+        (highkeeper_ra::ID, false) => {
+            "Battlecry, Deathrattle & Rally: Get a random Tier 6 minion."
+        }
+        (highkeeper_ra::ID, true) => {
+            "Battlecry, Deathrattle & Rally: Get 2 random Tier 6 minions."
+        }
+        (jailbird_juggernaut::ID, false) => {
+            "Rally: Summon a Blood Golem with this minion's stats to attack target first."
+        }
+        (jailbird_juggernaut::ID, true) => {
+            "Rally: Summon a Blood Golem with double this minion's stats to attack target first."
+        }
+        (obsidian_ravager::ID, false) => {
+            "Rally: Deal damage equal to Attack to target and an adjacent minion."
+        }
+        (obsidian_ravager::ID, true) => {
+            "Rally: Deal damage equal to Attack to target and adjacent minions."
+        }
+        (polarizing_beatboxer::ID, false) => {
+            "Whenever you Magnetize to a different minion, it also Magnetizes to this."
+        }
+        (polarizing_beatboxer::ID, true) => {
+            "Whenever you Magnetize to a different minion, it also Magnetizes to this twice."
+        }
+        (sha_of_fear::ID, false) => {
+            "Whenever you cast a Tavern spell, give your minions and Deity +3/+3."
+        }
+        (sha_of_fear::ID, true) => {
+            "Whenever you cast a Tavern spell, give your minions and Deity +6/+6."
+        }
+        (stalwart_kodo::ID, false) => {
+            "After you summon a minion in combat, give it this minion's max stats (3 times)."
+        }
+        (stalwart_kodo::ID, true) => {
+            "After you summon a minion in combat, give it double this minion's max stats (3 times)."
+        }
+        (stitched_salvager::ID, false) => {
+            "Start of Combat: Destroy left neighbor. Deathrattle: Summon an exact copy."
+        }
+        (stitched_salvager::ID, true) => {
+            "Start of Combat: Destroy adjacent minions. Deathrattle: Summon exact copies."
+        }
+        (stone_age_slab::ID, false) => {
+            "Once per turn after you buy a minion, give it +20/+20 and double its stats."
+        }
+        (stone_age_slab::ID, true) => {
+            "Once per turn after you buy a minion, give it +20/+20 and triple its stats."
+        }
+        (the_last_one_standing::ID, false) => {
+            "Rally: Give a friendly minion of each type +15/+15 permanently."
+        }
+        (the_last_one_standing::ID, true) => {
+            "Rally: Give a friendly minion of each type +15/+15 permanently twice."
+        }
         // Tokens & Spells
+        (tokens::TOKEN_BLOOD_GOLEM, _) => "Token Blood Golem.",
         (tokens::TOKEN_MAGICFIN_APPRENTICE, false) => {
             "Battlecry: Cast the taught Tavern spell. (Can't be tripled.)"
         }
@@ -1285,6 +1360,15 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Spell (2g): Choose a minion. Refresh the Tavern with minions of its type."
         }
         (SPELL_PERFECT_VISION, _) => "Spell (3g): Set a minion's stats to 20/20.",
+        // Tier 7 Spells
+        (SPELL_HALLOWED_RITUAL, _) => "Spell (5g): Discover a Tier 7 minion.",
+        (SPELL_MENAGERIE_TABLEWARE, _) => {
+            "Spell (4g): Give your minions +3/+3. Repeat for each friendly minion type."
+        }
+        (SPELL_SACRED_GIFT, _) => "Spell (4g): Give a minion Divine Shield.",
+        (SPELL_SHARING_IS_CARING, _) => {
+            "Spell (2g): Start of Combat — Left-most minion gains stats of nearest enemy."
+        }
         _ => "",
     }
 }

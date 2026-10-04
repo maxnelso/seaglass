@@ -14,7 +14,7 @@ pub fn template() -> CardTemplate {
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     let pool: Vec<CardTemplate> = full_catalog()
         .into_iter()
-        .filter(|t| is_deathrattle_minion(t.card_id) && t.card_id != ID)
+        .filter(|t| t.tavern_tier <= 6 && is_deathrattle_minion(t.card_id) && t.card_id != ID)
         .collect();
     if pool.is_empty() {
         return;

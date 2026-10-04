@@ -52,6 +52,9 @@ impl SideCombatState {
         mut hand: Vec<Unit>,
     ) -> Self {
         for u in &mut board {
+            if u.card_id == cards::tier7::stalwart_kodo::ID {
+                u.kodo_triggers_left = 3;
+            }
             cards::sync_unit_auras(u, &auras);
             u.sync_max_stats();
             cards::check_stat_thresholds(u);
@@ -173,6 +176,14 @@ pub fn resolve_battle(
         &mut rng,
         &mut events,
     );
+    resolve_start_of_combat_destroys(
+        Side::A,
+        &mut side_a,
+        &mut side_b,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
     resolve_start_of_combat_spells(Side::B, &mut side_b, &mut side_a, &mut rng, &mut events);
     cards::on_start_of_combat(
         Side::B,
@@ -181,6 +192,14 @@ pub fn resolve_battle(
         &side_b.hand,
         &mut side_b.hand_summoned,
         &mut side_b.combat_beast_bonus_atk,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
+    resolve_start_of_combat_destroys(
+        Side::B,
+        &mut side_b,
+        &mut side_a,
         &mut next_id,
         &mut rng,
         &mut events,
@@ -288,7 +307,7 @@ pub fn resolve_battle(
     }
 }
 
-/// Resolve Start-of-Combat Tavern spells (`Brood of Nozdormu`, `Upper Hand`).
+/// Resolve Start-of-Combat Tavern spells (`Brood of Nozdormu`, `Upper Hand`, `Sharing is Caring`).
 fn resolve_start_of_combat_spells(
     side: Side,
     own_side: &mut SideCombatState,
@@ -330,6 +349,83 @@ fn resolve_start_of_combat_spells(
             opp_side.board[idx].health = 1;
             opp_side.board[idx].max_health = opp_side.board[idx].max_health.max(1);
         }
+    }
+    while own_side.auras.sharing_is_caring_stacks > 0 {
+        own_side.auras.sharing_is_caring_stacks -= 1;
+        if let (Some(leftmost), Some(nearest_opp)) = (
+            own_side.board.first_mut(),
+            opp_side.board.iter().find(|u| u.health > 0),
+        ) {
+            let add_atk = nearest_opp.attack.max(0);
+            let add_hp = nearest_opp.health.max(0);
+            leftmost.add_stats(add_atk, add_hp);
+            events.push(Event::StatBuff {
+                side,
+                unit: leftmost.id,
+                atk_delta: add_atk,
+                hp_delta: add_hp,
+                attack: leftmost.attack,
+                health: leftmost.health,
+                reason: "Sharing is Caring",
+            });
+        }
+    }
+}
+
+/// Resolve Start-of-Combat friendly neighbor destroys (`Stitched Salvager`).
+fn resolve_start_of_combat_destroys(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    let sources: Vec<(UnitId, bool)> = own_side
+        .board
+        .iter()
+        .filter(|u| u.card_id == cards::tier7::stitched_salvager::ID && u.health > 0)
+        .map(|u| (u.id, u.is_golden))
+        .collect();
+    for (src_id, is_golden) in sources {
+        let Some(src_pos) = own_side
+            .board
+            .iter()
+            .position(|u| u.id == src_id && u.health > 0)
+        else {
+            continue;
+        };
+        let mut victim_positions = Vec::new();
+        if src_pos > 0
+            && own_side.board[src_pos - 1].health > 0
+            && own_side.board[src_pos - 1].card_id != cards::tier7::stitched_salvager::ID
+        {
+            victim_positions.push(src_pos - 1);
+        }
+        if is_golden
+            && src_pos + 1 < own_side.board.len()
+            && own_side.board[src_pos + 1].health > 0
+            && own_side.board[src_pos + 1].card_id != cards::tier7::stitched_salvager::ID
+        {
+            victim_positions.push(src_pos + 1);
+        }
+        if victim_positions.is_empty() {
+            continue;
+        }
+        let mut stored_copies = Vec::new();
+        for &v_pos in &victim_positions {
+            let mut copy = own_side.board[v_pos].clone();
+            copy.health = copy.max_health.max(copy.health);
+            stored_copies.push(copy);
+            own_side.board[v_pos].health = 0;
+            events.push(Event::Death {
+                unit: own_side.board[v_pos].id,
+            });
+        }
+        own_side.board[src_pos].stitched_stored.extend(stored_copies);
+        own_side.ptr = preserve_defender_ptr(&own_side.board, own_side.ptr);
+        resolve_deaths(side, own_side, opp_side, next_id, rng, events);
+        resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
     }
 }
 
@@ -522,9 +618,10 @@ fn perform_one_strike(
     let Some(initial_atk_pos) = atk_side.board.iter().position(|u| u.id == attacker_id) else {
         return;
     };
-    let Some(def_pos) = choose_target(&def_side.board, rng) else {
+    let Some(initial_def_pos) = choose_target(&def_side.board, rng) else {
         return;
     };
+    let target_id = def_side.board[initial_def_pos].id;
 
     // Attacking breaks Stealth.
     atk_side.board[initial_atk_pos].stealth = false;
@@ -533,13 +630,13 @@ fn perform_one_strike(
     let attacker_card_id = atk_side.board[initial_atk_pos].card_id;
     let pre_atk = atk_side.board[initial_atk_pos].attack;
     let pre_hp = atk_side.board[initial_atk_pos].health;
-    let def_had_ds = def_side.board[def_pos].divine_shield;
+    let def_had_ds = def_side.board[initial_def_pos].divine_shield;
     let mut generated_hand = Vec::new();
     let rally_summons = cards::on_rally(
         side,
         &mut atk_side.board,
         initial_atk_pos,
-        def_side.board.get_mut(def_pos),
+        Some((&mut def_side.board, initial_def_pos)),
         &mut atk_side.auras,
         &atk_side.hand,
         &mut atk_side.hand_summoned,
@@ -547,7 +644,11 @@ fn perform_one_strike(
         rng,
         events,
     );
-    if def_had_ds && !def_side.board[def_pos].divine_shield {
+    if def_had_ds
+        && initial_def_pos < def_side.board.len()
+        && !def_side.board[initial_def_pos].divine_shield
+        && attacker_card_id != cards::tier7::obsidian_ravager::ID
+    {
         cards::tier5::hopebringer::on_friendly_divine_shield_lost(&mut def_side.board);
     }
     let post_atk = atk_side.board[initial_atk_pos].attack;
@@ -571,12 +672,16 @@ fn perform_one_strike(
             cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
         }
     }
+    let mut juggernaut_golem_id: Option<UnitId> = None;
     if !rally_summons.is_empty() {
         let mut insert_pos = initial_atk_pos + 1;
         for mut token in rally_summons {
             if atk_side.board.len() < MAX_BOARD_SIZE {
                 token.id = *next_id;
                 *next_id += 1;
+                if attacker_card_id == cards::tier7::jailbird_juggernaut::ID {
+                    juggernaut_golem_id = Some(token.id);
+                }
                 atk_side.prepare_summoned_unit(&mut token);
                 events.push(Event::UnitSummoned {
                     side,
@@ -623,13 +728,55 @@ fn perform_one_strike(
         events,
     );
 
-    let Some(atk_pos) = atk_side.board.iter().position(|u| u.id == attacker_id) else {
+    // 1c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
+    if def_side.board.iter().any(|u| u.health <= 0)
+        || atk_side.board.iter().any(|u| u.health <= 0)
+    {
+        for u in &def_side.board {
+            if u.health <= 0 {
+                events.push(Event::Death { unit: u.id });
+            }
+        }
+        for u in &atk_side.board {
+            if u.health <= 0 {
+                events.push(Event::Death { unit: u.id });
+            }
+        }
+        atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
+        def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
+        resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
+        resolve_deaths(side, atk_side, def_side, next_id, rng, events);
+        resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
+    }
+
+    // 1d. `Jailbird Juggernaut`: Summoned Golem attacks the target first.
+    if let Some(golem_id) = juggernaut_golem_id {
+        perform_forced_target_strike(
+            side, golem_id, target_id, atk_side, def_side, next_id, rng, events,
+        );
+    }
+
+    let Some(atk_pos) = atk_side
+        .board
+        .iter()
+        .position(|u| u.id == attacker_id && u.health > 0)
+    else {
         return;
     };
+    let Some(def_pos) = def_side
+        .board
+        .iter()
+        .position(|u| u.id == target_id && u.health > 0)
+    else {
+        if advance_ptr {
+            atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
+        }
+        return;
+    };
+
     let attacker_attack = atk_side.board[atk_pos].attack;
     let attacker_venomous = atk_side.board[atk_pos].venomous;
 
-    let target_id = def_side.board[def_pos].id;
     let target_attack = def_side.board[def_pos].attack;
     let target_venomous = def_side.board[def_pos].venomous;
     let def_pre_hp = def_side.board[def_pos].health;
@@ -842,6 +989,133 @@ fn perform_one_strike(
     def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
 
     // 7. Resolve deaths (defending side first, then attacking side).
+    resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
+    resolve_deaths(side, atk_side, def_side, next_id, rng, events);
+    resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn perform_forced_target_strike(
+    side: Side,
+    attacker_id: UnitId,
+    target_id: UnitId,
+    atk_side: &mut SideCombatState,
+    def_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    if !atk_side
+        .board
+        .iter()
+        .any(|u| u.id == attacker_id && u.health > 0)
+        || !def_side
+            .board
+            .iter()
+            .any(|u| u.id == target_id && u.health > 0)
+    {
+        return;
+    }
+
+    cards::on_friendly_attack(
+        side,
+        &mut atk_side.board,
+        attacker_id,
+        &mut atk_side.auras,
+        rng,
+        events,
+    );
+
+    let Some(atk_pos) = atk_side
+        .board
+        .iter()
+        .position(|u| u.id == attacker_id && u.health > 0)
+    else {
+        return;
+    };
+    let Some(def_pos) = def_side
+        .board
+        .iter()
+        .position(|u| u.id == target_id && u.health > 0)
+    else {
+        return;
+    };
+
+    let attacker_attack = atk_side.board[atk_pos].attack;
+    let attacker_venomous = atk_side.board[atk_pos].venomous;
+    let target_attack = def_side.board[def_pos].attack;
+    let target_venomous = def_side.board[def_pos].venomous;
+
+    events.push(Event::AttackDeclared {
+        side,
+        attacker: attacker_id,
+        target: target_id,
+    });
+
+    let (atk_consumed_venom, def_took_damage) = apply_damage(
+        &mut def_side.board,
+        def_pos,
+        attacker_attack,
+        attacker_id,
+        attacker_venomous,
+        events,
+    );
+    if atk_consumed_venom {
+        atk_side.board[atk_pos].venomous = false;
+    }
+    if def_took_damage {
+        cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
+        cards::on_damage_dealt(
+            side,
+            &mut atk_side.board,
+            attacker_id,
+            attacker_attack,
+            &mut atk_side.auras,
+            &mut atk_side.hand,
+            &mut atk_side.hand_summoned,
+            events,
+        );
+    }
+
+    let (def_consumed_venom, atk_took_damage) = apply_damage(
+        &mut atk_side.board,
+        atk_pos,
+        target_attack,
+        target_id,
+        target_venomous,
+        events,
+    );
+    if def_consumed_venom {
+        def_side.board[def_pos].venomous = false;
+    }
+    if atk_took_damage {
+        cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
+        cards::on_damage_dealt(
+            side.other(),
+            &mut def_side.board,
+            target_id,
+            target_attack,
+            &mut def_side.auras,
+            &mut def_side.hand,
+            &mut def_side.hand_summoned,
+            events,
+        );
+    }
+
+    for u in &def_side.board {
+        if u.health <= 0 {
+            events.push(Event::Death { unit: u.id });
+        }
+    }
+    for u in &atk_side.board {
+        if u.health <= 0 {
+            events.push(Event::Death { unit: u.id });
+        }
+    }
+
+    atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
+    def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
+
     resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
     resolve_deaths(side, atk_side, def_side, next_id, rng, events);
     resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
@@ -1118,6 +1392,11 @@ fn resolve_deaths(
             );
             cards::tier4::banana_slamma::on_beast_summoned(
                 &rebuilt,
+                reborn_copy.id,
+                &mut reborn_copy,
+            );
+            cards::tier7::stalwart_kodo::on_minion_summoned_in_combat(
+                &mut rebuilt,
                 reborn_copy.id,
                 &mut reborn_copy,
             );

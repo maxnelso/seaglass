@@ -1751,3 +1751,125 @@ fn spell_863_perfect_vision() {
     assert_eq!(state.board[0].health, 20);
 }
 
+// ============================================================================
+// Tier 7 Tavern Spells (4)
+// ============================================================================
+
+#[test]
+fn spell_864_hallowed_ritual() {
+    let (mut state, mut pool, mut rng) = setup_tavern(864);
+    assert_eq!(spells::tier7_spells().len(), 4);
+    assert_eq!(spells::spells_up_to_tier(7).len(), 70);
+
+    state.add_to_hand(spells::spell_by_name("Hallowed Ritual").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    assert!(
+        state
+            .discover_pending
+            .as_ref()
+            .unwrap()
+            .iter()
+            .all(|u| u.tavern_tier == 7)
+    );
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert_eq!(state.hand[0].tavern_tier, 7);
+}
+
+#[test]
+fn spell_865_menagerie_tableware() {
+    let (mut state, mut pool, mut rng) = setup_tavern(865);
+    state
+        .board
+        .push(Unit::new("B1", 2, 2).with_tribe(Tribe::Beast));
+    state
+        .board
+        .push(Unit::new("B2", 2, 2).with_tribe(Tribe::Beast));
+    state
+        .board
+        .push(Unit::new("D1", 3, 3).with_tribe(Tribe::Dragon));
+    state.add_to_hand(spells::spell_by_name("Menagerie Tableware").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // 2 distinct friendly minion types (Beast, Dragon) -> repeats = 1 + 2 = 3 times (+9/+9 to all minions)!
+    assert_eq!(state.board[0].attack, 11);
+    assert_eq!(state.board[0].health, 11);
+    assert_eq!(state.board[1].attack, 11);
+    assert_eq!(state.board[1].health, 11);
+    assert_eq!(state.board[2].attack, 12);
+    assert_eq!(state.board[2].health, 12);
+}
+
+#[test]
+fn spell_866_sacred_gift() {
+    let (mut state, mut pool, mut rng) = setup_tavern(866);
+    state.board.push(Unit::new("Target", 4, 5));
+    state.add_to_hand(spells::spell_by_name("Sacred Gift").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.board[0].divine_shield);
+}
+
+#[test]
+fn spell_867_sharing_is_caring() {
+    let (mut state, mut pool, mut rng) = setup_tavern(867);
+    state.board.push(Unit::new("Left", 3, 4));
+    state.board.push(Unit::new("Right", 2, 2));
+    state.add_to_hand(spells::spell_by_name("Sharing is Caring").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.sharing_is_caring_stacks, 1);
+
+    let gs = seaglass::GameState {
+        auras_a: state.auras.clone(),
+        ..Default::default()
+    };
+    let opp = vec![
+        Unit::new("NearestEnemy", 15, 15),
+        Unit::new("FarEnemy", 1, 1),
+    ];
+    let res = seaglass::simulate(&state.board, &opp, &gs, 867);
+    // Left-most minion (3/4) gained stats of nearest enemy (15/15) -> 18/19 at Start of Combat!
+    assert_eq!(res.outcome, BattleOutcome::AWin);
+    assert_eq!(res.survivors_a[0].attack, 18);
+}

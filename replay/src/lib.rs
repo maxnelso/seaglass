@@ -1480,7 +1480,71 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             "young_murk_eye",
             Tribe::Murloc,
         )),
+        // Tier 7
+        "BG25_034" => Some((
+            seaglass::cards::tier7::captain_sanders::ID,
+            "captain_sanders",
+            Tribe::Pirate,
+        )),
+        "BG27_016" => Some((
+            seaglass::cards::tier7::champion_of_sargeras::ID,
+            "champion_of_sargeras",
+            Tribe::Demon,
+        )),
+        "BG34_145" => Some((
+            seaglass::cards::tier7::futurefin::ID,
+            "futurefin",
+            Tribe::Murloc,
+        )),
+        "BG34_319" => Some((
+            seaglass::cards::tier7::highkeeper_ra::ID,
+            "highkeeper_ra",
+            Tribe::None,
+        )),
+        "BG36_333" => Some((
+            seaglass::cards::tier7::jailbird_juggernaut::ID,
+            "jailbird_juggernaut",
+            Tribe::Quilboar,
+        )),
+        "BG27_017" => Some((
+            seaglass::cards::tier7::obsidian_ravager::ID,
+            "obsidian_ravager",
+            Tribe::Dragon,
+        )),
+        "BG26_149" => Some((
+            seaglass::cards::tier7::polarizing_beatboxer::ID,
+            "polarizing_beatboxer",
+            Tribe::Mech,
+        )),
+        "BG36_111" => Some((
+            seaglass::cards::tier7::sha_of_fear::ID,
+            "sha_of_fear",
+            Tribe::Aberration,
+        )),
+        "BG34_322" => Some((
+            seaglass::cards::tier7::stalwart_kodo::ID,
+            "stalwart_kodo",
+            Tribe::Beast,
+        )),
+        "BG31_999" => Some((
+            seaglass::cards::tier7::stitched_salvager::ID,
+            "stitched_salvager",
+            Tribe::Undead,
+        )),
+        "BG34_950" => Some((
+            seaglass::cards::tier7::stone_age_slab::ID,
+            "stone_age_slab",
+            Tribe::Elemental,
+        )),
+        "BG34_320" => Some((
+            seaglass::cards::tier7::the_last_one_standing::ID,
+            "the_last_one_standing",
+            Tribe::All,
+        )),
         // Tokens
+        "BG23_013t" | "BG23_013_Gt" => {
+            Some((tokens::TOKEN_BLOOD_GOLEM, "blood_golem", Tribe::None))
+        }
         "BG28_603t" => Some((tokens::TOKEN_BEETLE, "beetle", Tribe::Beast)),
         "BG36_200t" => Some((tokens::TOKEN_BAT, "bat", Tribe::Beast)),
         "BG_BOT_312t" | "TB_BaconUps_032t" => {
