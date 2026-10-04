@@ -30,3 +30,22 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
     );
     state.resolve_choose_one(opt0, opt1, pool, rng);
 }
+
+/// Ensnare the Target: get a (2 if Golden) random Quilboar (other than this card).
+pub fn choose_quilboar(state: &mut TavernState, chosen: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    for _ in 0..chosen.golden_mult() {
+        if state.hand.len() >= 10 {
+            break;
+        }
+        if let Some(drawn) = pool.draw_by_tribe(Tribe::Quilboar, Some(ID), state.tavern_tier, rng) {
+            state.add_to_hand(drawn);
+        }
+    }
+}
+
+/// Collect the Bounty: increase your maximum Gold by 1 (2 if Golden).
+pub fn choose_max_gold(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, _: &mut Rng) {
+    let mult = chosen.golden_mult() as u32;
+    state.auras.base_max_gold_bonus += mult;
+    state.max_gold += mult;
+}

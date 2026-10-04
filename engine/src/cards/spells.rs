@@ -1355,6 +1355,104 @@ fn energizing_chamber_discarded(
     }
 }
 
+// --- Choose-One options offered by Tavern spells (registered in `tokens::behaviors`) ---
+
+/// `Gem Day`: your Blood Gems give an extra +1 Attack this game.
+pub fn choose_gem_day_atk(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.blood_gem_bonus_atk += 1;
+}
+
+/// `Gem Day`: your Blood Gems give an extra +1 Health this game.
+pub fn choose_gem_day_hp(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.blood_gem_bonus_hp += 1;
+}
+
+/// `Alliance Flag`: give the target +3/+1.
+pub fn choose_alliance_atk(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    if let Some(pos) = state.choice_target() {
+        let (atk, hp) = state.auras.spell_stat_buff(3, 1);
+        state.board[pos].add_stats(atk, hp);
+    }
+}
+
+/// `Alliance Flag`: give the target +1/+3.
+pub fn choose_alliance_hp(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    if let Some(pos) = state.choice_target() {
+        let (atk, hp) = state.auras.spell_stat_buff(1, 3);
+        state.board[pos].add_stats(atk, hp);
+    }
+}
+
+/// `Time Management` (Hurry Up): give your minions (board and hand) +2/+2 now.
+pub fn choose_time_now(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    let (atk, hp) = state.auras.spell_stat_buff(2, 2);
+    for b in &mut state.board {
+        b.add_stats(atk, hp);
+    }
+    for h in &mut state.hand {
+        if !h.is_spell {
+            h.add_stats(atk, hp);
+        }
+    }
+}
+
+/// `Time Management` (Do It Later): +2/+2 twice next turn.
+pub fn choose_time_later(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.time_management_next_turn += 2;
+}
+
+/// `Boundless Potential` (Way of the Warrior): Discover a minion of your Tier.
+pub fn choose_boundless_minion(
+    state: &mut TavernState,
+    _: &Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let mut opts = pool.draw_discover_options(state.tavern_tier, 3, rng);
+    for opt in &mut opts {
+        state.apply_global_unit_auras(opt);
+    }
+    if !opts.is_empty() {
+        state.push_discover(opts);
+    }
+}
+
+/// `Boundless Potential` (Way of the Mage): Discover a Tavern spell of your Tier.
+pub fn choose_boundless_spell(state: &mut TavernState, _: &Unit, _: &mut CardPool, rng: &mut Rng) {
+    let opts = draw_discover_tavern_spells_exact_tier(state.tavern_tier, 3, rng);
+    if !opts.is_empty() {
+        state.push_discover(opts);
+    }
+}
+
+/// `Forest's Bounty`: give the target +6/+6 twice.
+pub fn choose_forest_single(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    if let Some(pos) = state.choice_target() {
+        let (atk, hp) = state.auras.spell_stat_buff(6, 6);
+        for _ in 0..2 {
+            state.board[pos].add_stats(atk, hp);
+        }
+    }
+}
+
+/// `Forest's Bounty`: give your minions +2/+2.
+pub fn choose_forest_all(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    let (atk, hp) = state.auras.spell_stat_buff(2, 2);
+    for b in &mut state.board {
+        b.add_stats(atk, hp);
+    }
+}
+
+/// `Unmasked Identity`: take the chosen Hero Power.
+pub fn choose_hero_power(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.hero_power_id = match chosen.card_id {
+        CHOICE_HP_1 => 1,
+        CHOICE_HP_2 => 2,
+        CHOICE_HP_3 => 3,
+        _ => return,
+    };
+}
+
 /// Behaviour tables for spells (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![

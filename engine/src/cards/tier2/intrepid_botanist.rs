@@ -22,3 +22,13 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
     let opt1 = make_choice_option(CHOICE_BOTANIST_HP, "Giant Dewdrop", g);
     state.resolve_choose_one(opt0, opt1, pool, rng);
 }
+
+/// Pristine Lilies: your Tavern spells give an extra +1 (+2 if Golden) Attack this game.
+pub fn choose_atk(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.spell_bonus_atk += chosen.golden_mult();
+}
+
+/// Giant Dewdrop: your Tavern spells give an extra +1 (+2 if Golden) Health this game.
+pub fn choose_hp(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.spell_bonus_hp += chosen.golden_mult();
+}

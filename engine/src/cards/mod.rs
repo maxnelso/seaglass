@@ -1045,6 +1045,42 @@ pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mu
     notify_tavern(state, |h| h.discover, |s, idx, f| f(s, idx, pool, rng));
 }
 
+/// Returns `true` if `card_id` is an option card of a Choose-One / Discover-style prompt that
+/// takes effect when chosen (it has a `choose` hook) instead of going to the hand.
+pub fn is_option_card(card_id: CardId) -> bool {
+    hooks(card_id).choose.is_some()
+}
+
+/// Apply the option card `chosen`, picked from a Choose-One / Discover-style prompt (its
+/// `choose` hook).
+pub fn apply_chosen_option(
+    state: &mut TavernState,
+    chosen: &Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if let Some(choose) = hooks(chosen.card_id).choose {
+        choose(state, chosen, pool, rng);
+    }
+}
+
+/// Apply `after_friendly_choose_one` observers (left to right) after a Choose One resolved with
+/// `option` (Discover-style options without [`CardFlags::CHOOSE_ONE_OPTION`] don't count).
+pub fn after_choose_one(
+    state: &mut TavernState,
+    option: &Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if hooks(option.card_id).has(CardFlags::CHOOSE_ONE_OPTION) {
+        notify_tavern(
+            state,
+            |h| h.after_friendly_choose_one,
+            |s, idx, f| f(s, idx, pool, rng),
+        );
+    }
+}
+
 /// Apply `card_added_to_hand` observers (living minions on `board`, left to right) after a card
 /// is added to the hand.
 pub fn on_card_added_to_hand(board: &[Unit], auras: &mut PlayerAuras) {

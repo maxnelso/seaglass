@@ -5,27 +5,26 @@
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 624;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Turbo Hogrider", 6, 8, 6).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, "Turbo Hogrider", 6, 8, 6)
+        .with_tribe(Tribe::Quilboar)
+        .on_after_friendly_choose_one(after_friendly_choose_one)
 }
 
-pub fn after_play_choose_one(state: &mut TavernState, rng: &mut Rng) {
-    let mut total_gems = 0u32;
-    for u in &state.board {
-        if u.card_id == ID {
-            total_gems += if u.is_golden { 4 } else { 2 };
-        }
-    }
-    if total_gems == 0 {
-        return;
-    }
+pub fn after_friendly_choose_one(
+    state: &mut TavernState,
+    self_idx: usize,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let gems = 2 * state.board[self_idx].golden_mult() as u32;
     for u in &mut state.board {
         if u.tribe.matches(Tribe::Quilboar) {
-            u.play_blood_gems(total_gems, &state.auras);
+            u.play_blood_gems(gems, &state.auras);
         }
     }
     cards::resolve_pending_effects(&mut state.board, &state.auras, rng);

@@ -53,3 +53,20 @@ pub fn on_battlecry(
     let opt1 = make_choice_option(CHOICE_SCARAB_WINDFURY, "Sprightly Support", g);
     state.resolve_choose_one(opt0, opt1, pool, rng);
 }
+
+/// Sprightly Sprucing: give the target Beast +1/+1 (+2/+2 if Golden) and Reborn.
+pub fn choose_reborn(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, _: &mut Rng) {
+    if let Some(pos) = state.choice_target() {
+        let mult = chosen.golden_mult();
+        state.board[pos].add_stats(mult, mult);
+        state.board[pos].reborn = true;
+    }
+}
+
+/// Sprightly Support: give the target Beast +4 (+8 if Golden) Attack and Windfury.
+pub fn choose_windfury(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, _: &mut Rng) {
+    if let Some(pos) = state.choice_target() {
+        state.board[pos].add_stats(4 * chosen.golden_mult(), 0);
+        state.board[pos].windfury = true;
+    }
+}

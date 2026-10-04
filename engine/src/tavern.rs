@@ -1,14 +1,6 @@
 //! Card-agnostic Tavern Phase (Recruit Phase) state machine (`docs/tavern.md`).
 
-use crate::cards::tokens::{
-    self, CHOICE_ALLIANCE_ATK, CHOICE_ALLIANCE_HP, CHOICE_BOTANIST_ATK, CHOICE_BOTANIST_HP,
-    CHOICE_BOUNDLESS_MINION, CHOICE_BOUNDLESS_SPELL, CHOICE_BRIGAND_BARRAGE, CHOICE_BRIGAND_GEMS,
-    CHOICE_CRATER_GEMS, CHOICE_CRATER_GEM_DAY, CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS,
-    CHOICE_FOREST_ALL, CHOICE_FOREST_SINGLE, CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP, CHOICE_HP_1,
-    CHOICE_HP_2, CHOICE_HP_3, CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY, CHOICE_SLY_GEMS,
-    CHOICE_SLY_REFRESHES, CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER,
-    CHOICE_TIME_MGMT_NOW,
-};
+use crate::cards::tokens;
 use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
@@ -651,11 +643,9 @@ impl TavernState {
             if self.defer_combined_choose_one {
                 self.pending_combined_choices.push((opt0, opt1));
             } else {
-                self.apply_choice_option(&opt0, pool, rng);
-                self.apply_choice_option(&opt1, pool, rng);
-                if !matches!(opt0.card_id, CHOICE_HP_1 | CHOICE_HP_2 | CHOICE_HP_3) {
-                    cards::tier6::turbo_hogrider::after_play_choose_one(self, rng);
-                }
+                cards::apply_chosen_option(self, &opt0, pool, rng);
+                cards::apply_chosen_option(self, &opt1, pool, rng);
+                cards::after_choose_one(self, &opt0, pool, rng);
                 if self.discover_pending.is_none() {
                     self.pending_choice_target = None;
                 }
@@ -669,183 +659,20 @@ impl TavernState {
     pub fn flush_combined_choices(&mut self, pool: &mut CardPool, rng: &mut Rng) {
         let pending = std::mem::take(&mut self.pending_combined_choices);
         for (opt0, opt1) in pending {
-            self.apply_choice_option(&opt0, pool, rng);
-            self.apply_choice_option(&opt1, pool, rng);
-            if !matches!(opt0.card_id, CHOICE_HP_1 | CHOICE_HP_2 | CHOICE_HP_3) {
-                cards::tier6::turbo_hogrider::after_play_choose_one(self, rng);
-            }
+            cards::apply_chosen_option(self, &opt0, pool, rng);
+            cards::apply_chosen_option(self, &opt1, pool, rng);
+            cards::after_choose_one(self, &opt0, pool, rng);
             if self.discover_pending.is_none() {
                 self.pending_choice_target = None;
             }
         }
     }
 
-    /// Apply a single `CHOICE_*` option unit.
-    pub fn apply_choice_option(&mut self, chosen: &Unit, pool: &mut CardPool, rng: &mut Rng) {
-        let mult = if chosen.is_golden { 2 } else { 1 };
-        match chosen.card_id {
-            CHOICE_CRATER_GEMS => {
-                for _ in 0..(2 * mult) {
-                    self.add_to_hand(tokens::make_blood_gem());
-                }
-            }
-            CHOICE_CRATER_GEM_DAY => {
-                for _ in 0..mult {
-                    self.add_to_hand(tokens::make_gem_day());
-                }
-            }
-            CHOICE_GEM_DAY_ATK => {
-                self.auras.blood_gem_bonus_atk += 1;
-            }
-            CHOICE_GEM_DAY_HP => {
-                self.auras.blood_gem_bonus_hp += 1;
-            }
-            CHOICE_BOTANIST_ATK => {
-                self.auras.spell_bonus_atk += mult;
-            }
-            CHOICE_BOTANIST_HP => {
-                self.auras.spell_bonus_hp += mult;
-            }
-            CHOICE_ALLIANCE_ATK => {
-                if let Some(pos) = self.pending_choice_target {
-                    if pos < self.board.len() {
-                        let (atk, hp) = self.auras.spell_stat_buff(3, 1);
-                        self.board[pos].add_stats(atk, hp);
-                    }
-                }
-            }
-            CHOICE_ALLIANCE_HP => {
-                if let Some(pos) = self.pending_choice_target {
-                    if pos < self.board.len() {
-                        let (atk, hp) = self.auras.spell_stat_buff(1, 3);
-                        self.board[pos].add_stats(atk, hp);
-                    }
-                }
-            }
-            CHOICE_FOODIE_BUFF_GEMS => {
-                self.auras.blood_gem_bonus_atk += mult;
-                self.auras.blood_gem_bonus_hp += mult;
-            }
-            CHOICE_FOODIE_GET_GEMS => {
-                for _ in 0..(4 * mult) {
-                    self.add_to_hand(tokens::make_blood_gem());
-                }
-            }
-            CHOICE_SLY_REFRESHES => {
-                self.auras.free_refreshes += (2 * mult) as u32;
-            }
-            CHOICE_SLY_GEMS => {
-                for _ in 0..(3 * mult) {
-                    self.add_to_hand(tokens::make_blood_gem());
-                }
-            }
-            CHOICE_SCARAB_REBORN => {
-                if let Some(pos) = self.pending_choice_target {
-                    if pos < self.board.len() {
-                        self.board[pos].add_stats(mult, mult);
-                        self.board[pos].reborn = true;
-                    }
-                }
-            }
-            CHOICE_SCARAB_WINDFURY => {
-                if let Some(pos) = self.pending_choice_target {
-                    if pos < self.board.len() {
-                        self.board[pos].add_stats(4 * mult, 0);
-                        self.board[pos].windfury = true;
-                    }
-                }
-            }
-            CHOICE_TIME_MGMT_NOW => {
-                let (atk, hp) = self.auras.spell_stat_buff(2, 2);
-                for b in &mut self.board {
-                    b.add_stats(atk, hp);
-                }
-                for h in &mut self.hand {
-                    if !h.is_spell {
-                        h.add_stats(atk, hp);
-                    }
-                }
-            }
-            CHOICE_TIME_MGMT_LATER => {
-                self.auras.time_management_next_turn += 2;
-            }
-            CHOICE_BOUNDLESS_MINION => {
-                let mut opts = pool.draw_discover_options(self.tavern_tier, 3, rng);
-                for opt in &mut opts {
-                    self.apply_global_unit_auras(opt);
-                }
-                if !opts.is_empty() {
-                    self.push_discover(opts);
-                }
-            }
-            CHOICE_BOUNDLESS_SPELL => {
-                let opts =
-                    cards::spells::draw_discover_tavern_spells_exact_tier(self.tavern_tier, 3, rng);
-                if !opts.is_empty() {
-                    self.push_discover(opts);
-                }
-            }
-            CHOICE_SNARE_QUILBOAR => {
-                for _ in 0..mult {
-                    if self.hand.len() >= 10 {
-                        break;
-                    }
-                    if let Some(drawn) = pool.draw_by_tribe(
-                        Tribe::Quilboar,
-                        Some(cards::tier4::snare_trapper::ID),
-                        self.tavern_tier,
-                        rng,
-                    ) {
-                        self.add_to_hand(drawn);
-                    }
-                }
-            }
-            CHOICE_SNARE_MAX_GOLD => {
-                self.auras.base_max_gold_bonus += mult as u32;
-                self.max_gold += mult as u32;
-            }
-            CHOICE_HP_1 => {
-                self.auras.hero_power_id = 1;
-            }
-            CHOICE_HP_2 => {
-                self.auras.hero_power_id = 2;
-            }
-            CHOICE_HP_3 => {
-                self.auras.hero_power_id = 3;
-            }
-            CHOICE_FOREST_SINGLE => {
-                if let Some(pos) = self.pending_choice_target {
-                    if pos < self.board.len() {
-                        let (atk, hp) = self.auras.spell_stat_buff(6, 6);
-                        for _ in 0..2 {
-                            self.board[pos].add_stats(atk, hp);
-                        }
-                    }
-                }
-            }
-            CHOICE_FOREST_ALL => {
-                let (atk, hp) = self.auras.spell_stat_buff(2, 2);
-                for b in &mut self.board {
-                    b.add_stats(atk, hp);
-                }
-            }
-            CHOICE_BRIGAND_GEMS => {
-                let gems = (3 * mult) as u32;
-                for b in &mut self.board {
-                    b.play_blood_gems(gems, &self.auras);
-                }
-                cards::resolve_pending_effects(&mut self.board, &self.auras, rng);
-            }
-            CHOICE_BRIGAND_BARRAGE => {
-                let count = (3 * mult) as usize;
-                for _ in 0..count {
-                    let spell = cards::spells::spell_by_id(cards::spells::SPELL_BLOOD_GEM_BARRAGE)
-                        .expect("SPELL_BLOOD_GEM_BARRAGE exists");
-                    cards::spells::cast_spell(self, spell, 0, pool, rng);
-                }
-            }
-            _ => {}
-        }
+    /// The board slot targeted by the Choose One being resolved (`pending_choice_target`), if it
+    /// still holds a minion.
+    pub fn choice_target(&self) -> Option<usize> {
+        self.pending_choice_target
+            .filter(|&pos| pos < self.board.len())
     }
 
     /// Open the `Lockbox` at `hand[hand_idx]`, replacing it with a random Golden minion of your Tier with a type.
@@ -1827,11 +1654,9 @@ impl TavernState {
                 }
                 let mut chosen = opts.remove(option_index);
 
-                if tokens::is_choice_option(chosen.card_id) {
-                    self.apply_choice_option(&chosen, pool, rng);
-                    if !matches!(chosen.card_id, CHOICE_HP_1 | CHOICE_HP_2 | CHOICE_HP_3) {
-                        cards::tier6::turbo_hogrider::after_play_choose_one(self, rng);
-                    }
+                if cards::is_option_card(chosen.card_id) {
+                    cards::apply_chosen_option(self, &chosen, pool, rng);
+                    cards::after_choose_one(self, &chosen, pool, rng);
                     if self.discover_pending.is_none() {
                         self.pending_choice_target = None;
                     }

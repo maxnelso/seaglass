@@ -1,6 +1,7 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
-use crate::cards::{spells, tier3, tier5, tier6, CardHooks};
+use crate::cards::hooks::CardEventFn;
+use crate::cards::{spells, tier2, tier3, tier4, tier5, tier6, CardFlags, CardHooks};
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
@@ -416,5 +417,48 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         ),
     ];
     out.extend(CHROMADRAKE_IDS.iter().map(|&id| (id, chromadrake)));
+    out.extend(choose_one_options().into_iter().map(|(id, on_chosen)| {
+        let option = CardHooks::EMPTY.on_chosen(on_chosen);
+        (id, option.with_flags(CardFlags::CHOOSE_ONE_OPTION))
+    }));
+    out.extend(
+        [CHOICE_HP_1, CHOICE_HP_2, CHOICE_HP_3]
+            .map(|id| (id, CardHooks::EMPTY.on_chosen(spells::choose_hero_power))),
+    );
     out
+}
+
+/// Effects of the Choose-One option cards (`on_chosen` hooks), defined with the card or spell
+/// that offers them.
+fn choose_one_options() -> [(CardId, CardEventFn); 24] {
+    use tier2::{crater_miner, intrepid_botanist};
+    use tier3::{fearless_foodie, sly_infiltrator, sprightly_scarab};
+    use tier4::snare_trapper;
+    use tier6::veteran_brigand;
+    [
+        (CHOICE_BRIGAND_GEMS, veteran_brigand::choose_gems),
+        (CHOICE_BRIGAND_BARRAGE, veteran_brigand::choose_barrage),
+        (CHOICE_FOREST_SINGLE, spells::choose_forest_single),
+        (CHOICE_FOREST_ALL, spells::choose_forest_all),
+        (CHOICE_CRATER_GEMS, crater_miner::choose_gems),
+        (CHOICE_CRATER_GEM_DAY, crater_miner::choose_gem_day),
+        (CHOICE_GEM_DAY_ATK, spells::choose_gem_day_atk),
+        (CHOICE_GEM_DAY_HP, spells::choose_gem_day_hp),
+        (CHOICE_BOTANIST_ATK, intrepid_botanist::choose_atk),
+        (CHOICE_BOTANIST_HP, intrepid_botanist::choose_hp),
+        (CHOICE_ALLIANCE_ATK, spells::choose_alliance_atk),
+        (CHOICE_ALLIANCE_HP, spells::choose_alliance_hp),
+        (CHOICE_FOODIE_BUFF_GEMS, fearless_foodie::choose_buff_gems),
+        (CHOICE_FOODIE_GET_GEMS, fearless_foodie::choose_get_gems),
+        (CHOICE_SLY_REFRESHES, sly_infiltrator::choose_refreshes),
+        (CHOICE_SLY_GEMS, sly_infiltrator::choose_gems),
+        (CHOICE_SCARAB_REBORN, sprightly_scarab::choose_reborn),
+        (CHOICE_SCARAB_WINDFURY, sprightly_scarab::choose_windfury),
+        (CHOICE_TIME_MGMT_NOW, spells::choose_time_now),
+        (CHOICE_TIME_MGMT_LATER, spells::choose_time_later),
+        (CHOICE_BOUNDLESS_MINION, spells::choose_boundless_minion),
+        (CHOICE_BOUNDLESS_SPELL, spells::choose_boundless_spell),
+        (CHOICE_SNARE_QUILBOAR, snare_trapper::choose_quilboar),
+        (CHOICE_SNARE_MAX_GOLD, snare_trapper::choose_max_gold),
+    ]
 }
