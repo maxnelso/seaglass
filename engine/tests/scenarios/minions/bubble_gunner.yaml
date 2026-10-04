@@ -1,0 +1,13 @@
+card: Bubble Gunner
+scenarios:
+  - name: battlecry_gives_it_a_random_keyword
+    seed: 112
+    tavern: {include_shop_spells: true, gold: 20}
+    steps:
+      - add_to_hand: Bubble Gunner
+      - play: {hand: 0, pos: 0}
+    expect:
+      board:
+        0:
+          keywords:
+            any: {any_of: [taunt, divine_shield, windfury, reborn, venomous, stealth]}

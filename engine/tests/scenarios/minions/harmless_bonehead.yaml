@@ -1,0 +1,6 @@
+card: Harmless Bonehead
+scenarios:
+  - name: deathrattle_skeletons_win
+    seed: 118
+    combat: {board_a: [Harmless Bonehead], board_b: ["1/2"]}
+    expect: {outcome: a_win, survivors_a: [{tribe: undead}]}

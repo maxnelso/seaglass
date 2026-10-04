@@ -1,0 +1,6 @@
+card: Cord Puller
+scenarios:
+  - name: divine_shield_and_deathrattle_microbot_win
+    seed: 110
+    combat: {board_a: [Cord Puller], board_b: ["2/2"]}
+    expect: {outcome: a_win, survivors_a: {count: 1}}

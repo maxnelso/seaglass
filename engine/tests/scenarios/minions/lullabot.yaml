@@ -1,0 +1,11 @@
+card: Lullabot
+scenarios:
+  - name: magnetized_mech_gains_1_health_at_end_of_turn
+    seed: 111
+    tavern: {include_shop_spells: true, gold: 20, board: [Cord Puller]}   # a 1/1 Mech
+    steps:
+      - add_to_hand: Lullabot   # 2/2 Magnetic
+      - play: {hand: 0, pos: 0}
+      - expect: {board: {0: "3/3"}}
+      - end_turn
+    expect: {board: {0: {health: 4}}}

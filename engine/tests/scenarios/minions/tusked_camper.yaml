@@ -1,0 +1,9 @@
+card: Tusked Camper
+scenarios:
+  - name: rally_plays_a_blood_gem_on_itself
+    seed: 117
+    combat:
+      board_a: [Tusked Camper]   # 2/3; the Blood Gem is +2/+2 with the bonus: 4/5
+      board_b: ["3/4"]
+      auras_a: {blood_gem_bonus_atk: 1, blood_gem_bonus_hp: 1}
+    expect: {outcome: a_win, survivors_a: {0: "4/2"}}

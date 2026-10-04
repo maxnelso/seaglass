@@ -1,0 +1,9 @@
+card: Razorfen Geomancer
+scenarios:
+  - name: battlecry_gets_2_blood_gems
+    seed: 116
+    tavern: {include_shop_spells: true, gold: 20}
+    steps:
+      - add_to_hand: Razorfen Geomancer
+      - play: {hand: 0, pos: 0}
+    expect: {hand: {count: 2, all: Blood Gem}}

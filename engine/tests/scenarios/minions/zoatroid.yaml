@@ -1,0 +1,9 @@
+card: Zoatroid
+scenarios:
+  - name: selling_it_gets_a_0_2_taunt_aberrant_tentacle
+    seed: 102
+    tavern: {include_shop_spells: true, gold: 20, board: [Zoatroid]}
+    steps:
+      - sell: 0
+    expect:
+      hand: [{card: Aberrant Tentacle, taunt: true, attack: 0, health: 2}]

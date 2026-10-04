@@ -1,0 +1,11 @@
+card: Buzzing Vermin
+scenarios:
+  - name: deathrattle_beetle_gets_the_beetle_bonus
+    seed: 103
+    combat:
+      board_a: [Buzzing Vermin]
+      board_b: ["2/1"]
+      auras_a: {counters: {Beetle: [2, 1]}}
+    expect:
+      outcome: a_win
+      survivors_a: ["4/3"]   # a 2/2 Beetle + the 2/1 bonus
