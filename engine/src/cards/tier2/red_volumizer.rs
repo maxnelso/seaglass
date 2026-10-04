@@ -13,7 +13,7 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::Magnetic)
         .on_play_or_magnetize(on_first_play_or_magnetize)
-        .on_sync_aura(super::blue_volumizer::sync_volumizer_aura)
+        .on_aura_bonus(super::blue_volumizer::volumizer_aura_bonus)
         .on_merge_golden(super::blue_volumizer::merge_golden)
 }
 

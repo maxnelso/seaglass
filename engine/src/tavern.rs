@@ -1675,29 +1675,14 @@ impl TavernState {
         let tribe = primary.tribe;
         let name = format!("Golden {}", primary.name);
 
-        let aura_atk_on = |u: &Unit| -> i32 {
-            u.undead_attack_applied
-                + u.volumizer_stacks_applied.0
-                + u.holy_vanguard_buff_applied.0
-                + (u.eternal_knight_stacks_applied as i32) * 4
-                + (u.sky_golem_stacks_applied as i32) * 4
-                + (u.maritime_stacks_applied as i32) * 3
-        };
-        let aura_hp_on = |u: &Unit| -> i32 {
-            u.volumizer_stacks_applied.1
-                + u.holy_vanguard_buff_applied.1
-                + (u.eternal_knight_stacks_applied as i32) * 2
-                + (u.sky_golem_stacks_applied as i32) * 2
-                + (u.maritime_stacks_applied as i32) * 3
-        };
-
+        // Buffs carry over; aura bonuses are re-applied to the Golden by the next aura sync.
         let atk_buffs: i32 = copies
             .iter()
-            .map(|u| (u.attack - u.base_attack) - aura_atk_on(u))
+            .map(|u| (u.attack - u.base_attack) - u.aura_applied.0)
             .sum();
         let hp_buffs: i32 = copies
             .iter()
-            .map(|u| (u.health - u.base_health) - aura_hp_on(u))
+            .map(|u| (u.health - u.base_health) - u.aura_applied.1)
             .sum();
 
         let golden_atk = 2 * base_atk + atk_buffs;

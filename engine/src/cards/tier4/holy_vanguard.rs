@@ -10,21 +10,14 @@ pub const ID: CardId = 430;
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Holy Vanguard", 10, 10, 4)
         .with_keyword(Keyword::DivineShield)
-        .on_sync_aura(sync_unit)
+        .on_aura_bonus(aura_bonus)
 }
 
-pub fn sync_unit(unit: &mut Unit, auras: &PlayerAuras) {
-    let mult = if unit.is_golden { 2 } else { 1 };
-    let target = if auras.hero_low_health {
-        (30 * mult, 30 * mult)
+/// `+30/+30` (`+60/+60` if Golden) while the hero has 15 or less Health.
+pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
+    if auras.hero_low_health {
+        (30 * unit.golden_mult(), 30 * unit.golden_mult())
     } else {
         (0, 0)
-    };
-    let (app_atk, app_hp) = unit.holy_vanguard_buff_applied;
-    let d_atk = target.0 - app_atk;
-    let d_hp = target.1 - app_hp;
-    if d_atk != 0 || d_hp != 0 {
-        unit.holy_vanguard_buff_applied = target;
-        unit.add_stats(d_atk, d_hp);
     }
 }

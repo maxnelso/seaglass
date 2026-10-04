@@ -326,12 +326,9 @@ pub struct Unit {
     pub willbreaker_remaining: u32,
     /// Stacks of `Winner's Bread` pending if the player wins their next combat.
     pub winners_bread_stacks: u32,
-    /// Number of `eternal_knights_died` stacks already applied to this `Eternal Knight`.
-    pub eternal_knight_stacks_applied: u32,
-    /// Amount of `(volumizer_bonus_atk, volumizer_bonus_hp)` already applied to this Volumizer.
-    pub volumizer_stacks_applied: (i32, i32),
-    /// Amount of `undead_bonus_attack` already applied to this Undead unit.
-    pub undead_attack_applied: i32,
+    /// Stats currently applied to this unit by "wherever this is" auras (player-wide effects and
+    /// its card's `aura_bonus`), so they can be re-synced when the auras change.
+    pub aura_applied: (i32, i32),
     /// True if this unit cannot gain positive stats (`Fishbait`).
     pub cant_gain_stats: bool,
     /// True if this unit has triggered its once-per-game stat threshold (`Scarlet Survivor`, `Treasure Parrot`)
@@ -375,10 +372,6 @@ pub struct Unit {
     pub wrathguard_bonus: i32,
     /// Queued `Geomagus Roogug` Blood Gem procs to distribute to another friendly minion.
     pub pending_roogug_gems: u32,
-    /// Number of `golden_minions_played` stacks already applied to this `Maritime Extortionist`.
-    pub maritime_stacks_applied: u32,
-    /// Amount of `(atk, hp)` already applied by `Holy Vanguard`'s low-Health aura.
-    pub holy_vanguard_buff_applied: (i32, i32),
     /// Board-aura bonus to Tavern spell Attack/Health contributed while this unit is on the board (`Enchanted Sentinel`, `Humon'gozz`).
     pub spell_atk_aura: i32,
     pub spell_hp_aura: i32,
@@ -396,8 +389,6 @@ pub struct Unit {
     pub auto_reveille_buys: u32,
     /// Hero damage progress toward the next 4-damage `Corrupted Cupcakes` (`Eredar Escapist`).
     pub eredar_damage_progress: i32,
-    /// Number of `deathrattles_triggered` stacks already applied to this `Falling Sky Golem`.
-    pub sky_golem_stacks_applied: u32,
     /// Permanent improvement stacks from cards discarded (`Harbinger Aph'lass`).
     pub aphlass_stacks: u32,
     /// Remaining `Magicfin Mycologist` spell-buy triggers this turn.
@@ -456,9 +447,7 @@ impl Unit {
             willbreaker_group: 0,
             willbreaker_remaining: 0,
             winners_bread_stacks: 0,
-            eternal_knight_stacks_applied: 0,
-            volumizer_stacks_applied: (0, 0),
-            undead_attack_applied: 0,
+            aura_applied: (0, 0),
             cant_gain_stats: false,
             threshold_triggered: false,
             activated_this_turn: false,
@@ -481,8 +470,6 @@ impl Unit {
             gunpowder_gold_progress: 0,
             wrathguard_bonus: 0,
             pending_roogug_gems: 0,
-            maritime_stacks_applied: 0,
-            holy_vanguard_buff_applied: (0, 0),
             spell_atk_aura: 0,
             spell_hp_aura: 0,
             felboar_spell_progress: 0,
@@ -492,7 +479,6 @@ impl Unit {
             killed_by: None,
             auto_reveille_buys: 0,
             eredar_damage_progress: 0,
-            sky_golem_stacks_applied: 0,
             aphlass_stacks: 0,
             mycologist_charges_left: 0,
             taught_spell_id: None,
@@ -604,6 +590,8 @@ impl Unit {
     }
 
     /// Convert this plain minion into a Golden version (`Golden Touch`, `Elite Navigator`).
+    /// Aura bonuses that scale with Golden are re-applied by the next aura sync
+    /// ([`crate::cards::sync_unit_auras`]).
     pub fn make_golden(&mut self) {
         if self.is_golden {
             return;
@@ -624,23 +612,6 @@ impl Unit {
         self.spell_hp_aura += aura_hp;
         if let Some(made_golden) = card.made_golden {
             made_golden(self);
-        }
-        if self.eternal_knight_stacks_applied > 0 {
-            let s = self.eternal_knight_stacks_applied as i32;
-            self.add_stats(4 * s, 2 * s);
-        }
-        if self.sky_golem_stacks_applied > 0 {
-            let s = self.sky_golem_stacks_applied as i32;
-            self.add_stats(4 * s, 2 * s);
-        }
-        if self.maritime_stacks_applied > 0 {
-            let s = self.maritime_stacks_applied as i32;
-            self.add_stats(7 * s, 7 * s);
-        }
-        if self.holy_vanguard_buff_applied != (0, 0) {
-            let (ha, hh) = self.holy_vanguard_buff_applied;
-            self.holy_vanguard_buff_applied = (ha * 2, hh * 2);
-            self.add_stats(ha, hh);
         }
     }
 

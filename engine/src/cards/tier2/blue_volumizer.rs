@@ -13,7 +13,7 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::Magnetic)
         .on_play_or_magnetize(on_first_play_or_magnetize)
-        .on_sync_aura(sync_volumizer_aura)
+        .on_aura_bonus(volumizer_aura_bonus)
         .on_merge_golden(merge_golden)
 }
 
@@ -28,16 +28,10 @@ pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
     state.sync_all_auras();
 }
 
-/// Apply the shared Volumizer bonus (`auras.volumizer_bonus_atk / hp`) to a Volumizer (the
-/// `sync_aura` hook of all three Volumizers).
-pub fn sync_volumizer_aura(unit: &mut Unit, auras: &PlayerAuras) {
-    let (app_atk, app_hp) = unit.volumizer_stacks_applied;
-    let d_atk = auras.volumizer_bonus_atk - app_atk;
-    let d_hp = auras.volumizer_bonus_hp - app_hp;
-    if d_atk != 0 || d_hp != 0 {
-        unit.volumizer_stacks_applied = (auras.volumizer_bonus_atk, auras.volumizer_bonus_hp);
-        unit.add_stats(d_atk, d_hp);
-    }
+/// The shared Volumizer bonus (`auras.volumizer_bonus_atk / hp`; the `aura_bonus` hook of all
+/// three Volumizers).
+pub fn volumizer_aura_bonus(_: &Unit, auras: &PlayerAuras) -> (i32, i32) {
+    (auras.volumizer_bonus_atk, auras.volumizer_bonus_hp)
 }
 
 /// Tripled: the Golden's first-play effect can trigger again (the `merge_golden` hook of all

@@ -11,15 +11,13 @@ use crate::model::{Keyword, PlayerAuras, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
 
-/// Apply the player-wide "wherever this is" stat auras to `unit` (the Undead Attack bonus from
+/// Stats the player-wide "wherever this is" auras give `unit` (the Undead Attack bonus from
 /// `Nerubian Deathswarmer`).
-pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
+pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
     if unit.tribe.matches(Tribe::Undead) {
-        let diff = auras.undead_bonus_attack - unit.undead_attack_applied;
-        if diff != 0 {
-            unit.undead_attack_applied = auras.undead_bonus_attack;
-            unit.add_stats(diff, 0);
-        }
+        (auras.undead_bonus_attack, 0)
+    } else {
+        (0, 0)
     }
 }
 

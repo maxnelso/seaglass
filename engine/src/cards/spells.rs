@@ -1117,6 +1117,7 @@ pub fn cast_spell(
                         candidates[rng.below(candidates.len())]
                     };
                     state.shop[pick].make_golden();
+                    crate::cards::sync_unit_auras(&mut state.shop[pick], &state.auras);
                 }
             }
             SPELL_ARMOR_STASH => {

@@ -219,7 +219,10 @@ card_hooks! {
     made_golden(on_made_golden): UnitFn,
     /// This Golden was merged from a triple: adjust its card-specific state `(copies, golden)`.
     merge_golden(on_merge_golden): fn(&[Unit], &mut Unit),
-    /// Re-apply this unit's "wherever this is" aura bonus from the player's auras.
+    /// Stats this unit's own "wherever this is" aura gives it under the player's auras (applied
+    /// and kept in sync through `Unit::aura_applied`).
+    aura_bonus(on_aura_bonus): fn(&Unit, &PlayerAuras) -> (i32, i32),
+    /// Re-sync aura-driven state of this unit other than stats (see `aura_bonus`).
     sync_aura(on_sync_aura): fn(&mut Unit, &PlayerAuras),
     /// Check once-per-game stat thresholds after this unit's stats change.
     stat_threshold(on_stat_threshold): UnitFn,

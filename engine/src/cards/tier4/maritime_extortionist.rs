@@ -10,14 +10,11 @@ pub const ID: CardId = 440;
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Maritime Extortionist", 7, 7, 4)
         .with_tribe(Tribe::Pirate)
-        .on_sync_aura(sync_unit)
+        .on_aura_bonus(aura_bonus)
 }
 
-pub fn sync_unit(unit: &mut Unit, auras: &PlayerAuras) {
-    let diff = auras.golden_minions_played as i32 - unit.maritime_stacks_applied as i32;
-    if diff != 0 {
-        let per_stack = if unit.is_golden { 14 } else { 7 };
-        unit.maritime_stacks_applied = auras.golden_minions_played;
-        unit.add_stats(diff * per_stack, diff * per_stack);
-    }
+/// `+7/+7` (`+14/+14` if Golden) for each Golden minion played this game.
+pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
+    let bonus = auras.golden_minions_played as i32 * 7 * unit.golden_mult();
+    (bonus, bonus)
 }

@@ -128,7 +128,7 @@ pub fn make_skeleton(is_golden: bool, auras: &PlayerAuras) -> Unit {
         .with_golden(is_golden);
     u.base_attack = base;
     u.base_health = base;
-    u.undead_attack_applied = auras.undead_bonus_attack;
+    u.aura_applied = (auras.undead_bonus_attack, 0);
     u
 }
 
@@ -144,7 +144,7 @@ pub fn make_helping_hand(is_golden: bool, auras: &PlayerAuras) -> Unit {
         .with_golden(is_golden);
     u.base_attack = base_atk;
     u.base_health = base_hp;
-    u.undead_attack_applied = auras.undead_bonus_attack;
+    u.aura_applied = (auras.undead_bonus_attack, 0);
     u
 }
 

@@ -651,17 +651,29 @@ pub fn check_stat_thresholds(unit: &mut Unit) {
     }
 }
 
-/// Synchronize a unit's persistent "wherever this is" auras: the player-wide stat auras, its
-/// board-aura spell bonus, and its card's own `sync_aura` hook.
+/// Synchronize a unit's persistent "wherever this is" auras: its aura stat bonus (player-wide
+/// effects plus its card's `aura_bonus`, tracked in `aura_applied`), its board-aura spell bonus,
+/// and its card's own `sync_aura` hook.
 pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
     if unit.is_spell {
         return;
     }
-    effects::sync_unit_auras(unit, auras);
+    let card = hooks(unit.card_id);
+    let (mut atk, mut hp) = effects::aura_bonus(unit, auras);
+    if let Some(aura_bonus) = card.aura_bonus {
+        let (card_atk, card_hp) = aura_bonus(unit, auras);
+        atk += card_atk;
+        hp += card_hp;
+    }
+    let (d_atk, d_hp) = (atk - unit.aura_applied.0, hp - unit.aura_applied.1);
+    if d_atk != 0 || d_hp != 0 {
+        unit.aura_applied = (atk, hp);
+        unit.add_stats(d_atk, d_hp);
+    }
     if unit.spell_atk_aura == 0 && unit.spell_hp_aura == 0 {
         init_spell_aura(unit);
     }
-    if let Some(sync_aura) = hooks(unit.card_id).sync_aura {
+    if let Some(sync_aura) = card.sync_aura {
         sync_aura(unit, auras);
     }
 }

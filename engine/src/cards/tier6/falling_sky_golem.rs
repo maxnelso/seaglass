@@ -11,14 +11,11 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Falling Sky Golem", 4, 2, 6)
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::DivineShield)
-        .on_sync_aura(sync_aura)
+        .on_aura_bonus(aura_bonus)
 }
 
-pub fn sync_aura(unit: &mut Unit, auras: &PlayerAuras) {
-    if auras.deathrattles_triggered > unit.sky_golem_stacks_applied {
-        let diff = (auras.deathrattles_triggered - unit.sky_golem_stacks_applied) as i32;
-        unit.sky_golem_stacks_applied = auras.deathrattles_triggered;
-        let mult = if unit.is_golden { 2 } else { 1 };
-        unit.add_stats(4 * mult * diff, 2 * mult * diff);
-    }
+/// `+4/+2` (`+8/+4` if Golden) for each Deathrattle triggered this game.
+pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
+    let stacks = auras.deathrattles_triggered as i32 * unit.golden_mult();
+    (4 * stacks, 2 * stacks)
 }
