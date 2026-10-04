@@ -45,12 +45,7 @@ struct SideCombatState {
 }
 
 impl SideCombatState {
-    fn new(
-        mut board: Vec<Unit>,
-        hero_tier: u32,
-        auras: PlayerAuras,
-        mut hand: Vec<Unit>,
-    ) -> Self {
+    fn new(mut board: Vec<Unit>, hero_tier: u32, auras: PlayerAuras, mut hand: Vec<Unit>) -> Self {
         for u in &mut board {
             if let Some(combat_start) = cards::hooks(u.card_id).combat_start {
                 combat_start(u);
@@ -390,7 +385,9 @@ fn resolve_start_of_combat_destroys(
                 unit: own_side.board[v_pos].id,
             });
         }
-        own_side.board[src_pos].stitched_stored.extend(stored_copies);
+        own_side.board[src_pos]
+            .stitched_stored
+            .extend(stored_copies);
         own_side.ptr = preserve_defender_ptr(&own_side.board, own_side.ptr);
         resolve_deaths(side, own_side, opp_side, next_id, rng, events);
         resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
@@ -411,7 +408,11 @@ fn resolve_start_of_combat_aoe(
         _ => None,
     });
     for (src_id, _, (amount, waves)) in sources {
-        if !own_side.board.iter().any(|u| u.id == src_id && u.health > 0) {
+        if !own_side
+            .board
+            .iter()
+            .any(|u| u.id == src_id && u.health > 0)
+        {
             continue;
         }
         for _ in 0..waves {
@@ -495,7 +496,9 @@ fn resolve_start_of_combat_attacks(
             {
                 break;
             }
-            perform_one_strike(side, src_id, own_side, opp_side, false, next_id, rng, events);
+            perform_one_strike(
+                side, src_id, own_side, opp_side, false, next_id, rng, events,
+            );
         }
     }
 }
@@ -525,7 +528,10 @@ fn perform_attack_turn(
 
     if has_windfury
         && !def_side.is_empty()
-        && atk_side.board.iter().any(|u| u.id == attacker_id && u.attack > 0)
+        && atk_side
+            .board
+            .iter()
+            .any(|u| u.id == attacker_id && u.attack > 0)
     {
         perform_one_strike(
             side,
@@ -672,19 +678,14 @@ fn perform_one_strike(
     }
 
     if cards::is_rally_minion(attacker_card_id) {
-        let prev_hand_len = atk_side.hand.len();
         cards::after_friendly_rally(&mut atk_side.ctx(side, next_id, rng, events));
-        for _ in prev_hand_len..atk_side.hand.len() {
-            cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
-        }
     }
 
     // 2b. Fire friendly-attack observers.
     cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
 
     // 2c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
-    if def_side.board.iter().any(|u| u.health <= 0)
-        || atk_side.board.iter().any(|u| u.health <= 0)
+    if def_side.board.iter().any(|u| u.health <= 0) || atk_side.board.iter().any(|u| u.health <= 0)
     {
         for u in &def_side.board {
             if u.health <= 0 {

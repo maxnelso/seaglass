@@ -8,3 +8,17 @@ scenarios:
     expect:
       auras_a: {effect_stacks: {"Goldrinn, the Great Wolf": 7}}
       survivors_a: {any: "Buzzing Vermin 8/8"}
+
+  - name: deathrattle_triggered_in_tavern_via_deathstrider_permanently_buffs_beasts
+    seed: 524
+    tavern:
+      gold: 10
+      board: [Sky-hatch Runaway, Glim Guardian, Deathstrider, "Goldrinn, the Great Wolf", Flittering Bat]
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+      - start_turn
+    expect:
+      board:
+        2: "Deathstrider 17/18"
+        3: "Goldrinn, the Great Wolf 14/14"
+        4: "Flittering Bat 8/11"

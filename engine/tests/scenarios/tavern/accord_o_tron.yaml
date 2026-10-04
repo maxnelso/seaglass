@@ -9,3 +9,13 @@ scenarios:
       - expect: {board: [{card: Cord Puller, sot_gold_bonus: 1}]}
       - start_turn
     expect: {gold: 4}   # turn 1 base Gold (3) + 1
+
+  - name: tripled_golden_accord_o_tron_gives_2_gold_at_start_of_turn
+    seed: 302
+    steps:
+      - add_to_hand: [Accord-o-Tron, Accord-o-Tron, Accord-o-Tron]
+      - play: Accord-o-Tron
+      - start_turn
+    expect:
+      board: [{card: Accord-o-Tron, is_golden: true, sot_gold_bonus: 0}]
+      gold: 5   # turn 1 base Gold (3) + 2 from Golden Accord-o-Tron

@@ -5,4 +5,4 @@ scenarios:
     steps:
       - add_to_hand: Annoy-o-Module   # 2/4 Magnetic, Divine Shield, Taunt
       - play: {hand: Annoy-o-Module, pos: 0}   # onto Mechagnome Interpreter
-    expect: {board: ["Mechagnome Interpreter divine_shield taunt"]}
+    expect: {board: ["Mechagnome Interpreter divine_shield taunt -magnetic"]}

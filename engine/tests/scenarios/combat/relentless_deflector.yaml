@@ -7,3 +7,14 @@ scenarios:
       board_a: [Harmless Bonehead, Relentless Deflector]
       board_b: ["2/10"]
     expect: {outcome: a_win}
+
+  - name: tavern_deaths_do_not_trigger_avenge
+    tavern:
+      board: [Relentless Deflector, "1/1 undead", "1/1 undead", "1/1 undead"]
+      hand: [Butchering, Butchering, Butchering]
+    steps:
+      - play: {hand: Butchering, pos: 1}
+      - play: {hand: Butchering, pos: 1}
+      - play: {hand: Butchering, pos: 1}
+    expect:
+      board: ["Relentless Deflector -divine_shield -taunt"]

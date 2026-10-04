@@ -2,7 +2,7 @@
 //! Permanently keeps Bonus Keywords and (`double` if Golden) stats gained in combat.
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Keyword, Tribe, Unit, BONUS_KEYWORDS};
+use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 231;
 pub const NAME: &str = "Tarecgosa";
@@ -10,29 +10,5 @@ pub const NAME: &str = "Tarecgosa";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 4, 4, 2)
         .with_tribe(Tribe::Dragon)
-        .on_post_combat(apply_post_combat_persistence)
-}
-
-pub fn apply_post_combat_persistence(
-    pre_combat: &Unit,
-    post_combat_board: &[Unit],
-    tavern_unit: &mut Unit,
-) {
-    let Some(survivor) = post_combat_board.iter().find(|u| u.id == pre_combat.id) else {
-        return;
-    };
-    let mult = tavern_unit.golden_mult();
-    let gained_atk = (survivor.attack - pre_combat.attack).max(0) * mult;
-    let gained_hp = (survivor.max_health - pre_combat.max_health).max(0) * mult;
-    if gained_atk > 0 || gained_hp > 0 {
-        tavern_unit.add_stats(gained_atk, gained_hp);
-    }
-    for kw in BONUS_KEYWORDS {
-        if survivor.has_keyword(kw)
-            || (kw == Keyword::DivineShield && survivor.inherent_divine_shield)
-        {
-            tavern_unit.apply_keyword(kw, kw == Keyword::DivineShield);
-        }
-    }
-    crate::cards::check_stat_thresholds(tavern_unit);
+        .on_post_combat_keep_mult(Unit::golden_mult)
 }

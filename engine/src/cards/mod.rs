@@ -929,7 +929,6 @@ pub fn apply_magnetization(
     target.reborn |= card.reborn;
     target.venomous |= card.venomous;
     target.stealth |= card.stealth;
-    target.magnetic |= card.magnetic;
     on_magnetize_transfer(card, target);
     let played = Played {
         card_id: card.card_id,
@@ -1451,9 +1450,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
     }
     if is_rally && target_pos < state.board.len() {
         let old_tavern_all = (state.auras.tavern_all_atk, state.auras.tavern_all_hp);
-        let mut deathstrider_hand = state.hand.clone();
-        let prev_hand_len = deathstrider_hand.len();
-        let mut hand_summoned2 = vec![false; prev_hand_len];
+        let mut hand_summoned2 = vec![false; state.hand.len()];
         let mut beast_bonus_atk = 0;
         let mut pending_attacks = Vec::new();
         let mut next_id = 10_000;
@@ -1463,7 +1460,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             board: &mut state.board,
             cursor: 0,
             auras: &mut state.auras,
-            hand: &mut deathstrider_hand,
+            hand: &mut state.hand,
             hand_summoned: &mut hand_summoned2,
             dead_aberrations: &[],
             beast_bonus_atk: &mut beast_bonus_atk,
@@ -1475,9 +1472,6 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             events: &mut events,
         };
         after_friendly_rally(&mut ctx);
-        for card in deathstrider_hand.into_iter().skip(prev_hand_len) {
-            state.add_to_hand(card);
-        }
         let d_atk = state.auras.tavern_all_atk - old_tavern_all.0;
         let d_hp = state.auras.tavern_all_hp - old_tavern_all.1;
         if d_atk != 0 || d_hp != 0 {
@@ -1486,6 +1480,16 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
                     shop_unit.add_stats(d_atk, d_hp);
                 }
             }
+        }
+        resolve_ready_hand_cards(state, rng);
+        let hand_cids: Vec<CardId> = state
+            .hand
+            .iter()
+            .filter(|u| !u.is_spell)
+            .map(|u| u.card_id)
+            .collect();
+        for cid in hand_cids {
+            state.check_and_resolve_triple(cid);
         }
     }
     state.sync_all_auras();
@@ -1638,7 +1642,7 @@ pub fn push_stat_changes(
 /// Permanently give `tavern_unit` the stats (times `mult`) and Bonus Keywords its combat copy
 /// gained in combat (`pre` / `post`: the combat copy before and after combat).
 pub fn keep_combat_gains(pre: &Unit, post: &Unit, tavern_unit: &mut Unit, mult: i32) {
-    let atk_gain = (post.max_attack - pre.attack).max(0) * mult;
+    let atk_gain = (post.attack - pre.attack).max(0) * mult;
     let hp_gain = (post.max_health - pre.health).max(0) * mult;
     if atk_gain > 0 || hp_gain > 0 {
         tavern_unit.add_stats(atk_gain, hp_gain);
@@ -1652,8 +1656,8 @@ pub fn keep_combat_gains(pre: &Unit, post: &Unit, tavern_unit: &mut Unit, mult: 
 }
 
 /// Apply post-combat persistence from a combat unit back to its Tavern counterpart: the card's
-/// own `post_combat` hook, combat gains kept through its neighbours'
-/// `post_combat_neighbor_mult` hooks, then permanent gains and improvements (`stacks`).
+/// own `post_combat` hook, combat gains kept through `post_combat_keep_mult` /
+/// `post_combat_neighbor_mult`, then permanent gains and improvements (`stacks`).
 pub fn on_post_combat_unit(
     pre_board: &[Unit],
     idx: usize,
@@ -1669,7 +1673,10 @@ pub fn on_post_combat_unit(
     let Some(post) = post_combat_board.iter().find(|u| u.id == pre_combat.id) else {
         return;
     };
-    let keep_mult = [idx.checked_sub(1), Some(idx + 1)]
+    let self_mult = hooks(tavern_unit.card_id)
+        .post_combat_keep_mult
+        .map_or(0, |f| f(tavern_unit));
+    let neighbor_mult = [idx.checked_sub(1), Some(idx + 1)]
         .into_iter()
         .flatten()
         .filter_map(|n| {
@@ -1678,10 +1685,10 @@ pub fn on_post_combat_unit(
         })
         .max()
         .unwrap_or(0);
+    let keep_mult = self_mult.max(neighbor_mult);
     if keep_mult > 0 {
         keep_combat_gains(pre_combat, post, tavern_unit, keep_mult);
-    }
-    if post.perm_atk_gained != 0 || post.perm_hp_gained != 0 {
+    } else if post.perm_atk_gained != 0 || post.perm_hp_gained != 0 {
         tavern_unit.add_stats(post.perm_atk_gained, post.perm_hp_gained);
     }
     if post.perm_blood_gems_gained > 0 {

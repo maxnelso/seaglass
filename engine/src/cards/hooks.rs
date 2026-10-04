@@ -271,9 +271,12 @@ card_hooks! {
     resolve_pending(on_resolve_pending): fn(&mut [Unit], usize, &PlayerAuras, &mut Rng),
     /// Copy combat results onto the Tavern copy: `(pre_combat, post_combat_units, tavern_unit)`.
     post_combat(on_post_combat): fn(&Unit, &[Unit], &mut Unit),
+    /// Multiplier with which this unit itself permanently keeps what it gained in combat (see
+    /// [`keep_combat_gains`](super::keep_combat_gains); 0 = none).
+    post_combat_keep_mult(on_post_combat_keep_mult): fn(&Unit) -> i32,
     /// Multiplier with which the neighbour at `neighbour_idx` permanently keeps what it gained in
-    /// combat (see [`keep_combat_gains`](super::keep_combat_gains); the largest across both
-    /// neighbours applies, 0 = none): `(pre_board, self_idx, neighbour_idx)`.
+    /// combat (see [`keep_combat_gains`](super::keep_combat_gains); the largest across self and
+    /// both neighbours applies, 0 = none): `(pre_board, self_idx, neighbour_idx)`.
     post_combat_neighbor_mult(on_post_combat_neighbor_mult): fn(&[Unit], usize, usize) -> i32,
 
     // ---- Own card text: spells ----------------------------------------------------------
