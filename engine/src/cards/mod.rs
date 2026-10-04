@@ -598,6 +598,15 @@ pub fn on_start_of_combat(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
+    tier1::flighty_scout::on_start_of_combat(
+        side,
+        hand,
+        board,
+        auras,
+        *combat_beast_bonus_atk,
+        next_id,
+        events,
+    );
     let sources: Vec<(UnitId, CardId, bool)> = board
         .iter()
         .map(|u| (u.id, u.card_id, u.is_golden))

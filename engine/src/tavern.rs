@@ -808,7 +808,7 @@ impl TavernState {
         opponent_hand: &[Unit],
         seed: u64,
     ) -> BattleResult {
-        let mut board_a = self.combat_board();
+        let mut board_a = self.board.clone();
         for (i, u) in board_a.iter_mut().enumerate() {
             u.id = i as u32;
         }
