@@ -2,21 +2,21 @@
 //!
 //! Your end of turn effects trigger twice (`three times` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};
 
 pub const ID: CardId = 512;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Drakkari Enchanter", 1, 5, 5)
+        .with_passive(passive)
 }
 
-pub fn end_of_turn_multiplier(board: &[Unit]) -> u32 {
-    let mut mult = 1u32;
-    for u in board {
-        if u.card_id == ID {
-            mult = mult.max(if u.is_golden { 3 } else { 2 });
-        }
+/// End-of-turn effects trigger twice (three times if Golden).
+pub fn passive(unit: &Unit, passive: Passive) -> u32 {
+    match (passive, unit.is_golden) {
+        (Passive::EndOfTurnTriggers, true) => 3,
+        (Passive::EndOfTurnTriggers, false) => 2,
+        _ => 0,
     }
-    mult
 }

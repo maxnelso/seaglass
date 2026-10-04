@@ -4,24 +4,21 @@
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::CardId;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
+use crate::rng::Rng;
 
 pub const ID: CardId = 505;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Cataclysmic Harbinger", 6, 10, 5)
+        .on_end_of_turn(on_end_turn)
 }
 
-pub fn on_end_turn(state: &mut TavernState) {
+pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
     let Some(last_spell_id) = state.auras.last_tavern_spell_cast else {
         return;
     };
-    let mut count = 0u32;
-    for u in &state.board {
-        if u.card_id == ID {
-            count += if u.is_golden { 2 } else { 1 };
-        }
-    }
+    let count = if state.board[self_idx].is_golden { 2 } else { 1 };
     for _ in 0..count {
         if let Some(spell) = spells::spell_by_id(last_spell_id) {
             state.add_to_hand(spell);

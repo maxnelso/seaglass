@@ -4,30 +4,28 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
+use crate::rng::Rng;
 
 pub const ID: CardId = 229;
 pub const NAME: &str = "Surfing Sylvar";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 2, 2).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, NAME, 1, 2, 2)
+        .with_tribe(Tribe::Pirate)
+        .on_end_of_turn(on_end_turn)
 }
 
-pub fn on_end_turn(state: &mut TavernState) {
+pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
     let len = state.board.len();
     let golden_count = state.board.iter().filter(|u| u.is_golden).count() as i32;
     let repeats = 1 + golden_count;
-
-    for idx in 0..len {
-        if state.board[idx].card_id == ID {
-            let atk_per_repeat = if state.board[idx].is_golden { 2 } else { 1 };
-            let total_atk = atk_per_repeat * repeats;
-            if idx > 0 {
-                state.board[idx - 1].add_stats(total_atk, 0);
-            }
-            if idx + 1 < len {
-                state.board[idx + 1].add_stats(total_atk, 0);
-            }
-        }
+    let atk_per_repeat = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let total_atk = atk_per_repeat * repeats;
+    if self_idx > 0 {
+        state.board[self_idx - 1].add_stats(total_atk, 0);
+    }
+    if self_idx + 1 < len {
+        state.board[self_idx + 1].add_stats(total_atk, 0);
     }
 }

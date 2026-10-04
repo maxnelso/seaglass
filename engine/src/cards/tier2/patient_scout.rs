@@ -13,10 +13,11 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 1, 1, 2)
         .with_tribe(Tribe::None)
         .on_sell(|state, sold, pool, rng| on_sell(state, sold, pool, rng))
+        .on_turn_start_unit(on_start_turn)
 }
 
 pub fn on_start_turn(unit: &mut Unit) {
-    if unit.card_id == ID && unit.scout_tier < 6 {
+    if unit.scout_tier < 6 {
         unit.scout_tier += 1;
     }
 }

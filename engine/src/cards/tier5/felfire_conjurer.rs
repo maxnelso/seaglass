@@ -4,23 +4,19 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
+use crate::rng::Rng;
 
 pub const ID: CardId = 520;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Felfire Conjurer", 6, 5, 5).with_tribe(Tribe::DemonDragon)
+    CardTemplate::new(ID, "Felfire Conjurer", 6, 5, 5)
+        .with_tribe(Tribe::DemonDragon)
+        .on_end_of_turn(on_end_turn)
 }
 
-pub fn on_end_turn(state: &mut TavernState) {
-    let mut bonus = 0i32;
-    for u in &state.board {
-        if u.card_id == ID {
-            bonus += if u.is_golden { 2 } else { 1 };
-        }
-    }
-    if bonus > 0 {
-        state.auras.spell_bonus_atk += bonus;
-        state.auras.spell_bonus_hp += bonus;
-    }
+pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
+    let bonus = if state.board[self_idx].is_golden { 2 } else { 1 };
+    state.auras.spell_bonus_atk += bonus;
+    state.auras.spell_bonus_hp += bonus;
 }

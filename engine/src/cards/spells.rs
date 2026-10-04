@@ -651,7 +651,7 @@ pub fn cast_spell(
                 if board_pos < state.board.len() {
                     let extra = crate::cards::extra_hand_blood_gem_casts(&state.board);
                     state.board[board_pos].play_blood_gems(1 + extra, &state.auras);
-                    crate::cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+                    crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
                 }
             }
             SPELL_POINTY_ARROW => {
@@ -1089,7 +1089,7 @@ pub fn cast_spell(
                         target.blood_gem_stats_applied.1 += total_stolen_hp;
                         target.add_stats(total_stolen_atk, total_stolen_hp);
                     }
-                    crate::cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+                    crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
                 }
             }
             SPELL_GOLDEN_TOUCH => {

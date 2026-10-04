@@ -851,7 +851,7 @@ impl TavernState {
                 for b in &mut self.board {
                     b.play_blood_gems(gems, &self.auras);
                 }
-                cards::resolve_roogug_procs(&mut self.board, &self.auras, rng);
+                cards::resolve_pending_effects(&mut self.board, &self.auras, rng);
             }
             CHOICE_BRIGAND_BARRAGE => {
                 let count = (3 * mult) as usize;
@@ -1105,7 +1105,7 @@ impl TavernState {
                 u.winners_bread_stacks = 0;
             }
         }
-        cards::resolve_roogug_procs(&mut self.board, &self.auras, rng);
+        cards::resolve_pending_effects(&mut self.board, &self.auras, rng);
 
         if self.auras.time_management_next_turn > 0 {
             let stacks = self.auras.time_management_next_turn;
@@ -1142,7 +1142,7 @@ impl TavernState {
         self.max_gold = base_cap;
         self.gold = self.max_gold + self.bonus_gold_next_turn;
         self.bonus_gold_next_turn = 0;
-        cards::on_start_turn_board(self);
+        cards::on_start_turn_board(self, pool, rng);
 
         if self.turn > 1 && self.tavern_tier < 6 {
             self.upgrade_cost = self.upgrade_cost.saturating_sub(1);

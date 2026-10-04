@@ -546,6 +546,41 @@ pub fn is_deathrattle_minion(card_id: CardId) -> bool {
 // Unified Tier-Agnostic Tavern & Combat Hook Dispatch
 // ---------------------------------------------------------------------------
 
+/// Board units carrying the hook selected by `get`, left to right: `(board_idx, card_id, hook)`.
+fn observers<F>(board: &[Unit], get: impl Fn(&CardHooks) -> Option<F>) -> Vec<(usize, CardId, F)> {
+    board
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, u)| get(hooks(u.card_id)).map(|f| (idx, u.card_id, f)))
+        .collect()
+}
+
+/// Invoke the Tavern observer hook selected by `get` once for every friendly board unit that
+/// carries it, left to right. Observers are snapshotted up front; an observer whose slot no
+/// longer holds the same card when its turn comes (the board changed underneath it) is skipped.
+fn notify_tavern<F>(
+    state: &mut TavernState,
+    get: impl Fn(&CardHooks) -> Option<F>,
+    mut call: impl FnMut(&mut TavernState, usize, F),
+) {
+    for (idx, card_id, f) in observers(&state.board, get) {
+        if state.board.get(idx).is_some_and(|u| u.card_id == card_id) {
+            call(state, idx, f);
+        }
+    }
+}
+
+/// Combined value of `passive` across `board`: the largest contribution (at least 1) for
+/// multipliers, the sum of contributions otherwise (see [`Passive`]).
+pub fn board_passive(board: &[Unit], passive: Passive) -> u32 {
+    let values = board.iter().map(|u| hooks(u.card_id).passive_of(u, passive));
+    if passive.is_multiplier() {
+        values.fold(1, u32::max)
+    } else {
+        values.sum()
+    }
+}
+
 /// Run stat-threshold checks whenever a unit's stats change (in Tavern or Combat).
 pub fn check_stat_thresholds(unit: &mut Unit) {
     if unit.card_id == tier1::scarlet_survivor::ID {
@@ -725,22 +760,21 @@ pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
     }
 }
 
-/// Transfer card-specific properties (`Lullabot`, `Accord-o-Tron`, `Enchanted Sentinel`, Blood Gems, Magnetization count) when `source` is Magnetized onto `target`.
+/// Transfer Magnetization state (enchantments carried by `source`, spell auras, Blood Gems,
+/// Magnetization count, and the card's own `magnetize_transfer` hook) when `source` is
+/// Magnetized onto `target`.
 pub fn on_magnetize_transfer(source: &Unit, target: &mut Unit) {
     target.magnetizations_count += 1 + source.magnetizations_count;
     target.eot_health_bonus += source.eot_health_bonus;
-    if source.card_id == tier1::lullabot::ID {
-        target.eot_health_bonus += if source.is_golden { 2 } else { 1 };
-    }
     target.sot_gold_bonus += source.sot_gold_bonus;
-    if source.card_id == tier3::accord_o_tron::ID {
-        target.sot_gold_bonus += if source.is_golden { 2 } else { 1 };
-    }
     target.spell_atk_aura += source.spell_atk_aura;
     target.spell_hp_aura += source.spell_hp_aura;
     target.blood_gems_played += source.blood_gems_played;
     target.blood_gem_stats_applied.0 += source.blood_gem_stats_applied.0;
     target.blood_gem_stats_applied.1 += source.blood_gem_stats_applied.1;
+    if let Some(transfer) = hooks(source.card_id).magnetize_transfer {
+        transfer(source, target);
+    }
 }
 
 /// Apply board-wide observers after a minion is played (`was_magnetized = false`) or Magnetized (`was_magnetized = true`).
@@ -781,10 +815,11 @@ pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &
     }
 }
 
-/// Apply Start-of-Turn triggers on a minion on `board` (`Patient Scout`, `Ichoron`, `Malchezaar`, `Thorned Trailblazer`, `Magicfin Mycologist`).
+/// Apply Start-of-Turn upkeep to a minion on `board`: its `turn_start_unit` hook, expiry of
+/// temporary Divine Shield, and per-turn charge resets.
 pub fn on_start_turn(unit: &mut Unit) {
-    if unit.card_id == tier2::patient_scout::ID {
-        tier2::patient_scout::on_start_turn(unit);
+    if let Some(turn_start_unit) = hooks(unit.card_id).turn_start_unit {
+        turn_start_unit(unit);
     }
     if unit.temp_divine_shield {
         unit.divine_shield = false;
@@ -793,31 +828,28 @@ pub fn on_start_turn(unit: &mut Unit) {
     init_unit_turn_charges(unit);
 }
 
-/// Apply board-wide Start-of-Turn triggers (`Accord-o-Tron`).
-pub fn on_start_turn_board(state: &mut TavernState) {
-    tier3::accord_o_tron::on_start_turn(state);
+/// Apply board-wide Start-of-Turn triggers (after Gold is refreshed): Magnetized Gold bonuses,
+/// then each minion's `turn_start` hook, left to right.
+pub fn on_start_turn_board(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    let magnetized_gold: u32 = state.board.iter().map(|u| u.sot_gold_bonus).sum();
+    state.gold += magnetized_gold;
+    notify_tavern(state, |h| h.turn_start, |s, idx, f| f(s, idx, pool, rng));
+    resolve_pending_effects(&mut state.board, &state.auras, rng);
 }
 
-/// Apply End-of-Turn triggers across `board` and `hand` when `EndTurn` is taken (`Drakkari Enchanter` multiplies triggers).
+/// Apply End-of-Turn triggers when `EndTurn` is taken, repeated per
+/// [`Passive::EndOfTurnTriggers`]: Magnetized Health bonuses, then each minion's `end_of_turn`
+/// hook, left to right.
 pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    let repeats = tier5::drakkari_enchanter::end_of_turn_multiplier(&state.board);
+    let repeats = board_passive(&state.board, Passive::EndOfTurnTriggers);
     for _ in 0..repeats {
-        tier1::lullabot::on_end_turn(state);
-        tier2::surfing_sylvar::on_end_turn(state);
-        tier3::gem_rat::on_end_turn(state);
-        resolve_roogug_procs(&mut state.board, &state.auras, rng);
-        tier3::trench_fighter::on_end_turn(state);
-        tier4::flaming_enforcer::on_end_turn(state, pool);
-        tier4::gearfin::on_end_turn(state, rng);
-        tier4::nightmare_corroder::on_end_turn(state);
-        tier4::parasitic_fleshling::on_end_turn(state);
-        tier5::cataclysmic_harbinger::on_end_turn(state);
-        tier5::felfire_conjurer::on_end_turn(state);
-        tier5::mysterious_kthir::on_end_turn(state, pool, rng);
-        tier5::resourceful_robot::on_end_turn(state, pool, rng);
-        tier6::utility_drone::on_end_turn(state);
-        tier6::young_murk_eye::on_end_turn(state, pool, rng);
-        tier7::futurefin::on_end_turn(state);
+        for unit in &mut state.board {
+            if unit.eot_health_bonus > 0 {
+                unit.add_stats(0, unit.eot_health_bonus);
+            }
+        }
+        notify_tavern(state, |h| h.end_of_turn, |s, idx, f| f(s, idx, pool, rng));
+        resolve_pending_effects(&mut state.board, &state.auras, rng);
     }
 }
 
@@ -886,14 +918,20 @@ pub fn extra_hand_blood_gem_casts(board: &[Unit]) -> u32 {
     tier4::hot_air_surveyor::extra_hand_blood_gem_casts(board)
 }
 
-/// Hook called whenever `count` Blood Gems are played on `unit` (`Geomagus Roogug`).
+/// Hook called whenever `count` Blood Gems are played on `unit` (its `blood_gems_played` hook).
 pub fn on_blood_gems_played_on_unit(unit: &mut Unit, count: u32) {
-    tier4::geomagus_roogug::on_blood_gems_played(unit, count);
+    if let Some(blood_gems_played) = hooks(unit.card_id).blood_gems_played {
+        blood_gems_played(unit, count);
+    }
 }
 
-/// Distribute any queued `Geomagus Roogug` Blood Gem procs to another friendly minion on `board`.
-pub fn resolve_roogug_procs(board: &mut [Unit], auras: &PlayerAuras, rng: &mut Rng) {
-    tier4::geomagus_roogug::resolve_procs(board, auras, rng);
+/// Flush effects queued by minions on `board` (their `resolve_pending` hooks), left to right.
+pub fn resolve_pending_effects(board: &mut [Unit], auras: &PlayerAuras, rng: &mut Rng) {
+    for idx in 0..board.len() {
+        if let Some(resolve_pending) = hooks(board[idx].card_id).resolve_pending {
+            resolve_pending(board, idx, auras, rng);
+        }
+    }
 }
 
 /// Resolve discard triggers when `discarded` is discarded from hand (`Sludge Corrosion`, `Corrupted Coin`, `Energizing Chamber`, `Cutthroat K'Thir`, `Mindbender Ghur'sha`, `Harbinger Aph'lass`).
@@ -1077,7 +1115,7 @@ pub fn on_rally(
         }
         None => Vec::new(),
     };
-    resolve_roogug_procs(board, auras, rng);
+    resolve_pending_effects(board, auras, rng);
     summons
 }
 
@@ -1171,7 +1209,7 @@ pub fn on_friendly_attack(
     tier3::roaring_recruiter::on_friendly_attack(side, board, attacker_id, events);
     tier4::cage_gnawer::on_friendly_attack(side, board, attacker_id, events);
     tier6::ravaging_scorpid::on_friendly_attack(board, auras);
-    resolve_roogug_procs(board, auras, rng);
+    resolve_pending_effects(board, auras, rng);
 }
 
 /// Resolve on-damage-dealt triggers (`Treasure Parrot`, `Devout Hellcaller`).

@@ -12,52 +12,36 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Geomagus Roogug", 4, 6, 4)
         .with_tribe(Tribe::Quilboar)
         .with_keyword(Keyword::DivineShield)
+        .on_blood_gems_played(on_blood_gems_played)
+        .on_resolve_pending(resolve_procs)
 }
 
 pub fn on_blood_gems_played(unit: &mut Unit, count: u32) {
-    if unit.card_id == ID {
-        let mult = if unit.is_golden { 2 } else { 1 };
-        unit.pending_roogug_gems += count * mult;
-    }
+    let mult = if unit.is_golden { 2 } else { 1 };
+    unit.pending_roogug_gems += count * mult;
 }
 
-pub fn resolve_procs(board: &mut [Unit], auras: &PlayerAuras, rng: &mut Rng) {
-    if board.len() <= 1 {
-        for u in board.iter_mut() {
-            u.pending_roogug_gems = 0;
-        }
+/// Play this unit's queued Blood Gem procs on a different random friendly minion (preferring
+/// non-Roogug minions). Procs never chain: the recipient's own queue is left untouched.
+pub fn resolve_procs(board: &mut [Unit], self_idx: usize, auras: &PlayerAuras, rng: &mut Rng) {
+    let gem_count = std::mem::take(&mut board[self_idx].pending_roogug_gems);
+    if gem_count == 0 || board.len() <= 1 {
         return;
     }
-    let procs: Vec<(usize, u32)> = board
-        .iter_mut()
-        .enumerate()
-        .filter_map(|(i, u)| {
-            if u.pending_roogug_gems > 0 {
-                let p = u.pending_roogug_gems;
-                u.pending_roogug_gems = 0;
-                Some((i, p))
-            } else {
-                None
-            }
-        })
+    let candidates: Vec<usize> = (0..board.len())
+        .filter(|&i| i != self_idx && board[i].card_id != ID)
         .collect();
-    for (src_idx, gem_count) in procs {
-        let candidates: Vec<usize> = (0..board.len())
-            .filter(|&i| i != src_idx && board[i].card_id != ID)
-            .collect();
-        let pool: Vec<usize> = if candidates.is_empty() {
-            (0..board.len()).filter(|&i| i != src_idx).collect()
-        } else {
-            candidates
-        };
-        if !pool.is_empty() {
-            let pick = if pool.len() == 1 {
-                pool[0]
-            } else {
-                pool[rng.below(pool.len())]
-            };
-            board[pick].play_blood_gems(gem_count, auras);
-            board[pick].pending_roogug_gems = 0;
-        }
-    }
+    let pool: Vec<usize> = if candidates.is_empty() {
+        (0..board.len()).filter(|&i| i != self_idx).collect()
+    } else {
+        candidates
+    };
+    let pick = if pool.len() == 1 {
+        pool[0]
+    } else {
+        pool[rng.below(pool.len())]
+    };
+    let queued = board[pick].pending_roogug_gems;
+    board[pick].play_blood_gems(gem_count, auras);
+    board[pick].pending_roogug_gems = queued;
 }

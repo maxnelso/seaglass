@@ -36,6 +36,6 @@ pub fn on_activate(state: &mut TavernState, source_pos: usize, rng: &mut Rng) {
     }
     if overflow > 0 && !state.board.is_empty() {
         state.board[0].play_blood_gems(overflow, &state.auras);
-        cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+        cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
     }
 }

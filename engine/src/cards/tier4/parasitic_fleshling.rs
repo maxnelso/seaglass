@@ -5,27 +5,19 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
+use crate::rng::Rng;
 
 pub const ID: CardId = 444;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Parasitic Fleshling", 4, 6, 4).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "Parasitic Fleshling", 4, 6, 4)
+        .with_tribe(Tribe::Aberration)
+        .on_end_of_turn(on_end_turn)
 }
 
-pub fn on_end_turn(state: &mut TavernState) {
-    if state.board.is_empty() {
-        return;
-    }
-    let discarded = state.auras.cards_discarded as i32;
-    let mut total_buff = 0i32;
-    for u in &state.board {
-        if u.card_id == ID {
-            let mult = if u.is_golden { 2 } else { 1 };
-            total_buff += (2 + discarded) * mult;
-        }
-    }
-    if total_buff > 0 {
-        state.board[0].add_stats(total_buff, total_buff);
-    }
+pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
+    let mult = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let buff = (2 + state.auras.cards_discarded as i32) * mult;
+    state.board[0].add_stats(buff, buff);
 }

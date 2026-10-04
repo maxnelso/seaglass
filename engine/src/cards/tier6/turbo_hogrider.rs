@@ -28,5 +28,5 @@ pub fn after_play_choose_one(state: &mut TavernState, rng: &mut Rng) {
             u.play_blood_gems(total_gems, &state.auras);
         }
     }
-    cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+    cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
 }
