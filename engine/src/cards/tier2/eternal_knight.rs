@@ -14,14 +14,14 @@ pub fn template() -> CardTemplate {
         .on_aura_bonus(aura_bonus)
 }
 
-/// `+4/+2` (`+8/+4` if Golden) for each friendly `Eternal Knight` that died this game
-/// (`auras.eternal_knights_died`).
+/// `+4/+2` (`+8/+4` if Golden) for each friendly `Eternal Knight` that died this game (this
+/// card's counter).
 pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
-    let stacks = auras.eternal_knights_died as i32 * unit.golden_mult();
+    let stacks = auras.counter(ID) * unit.golden_mult();
     (4 * stacks, 2 * stacks)
 }
 
 /// Count this death towards every `Eternal Knight`'s aura.
 pub fn on_died(_unit: &Unit, auras: &mut PlayerAuras) {
-    auras.eternal_knights_died += 1;
+    auras.add_counter(ID, 1);
 }

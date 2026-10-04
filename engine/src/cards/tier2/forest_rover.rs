@@ -20,8 +20,7 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {
     let mult = if unit.is_golden { 2 } else { 1 };
     let d_atk = 2 * mult;
     let d_hp = mult;
-    state.auras.beetle_bonus_atk += d_atk;
-    state.auras.beetle_bonus_hp += d_hp;
+    tokens::add_beetle_bonus(&mut state.auras, d_atk, d_hp);
     for u in &mut state.board {
         if u.card_id == tokens::TOKEN_BEETLE {
             u.add_stats(d_atk, d_hp);

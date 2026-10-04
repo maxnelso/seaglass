@@ -362,7 +362,7 @@ fn tier2_combat_mechanics_work_end_to_end() {
     let board_ek_b = vec![parse_unit("3/4", &defaults).unwrap()];
     let res_ek = simulate(&board_ek_a, &board_ek_b, &GameState::default(), 1);
     assert_eq!(res_ek.outcome, BattleOutcome::AWin);
-    assert_eq!(res_ek.eternal_knights_died_a, 1);
+    assert_eq!(res_ek.auras_a.counter(tier2::eternal_knight::ID), 1);
     // Second Eternal Knight grew from 4/2 to 8/4 after the first died!
     assert_eq!(res_ek.survivors_a[0].attack, 8);
     assert!(res_ek.survivors_a[0].health > 0);
@@ -412,7 +412,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.volumizer_bonus_atk, 3);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 3);
     assert_eq!(state.board[1].attack, 9);
     assert_eq!(state.board[1].health, 2);
 
@@ -429,7 +429,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.volumizer_bonus_hp, 3);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 3);
     assert_eq!(state.board[1].attack, 16);
     assert_eq!(state.board[1].health, 12);
 
@@ -444,8 +444,8 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.volumizer_bonus_atk, 4);
-    assert_eq!(state.auras.volumizer_bonus_hp, 4);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 4);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 4);
 
     // 2. Fire Baller & Snow Baller shared scaling
     state.add_to_hand(tier2::fire_baller::template().instantiate());
@@ -474,12 +474,12 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
-    assert_eq!(state.auras.baller_bonus, 1);
+    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
     // Sell Fire Baller (now at pos 0) -> gives board +2 Attack, baller_bonus = 2
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
-    assert_eq!(state.auras.baller_bonus, 2);
+    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 2);
 
     // 3. Lurking Lionfish Activate (2g) -> replaces shop[0] with Fishbait for left-most Beast to attack
     state.board.clear();
@@ -719,7 +719,7 @@ fn tier3_combat_mechanics_work_end_to_end() {
     assert_eq!(t_state.board[1].attack, 6);
     assert_eq!(t_state.board[1].health, 6);
     // Tasty Lobster and Waveling died and incremented persistent aura stacks!
-    assert_eq!(c_res.auras_a.tasty_lobster_stacks, 1);
+    assert_eq!(c_res.auras_a.counter(tier3::tasty_lobster::ID), 1);
     assert_eq!(c_res.auras_a.waveling_stacks, 1);
 }
 
@@ -1148,8 +1148,8 @@ fn audit_regression_suite_covers_all_15_bugs() {
     // 7. Tripling does not triple global auras and resets Golden Volumizer threshold_triggered
     state.board.clear();
     state.hand.clear();
-    state.auras.volumizer_bonus_atk = 0;
-    state.auras.volumizer_bonus_hp = 0;
+    let volumizers = tier2::blue_volumizer::VOLUMIZER_COUNTER;
+    state.auras.card_counters.remove(&volumizers);
     for i in 0..3 {
         state.add_to_hand(tier2::green_volumizer::template().instantiate());
         if i < 2 {

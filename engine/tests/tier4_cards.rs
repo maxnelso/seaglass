@@ -30,7 +30,7 @@ fn card_401_air_baller() {
     // Air Baller gives +2/+2 (plus baller_bonus=0) and increments baller_bonus by 1.
     assert_eq!(state.board[0].attack, 3);
     assert_eq!(state.board[0].health, 3);
-    assert_eq!(state.auras.baller_bonus, 1);
+    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
 }
 
 #[test]

@@ -212,7 +212,7 @@ fn card_312_disguised_graverobber() {
         .unwrap();
     // Eternal Knight was destroyed -> eternal_knights_died == 1, and a plain copy in hand is 8/4 without Taunt or the +5/+5 buff!
     // Pool count stays at 14 (1 returned when destroyed, 1 taken for the plain copy in hand).
-    assert_eq!(state.auras.eternal_knights_died, 1);
+    assert_eq!(state.auras.counter(tier2::eternal_knight::ID), 1);
     assert_eq!(pool.remaining_copies(tier2::eternal_knight::ID), 14);
     assert_eq!(state.hand.len(), 1);
     assert_eq!(state.hand[0].card_id, tier2::eternal_knight::ID);
@@ -697,7 +697,7 @@ fn card_333_tasty_lobster() {
     ];
     let board_b = vec![Unit::new("Enemy", 4, 10)];
     let res = simulate(&board_a, &board_b, &GameState::default(), 333);
-    assert_eq!(res.auras_a.tasty_lobster_stacks, 2);
+    assert_eq!(res.auras_a.counter(tier3::tasty_lobster::ID), 2);
 }
 
 #[test]

@@ -7,6 +7,8 @@ use crate::tavern::TavernState;
 
 pub const ID: CardId = 202;
 pub const NAME: &str = "Blue Volumizer";
+/// Card counter shared by all Volumizers: the Attack/Health they have this game.
+pub const VOLUMIZER_COUNTER: CardId = ID;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 1, 3, 2)
@@ -23,15 +25,24 @@ pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
     }
     unit.threshold_triggered = true;
     let delta_hp = if unit.is_golden { 6 } else { 3 };
-    state.auras.volumizer_bonus_hp += delta_hp;
+    add_volumizer_bonus(&mut state.auras, 0, delta_hp);
     cards::sync_unit_auras(unit, &state.auras);
     state.sync_all_auras();
 }
 
-/// The shared Volumizer bonus (`auras.volumizer_bonus_atk / hp`; the `aura_bonus` hook of all
-/// three Volumizers).
+/// The Attack/Health all Volumizers have this game ([`VOLUMIZER_COUNTER`]).
+pub fn volumizer_bonus(auras: &PlayerAuras) -> (i32, i32) {
+    auras.counter_pair(VOLUMIZER_COUNTER)
+}
+
+/// Give all Volumizers `+atk/+hp` this game.
+pub fn add_volumizer_bonus(auras: &mut PlayerAuras, atk: i32, hp: i32) {
+    auras.add_counter_pair(VOLUMIZER_COUNTER, (atk, hp));
+}
+
+/// The shared Volumizer bonus (the `aura_bonus` hook of all three Volumizers).
 pub fn volumizer_aura_bonus(_: &Unit, auras: &PlayerAuras) -> (i32, i32) {
-    (auras.volumizer_bonus_atk, auras.volumizer_bonus_hp)
+    volumizer_bonus(auras)
 }
 
 /// Tripled: the Golden's first-play effect can trigger again (the `merge_golden` hook of all

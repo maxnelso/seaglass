@@ -1016,8 +1016,8 @@ fn card_552_turquoise_skitterer() {
     let skitterer = tier5::turquoise_skitterer::template().instantiate();
     let enemy = Unit::new("Enemy", 10, 2);
     let res = simulate(&[skitterer], &[enemy], &GameState::default(), 552);
-    assert_eq!(res.auras_a.beetle_bonus_atk, 5);
-    assert_eq!(res.auras_a.beetle_bonus_hp, 5);
+    assert_eq!(tokens::beetle_bonus(&res.auras_a).0, 5);
+    assert_eq!(tokens::beetle_bonus(&res.auras_a).1, 5);
     // Summoned Beetle has 2+5 / 2+5 = 7/7!
     assert_eq!(res.survivors_a.len(), 1);
     assert_eq!(res.survivors_a[0].attack, 7);

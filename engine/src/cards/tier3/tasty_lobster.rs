@@ -15,7 +15,7 @@ pub fn template() -> CardTemplate {
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     let mult = if dying.is_golden { 2 } else { 1 };
-    let total_stacks = mult + ctx.auras.tasty_lobster_stacks;
+    let total_stacks = mult + ctx.auras.counter(ID);
     let d_atk = 2 * total_stacks;
     let d_hp = total_stacks;
     let beasts: Vec<usize> = ctx
@@ -33,5 +33,5 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
         };
         ctx.buff_unit(pick, d_atk, d_hp, NAME);
     }
-    ctx.auras.tasty_lobster_stacks += mult;
+    ctx.auras.add_counter(ID, mult);
 }

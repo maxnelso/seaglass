@@ -404,8 +404,8 @@ fn card_618_ravaging_scorpid() {
     let enemy = Unit::new("Killer", 10, 6);
     let res = simulate(&[scorpid], &[enemy], &GameState::default(), 618);
     // Scorpid attacks (+4/+4 Beetle bonus) and dies -> summons a 2/2 + 4/4 = 6/6 Beetle!
-    assert_eq!(res.auras_a.beetle_bonus_atk, 4);
-    assert_eq!(res.auras_a.beetle_bonus_hp, 4);
+    assert_eq!(tokens::beetle_bonus(&res.auras_a).0, 4);
+    assert_eq!(tokens::beetle_bonus(&res.auras_a).1, 4);
     assert_eq!(res.survivors_a.len(), 1);
     assert_eq!(res.survivors_a[0].card_id, tokens::TOKEN_BEETLE);
     assert_eq!(res.survivors_a[0].attack, 6);

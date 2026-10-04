@@ -92,11 +92,22 @@ pub fn make_aberrant_tentacle() -> Unit {
         .with_keyword(Keyword::Taunt)
 }
 
-/// `Beetle` (`2/2` Beast, or `4/4` if Golden, plus `beetle_bonus_atk / beetle_bonus_hp`).
+/// The Attack/Health Beetles have this game (the `TOKEN_BEETLE` card counter).
+pub fn beetle_bonus(auras: &PlayerAuras) -> (i32, i32) {
+    auras.counter_pair(TOKEN_BEETLE)
+}
+
+/// Give future Beetles `+atk/+hp` this game.
+pub fn add_beetle_bonus(auras: &mut PlayerAuras, atk: i32, hp: i32) {
+    auras.add_counter_pair(TOKEN_BEETLE, (atk, hp));
+}
+
+/// `Beetle` (`2/2` Beast, or `4/4` if Golden, plus the [`beetle_bonus`]).
 pub fn make_beetle(is_golden: bool, auras: &PlayerAuras) -> Unit {
     let base = if is_golden { 4 } else { 2 };
-    let atk = base + auras.beetle_bonus_atk;
-    let hp = base + auras.beetle_bonus_hp;
+    let (bonus_atk, bonus_hp) = beetle_bonus(auras);
+    let atk = base + bonus_atk;
+    let hp = base + bonus_hp;
     let mut u = Unit::new("Beetle", atk, hp)
         .with_card_id(TOKEN_BEETLE)
         .with_tavern_tier(1)

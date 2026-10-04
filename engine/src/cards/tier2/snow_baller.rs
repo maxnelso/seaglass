@@ -16,9 +16,9 @@ pub fn template() -> CardTemplate {
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {
     let mult = if sold.is_golden { 2 } else { 1 };
-    let hp_buff = (1 + state.auras.baller_bonus) * mult;
+    let hp_buff = (1 + super::fire_baller::baller_bonus(&state.auras)) * mult;
     for u in &mut state.board {
         u.add_stats(0, hp_buff);
     }
-    state.auras.baller_bonus += mult;
+    super::fire_baller::improve_ballers(&mut state.auras, mult);
 }

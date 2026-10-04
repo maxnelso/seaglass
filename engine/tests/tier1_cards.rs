@@ -65,8 +65,7 @@ fn card_102_zoatroid() {
 #[test]
 fn card_103_buzzing_vermin() {
     let mut gs = GameState::default();
-    gs.auras_a.beetle_bonus_atk = 2;
-    gs.auras_a.beetle_bonus_hp = 1;
+    tokens::add_beetle_bonus(&mut gs.auras_a, 2, 1);
     let board_a = vec![tier1::buzzing_vermin::template().instantiate()];
     let board_b = vec![Unit::new("Attacker", 2, 1)];
     let res = simulate(&board_a, &board_b, &gs, 103);

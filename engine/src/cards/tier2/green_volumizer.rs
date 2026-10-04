@@ -23,8 +23,7 @@ pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
     }
     unit.threshold_triggered = true;
     let delta = if unit.is_golden { 2 } else { 1 };
-    state.auras.volumizer_bonus_atk += delta;
-    state.auras.volumizer_bonus_hp += delta;
+    super::blue_volumizer::add_volumizer_bonus(&mut state.auras, delta, delta);
     cards::sync_unit_auras(unit, &state.auras);
     state.sync_all_auras();
 }

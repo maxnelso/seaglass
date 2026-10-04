@@ -63,7 +63,7 @@ fn card_202_blue_volumizer() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.volumizer_bonus_hp, 3);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 3);
     // Blue Volumizer became 1/6 before fusing onto 1/1 Cord Puller -> 2/7!
     assert_eq!(state.board[0].attack, 2);
     assert_eq!(state.board[0].health, 7);
@@ -210,12 +210,12 @@ fn card_208_electric_synthesizer() {
 #[test]
 fn card_209_eternal_knight() {
     let mut gs = GameState::default();
-    gs.auras_a.eternal_knights_died = 2;
+    gs.auras_a.add_counter(tier2::eternal_knight::ID, 2);
     let board_a = vec![tier2::eternal_knight::template().instantiate()]; // 4/2 + 2*(4/2) = 12/6
     let board_b = vec![Unit::new("Enemy", 10, 10)];
     let res = simulate(&board_a, &board_b, &gs, 209);
     assert_eq!(res.outcome, BattleOutcome::Draw);
-    assert_eq!(res.eternal_knights_died_a, 3);
+    assert_eq!(res.auras_a.counter(tier2::eternal_knight::ID), 3);
 }
 
 #[test]
@@ -239,7 +239,7 @@ fn card_211_fire_baller() {
         .step(TavernAction::Sell { board_pos: 1 }, &mut pool, &mut rng)
         .unwrap();
     assert_eq!(state.board[0].attack, 3);
-    assert_eq!(state.auras.baller_bonus, 1);
+    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
 }
 
 #[test]
@@ -256,8 +256,8 @@ fn card_212_forest_rover() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.beetle_bonus_atk, 2);
-    assert_eq!(state.auras.beetle_bonus_hp, 1);
+    assert_eq!(tokens::beetle_bonus(&state.auras).0, 2);
+    assert_eq!(tokens::beetle_bonus(&state.auras).1, 1);
 
     let opp = vec![Unit::new("Enemy", 3, 1)];
     let res = state.resolve_combat_against(&opp, 1, &Default::default(), &[], 212);
@@ -281,8 +281,8 @@ fn card_213_green_volumizer() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.volumizer_bonus_atk, 1);
-    assert_eq!(state.auras.volumizer_bonus_hp, 1);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 1);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 1);
     assert_eq!(state.board[0].attack, 4);
     assert_eq!(state.board[0].health, 4);
 }
@@ -493,7 +493,7 @@ fn card_223_red_volumizer() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.volumizer_bonus_atk, 3);
+    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 3);
     assert_eq!(state.board[0].attack, 6);
     assert_eq!(state.board[0].health, 1);
 }
@@ -543,7 +543,7 @@ fn card_227_snow_baller() {
         .step(TavernAction::Sell { board_pos: 1 }, &mut pool, &mut rng)
         .unwrap();
     assert_eq!(state.board[0].health, 3);
-    assert_eq!(state.auras.baller_bonus, 1);
+    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
 }
 
 #[test]

@@ -17,8 +17,7 @@ pub fn template() -> CardTemplate {
 
 pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, self_idx: usize, _attacker_id: UnitId) {
     let bonus = 4 * ctx.board[self_idx].golden_mult();
-    ctx.auras.beetle_bonus_atk += bonus;
-    ctx.auras.beetle_bonus_hp += bonus;
+    tokens::add_beetle_bonus(ctx.auras, bonus, bonus);
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

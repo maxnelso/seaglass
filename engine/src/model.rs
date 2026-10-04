@@ -1,5 +1,7 @@
 //! Core data types: units, tribes, keywords, deities, player auras, and game state.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Stable identity for a unit within a single battle (`docs/combat.md` §2).
@@ -194,9 +196,6 @@ pub struct PlayerAuras {
     pub tavern_all_hp: i32,
     /// Turn-scoped bonus Attack/Health applied to all minions in the Tavern (`Ashen Corruptor`).
     pub ashen_corruptor_turn_buff: i32,
-    /// Bonus Attack/Health applied to summoned Beetles (`Buzzing Vermin` / `Forest Rover`).
-    pub beetle_bonus_atk: i32,
-    pub beetle_bonus_hp: i32,
     /// Bonus Attack applied to friendly Undead (`Nerubian Deathswarmer`).
     pub undead_bonus_attack: i32,
     /// Bonus Attack/Health added to Blood Gems (`Gem Day` / `Crater Miner` / `Fearless Foodie`).
@@ -205,15 +204,6 @@ pub struct PlayerAuras {
     /// Extra Attack/Health granted by Tavern spells that give stats (`Intrepid Botanist`, `Azsharan Cutlassier`, `Blue Whelp`, `Shoalfin Mystic`).
     pub spell_bonus_atk: i32,
     pub spell_bonus_hp: i32,
-    /// Bonus Attack/Health applied to Volumizers wherever they are (`Red`/`Blue`/`Green Volumizer`).
-    pub volumizer_bonus_atk: i32,
-    pub volumizer_bonus_hp: i32,
-    /// Bonus stats added to future `Fire Baller` and `Snow Baller` sell triggers.
-    pub baller_bonus: i32,
-    /// Number of `(+2, +1)` improvement stacks added to future `Tasty Lobster` Deathrattles.
-    pub tasty_lobster_stacks: i32,
-    /// Number of friendly `Eternal Knight`s that have died this game.
-    pub eternal_knights_died: u32,
     /// Number of `Waveling` Deathrattle stacks (each gives a random Tavern minion `+4/+4` on Refresh).
     pub waveling_stacks: u32,
     /// Number of `Demon Fodder`s to add on the next 3 shop Refreshes (`Laboratory Assistant` / `Trapped Clapper`).
@@ -262,6 +252,10 @@ pub struct PlayerAuras {
     pub sharing_is_caring_stacks: u32,
     /// Player's Old God Deity state (awakens after 4 friendly Aberration deaths in combat).
     pub deity: DeityState,
+    /// Per-card "this game" counters that card text records and reads, keyed by the card that
+    /// owns them (`Eternal Knight` deaths, `Baller` improvements, the `Beetle` stat bonus, ...).
+    /// The engine never interprets them; see [`Self::counter`] and [`Self::counter_pair`].
+    pub card_counters: BTreeMap<CardId, (i32, i32)>,
 }
 
 impl PlayerAuras {
@@ -275,6 +269,28 @@ impl PlayerAuras {
     #[inline]
     pub fn spell_stat_buff(&self, base_atk: i32, base_hp: i32) -> (i32, i32) {
         (base_atk + self.spell_bonus_atk, base_hp + self.spell_bonus_hp)
+    }
+
+    /// Value of the card counter `key` (0 if unset).
+    pub fn counter(&self, key: CardId) -> i32 {
+        self.counter_pair(key).0
+    }
+
+    /// Add `n` to the card counter `key`.
+    pub fn add_counter(&mut self, key: CardId, n: i32) {
+        self.add_counter_pair(key, (n, 0));
+    }
+
+    /// Value of the two-part (e.g. Attack/Health) card counter `key` (`(0, 0)` if unset).
+    pub fn counter_pair(&self, key: CardId) -> (i32, i32) {
+        self.card_counters.get(&key).copied().unwrap_or_default()
+    }
+
+    /// Add `(a, b)` to the two-part card counter `key`.
+    pub fn add_counter_pair(&mut self, key: CardId, (a, b): (i32, i32)) {
+        let counter = self.card_counters.entry(key).or_default();
+        counter.0 += a;
+        counter.1 += b;
     }
 }
 

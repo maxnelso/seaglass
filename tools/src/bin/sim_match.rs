@@ -203,7 +203,7 @@ fn print_player_snapshot(label: &str, state: &TavernState, pool: &CardPool) {
         1 + state.auras.blood_gem_bonus_atk,
         1 + state.auras.blood_gem_bonus_hp,
         state.auras.undead_bonus_attack,
-        state.auras.eternal_knights_died,
+        state.auras.counter(tier2::eternal_knight::ID),
     );
     println!("  │   Board ({}/7):", state.board.len());
     print!("{}", format_unit_list(&state.board, "  │     ", None));
@@ -440,21 +440,19 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.undead_bonus_attack, after.undead_bonus_attack
         ));
     }
-    if before.eternal_knights_died != after.eternal_knights_died {
+    let ek = |a: &PlayerAuras| a.counter(tier2::eternal_knight::ID);
+    if ek(before) != ek(after) {
         diffs.push(format!(
             "eternal_knights_died: {} -> {}",
-            before.eternal_knights_died, after.eternal_knights_died
+            ek(before),
+            ek(after)
         ));
     }
-    if (before.beetle_bonus_atk, before.beetle_bonus_hp)
-        != (after.beetle_bonus_atk, after.beetle_bonus_hp)
-    {
+    let (beetle_before, beetle_after) = (tokens::beetle_bonus(before), tokens::beetle_bonus(after));
+    if beetle_before != beetle_after {
         diffs.push(format!(
             "beetle_bonus: +{}/+{} -> +{}/+{}",
-            before.beetle_bonus_atk,
-            before.beetle_bonus_hp,
-            after.beetle_bonus_atk,
-            after.beetle_bonus_hp
+            beetle_before.0, beetle_before.1, beetle_after.0, beetle_after.1
         ));
     }
     if (before.blood_gem_bonus_atk, before.blood_gem_bonus_hp)
@@ -479,15 +477,12 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             after.spell_bonus_hp
         ));
     }
-    if (before.volumizer_bonus_atk, before.volumizer_bonus_hp)
-        != (after.volumizer_bonus_atk, after.volumizer_bonus_hp)
-    {
+    let volumizers = tier2::blue_volumizer::volumizer_bonus;
+    let (vol_before, vol_after) = (volumizers(before), volumizers(after));
+    if vol_before != vol_after {
         diffs.push(format!(
             "volumizer_bonus: +{}/+{} -> +{}/+{}",
-            before.volumizer_bonus_atk,
-            before.volumizer_bonus_hp,
-            after.volumizer_bonus_atk,
-            after.volumizer_bonus_hp
+            vol_before.0, vol_before.1, vol_after.0, vol_after.1
         ));
     }
     if before.next_spell_discount != after.next_spell_discount {
@@ -580,16 +575,20 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.fodder_per_refresh, after.fodder_per_refresh
         ));
     }
-    if before.baller_bonus != after.baller_bonus {
+    let ballers = tier2::fire_baller::baller_bonus;
+    if ballers(before) != ballers(after) {
         diffs.push(format!(
             "baller_bonus: +{} -> +{}",
-            before.baller_bonus, after.baller_bonus
+            ballers(before),
+            ballers(after)
         ));
     }
-    if before.tasty_lobster_stacks != after.tasty_lobster_stacks {
+    let lobsters = |a: &PlayerAuras| a.counter(tier3::tasty_lobster::ID);
+    if lobsters(before) != lobsters(after) {
         diffs.push(format!(
             "tasty_lobster_stacks: +{} -> +{}",
-            before.tasty_lobster_stacks, after.tasty_lobster_stacks
+            lobsters(before),
+            lobsters(after)
         ));
     }
     diffs
