@@ -14,6 +14,7 @@ pub fn template() -> CardTemplate {
         .on_start_of_combat(|c, id, is_golden| {
             on_start_of_combat(c.side, c.board, id, is_golden, c.events)
         })
+        .on_friendly_divine_shield_lost(|unit| unit.hopebringer_stacks += 1)
 }
 
 pub fn on_start_of_combat(
@@ -44,13 +45,5 @@ pub fn on_start_of_combat(
             health: u.health,
             reason: "Hopebringer",
         });
-    }
-}
-
-pub fn on_friendly_divine_shield_lost(board: &mut [Unit]) {
-    for u in board.iter_mut() {
-        if u.card_id == ID && u.health > 0 {
-            u.hopebringer_stacks += 1;
-        }
     }
 }

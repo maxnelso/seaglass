@@ -536,9 +536,7 @@ impl TavernState {
         }
         let dying = self.board.remove(board_pos);
         pool.return_unit(&dying);
-        cards::on_unit_died(&dying, &mut self.board, &mut self.auras);
 
-        let dr_repeats = 1 + cards::board_passive(&self.board, Passive::ExtraDeathrattles);
         let old_tavern_all = (self.auras.tavern_all_atk, self.auras.tavern_all_hp);
         let mut hand_summoned = vec![false; self.hand.len()];
         let mut beast_bonus_atk = 0;
@@ -562,6 +560,8 @@ impl TavernState {
             rng,
             events: &mut events,
         };
+        cards::on_friendly_death(&mut dr_ctx, &dying);
+        let dr_repeats = 1 + cards::board_passive(dr_ctx.board, Passive::ExtraDeathrattles);
         for _ in 0..dr_repeats {
             cards::on_deathrattle(&dying, &mut dr_ctx);
         }

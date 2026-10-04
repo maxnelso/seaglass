@@ -468,14 +468,9 @@ fn resolve_start_of_combat_aoe(
                     if took {
                         cards::on_damage_taken(&own_side.board[pos], &mut own_side.hand, rng);
                         cards::on_damage_dealt(
-                            side,
-                            &mut own_side.board,
+                            &mut own_side.ctx(side, next_id, rng, events),
                             src_id,
                             3,
-                            &mut own_side.auras,
-                            &mut own_side.hand,
-                            &mut own_side.hand_summoned,
-                            events,
                         );
                     }
                 }
@@ -492,14 +487,9 @@ fn resolve_start_of_combat_aoe(
                     if took {
                         cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
                         cards::on_damage_dealt(
-                            side,
-                            &mut own_side.board,
+                            &mut own_side.ctx(side, next_id, rng, events),
                             src_id,
                             3,
-                            &mut own_side.auras,
-                            &mut own_side.hand,
-                            &mut own_side.hand_summoned,
-                            events,
                         );
                     }
                 }
@@ -647,9 +637,8 @@ fn perform_one_strike(
         .map(|u| (u.id, u.attack, u.health))
         .collect();
     let events_len_before_rally = events.len();
-    let def_had_ds = def_side.board[initial_def_pos].divine_shield;
     let mut generated_hand = Vec::new();
-    let rally_summons = cards::on_rally(
+    let (rally_summons, summons_attack_target) = cards::on_rally(
         side,
         &mut atk_side.board,
         initial_atk_pos,
@@ -661,13 +650,6 @@ fn perform_one_strike(
         rng,
         events,
     );
-    if def_had_ds
-        && initial_def_pos < def_side.board.len()
-        && !def_side.board[initial_def_pos].divine_shield
-        && attacker_card_id != cards::tier7::obsidian_ravager::ID
-    {
-        cards::tier5::hopebringer::on_friendly_divine_shield_lost(&mut def_side.board);
-    }
     let already_logged_units: Vec<UnitId> = events[events_len_before_rally..]
         .iter()
         .filter_map(|ev| match *ev {
@@ -705,15 +687,15 @@ fn perform_one_strike(
             cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
         }
     }
-    let mut juggernaut_golem_id: Option<UnitId> = None;
+    let mut forced_striker: Option<UnitId> = None;
     if !rally_summons.is_empty() {
         let mut insert_pos = initial_atk_pos + 1;
         for mut token in rally_summons {
             if atk_side.board.len() < MAX_BOARD_SIZE {
                 token.id = *next_id;
                 *next_id += 1;
-                if attacker_card_id == cards::tier7::jailbird_juggernaut::ID {
-                    juggernaut_golem_id = Some(token.id);
+                if summons_attack_target {
+                    forced_striker = Some(token.id);
                 }
                 atk_side.prepare_summoned_unit(&mut token);
                 events.push(Event::UnitSummoned {
@@ -733,23 +715,14 @@ fn perform_one_strike(
 
     if cards::is_rally_minion(attacker_card_id) {
         let prev_hand_len = atk_side.hand.len();
-        cards::tier6::deathstrider::after_rally_minion_attacks(
-            &mut atk_side.ctx(side, next_id, rng, events),
-        );
+        cards::after_friendly_rally(&mut atk_side.ctx(side, next_id, rng, events));
         for _ in prev_hand_len..atk_side.hand.len() {
             cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
         }
     }
 
     // 2b. Fire friendly-attack observers.
-    cards::on_friendly_attack(
-        side,
-        &mut atk_side.board,
-        attacker_id,
-        &mut atk_side.auras,
-        rng,
-        events,
-    );
+    cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
 
     // 2c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
     if def_side.board.iter().any(|u| u.health <= 0)
@@ -772,10 +745,10 @@ fn perform_one_strike(
         resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
     }
 
-    // 2d. `Jailbird Juggernaut`: Summoned Golem attacks the target first.
-    if let Some(golem_id) = juggernaut_golem_id {
+    // 2d. Rally summons that attack the target first (e.g. `Jailbird Juggernaut`'s Golem).
+    if let Some(striker_id) = forced_striker {
         perform_forced_target_strike(
-            side, golem_id, target_id, atk_side, def_side, next_id, rng, events,
+            side, striker_id, target_id, atk_side, def_side, next_id, rng, events,
         );
     }
 
@@ -819,14 +792,9 @@ fn perform_one_strike(
     if def_took_damage {
         cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
         cards::on_damage_dealt(
-            side,
-            &mut atk_side.board,
+            &mut atk_side.ctx(side, next_id, rng, events),
             attacker_id,
             attacker_attack,
-            &mut atk_side.auras,
-            &mut atk_side.hand,
-            &mut atk_side.hand_summoned,
-            events,
         );
     }
 
@@ -844,14 +812,9 @@ fn perform_one_strike(
     if atk_took_damage {
         cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
         cards::on_damage_dealt(
-            side.other(),
-            &mut def_side.board,
+            &mut def_side.ctx(side.other(), next_id, rng, events),
             target_id,
             target_attack,
-            &mut def_side.auras,
-            &mut def_side.hand,
-            &mut def_side.hand_summoned,
-            events,
         );
     }
 
@@ -876,14 +839,9 @@ fn perform_one_strike(
             if n_took_damage {
                 cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
                 cards::on_damage_dealt(
-                    side,
-                    &mut atk_side.board,
+                    &mut atk_side.ctx(side, next_id, rng, events),
                     attacker_id,
                     attacker_attack,
-                    &mut atk_side.auras,
-                    &mut atk_side.hand,
-                    &mut atk_side.hand_summoned,
-                    events,
                 );
             }
         }
@@ -924,14 +882,9 @@ fn perform_one_strike(
                 if n_took_damage {
                     cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
                     cards::on_damage_dealt(
-                        side,
-                        &mut atk_side.board,
+                        &mut atk_side.ctx(side, next_id, rng, events),
                         attacker_id,
                         excess,
-                        &mut atk_side.auras,
-                        &mut atk_side.hand,
-                        &mut atk_side.hand_summoned,
-                        events,
                     );
                 }
             }
@@ -939,7 +892,7 @@ fn perform_one_strike(
     }
 
     // 4c. After-attack bonus damage (`De-volition-ist`).
-    let after_dmg = cards::tier5::de_volition_ist::after_attack_damage(&atk_side.board[atk_pos]);
+    let after_dmg = cards::after_attack_damage(&atk_side.board[atk_pos]);
     if after_dmg > 0 {
         let max_hp = def_side
             .board
@@ -971,14 +924,9 @@ fn perform_one_strike(
             if took {
                 cards::on_damage_taken(&def_side.board[pick_pos], &mut def_side.hand, rng);
                 cards::on_damage_dealt(
-                    side,
-                    &mut atk_side.board,
+                    &mut atk_side.ctx(side, next_id, rng, events),
                     attacker_id,
                     after_dmg,
-                    &mut atk_side.auras,
-                    &mut atk_side.hand,
-                    &mut atk_side.hand_summoned,
-                    events,
                 );
             }
         }
@@ -1039,14 +987,7 @@ fn perform_forced_target_strike(
         target: target_id,
     });
 
-    cards::on_friendly_attack(
-        side,
-        &mut atk_side.board,
-        attacker_id,
-        &mut atk_side.auras,
-        rng,
-        events,
-    );
+    cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
 
     let Some(atk_pos) = atk_side
         .board
@@ -1082,14 +1023,9 @@ fn perform_forced_target_strike(
     if def_took_damage {
         cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
         cards::on_damage_dealt(
-            side,
-            &mut atk_side.board,
+            &mut atk_side.ctx(side, next_id, rng, events),
             attacker_id,
             attacker_attack,
-            &mut atk_side.auras,
-            &mut atk_side.hand,
-            &mut atk_side.hand_summoned,
-            events,
         );
     }
 
@@ -1107,14 +1043,9 @@ fn perform_forced_target_strike(
     if atk_took_damage {
         cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
         cards::on_damage_dealt(
-            side.other(),
-            &mut def_side.board,
+            &mut def_side.ctx(side.other(), next_id, rng, events),
             target_id,
             target_attack,
-            &mut def_side.auras,
-            &mut def_side.hand,
-            &mut def_side.hand_summoned,
-            events,
         );
     }
 
@@ -1241,9 +1172,7 @@ fn apply_damage(
         return (false, false);
     }
     if board[pos].divine_shield {
-        board[pos].divine_shield = false;
-        events.push(Event::DivineShieldPopped { unit: board[pos].id });
-        cards::tier5::hopebringer::on_friendly_divine_shield_lost(board);
+        cards::pop_divine_shield(board, pos, events);
         (false, false)
     } else {
         let unit = &mut board[pos];
@@ -1332,20 +1261,7 @@ fn resolve_deaths(
         // Unit died.
         side_state.friendly_deaths_this_combat += 1;
         side_state.dead_units.push(unit.clone());
-        cards::on_combat_friendly_death(
-            side,
-            &unit,
-            &mut side_state.board,
-            &mut side_state.auras,
-            side_state.hero_tier,
-            &mut side_state.hand,
-            &mut side_state.hand_summoned,
-            side_state.combat_beast_bonus_atk,
-            next_id,
-            &mut side_state.pending_immediate_attacks,
-            rng,
-            events,
-        );
+        cards::on_friendly_death(&mut side_state.ctx(side, next_id, rng, events), &unit);
 
         if unit.tribe.matches(Tribe::Aberration) {
             if !unit.is_deity {

@@ -2,52 +2,30 @@
 //!
 //! Whenever a friendly Beast attacks, give your Beasts `+2/+1` (`+4/+2` if Golden).
 
-use crate::cards::CardTemplate;
-use crate::events::Event;
-use crate::model::{CardId, Side, Tribe, Unit, UnitId};
+use crate::cards::{BoardCtx, CardTemplate};
+use crate::model::{CardId, Tribe, UnitId};
 
 pub const ID: CardId = 411;
+pub const NAME: &str = "Cage Gnawer";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Cage Gnawer", 2, 7, 4).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 2, 7, 4)
+        .with_tribe(Tribe::Beast)
+        .on_friendly_attack(on_friendly_attack)
 }
 
-pub fn on_friendly_attack(
-    side: Side,
-    board: &mut [Unit],
-    attacker_id: UnitId,
-    events: &mut Vec<Event>,
-) {
-    let Some(attacker) = board.iter().find(|u| u.id == attacker_id) else {
-        return;
-    };
-    if !attacker.tribe.matches(Tribe::Beast) {
+pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, self_idx: usize, attacker_id: UnitId) {
+    let attacker_is_beast = ctx
+        .board
+        .iter()
+        .any(|u| u.id == attacker_id && u.tribe.matches(Tribe::Beast));
+    if !attacker_is_beast {
         return;
     }
-    let mut total_atk = 0i32;
-    let mut total_hp = 0i32;
-    for u in board.iter() {
-        if u.card_id == ID {
-            let mult = if u.is_golden { 2 } else { 1 };
-            total_atk += 2 * mult;
-            total_hp += mult;
-        }
-    }
-    if total_atk == 0 && total_hp == 0 {
-        return;
-    }
-    for u in board.iter_mut() {
-        if u.tribe.matches(Tribe::Beast) {
-            u.add_stats(total_atk, total_hp);
-            events.push(Event::StatBuff {
-                side,
-                unit: u.id,
-                atk_delta: total_atk,
-                hp_delta: total_hp,
-                attack: u.attack,
-                health: u.health,
-                reason: "Cage Gnawer",
-            });
+    let mult = ctx.board[self_idx].golden_mult();
+    for idx in 0..ctx.board.len() {
+        if ctx.board[idx].tribe.matches(Tribe::Beast) {
+            ctx.buff_unit(idx, 2 * mult, mult, NAME);
         }
     }
 }

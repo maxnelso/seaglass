@@ -10,7 +10,10 @@ pub const ID: CardId = 705;
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Jailbird Juggernaut", 6, 15, 7)
         .with_tribe(Tribe::Quilboar)
-        .on_rally(|c| on_rally(&c.board[c.attacker_pos]))
+        .on_rally(|c| {
+            c.summons_attack_target = true;
+            on_rally(&c.board[c.attacker_pos])
+        })
 }
 
 pub fn on_rally(attacker: &Unit) -> Vec<Unit> {

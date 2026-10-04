@@ -8,19 +8,13 @@ use crate::model::{CardId, Tribe};
 pub const ID: CardId = 607;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Deathstrider", 10, 11, 6).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, "Deathstrider", 10, 11, 6)
+        .with_tribe(Tribe::Beast)
+        .on_after_friendly_rally(after_friendly_rally)
 }
 
-pub fn after_rally_minion_attacks(ctx: &mut BoardCtx<'_>) {
-    let mut triggers = 0u32;
-    for u in ctx.board.iter() {
-        if u.health > 0 && u.card_id == ID {
-            triggers += if u.is_golden { 2 } else { 1 };
-        }
-    }
-    if triggers == 0 {
-        return;
-    }
+pub fn after_friendly_rally(ctx: &mut BoardCtx<'_>, self_idx: usize) {
+    let triggers = ctx.board[self_idx].golden_mult();
     let dr_mult = 1 + cards::board_passive(ctx.board, Passive::ExtraDeathrattles);
     for _ in 0..triggers {
         let Some(dr_idx) = ctx

@@ -12,12 +12,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 6, 2)
         .with_tribe(Tribe::Murloc)
         .with_keyword(Keyword::Taunt)
+        .on_damage_taken(on_damage_taken)
 }
 
 pub fn on_damage_taken(unit: &Unit, hand: &mut [Unit], rng: &mut Rng) {
-    if unit.card_id != ID {
-        return;
-    }
     let candidates: Vec<usize> = hand
         .iter()
         .enumerate()
@@ -32,6 +30,6 @@ pub fn on_damage_taken(unit: &Unit, hand: &mut [Unit], rng: &mut Rng) {
     } else {
         candidates[rng.below(candidates.len())]
     };
-    let mult = if unit.is_golden { 2 } else { 1 };
+    let mult = unit.golden_mult();
     hand[idx].add_stats(2 * mult, mult);
 }

@@ -24,7 +24,7 @@ pub use registry::{all_templates, hooks, template};
 
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
-use crate::model::{CardId, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId};
+use crate::model::{CardId, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId, BONUS_KEYWORDS};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -1153,9 +1153,55 @@ pub fn on_activate(
     }
 }
 
-/// Apply Start-of-Combat hand summons (`Flighty Scout`).
+/// Add the copies that hand cards summon at Start of Combat (`combat_copies_from_hand`) to
+/// `board` (a preview of the combat board).
 pub fn on_start_of_combat_hand(hand: &[Unit], board: &mut Vec<Unit>) {
-    tier1::flighty_scout::apply_start_of_combat_hand(hand, board);
+    for card in hand {
+        for _ in 0..combat_copies_from_hand(card) {
+            if board.len() < MAX_BOARD_SIZE {
+                board.push(card.clone());
+            }
+        }
+    }
+}
+
+/// Number of copies of the hand card `card` it summons at Start of Combat.
+fn combat_copies_from_hand(card: &Unit) -> u32 {
+    hooks(card.card_id)
+        .combat_copies_from_hand
+        .map_or(0, |f| f(card))
+}
+
+/// Summon the copies that hand cards summon at Start of Combat (`combat_copies_from_hand`) at
+/// the end of the board.
+fn summon_copies_from_hand(ctx: &mut BoardCtx<'_>) {
+    for hand_idx in 0..ctx.hand.len() {
+        for _ in 0..combat_copies_from_hand(&ctx.hand[hand_idx]) {
+            if ctx.board.len() >= MAX_BOARD_SIZE {
+                break;
+            }
+            let mut copy = ctx.hand[hand_idx].clone();
+            copy.id = *ctx.next_id;
+            *ctx.next_id += 1;
+            sync_unit_auras(&mut copy, ctx.auras);
+            if copy.tribe.matches(Tribe::Beast) && *ctx.beast_bonus_atk != 0 {
+                copy.add_stats(*ctx.beast_bonus_atk, 0);
+            }
+            copy.sync_max_stats();
+            check_stat_thresholds(&mut copy);
+            let reason = template(copy.card_id).map_or("Start of Combat", |t| t.name.as_str());
+            ctx.events.push(Event::UnitSummoned {
+                side: ctx.side,
+                source: copy.id,
+                unit: copy.id,
+                name: copy.name.clone(),
+                attack: copy.attack,
+                health: copy.health,
+                reason,
+            });
+            ctx.board.push(copy);
+        }
+    }
 }
 
 /// Summon `Boon of Beetles` Taunt Beetles into any open board slots during combat.
@@ -1186,18 +1232,11 @@ pub fn summon_boon_of_beetles(
     }
 }
 
-/// Resolve Start-of-Combat triggers for one side: hand effects (`Flighty Scout`), `Boon of
-/// Beetles`, then each living minion's `start_of_combat` hook, left to right.
+/// Resolve Start-of-Combat triggers for one side: copies summoned from hand
+/// (`combat_copies_from_hand`), `Boon of Beetles`, then each living minion's `start_of_combat`
+/// hook, left to right.
 pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
-    tier1::flighty_scout::on_start_of_combat(
-        ctx.side,
-        ctx.hand,
-        ctx.board,
-        ctx.auras,
-        *ctx.beast_bonus_atk,
-        ctx.next_id,
-        ctx.events,
-    );
+    summon_copies_from_hand(ctx);
     summon_boon_of_beetles(
         ctx.side,
         ctx.board,
@@ -1223,7 +1262,8 @@ pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
 
 /// Resolve a minion's On-Attack (`Rally`) hook. `def_target` is the defending board and the
 /// attack target's index (`None` when the Rally is triggered in the Tavern).
-/// Returns any token(s) to be summoned immediately to the attacker's right.
+/// Returns the token(s) to summon immediately to the attacker's right, and whether they attack
+/// the target first ([`RallyCtx::summons_attack_target`]).
 #[allow(clippy::too_many_arguments)]
 pub fn on_rally(
     side: Side,
@@ -1236,9 +1276,9 @@ pub fn on_rally(
     generated_hand: &mut Vec<Unit>,
     rng: &mut Rng,
     events: &mut Vec<Event>,
-) -> Vec<Unit> {
+) -> (Vec<Unit>, bool) {
     let attacker = &board[attacker_pos];
-    let summons = match hooks(attacker.card_id).rally {
+    let rallied = match hooks(attacker.card_id).rally {
         Some(rally) => {
             let mut ctx = RallyCtx {
                 side,
@@ -1256,12 +1296,13 @@ pub fn on_rally(
                 rng: &mut *rng,
                 events,
             };
-            rally(&mut ctx)
+            let summons = rally(&mut ctx);
+            (summons, ctx.summons_attack_target)
         }
-        None => Vec::new(),
+        None => (Vec::new(), false),
     };
     resolve_pending_effects(board, auras, rng);
-    summons
+    rallied
 }
 
 /// Trigger a friendly minion's `Rally` effect on `state.board[target_pos]` during the Tavern Phase (`Sky-hatch Runaway`).
@@ -1273,7 +1314,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
     let mut generated_hand = Vec::new();
     let mut hand_summoned = vec![false; state.hand.len()];
     let mut events = Vec::new();
-    let summons = on_rally(
+    let (summons, _) = on_rally(
         Side::A,
         &mut state.board,
         target_pos,
@@ -1324,7 +1365,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             rng,
             events: &mut events,
         };
-        tier6::deathstrider::after_rally_minion_attacks(&mut ctx);
+        after_friendly_rally(&mut ctx);
         for card in deathstrider_hand.into_iter().skip(prev_hand_len) {
             state.add_to_hand(card);
         }
@@ -1341,148 +1382,95 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
     state.sync_all_auras();
 }
 
-/// Resolve board-wide observers when a friendly minion attacks (`Prodigious Tusker`, `Roaring Recruiter`, `Cage Gnawer`, `Ravaging Scorpid`).
-pub fn on_friendly_attack(
-    side: Side,
-    board: &mut [Unit],
-    attacker_id: UnitId,
-    auras: &mut PlayerAuras,
-    rng: &mut Rng,
-    events: &mut Vec<Event>,
-) {
-    tier2::prodigious_tusker::on_friendly_attack(side, board, attacker_id, auras, events);
-    tier3::roaring_recruiter::on_friendly_attack(side, board, attacker_id, events);
-    tier4::cage_gnawer::on_friendly_attack(side, board, attacker_id, events);
-    tier6::ravaging_scorpid::on_friendly_attack(board, auras);
-    resolve_pending_effects(board, auras, rng);
+/// Notify friendly units after a friendly Rally minion attacked (`after_friendly_rally` hooks,
+/// left to right).
+pub fn after_friendly_rally(ctx: &mut BoardCtx<'_>) {
+    notify_board(ctx, |h| h.after_friendly_rally, |c, idx, f| f(c, idx));
 }
 
-/// Resolve on-damage-dealt triggers (`Treasure Parrot`, `Devout Hellcaller`).
-#[allow(clippy::too_many_arguments)]
-pub fn on_damage_dealt(
-    side: Side,
-    board: &mut [Unit],
-    source_id: UnitId,
-    amount: i32,
-    auras: &mut PlayerAuras,
-    hand: &mut Vec<Unit>,
-    hand_summoned: &mut Vec<bool>,
-    events: &mut Vec<Event>,
-) {
+/// Notify friendly units that the friendly minion `attacker_id` attacks (`friendly_attack`
+/// hooks, left to right), then flush queued effects.
+pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
+    notify_board(
+        ctx,
+        |h| h.friendly_attack,
+        |c, idx, f| f(c, idx, attacker_id),
+    );
+    resolve_pending_effects(ctx.board, ctx.auras, ctx.rng);
+}
+
+/// Resolve damage-dealt triggers after the friendly unit `source_id` dealt `amount` damage: its
+/// own `damage_dealt` hook, then the other friendly units' `after_friendly_damage_dealt` hooks.
+pub fn on_damage_dealt(ctx: &mut BoardCtx<'_>, source_id: UnitId, amount: i32) {
     if amount <= 0 {
         return;
     }
-    let Some(src_idx) = board.iter().position(|u| u.id == source_id) else {
+    let Some(src_idx) = ctx.board.iter().position(|u| u.id == source_id) else {
         return;
     };
-    let src_tribe = board[src_idx].tribe;
-    let prev_hand_len = hand.len();
-    tier3::treasure_parrot::on_dealt_damage(
-        &mut board[src_idx],
-        amount,
-        hand,
-        hand_summoned,
-    );
-    for _ in prev_hand_len..hand.len() {
-        on_card_added_to_hand(board, auras);
+    let (src_card, src_tribe) = (ctx.board[src_idx].card_id, ctx.board[src_idx].tribe);
+    if let Some(damage_dealt) = hooks(src_card).damage_dealt {
+        damage_dealt(ctx, src_idx, amount);
     }
-    tier3::devout_hellcaller::on_friendly_dealt_damage(
-        side, board, source_id, src_tribe, events,
+    notify_board(
+        ctx,
+        |h| h.after_friendly_damage_dealt,
+        |c, idx, f| {
+            if c.board[idx].id != source_id {
+                f(c, idx, source_id, src_tribe);
+            }
+        },
     );
 }
 
-/// Returns `true` if `card_id` also damages adjacent enemies when attacking (`Blade Collector`).
-pub fn cleaves_adjacent_enemies(card_id: CardId) -> bool {
-    card_id == tier4::blade_collector::ID
-}
-
-/// Returns `true` if `card_id` deals excess attack damage to adjacent enemy(ies) (`Wildfire Elemental`).
-pub fn deals_excess_damage_to_neighbors(card_id: CardId) -> bool {
-    card_id == tier3::wildfire_elemental::ID
-}
-
-/// Resolve on-damage-taken triggers (`Very Hungry Winterfinner`).
+/// Resolve `unit`'s own `damage_taken` hook after it took damage (`hand` is its owner's hand).
 pub fn on_damage_taken(unit: &Unit, hand: &mut [Unit], rng: &mut Rng) {
-    tier2::very_hungry_winterfinner::on_damage_taken(unit, hand, rng);
-}
-
-/// Update persistent player aura counters and basic Avenge triggers when a friendly minion dies (`Eternal Knight`, `Relentless Deflector`).
-pub fn on_unit_died(unit: &Unit, surviving_board: &mut [Unit], auras: &mut PlayerAuras) {
-    if unit.card_id == tier2::eternal_knight::ID {
-        auras.eternal_knights_died += 1;
-    }
-    for survivor in surviving_board.iter_mut() {
-        tier3::relentless_deflector::on_friendly_death(survivor);
+    if let Some(damage_taken) = hooks(unit.card_id).damage_taken {
+        damage_taken(unit, hand, rng);
     }
 }
 
-/// Resolve all friendly-death observers and `Avenge` triggers during combat (`Eternal Knight`, `Relentless Deflector`, `Drustfallen Butcher`, `Lichling Hoarder`, `Eternal Tycoon`, `Deathly Striker`).
-#[allow(clippy::too_many_arguments)]
-pub fn on_combat_friendly_death(
-    side: Side,
-    dying: &Unit,
-    surviving_board: &mut Vec<Unit>,
-    auras: &mut PlayerAuras,
-    hero_tier: u32,
-    hand: &mut Vec<Unit>,
-    hand_summoned: &mut Vec<bool>,
-    combat_beast_bonus_atk: i32,
-    next_id: &mut UnitId,
-    pending_immediate_attacks: &mut Vec<UnitId>,
-    rng: &mut Rng,
-    events: &mut Vec<Event>,
-) {
-    on_unit_died(dying, surviving_board, auras);
-    let prev_hand_len = hand.len();
-    for survivor in surviving_board.iter_mut() {
-        tier5::drustfallen_butcher::on_friendly_death(survivor, hand, hand_summoned, auras);
-    }
-    let mut snapshot: Vec<Unit> = surviving_board.clone();
-    snapshot.push(dying.clone());
-    for survivor in surviving_board.iter_mut() {
-        tier5::lichling_hoarder::on_friendly_death(
-            survivor,
-            &snapshot,
-            hand,
-            hand_summoned,
-            auras,
-            rng,
-        );
-    }
-    for _ in prev_hand_len..hand.len() {
-        on_card_added_to_hand(surviving_board, auras);
-    }
-    let striker_indices: Vec<usize> = surviving_board
-        .iter()
-        .enumerate()
-        .filter(|(_, u)| u.card_id == tier6::deathly_striker::ID)
-        .map(|(i, _)| i)
-        .collect();
-    for idx in striker_indices {
-        surviving_board[idx].avenge_counter += 1;
-        while surviving_board[idx].avenge_counter >= 4 {
-            surviving_board[idx].avenge_counter -= 4;
-            let is_golden = surviving_board[idx].is_golden;
-            tier6::deathly_striker::on_avenge(
-                is_golden,
-                hero_tier,
-                surviving_board,
-                auras,
-                hand,
-                hand_summoned,
-                rng,
-            );
+/// Returns `true` if `card_id`'s attacks also damage the enemies adjacent to the target
+/// ([`CardFlags::CLEAVE`]).
+pub fn cleaves_adjacent_enemies(card_id: CardId) -> bool {
+    hooks(card_id).has(CardFlags::CLEAVE)
+}
+
+/// Returns `true` if `card_id` deals excess attack damage to the target's neighbour(s)
+/// ([`CardFlags::EXCESS_DAMAGE_TO_NEIGHBORS`]).
+pub fn deals_excess_damage_to_neighbors(card_id: CardId) -> bool {
+    hooks(card_id).has(CardFlags::EXCESS_DAMAGE_TO_NEIGHBORS)
+}
+
+/// Bonus damage `attacker` deals to the highest-Health enemy after it attacks
+/// (`after_attack_damage` hook; 0 = none).
+pub fn after_attack_damage(attacker: &Unit) -> i32 {
+    hooks(attacker.card_id)
+        .after_attack_damage
+        .map_or(0, |f| f(attacker))
+}
+
+/// Pop `board[idx]`'s Divine Shield, then notify the living units on `board` that carry a
+/// `friendly_divine_shield_lost` hook.
+pub fn pop_divine_shield(board: &mut [Unit], idx: usize, events: &mut Vec<Event>) {
+    board[idx].divine_shield = false;
+    events.push(Event::DivineShieldPopped {
+        unit: board[idx].id,
+    });
+    for unit in board.iter_mut().filter(|u| u.health > 0) {
+        if let Some(divine_shield_lost) = hooks(unit.card_id).friendly_divine_shield_lost {
+            divine_shield_lost(unit);
         }
     }
-    tier5::eternal_tycoon::on_friendly_death(
-        side,
-        surviving_board,
-        auras,
-        combat_beast_bonus_atk,
-        next_id,
-        events,
-        pending_immediate_attacks,
-    );
+}
+
+/// Resolve a friendly minion's death for its side (Tavern or Combat): the dying card's own
+/// `died` hook, then the surviving units' `friendly_death` hooks (e.g. Avenge), left to right.
+pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
+    if let Some(died) = hooks(dying.card_id).died {
+        died(dying, ctx.auras);
+    }
+    notify_board(ctx, |h| h.friendly_death, |c, idx, f| f(c, idx, dying));
 }
 
 /// Resolve a dying minion's `Deathrattle` hook (once; callers apply repeat multipliers).
@@ -1508,7 +1496,25 @@ pub fn sync_combat_auras(
     }
 }
 
-/// Apply post-combat persistence from a combat unit back to its Tavern counterpart (`Tarecgosa`, `Persistent Poet`, `Devout Hellcaller`, `Razorfen Vineweaver`, `Ship Master Eudora`, `Hopebringer`, `Lurking Leviathan`, `Treasure Parrot`).
+/// Permanently give `tavern_unit` the stats (times `mult`) and Bonus Keywords its combat copy
+/// gained in combat (`pre` / `post`: the combat copy before and after combat).
+pub fn keep_combat_gains(pre: &Unit, post: &Unit, tavern_unit: &mut Unit, mult: i32) {
+    let atk_gain = (post.max_attack - pre.attack).max(0) * mult;
+    let hp_gain = (post.max_health - pre.health).max(0) * mult;
+    if atk_gain > 0 || hp_gain > 0 {
+        tavern_unit.add_stats(atk_gain, hp_gain);
+    }
+    for kw in BONUS_KEYWORDS {
+        if post.has_keyword(kw) || (kw == Keyword::DivineShield && post.inherent_divine_shield) {
+            tavern_unit.apply_keyword(kw, kw == Keyword::DivineShield);
+        }
+    }
+    check_stat_thresholds(tavern_unit);
+}
+
+/// Apply post-combat persistence from a combat unit back to its Tavern counterpart: the card's
+/// own `post_combat` hook, combat gains kept through its neighbours'
+/// `post_combat_neighbor_mult` hooks, then permanent gains and carried-over counters.
 pub fn on_post_combat_unit(
     pre_board: &[Unit],
     idx: usize,
@@ -1518,33 +1524,32 @@ pub fn on_post_combat_unit(
     let Some(pre_combat) = pre_board.get(idx) else {
         return;
     };
-    if tavern_unit.card_id == tier2::tarecgosa::ID {
-        tier2::tarecgosa::apply_post_combat_persistence(
-            pre_combat,
-            post_combat_board,
-            tavern_unit,
-        );
+    if let Some(post_combat) = hooks(tavern_unit.card_id).post_combat {
+        post_combat(pre_combat, post_combat_board, tavern_unit);
     }
-    tier4::persistent_poet::on_post_combat_adjacent_dragon(
-        pre_board,
-        idx,
-        post_combat_board,
-        tavern_unit,
-    );
-    if let Some(post) = post_combat_board.iter().find(|u| u.id == pre_combat.id) {
-        if post.perm_atk_gained != 0 || post.perm_hp_gained != 0 {
-            tavern_unit.add_stats(post.perm_atk_gained, post.perm_hp_gained);
-        }
-        if post.perm_blood_gems_gained > 0 {
-            tavern_unit.blood_gems_played += post.perm_blood_gems_gained;
-            tavern_unit.blood_gem_stats_applied.0 += post.perm_atk_gained;
-            tavern_unit.blood_gem_stats_applied.1 += post.perm_hp_gained;
-        }
-        tavern_unit.hopebringer_stacks = post.hopebringer_stacks;
-        tavern_unit.leviathan_stacks = post.leviathan_stacks;
-        if tavern_unit.card_id == tier3::treasure_parrot::ID {
-            tavern_unit.damage_dealt_counter = post.damage_dealt_counter;
-            tavern_unit.threshold_triggered = post.threshold_triggered;
-        }
+    let Some(post) = post_combat_board.iter().find(|u| u.id == pre_combat.id) else {
+        return;
+    };
+    let keep_mult = [idx.checked_sub(1), Some(idx + 1)]
+        .into_iter()
+        .flatten()
+        .filter_map(|n| {
+            let neighbor_mult = hooks(pre_board.get(n)?.card_id).post_combat_neighbor_mult?;
+            Some(neighbor_mult(pre_board, n, idx))
+        })
+        .max()
+        .unwrap_or(0);
+    if keep_mult > 0 {
+        keep_combat_gains(pre_combat, post, tavern_unit, keep_mult);
     }
+    if post.perm_atk_gained != 0 || post.perm_hp_gained != 0 {
+        tavern_unit.add_stats(post.perm_atk_gained, post.perm_hp_gained);
+    }
+    if post.perm_blood_gems_gained > 0 {
+        tavern_unit.blood_gems_played += post.perm_blood_gems_gained;
+        tavern_unit.blood_gem_stats_applied.0 += post.perm_atk_gained;
+        tavern_unit.blood_gem_stats_applied.1 += post.perm_hp_gained;
+    }
+    tavern_unit.hopebringer_stacks = post.hopebringer_stacks;
+    tavern_unit.leviathan_stacks = post.leviathan_stacks;
 }

@@ -141,7 +141,7 @@ pub type BattlecryObserverFn = fn(&mut TavernState, usize, Option<&mut Unit>);
 pub type MagnetizeObserverFn = fn(&mut TavernState, usize, &Unit, usize, &mut CardPool, &mut Rng);
 /// After a targeted spell is cast: `(state, self_idx, target_pos, pool, rng)`.
 pub type TargetedSpellFn = fn(&mut TavernState, usize, usize, &mut CardPool, &mut Rng);
-/// A friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.
+/// Another friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.
 pub type DamageDealtObserverFn = fn(&mut BoardCtx<'_>, usize, UnitId, Tribe);
 /// A friendly minion is being summoned: `(self, summoned, in_combat)`.
 pub type SummonFn = fn(&mut Unit, &mut Unit, bool);
@@ -227,7 +227,9 @@ card_hooks! {
     resolve_pending(on_resolve_pending): fn(&mut [Unit], usize, &PlayerAuras, &mut Rng),
     /// Copy combat results onto the Tavern copy: `(pre_combat, post_combat_units, tavern_unit)`.
     post_combat(on_post_combat): fn(&Unit, &[Unit], &mut Unit),
-    /// Post-combat effect on a neighbour: `(pre_board, self_idx, neighbour_idx) -> multiplier`.
+    /// Multiplier with which the neighbour at `neighbour_idx` permanently keeps what it gained in
+    /// combat (see [`keep_combat_gains`](super::keep_combat_gains); the largest across both
+    /// neighbours applies, 0 = none): `(pre_board, self_idx, neighbour_idx)`.
     post_combat_neighbor_mult(on_post_combat_neighbor_mult): fn(&[Unit], usize, usize) -> i32,
 
     // ---- Observers: Tavern (fire for each friendly board unit, left to right) ----------
@@ -282,9 +284,7 @@ card_hooks! {
     start_of_combat(on_start_of_combat): SocFn,
     /// Engine-resolved Start-of-Combat action (destroys, AoE, immediate attacks).
     start_of_combat_action(on_start_of_combat_action): fn(&Unit) -> SocAction,
-    /// Start of Combat while this card is in hand: `(ctx, hand_card)`.
-    start_of_combat_in_hand(on_start_of_combat_in_hand): fn(&mut BoardCtx<'_>, &Unit),
-    /// Copies of this hand card to add to the combat board snapshot.
+    /// Copies of this card to summon at Start of Combat while it is in hand.
     combat_copies_from_hand(on_combat_copies_from_hand): fn(&Unit) -> u32,
     /// Reset per-combat state on the combat copy.
     combat_start(on_combat_start): UnitFn,
@@ -304,7 +304,7 @@ card_hooks! {
     after_friendly_rally(on_after_friendly_rally): CombatFn,
     /// A friendly minion attacks: `(ctx, self_idx, attacker_id)`.
     friendly_attack(on_friendly_attack): fn(&mut BoardCtx<'_>, usize, UnitId),
-    /// A friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.
+    /// Another friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.
     after_friendly_damage_dealt(on_after_friendly_damage_dealt): DamageDealtObserverFn,
     /// A friendly minion died (Tavern or Combat): `(ctx, self_idx, dying)`.
     friendly_death(on_friendly_death): fn(&mut BoardCtx<'_>, usize, &Unit),

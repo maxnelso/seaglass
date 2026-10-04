@@ -64,11 +64,7 @@ pub fn on_rally(
             continue;
         }
         if def_board[idx].divine_shield {
-            def_board[idx].divine_shield = false;
-            events.push(Event::DivineShieldPopped {
-                unit: def_board[idx].id,
-            });
-            cards::tier5::hopebringer::on_friendly_divine_shield_lost(def_board);
+            cards::pop_divine_shield(def_board, idx, events);
         } else {
             let target = &mut def_board[idx];
             target.health -= dmg;

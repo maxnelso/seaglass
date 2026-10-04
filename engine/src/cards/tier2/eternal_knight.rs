@@ -8,7 +8,9 @@ pub const ID: CardId = 209;
 pub const NAME: &str = "Eternal Knight";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 4, 2, 2).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, NAME, 4, 2, 2)
+        .with_tribe(Tribe::Undead)
+        .on_died(on_died)
 }
 
 /// Synchronize this unit's `Eternal Knight` death-count aura with `auras.eternal_knights_died`.
@@ -23,4 +25,9 @@ pub fn sync_unit(unit: &mut Unit, auras: &PlayerAuras) {
         unit.eternal_knight_stacks_applied = target_stacks;
         unit.add_stats(4 * mult * diff, 2 * mult * diff);
     }
+}
+
+/// Count this death towards every `Eternal Knight`'s aura.
+pub fn on_died(_unit: &Unit, auras: &mut PlayerAuras) {
+    auras.eternal_knights_died += 1;
 }

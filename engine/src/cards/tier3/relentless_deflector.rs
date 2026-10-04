@@ -8,7 +8,9 @@ pub const ID: CardId = 327;
 pub const NAME: &str = "Relentless Deflector";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 5, 4, 3).with_tribe(Tribe::Mech)
+    CardTemplate::new(ID, NAME, 5, 4, 3)
+        .with_tribe(Tribe::Mech)
+        .on_friendly_death(|ctx, self_idx, _| on_friendly_death(&mut ctx.board[self_idx]))
 }
 
 pub fn sync_taunt(unit: &mut Unit) {
@@ -17,13 +19,10 @@ pub fn sync_taunt(unit: &mut Unit) {
     }
 }
 
+/// Avenge (3): gain Divine Shield (and with it Taunt). Counts Tavern deaths too.
 pub fn on_friendly_death(unit: &mut Unit) {
-    if unit.card_id == ID && unit.health > 0 {
-        unit.avenge_counter += 1;
-        if unit.avenge_counter >= 3 {
-            unit.avenge_counter -= 3;
-            unit.apply_keyword(Keyword::DivineShield, false);
-            unit.taunt = true;
-        }
+    if unit.avenge(3) {
+        unit.apply_keyword(Keyword::DivineShield, false);
+        unit.taunt = true;
     }
 }

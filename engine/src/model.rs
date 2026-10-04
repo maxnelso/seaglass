@@ -662,6 +662,18 @@ impl Unit {
             1
         }
     }
+
+    /// Count one friendly death towards this unit's `Avenge (n)`. Returns `true` (and restarts
+    /// the count) when the Avenge triggers.
+    pub fn avenge(&mut self, n: u32) -> bool {
+        self.avenge_counter += 1;
+        if self.avenge_counter >= n {
+            self.avenge_counter -= n;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 /// Which side of a battle a unit or hero belongs to.

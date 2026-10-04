@@ -8,13 +8,11 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 508;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "De-volition-ist", 4, 8, 5).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "De-volition-ist", 4, 8, 5)
+        .with_tribe(Tribe::Aberration)
+        .on_after_attack_damage(after_attack_damage)
 }
 
 pub fn after_attack_damage(attacker: &Unit) -> i32 {
-    if attacker.card_id != ID {
-        return 0;
-    }
-    let mult = if attacker.is_golden { 2 } else { 1 };
-    (attacker.attack * mult).max(0)
+    (attacker.attack * attacker.golden_mult()).max(0)
 }

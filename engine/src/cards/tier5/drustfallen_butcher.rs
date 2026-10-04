@@ -2,36 +2,25 @@
 //!
 //! Avenge (4): Get a (`2` if Golden) `Butchering`(s).
 
-use crate::cards::{spells, sync_unit_auras, CardTemplate};
-use crate::model::{CardId, PlayerAuras, Tribe, Unit};
+use crate::cards::{spells, BoardCtx, CardTemplate};
+use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 513;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Drustfallen Butcher", 2, 7, 5).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, "Drustfallen Butcher", 2, 7, 5)
+        .with_tribe(Tribe::Undead)
+        .on_friendly_death(on_friendly_death)
 }
 
-pub fn on_friendly_death(
-    unit: &mut Unit,
-    hand: &mut Vec<Unit>,
-    hand_summoned: &mut Vec<bool>,
-    auras: &PlayerAuras,
-) {
-    if unit.card_id != ID || unit.health <= 0 {
+/// Avenge (4), combat deaths only.
+pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, self_idx: usize, _dying: &Unit) {
+    if !ctx.in_combat || !ctx.board[self_idx].avenge(4) {
         return;
     }
-    unit.avenge_counter += 1;
-    if unit.avenge_counter >= 4 {
-        unit.avenge_counter -= 4;
-        let count = if unit.is_golden { 2 } else { 1 };
-        for _ in 0..count {
-            if hand.len() < 10 {
-                if let Some(mut spell) = spells::spell_by_id(spells::SPELL_BUTCHERING) {
-                    sync_unit_auras(&mut spell, auras);
-                    hand.push(spell);
-                    hand_summoned.push(false);
-                }
-            }
+    for _ in 0..ctx.board[self_idx].golden_mult() {
+        if let Some(spell) = spells::spell_by_id(spells::SPELL_BUTCHERING) {
+            ctx.add_to_hand(spell);
         }
     }
 }
