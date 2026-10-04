@@ -14,17 +14,15 @@ error (usually with a "did you mean" hint), never silently ignored.
 ```text
 tests/scenarios/
 ├── catalog.yaml          # the expected card lists (§7)
-├── minions/<card>.yaml   # one file per src/cards/minions/<card>.rs
-├── spells/<card>.yaml    # one file per src/cards/spells/<card>.rs
-├── combat/<topic>.yaml   # combat mechanics
-└── tavern/<topic>.yaml   # Tavern mechanics
+├── combat/<card|topic>.yaml   # combat-phase minions and combat mechanics
+└── tavern/<card|topic>.yaml   # tavern-phase minions, spells, and Tavern mechanics
 ```
 
 Every scenario is its own test, named `<dir>::<file>::<scenario>`:
 
 ```sh
 cargo test -p seaglass --test scenarios                       # everything
-cargo test -p seaglass --test scenarios -- minions::joyous::  # one card
+cargo test -p seaglass --test scenarios -- tavern::joyous::   # one card
 cargo test -p seaglass --test scenarios -- --list             # list the tests
 SCENARIO_TRACE=1 cargo test -p seaglass --test scenarios -- tavern::turn_flow:: --nocapture
 ```
@@ -313,7 +311,8 @@ The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
 - card ids and names are unique across all cards, and unit specs can name every card.
 
 The `coverage` test checks that every
-`src/cards/{minions,spells}/<card>.rs` has a `tests/scenarios/{minions,spells}/<card>.yaml`
+`src/cards/minions/<card>.rs` has a `tests/scenarios/{combat,tavern}/<card>.yaml` and every
+`src/cards/spells/<card>.rs` has a `tests/scenarios/tavern/<card>.yaml`
 starting with `card: <Card Name>` (the file name is the card's slug: `Fandral's Fortune` ->
 `fandrals_fortune`), that every scenario file belongs to a card or a topic, and that
 `tests/scenarios/` holds nothing else.
@@ -327,7 +326,7 @@ A card's scenarios should fail without the card. With the `knockout` feature,
 empty table for it):
 
 ```sh
-SEAGLASS_KNOCKOUT=101 cargo test -p seaglass --features knockout --test scenarios -- minions::joyous::
+SEAGLASS_KNOCKOUT=101 cargo test -p seaglass --features knockout --test scenarios -- tavern::joyous::
 ```
 
 Scenarios that still pass do not test the card's behaviour (or test behaviour that lives

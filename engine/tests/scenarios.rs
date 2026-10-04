@@ -1,10 +1,10 @@
 //! The YAML scenario suite (`tests/scenarios/`, `docs/scenarios.md`).
 //!
 //! Every scenario is its own test, named `<dir>::<file>::<scenario>`
-//! (`cargo test --test scenarios -- minions::joyous::`). Scenarios marked `known_bug` must
+//! (`cargo test --test scenarios -- tavern::joyous::`). Scenarios marked `known_bug` must
 //! fail with a mismatch; they are listed after the run. Two more tests check the card data:
 //! `catalog` (against `tests/scenarios/catalog.yaml`) and `coverage` (every card source file
-//! has a scenario file).
+//! has a scenario file in `combat/` or `tavern/`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -361,42 +361,69 @@ fn stems(dir: &Path, ext: &str) -> BTreeSet<String> {
         .collect()
 }
 
-/// Every card source file has a scenario file for its card, and every scenario file belongs
-/// somewhere.
+/// Every card source file has a scenario file in `combat/` or `tavern/`, and every scenario
+/// file belongs to a card or a topic.
 fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
     let mut errors = Vec::new();
-    for (dir, kind) in [("minions", CardKind::Minion), ("spells", CardKind::Spell)] {
-        let mut sources = stems(&src.join(dir), "rs");
-        sources.remove("mod");
-        let files = stems(&root.join(dir), "yaml");
-        for stem in &sources {
-            let file = format!("{dir}/{stem}.yaml");
-            if !files.contains(stem) {
-                errors.push(format!("{file} is missing (for src/cards/{dir}/{stem}.rs)"));
-                continue;
-            }
-            match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
-                Ok(Header::Card(name)) => errors.extend(misplaced(&file, stem, &name, kind)),
-                Ok(Header::Topic(_)) => errors.push(format!("{file} must start with `card:`")),
-                Err(e) => errors.push(format!("{file}: {e}")),
-            }
+    let mut minions = stems(&src.join("minions"), "rs");
+    minions.remove("mod");
+    let mut spells = stems(&src.join("spells"), "rs");
+    spells.remove("mod");
+
+    let combat_files = stems(&root.join("combat"), "yaml");
+    let tavern_files = stems(&root.join("tavern"), "yaml");
+
+    for stem in &minions {
+        match (combat_files.contains(stem), tavern_files.contains(stem)) {
+            (false, false) => errors.push(format!(
+                "missing scenario file for src/cards/minions/{stem}.rs (expected in combat/ or tavern/)"
+            )),
+            (true, true) => errors.push(format!(
+                "{stem}.yaml appears in both combat/ and tavern/"
+            )),
+            _ => {}
         }
-        for stem in files.difference(&sources) {
+    }
+    for stem in &spells {
+        if combat_files.contains(stem) {
             errors.push(format!(
-                "{dir}/{stem}.yaml has no src/cards/{dir}/{stem}.rs"
+                "combat/{stem}.yaml: spell scenarios belong in tavern/{stem}.yaml"
+            ));
+        } else if !tavern_files.contains(stem) {
+            errors.push(format!(
+                "tavern/{stem}.yaml is missing (for src/cards/spells/{stem}.rs)"
             ));
         }
     }
-    for dir in ["combat", "tavern"] {
-        for stem in stems(&root.join(dir), "yaml") {
-            match ScenarioFile::load(&root.join(dir).join(format!("{stem}.yaml"))) {
-                Ok(file) if matches!(file.header, Header::Topic(_)) => {}
-                Ok(_) => errors.push(format!("{dir}/{stem}.yaml must start with `topic:`")),
-                Err(e) => errors.push(format!("{dir}/{stem}.yaml: {e}")),
+
+    for (dir, files) in [("combat", &combat_files), ("tavern", &tavern_files)] {
+        for stem in files {
+            let file = format!("{dir}/{stem}.yaml");
+            let expected_kind = if minions.contains(stem) {
+                Some(CardKind::Minion)
+            } else if dir == "tavern" && spells.contains(stem) {
+                Some(CardKind::Spell)
+            } else {
+                None
+            };
+            match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
+                Ok(Header::Card(name)) => match expected_kind {
+                    Some(kind) => errors.extend(misplaced(&file, stem, &name, kind)),
+                    None => errors.push(format!(
+                        "{file} has no src/cards/{{minions,spells}}/{stem}.rs"
+                    )),
+                },
+                Ok(Header::Topic(_)) => {
+                    if expected_kind.is_some() {
+                        errors.push(format!("{file} must start with `card:`"));
+                    }
+                }
+                Err(e) => errors.push(format!("{file}: {e}")),
             }
         }
     }
-    let known = ["minions", "spells", "combat", "tavern", "catalog.yaml"];
+
+    let known = ["combat", "tavern", "catalog.yaml"];
     for entry in fs::read_dir(root).map_err(|e| e.to_string())? {
         let name = entry
             .map_err(|e| e.to_string())?
