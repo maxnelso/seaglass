@@ -969,3 +969,249 @@ fn tier7_catalog_contains_all_12_live_solo_minions_and_4_spells() {
     assert_eq!(spells::tier7_spells().len(), 4);
     assert_eq!(spells::spells_up_to_tier(7).len(), 70);
 }
+
+#[test]
+fn audit_regression_suite_covers_all_15_bugs() {
+    use seaglass::cards::{deities, tier4, tier6};
+
+    // 1. Deity CardId collision fixed & spell pool excludes token spells and Unmasked Identity
+    assert_ne!(deities::CARD_CTHUN, spells::SPELL_A_NEW_SPROUT);
+    assert_ne!(deities::CARD_YSHAARJ, spells::SPELL_ALLIANCE_FLAG);
+    let mut rng = Rng::new(12345);
+    for _ in 0..200 {
+        let s = spells::draw_random_tavern_spell(6, &mut rng);
+        assert!(!matches!(
+            s.card_id,
+            tokens::SPELL_GEM_CONFISCATION
+                | tokens::SPELL_SLUDGE_CORROSION
+                | tokens::SPELL_GOLDEN_TOUCH
+                | spells::SPELL_UNMASKED_IDENTITY
+        ));
+    }
+
+    // 2. Laboratory Assistant start-of-turn refresh spawns Demon Fodder
+    let mut pool = CardPool::new(full_catalog());
+    let mut state = TavernState::new();
+    state.start_turn(&mut pool, &mut rng);
+    state.gold = 10;
+    state.add_to_hand(tier2::laboratory_assistant::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 1]);
+    // With a friendly Demon (the Assistant itself) on board, the Fodder is absorbed by it.
+    let (atk_before, hp_before) = (state.board[0].attack, state.board[0].health);
+    state.start_turn(&mut pool, &mut rng);
+    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 0]);
+    assert!(
+        state.board[0].attack > atk_before && state.board[0].health > hp_before,
+        "Fodder should buff the only friendly Demon"
+    );
+    // With no friendly Demon, the Fodder appears in the shop on the next start-of-turn roll.
+    state.board.clear();
+    state.start_turn(&mut pool, &mut rng);
+    assert_eq!(state.auras.fodder_per_refresh, [1, 0, 0]);
+    assert!(state
+        .shop
+        .iter()
+        .any(|u| u.card_id == tokens::TOKEN_DEMON_FODDER));
+
+    // 3. Mind Muck, Sprightly Scarab, and Lovesick Balladist do not self-target when no matching tribe on board
+    state.board.clear();
+    state.hand.clear();
+    state.gold = 10;
+    state.add_to_hand(tier2::mind_muck::template().instantiate());
+    let shop_len_before = state.shop.len();
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 3);
+    assert_eq!(state.board[0].health, 2);
+    assert_eq!(state.shop.len(), shop_len_before);
+
+    state.board.clear();
+    state.add_to_hand(tier3::sprightly_scarab::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_none());
+    assert_eq!(state.board[0].attack, 3);
+    assert_eq!(state.board[0].health, 1);
+
+    state.board.clear();
+    state.add_to_hand(tier4::lovesick_balladist::template().instantiate());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].health, 4);
+
+    // 4. Kelp Keeper preserves existing buffs on target Battlecry minion & filters valid targets
+    state.board.clear();
+    let mut geomancer = tier1::razorfen_geomancer::template().instantiate();
+    geomancer.add_stats(10, 10);
+    state.board.push(geomancer);
+    state.board.push(tier4::kelp_keeper::template().instantiate());
+    state.board.push(Unit::new("Vanilla", 2, 2));
+    assert!(state.is_legal(&TavernAction::Activate {
+        board_pos: 1,
+        target_pos: Some(0),
+    }));
+    assert!(!state.is_legal(&TavernAction::Activate {
+        board_pos: 1,
+        target_pos: Some(2),
+    }));
+    state
+        .step(
+            TavernAction::Activate {
+                board_pos: 1,
+                target_pos: Some(0),
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Razorfen Geomancer is 2/1 base; the +10/+10 buff must survive the re-triggered Battlecry.
+    assert_eq!(state.board[0].attack, 12);
+    assert_eq!(state.board[0].health, 11);
+    assert_eq!(state.hand.len(), 2);
+    assert!(state
+        .hand
+        .iter()
+        .all(|c| c.card_id == tokens::SPELL_BLOOD_GEM));
+    state.hand.clear();
+
+    // 5. Ashen Corruptor + Malchezaar health refresh buffs newly rolled shop and persists for the turn
+    state.board.clear();
+    state.board.push(tier4::ashen_corruptor::template().instantiate());
+    state
+        .board
+        .push(tier3::malchezaar_prince_of_dance::template().instantiate());
+    state.auras.ashen_corruptor_turn_buff = 0;
+    state.gold = 10;
+    state
+        .step(TavernAction::Refresh, &mut pool, &mut rng)
+        .unwrap();
+    assert_eq!(state.auras.ashen_corruptor_turn_buff, 2);
+    for u in state.shop.iter().filter(|u| !u.is_spell) {
+        assert!(u.attack >= u.base_attack + 2);
+        assert!(u.health >= u.base_health + 2);
+    }
+
+    // 6. Gold above 10 is preserved across start_turn, Sell, and Gold spells; Armor absorbs tavern hero damage first
+    state.board.clear();
+    state.hand.clear();
+    state.bonus_gold_next_turn = 3;
+    // `start_turn` derives `max_gold` from the turn number; turn 9+ reaches the 10-Gold cap.
+    state.turn = 9;
+    state.start_turn(&mut pool, &mut rng);
+    assert_eq!(state.max_gold, 10);
+    assert_eq!(state.gold, 13);
+    state.board.push(Unit::new("Dummy", 1, 1));
+    state
+        .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
+        .unwrap();
+    assert_eq!(state.gold, 14);
+    state.health = 30;
+    state.armor = 5;
+    state.deal_hero_damage(3);
+    assert_eq!(state.health, 30);
+    assert_eq!(state.armor, 2);
+
+    // 7. Tripling does not triple global auras and resets Golden Volumizer threshold_triggered
+    state.board.clear();
+    state.hand.clear();
+    state.auras.volumizer_bonus_atk = 0;
+    state.auras.volumizer_bonus_hp = 0;
+    for i in 0..3 {
+        state.add_to_hand(tier2::green_volumizer::template().instantiate());
+        if i < 2 {
+            state
+                .step(
+                    TavernAction::Play {
+                        hand_index: 0,
+                        board_pos: i,
+                    },
+                    &mut pool,
+                    &mut rng,
+                )
+                .unwrap();
+        }
+    }
+    assert_eq!(state.hand.len(), 1);
+    assert!(state.hand[0].is_golden);
+    assert!(!state.hand[0].threshold_triggered);
+    // Golden Green Volumizer is 6/6 base, +2/+2 from the 2 Volumizer stacks = 8/8
+    // (the aura must not be counted once per merged copy, which would give 12/12).
+    assert_eq!(state.hand[0].attack, 8);
+    assert_eq!(state.hand[0].health, 8);
+
+    // 8. Tarecgosa retains Divine Shield gained in combat even when popped in combat
+    let pre_combat = tier2::tarecgosa::template().instantiate();
+    let mut survivor = pre_combat.clone();
+    survivor.apply_keyword(Keyword::DivineShield, true); // gained in combat...
+    survivor.divine_shield = false; // ...and popped before combat ended
+    let mut tavern_unit = pre_combat.clone();
+    tier2::tarecgosa::apply_post_combat_persistence(&pre_combat, &[survivor], &mut tavern_unit);
+    assert!(tavern_unit.divine_shield);
+    assert!(tavern_unit.inherent_divine_shield);
+
+    // 9. Falling Sky Golem emits StatBuff when a Deathrattle minion dies, and AttackDeclared precedes Rally StatBuff
+    let defaults = Defaults::default();
+    let mut golem = tier6::falling_sky_golem::template().instantiate();
+    golem.attack = 8;
+    golem.health = 8;
+    let board_a = vec![
+        parse_unit("1/4 card:glim_guardian", &defaults).unwrap(),
+        parse_unit("1/1 card:cord_puller", &defaults).unwrap(),
+        golem,
+    ];
+    let board_b = vec![parse_unit("5/20 taunt", &defaults).unwrap()];
+    let res = simulate(&board_a, &board_b, &GameState::default(), 7);
+    let first_atk_idx = res
+        .events
+        .iter()
+        .position(|e| matches!(e, Event::AttackDeclared { .. }))
+        .unwrap();
+    let first_rally_idx = res
+        .events
+        .iter()
+        .position(|e| matches!(e, Event::StatBuff { reason: "Rally", .. }))
+        .unwrap();
+    assert!(first_atk_idx < first_rally_idx);
+    assert!(res.events.iter().any(|e| matches!(
+        e,
+        Event::StatBuff {
+            reason: "Death Aura",
+            ..
+        }
+    )));
+}
+

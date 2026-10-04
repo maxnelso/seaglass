@@ -1204,7 +1204,9 @@ fn token_spell_957_pointy_arrow() {
 #[test]
 fn token_spell_958_arcane_absorption() {
     let (mut state, mut pool, mut rng) = setup_tavern(958);
-    state.board.push(Unit::new("Target", 2, 2));
+    state
+        .board
+        .push(Unit::new("Target", 2, 2).with_tribe(Tribe::Elemental));
     state
         .shop
         .push(Unit::new("ShopElem", 6, 8).with_tribe(Tribe::Elemental));

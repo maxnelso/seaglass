@@ -193,13 +193,13 @@ fn print_player_snapshot(label: &str, state: &TavernState, pool: &CardPool) {
         state.bonus_gold_next_turn
     );
     println!(
-        "  │   Deity: {} ({}/{}) | Spells Cast: {} | Spell Buff: +{}/+{} | Blood Gem: +{}/+{} | Undead +{} ATK (EK died: {})",
+        "  │   Deity: {} ({}/{}) | Spells Cast: {} | Spell Buff: {:+}/{:+} | Blood Gem: +{}/+{} | Undead +{} ATK (EK died: {})",
         format_deity_kind(state.auras.deity.kind),
         state.auras.deity.attack,
         state.auras.deity.health,
         state.auras.spells_played,
-        1 + state.auras.spell_bonus_atk,
-        1 + state.auras.spell_bonus_hp,
+        state.auras.spell_bonus_atk,
+        state.auras.spell_bonus_hp,
         1 + state.auras.blood_gem_bonus_atk,
         1 + state.auras.blood_gem_bonus_hp,
         state.auras.undead_bonus_attack,
@@ -831,7 +831,25 @@ fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAction
     let activate_actions: Vec<TavernAction> = legal
         .iter()
         .copied()
-        .filter(|a| matches!(a, TavernAction::Activate { .. }))
+        .filter(|a| match *a {
+            TavernAction::Activate {
+                board_pos,
+                target_pos: Some(t),
+            } => {
+                if state.board[board_pos].card_id == tier4::sky_hatch_runaway::ID {
+                    !matches!(
+                        state.board[t].card_id,
+                        tier4::heroic_underdog::ID
+                            | tier4::sindorei_straight_shot::ID
+                            | tier7::obsidian_ravager::ID
+                    )
+                } else {
+                    true
+                }
+            }
+            TavernAction::Activate { .. } => true,
+            _ => false,
+        })
         .collect();
     if !activate_actions.is_empty() && rng.below(10) < 7 {
         let pick = rng.below(activate_actions.len());
@@ -993,6 +1011,7 @@ fn print_combat_trace(
     res: &BattleResult,
     post_a: &TavernState,
     post_b: &TavernState,
+    pool: &CardPool,
 ) {
     println!("\n  ==========================================================================");
     println!(
@@ -1176,14 +1195,26 @@ fn print_combat_trace(
 
     // Print any post-combat persistence diffs for P1 and P2:
     let p1_aura_diffs = diff_auras(&pre_a.auras, &post_a.auras);
-    if !p1_aura_diffs.is_empty() || pre_a.board != post_a.board || pre_a.hand != post_a.hand {
+    if !p1_aura_diffs.is_empty()
+        || pre_a.health != post_a.health
+        || pre_a.armor != post_a.armor
+        || pre_a.bonus_gold_next_turn != post_a.bonus_gold_next_turn
+        || pre_a.board != post_a.board
+        || pre_a.hand != post_a.hand
+    {
         println!("  Post-Combat Persistence (P1):");
-        print_step_diff(pre_a, post_a, &CardPool::new(Vec::new()));
+        print_step_diff(pre_a, post_a, pool);
     }
     let p2_aura_diffs = diff_auras(&pre_b.auras, &post_b.auras);
-    if !p2_aura_diffs.is_empty() || pre_b.board != post_b.board || pre_b.hand != post_b.hand {
+    if !p2_aura_diffs.is_empty()
+        || pre_b.health != post_b.health
+        || pre_b.armor != post_b.armor
+        || pre_b.bonus_gold_next_turn != post_b.bonus_gold_next_turn
+        || pre_b.board != post_b.board
+        || pre_b.hand != post_b.hand
+    {
         println!("  Post-Combat Persistence (P2):");
-        print_step_diff(pre_b, post_b, &CardPool::new(Vec::new()));
+        print_step_diff(pre_b, post_b, pool);
     }
 }
 
@@ -1256,7 +1287,7 @@ fn main() {
         let pre_b = p2.clone();
         let combat_seed = rng.next_u64();
         let res = TavernState::resolve_combat_pair(&mut p1, &mut p2, combat_seed);
-        print_combat_trace(turn, &pre_a, &pre_b, &res, &p1, &p2);
+        print_combat_trace(turn, &pre_a, &pre_b, &res, &p1, &p2, &pool);
 
         if p1.health <= 0 || p2.health <= 0 {
             println!("\n################################################################################");
