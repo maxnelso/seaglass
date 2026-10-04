@@ -2,7 +2,7 @@
 //!
 //! After you spend 6 Gold, get a `Lockbox`. If you already have one, it opens `1` (`2` if Golden) turn(s) sooner instead.
 
-use crate::cards::{tokens, CardTemplate};
+use crate::cards::{self, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -34,7 +34,7 @@ pub fn on_gold_spent(
             .find(|h| h.card_id == tokens::SPELL_LOCKBOX && h.lockbox_turns_left > 0)
         {
             lockbox.lockbox_turns_left = lockbox.lockbox_turns_left.saturating_sub(reduction);
-            state.open_ready_lockboxes(rng);
+            cards::resolve_ready_hand_cards(state, rng);
         } else {
             state.add_to_hand(tokens::make_lockbox());
         }

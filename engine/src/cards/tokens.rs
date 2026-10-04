@@ -1,8 +1,13 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
 use crate::cards::hooks::CardEventFn;
-use crate::cards::{spells, tier2, tier3, tier4, tier5, tier6, CardFlags, CardHooks};
+use crate::cards::{
+    all_templates, check_stat_thresholds, on_card_added_to_hand, spells, tier2, tier3, tier4,
+    tier5, tier6, CardFlags, CardHooks, CardTemplate,
+};
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
+use crate::rng::Rng;
+use crate::tavern::TavernState;
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -230,6 +235,53 @@ pub fn make_lockbox() -> Unit {
     box_card
 }
 
+/// `Lockbox` in hand at the start of your turn: count down, and open once the countdown ends.
+fn lockbox_turn_start(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
+    let lockbox = &mut state.hand[hand_idx];
+    lockbox.lockbox_turns_left = lockbox.lockbox_turns_left.saturating_sub(1);
+    if lockbox.lockbox_turns_left == 0 {
+        open_lockbox(state, hand_idx, rng);
+    }
+}
+
+/// `Lockbox` in hand: open it if its countdown has already ended (e.g. sped up in combat).
+fn lockbox_ready(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
+    if state.hand[hand_idx].lockbox_turns_left == 0 {
+        open_lockbox(state, hand_idx, rng);
+    }
+}
+
+/// Open the `Lockbox` at `state.hand[hand_idx]`, replacing it with a random Golden minion of your
+/// Tier with a type.
+pub fn open_lockbox(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
+    if hand_idx >= state.hand.len() || state.hand[hand_idx].card_id != SPELL_LOCKBOX {
+        return;
+    }
+    let target_tier = state.tavern_tier.max(1);
+    let typed = |t: &&CardTemplate| t.tribe != Tribe::None && !t.intrinsic_golden;
+    let mut typed_templates: Vec<&CardTemplate> = all_templates()
+        .iter()
+        .filter(|t| typed(t) && t.tavern_tier == target_tier)
+        .collect();
+    if typed_templates.is_empty() {
+        typed_templates = all_templates()
+            .iter()
+            .filter(|t| typed(t) && t.tavern_tier <= target_tier)
+            .collect();
+    }
+    if typed_templates.is_empty() {
+        return;
+    }
+    let pick = rng.below(typed_templates.len());
+    let mut golden = typed_templates[pick].instantiate();
+    golden.make_golden();
+    golden.intrinsic_golden = false;
+    state.apply_global_unit_auras(&mut golden);
+    check_stat_thresholds(&mut golden);
+    state.hand[hand_idx] = golden;
+    on_card_added_to_hand(&state.board, &mut state.auras);
+}
+
 /// `Gem Day` (`BG31_893` — Choose One: Your Blood Gems give an extra +1 Attack this game; or +1 Health).
 pub fn make_gem_day() -> Unit {
     let mut spell = Unit::new("Gem Day", 0, 0)
@@ -414,6 +466,12 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
                     spells::cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
                 }
             }),
+        ),
+        (
+            SPELL_LOCKBOX,
+            CardHooks::EMPTY
+                .on_turn_start_in_hand(lockbox_turn_start)
+                .on_ready_in_hand(lockbox_ready),
         ),
     ];
     out.extend(CHROMADRAKE_IDS.iter().map(|&id| (id, chromadrake)));

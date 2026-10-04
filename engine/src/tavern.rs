@@ -573,7 +573,7 @@ impl TavernState {
             self.check_and_resolve_triple(dying.card_id);
         }
 
-        self.open_ready_lockboxes(rng);
+        cards::resolve_ready_hand_cards(self, rng);
         self.sync_all_auras();
         let hand_cids: Vec<CardId> = self
             .hand
@@ -673,51 +673,6 @@ impl TavernState {
     pub fn choice_target(&self) -> Option<usize> {
         self.pending_choice_target
             .filter(|&pos| pos < self.board.len())
-    }
-
-    /// Open the `Lockbox` at `hand[hand_idx]`, replacing it with a random Golden minion of your Tier with a type.
-    pub fn open_lockbox_at(&mut self, hand_idx: usize, rng: &mut Rng) {
-        if hand_idx >= self.hand.len() || self.hand[hand_idx].card_id != tokens::SPELL_LOCKBOX {
-            return;
-        }
-        let target_tier = self.tavern_tier.max(1);
-        let mut typed_templates: Vec<CardTemplate> = cards::full_catalog()
-            .into_iter()
-            .filter(|t| {
-                t.tribe != Tribe::None && !t.intrinsic_golden && t.tavern_tier == target_tier
-            })
-            .collect();
-        if typed_templates.is_empty() {
-            typed_templates = cards::full_catalog()
-                .into_iter()
-                .filter(|t| {
-                    t.tribe != Tribe::None && !t.intrinsic_golden && t.tavern_tier <= target_tier
-                })
-                .collect();
-        }
-        if typed_templates.is_empty() {
-            return;
-        }
-        let pick = rng.below(typed_templates.len());
-        let tpl = &typed_templates[pick];
-        let mut golden = tpl.instantiate();
-        golden.make_golden();
-        golden.intrinsic_golden = false;
-        self.apply_global_unit_auras(&mut golden);
-        cards::check_stat_thresholds(&mut golden);
-        self.hand[hand_idx] = golden;
-        cards::on_card_added_to_hand(&self.board, &mut self.auras);
-    }
-
-    /// Open any `Lockbox` in `hand` that already has `lockbox_turns_left == 0` (`Hired Mount`).
-    pub fn open_ready_lockboxes(&mut self, rng: &mut Rng) {
-        for idx in 0..self.hand.len() {
-            if self.hand[idx].card_id == tokens::SPELL_LOCKBOX
-                && self.hand[idx].lockbox_turns_left == 0
-            {
-                self.open_lockbox_at(idx, rng);
-            }
-        }
     }
 
     /// Check whether a friendly minion (`Malchezaar, Prince of Dance`) can pay Health for a `Refresh`.
@@ -936,13 +891,7 @@ impl TavernState {
             if self.hand[idx].locked_turns > 0 {
                 self.hand[idx].locked_turns -= 1;
             }
-            if self.hand[idx].card_id == tokens::SPELL_LOCKBOX {
-                self.hand[idx].lockbox_turns_left =
-                    self.hand[idx].lockbox_turns_left.saturating_sub(1);
-                if self.hand[idx].lockbox_turns_left == 0 {
-                    self.open_lockbox_at(idx, rng);
-                }
-            }
+            cards::on_turn_start_in_hand(self, idx, rng);
         }
 
         self.turn += 1;
@@ -1045,12 +994,14 @@ impl TavernState {
             }
         }
         self.hand = new_hand;
-        let lockbox_salt = match side {
+        // Hand cards that became ready during combat (e.g. a sped-up `Lockbox`) resolve with a
+        // per-side RNG derived from the battle seed.
+        let ready_salt = match side {
             Side::A => 0x9E37_79B9_7F4A_7C15,
             Side::B => 0xBF58_476D_1CE4_E5B9,
         };
-        let mut lockbox_rng = Rng::new(seed ^ lockbox_salt);
-        self.open_ready_lockboxes(&mut lockbox_rng);
+        let mut ready_rng = Rng::new(seed ^ ready_salt);
+        cards::resolve_ready_hand_cards(self, &mut ready_rng);
 
         let mut post_units = survivors.clone();
         post_units.extend_from_slice(dead_units);

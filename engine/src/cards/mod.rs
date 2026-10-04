@@ -1045,6 +1045,26 @@ pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mu
     notify_tavern(state, |h| h.discover, |s, idx, f| f(s, idx, pool, rng));
 }
 
+/// Start-of-turn upkeep of the hand card at `state.hand[hand_idx]` (its `turn_start_in_hand`
+/// hook).
+pub fn on_turn_start_in_hand(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
+    if let Some(turn_start_in_hand) = hooks(state.hand[hand_idx].card_id).turn_start_in_hand {
+        turn_start_in_hand(state, hand_idx, rng);
+    }
+}
+
+/// Let hand cards that wait for a condition resolve once it holds (`ready_in_hand` hooks, left
+/// to right; e.g. a `Lockbox` whose countdown ended).
+pub fn resolve_ready_hand_cards(state: &mut TavernState, rng: &mut Rng) {
+    let mut idx = 0;
+    while idx < state.hand.len() {
+        if let Some(ready_in_hand) = hooks(state.hand[idx].card_id).ready_in_hand {
+            ready_in_hand(state, idx, rng);
+        }
+        idx += 1;
+    }
+}
+
 /// Returns `true` if `card_id` is an option card of a Choose-One / Discover-style prompt that
 /// takes effect when chosen (it has a `choose` hook) instead of going to the hand.
 pub fn is_option_card(card_id: CardId) -> bool {

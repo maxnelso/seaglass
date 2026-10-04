@@ -25,7 +25,7 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {
         state.hand[idx].lockbox_turns_left =
             state.hand[idx].lockbox_turns_left.saturating_sub(accel);
         if state.hand[idx].lockbox_turns_left == 0 {
-            state.open_lockbox_at(idx, rng);
+            tokens::open_lockbox(state, idx, rng);
         }
     } else {
         state.add_to_hand(tokens::make_lockbox());
