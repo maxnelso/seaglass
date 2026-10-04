@@ -1,12 +1,12 @@
 card: Scarlet Survivor
 scenarios:
   - name: gains_divine_shield_at_6_attack
-    seed: 107
-    tavern: {include_shop_spells: true, gold: 20, board: [Scarlet Survivor]}   # 3/3
+    tavern:
+      board: [Scarlet Survivor]
+      hand: [Tavern Dish Banana, Tavern Dish Banana]   # +2/+2 each
     steps:
-      - expect: {board: {0: {divine_shield: false}}}
-      - add_to_hand: [Tavern Dish Banana, Tavern Dish Banana]   # +2/+2 each
-      - play: {hand: 0, pos: 0}   # 5/5
-      - expect: {board: {0: {divine_shield: false}}}
-      - play: {hand: 0, pos: 0}   # 7/7
-    expect: {board: {0: {divine_shield: true}}}
+      - expect: {board: ["Scarlet Survivor 3/3 -divine_shield"]}
+      - play: {hand: 0, pos: 0}
+      - expect: {board: ["Scarlet Survivor 5/5 -divine_shield"]}
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Scarlet Survivor 7/7 divine_shield"]}

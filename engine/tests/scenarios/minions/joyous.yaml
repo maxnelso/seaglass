@@ -1,12 +1,11 @@
 card: Joyous
 scenarios:
   - name: battlecry_buffs_the_deity_golden_doubles_it
-    seed: 101
-    tavern: {include_shop_spells: true, gold: 20, auras: {deity: {kind: cthun}}}
+    tavern: {auras: {deity: {kind: cthun}}}
     steps:
       - add_to_hand: Joyous
-      - play: {hand: 0, pos: 0}
+      - play: Joyous
       - expect: {auras: {deity: {attack: 3, health: 2}}}
-      - add_to_hand: golden Joyous   # golden: +4/+2
-      - play: {hand: 0, pos: 1}
+      - add_to_hand: golden Joyous   # +4/+2
+      - play: golden Joyous
     expect: {auras: {deity: {attack: 7, health: 4}}}

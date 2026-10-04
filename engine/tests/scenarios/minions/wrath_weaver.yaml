@@ -1,12 +1,10 @@
 card: Wrath Weaver
 scenarios:
   - name: playing_a_demon_costs_1_health_and_gives_it_2_2
-    seed: 105
-    tavern: {include_shop_spells: true, gold: 20, board: [Wrath Weaver]}
+    tavern: {board: [Wrath Weaver]}
     steps:
-      - expect: {health: {capture: pre_hp}}
       - add_to_hand: Ominous Seer   # a Demon
-      - play: {hand: 0, pos: 1}
+      - play: Ominous Seer
     expect:
-      health: "$pre_hp - 1"
-      board: {0: "3/5"}
+      health: 29
+      board: {0: "Wrath Weaver 3/5"}

@@ -1,11 +1,9 @@
 card: Suspicious Prisonguard
 scenarios:
   - name: activate_spends_1_gold_to_give_a_minion_3_3
-    seed: 121
-    tavern: {include_shop_spells: true, gold: 20, board: ["2/2", Suspicious Prisonguard]}
+    tavern: {gold: 10, board: ["2/2", Suspicious Prisonguard]}
     steps:
-      - expect: {gold: {capture: pre_gold}}
-      - activate: {pos: 1, target: 0}
+      - activate: {pos: Suspicious Prisonguard, target: 0}
     expect:
-      gold: "$pre_gold - 1"
+      gold: 9
       board: {0: "5/5"}

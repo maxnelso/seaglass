@@ -2,7 +2,7 @@ card: Crackling Cyclone
 scenarios:
   - name: has_divine_shield_and_windfury
     tavern: {board: [Crackling Cyclone]}
-    expect: {board: [{divine_shield: true, windfury: true}]}
+    expect: {board: ["Crackling Cyclone divine_shield windfury"]}
 
   - name: trades_two_2_2s_into_a_draw
     seed: 108

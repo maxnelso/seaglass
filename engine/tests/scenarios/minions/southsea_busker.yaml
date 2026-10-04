@@ -1,9 +1,7 @@
 card: Southsea Busker
 scenarios:
   - name: battlecry_gives_1_gold_next_turn
-    seed: 115
-    tavern: {include_shop_spells: true, gold: 20}
     steps:
       - add_to_hand: Southsea Busker
-      - play: {hand: 0, pos: 0}
+      - play: Southsea Busker
     expect: {bonus_gold_next_turn: 1}

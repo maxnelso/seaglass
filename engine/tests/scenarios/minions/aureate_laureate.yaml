@@ -1,10 +1,8 @@
 card: Aureate Laureate
 scenarios:
   - name: intrinsically_golden_copies_never_triple
-    seed: 114
-    tavern: {include_shop_spells: true, gold: 20}
     steps:
       - add_to_hand: [Aureate Laureate, Aureate Laureate, Aureate Laureate]
       - expect: {hand: {count: 3, all: {is_golden: true, intrinsic_golden: true}}}
-      - play: {hand: 0, pos: 0}
+      - play: Aureate Laureate
     expect: {discover_pending: null}

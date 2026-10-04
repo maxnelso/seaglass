@@ -8,4 +8,4 @@ scenarios:
       auras_a: {counters: {Beetle: [2, 1]}}
     expect:
       outcome: a_win
-      survivors_a: ["4/3"]   # a 2/2 Beetle + the 2/1 bonus
+      survivors_a: ["Beetle 4/3"]   # 2/2 + the 2/1 bonus

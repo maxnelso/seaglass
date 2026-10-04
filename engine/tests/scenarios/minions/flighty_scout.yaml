@@ -3,4 +3,4 @@ scenarios:
   - name: start_of_combat_summons_it_from_hand
     seed: 113
     combat: {board_a: ["1/1"], board_b: ["2/3"], hand_a: [Flighty Scout]}
-    expect: {outcome: a_win, survivors_a: {any: {name: Flighty Scout}}}
+    expect: {outcome: a_win, survivors_a: {any: Flighty Scout}}

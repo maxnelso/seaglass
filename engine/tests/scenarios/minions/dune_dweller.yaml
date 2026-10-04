@@ -1,11 +1,10 @@
 card: Dune Dweller
 scenarios:
   - name: battlecry_buffs_tavern_elementals_including_the_shop
-    seed: 109
-    tavern: {include_shop_spells: true, gold: 20, shop: [Crackling Cyclone]}   # a 2/1 Elemental
+    tavern: {shop: [Crackling Cyclone]}   # a 2/1 Elemental
     steps:
       - add_to_hand: Dune Dweller
-      - play: {hand: 0, pos: 0}
+      - play: Dune Dweller
     expect:
       auras: {tavern_elemental_atk: 1, tavern_elemental_hp: 1}
-      shop: {0: "3/2"}
+      shop: ["Crackling Cyclone 3/2"]
