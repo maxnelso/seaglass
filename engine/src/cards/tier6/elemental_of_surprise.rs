@@ -2,7 +2,7 @@
 //!
 //! Divine Shield. This minion can triple with any Elemental.
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardFlags, CardTemplate};
 use crate::model::{CardId, Keyword, Tribe};
 
 pub const ID: CardId = 608;
@@ -11,4 +11,5 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Elemental of Surprise", 8, 8, 6)
         .with_tribe(Tribe::Elemental)
         .with_keyword(Keyword::DivineShield)
+        .with_flags(CardFlags::TRIPLE_WILDCARD_ELEMENTAL)
 }

@@ -375,6 +375,25 @@ fn set_spell_aura(unit: &mut Unit, (atk, hp): (i32, i32)) {
     }
 }
 
+/// The spell aura `unit` has on top of its card's own `spell_aura` (e.g. from Magnetized
+/// `Enchanted Sentinel`s).
+pub fn gained_spell_aura(unit: &Unit) -> (i32, i32) {
+    let (atk, hp) = hooks(unit.card_id).spell_aura;
+    let m = unit.golden_mult();
+    (
+        unit.spell_atk_aura - unit.spell_atk_aura.min(atk * m),
+        unit.spell_hp_aura - unit.spell_hp_aura.min(hp * m),
+    )
+}
+
+/// A Golden was merged from the triple `copies`: let its card adjust card-specific state (its
+/// `merge_golden` hook).
+pub fn on_merge_golden(copies: &[Unit], golden: &mut Unit) {
+    if let Some(merge_golden) = hooks(golden.card_id).merge_golden {
+        merge_golden(copies, golden);
+    }
+}
+
 /// All 21 active Solo Tier 1 minions (Patch 36.6.3, excluding rotated Naga & Dark Paradox).
 pub fn tier1_catalog() -> Vec<CardTemplate> {
     tier1::catalog()

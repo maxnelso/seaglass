@@ -1,6 +1,5 @@
 //! Card-agnostic Tavern Phase (Recruit Phase) state machine (`docs/tavern.md`).
 
-use crate::cards::tokens;
 use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
@@ -1534,18 +1533,20 @@ impl TavernState {
     }
 
     /// Combine 3 non-golden copies of `card_id` across `board` and `hand` into 1 Golden copy in `hand` (`docs/tavern.md` §5.1).
-    /// Also supports `Elemental of Surprise`, which can triple with any Elemental.
+    /// Cards flagged [`CardFlags::TRIPLE_WILDCARD_ELEMENTAL`] (`Elemental of Surprise`) can triple
+    /// with any Elemental; cards flagged [`CardFlags::NO_TRIPLE`] never triple.
     pub fn check_and_resolve_triple(&mut self, card_id: CardId) {
-        if card_id == 0 || card_id == tokens::TOKEN_MAGICFIN_APPRENTICE {
+        let no_triple = |cid: CardId| cards::hooks(cid).has(CardFlags::NO_TRIPLE);
+        let is_wildcard = |cid: CardId| cards::hooks(cid).has(CardFlags::TRIPLE_WILDCARD_ELEMENTAL);
+        if card_id == 0 || no_triple(card_id) {
             return;
         }
-        let eos_id = cards::tier6::elemental_of_surprise::ID;
         let is_eligible = |u: &Unit| -> bool {
             !u.is_golden
                 && !u.intrinsic_golden
                 && !u.is_spell
                 && u.card_id != 0
-                && u.card_id != tokens::TOKEN_MAGICFIN_APPRENTICE
+                && !no_triple(u.card_id)
         };
 
         let exact_count = self
@@ -1555,19 +1556,19 @@ impl TavernState {
             .filter(|u| is_eligible(u) && u.card_id == card_id)
             .count();
 
-        let (target_cid, use_eos) = if exact_count >= 3 {
+        let (target_cid, use_wildcard) = if exact_count >= 3 {
             (card_id, false)
         } else {
-            let eos_count = self
+            let wildcard_count = self
                 .board
                 .iter()
                 .chain(self.hand.iter())
-                .filter(|u| is_eligible(u) && u.card_id == eos_id)
+                .filter(|u| is_eligible(u) && is_wildcard(u.card_id))
                 .count();
-            if eos_count == 0 {
+            if wildcard_count == 0 {
                 return;
             }
-            if card_id != eos_id {
+            if !is_wildcard(card_id) {
                 let elem_count = self
                     .board
                     .iter()
@@ -1576,7 +1577,7 @@ impl TavernState {
                         is_eligible(u) && u.card_id == card_id && u.tribe.matches(Tribe::Elemental)
                     })
                     .count();
-                if elem_count >= 1 && elem_count + eos_count >= 3 {
+                if elem_count >= 1 && elem_count + wildcard_count >= 3 {
                     (card_id, true)
                 } else {
                     return;
@@ -1585,7 +1586,7 @@ impl TavernState {
                 let mut candidate_cids: Vec<CardId> = Vec::new();
                 for u in self.board.iter().chain(self.hand.iter()) {
                     if is_eligible(u)
-                        && u.card_id != eos_id
+                        && !is_wildcard(u.card_id)
                         && u.tribe.matches(Tribe::Elemental)
                         && !candidate_cids.contains(&u.card_id)
                     {
@@ -1600,7 +1601,7 @@ impl TavernState {
                         .chain(self.hand.iter())
                         .filter(|u| is_eligible(u) && u.card_id == cid)
                         .count();
-                    if cnt == 2 && cnt + eos_count >= 3 {
+                    if cnt == 2 && cnt + wildcard_count >= 3 {
                         found = Some(cid);
                         break;
                     }
@@ -1613,7 +1614,7 @@ impl TavernState {
                             .chain(self.hand.iter())
                             .filter(|u| is_eligible(u) && u.card_id == cid)
                             .count();
-                        if cnt >= 1 && cnt + eos_count >= 3 {
+                        if cnt >= 1 && cnt + wildcard_count >= 3 {
                             found = Some(cid);
                             break;
                         }
@@ -1644,9 +1645,9 @@ impl TavernState {
                 true
             }
         });
-        if use_eos && copies.len() < 3 {
+        if use_wildcard && copies.len() < 3 {
             self.board.retain(|u| {
-                if copies.len() < 3 && is_eligible(u) && u.card_id == eos_id {
+                if copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id) {
                     copies.push(u.clone());
                     false
                 } else {
@@ -1654,7 +1655,7 @@ impl TavernState {
                 }
             });
             self.hand.retain(|u| {
-                if copies.len() < 3 && is_eligible(u) && u.card_id == eos_id {
+                if copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id) {
                     copies.push(u.clone());
                     false
                 } else {
@@ -1717,57 +1718,19 @@ impl TavernState {
         golden.venomous = copies.iter().any(|u| u.venomous);
         golden.stealth = copies.iter().any(|u| u.stealth);
         golden.magnetic = copies.iter().any(|u| u.magnetic);
-        let is_volumizer = matches!(
-            target_cid,
-            cards::tier2::blue_volumizer::ID
-                | cards::tier2::green_volumizer::ID
-                | cards::tier2::red_volumizer::ID
-        );
-        golden.threshold_triggered = if is_volumizer {
-            false
-        } else {
-            copies.iter().any(|u| u.threshold_triggered)
-        };
+        golden.threshold_triggered = copies.iter().any(|u| u.threshold_triggered);
         golden.scout_tier = copies.iter().map(|u| u.scout_tier).max().unwrap_or(1);
         golden.eot_health_bonus = copies.iter().map(|u| u.eot_health_bonus).sum();
-        let sum_sot_gold: u32 = copies.iter().map(|u| u.sot_gold_bonus).sum();
-        golden.sot_gold_bonus = if target_cid == cards::tier3::accord_o_tron::ID {
-            sum_sot_gold.saturating_sub(1).max(2)
-        } else {
-            sum_sot_gold
-        };
-        if target_cid == cards::tier3::malchezaar_prince_of_dance::ID {
-            golden.malchezaar_refreshes_left = 4;
-        }
-        if target_cid == cards::tier3::thorned_trailblazer::ID {
-            golden.trailblazer_charges_left = 2;
-        }
-        if target_cid == cards::tier6::magicfin_mycologist::ID {
-            golden.mycologist_charges_left = 2;
-        }
-        let extra_spell_atk: i32 = copies
-            .iter()
-            .map(|u| {
-                if u.card_id == cards::tier4::enchanted_sentinel::ID {
-                    (u.spell_atk_aura - 1).max(0)
-                } else {
-                    u.spell_atk_aura
-                }
-            })
-            .sum();
-        let extra_spell_hp: i32 = copies
-            .iter()
-            .map(|u| {
-                if u.card_id == cards::tier4::enchanted_sentinel::ID {
-                    (u.spell_hp_aura - 1).max(0)
-                } else {
-                    u.spell_hp_aura
-                }
-            })
-            .sum();
+        golden.sot_gold_bonus = copies.iter().map(|u| u.sot_gold_bonus).sum();
+        cards::init_unit_turn_charges(&mut golden);
+        // The Golden's own spell aura comes from its card; what the copies gained on top of
+        // theirs carries over.
         cards::init_spell_aura(&mut golden);
-        golden.spell_atk_aura += extra_spell_atk;
-        golden.spell_hp_aura += extra_spell_hp;
+        for copy in &copies {
+            let (atk, hp) = cards::gained_spell_aura(copy);
+            golden.spell_atk_aura += atk;
+            golden.spell_hp_aura += hp;
+        }
         golden.wrathguard_bonus = copies.iter().map(|u| u.wrathguard_bonus).sum();
         golden.perm_atk_gained = copies.iter().map(|u| u.perm_atk_gained).sum();
         golden.perm_hp_gained = copies.iter().map(|u| u.perm_hp_gained).sum();
@@ -1798,6 +1761,7 @@ impl TavernState {
             copies.iter().map(|u| u.blood_gem_stats_applied.0).sum(),
             copies.iter().map(|u| u.blood_gem_stats_applied.1).sum(),
         );
+        cards::on_merge_golden(&copies, &mut golden);
         cards::check_stat_thresholds(&mut golden);
 
         self.hand.push(golden);

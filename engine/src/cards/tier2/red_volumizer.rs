@@ -14,6 +14,7 @@ pub fn template() -> CardTemplate {
         .with_keyword(Keyword::Magnetic)
         .on_play_or_magnetize(on_first_play_or_magnetize)
         .on_sync_aura(super::blue_volumizer::sync_volumizer_aura)
+        .on_merge_golden(super::blue_volumizer::merge_golden)
 }
 
 pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {

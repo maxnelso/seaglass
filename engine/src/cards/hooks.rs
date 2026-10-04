@@ -217,6 +217,8 @@ card_hooks! {
     reset_turn_charges(on_reset_turn_charges): UnitFn,
     /// Adjust card-specific state when this unit becomes Golden.
     made_golden(on_made_golden): UnitFn,
+    /// This Golden was merged from a triple: adjust its card-specific state `(copies, golden)`.
+    merge_golden(on_merge_golden): fn(&[Unit], &mut Unit),
     /// Re-apply this unit's "wherever this is" aura bonus from the player's auras.
     sync_aura(on_sync_aura): fn(&mut Unit, &PlayerAuras),
     /// Check once-per-game stat thresholds after this unit's stats change.

@@ -14,6 +14,7 @@ pub fn template() -> CardTemplate {
         .with_keyword(Keyword::Magnetic)
         .on_play_or_magnetize(on_first_play_or_magnetize)
         .on_sync_aura(sync_volumizer_aura)
+        .on_merge_golden(merge_golden)
 }
 
 pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
@@ -37,4 +38,10 @@ pub fn sync_volumizer_aura(unit: &mut Unit, auras: &PlayerAuras) {
         unit.volumizer_stacks_applied = (auras.volumizer_bonus_atk, auras.volumizer_bonus_hp);
         unit.add_stats(d_atk, d_hp);
     }
+}
+
+/// Tripled: the Golden's first-play effect can trigger again (the `merge_golden` hook of all
+/// three Volumizers).
+pub fn merge_golden(_: &[Unit], golden: &mut Unit) {
+    golden.threshold_triggered = false;
 }

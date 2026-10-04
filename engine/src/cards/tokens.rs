@@ -447,11 +447,13 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     let mut out = vec![
         (
             TOKEN_MAGICFIN_APPRENTICE,
-            CardHooks::EMPTY.on_battlecry(|state, unit, board_pos, pool, rng| {
-                tier6::magicfin_mycologist::on_apprentice_battlecry(
-                    state, unit, board_pos, pool, rng,
-                )
-            }),
+            CardHooks::EMPTY
+                .with_flags(CardFlags::NO_TRIPLE)
+                .on_battlecry(|state, unit, board_pos, pool, rng| {
+                    tier6::magicfin_mycologist::on_apprentice_battlecry(
+                        state, unit, board_pos, pool, rng,
+                    )
+                }),
         ),
         (
             TOKEN_FISHBAIT,
