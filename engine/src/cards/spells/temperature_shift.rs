@@ -15,10 +15,10 @@ pub fn hooks() -> CardHooks {
 
 /// `Temperature Shift`: get a `Fire Baller` and a `Snow Baller`.
 pub fn cast(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, _: &mut Rng) {
-    let mut fire = crate::cards::tier2::fire_baller::template().instantiate();
+    let mut fire = crate::cards::minions::fire_baller::template().instantiate();
     state.apply_global_unit_auras(&mut fire);
     state.add_to_hand(fire);
-    let mut snow = crate::cards::tier2::snow_baller::template().instantiate();
+    let mut snow = crate::cards::minions::snow_baller::template().instantiate();
     state.apply_global_unit_auras(&mut snow);
     state.add_to_hand(snow);
 }

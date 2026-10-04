@@ -2,7 +2,7 @@
 //!
 //! Battlecry: Get a (`2` if Golden) random Golden minion from Tier 4. It doesn't give a Triple Reward.
 
-use crate::cards::{tier4, CardTemplate};
+use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -16,7 +16,7 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {
-    let catalog = tier4::catalog();
+    let catalog = cards::tier4_catalog();
     if catalog.is_empty() {
         return;
     }

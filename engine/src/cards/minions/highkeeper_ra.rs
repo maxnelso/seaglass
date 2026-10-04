@@ -2,7 +2,7 @@
 //!
 //! Battlecry, Deathrattle, and Rally: Get a (`2` if Golden) random Tier 6 minion(s).
 
-use crate::cards::{self, tier6, CardTemplate, DeathrattleContext};
+use crate::cards::{self, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -21,7 +21,7 @@ pub fn template() -> CardTemplate {
 }
 
 fn draw_random_tier6_minion(auras: &PlayerAuras, rng: &mut Rng) -> Unit {
-    let pool = tier6::catalog();
+    let pool = cards::tier6_catalog();
     let idx = rng.below(pool.len());
     let mut u = pool[idx].instantiate();
     cards::sync_unit_auras(&mut u, auras);

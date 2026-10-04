@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 use std::env;
 
-use seaglass::cards::{self, spells, tier2, tier3, tier4, tier7, tokens};
+use seaglass::cards::{self, minions, spells, tokens};
 use seaglass::{
     base_copies_for_tier, full_catalog, BattleOutcome, BattleResult, CardPool, DeityKind, Event,
     PlayerAuras, Rng, Side, TavernAction, TavernState, Tribe, Unit, UnitId,
@@ -203,7 +203,7 @@ fn print_player_snapshot(label: &str, state: &TavernState, pool: &CardPool) {
         1 + state.auras.blood_gem_bonus_atk,
         1 + state.auras.blood_gem_bonus_hp,
         state.auras.undead_bonus_attack,
-        state.auras.counter(tier2::eternal_knight::ID),
+        state.auras.counter(minions::eternal_knight::ID),
     );
     println!("  │   Board ({}/7):", state.board.len());
     print!("{}", format_unit_list(&state.board, "  │     ", None));
@@ -440,7 +440,7 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.undead_bonus_attack, after.undead_bonus_attack
         ));
     }
-    let ek = |a: &PlayerAuras| a.counter(tier2::eternal_knight::ID);
+    let ek = |a: &PlayerAuras| a.counter(minions::eternal_knight::ID);
     if ek(before) != ek(after) {
         diffs.push(format!(
             "eternal_knights_died: {} -> {}",
@@ -477,7 +477,7 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             after.spell_bonus_hp
         ));
     }
-    let volumizers = tier2::blue_volumizer::volumizer_bonus;
+    let volumizers = minions::blue_volumizer::volumizer_bonus;
     let (vol_before, vol_after) = (volumizers(before), volumizers(after));
     if vol_before != vol_after {
         diffs.push(format!(
@@ -555,7 +555,7 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             fodder(after)
         ));
     }
-    let ballers = tier2::fire_baller::baller_bonus;
+    let ballers = minions::fire_baller::baller_bonus;
     if ballers(before) != ballers(after) {
         diffs.push(format!(
             "baller_bonus: +{} -> +{}",
@@ -563,7 +563,7 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             ballers(after)
         ));
     }
-    let lobsters = |a: &PlayerAuras| a.counter(tier3::tasty_lobster::ID);
+    let lobsters = |a: &PlayerAuras| a.counter(minions::tasty_lobster::ID);
     if lobsters(before) != lobsters(after) {
         diffs.push(format!(
             "tasty_lobster_stacks: +{} -> +{}",
@@ -692,17 +692,17 @@ fn choose_play_position(state: &TavernState, card: &Unit, rng: &mut Rng) -> usiz
 
     // Positional / targeted Battlecries:
     match card.card_id {
-        tier3::disguised_graverobber::ID | tier4::maw_caster::ID => {
+        minions::disguised_graverobber::ID | minions::maw_caster::ID => {
             if let Some(pos) = state.board.iter().position(|u| u.tribe.matches(Tribe::Undead)) {
                 return pos;
             }
         }
-        tier3::sprightly_scarab::ID => {
+        minions::sprightly_scarab::ID => {
             if let Some(pos) = state.board.iter().position(|u| u.tribe.matches(Tribe::Beast)) {
                 return pos;
             }
         }
-        tier7::captain_sanders::ID => {
+        minions::captain_sanders::ID => {
             if let Some(pos) = state
                 .board
                 .iter()
@@ -815,12 +815,12 @@ fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAction
                 board_pos,
                 target_pos: Some(t),
             } => {
-                if state.board[board_pos].card_id == tier4::sky_hatch_runaway::ID {
+                if state.board[board_pos].card_id == minions::sky_hatch_runaway::ID {
                     !matches!(
                         state.board[t].card_id,
-                        tier4::heroic_underdog::ID
-                            | tier4::sindorei_straight_shot::ID
-                            | tier7::obsidian_ravager::ID
+                        minions::heroic_underdog::ID
+                            | minions::sindorei_straight_shot::ID
+                            | minions::obsidian_ravager::ID
                     )
                 } else {
                     true
@@ -901,15 +901,15 @@ fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAction
         if let Some(pos) = state.board.iter().position(|u| {
             matches!(
                 u.card_id,
-                tier2::sellemental::ID
-                    | tier2::tad::ID
-                    | tier2::fire_baller::ID
-                    | tier2::snow_baller::ID
-                    | tier4::air_baller::ID
-                    | tier4::snarky_shark::ID
-            ) || (u.card_id == tier2::patient_scout::ID
-                && tier2::patient_scout::discover_tier(u) >= 3)
-                || (u.card_id == tier3::greedy_conniver::ID && u.is_golden)
+                minions::sellemental::ID
+                    | minions::tad::ID
+                    | minions::fire_baller::ID
+                    | minions::snow_baller::ID
+                    | minions::air_baller::ID
+                    | minions::snarky_shark::ID
+            ) || (u.card_id == minions::patient_scout::ID
+                && minions::patient_scout::discover_tier(u) >= 3)
+                || (u.card_id == minions::greedy_conniver::ID && u.is_golden)
         }) {
             let sell_act = TavernAction::Sell { board_pos: pos };
             if state.is_legal(&sell_act) {

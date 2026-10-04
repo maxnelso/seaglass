@@ -1,7 +1,7 @@
 //! Card templates, catalogs, and generic per-card hook dispatch.
 //!
-//! Card definitions are organized by folder (`src/cards/tier1/` .. `src/cards/tier7/`,
-//! `src/cards/spells/`, `src/cards/deities.rs`, `src/cards/tokens.rs`). Each card declares
+//! Card definitions are organized by folder (`src/cards/minions/`, `src/cards/spells/`,
+//! `src/cards/deities.rs`, `src/cards/tokens.rs`). Each card declares
 //! its behaviour as a [`CardHooks`] table (see [`hooks`](mod@hooks)); the dispatch functions
 //! in this module look hooks up by `CardId` through the [registry](fn@hooks) and never name a
 //! specific card.
@@ -9,15 +9,9 @@
 pub mod deities;
 mod effects;
 pub mod hooks;
+pub mod minions;
 mod registry;
 pub mod spells;
-pub mod tier1;
-pub mod tier2;
-pub mod tier3;
-pub mod tier4;
-pub mod tier5;
-pub mod tier6;
-pub mod tier7;
 pub mod tokens;
 
 pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
@@ -431,7 +425,7 @@ pub fn on_merge_golden(copies: &[Unit], golden: &mut Unit) {
 
 /// All 21 active Solo Tier 1 minions (Patch 36.6.3, excluding rotated Naga & Dark Paradox).
 pub fn tier1_catalog() -> Vec<CardTemplate> {
-    tier1::catalog()
+    tier_catalog(1)
 }
 
 /// Alias for [`tier1_catalog`].
@@ -441,7 +435,7 @@ pub fn solo_tier_1_catalog() -> Vec<CardTemplate> {
 
 /// All 34 active Solo Tier 2 minions (Patch 36.6.3, including the 3 Volumizers).
 pub fn tier2_catalog() -> Vec<CardTemplate> {
-    tier2::catalog()
+    tier_catalog(2)
 }
 
 /// Alias for [`tier2_catalog`].
@@ -451,7 +445,7 @@ pub fn solo_tier_2_catalog() -> Vec<CardTemplate> {
 
 /// All 43 active Solo Tier 3 minions (Patch 36.6.3).
 pub fn tier3_catalog() -> Vec<CardTemplate> {
-    tier3::catalog()
+    tier_catalog(3)
 }
 
 /// Alias for [`tier3_catalog`].
@@ -461,7 +455,7 @@ pub fn solo_tier_3_catalog() -> Vec<CardTemplate> {
 
 /// All 58 active Solo Tier 4 minions (Patch 36.6.3).
 pub fn tier4_catalog() -> Vec<CardTemplate> {
-    tier4::catalog()
+    tier_catalog(4)
 }
 
 /// Alias for [`tier4_catalog`].
@@ -471,7 +465,7 @@ pub fn solo_tier_4_catalog() -> Vec<CardTemplate> {
 
 /// All 52 active Solo Tier 5 minions (Patch 36.6.3).
 pub fn tier5_catalog() -> Vec<CardTemplate> {
-    tier5::catalog()
+    tier_catalog(5)
 }
 
 /// Alias for [`tier5_catalog`].
@@ -481,7 +475,7 @@ pub fn solo_tier_5_catalog() -> Vec<CardTemplate> {
 
 /// All 32 active Solo Tier 6 minions (Patch 36.6.3).
 pub fn tier6_catalog() -> Vec<CardTemplate> {
-    tier6::catalog()
+    tier_catalog(6)
 }
 
 /// Alias for [`tier6_catalog`].
@@ -491,7 +485,7 @@ pub fn solo_tier_6_catalog() -> Vec<CardTemplate> {
 
 /// All 12 active Solo Tier 7 minions (Patch 36.6.3).
 pub fn tier7_catalog() -> Vec<CardTemplate> {
-    tier7::catalog()
+    tier_catalog(7)
 }
 
 /// Alias for [`tier7_catalog`].
@@ -501,14 +495,15 @@ pub fn solo_tier_7_catalog() -> Vec<CardTemplate> {
 
 /// Full active catalog (Solo Tier 1..=7 = 252 minions).
 pub fn full_catalog() -> Vec<CardTemplate> {
-    let mut cards = tier1_catalog();
-    cards.extend(tier2_catalog());
-    cards.extend(tier3_catalog());
-    cards.extend(tier4_catalog());
-    cards.extend(tier5_catalog());
-    cards.extend(tier6_catalog());
-    cards.extend(tier7_catalog());
-    cards
+    minions::catalog()
+}
+
+/// The active Solo minions of Tavern Tier `tier`, in catalog order.
+fn tier_catalog(tier: u32) -> Vec<CardTemplate> {
+    minions::catalog()
+        .into_iter()
+        .filter(|t| t.tavern_tier == tier)
+        .collect()
 }
 
 /// Alias for [`full_catalog`].

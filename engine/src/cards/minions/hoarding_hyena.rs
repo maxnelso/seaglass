@@ -2,7 +2,7 @@
 //!
 //! Rally: Summon a (`Golden` if Golden) Tasty Lobster.
 
-use crate::cards::{tier3, CardTemplate};
+use crate::cards::{minions, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 429;
@@ -14,7 +14,7 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_rally(attacker: &Unit) -> Vec<Unit> {
-    let mut lobster = tier3::tasty_lobster::template().instantiate();
+    let mut lobster = minions::tasty_lobster::template().instantiate();
     if attacker.is_golden {
         lobster.name = format!("Golden {}", lobster.name);
         lobster.attack *= 2;

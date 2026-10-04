@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::cards::tier1;
+use crate::cards::minions;
 use crate::model::{BattleOutcome, DeityKind, GameState, Keyword, Tribe, Unit};
 use crate::sim::{simulate, simulate_batch};
 
@@ -149,13 +149,13 @@ pub fn parse_unit(spec: &str, defaults: &Defaults) -> Result<Unit, String> {
             "undead" => unit.tribe = Tribe::Undead,
             "all" => unit.tribe = Tribe::All,
             // Card-linked triggers and template lookup for scenario authoring
-            "deathrattle_beetle" => unit.card_id = tier1::buzzing_vermin::ID,
-            "deathrattle_microbot" => unit.card_id = tier1::cord_puller::ID,
-            "deathrattle_skeletons" => unit.card_id = tier1::harmless_bonehead::ID,
-            "rally_bat" => unit.card_id = tier1::flittering_bat::ID,
-            "rally_glim" => unit.card_id = tier1::glim_guardian::ID,
-            "rally_camper" => unit.card_id = tier1::tusked_camper::ID,
-            "scarlet_survivor" => unit.card_id = tier1::scarlet_survivor::ID,
+            "deathrattle_beetle" => unit.card_id = minions::buzzing_vermin::ID,
+            "deathrattle_microbot" => unit.card_id = minions::cord_puller::ID,
+            "deathrattle_skeletons" => unit.card_id = minions::harmless_bonehead::ID,
+            "rally_bat" => unit.card_id = minions::flittering_bat::ID,
+            "rally_glim" => unit.card_id = minions::glim_guardian::ID,
+            "rally_camper" => unit.card_id = minions::tusked_camper::ID,
+            "scarlet_survivor" => unit.card_id = minions::scarlet_survivor::ID,
             other if other.starts_with("card:") => {
                 let slug = &other["card:".len()..];
                 let tpl = crate::cards::full_catalog()

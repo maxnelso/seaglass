@@ -2,7 +2,7 @@
 //!
 //! At the end of your turn, Magnetize a (`2` if Golden) random Volumizer(s) to this. Get a copy of it.
 
-use crate::cards::{self, tier2, CardTemplate};
+use crate::cards::{self, minions, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -17,9 +17,9 @@ pub fn template() -> CardTemplate {
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, pool: &mut CardPool, rng: &mut Rng) {
     let vol_templates = [
-        tier2::blue_volumizer::template(),
-        tier2::green_volumizer::template(),
-        tier2::red_volumizer::template(),
+        minions::blue_volumizer::template(),
+        minions::green_volumizer::template(),
+        minions::red_volumizer::template(),
     ];
     let count = if state.board[self_idx].is_golden {
         2

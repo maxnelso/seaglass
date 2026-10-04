@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use seaglass::cards::{spells, tier1, tier2, tier3, tokens};
+use seaglass::cards::{minions, spells, tokens};
 use seaglass::{
     catalog_for, full_catalog, parse_unit, run_scenario, run_tavern_scenario, simulate,
     simulate_batch, tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, tier5_catalog,
@@ -362,7 +362,7 @@ fn tier2_combat_mechanics_work_end_to_end() {
     let board_ek_b = vec![parse_unit("3/4", &defaults).unwrap()];
     let res_ek = simulate(&board_ek_a, &board_ek_b, &GameState::default(), 1);
     assert_eq!(res_ek.outcome, BattleOutcome::AWin);
-    assert_eq!(res_ek.auras_a.counter(tier2::eternal_knight::ID), 1);
+    assert_eq!(res_ek.auras_a.counter(minions::eternal_knight::ID), 1);
     // Second Eternal Knight grew from 4/2 to 8/4 after the first died!
     assert_eq!(res_ek.survivors_a[0].attack, 8);
     assert!(res_ek.survivors_a[0].health > 0);
@@ -383,10 +383,10 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     assert!(state.shop.iter().any(|u| u.is_spell));
 
     // 1. Volumizers + Mechagnome Interpreter
-    state.add_to_hand(tier2::mechagnome_interpreter::template().instantiate());
-    state.add_to_hand(tier2::red_volumizer::template().instantiate());
-    state.add_to_hand(tier2::blue_volumizer::template().instantiate());
-    state.add_to_hand(tier2::green_volumizer::template().instantiate());
+    state.add_to_hand(minions::mechagnome_interpreter::template().instantiate());
+    state.add_to_hand(minions::red_volumizer::template().instantiate());
+    state.add_to_hand(minions::blue_volumizer::template().instantiate());
+    state.add_to_hand(minions::green_volumizer::template().instantiate());
 
     // Play Mechagnome Interpreter at pos 0 (3/1 Mech)
     state
@@ -412,7 +412,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 3);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).0, 3);
     assert_eq!(state.board[1].attack, 9);
     assert_eq!(state.board[1].health, 2);
 
@@ -429,7 +429,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 3);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).1, 3);
     assert_eq!(state.board[1].attack, 16);
     assert_eq!(state.board[1].health, 12);
 
@@ -444,12 +444,12 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 4);
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 4);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).0, 4);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).1, 4);
 
     // 2. Fire Baller & Snow Baller shared scaling
-    state.add_to_hand(tier2::fire_baller::template().instantiate());
-    state.add_to_hand(tier2::snow_baller::template().instantiate());
+    state.add_to_hand(minions::fire_baller::template().instantiate());
+    state.add_to_hand(minions::snow_baller::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -474,18 +474,18 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
-    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
+    assert_eq!(minions::fire_baller::baller_bonus(&state.auras), 1);
     // Sell Fire Baller (now at pos 0) -> gives board +2 Attack, baller_bonus = 2
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
-    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 2);
+    assert_eq!(minions::fire_baller::baller_bonus(&state.auras), 2);
 
     // 3. Lurking Lionfish Activate (2g) -> replaces shop[0] with Fishbait for left-most Beast to attack
     state.board.clear();
     state.hand.clear();
     state.gold = 10;
-    state.board.push(tier2::lurking_lionfish::template().instantiate());
+    state.board.push(minions::lurking_lionfish::template().instantiate());
     state
         .step(
             TavernAction::Activate {
@@ -501,8 +501,8 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     assert_eq!(state.board[0].health, 9);
 
     // 4. Laboratory Assistant + Demon Fodder on Refresh
-    state.add_to_hand(tier2::soul_rewinder::template().instantiate());
-    state.add_to_hand(tier2::laboratory_assistant::template().instantiate());
+    state.add_to_hand(minions::soul_rewinder::template().instantiate());
+    state.add_to_hand(minions::laboratory_assistant::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -544,7 +544,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
 
     // 5. Wandering Willbreaker -> sell gives 2 spells, casting 1 discards the other
     state.hand.clear();
-    state.board.push(tier2::wandering_willbreaker::template().instantiate());
+    state.board.push(minions::wandering_willbreaker::template().instantiate());
     let wb_pos = state.board.len() - 1;
     state
         .step(TavernAction::Sell { board_pos: wb_pos }, &mut pool, &mut rng)
@@ -585,7 +585,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     state.board.clear();
     state.hand.clear();
     for _ in 0..5 {
-        state.add_to_hand(tier2::bilgewater_breakout::template().instantiate());
+        state.add_to_hand(minions::bilgewater_breakout::template().instantiate());
         let h_idx = state.hand.len() - 1;
         state
             .step(
@@ -615,10 +615,10 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
     // 7. Tarecgosa + Winner's Bread persistence across resolve_combat_against
     state.board.clear();
     state.hand.clear();
-    state.board.push(tier2::tarecgosa::template().instantiate());
+    state.board.push(minions::tarecgosa::template().instantiate());
     state
         .board
-        .push(tier2::electric_synthesizer::template().instantiate());
+        .push(minions::electric_synthesizer::template().instantiate());
     state.add_to_hand(spells::spell_by_name("Winner's Bread").unwrap());
     state
         .step(
@@ -689,12 +689,12 @@ fn tier3_combat_mechanics_work_end_to_end() {
     assert_eq!(res_dr.auras_a.spell_bonus_hp, 1);
 
     // 3. Relentless Deflector (Taunt while Divine Shield; Avenge (3) gains Divine Shield + Taunt)
-    let mut deflector = tier3::relentless_deflector::template().instantiate();
+    let mut deflector = minions::relentless_deflector::template().instantiate();
     seaglass::cards::sync_unit_auras(&mut deflector, &Default::default());
     assert!(!deflector.divine_shield);
     assert!(!deflector.taunt);
     for _ in 0..3 {
-        tier3::relentless_deflector::on_friendly_death(&mut deflector);
+        minions::relentless_deflector::on_friendly_death(&mut deflector);
     }
     assert!(deflector.divine_shield);
     assert!(deflector.taunt);
@@ -705,10 +705,10 @@ fn tier3_combat_mechanics_work_end_to_end() {
     // 4. Devout Hellcaller + Tasty Lobster + Waveling persistent combat effects
     let mut t_state = TavernState::new();
     t_state.auras.deity.kind = DeityKind::CThun;
-    t_state.board.push(tier3::malchezaar_prince_of_dance::template().instantiate()); // Friendly Demon attacks first
-    t_state.board.push(tier3::devout_hellcaller::template().instantiate()); // 4/4 Demon
-    t_state.board.push(tier3::tasty_lobster::template().instantiate());
-    t_state.board.push(tier3::waveling::template().instantiate());
+    t_state.board.push(minions::malchezaar_prince_of_dance::template().instantiate()); // Friendly Demon attacks first
+    t_state.board.push(minions::devout_hellcaller::template().instantiate()); // 4/4 Demon
+    t_state.board.push(minions::tasty_lobster::template().instantiate());
+    t_state.board.push(minions::waveling::template().instantiate());
     let opp_board = vec![
         Unit::new("Enemy1", 6, 4).with_keyword(Keyword::Taunt),
         Unit::new("Enemy2", 6, 4).with_keyword(Keyword::Taunt),
@@ -719,7 +719,7 @@ fn tier3_combat_mechanics_work_end_to_end() {
     assert_eq!(t_state.board[1].attack, 6);
     assert_eq!(t_state.board[1].health, 6);
     // Tasty Lobster and Waveling died and incremented persistent aura stacks!
-    assert_eq!(c_res.auras_a.counter(tier3::tasty_lobster::ID), 1);
+    assert_eq!(c_res.auras_a.counter(minions::tasty_lobster::ID), 1);
     assert_eq!(c_res.auras_a.refresh_random_buffs, vec![(4, 4)]);
 }
 
@@ -736,8 +736,8 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
     // 1. Prosthetic Hand (Undead/Mech Magnetic) can magnetize onto an Undead OR a Mech!
     state.board.clear();
     state.hand.clear();
-    state.board.push(tier1::risen_rider::template().instantiate()); // 2/1 Undead
-    state.add_to_hand(tier3::prosthetic_hand::template().instantiate()); // 3/1 Undead/Mech Magnetic Reborn
+    state.board.push(minions::risen_rider::template().instantiate()); // 2/1 Undead
+    state.add_to_hand(minions::prosthetic_hand::template().instantiate()); // 3/1 Undead/Mech Magnetic Reborn
     state
         .step(
             TavernAction::Play {
@@ -754,8 +754,8 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
 
     // 2. Accord-o-Tron Magnetized grants +1 Gold at Start of Turn
     state.board.clear();
-    state.board.push(tier1::cord_puller::template().instantiate());
-    state.add_to_hand(tier3::accord_o_tron::template().instantiate());
+    state.board.push(minions::cord_puller::template().instantiate());
+    state.add_to_hand(minions::accord_o_tron::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -769,8 +769,8 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
     assert_eq!(state.board[0].sot_gold_bonus, 1);
 
     // 3. Thorned Trailblazer combines both Choose-One effects on Fearless Foodie!
-    state.board.push(tier3::thorned_trailblazer::template().instantiate());
-    state.add_to_hand(tier3::fearless_foodie::template().instantiate());
+    state.board.push(minions::thorned_trailblazer::template().instantiate());
+    state.add_to_hand(minions::fearless_foodie::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -835,8 +835,8 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
     // 5. Fetid Corroder + Abyssal Envoy: discarding Sludge Corrosion casts it twice AND generates a random Tavern spell!
     state.board.clear();
     state.hand.clear();
-    state.add_to_hand(tier3::fetid_corroder::template().instantiate());
-    state.add_to_hand(tier3::abyssal_envoy::template().instantiate());
+    state.add_to_hand(minions::fetid_corroder::template().instantiate());
+    state.add_to_hand(minions::abyssal_envoy::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -879,10 +879,10 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
     // 6. Malchezaar, Prince of Dance health refresh + Soul Rewinder
     state.board.clear();
     state.hand.clear();
-    state.board.push(tier2::soul_rewinder::template().instantiate());
+    state.board.push(minions::soul_rewinder::template().instantiate());
     state
         .board
-        .push(tier3::malchezaar_prince_of_dance::template().instantiate());
+        .push(minions::malchezaar_prince_of_dance::template().instantiate());
     state.gold = 0;
     let pre_hp = state.health;
     // Even with 0 Gold, Refresh is legal because Malchezaar has 2 health refreshes!
@@ -972,7 +972,7 @@ fn tier7_catalog_contains_all_12_live_solo_minions_and_4_spells() {
 
 #[test]
 fn audit_regression_suite_covers_all_15_bugs() {
-    use seaglass::cards::{deities, tier4, tier6};
+    use seaglass::cards::{deities, minions};
 
     // 1. Deity CardId collision fixed & spell pool excludes token spells and Unmasked Identity
     assert_ne!(deities::CARD_CTHUN, spells::SPELL_A_NEW_SPROUT);
@@ -994,7 +994,7 @@ fn audit_regression_suite_covers_all_15_bugs() {
     let mut state = TavernState::new();
     state.start_turn(&mut pool, &mut rng);
     state.gold = 10;
-    state.add_to_hand(tier2::laboratory_assistant::template().instantiate());
+    state.add_to_hand(minions::laboratory_assistant::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -1027,7 +1027,7 @@ fn audit_regression_suite_covers_all_15_bugs() {
     state.board.clear();
     state.hand.clear();
     state.gold = 10;
-    state.add_to_hand(tier2::mind_muck::template().instantiate());
+    state.add_to_hand(minions::mind_muck::template().instantiate());
     let shop_len_before = state.shop.len();
     state
         .step(
@@ -1044,7 +1044,7 @@ fn audit_regression_suite_covers_all_15_bugs() {
     assert_eq!(state.shop.len(), shop_len_before);
 
     state.board.clear();
-    state.add_to_hand(tier3::sprightly_scarab::template().instantiate());
+    state.add_to_hand(minions::sprightly_scarab::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -1060,7 +1060,7 @@ fn audit_regression_suite_covers_all_15_bugs() {
     assert_eq!(state.board[0].health, 1);
 
     state.board.clear();
-    state.add_to_hand(tier4::lovesick_balladist::template().instantiate());
+    state.add_to_hand(minions::lovesick_balladist::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -1075,10 +1075,10 @@ fn audit_regression_suite_covers_all_15_bugs() {
 
     // 4. Kelp Keeper preserves existing buffs on target Battlecry minion & filters valid targets
     state.board.clear();
-    let mut geomancer = tier1::razorfen_geomancer::template().instantiate();
+    let mut geomancer = minions::razorfen_geomancer::template().instantiate();
     geomancer.add_stats(10, 10);
     state.board.push(geomancer);
-    state.board.push(tier4::kelp_keeper::template().instantiate());
+    state.board.push(minions::kelp_keeper::template().instantiate());
     state.board.push(Unit::new("Vanilla", 2, 2));
     assert!(state.is_legal(&TavernAction::Activate {
         board_pos: 1,
@@ -1110,10 +1110,10 @@ fn audit_regression_suite_covers_all_15_bugs() {
 
     // 5. Ashen Corruptor + Malchezaar health refresh buffs newly rolled shop and persists for the turn
     state.board.clear();
-    state.board.push(tier4::ashen_corruptor::template().instantiate());
+    state.board.push(minions::ashen_corruptor::template().instantiate());
     state
         .board
-        .push(tier3::malchezaar_prince_of_dance::template().instantiate());
+        .push(minions::malchezaar_prince_of_dance::template().instantiate());
     state.auras.tavern_turn_atk = 0;
     state.auras.tavern_turn_hp = 0;
     state.gold = 10;
@@ -1150,10 +1150,10 @@ fn audit_regression_suite_covers_all_15_bugs() {
     // 7. Tripling does not triple global auras and resets Golden Volumizer threshold_triggered
     state.board.clear();
     state.hand.clear();
-    let volumizers = tier2::blue_volumizer::VOLUMIZER_COUNTER;
+    let volumizers = minions::blue_volumizer::VOLUMIZER_COUNTER;
     state.auras.card_counters.remove(&volumizers);
     for i in 0..3 {
-        state.add_to_hand(tier2::green_volumizer::template().instantiate());
+        state.add_to_hand(minions::green_volumizer::template().instantiate());
         if i < 2 {
             state
                 .step(
@@ -1176,18 +1176,18 @@ fn audit_regression_suite_covers_all_15_bugs() {
     assert_eq!(state.hand[0].health, 8);
 
     // 8. Tarecgosa retains Divine Shield gained in combat even when popped in combat
-    let pre_combat = tier2::tarecgosa::template().instantiate();
+    let pre_combat = minions::tarecgosa::template().instantiate();
     let mut survivor = pre_combat.clone();
     survivor.apply_keyword(Keyword::DivineShield, true); // gained in combat...
     survivor.divine_shield = false; // ...and popped before combat ended
     let mut tavern_unit = pre_combat.clone();
-    tier2::tarecgosa::apply_post_combat_persistence(&pre_combat, &[survivor], &mut tavern_unit);
+    minions::tarecgosa::apply_post_combat_persistence(&pre_combat, &[survivor], &mut tavern_unit);
     assert!(tavern_unit.divine_shield);
     assert!(tavern_unit.inherent_divine_shield);
 
     // 9. Falling Sky Golem emits StatBuff when a Deathrattle minion dies, and AttackDeclared precedes Rally StatBuff
     let defaults = Defaults::default();
-    let mut golem = tier6::falling_sky_golem::template().instantiate();
+    let mut golem = minions::falling_sky_golem::template().instantiate();
     golem.attack = 8;
     golem.health = 8;
     let board_a = vec![

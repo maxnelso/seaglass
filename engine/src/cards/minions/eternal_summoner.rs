@@ -2,7 +2,7 @@
 //!
 //! Reborn. Deathrattle: Summon 1 `Eternal Knight` (or a Golden `Eternal Knight` if Golden).
 
-use crate::cards::{tier2, CardTemplate, DeathrattleContext};
+use crate::cards::{minions, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Keyword, Tribe, Unit};
 
 pub const ID: CardId = 516;
@@ -15,7 +15,7 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
-    let mut knight = tier2::eternal_knight::template().instantiate();
+    let mut knight = minions::eternal_knight::template().instantiate();
     if dying.is_golden {
         knight.make_golden();
     }

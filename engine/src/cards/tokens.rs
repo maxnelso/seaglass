@@ -1,7 +1,7 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
 use crate::cards::hooks::CardEventFn;
-use crate::cards::{spells, tier2, tier3, tier4, tier5, tier6, CardFlags, CardHooks};
+use crate::cards::{minions, spells, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -456,7 +456,7 @@ pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
 /// Behaviour tables for tokens with card text (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     let chromadrake = CardHooks::EMPTY.on_battlecry(|state, unit, _, _, rng| {
-        tier3::hired_mount::on_chromadrake_battlecry(state, unit, rng)
+        minions::hired_mount::on_chromadrake_battlecry(state, unit, rng)
     });
     let mut out = vec![
         (
@@ -464,7 +464,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             CardHooks::EMPTY
                 .with_flags(CardFlags::NO_TRIPLE)
                 .on_battlecry(|state, unit, board_pos, pool, rng| {
-                    tier6::magicfin_mycologist::on_apprentice_battlecry(
+                    minions::magicfin_mycologist::on_apprentice_battlecry(
                         state, unit, board_pos, pool, rng,
                     )
                 }),
@@ -475,7 +475,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         ),
         (
             TOKEN_SEWER_RAT,
-            CardHooks::EMPTY.on_deathrattle(tier5::sewer_lord::on_sewer_rat_deathrattle),
+            CardHooks::EMPTY.on_deathrattle(minions::sewer_lord::on_sewer_rat_deathrattle),
         ),
         (
             TOKEN_DEMON_FODDER,
@@ -499,11 +499,11 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 /// Effects of the Choose-One option cards (`on_chosen` hooks), defined with the card or spell
 /// that offers them.
 fn choose_one_options() -> [(CardId, CardEventFn); 24] {
+    use minions::snare_trapper;
+    use minions::veteran_brigand;
+    use minions::{crater_miner, intrepid_botanist};
+    use minions::{fearless_foodie, sly_infiltrator, sprightly_scarab};
     use spells::{alliance_flag, boundless_potential, forests_bounty, gem_day, time_management};
-    use tier2::{crater_miner, intrepid_botanist};
-    use tier3::{fearless_foodie, sly_infiltrator, sprightly_scarab};
-    use tier4::snare_trapper;
-    use tier6::veteran_brigand;
     [
         (CHOICE_BRIGAND_GEMS, veteran_brigand::choose_gems),
         (CHOICE_BRIGAND_BARRAGE, veteran_brigand::choose_barrage),

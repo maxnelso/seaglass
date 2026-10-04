@@ -3,7 +3,7 @@
 //! When you sell this, give your minions `+2/+2` (`+4/+4` if Golden) plus the Baller
 //! improvements. Improve your future Ballers (by 1, or 2 if Golden).
 
-use crate::cards::{tier2, CardTemplate};
+use crate::cards::{minions, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::tavern::TavernState;
 
@@ -17,9 +17,9 @@ pub fn template() -> CardTemplate {
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {
     let mult = if sold.is_golden { 2 } else { 1 };
-    let amount = (2 + tier2::fire_baller::baller_bonus(&state.auras)) * mult;
+    let amount = (2 + minions::fire_baller::baller_bonus(&state.auras)) * mult;
     for b in &mut state.board {
         b.add_stats(amount, amount);
     }
-    tier2::fire_baller::improve_ballers(&mut state.auras, mult);
+    minions::fire_baller::improve_ballers(&mut state.auras, mult);
 }

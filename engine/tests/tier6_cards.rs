@@ -1,4 +1,4 @@
-use seaglass::cards::{spells, tier1, tier2, tier6, tokens};
+use seaglass::cards::{minions, spells, tokens};
 use seaglass::{
     full_catalog, simulate, solo_tier_6_catalog, BattleOutcome, CardPool, GameState, Keyword, Rng,
     TavernAction, TavernState, Tribe, Unit,
@@ -25,12 +25,12 @@ fn card_601_auto_reveille() {
     let (mut state, mut pool, mut rng) = setup_tavern(601);
     state
         .board
-        .push(tier6::auto_reveille::template().instantiate()); // 4/8 Mech
-    state.shop.push(tier1::cord_puller::template().instantiate());
-    state.shop.push(tier1::lullabot::template().instantiate());
+        .push(minions::auto_reveille::template().instantiate()); // 4/8 Mech
+    state.shop.push(minions::cord_puller::template().instantiate());
+    state.shop.push(minions::lullabot::template().instantiate());
     state
         .shop
-        .push(tier1::bubble_gunner::template().instantiate());
+        .push(minions::bubble_gunner::template().instantiate());
     // Buy 3 cards -> Magnetizes a random Volumizer to Auto Reveille and gives a copy in hand!
     for _ in 0..3 {
         state
@@ -42,7 +42,7 @@ fn card_601_auto_reveille() {
     assert_eq!(state.hand.len(), 4);
     assert!(matches!(
         state.hand[3].card_id,
-        tier2::blue_volumizer::ID | tier2::green_volumizer::ID | tier2::red_volumizer::ID
+        minions::blue_volumizer::ID | minions::green_volumizer::ID | minions::red_volumizer::ID
     ));
 }
 
@@ -51,7 +51,7 @@ fn card_602_balinda_stonehearth() {
     let (mut state, mut pool, mut rng) = setup_tavern(602);
     state
         .board
-        .push(tier6::balinda_stonehearth::template().instantiate());
+        .push(minions::balinda_stonehearth::template().instantiate());
     state.board.push(Unit::new("Target", 2, 2));
     state.add_to_hand(spells::spell_by_name("Fortify").unwrap()); // +0/+3 and Taunt
     state
@@ -72,7 +72,7 @@ fn card_602_balinda_stonehearth() {
 
 #[test]
 fn card_603_choral_mrrrglr() {
-    let choral = tier6::choral_mrrrglr::template().instantiate(); // 6/6
+    let choral = minions::choral_mrrrglr::template().instantiate(); // 6/6
     let gs = GameState {
         hand_a: vec![Unit::new("H1", 10, 12), Unit::new("H2", 5, 8)],
         ..Default::default()
@@ -85,7 +85,7 @@ fn card_603_choral_mrrrglr() {
 
 #[test]
 fn card_604_crimson_vindicator() {
-    let vindicator = tier6::crimson_vindicator::template().instantiate(); // 8/9 Dragon, Divine Shield
+    let vindicator = minions::crimson_vindicator::template().instantiate(); // 8/9 Dragon, Divine Shield
     let ally = Unit::new("DragonAlly", 2, 2)
         .with_tribe(Tribe::Dragon)
         .with_keyword(Keyword::DivineShield);
@@ -103,7 +103,7 @@ fn card_604_crimson_vindicator() {
 
 #[test]
 fn card_605_dark_puppeteer() {
-    let puppeteer = tier6::dark_puppeteer::template().instantiate(); // 8/4 Aberration
+    let puppeteer = minions::dark_puppeteer::template().instantiate(); // 8/4 Aberration
     let enemy = Unit::new("Killer", 10, 10);
     let res = simulate(&[puppeteer], &[enemy], &GameState::default(), 605);
     // Dark Puppeteer dies -> your Tavern spells give an extra +4 Health this game!
@@ -117,7 +117,7 @@ fn card_606_deathly_striker() {
     let f2 = Unit::new("F2", 1, 1).with_keyword(Keyword::Taunt);
     let f3 = Unit::new("F3", 1, 1).with_keyword(Keyword::Taunt);
     let f4 = Unit::new("F4", 1, 1).with_keyword(Keyword::Taunt);
-    let striker = tier6::deathly_striker::template().instantiate();
+    let striker = minions::deathly_striker::template().instantiate();
     let enemy = Unit::new("Cleaver", 2, 20);
     let res = simulate(
         &[f1, f2, f3, f4, striker],
@@ -129,7 +129,7 @@ fn card_606_deathly_striker() {
     assert!(res.hand_a[0].tribe.matches(Tribe::Undead));
 
     // 2) Test Deathrattle: summons an Undead from hand_a for this combat only
-    let striker2 = tier6::deathly_striker::template().instantiate();
+    let striker2 = minions::deathly_striker::template().instantiate();
     let hand_undead = Unit::new("HandUndead", 20, 20).with_tribe(Tribe::Undead);
     let gs = GameState {
         hand_a: vec![hand_undead],
@@ -143,9 +143,9 @@ fn card_606_deathly_striker() {
 #[test]
 fn card_607_deathstrider() {
     // Pair a Rally minion (Heroic Broodmother) with a Deathrattle minion (Harmless Bonehead) and Deathstrider
-    let rally_unit = tier6::heroic_broodmother::template().instantiate();
-    let bonehead = tier1::harmless_bonehead::template().instantiate();
-    let strider = tier6::deathstrider::template().instantiate();
+    let rally_unit = minions::heroic_broodmother::template().instantiate();
+    let bonehead = minions::harmless_bonehead::template().instantiate();
+    let strider = minions::deathstrider::template().instantiate();
     let enemy = Unit::new("Dummy", 1, 7);
     let res = simulate(
         &[rally_unit, bonehead, strider],
@@ -166,19 +166,19 @@ fn card_608_elemental_of_surprise() {
     // Put two Dune Dwellers on board, then buy Elemental of Surprise -> triples into Golden Dune Dweller with Divine Shield!
     state
         .board
-        .push(tier1::dune_dweller::template().instantiate());
+        .push(minions::dune_dweller::template().instantiate());
     state
         .board
-        .push(tier1::dune_dweller::template().instantiate());
+        .push(minions::dune_dweller::template().instantiate());
     state
         .shop
-        .push(tier6::elemental_of_surprise::template().instantiate());
+        .push(minions::elemental_of_surprise::template().instantiate());
     state
         .step(TavernAction::Buy { shop_index: 0 }, &mut pool, &mut rng)
         .unwrap();
     assert!(state.board.is_empty());
     assert_eq!(state.hand.len(), 1);
-    assert_eq!(state.hand[0].card_id, tier1::dune_dweller::ID);
+    assert_eq!(state.hand[0].card_id, minions::dune_dweller::ID);
     assert!(state.hand[0].is_golden);
     assert!(state.hand[0].divine_shield);
 }
@@ -188,7 +188,7 @@ fn card_609_eredar_escapist() {
     let (mut state, mut pool, mut rng) = setup_tavern(609);
     state
         .board
-        .push(tier6::eredar_escapist::template().instantiate()); // 6/8 Demon
+        .push(minions::eredar_escapist::template().instantiate()); // 6/8 Demon
     // Take 4 hero damage -> gets a copy of Corrupted Cupcakes in hand!
     state.deal_hero_damage(4);
     assert_eq!(state.hand.len(), 1);
@@ -200,7 +200,7 @@ fn card_609_eredar_escapist() {
 fn card_610_falling_sky_golem() {
     let (mut state, mut pool, mut rng) = setup_tavern(610);
     state.auras.deathrattles_triggered = 3;
-    let mut golem = tier6::falling_sky_golem::template().instantiate(); // 4/2 Divine Shield
+    let mut golem = minions::falling_sky_golem::template().instantiate(); // 4/2 Divine Shield
     state.apply_global_unit_auras(&mut golem);
     // +4/+2 per Deathrattle triggered (3 * +4/+2 = +12/+6) -> 16/8!
     assert_eq!(golem.attack, 16);
@@ -213,7 +213,7 @@ fn card_611_forsaken_weaver() {
     let (mut state, mut pool, mut rng) = setup_tavern(611);
     state
         .board
-        .push(tier6::forsaken_weaver::template().instantiate()); // 3/8 Undead
+        .push(minions::forsaken_weaver::template().instantiate()); // 3/8 Undead
     state.add_to_hand(spells::spell_by_name("Tavern Coin").unwrap());
     state
         .step(
@@ -235,7 +235,7 @@ fn card_612_gatekeeper_amalgam() {
     let (mut state, mut pool, mut rng) = setup_tavern(612);
     state
         .board
-        .push(tier6::gatekeeper_amalgam::template().instantiate()); // 6/6 All
+        .push(minions::gatekeeper_amalgam::template().instantiate()); // 6/6 All
     state
         .board
         .push(Unit::new("BeastAlly", 2, 2).with_tribe(Tribe::Beast));
@@ -260,8 +260,8 @@ fn card_613_harbinger_aphlass() {
     let (mut state, mut pool, mut rng) = setup_tavern(613);
     state
         .board
-        .push(tier6::harbinger_aphlass::template().instantiate());
-    state.board.push(tier2::brain_rotter::template().instantiate());
+        .push(minions::harbinger_aphlass::template().instantiate());
+    state.board.push(minions::brain_rotter::template().instantiate());
     state.add_to_hand(tokens::make_blood_gem());
     state.add_to_hand(tokens::make_blood_gem());
     // Discard 1st card via Brain Rotter -> Aph'lass gives Deity +2/+1 (+ Brain Rotter +2/+2 = +4/+3 -> 5/4)
@@ -296,7 +296,7 @@ fn card_613_harbinger_aphlass() {
 
 #[test]
 fn card_614_heroic_broodmother() {
-    let broodmother = tier6::heroic_broodmother::template().instantiate(); // 7/7 Dragon
+    let broodmother = minions::heroic_broodmother::template().instantiate(); // 7/7 Dragon
     let enemy = Unit::new("Enemy", 3, 5);
     let res = simulate(&[broodmother], &[enemy], &GameState::default(), 614);
     // Broodmother attacks immediately at Start of Combat; Rally grants Divine Shield before combat damage, so it takes 0 damage and kills the 3/5!
@@ -310,7 +310,7 @@ fn card_615_hooktusk_master_marauder() {
     state.auras.golden_minions_played = 2; // +1/+1 improved by 2 -> +3/+3
     state
         .board
-        .push(tier6::hooktusk_master_marauder::template().instantiate());
+        .push(minions::hooktusk_master_marauder::template().instantiate());
     state
         .board
         .push(Unit::new("PirateAlly", 2, 2).with_tribe(Tribe::Pirate));
@@ -340,7 +340,7 @@ fn card_615_hooktusk_master_marauder() {
 #[test]
 fn card_616_magicfin_mycologist() {
     let (mut state, mut pool, mut rng) = setup_tavern(616);
-    state.add_to_hand(tier6::magicfin_mycologist::template().instantiate());
+    state.add_to_hand(minions::magicfin_mycologist::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -389,7 +389,7 @@ fn card_616_magicfin_mycologist() {
 
 #[test]
 fn card_617_nadina_the_red() {
-    let nadina = tier6::nadina_the_red::template().instantiate();
+    let nadina = minions::nadina_the_red::template().instantiate();
     let d1 = Unit::new("D1", 4, 4).with_tribe(Tribe::Dragon);
     let d2 = Unit::new("D2", 4, 4).with_tribe(Tribe::Dragon);
     let enemy = Unit::new("Killer", 10, 4);
@@ -400,7 +400,7 @@ fn card_617_nadina_the_red() {
 
 #[test]
 fn card_618_ravaging_scorpid() {
-    let scorpid = tier6::ravaging_scorpid::template().instantiate(); // 6/7 Beast
+    let scorpid = minions::ravaging_scorpid::template().instantiate(); // 6/7 Beast
     let enemy = Unit::new("Killer", 10, 6);
     let res = simulate(&[scorpid], &[enemy], &GameState::default(), 618);
     // Scorpid attacks (+4/+4 Beetle bonus) and dies -> summons a 2/2 + 4/4 = 6/6 Beetle!
@@ -415,7 +415,7 @@ fn card_618_ravaging_scorpid() {
 #[test]
 fn card_619_sanguine_champion() {
     let (mut state, mut pool, mut rng) = setup_tavern(619);
-    state.add_to_hand(tier6::sanguine_champion::template().instantiate());
+    state.add_to_hand(minions::sanguine_champion::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -443,7 +443,7 @@ fn card_619_sanguine_champion() {
 #[test]
 fn card_620_silent_deliverer() {
     let (mut state, mut pool, mut rng) = setup_tavern(620);
-    state.add_to_hand(tier6::silent_deliverer::template().instantiate());
+    state.add_to_hand(minions::silent_deliverer::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -465,7 +465,7 @@ fn card_621_sky_admiral_rogers() {
     let (mut state, mut pool, mut rng) = setup_tavern(621);
     state
         .board
-        .push(tier6::sky_admiral_rogers::template().instantiate()); // 4/5 Pirate
+        .push(minions::sky_admiral_rogers::template().instantiate()); // 4/5 Pirate
     // Spend 9 Gold via 9 Refreshes -> gets a random Bounty spell in hand!
     for _ in 0..9 {
         state
@@ -478,15 +478,15 @@ fn card_621_sky_admiral_rogers() {
 
 #[test]
 fn card_622_snazzy_phantom() {
-    let rider = tier1::risen_rider::template().instantiate(); // 2/1 Taunt Reborn Undead
-    let phantom = tier6::snazzy_phantom::template().instantiate(); // 6/8 Undead (right-most)
+    let rider = minions::risen_rider::template().instantiate(); // 2/1 Taunt Reborn Undead
+    let phantom = minions::snazzy_phantom::template().instantiate(); // 6/8 Undead (right-most)
     let enemy = Unit::new("Enemy", 2, 4);
     let res = simulate(&[rider, phantom], &[enemy], &GameState::default(), 622);
     // Risen Rider (2 Attack) is Reborn -> Snazzy Phantom gives +2/+2 to right-most Undead (itself -> 8/10)!
     let surv_phantom = res
         .survivors_a
         .iter()
-        .find(|u| u.card_id == tier6::snazzy_phantom::ID)
+        .find(|u| u.card_id == minions::snazzy_phantom::ID)
         .unwrap();
     assert_eq!(surv_phantom.attack, 8);
     assert_eq!(surv_phantom.max_health, 10);
@@ -497,7 +497,7 @@ fn card_623_the_shadow_of_doubt() {
     let (mut state, mut pool, mut rng) = setup_tavern(623);
     state
         .board
-        .push(tier6::the_shadow_of_doubt::template().instantiate());
+        .push(minions::the_shadow_of_doubt::template().instantiate());
     let pre_atk = state.auras.deity.attack;
     let pre_hp = state.auras.deity.health;
     state.add_to_hand(tokens::make_blood_gem());
@@ -512,7 +512,7 @@ fn card_624_turbo_hogrider() {
     let (mut state, mut pool, mut rng) = setup_tavern(624);
     state
         .board
-        .push(tier6::turbo_hogrider::template().instantiate()); // 6/8 Quilboar
+        .push(minions::turbo_hogrider::template().instantiate()); // 6/8 Quilboar
     state.add_to_hand(spells::spell_by_name("Alliance Flag").unwrap());
     state
         .step(
@@ -541,7 +541,7 @@ fn card_625_twisted_wrathguard() {
     let (mut state, mut pool, mut rng) = setup_tavern(625);
     state
         .board
-        .push(tier6::twisted_wrathguard::template().instantiate()); // 8/8 Demon
+        .push(minions::twisted_wrathguard::template().instantiate()); // 8/8 Demon
     state.board.push(Unit::new("SellMe", 1, 1));
     state
         .step(TavernAction::Sell { board_pos: 1 }, &mut pool, &mut rng)
@@ -553,7 +553,7 @@ fn card_625_twisted_wrathguard() {
 #[test]
 fn card_626_tyrael() {
     let (mut state, mut pool, mut rng) = setup_tavern(626);
-    state.board.push(tier6::tyrael::template().instantiate()); // 10/10 Activate(1)
+    state.board.push(minions::tyrael::template().instantiate()); // 10/10 Activate(1)
     state.board.push(Unit::new("Small", 1, 1));
     state
         .step(
@@ -575,8 +575,8 @@ fn card_627_ultraviolet_ascendant() {
     let (mut state, mut pool, mut rng) = setup_tavern(627);
     state
         .board
-        .push(tier6::ultraviolet_ascendant::template().instantiate()); // 6/6, starts at +3/+3
-    state.add_to_hand(tier1::dune_dweller::template().instantiate()); // 3/2 Elemental
+        .push(minions::ultraviolet_ascendant::template().instantiate()); // 6/6, starts at +3/+3
+    state.add_to_hand(minions::dune_dweller::template().instantiate()); // 3/2 Elemental
     state
         .step(
             TavernAction::Play {
@@ -599,7 +599,7 @@ fn card_627_ultraviolet_ascendant() {
     let surv_dune = res
         .survivors_a
         .iter()
-        .find(|u| u.card_id == tier1::dune_dweller::ID)
+        .find(|u| u.card_id == minions::dune_dweller::ID)
         .unwrap();
     // 3/3 + 6/6 = 9/9!
     assert_eq!(surv_dune.attack, 9);
@@ -611,13 +611,13 @@ fn card_628_unbound_tempest() {
     let (mut state, mut pool, mut rng) = setup_tavern(628);
     state
         .board
-        .push(tier6::unbound_tempest::template().instantiate()); // 3/12 Elemental
+        .push(minions::unbound_tempest::template().instantiate()); // 3/12 Elemental
     state.shop.push(Unit::new("BigShop", 10, 20));
     let elems = [
-        tier1::dune_dweller::template().instantiate(),
-        tier1::dune_dweller::template().instantiate(),
-        tier1::crackling_cyclone::template().instantiate(),
-        tier1::crackling_cyclone::template().instantiate(),
+        minions::dune_dweller::template().instantiate(),
+        minions::dune_dweller::template().instantiate(),
+        minions::crackling_cyclone::template().instantiate(),
+        minions::crackling_cyclone::template().instantiate(),
     ];
     for elem in elems {
         state.add_to_hand(elem);
@@ -642,7 +642,7 @@ fn card_629_utility_drone() {
     let (mut state, mut pool, mut rng) = setup_tavern(629);
     state
         .board
-        .push(tier6::utility_drone::template().instantiate());
+        .push(minions::utility_drone::template().instantiate());
     let mut mech = Unit::new("MagMech", 3, 3).with_tribe(Tribe::Mech);
     mech.magnetizations_count = 2;
     state.board.push(mech);
@@ -658,7 +658,7 @@ fn card_629_utility_drone() {
 fn card_630_veteran_brigand() {
     let (mut state, mut pool, mut rng) = setup_tavern(630);
     state.board.push(Unit::new("Ally", 2, 2));
-    state.add_to_hand(tier6::veteran_brigand::template().instantiate()); // 8/8
+    state.add_to_hand(minions::veteran_brigand::template().instantiate()); // 8/8
     state
         .step(
             TavernAction::Play {
@@ -688,7 +688,7 @@ fn card_631_victorious_geomant() {
     let (mut state, mut pool, mut rng) = setup_tavern(631);
     state
         .board
-        .push(tier6::victorious_geomant::template().instantiate()); // 10/10 Activate(2)
+        .push(minions::victorious_geomant::template().instantiate()); // 10/10 Activate(2)
     // Fill hand with 8 cards so only 2 of the 6 Blood Gems fit in hand, and 4 overflow onto left-most minion!
     for _ in 0..8 {
         state.add_to_hand(tokens::make_blood_gem());
@@ -713,10 +713,10 @@ fn card_632_young_murk_eye() {
     let (mut state, mut pool, mut rng) = setup_tavern(632);
     state
         .board
-        .push(tier1::razorfen_geomancer::template().instantiate()); // Battlecry: Get 2 Blood Gems
+        .push(minions::razorfen_geomancer::template().instantiate()); // Battlecry: Get 2 Blood Gems
     state
         .board
-        .push(tier6::young_murk_eye::template().instantiate());
+        .push(minions::young_murk_eye::template().instantiate());
     state
         .step(TavernAction::EndTurn, &mut pool, &mut rng)
         .unwrap();

@@ -15,14 +15,8 @@ use seaglass::{
 };
 
 fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
+    use cards::minions::*;
     use cards::spells::*;
-    use cards::tier1::*;
-    use cards::tier2::*;
-    use cards::tier3::*;
-    use cards::tier4::*;
-    use cards::tier5::*;
-    use cards::tier6::*;
-    use cards::tier7::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",

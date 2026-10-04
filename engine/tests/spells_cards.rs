@@ -1,7 +1,7 @@
 //! Exhaustive per-spell functional unit tests for all 30 Tavern Spells across Tiers 1-3
 //! plus all 6 generated token spells (Patch 36.6.3).
 
-use seaglass::cards::{spells, tier1, tier2, tier3, tokens};
+use seaglass::cards::{minions, spells, tokens};
 use seaglass::{
     full_catalog, BattleOutcome, CardPool, Keyword, Rng, TavernAction, TavernState, Tribe, Unit,
 };
@@ -192,7 +192,7 @@ fn spell_809_chefs_choice() {
     let (mut state, mut pool, mut rng) = setup_tavern(809);
     state
         .board
-        .push(tier1::glim_guardian::template().instantiate()); // Dragon
+        .push(minions::glim_guardian::template().instantiate()); // Dragon
     state.add_to_hand(spells::spell_by_name("Chef's Choice").unwrap());
     state
         .step(
@@ -206,7 +206,7 @@ fn spell_809_chefs_choice() {
         .unwrap();
     assert_eq!(state.hand.len(), 1);
     assert!(state.hand[0].tribe.matches(Tribe::Dragon));
-    assert_ne!(state.hand[0].card_id, tier1::glim_guardian::ID);
+    assert_ne!(state.hand[0].card_id, minions::glim_guardian::ID);
 }
 
 #[test]
@@ -370,7 +370,7 @@ fn spell_817_friendly_bounty() {
     let (mut state, mut pool, mut rng) = setup_tavern(817);
     state
         .board
-        .push(tier1::glim_guardian::template().instantiate()); // Dragon
+        .push(minions::glim_guardian::template().instantiate()); // Dragon
     state.add_to_hand(spells::spell_by_name("Friendly Bounty").unwrap());
     state
         .step(
@@ -451,7 +451,7 @@ fn spell_821_planar_telescope() {
     let (mut state, mut pool, mut rng) = setup_tavern(821);
     state
         .board
-        .push(tier1::glim_guardian::template().instantiate()); // Dragon
+        .push(minions::glim_guardian::template().instantiate()); // Dragon
     state.add_to_hand(spells::spell_by_name("Planar Telescope").unwrap());
     state
         .step(
@@ -494,7 +494,7 @@ fn spell_822_repair_job() {
 #[test]
 fn spell_823_robust_evolution() {
     let (mut state, mut pool, mut rng) = setup_tavern(823);
-    let mut m = tier1::glim_guardian::template().instantiate();
+    let mut m = minions::glim_guardian::template().instantiate();
     m.attack = 12;
     m.health = 15;
     state.board.push(m);
@@ -984,8 +984,8 @@ fn spell_842_temperature_shift() {
         )
         .unwrap();
     assert_eq!(state.hand.len(), 2);
-    assert_eq!(state.hand[0].card_id, tier2::fire_baller::ID);
-    assert_eq!(state.hand[1].card_id, tier2::snow_baller::ID);
+    assert_eq!(state.hand[0].card_id, minions::fire_baller::ID);
+    assert_eq!(state.hand[1].card_id, minions::snow_baller::ID);
 }
 
 #[test]
@@ -1015,7 +1015,7 @@ fn spell_843_tomb_turning() {
     assert!(state.hand[0].dies_on_play_this_turn);
 
     // Replace with Plaguerunner with dies_on_play_this_turn = true and play it: it dies outside combat (+4 undead attack)!
-    let mut pr = seaglass::cards::tier4::plaguerunner::template().instantiate();
+    let mut pr = seaglass::cards::minions::plaguerunner::template().instantiate();
     pr.dies_on_play_this_turn = true;
     state.hand[0] = pr;
     state
@@ -1118,7 +1118,7 @@ fn token_spell_953_gem_day() {
 #[test]
 fn token_spell_954_sludge_corrosion() {
     let (mut state, mut pool, mut rng) = setup_tavern(954);
-    state.board.push(tier2::brain_rotter::template().instantiate());
+    state.board.push(minions::brain_rotter::template().instantiate());
     state.add_to_hand(tokens::make_sludge_corrosion());
     // Discarding Sludge Corrosion casts it twice (+1/+1 twice = +2/+2)!
     state
@@ -1165,7 +1165,7 @@ fn token_spell_956_golden_touch() {
     let (mut state, mut pool, mut rng) = setup_tavern(956);
     state
         .shop
-        .push(tier3::fetid_corroder::template().instantiate()); // 3/3 plain in shop
+        .push(minions::fetid_corroder::template().instantiate()); // 3/3 plain in shop
     state.add_to_hand(tokens::make_golden_touch());
     state
         .step(
@@ -1298,7 +1298,7 @@ fn spell_847_butchering() {
     let (mut state, mut pool, mut rng) = setup_tavern(847);
     state
         .board
-        .push(seaglass::cards::tier1::harmless_bonehead::template().instantiate());
+        .push(seaglass::cards::minions::harmless_bonehead::template().instantiate());
     state.add_to_hand(spells::spell_by_name("Butchering").unwrap());
     state
         .step(
@@ -1385,7 +1385,7 @@ fn spell_850_corrupted_coin() {
 
     // Discarding Corrupted Coin increases max_gold by 2!
     let pre_max = state.max_gold;
-    state.board.push(tier2::brain_rotter::template().instantiate());
+    state.board.push(minions::brain_rotter::template().instantiate());
     state.add_to_hand(spells::spell_by_name("Corrupted Coin").unwrap());
     state
         .step(
@@ -1443,7 +1443,7 @@ fn spell_852_energizing_chamber() {
     assert_eq!(state.auras.deity.health, 8);
 
     // Discarding Energizing Chamber casts it twice (+14/+14) + Brain Rotter (+2/+2) = +16/+16 -> 24/24!
-    state.board.push(tier2::brain_rotter::template().instantiate());
+    state.board.push(minions::brain_rotter::template().instantiate());
     state.add_to_hand(spells::spell_by_name("Energizing Chamber").unwrap());
     state
         .step(
@@ -1644,7 +1644,7 @@ fn spell_860_eyes_of_the_earth_mother() {
     state.gold = 10;
     state
         .board
-        .push(seaglass::cards::tier4::conveyor_construct::template().instantiate()); // Tier 4 (5/2)
+        .push(seaglass::cards::minions::conveyor_construct::template().instantiate()); // Tier 4 (5/2)
     state.add_to_hand(spells::spell_by_name("Eyes of the Earth Mother").unwrap());
     state
         .step(

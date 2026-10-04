@@ -1,6 +1,6 @@
 //! Exhaustive per-card functional unit tests for all 34 Solo Tier 2 minions (Patch 36.6.3).
 
-use seaglass::cards::{tier1, tier2, tokens};
+use seaglass::cards::{minions, tokens};
 use seaglass::{
     full_catalog, simulate, BattleOutcome, CardPool, DeityKind, GameState, Rng, TavernAction,
     TavernState, Tribe, Unit,
@@ -18,7 +18,7 @@ fn setup_tavern(seed: u64) -> (TavernState, CardPool, Rng) {
 #[test]
 fn card_201_bilgewater_breakout() {
     let (mut state, mut pool, mut rng) = setup_tavern(201);
-    state.add_to_hand(tier2::bilgewater_breakout::template().instantiate());
+    state.add_to_hand(minions::bilgewater_breakout::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -34,7 +34,7 @@ fn card_201_bilgewater_breakout() {
     assert_eq!(state.hand[0].lockbox_turns_left, 5);
 
     // Playing a second Bilgewater Breakout accelerates the Lockbox by 1 turn (5 -> 4).
-    state.add_to_hand(tier2::bilgewater_breakout::template().instantiate());
+    state.add_to_hand(minions::bilgewater_breakout::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -51,8 +51,8 @@ fn card_201_bilgewater_breakout() {
 #[test]
 fn card_202_blue_volumizer() {
     let (mut state, mut pool, mut rng) = setup_tavern(202);
-    state.board.push(tier1::cord_puller::template().instantiate()); // 1/1 Mech
-    state.add_to_hand(tier2::blue_volumizer::template().instantiate()); // 1/3 Magnetic (+3 HP to Volumizers)
+    state.board.push(minions::cord_puller::template().instantiate()); // 1/1 Mech
+    state.add_to_hand(minions::blue_volumizer::template().instantiate()); // 1/3 Magnetic (+3 HP to Volumizers)
     state
         .step(
             TavernAction::Play {
@@ -63,7 +63,7 @@ fn card_202_blue_volumizer() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 3);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).1, 3);
     // Blue Volumizer became 1/6 before fusing onto 1/1 Cord Puller -> 2/7!
     assert_eq!(state.board[0].attack, 2);
     assert_eq!(state.board[0].health, 7);
@@ -73,7 +73,7 @@ fn card_202_blue_volumizer() {
 fn card_203_brain_rotter() {
     let (mut state, mut pool, mut rng) = setup_tavern(203);
     state.auras.deity.kind = DeityKind::CThun;
-    state.board.push(tier2::brain_rotter::template().instantiate());
+    state.board.push(minions::brain_rotter::template().instantiate());
     state.add_to_hand(tokens::make_blood_gem());
     state
         .step(
@@ -92,7 +92,7 @@ fn card_203_brain_rotter() {
 
 #[test]
 fn card_204_bronze_warden() {
-    let warden = tier2::bronze_warden::template().instantiate();
+    let warden = minions::bronze_warden::template().instantiate();
     assert!(warden.divine_shield);
     assert!(warden.reborn);
     let board_a = vec![warden]; // 2/1 DS Reborn (Reborn copy also has DS!)
@@ -106,7 +106,7 @@ fn card_205_clever_castaway() {
     let (mut state, mut pool, mut rng) = setup_tavern(205);
     state
         .board
-        .push(tier2::clever_castaway::template().instantiate());
+        .push(minions::clever_castaway::template().instantiate());
     let pre_gold = state.gold;
     state
         .step(
@@ -135,7 +135,7 @@ fn card_205_clever_castaway() {
 #[test]
 fn card_206_crater_miner() {
     let (mut state, mut pool, mut rng) = setup_tavern(206);
-    state.add_to_hand(tier2::crater_miner::template().instantiate());
+    state.add_to_hand(minions::crater_miner::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -169,7 +169,7 @@ fn card_207_decoy_conjurer() {
     state.shop.push(Unit::new("Big", 9, 4));
     state
         .board
-        .push(tier2::decoy_conjurer::template().instantiate());
+        .push(minions::decoy_conjurer::template().instantiate());
     state
         .step(
             TavernAction::Activate {
@@ -190,8 +190,8 @@ fn card_208_electric_synthesizer() {
     let (mut state, mut pool, mut rng) = setup_tavern(208);
     state
         .board
-        .push(tier1::glim_guardian::template().instantiate()); // 1/4 Dragon
-    state.add_to_hand(tier2::electric_synthesizer::template().instantiate());
+        .push(minions::glim_guardian::template().instantiate()); // 1/4 Dragon
+    state.add_to_hand(minions::electric_synthesizer::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -210,12 +210,12 @@ fn card_208_electric_synthesizer() {
 #[test]
 fn card_209_eternal_knight() {
     let mut gs = GameState::default();
-    gs.auras_a.add_counter(tier2::eternal_knight::ID, 2);
-    let board_a = vec![tier2::eternal_knight::template().instantiate()]; // 4/2 + 2*(4/2) = 12/6
+    gs.auras_a.add_counter(minions::eternal_knight::ID, 2);
+    let board_a = vec![minions::eternal_knight::template().instantiate()]; // 4/2 + 2*(4/2) = 12/6
     let board_b = vec![Unit::new("Enemy", 10, 10)];
     let res = simulate(&board_a, &board_b, &gs, 209);
     assert_eq!(res.outcome, BattleOutcome::Draw);
-    assert_eq!(res.auras_a.counter(tier2::eternal_knight::ID), 3);
+    assert_eq!(res.auras_a.counter(minions::eternal_knight::ID), 3);
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn card_210_expert_aviator() {
     let mut gs = GameState::default();
     gs.hand_a
         .push(Unit::new("HandMurloc", 8, 8).with_tribe(Tribe::Murloc));
-    let board_a = vec![tier2::expert_aviator::template().instantiate()]; // 3/5 Rally: summon highest-Atk Murloc from hand
+    let board_a = vec![minions::expert_aviator::template().instantiate()]; // 3/5 Rally: summon highest-Atk Murloc from hand
     let board_b = vec![Unit::new("Enemy", 4, 6)];
     let res = simulate(&board_a, &board_b, &gs, 210);
     assert_eq!(res.outcome, BattleOutcome::AWin);
@@ -234,18 +234,18 @@ fn card_210_expert_aviator() {
 fn card_211_fire_baller() {
     let (mut state, mut pool, mut rng) = setup_tavern(211);
     state.board.push(Unit::new("Ally", 2, 2));
-    state.board.push(tier2::fire_baller::template().instantiate());
+    state.board.push(minions::fire_baller::template().instantiate());
     state
         .step(TavernAction::Sell { board_pos: 1 }, &mut pool, &mut rng)
         .unwrap();
     assert_eq!(state.board[0].attack, 3);
-    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
+    assert_eq!(minions::fire_baller::baller_bonus(&state.auras), 1);
 }
 
 #[test]
 fn card_212_forest_rover() {
     let (mut state, mut pool, mut rng) = setup_tavern(212);
-    state.add_to_hand(tier2::forest_rover::template().instantiate());
+    state.add_to_hand(minions::forest_rover::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -270,7 +270,7 @@ fn card_212_forest_rover() {
 #[test]
 fn card_213_green_volumizer() {
     let (mut state, mut pool, mut rng) = setup_tavern(213);
-    state.add_to_hand(tier2::green_volumizer::template().instantiate());
+    state.add_to_hand(minions::green_volumizer::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -281,8 +281,8 @@ fn card_213_green_volumizer() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 1);
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).1, 1);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).0, 1);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).1, 1);
     assert_eq!(state.board[0].attack, 4);
     assert_eq!(state.board[0].health, 4);
 }
@@ -290,8 +290,8 @@ fn card_213_green_volumizer() {
 #[test]
 fn card_214_humming_bird() {
     let board_a = vec![
-        tier2::humming_bird::template().instantiate(), // 1/4 Beast (+1 Atk to Beasts at SoC)
-        tier1::flittering_bat::template().instantiate(), // 1/4 Beast -> 2/4, summons 1/1 -> 2/1 Beast
+        minions::humming_bird::template().instantiate(), // 1/4 Beast (+1 Atk to Beasts at SoC)
+        minions::flittering_bat::template().instantiate(), // 1/4 Beast -> 2/4, summons 1/1 -> 2/1 Beast
     ];
     let board_b = vec![Unit::new("Enemy", 2, 3)];
     let res = simulate(&board_a, &board_b, &GameState::default(), 214);
@@ -302,7 +302,7 @@ fn card_214_humming_bird() {
 #[test]
 fn card_215_intrepid_botanist() {
     let (mut state, mut pool, mut rng) = setup_tavern(215);
-    state.add_to_hand(tier2::intrepid_botanist::template().instantiate());
+    state.add_to_hand(minions::intrepid_botanist::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -329,8 +329,8 @@ fn card_216_laboratory_assistant() {
     let (mut state, mut pool, mut rng) = setup_tavern(216);
     state
         .board
-        .push(tier1::ominous_seer::template().instantiate()); // 2/1 Demon
-    state.add_to_hand(tier2::laboratory_assistant::template().instantiate()); // 3/4 Demon
+        .push(minions::ominous_seer::template().instantiate()); // 2/1 Demon
+    state.add_to_hand(minions::laboratory_assistant::template().instantiate()); // 3/4 Demon
     state
         .step(
             TavernAction::Play {
@@ -354,7 +354,7 @@ fn card_217_lurking_lionfish() {
     state.shop.push(Unit::new("ShopCard", 2, 2));
     state
         .board
-        .push(tier2::lurking_lionfish::template().instantiate()); // 3/4 Beast
+        .push(minions::lurking_lionfish::template().instantiate()); // 3/4 Beast
     state
         .step(
             TavernAction::Activate {
@@ -374,8 +374,8 @@ fn card_218_mechagnome_interpreter() {
     let (mut state, mut pool, mut rng) = setup_tavern(218);
     state
         .board
-        .push(tier2::mechagnome_interpreter::template().instantiate());
-    state.add_to_hand(tier1::cord_puller::template().instantiate()); // 1/1 Mech
+        .push(minions::mechagnome_interpreter::template().instantiate());
+    state.add_to_hand(minions::cord_puller::template().instantiate()); // 1/1 Mech
     state
         .step(
             TavernAction::Play {
@@ -396,8 +396,8 @@ fn card_219_mind_muck() {
     state.shop.push(Unit::new("Food", 4, 5));
     state
         .board
-        .push(tier1::ominous_seer::template().instantiate()); // 2/1 Demon
-    state.add_to_hand(tier2::mind_muck::template().instantiate());
+        .push(minions::ominous_seer::template().instantiate()); // 2/1 Demon
+    state.add_to_hand(minions::mind_muck::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -418,8 +418,8 @@ fn card_220_nerubian_deathswarmer() {
     let (mut state, mut pool, mut rng) = setup_tavern(220);
     state
         .board
-        .push(tier1::risen_rider::template().instantiate()); // 2/1 Undead
-    state.add_to_hand(tier2::nerubian_deathswarmer::template().instantiate()); // 1/4 Undead
+        .push(minions::risen_rider::template().instantiate()); // 2/1 Undead
+    state.add_to_hand(minions::nerubian_deathswarmer::template().instantiate()); // 1/4 Undead
     state
         .step(
             TavernAction::Play {
@@ -438,7 +438,7 @@ fn card_220_nerubian_deathswarmer() {
 #[test]
 fn card_221_patient_scout() {
     let (mut state, mut pool, mut rng) = setup_tavern(221);
-    state.add_to_hand(tier2::patient_scout::template().instantiate());
+    state.add_to_hand(minions::patient_scout::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -449,9 +449,9 @@ fn card_221_patient_scout() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::patient_scout::discover_tier(&state.board[0]), 1);
+    assert_eq!(minions::patient_scout::discover_tier(&state.board[0]), 1);
     state.start_turn(&mut pool, &mut rng);
-    assert_eq!(tier2::patient_scout::discover_tier(&state.board[0]), 2);
+    assert_eq!(minions::patient_scout::discover_tier(&state.board[0]), 2);
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
@@ -468,7 +468,7 @@ fn card_221_patient_scout() {
 fn card_222_prodigious_tusker() {
     let board_a = vec![
         Unit::new("Attacker", 2, 3),
-        tier2::prodigious_tusker::template().instantiate(), // 2/5: plays a Blood Gem on another attacking friendly minion
+        minions::prodigious_tusker::template().instantiate(), // 2/5: plays a Blood Gem on another attacking friendly minion
     ];
     let board_b = vec![Unit::new("Enemy", 3, 3)];
     let res = simulate(&board_a, &board_b, &GameState::default(), 222);
@@ -482,7 +482,7 @@ fn card_222_prodigious_tusker() {
 #[test]
 fn card_223_red_volumizer() {
     let (mut state, mut pool, mut rng) = setup_tavern(223);
-    state.add_to_hand(tier2::red_volumizer::template().instantiate());
+    state.add_to_hand(minions::red_volumizer::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -493,14 +493,14 @@ fn card_223_red_volumizer() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(tier2::blue_volumizer::volumizer_bonus(&state.auras).0, 3);
+    assert_eq!(minions::blue_volumizer::volumizer_bonus(&state.auras).0, 3);
     assert_eq!(state.board[0].attack, 6);
     assert_eq!(state.board[0].health, 1);
 }
 
 #[test]
 fn card_224_roadboar() {
-    let board_a = vec![tier2::roadboar::template().instantiate()]; // 2/4 Rally: Get a Blood Gem
+    let board_a = vec![minions::roadboar::template().instantiate()]; // 2/4 Rally: Get a Blood Gem
     let board_b = vec![Unit::new("Enemy", 0, 1)];
     let res = simulate(&board_a, &board_b, &GameState::default(), 224);
     assert_eq!(res.outcome, BattleOutcome::AWin);
@@ -511,8 +511,8 @@ fn card_224_roadboar() {
 #[test]
 fn card_225_scarlet_skull() {
     let board_a = vec![
-        tier2::scarlet_skull::template().instantiate(), // 2/1 Reborn DR: Give a friendly Undead +1/+2
-        tier1::risen_rider::template().instantiate(),   // 2/1 Undead
+        minions::scarlet_skull::template().instantiate(), // 2/1 Reborn DR: Give a friendly Undead +1/+2
+        minions::risen_rider::template().instantiate(),   // 2/1 Undead
     ];
     let board_b = vec![Unit::new("Enemy", 2, 2)];
     let res = simulate(&board_a, &board_b, &GameState::default(), 225);
@@ -524,7 +524,7 @@ fn card_225_scarlet_skull() {
 #[test]
 fn card_226_sellemental() {
     let (mut state, mut pool, mut rng) = setup_tavern(226);
-    state.board.push(tier2::sellemental::template().instantiate());
+    state.board.push(minions::sellemental::template().instantiate());
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
@@ -538,18 +538,18 @@ fn card_226_sellemental() {
 fn card_227_snow_baller() {
     let (mut state, mut pool, mut rng) = setup_tavern(227);
     state.board.push(Unit::new("Ally", 2, 2));
-    state.board.push(tier2::snow_baller::template().instantiate());
+    state.board.push(minions::snow_baller::template().instantiate());
     state
         .step(TavernAction::Sell { board_pos: 1 }, &mut pool, &mut rng)
         .unwrap();
     assert_eq!(state.board[0].health, 3);
-    assert_eq!(tier2::fire_baller::baller_bonus(&state.auras), 1);
+    assert_eq!(minions::fire_baller::baller_bonus(&state.auras), 1);
 }
 
 #[test]
 fn card_228_soul_rewinder() {
     let (mut state, _pool, _rng) = setup_tavern(228);
-    state.board.push(tier2::soul_rewinder::template().instantiate()); // 4/2
+    state.board.push(minions::soul_rewinder::template().instantiate()); // 4/2
     let pre_hp = state.health;
     state.deal_hero_damage(2);
     assert_eq!(state.health, pre_hp);
@@ -560,7 +560,7 @@ fn card_228_soul_rewinder() {
 fn card_229_surfing_sylvar() {
     let (mut state, mut pool, mut rng) = setup_tavern(229);
     state.board.push(Unit::new("Left", 2, 2).with_golden(true));
-    state.board.push(tier2::surfing_sylvar::template().instantiate());
+    state.board.push(minions::surfing_sylvar::template().instantiate());
     state
         .board
         .push(Unit::new("Right", 2, 2).with_golden(true));
@@ -575,22 +575,22 @@ fn card_229_surfing_sylvar() {
 #[test]
 fn card_230_tad() {
     let (mut state, mut pool, mut rng) = setup_tavern(230);
-    state.board.push(tier2::tad::template().instantiate());
+    state.board.push(minions::tad::template().instantiate());
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();
     assert_eq!(state.hand.len(), 1);
     assert!(state.hand[0].tribe.matches(Tribe::Murloc));
-    assert_ne!(state.hand[0].card_id, tier2::tad::ID);
+    assert_ne!(state.hand[0].card_id, minions::tad::ID);
 }
 
 #[test]
 fn card_231_tarecgosa() {
     let (mut state, _pool, _rng) = setup_tavern(231);
-    state.board.push(tier2::tarecgosa::template().instantiate()); // 4/4 Dragon
+    state.board.push(minions::tarecgosa::template().instantiate()); // 4/4 Dragon
     state
         .board
-        .push(tier2::electric_synthesizer::template().instantiate()); // +1/+1 at SoC
+        .push(minions::electric_synthesizer::template().instantiate()); // +1/+1 at SoC
     let opp = vec![Unit::new("Dummy", 1, 1)];
     state.resolve_combat_against(&opp, 1, &Default::default(), &[], 231);
     assert_eq!(state.board[0].attack, 5);
@@ -600,7 +600,7 @@ fn card_231_tarecgosa() {
 #[test]
 fn card_232_underrot_spawn() {
     let board_a = vec![
-        tier2::underrot_spawn::template().instantiate(),
+        minions::underrot_spawn::template().instantiate(),
         Unit::new("Ally", 2, 5),
     ];
     let board_b = vec![Unit::new("Enemy", 3, 2)];
@@ -617,7 +617,7 @@ fn card_232_underrot_spawn() {
 fn card_233_very_hungry_winterfinner() {
     let mut gs = GameState::default();
     gs.hand_a.push(Unit::new("HandMinion", 2, 2));
-    let board_a = vec![tier2::very_hungry_winterfinner::template().instantiate()]; // 2/6 Taunt
+    let board_a = vec![minions::very_hungry_winterfinner::template().instantiate()]; // 2/6 Taunt
     let board_b = vec![Unit::new("Enemy", 1, 2)];
     let res = simulate(&board_a, &board_b, &gs, 233);
     assert_eq!(res.outcome, BattleOutcome::AWin);
@@ -630,7 +630,7 @@ fn card_234_wandering_willbreaker() {
     let (mut state, mut pool, mut rng) = setup_tavern(234);
     state
         .board
-        .push(tier2::wandering_willbreaker::template().instantiate());
+        .push(minions::wandering_willbreaker::template().instantiate());
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();

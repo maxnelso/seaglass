@@ -2,7 +2,7 @@
 //!
 //! Rally: Get a (`2` if Golden) random Choose One card(s).
 
-use crate::cards::{spells, tier2, tier3, tier4, tokens, CardTemplate};
+use crate::cards::{minions, spells, tokens, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 
@@ -19,12 +19,12 @@ pub fn template() -> CardTemplate {
 
 pub fn draw_random_choose_one_card(rng: &mut Rng) -> Unit {
     let mut pool: Vec<Unit> = vec![
-        tier2::crater_miner::template().instantiate(),
-        tier2::intrepid_botanist::template().instantiate(),
-        tier3::fearless_foodie::template().instantiate(),
-        tier3::sly_infiltrator::template().instantiate(),
-        tier3::sprightly_scarab::template().instantiate(),
-        tier4::snare_trapper::template().instantiate(),
+        minions::crater_miner::template().instantiate(),
+        minions::intrepid_botanist::template().instantiate(),
+        minions::fearless_foodie::template().instantiate(),
+        minions::sly_infiltrator::template().instantiate(),
+        minions::sprightly_scarab::template().instantiate(),
+        minions::snare_trapper::template().instantiate(),
         tokens::make_gem_day(),
     ];
     for s in spells::spells_up_to_tier(4) {

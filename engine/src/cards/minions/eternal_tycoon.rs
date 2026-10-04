@@ -2,7 +2,7 @@
 //!
 //! Avenge (5): Summon an `Eternal Knight` (or a Golden `Eternal Knight` if Golden). It attacks immediately.
 
-use crate::cards::{tier2, BoardCtx, CardTemplate};
+use crate::cards::{minions, BoardCtx, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 517;
@@ -19,7 +19,7 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, self_idx: usize, _dying: &Unit)
         return;
     }
     let (src_id, is_golden) = (ctx.board[self_idx].id, ctx.board[self_idx].is_golden);
-    let mut knight = tier2::eternal_knight::template().instantiate();
+    let mut knight = minions::eternal_knight::template().instantiate();
     if is_golden {
         knight.make_golden();
     }

@@ -1,7 +1,7 @@
 //! Per-card functional tests for all 12 Solo Tier 7 minions (Patch 36.6.3)
 //! and verification that Tier 7 cannot be reached via normal Tavern upgrades.
 
-use seaglass::cards::{spells, tier1, tier7, tokens};
+use seaglass::cards::{minions, spells, tokens};
 use seaglass::{
     base_copies_for_tier, base_upgrade_cost, full_catalog, simulate, solo_tier_7_catalog,
     BattleOutcome, CardPool, GameState, Keyword, PlayerAuras, Rng, TavernAction, TavernState,
@@ -56,8 +56,8 @@ fn card_701_captain_sanders() {
     let (mut state, mut pool, mut rng) = setup_tavern(701);
     state
         .board
-        .push(tier1::cord_puller::template().instantiate()); // 1/1 plain Mech
-    state.add_to_hand(tier7::captain_sanders::template().instantiate());
+        .push(minions::cord_puller::template().instantiate()); // 1/1 plain Mech
+    state.add_to_hand(minions::captain_sanders::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -77,7 +77,7 @@ fn card_701_captain_sanders() {
 #[test]
 fn card_702_champion_of_sargeras() {
     let (mut state, mut pool, mut rng) = setup_tavern(702);
-    state.add_to_hand(tier7::champion_of_sargeras::template().instantiate());
+    state.add_to_hand(minions::champion_of_sargeras::template().instantiate());
     state
         .step(
             TavernAction::Play {
@@ -108,7 +108,7 @@ fn card_702_champion_of_sargeras() {
 #[test]
 fn card_703_futurefin() {
     let (mut state, mut pool, mut rng) = setup_tavern(703);
-    state.board.push(tier7::futurefin::template().instantiate()); // 7/13 Murloc
+    state.board.push(minions::futurefin::template().instantiate()); // 7/13 Murloc
     state.add_to_hand(Unit::new("LeftHandMinion", 2, 3));
     state
         .step(TavernAction::EndTurn, &mut pool, &mut rng)
@@ -121,7 +121,7 @@ fn card_703_futurefin() {
 #[test]
 fn card_704_highkeeper_ra() {
     let (mut state, mut pool, mut rng) = setup_tavern(704);
-    state.add_to_hand(tier7::highkeeper_ra::template().instantiate());
+    state.add_to_hand(minions::highkeeper_ra::template().instantiate());
     // Battlecry: gets a random Tier 6 minion!
     state
         .step(
@@ -152,7 +152,7 @@ fn card_704_highkeeper_ra() {
 
 #[test]
 fn card_705_jailbird_juggernaut() {
-    let juggernaut = tier7::jailbird_juggernaut::template().instantiate(); // 6/15 Quilboar
+    let juggernaut = minions::jailbird_juggernaut::template().instantiate(); // 6/15 Quilboar
     // Side A has 2 units (Juggernaut + 0/1 totem) so Side A attacks first!
     // Enemy is 10/6: when Juggernaut attacks, its Rally summons a 6/15 Blood Golem that attacks the 10/6 first and kills it!
     // Juggernaut's own strike is then aborted without Juggernaut taking any damage!
@@ -172,7 +172,7 @@ fn card_705_jailbird_juggernaut() {
 
 #[test]
 fn card_706_obsidian_ravager() {
-    let ravager = tier7::obsidian_ravager::template().instantiate(); // 7/7 Dragon
+    let ravager = minions::obsidian_ravager::template().instantiate(); // 7/7 Dragon
     let side_a = vec![
         ravager,
         Unit::new("Totem1", 0, 1),
@@ -194,11 +194,11 @@ fn card_707_polarizing_beatboxer() {
     let (mut state, mut pool, mut rng) = setup_tavern(707);
     state
         .board
-        .push(tier7::polarizing_beatboxer::template().instantiate()); // 5/10 Mech
+        .push(minions::polarizing_beatboxer::template().instantiate()); // 5/10 Mech
     state
         .board
-        .push(tier1::cord_puller::template().instantiate()); // 1/1 Mech with Divine Shield
-    state.add_to_hand(tier1::lullabot::template().instantiate()); // 2/2 Magnetic Mech
+        .push(minions::cord_puller::template().instantiate()); // 1/1 Mech with Divine Shield
+    state.add_to_hand(minions::lullabot::template().instantiate()); // 2/2 Magnetic Mech
     // Magnetize Lullabot onto Cord Puller at board_pos 1:
     // Polarizing Beatboxer at board_pos 0 ALSO gets a copy of Lullabot magnetized to it!
     state
@@ -224,7 +224,7 @@ fn card_708_sha_of_fear() {
     let (mut state, mut pool, mut rng) = setup_tavern(708);
     state
         .board
-        .push(tier7::sha_of_fear::template().instantiate()); // 10/13 Aberration
+        .push(minions::sha_of_fear::template().instantiate()); // 10/13 Aberration
     state.add_to_hand(spells::spell_by_name("Leaf Through the Pages").unwrap());
     state
         .step(
@@ -245,9 +245,9 @@ fn card_708_sha_of_fear() {
 
 #[test]
 fn card_709_stalwart_kodo() {
-    let kodo = tier7::stalwart_kodo::template().instantiate(); // 16/32 Beast
-    let bonehead = tier1::harmless_bonehead::template().instantiate(); // Deathrattle: summon two 1/1 Skeletons
-    let rider = tier1::risen_rider::template().instantiate(); // 2/1 Taunt Reborn (Reborn is 3rd summon)
+    let kodo = minions::stalwart_kodo::template().instantiate(); // 16/32 Beast
+    let bonehead = minions::harmless_bonehead::template().instantiate(); // Deathrattle: summon two 1/1 Skeletons
+    let rider = minions::risen_rider::template().instantiate(); // 2/1 Taunt Reborn (Reborn is 3rd summon)
     let opp = vec![Unit::new("Enemy1", 3, 2), Unit::new("Enemy2", 3, 2)];
     let res = simulate(&[bonehead, rider, kodo], &opp, &GameState::default(), 709);
     // Summoned Skeletons (1/1) gain Stalwart Kodo's maximum stats (+16/+32 -> 17/33)!
@@ -262,7 +262,7 @@ fn card_709_stalwart_kodo() {
 fn card_710_stitched_salvager() {
     let mut neighbor = Unit::new("BigNeighbor", 25, 30).with_keyword(Keyword::DivineShield);
     neighbor.is_golden = true;
-    let salvager = tier7::stitched_salvager::template().instantiate(); // 16/4 Undead
+    let salvager = minions::stitched_salvager::template().instantiate(); // 16/4 Undead
     let opp = vec![Unit::new("Killer", 10, 16), Unit::new("Small", 1, 1)];
     let res = simulate(&[neighbor, salvager], &opp, &GameState::default(), 710);
     // Start of Combat: Stitched Salvager destroys BigNeighbor (25/30 Golden DS) and stores it.
@@ -280,14 +280,14 @@ fn card_711_stone_age_slab() {
     let (mut state, mut pool, mut rng) = setup_tavern(711);
     state
         .board
-        .push(tier7::stone_age_slab::template().instantiate()); // 10/10 Elemental
+        .push(minions::stone_age_slab::template().instantiate()); // 10/10 Elemental
     state.start_turn(&mut pool, &mut rng);
     assert_eq!(state.board[0].charges, 1);
 
     state.shop.clear();
     state
         .shop
-        .push(tier1::cord_puller::template().instantiate()); // 1/1 Mech
+        .push(minions::cord_puller::template().instantiate()); // 1/1 Mech
     state
         .step(TavernAction::Buy { shop_index: 0 }, &mut pool, &mut rng)
         .unwrap();
@@ -302,7 +302,7 @@ fn card_712_the_last_one_standing() {
     let (mut state, _pool, _rng) = setup_tavern(712);
     state
         .board
-        .push(tier7::the_last_one_standing::template().instantiate()); // 15/15 All
+        .push(minions::the_last_one_standing::template().instantiate()); // 15/15 All
     state
         .board
         .push(Unit::new("MyBeast", 2, 2).with_tribe(Tribe::Beast));

@@ -2,7 +2,7 @@
 //!
 //! Deathrattle: Get a (`2` if Golden) random Magnetic Volumizer(s).
 
-use crate::cards::{self, tier2, CardTemplate, DeathrattleContext};
+use crate::cards::{self, minions, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 
@@ -16,9 +16,9 @@ pub fn template() -> CardTemplate {
 
 pub fn draw_random_volumizer(rng: &mut Rng) -> Unit {
     let templates = [
-        tier2::blue_volumizer::template(),
-        tier2::green_volumizer::template(),
-        tier2::red_volumizer::template(),
+        minions::blue_volumizer::template(),
+        minions::green_volumizer::template(),
+        minions::red_volumizer::template(),
     ];
     let pick = rng.below(templates.len());
     templates[pick].instantiate()
