@@ -25,7 +25,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
 4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** that unit's Reborn. May summon token(s) at the dying unit's slot (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
 5. **Stat-Threshold Observers** — Checked immediately whenever a unit's stats increase during combat (e.g., `Scarlet Survivor` gaining Divine Shield at 6 Attack).
-6. **Combat-to-Tavern Persistence** — `Tarecgosa` permanently retains Bonus Keywords and (`double` if Golden) stats gained during combat; hand buffs (`Very Hungry Winterfinner`), generated hand cards (`Roadboar`), and `Eternal Knight` death counters (`eternal_knights_died`) persist back to `TavernState`.
+6. **Combat-to-Tavern Persistence** — `Tarecgosa` permanently retains Bonus Keywords and (`double` if Golden) stats gained during combat; hand buffs (`Very Hungry Winterfinner`), generated hand cards (`Roadboar`), and game-long counters such as `Eternal Knight` deaths (card-keyed `PlayerAuras::card_counters`) persist back to `TavernState`.
 
 ---
 
