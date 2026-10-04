@@ -1,0 +1,74 @@
+topic: Tier 1 minion interactions (smoke tests)
+defaults:
+  tavern: {catalog: tier1}
+scenarios:
+  - name: joyous_buffs_deity_and_zoatroid_sells_tentacle
+    seed: 20
+    steps:
+      - start_turn
+      - set: {auras: {deity: {kind: cthun}}}
+      - add_to_hand: Joyous
+      - add_to_hand: Zoatroid
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 1}
+      - sell: 1
+      - play: {hand: 0, pos: 1}
+    expect:
+      auras: {deity: {attack: 3, health: 2}}
+      board: {count: 2, any: {name: Aberrant Tentacle}}
+
+  - name: wrath_weaver_scales_2_2_on_demon_play
+    seed: 30
+    steps:
+      - start_turn
+      - add_to_hand: Wrath Weaver
+      - add_to_hand: Wrath Weaver
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 1}
+    expect:
+      health: 29
+      board: {count: 2, 0: "3/5"}
+
+  - name: dune_dweller_and_bubble_gunner
+    seed: 40
+    steps:
+      - start_turn
+      - add_to_hand: Dune Dweller
+      - add_to_hand: Bubble Gunner
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 1}
+      - refresh
+    expect:
+      board: {count: 2, 0: "3/3"}
+      shop: {count: 3}
+
+  - name: southsea_busker_and_razorfen_geomancer
+    seed: 50
+    steps:
+      - start_turn
+      - add_to_hand: Southsea Busker
+      - add_to_hand: Razorfen Geomancer
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 1}
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 0}
+    expect:
+      bonus_gold_next_turn: 1
+      board: {count: 2, 0: "5/3"}
+      hand: {count: 0}
+
+  - name: suspicious_prisonguard_activate_and_triple
+    seed: 60
+    steps:
+      - start_turn
+      - push_board: Flighty Scout
+      - apply_global_unit_auras: {board: -1}
+      - push_board: Suspicious Prisonguard
+      - apply_global_unit_auras: {board: -1}
+      - activate: {pos: 1, target: 0}
+      - add_to_hand: Suspicious Prisonguard
+      - add_to_hand: Suspicious Prisonguard
+      - play: {hand: 0, pos: 1}
+    expect:
+      gold: 2
+      board: {count: 2, any: {is_golden: true}, 0: "6/6"}

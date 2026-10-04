@@ -1,0 +1,28 @@
+topic: Deities awaken after 4 friendly Aberration deaths
+scenarios:
+  - name: cthun_awakens_after_four_aberrations_die
+    seed: 7
+    combat:
+      board_a:
+        - "3/2 card:zoatroid"
+        - "3/2 card:zoatroid"
+        - "3/2 card:zoatroid"
+        - "3/2 card:zoatroid"
+        - "2/5 tier:1"
+      board_b: ["4/22 taunt tier:1"]
+      auras_a: {deity: {kind: cthun, attack: 6, health: 6}}
+    expect:
+      outcome: a_win
+
+  - name: yshaarj_awakens_and_resummons_first_two_aberrations
+    seed: 7
+    combat:
+      board_a:
+        - "5/3 card:zoatroid"
+        - "4/3 card:joyous"
+        - "3/2 card:zoatroid"
+        - "3/2 card:zoatroid"
+      board_b: ["10/22 taunt tier:1"]
+      auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
+    expect:
+      outcome: a_win

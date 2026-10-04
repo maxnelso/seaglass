@@ -425,6 +425,38 @@ pub fn make_choice_option(card_id: CardId, name: &str, is_golden: bool) -> Unit 
     u
 }
 
+/// Card ids of every token minion (each one instantiable with [`make_plain_token`]).
+pub const TOKEN_MINION_IDS: [CardId; 19] = [
+    TOKEN_ABERRANT_TENTACLE,
+    TOKEN_BEETLE,
+    TOKEN_MICROBOT,
+    TOKEN_SKELETON,
+    TOKEN_BAT,
+    TOKEN_WATER_DROPLET,
+    TOKEN_DEMON_FODDER,
+    TOKEN_FISHBAIT,
+    TOKEN_HELPING_HAND,
+    TOKEN_SATELLITE,
+    TOKEN_SEWER_RAT,
+    TOKEN_HALF_SHELL,
+    TOKEN_MAGICFIN_APPRENTICE,
+    TOKEN_BLOOD_GOLEM,
+    TOKEN_BLUE_CHROMADRAKE,
+    TOKEN_BLACK_CHROMADRAKE,
+    TOKEN_GREEN_CHROMADRAKE,
+    TOKEN_BRONZE_CHROMADRAKE,
+    TOKEN_RED_CHROMADRAKE,
+];
+
+/// A plain copy of every token minion (for lookups by name or `CardId`).
+pub fn all_token_minions() -> Vec<Unit> {
+    let auras = PlayerAuras::default();
+    TOKEN_MINION_IDS
+        .iter()
+        .filter_map(|&id| make_plain_token(&Unit::new("", 0, 0).with_card_id(id), &auras))
+        .collect()
+}
+
 /// Instantiate a plain (non-Golden, unbuffed) copy of a token minion by `card_id`.
 pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
     match unit.card_id {

@@ -34,7 +34,7 @@ seaglass/
 │   ├── Cargo.toml
 │   ├── docs/          # Pinned specifications (combat.md, tavern.md, scenarios.md)
 │   ├── src/
-│   └── tests/         # Declarative YAML combat & tavern scenario suites
+│   └── tests/         # YAML scenario suite (one file per card, plus combat & Tavern topics)
 └── rl/                # Python package (`seaglass-rl`): RL env, Transformer policy, PPO trainer
     ├── README.md
     ├── pyproject.toml

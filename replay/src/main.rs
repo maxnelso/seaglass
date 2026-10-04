@@ -384,7 +384,7 @@ fn print_turn_detail(g: &GameReplay, t: &TurnReplay) {
             "    [{i}] #{:<5} {:<34} (spec: {:?})",
             u.entity_id,
             u.display_short(),
-            u.to_scenario_spec()
+            u.to_unit_spec()
         );
     }
     println!("  Side B Starting Board ({} minions):", c.team_b.len());
@@ -396,7 +396,7 @@ fn print_turn_detail(g: &GameReplay, t: &TurnReplay) {
             "    [{i}] #{:<5} {:<34} (spec: {:?})",
             u.entity_id,
             u.display_short(),
-            u.to_scenario_spec()
+            u.to_unit_spec()
         );
     }
 
@@ -594,8 +594,8 @@ fn main() {
                     eprintln!("Turn {want_turn} has no combat phase");
                     process::exit(1);
                 });
-                let scenario = combat.to_scenario(want_turn);
-                serde_yaml::to_string(&scenario).unwrap()
+                let matchup = combat.to_matchup(want_turn);
+                serde_yaml::to_string(&matchup).unwrap()
             } else {
                 serde_yaml::to_string(game).unwrap()
             };

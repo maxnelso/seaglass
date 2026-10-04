@@ -1,5 +1,7 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
+use serde::Serialize;
+
 use crate::cards::{self, BoardCtx, Passive, SocAction};
 use crate::events::Event;
 use crate::model::{
@@ -11,7 +13,7 @@ use crate::rng::Rng;
 pub const MAX_BOARD_SIZE: usize = 7;
 
 /// Complete result of a single deterministic battle (`docs/combat.md` §5.6).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BattleResult {
     pub outcome: BattleOutcome,
     pub survivors_a: Vec<Unit>,

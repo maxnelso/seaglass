@@ -16,3 +16,14 @@ pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"], optiona
 [features]
 default = []
 python = ["dep:pyo3"]
+# Test tooling: `SEAGLASS_KNOCKOUT=<card id>` disables that card's hooks (`docs/scenarios.md`).
+knockout = []
+
+[dev-dependencies]
+libtest-mimic = "0.8"
+
+# The YAML scenario suite: one test per scenario (`tests/scenarios/`, `docs/scenarios.md`).
+[[test]]
+name = "scenarios"
+path = "tests/scenarios.rs"
+harness = false

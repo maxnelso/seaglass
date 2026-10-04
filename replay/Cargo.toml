@@ -2,7 +2,7 @@
 name = "seaglass_replay"
 version = "0.1.0"
 edition = "2021"
-description = "Hearthstone Battlegrounds Power.log parser, inspector, and scenario exporter for seaglass"
+description = "Hearthstone Battlegrounds Power.log parser, inspector, and matchup exporter for seaglass"
 default-run = "replay_cli"
 
 [lib]

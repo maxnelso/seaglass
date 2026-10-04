@@ -1,0 +1,12 @@
+topic: Batch simulation statistics
+scenarios:
+  - name: batch_rollout_bounds
+    combat:
+      board_a: ["3/3 card:scarlet_survivor", "1/4 card:flittering_bat"]
+      board_b: ["2/2 card:aureate_laureate", "3/1 card:southsea_busker"]
+    batch: {base_seed: 42, n: 200}
+    expect:
+      battles: 200
+      a_win_rate: "0.40..=1.00"
+      b_win_rate: "0.00..=0.40"
+      draw_rate: "0.00..=0.50"

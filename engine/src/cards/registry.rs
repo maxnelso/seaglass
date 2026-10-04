@@ -67,11 +67,28 @@ fn registry() -> &'static Registry {
 /// Behaviour table for `card_id` (an empty table for unknown ids and plain units).
 #[inline]
 pub fn hooks(card_id: CardId) -> &'static CardHooks {
+    #[cfg(feature = "knockout")]
+    if knocked_out() == Some(card_id) {
+        return &NO_HOOKS;
+    }
     let r = registry();
     match r.hook_slot.get(card_id as usize) {
         Some(&slot) if slot != NO_SLOT => &r.hooks[slot as usize],
         _ => &NO_HOOKS,
     }
+}
+
+/// Test tooling (`--features knockout`): the card whose hooks are disabled, read from the
+/// `SEAGLASS_KNOCKOUT` environment variable. A card's scenarios should fail with its hooks
+/// knocked out; if they still pass, they don't test its behaviour (`docs/scenarios.md`).
+#[cfg(feature = "knockout")]
+fn knocked_out() -> Option<CardId> {
+    static KNOCKED_OUT: OnceLock<Option<CardId>> = OnceLock::new();
+    *KNOCKED_OUT.get_or_init(|| {
+        std::env::var("SEAGLASS_KNOCKOUT")
+            .ok()
+            .map(|v| v.parse().expect("SEAGLASS_KNOCKOUT must be a card id"))
+    })
 }
 
 /// Catalog template for the minion `card_id`, if it is a shop minion.

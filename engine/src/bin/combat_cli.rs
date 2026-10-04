@@ -3,7 +3,7 @@
 //!
 //! Usage:
 //!   cargo run --bin combat_cli
-//!   cargo run --bin combat_cli -- path/to/scenario.yaml [--seed 42] [--sims 10000]
+//!   cargo run --bin combat_cli -- path/to/matchup.yaml [--seed 42] [--sims 10000]
 //!   cargo run --bin combat_cli -- --team-a "1/1 card:harmless_bonehead; 1/4 card:rot_hide_gnoll" \
 //!                                 --team-b "2/1 card:risen_rider; 1/1 card:cord_puller"
 
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use seaglass::{
     parse_unit, simulate, simulate_batch, teams_and_state, BattleOutcome, Defaults, DeityKind,
-    Event, GameState, Scenario, Side, Tribe, Unit, UnitId,
+    Event, GameState, Matchup, Side, Tribe, Unit, UnitId,
 };
 
 #[derive(Clone, Debug)]
@@ -133,7 +133,7 @@ fn print_help() {
         r#"Seaglass Combat Phase CLI
 Usage:
   cargo run --bin combat_cli                                    # Run default sample matchup
-  cargo run --bin combat_cli -- <path/to/matchup.yaml>          # Run a YAML scenario/matchup
+  cargo run --bin combat_cli -- <path/to/matchup.yaml>          # Run a YAML matchup
   cargo run --bin combat_cli -- --team-a "<u1>; <u2>" --team-b "<u1>; <u2>"
 
 Options:
@@ -225,20 +225,20 @@ fn main() {
             let content = fs::read_to_string(&path).unwrap_or_else(|e| {
                 panic!("failed to read YAML file {}: {e}", path.display())
             });
-            let scenario: Scenario = serde_yaml::from_str(&content).unwrap_or_else(|e| {
+            let matchup: Matchup = serde_yaml::from_str(&content).unwrap_or_else(|e| {
                 panic!("failed to parse YAML file {}: {e}", path.display())
             });
-            let (ba, bb, st) = teams_and_state(&scenario).unwrap_or_else(|e| {
-                panic!("invalid scenario in {}: {e}", path.display())
+            let (ba, bb, st) = teams_and_state(&matchup).unwrap_or_else(|e| {
+                panic!("invalid matchup in {}: {e}", path.display())
             });
-            let s = seed_override.unwrap_or(scenario.seed);
-            let (b_seed, b_n) = match &scenario.batch {
+            let s = seed_override.unwrap_or(matchup.seed);
+            let (b_seed, b_n) = match &matchup.batch {
                 Some(b) => (b.base_seed, b.n),
                 None => (s, 10_000),
             };
             let n = sims_override.unwrap_or(b_n);
             (
-                format!("{} ({})", scenario.name, path.display()),
+                format!("{} ({})", matchup.name, path.display()),
                 ba,
                 bb,
                 st,

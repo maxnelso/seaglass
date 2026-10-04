@@ -1,0 +1,397 @@
+# The card catalog, checked by the `catalog` test (tests/scenarios.rs).
+#
+# - minions: every shop minion by Tavern Tier, in catalog order (`tier<N>_catalog()`; together
+#   they are `full_catalog()`), and minion_ids: each tier's card id range.
+# - spells: every Tavern spell by tier (`spells::tier<N>_spells()`), and not_in_pool: the Tavern
+#   spells never drawn into the shop or random spell pools.
+# - token_minions, token_spells, deities: the other cards that unit specs can name.
+#
+# Card ids are unique across all of these.
+
+minions:
+  1:  # 21
+    - Joyous
+    - Zoatroid
+    - Buzzing Vermin
+    - Flittering Bat
+    - Wrath Weaver
+    - Ominous Seer
+    - Glim Guardian
+    - Scarlet Survivor
+    - Crackling Cyclone
+    - Dune Dweller
+    - Cord Puller
+    - Lullabot
+    - Bubble Gunner
+    - Flighty Scout
+    - Aureate Laureate
+    - Southsea Busker
+    - Razorfen Geomancer
+    - Tusked Camper
+    - Harmless Bonehead
+    - Risen Rider
+    - Suspicious Prisonguard
+  2:  # 34
+    - Bilgewater Breakout
+    - Blue Volumizer
+    - Brain Rotter
+    - Bronze Warden
+    - Clever Castaway
+    - Crater Miner
+    - Decoy Conjurer
+    - Electric Synthesizer
+    - Eternal Knight
+    - Expert Aviator
+    - Fire Baller
+    - Forest Rover
+    - Green Volumizer
+    - Humming Bird
+    - Intrepid Botanist
+    - Laboratory Assistant
+    - Lurking Lionfish
+    - Mechagnome Interpreter
+    - Mind Muck
+    - Nerubian Deathswarmer
+    - Patient Scout
+    - Prodigious Tusker
+    - Red Volumizer
+    - Roadboar
+    - Scarlet Skull
+    - Sellemental
+    - Snow Baller
+    - Soul Rewinder
+    - Surfing Sylvar
+    - Tad
+    - Tarecgosa
+    - Underrot Spawn
+    - Very Hungry Winterfinner
+    - Wandering Willbreaker
+  3:  # 43
+    - Abyssal Envoy
+    - Accord-o-Tron
+    - Amber Guardian
+    - Annoy-o-Module
+    - Auto Accelerator
+    - Azsharan Cutlassier
+    - Blue Whelp
+    - Cadaver Caretaker
+    - Deadly Spore
+    - Devout Hellcaller
+    - Diremuck Forager
+    - Disguised Graverobber
+    - Drifting Sacrifice
+    - Fearless Foodie
+    - Fetid Corroder
+    - Fruit Vendor
+    - Gem Rat
+    - Greedy Conniver
+    - Handless Forsaken
+    - Hired Mount
+    - Iron Groundskeeper
+    - Locked-up Mutineer
+    - Malchezaar, Prince of Dance
+    - Mangled Bandit
+    - Mummifier
+    - Prosthetic Hand
+    - Relentless Deflector
+    - Rescue Bot
+    - Roaring Recruiter
+    - Shoalfin Mystic
+    - Sly Infiltrator
+    - Sprightly Scarab
+    - Tasty Lobster
+    - Thorned Trailblazer
+    - Timecap'n Hooktail
+    - Trapped Clapper
+    - Treasure Parrot
+    - Trench Fighter
+    - Unwilling Slacker
+    - Vicious Mindslasher
+    - Waveling
+    - Wildfire Elemental
+    - Wolf Pup
+  4:  # 58
+    - Air Baller
+    - Ashen Corruptor
+    - Banana Slamma
+    - Bigwig Bandit
+    - Blade Collector
+    - Bonker
+    - Boom-in-a-Box
+    - Bramble Tunneler
+    - Bream Counter
+    - Bronze Timewalker
+    - Cage Gnawer
+    - Conveyor Construct
+    - Cutthroat K'Thir
+    - Dark Paradox
+    - Dead Bellringer
+    - Drone Duplicator
+    - En-Djinn Blazer
+    - Enchanted Sentinel
+    - Faceless Operative
+    - Flaming Enforcer
+    - Friendly Geist
+    - Gearfin
+    - Geomagus Roogug
+    - Glambot
+    - Gormling Gourmet
+    - Gunpowder Courier
+    - Headhunter Gryphon
+    - Heroic Underdog
+    - Hoarding Hyena
+    - Holy Vanguard
+    - Hot-Air Surveyor
+    - Humon'gozz
+    - Ichoron the Protector
+    - Imp-lusionist
+    - Imposing Percussionist
+    - Kelp Keeper
+    - Leyline Surfacer
+    - Living Prison
+    - Lovesick Balladist
+    - Maritime Extortionist
+    - Maw Caster
+    - Mindbending Recruiter
+    - Nightmare Corroder
+    - Parasitic Fleshling
+    - Persistent Poet
+    - Plaguerunner
+    - Razorfen Flapper
+    - Refreshing Anomaly
+    - Runic Arcanist
+    - Sacrificial Wrathguard
+    - Sin'dorei Straight Shot
+    - Sky-hatch Runaway
+    - Snare Trapper
+    - Snarky Shark
+    - Soulkeeping Jailer
+    - Tavern Tempest
+    - Tortollan Blue Shell
+    - Twilight Tidehunter
+  5:  # 52
+    - Air Revenant
+    - Barrier Banshee
+    - Bile Spitter
+    - Brann Bronzebeard
+    - Cataclysmic Harbinger
+    - Charging Czarina
+    - Costume Enthusiast
+    - De-volition-ist
+    - Deft Deserter
+    - Devilish Distractor
+    - Draconic Warden
+    - Drakkari Enchanter
+    - Drustfallen Butcher
+    - Elite Navigator
+    - Enterprising Escapee
+    - Eternal Summoner
+    - Eternal Tycoon
+    - Faceless Converter
+    - Felboar
+    - Felfire Conjurer
+    - Firelands Fugitive
+    - Firescale Hoarder
+    - Ghastcoiler
+    - Goldrinn, the Great Wolf
+    - Hackerfin
+    - Hopebringer
+    - Insatiable Ur'zul
+    - Kalecgos, Arcane Aspect
+    - Leeroy the Reckless
+    - Lichling Hoarder
+    - Living Azerite
+    - Lurking Leviathan
+    - Mindbender Ghur'sha
+    - Mysterious K'Thir
+    - Nightmare Par-tea Guest
+    - N'raqi Frostcaller
+    - N'raqi Sapper
+    - Primalfin Lookout
+    - Proud Privateer
+    - Razorfen Vineweaver
+    - Resourceful Robot
+    - Rodeo Performer
+    - Sanguine Refiner
+    - Sewer Escapee
+    - Sewer Lord
+    - Shamanic Tidecaller
+    - Ship Master Eudora
+    - Shipwrecked Rascal
+    - Spark Snapper
+    - Tichondrius
+    - Titus Rivendare
+    - Turquoise Skitterer
+  6:  # 32
+    - Auto Reveille
+    - Balinda Stonehearth
+    - Choral Mrrrglr
+    - Crimson Vindicator
+    - Dark Puppeteer
+    - Deathly Striker
+    - Deathstrider
+    - Elemental of Surprise
+    - Eredar Escapist
+    - Falling Sky Golem
+    - Forsaken Weaver
+    - Gatekeeper Amalgam
+    - Harbinger Aph'lass
+    - Heroic Broodmother
+    - Hooktusk, Master Marauder
+    - Magicfin Mycologist
+    - Nadina the Red
+    - Ravaging Scorpid
+    - Sanguine Champion
+    - Silent Deliverer
+    - Sky Admiral Rogers
+    - Snazzy Phantom
+    - The Shadow of Doubt
+    - Turbo Hogrider
+    - Twisted Wrathguard
+    - Tyrael
+    - Ultraviolet Ascendant
+    - Unbound Tempest
+    - Utility Drone
+    - Veteran Brigand
+    - Victorious Geomant
+    - Young Murk-Eye
+  7:  # 12
+    - Captain Sanders
+    - Champion of Sargeras
+    - Futurefin
+    - Highkeeper Ra
+    - Jailbird Juggernaut
+    - Obsidian Ravager
+    - Polarizing Beatboxer
+    - Sha of Fear
+    - Stalwart Kodo
+    - Stitched Salvager
+    - Stone Age Slab
+    - The Last One Standing
+
+minion_ids:
+  1: [101, 121]
+  2: [201, 234]
+  3: [301, 343]
+  4: [401, 458]
+  5: [501, 552]
+  6: [601, 632]
+  7: [701, 712]
+
+spells:
+  1:  # 8
+    - A New Sprout
+    - Alliance Flag
+    - Enchanted Lasso
+    - Fortify
+    - Recruit a Trainee
+    - Tavern Coin
+    - Tavern Dish Banana
+    - Them Apples
+  2:  # 7
+    - Chef's Choice
+    - Hasty Excavation
+    - Leaf Through the Pages
+    - Might of Stormwind
+    - Search Through Time
+    - Strike Oil
+    - Winner's Bread
+  3:  # 15
+    - Careful Investment
+    - Friendly Bounty
+    - Healthy Bounty
+    - Hostile Bounty
+    - Overconfidence
+    - Planar Telescope
+    - Repair Job
+    - Robust Evolution
+    - Seafood Stew
+    - Selfish Bounty
+    - Shiny Ring
+    - Staff of Enrichment
+    - Time Management
+    - Tricky Trousers
+    - Wealthy Bounty
+  4:  # 16
+    - Blood Gem Barrage
+    - Boon of Beetles
+    - Boundless Potential
+    - Cloning Conch
+    - Defender's Rites
+    - Easterly Winds
+    - Eonar's Favor
+    - Gem Confiscation
+    - Methodical Madness
+    - Mighty Dragonbreath
+    - Misplaced Tea Set
+    - Natural Blessing
+    - Sludge Corrosion
+    - Temperature Shift
+    - Tomb Turning
+    - Weapons Forge
+  5:  # 15
+    - Armor Stash
+    - Brood of Nozdormu
+    - Butchering
+    - Channel the Devourer
+    - Contracted Corpse
+    - Corrupted Coin
+    - Corrupted Cupcakes
+    - Energizing Chamber
+    - Forest's Bounty
+    - Golden Touch
+    - Hired Headhunter
+    - Saloon's Finest
+    - Unmasked Identity
+    - Upper Hand
+    - Wave of Gold
+  6:  # 5
+    - Azerite Empowerment
+    - Eyes of the Earth Mother
+    - Fandral's Fortune
+    - Lost Staff of Hamuul
+    - Perfect Vision
+  7:  # 4
+    - Hallowed Ritual
+    - Menagerie Tableware
+    - Sacred Gift
+    - Sharing is Caring
+
+not_in_pool:
+  - Gem Confiscation
+  - Sludge Corrosion
+  - Golden Touch
+  - Unmasked Identity
+
+token_minions:
+  - Aberrant Tentacle
+  - Beetle
+  - Microbot
+  - Skeleton
+  - Bat
+  - Water Droplet
+  - Demon Fodder
+  - Fishbait
+  - Helping Hand
+  - Satellite
+  - Sewer Rat
+  - Half-Shell
+  - Magicfin Apprentice
+  - Blood Golem
+  - Blue Chromadrake
+  - Black Chromadrake
+  - Green Chromadrake
+  - Bronze Chromadrake
+  - Red Chromadrake
+
+token_spells:
+  - Blood Gem
+  - Lockbox
+  - Gem Day
+  - Pointy Arrow
+  - Arcane Absorption
+  - Conflagration
+
+deities:
+  - C'Thun
+  - Y'Shaarj

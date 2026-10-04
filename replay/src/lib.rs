@@ -4,7 +4,7 @@
 //! [`GameReplay`] containing both the **Tavern (Recruit) Phase** (initial shop/board/hand,
 //! chronological player actions, shop refreshes, and end-of-turn state) and the
 //! **Combat Phase** (starting boards, strike-by-strike server event log, tag-ins,
-//! hero damage, and conversion to [`Scenario`] / [`Unit`] for `seaglass` simulation).
+//! hero damage, and conversion to [`Matchup`] / [`Unit`] for `seaglass` simulation).
 
 use std::collections::HashMap;
 use std::fs;
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use seaglass::cards::{full_catalog, minions, tokens};
 use seaglass::model::{BattleOutcome, CardId, Keyword, Tribe, Unit};
-use seaglass::scenario::{Batch, Defaults, Scenario};
+use seaglass::scenario::{Batch, Defaults, Matchup};
 
 /// A complete parsed Battlegrounds game from `Power.log`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -218,8 +218,8 @@ impl ReplayUnit {
         )
     }
 
-    /// Format as a `seaglass` scenario unit specification string (`"3/6 card:suspicious_prisonguard"`).
-    pub fn to_scenario_spec(&self) -> String {
+    /// Format as a `seaglass` matchup unit specification string (`"3/6 card:suspicious_prisonguard"`).
+    pub fn to_unit_spec(&self) -> String {
         let mut tokens = vec![format!("{}/{}", self.attack, self.health)];
         if self.is_golden {
             tokens.push("golden".to_string());
@@ -299,9 +299,9 @@ impl CombatPhaseReplay {
         (board_a, board_b, unsupported)
     }
 
-    /// Export this combat phase as a [`Scenario`] compatible with `combat_cli`.
-    pub fn to_scenario(&self, turn: u32) -> Scenario {
-        Scenario {
+    /// Export this combat phase as a [`Matchup`] compatible with `combat_cli`.
+    pub fn to_matchup(&self, turn: u32) -> Matchup {
+        Matchup {
             name: format!("replay_turn_{turn}_combat"),
             seed: 42,
             hero_tier_a: self.friendly_tier.max(1),
@@ -311,14 +311,12 @@ impl CombatPhaseReplay {
             deity_stats_a: None,
             deity_stats_b: None,
             defaults: Defaults::default(),
-            team_a: self.team_a.iter().map(|u| u.to_scenario_spec()).collect(),
-            team_b: self.team_b.iter().map(|u| u.to_scenario_spec()).collect(),
-            expect: None,
+            team_a: self.team_a.iter().map(|u| u.to_unit_spec()).collect(),
+            team_b: self.team_b.iter().map(|u| u.to_unit_spec()).collect(),
             batch: Some(Batch {
                 base_seed: 2026,
                 n: 10000,
             }),
-            expect_stats: None,
         }
     }
 }

@@ -359,7 +359,7 @@ impl PlayerAuras {
 }
 
 /// A minion on a board, in hand, or in Bob's shop, or a spell card in shop/hand.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Unit {
     pub id: UnitId,
     pub card_id: CardId,

@@ -1,9 +1,12 @@
 //! Structured combat event log (`docs/combat.md` §6).
 
+use serde::Serialize;
+
 use crate::model::{BattleOutcome, DeityKind, Side, UnitId};
 
 /// One ordered event in a single-battle replay log.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Event {
     BattleStart {
         seed: u64,

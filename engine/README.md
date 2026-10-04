@@ -18,7 +18,7 @@ The engine contains **only game rules and simulation**. All reinforcement learni
 3. **Speed**
    Combat runs in a tight loop over small boards ($\le 7$ units per side). A single battle takes microseconds, enabling thousands of Monte Carlo rollouts per second for RL equity evaluation.
 4. **Declarative Testing**
-   Mechanics and card interactions are verified through human-readable YAML scenario files under `tests/combat_scenarios/` and `tests/tavern_scenarios/`. Adding a test means adding a YAML file.
+   Mechanics and card interactions are verified through human-readable YAML scenarios under `tests/scenarios/`: one file per card (`minions/`, `spells/`) plus combat and Tavern topics (`docs/scenarios.md`). Adding a test means adding a scenario.
 
 ---
 
@@ -81,8 +81,11 @@ The PyO3 bindings provide a **marshalling-only** layer exposing the engine to Py
 ## Building & Testing
 
 ```bash
-# Run all unit tests and YAML scenario suites (no Python dependency required)
+# Run all tests, including the YAML scenario suite (no Python dependency required)
 cargo test
+
+# One card's scenarios (each scenario is its own test)
+cargo test -p seaglass --test scenarios -- minions::joyous::
 
 # Build release library + Python extension
 cargo build --release --features python

@@ -1,11 +1,13 @@
 //! Public simulation entry points: [`simulate`] and [`simulate_batch`].
 
+use serde::Serialize;
+
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{BattleOutcome, GameState, Unit};
 use crate::rng::Rng;
 
 /// Summary statistics for hero damage across a batch of battles.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct DamageStats {
     pub min: i32,
     pub max: i32,
@@ -13,7 +15,7 @@ pub struct DamageStats {
 }
 
 /// Aggregated outcome distribution across `battles` simulated fights.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct BattleDistribution {
     pub battles: u32,
     pub a_wins: u32,

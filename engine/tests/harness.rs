@@ -1,72 +1,12 @@
-//! Declarative YAML scenario harness and unit tests for `seaglass`.
-
-use std::fs;
-use std::path::{Path, PathBuf};
+//! Unit tests for `seaglass` (the YAML scenario suite runs from `tests/scenarios.rs`).
 
 use seaglass::cards::{minions, spells, tokens};
 use seaglass::{
-    catalog_for, full_catalog, parse_unit, run_scenario, run_tavern_scenario, simulate,
-    simulate_batch, tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, tier5_catalog,
-    tier6_catalog, tier7_catalog, BattleOutcome, CardPool, Defaults, DeityKind, Event, GameState,
-    Keyword, Rng, Scenario, Side, TavernAction, TavernScenario, TavernState, Tribe, Unit,
+    catalog_for, full_catalog, parse_unit, simulate, simulate_batch, tier1_catalog, tier2_catalog,
+    tier3_catalog, tier4_catalog, tier5_catalog, tier6_catalog, tier7_catalog, BattleOutcome,
+    CardPool, Defaults, DeityKind, Event, GameState, Keyword, Rng, Side, TavernAction, TavernState,
+    Tribe, Unit,
 };
-
-fn collect_yaml_files(dir: &Path) -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = fs::read_dir(dir)
-        .unwrap_or_else(|e| panic!("failed to read scenario dir {}: {e}", dir.display()))
-        .filter_map(|entry| {
-            let path = entry.ok()?.path();
-            let ext = path.extension()?.to_str()?;
-            if ext == "yaml" || ext == "yml" {
-                Some(path)
-            } else {
-                None
-            }
-        })
-        .collect();
-    files.sort();
-    files
-}
-
-#[test]
-fn run_all_combat_scenarios() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/combat_scenarios");
-    let files = collect_yaml_files(&dir);
-    assert!(
-        !files.is_empty(),
-        "expected at least one YAML file in {}",
-        dir.display()
-    );
-
-    for path in files {
-        let content = fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
-        let scenario: Scenario = serde_yaml::from_str(&content)
-            .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()));
-        run_scenario(&scenario)
-            .unwrap_or_else(|e| panic!("combat scenario {} failed: {e}", path.display()));
-    }
-}
-
-#[test]
-fn run_all_tavern_scenarios() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/tavern_scenarios");
-    let files = collect_yaml_files(&dir);
-    assert!(
-        !files.is_empty(),
-        "expected at least one YAML file in {}",
-        dir.display()
-    );
-
-    for path in files {
-        let content = fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
-        let scenario: TavernScenario = serde_yaml::from_str(&content)
-            .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()));
-        run_tavern_scenario(&scenario)
-            .unwrap_or_else(|e| panic!("tavern scenario {} failed: {e}", path.display()));
-    }
-}
 
 #[test]
 fn tier1_catalog_contains_all_21_live_solo_minions() {

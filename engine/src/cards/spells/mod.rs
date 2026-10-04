@@ -414,7 +414,7 @@ pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
 }
 
 /// Every spell card: the Tier 1-7 Tavern Spells, then the token spells not among them.
-fn all_spells() -> Vec<Unit> {
+pub fn all_spells() -> Vec<Unit> {
     let mut list = spells_up_to_tier(7);
     list.extend([
         tokens::make_blood_gem(),
