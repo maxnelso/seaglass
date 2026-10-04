@@ -232,8 +232,9 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
     for _ in 0..effect.stacks {
         let mut fodder = make_demon_fodder(false);
         state.apply_shop_auras(&mut fodder);
-        if state.auras.blood_gem_barrage_stacks > 0 {
-            fodder.play_blood_gems(2 * state.auras.blood_gem_barrage_stacks, &state.auras);
+        let gems = state.auras.refresh_blood_gems;
+        if gems > 0 {
+            fodder.play_blood_gems(gems, &state.auras);
         }
 
         let demon_indices: Vec<usize> = state

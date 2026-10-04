@@ -15,5 +15,7 @@ pub fn template() -> CardTemplate {
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     let stacks = if dying.is_golden { 2 } else { 1 };
-    ctx.auras.waveling_stacks += stacks;
+    for _ in 0..stacks {
+        ctx.auras.refresh_random_buffs.push((4, 4));
+    }
 }

@@ -136,25 +136,10 @@ pub fn after_combat(state: &mut TavernState, result: CombatResult) {
     );
 }
 
-/// Resolve `Waveling`, `Easterly Winds`, `En-Djinn Blazer`, and `Blood Gem Barrage` buffs on shop `Refresh`.
+/// Apply the player's generic `Refresh` auras to the new shop: buffs to a random minion
+/// (`refresh_random_buffs`, in the order they were gained), then Blood Gems on every minion
+/// (`refresh_blood_gems`).
 fn buff_refreshed_shop(state: &mut TavernState, rng: &mut Rng) {
-    for _ in 0..state.auras.waveling_stacks {
-        let minion_indices: Vec<usize> = state
-            .shop
-            .iter()
-            .enumerate()
-            .filter(|(_, u)| !u.is_spell)
-            .map(|(i, _)| i)
-            .collect();
-        if !minion_indices.is_empty() {
-            let idx = if minion_indices.len() == 1 {
-                minion_indices[0]
-            } else {
-                minion_indices[rng.below(minion_indices.len())]
-            };
-            state.shop[idx].add_stats(4, 4);
-        }
-    }
     let random_buffs = state.auras.refresh_random_buffs.clone();
     for (atk, hp) in random_buffs {
         let minion_indices: Vec<usize> = state
@@ -173,8 +158,8 @@ fn buff_refreshed_shop(state: &mut TavernState, rng: &mut Rng) {
             state.shop[idx].add_stats(atk, hp);
         }
     }
-    if state.auras.blood_gem_barrage_stacks > 0 {
-        let gems = 2 * state.auras.blood_gem_barrage_stacks;
+    let gems = state.auras.refresh_blood_gems;
+    if gems > 0 {
         for u in &mut state.shop {
             if !u.is_spell {
                 u.play_blood_gems(gems, &state.auras);

@@ -720,7 +720,7 @@ fn tier3_combat_mechanics_work_end_to_end() {
     assert_eq!(t_state.board[1].health, 6);
     // Tasty Lobster and Waveling died and incremented persistent aura stacks!
     assert_eq!(c_res.auras_a.counter(tier3::tasty_lobster::ID), 1);
-    assert_eq!(c_res.auras_a.waveling_stacks, 1);
+    assert_eq!(c_res.auras_a.refresh_random_buffs, vec![(4, 4)]);
 }
 
 #[test]
@@ -1114,12 +1114,14 @@ fn audit_regression_suite_covers_all_15_bugs() {
     state
         .board
         .push(tier3::malchezaar_prince_of_dance::template().instantiate());
-    state.auras.ashen_corruptor_turn_buff = 0;
+    state.auras.tavern_turn_atk = 0;
+    state.auras.tavern_turn_hp = 0;
     state.gold = 10;
     state
         .step(TavernAction::Refresh, &mut pool, &mut rng)
         .unwrap();
-    assert_eq!(state.auras.ashen_corruptor_turn_buff, 2);
+    assert_eq!(state.auras.tavern_turn_atk, 2);
+    assert_eq!(state.auras.tavern_turn_hp, 2);
     for u in state.shop.iter().filter(|u| !u.is_spell) {
         assert!(u.attack >= u.base_attack + 2);
         assert!(u.health >= u.base_health + 2);

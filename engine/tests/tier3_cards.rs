@@ -824,7 +824,7 @@ fn card_341_waveling() {
     state.board.push(tier3::waveling::template().instantiate()); // 5/1
     let opp = vec![Unit::new("Enemy", 5, 5)];
     state.resolve_combat_against(&opp, 1, &Default::default(), &[], 341);
-    assert_eq!(state.auras.waveling_stacks, 1);
+    assert_eq!(state.auras.refresh_random_buffs, vec![(4, 4)]);
     state
         .step(TavernAction::Refresh, &mut pool, &mut rng)
         .unwrap();

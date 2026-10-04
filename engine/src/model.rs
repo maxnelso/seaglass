@@ -224,8 +224,9 @@ pub struct PlayerAuras {
     /// Bonus Attack/Health applied to all minions in the Tavern (`Staff of Enrichment`).
     pub tavern_all_atk: i32,
     pub tavern_all_hp: i32,
-    /// Turn-scoped bonus Attack/Health applied to all minions in the Tavern (`Ashen Corruptor`).
-    pub ashen_corruptor_turn_buff: i32,
+    /// Bonus Attack/Health applied to all minions in the Tavern this turn (`Ashen Corruptor`).
+    pub tavern_turn_atk: i32,
+    pub tavern_turn_hp: i32,
     /// Bonus Attack applied to friendly Undead (`Nerubian Deathswarmer`).
     pub undead_bonus_attack: i32,
     /// Bonus Attack/Health added to Blood Gems (`Gem Day` / `Crater Miner` / `Fearless Foodie`).
@@ -234,8 +235,6 @@ pub struct PlayerAuras {
     /// Extra Attack/Health granted by Tavern spells that give stats (`Intrepid Botanist`, `Azsharan Cutlassier`, `Blue Whelp`, `Shoalfin Mystic`).
     pub spell_bonus_atk: i32,
     pub spell_bonus_hp: i32,
-    /// Number of `Waveling` Deathrattle stacks (each gives a random Tavern minion `+4/+4` on Refresh).
-    pub waveling_stacks: u32,
     /// Free shop Refreshes remaining (`Leaf Through the Pages` / `Sly Infiltrator`).
     pub free_refreshes: u32,
     /// Permanent bonus to maximum Gold (`Strike Oil`).
@@ -246,16 +245,18 @@ pub struct PlayerAuras {
     pub next_spell_discount: i32,
     /// Per-tribe Tavern shop buffs (`Eonar's Favor`).
     pub tavern_tribe_buffs: Vec<(Tribe, i32, i32)>,
-    /// Random single-minion Tavern shop buffs triggered on each `Refresh` (`Easterly Winds`, `En-Djinn Blazer`).
+    /// Buffs given to a random minion in the Tavern after each `Refresh`, in the order they were
+    /// gained (`Easterly Winds`, `En-Djinn Blazer`, `Waveling`).
     pub refresh_random_buffs: Vec<(i32, i32)>,
-    /// Stacks of `Blood Gem Barrage` (each stack plays 2 Blood Gems on every Tavern minion on `Refresh`).
-    pub blood_gem_barrage_stacks: u32,
+    /// Blood Gems played on every minion in the Tavern after each `Refresh` (`Blood Gem Barrage`).
+    pub refresh_blood_gems: u32,
     /// Total cards discarded from hand this game (`Parasitic Fleshling`).
     pub cards_discarded: u32,
     /// Total Golden minions played this game (`Maritime Extortionist`).
     pub golden_minions_played: u32,
-    /// True if the player's hero currently has 15 or less Health (`Holy Vanguard`).
-    pub hero_low_health: bool,
+    /// The hero's current Health, kept in sync by the Tavern (`None` outside of a game, e.g. in
+    /// standalone combats).
+    pub hero_health: Option<i32>,
     /// Currently applied board-aura contribution to `(spell_bonus_atk, spell_bonus_hp)` (`Enchanted Sentinel`, `Humon'gozz`).
     pub board_spell_bonus_applied: (i32, i32),
     /// Card ID of the last Tavern spell cast (`Cataclysmic Harbinger`).

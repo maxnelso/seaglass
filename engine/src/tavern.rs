@@ -498,15 +498,14 @@ impl TavernState {
         if self.auras.tavern_all_atk != 0 || self.auras.tavern_all_hp != 0 {
             unit.add_stats(self.auras.tavern_all_atk, self.auras.tavern_all_hp);
         }
-        if self.auras.ashen_corruptor_turn_buff != 0 {
-            let b = self.auras.ashen_corruptor_turn_buff;
-            unit.add_stats(b, b);
+        if self.auras.tavern_turn_atk != 0 || self.auras.tavern_turn_hp != 0 {
+            unit.add_stats(self.auras.tavern_turn_atk, self.auras.tavern_turn_hp);
         }
     }
 
     /// Synchronize all persistent "wherever they are" auras across `board`, `hand`, and `shop`.
     pub fn sync_all_auras(&mut self) {
-        self.auras.hero_low_health = self.health <= 15;
+        self.auras.hero_health = Some(self.health);
         cards::sync_board_spell_auras(&self.board, &mut self.auras);
         for u in &mut self.board {
             cards::sync_unit_auras(u, &self.auras);
@@ -745,13 +744,13 @@ impl TavernState {
         self.gold_spent_this_turn = 0;
         self.elementals_played_this_turn = 0;
         self.auras.expire_turn_effects();
-        let prev_ashen = self.auras.ashen_corruptor_turn_buff;
-        self.auras.ashen_corruptor_turn_buff = 0;
-        if prev_ashen != 0 && self.is_frozen {
+        let turn_atk = std::mem::take(&mut self.auras.tavern_turn_atk);
+        let turn_hp = std::mem::take(&mut self.auras.tavern_turn_hp);
+        if (turn_atk != 0 || turn_hp != 0) && self.is_frozen {
             for s in &mut self.shop {
                 if !s.is_spell {
-                    s.attack = (s.attack - prev_ashen).max(0);
-                    s.health = (s.health - prev_ashen).max(1);
+                    s.attack = (s.attack - turn_atk).max(0);
+                    s.health = (s.health - turn_hp).max(1);
                     s.max_attack = s.attack;
                     s.max_health = s.health;
                 }

@@ -15,7 +15,7 @@ pub fn template() -> CardTemplate {
 
 /// `+30/+30` (`+60/+60` if Golden) while the hero has 15 or less Health.
 pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
-    if auras.hero_low_health {
+    if auras.hero_health.is_some_and(|health| health <= 15) {
         (30 * unit.golden_mult(), 30 * unit.golden_mult())
     } else {
         (0, 0)

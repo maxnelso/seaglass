@@ -19,7 +19,8 @@ pub fn template() -> CardTemplate {
 /// in the Tavern get `+2/+2` (`+4/+4` if Golden) this turn instead.
 pub fn on_hero_damage(state: &mut TavernState, self_idx: usize, _amount: i32) {
     let buff = 2 * state.board[self_idx].golden_mult();
-    state.auras.ashen_corruptor_turn_buff += buff;
+    state.auras.tavern_turn_atk += buff;
+    state.auras.tavern_turn_hp += buff;
     for s in state.shop.iter_mut().filter(|s| !s.is_spell) {
         s.add_stats(buff, buff);
     }

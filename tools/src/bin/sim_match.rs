@@ -535,16 +535,16 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             diffs.push(format!("{label}: {b} -> {a}"));
         }
     }
-    if before.waveling_stacks != after.waveling_stacks {
+    if before.refresh_random_buffs != after.refresh_random_buffs {
         diffs.push(format!(
-            "waveling_stacks: {} -> {}",
-            before.waveling_stacks, after.waveling_stacks
+            "refresh_random_buffs: {:?} -> {:?}",
+            before.refresh_random_buffs, after.refresh_random_buffs
         ));
     }
-    if before.blood_gem_barrage_stacks != after.blood_gem_barrage_stacks {
+    if before.refresh_blood_gems != after.refresh_blood_gems {
         diffs.push(format!(
-            "blood_gem_barrage_stacks: {} -> {}",
-            before.blood_gem_barrage_stacks, after.blood_gem_barrage_stacks
+            "refresh_blood_gems: {} -> {}",
+            before.refresh_blood_gems, after.refresh_blood_gems
         ));
     }
     let fodder = tokens::fodder_per_refresh;

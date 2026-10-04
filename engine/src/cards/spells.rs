@@ -933,7 +933,7 @@ pub fn cast_spell(
                 state.gold += 2;
             }
             SPELL_BLOOD_GEM_BARRAGE => {
-                state.auras.blood_gem_barrage_stacks += 1;
+                state.auras.refresh_blood_gems += 2;
             }
             SPELL_BOON_OF_BEETLES => {
                 record_effect(state, SPELL_BOON_OF_BEETLES, 2, EffectDuration::Game);

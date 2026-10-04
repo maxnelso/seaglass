@@ -689,7 +689,7 @@ fn spell_831_blood_gem_barrage() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.blood_gem_barrage_stacks, 1);
+    assert_eq!(state.auras.refresh_blood_gems, 2);
     state
         .step(TavernAction::Refresh, &mut pool, &mut rng)
         .unwrap();
