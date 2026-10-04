@@ -498,7 +498,7 @@ fn card_526_hopebringer() {
     let enemy = Unit::new("Enemy", 1, 1);
     let res = simulate(&[shield_ally, hope], &[enemy], &GameState::default(), 526);
     // Start of Combat: gives +4/+3 -> Hope is 8/6, Shield is 6/5.
-    // Enemy hits Shield's Divine Shield -> Hopebringer gains +1 hopebringer_stacks!
+    // Enemy hits Shield's Divine Shield -> Hopebringer gains +1 stacks!
     let surv_hope = res
         .survivors_a
         .iter()
@@ -506,7 +506,7 @@ fn card_526_hopebringer() {
         .unwrap();
     assert_eq!(surv_hope.attack, 8);
     assert_eq!(surv_hope.health, 6);
-    assert_eq!(surv_hope.hopebringer_stacks, 1);
+    assert_eq!(surv_hope.stacks, 1);
 }
 
 #[test]
@@ -612,10 +612,10 @@ fn card_532_lurking_leviathan() {
             &mut rng,
         )
         .unwrap();
-    // Leviathan gives summoned Beast +3 Attack (4/4) and upgrades leviathan_stacks to 1!
+    // Leviathan gives summoned Beast +3 Attack (4/4) and upgrades stacks to 1!
     assert_eq!(state.board[1].attack, 4);
     assert_eq!(state.board[1].health, 4);
-    assert_eq!(state.board[0].leviathan_stacks, 1);
+    assert_eq!(state.board[0].stacks, 1);
 }
 
 #[test]

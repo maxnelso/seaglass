@@ -18,6 +18,6 @@ pub fn on_friendly_summon(unit: &mut Unit, summoned: &mut Unit, _in_combat: bool
         return;
     }
     let base = if unit.is_golden { 6 } else { 3 };
-    summoned.add_stats(base * (1 + unit.leviathan_stacks as i32), 0);
-    unit.leviathan_stacks += 1;
+    summoned.add_stats(base * (1 + unit.stacks), 0);
+    unit.stacks += 1;
 }

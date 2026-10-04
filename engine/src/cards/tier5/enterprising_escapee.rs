@@ -23,9 +23,9 @@ pub fn on_gold_spent(
     rng: &mut Rng,
 ) {
     let escapee = &mut state.board[self_idx];
-    escapee.gunpowder_gold_progress += amount;
-    let triggers = escapee.gunpowder_gold_progress / 6;
-    escapee.gunpowder_gold_progress %= 6;
+    escapee.counter += amount as i32;
+    let triggers = escapee.counter / 6;
+    escapee.counter %= 6;
     let reduction = escapee.golden_mult() as u32;
     for _ in 0..triggers {
         if let Some(lockbox) = state

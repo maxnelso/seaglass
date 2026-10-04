@@ -13,12 +13,12 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Magicfin Mycologist", 4, 8, 6)
         .with_tribe(Tribe::Murloc)
         .on_reset_turn_charges(reset_turn_charges)
-        .on_made_golden(|u| u.mycologist_charges_left += 1)
+        .on_made_golden(|u| u.charges += 1)
         .on_after_buy(after_buy)
 }
 
 pub fn reset_turn_charges(unit: &mut Unit) {
-    unit.mycologist_charges_left = if unit.is_golden { 2 } else { 1 };
+    unit.charges = if unit.is_golden { 2 } else { 1 };
 }
 
 pub fn after_buy(
@@ -32,10 +32,10 @@ pub fn after_buy(
         return;
     }
     let mycologist = &mut state.board[self_idx];
-    if mycologist.mycologist_charges_left == 0 {
+    if mycologist.charges == 0 {
         return;
     }
-    mycologist.mycologist_charges_left -= 1;
+    mycologist.charges -= 1;
     state.add_to_hand(tokens::make_magicfin_apprentice(bought.card_id));
 }
 

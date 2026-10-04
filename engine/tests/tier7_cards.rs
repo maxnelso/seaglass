@@ -282,7 +282,7 @@ fn card_711_stone_age_slab() {
         .board
         .push(tier7::stone_age_slab::template().instantiate()); // 10/10 Elemental
     state.start_turn(&mut pool, &mut rng);
-    assert_eq!(state.board[0].slab_charges_left, 1);
+    assert_eq!(state.board[0].charges, 1);
 
     state.shop.clear();
     state
@@ -292,7 +292,7 @@ fn card_711_stone_age_slab() {
         .step(TavernAction::Buy { shop_index: 0 }, &mut pool, &mut rng)
         .unwrap();
     // Buying Cord Puller (1/1) gave it +20/+20 (21/21) and doubled its stats -> 42/42!
-    assert_eq!(state.board[0].slab_charges_left, 0);
+    assert_eq!(state.board[0].charges, 0);
     assert_eq!(state.hand[0].attack, 42);
     assert_eq!(state.hand[0].health, 42);
 }

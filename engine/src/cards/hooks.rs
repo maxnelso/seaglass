@@ -39,6 +39,10 @@ impl CardFlags {
     pub const REWINDS_HERO_DAMAGE: CardFlags = CardFlags(1 << 5);
     /// A Choose-One option card (as opposed to a Discover-style option such as a Hero Power).
     pub const CHOOSE_ONE_OPTION: CardFlags = CardFlags(1 << 6);
+    /// While this has `charges` left, a Refresh costs 1 Health instead of Gold, using a charge.
+    pub const HEALTH_REFRESHES: CardFlags = CardFlags(1 << 7);
+    /// While this has `charges` left, a Choose One has both effects combined, using a charge.
+    pub const COMBINES_CHOOSE_ONE: CardFlags = CardFlags(1 << 8);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -201,6 +205,8 @@ card_hooks! {
     play_or_magnetize(on_play_or_magnetize): fn(&mut TavernState, &mut Unit),
     /// Extra state carried over when this card is Magnetized onto `target`: `(card, target)`.
     magnetize_transfer(on_magnetize_transfer): fn(&Unit, &mut Unit),
+    /// Extra times the next Magnetization onto this unit happens (consuming what queued them).
+    extra_magnetizations(on_extra_magnetizations): fn(&mut Unit) -> u32,
     /// This card was sold.
     sell(on_sell): CardEventFn,
     /// `Activate` ability (see also `activate_cost` / `activate_target`).

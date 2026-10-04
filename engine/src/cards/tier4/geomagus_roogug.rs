@@ -18,13 +18,13 @@ pub fn template() -> CardTemplate {
 
 pub fn on_blood_gems_played(unit: &mut Unit, count: u32) {
     let mult = if unit.is_golden { 2 } else { 1 };
-    unit.pending_roogug_gems += count * mult;
+    unit.pending += count * mult;
 }
 
 /// Play this unit's queued Blood Gem procs on a different random friendly minion (preferring
 /// non-Roogug minions). Procs never chain: the recipient's own queue is left untouched.
 pub fn resolve_procs(board: &mut [Unit], self_idx: usize, auras: &PlayerAuras, rng: &mut Rng) {
-    let gem_count = std::mem::take(&mut board[self_idx].pending_roogug_gems);
+    let gem_count = std::mem::take(&mut board[self_idx].pending);
     if gem_count == 0 || board.len() <= 1 {
         return;
     }
@@ -41,7 +41,7 @@ pub fn resolve_procs(board: &mut [Unit], self_idx: usize, auras: &PlayerAuras, r
     } else {
         pool[rng.below(pool.len())]
     };
-    let queued = board[pick].pending_roogug_gems;
+    let queued = board[pick].pending;
     board[pick].play_blood_gems(gem_count, auras);
-    board[pick].pending_roogug_gems = queued;
+    board[pick].pending = queued;
 }

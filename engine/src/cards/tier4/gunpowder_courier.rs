@@ -23,9 +23,9 @@ pub fn on_gold_spent(
     _: &mut Rng,
 ) {
     let courier = &mut state.board[self_idx];
-    courier.gunpowder_gold_progress += amount;
-    let procs = (courier.gunpowder_gold_progress / 5) as i32 * courier.golden_mult();
-    courier.gunpowder_gold_progress %= 5;
+    courier.counter += amount as i32;
+    let procs = courier.counter / 5 * courier.golden_mult();
+    courier.counter %= 5;
     if procs == 0 {
         return;
     }

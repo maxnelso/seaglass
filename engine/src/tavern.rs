@@ -617,7 +617,8 @@ impl TavernState {
     }
 
     /// Resolve a Choose-One prompt (`opt0` vs `opt1`).
-    /// If `fandral_combined` is active or a friendly `Thorned Trailblazer` has charges remaining, applies both options immediately.
+    /// If `fandral_combined` is active or a friendly minion with [`CardFlags::COMBINES_CHOOSE_ONE`]
+    /// has charges left (using one), applies both options immediately.
     pub fn resolve_choose_one(
         &mut self,
         opt0: Unit,
@@ -625,18 +626,9 @@ impl TavernState {
         pool: &mut CardPool,
         rng: &mut Rng,
     ) {
-        let combined = if self.fandral_combined_active || opt0.fandral_combined {
-            true
-        } else if let Some(tb) = self
-            .board
-            .iter_mut()
-            .find(|u| u.trailblazer_charges_left > 0)
-        {
-            tb.trailblazer_charges_left -= 1;
-            true
-        } else {
-            false
-        };
+        let combined = self.fandral_combined_active
+            || opt0.fandral_combined
+            || cards::use_charge(&mut self.board, CardFlags::COMBINES_CHOOSE_ONE);
 
         if combined {
             if self.defer_combined_choose_one {
@@ -674,9 +666,10 @@ impl TavernState {
             .filter(|&pos| pos < self.board.len())
     }
 
-    /// Check whether a friendly minion (`Malchezaar, Prince of Dance`) can pay Health for a `Refresh`.
+    /// Check whether the next `Refresh` can cost Health instead of Gold: a friendly minion with
+    /// [`CardFlags::HEALTH_REFRESHES`] has charges left and the hero can pay.
     pub fn has_health_refresh(&self) -> bool {
-        self.board.iter().any(|u| u.malchezaar_refreshes_left > 0)
+        cards::has_charge(&self.board, CardFlags::HEALTH_REFRESHES)
             && (self.health + self.armor > 1 || cards::board_prevents_hero_damage(&self.board))
     }
 
@@ -1469,13 +1462,7 @@ impl TavernState {
                 if self.auras.free_refreshes > 0 {
                     self.auras.free_refreshes -= 1;
                 } else if self.has_health_refresh() {
-                    if let Some(m) = self
-                        .board
-                        .iter_mut()
-                        .find(|u| u.malchezaar_refreshes_left > 0)
-                    {
-                        m.malchezaar_refreshes_left -= 1;
-                    }
+                    cards::use_charge(&mut self.board, CardFlags::HEALTH_REFRESHES);
                     self.deal_hero_damage(1);
                 } else {
                     self.spend_gold(1, pool, rng);
@@ -1704,7 +1691,8 @@ impl TavernState {
         golden.stealth = copies.iter().any(|u| u.stealth);
         golden.magnetic = copies.iter().any(|u| u.magnetic);
         golden.threshold_triggered = copies.iter().any(|u| u.threshold_triggered);
-        golden.scout_tier = copies.iter().map(|u| u.scout_tier).max().unwrap_or(1);
+        golden.counter = copies.iter().map(|u| u.counter).max().unwrap_or(0);
+        golden.stacks = copies.iter().map(|u| u.stacks).sum();
         golden.eot_health_bonus = copies.iter().map(|u| u.eot_health_bonus).sum();
         golden.sot_gold_bonus = copies.iter().map(|u| u.sot_gold_bonus).sum();
         cards::init_unit_turn_charges(&mut golden);
@@ -1716,30 +1704,9 @@ impl TavernState {
             golden.spell_atk_aura += atk;
             golden.spell_hp_aura += hp;
         }
-        golden.wrathguard_bonus = copies.iter().map(|u| u.wrathguard_bonus).sum();
         golden.perm_atk_gained = copies.iter().map(|u| u.perm_atk_gained).sum();
         golden.perm_hp_gained = copies.iter().map(|u| u.perm_hp_gained).sum();
         golden.perm_blood_gems_gained = copies.iter().map(|u| u.perm_blood_gems_gained).sum();
-        golden.hopebringer_stacks = copies.iter().map(|u| u.hopebringer_stacks).sum();
-        golden.leviathan_stacks = copies.iter().map(|u| u.leviathan_stacks).sum();
-        golden.spark_snapper_stacks = copies.iter().map(|u| u.spark_snapper_stacks).sum();
-        golden.auto_reveille_buys = copies
-            .iter()
-            .map(|u| u.auto_reveille_buys)
-            .max()
-            .unwrap_or(0);
-        golden.eredar_damage_progress = copies
-            .iter()
-            .map(|u| u.eredar_damage_progress)
-            .max()
-            .unwrap_or(0);
-        golden.aphlass_stacks = copies.iter().map(|u| u.aphlass_stacks).sum();
-        golden.ultraviolet_stacks = copies.iter().map(|u| u.ultraviolet_stacks).sum();
-        golden.unbound_tempest_progress = copies
-            .iter()
-            .map(|u| u.unbound_tempest_progress)
-            .max()
-            .unwrap_or(0);
         golden.magnetizations_count = copies.iter().map(|u| u.magnetizations_count).sum();
         golden.blood_gems_played = copies.iter().map(|u| u.blood_gems_played).sum();
         golden.blood_gem_stats_applied = (

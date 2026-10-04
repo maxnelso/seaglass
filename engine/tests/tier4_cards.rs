@@ -940,7 +940,7 @@ fn card_450_sacrificial_wrathguard() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.board[0].wrathguard_bonus, 2);
+    assert_eq!(state.board[0].stacks, 2);
     run_combat(&mut state, &[Unit::new("Killer", 10, 10)], 450);
     // Base +2/+2 + improved +2/+2 = +4/+4 to Tavern minions!
     assert_eq!(state.auras.tavern_all_atk, 4);

@@ -23,9 +23,9 @@ pub fn on_gold_spent(
     rng: &mut Rng,
 ) {
     let revenant = &mut state.board[self_idx];
-    revenant.gunpowder_gold_progress += amount;
-    let casts = revenant.gunpowder_gold_progress / 7 * revenant.golden_mult() as u32;
-    revenant.gunpowder_gold_progress %= 7;
+    revenant.counter += amount as i32;
+    let casts = revenant.counter / 7 * revenant.golden_mult();
+    revenant.counter %= 7;
     for _ in 0..casts {
         state.auras.spells_played += 1;
         let spell = spells::spell_by_name("Easterly Winds")

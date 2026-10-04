@@ -28,7 +28,7 @@ pub fn after_friendly_play(
     _: &mut Rng,
 ) {
     if !played.magnetized && played.tribe.matches(Tribe::Elemental) {
-        state.board[self_idx].ultraviolet_stacks += 1;
+        state.board[self_idx].stacks += 1;
     }
 }
 
@@ -42,7 +42,7 @@ pub fn on_start_of_combat(
     let Some(src) = board.iter().find(|u| u.id == source_id && u.health > 0) else {
         return;
     };
-    let mult = (1 + src.ultraviolet_stacks as i32) * (if is_golden { 2 } else { 1 });
+    let mult = (1 + src.stacks) * (if is_golden { 2 } else { 1 });
     let buff = 3 * mult;
     for u in board.iter_mut() {
         if u.health > 0 && u.id != source_id && u.tribe.matches(Tribe::Elemental) {

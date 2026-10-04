@@ -928,7 +928,8 @@ fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAction
                     | tier2::snow_baller::ID
                     | tier4::air_baller::ID
                     | tier4::snarky_shark::ID
-            ) || (u.card_id == tier2::patient_scout::ID && u.scout_tier >= 3)
+            ) || (u.card_id == tier2::patient_scout::ID
+                && tier2::patient_scout::discover_tier(u) >= 3)
                 || (u.card_id == tier3::greedy_conniver::ID && u.is_golden)
         }) {
             let sell_act = TavernAction::Sell { board_pos: pos };

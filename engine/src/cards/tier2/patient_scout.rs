@@ -16,15 +16,21 @@ pub fn template() -> CardTemplate {
         .on_turn_start_unit(on_start_turn)
 }
 
+/// Improves each turn: `counter` counts the improvements (see [`discover_tier`]).
 pub fn on_start_turn(unit: &mut Unit) {
-    if unit.scout_tier < 6 {
-        unit.scout_tier += 1;
+    if unit.counter < 5 {
+        unit.counter += 1;
     }
+}
+
+/// Tier of the minions this Discovers when sold (`1..=6`; starts at 1, +1 each turn).
+pub fn discover_tier(unit: &Unit) -> u32 {
+    (1 + unit.counter).clamp(1, 6) as u32
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     let count = if sold.is_golden { 2 } else { 1 };
-    let target_tier = sold.scout_tier.clamp(1, 6);
+    let target_tier = discover_tier(sold);
     for _ in 0..count {
         let mut opts = Vec::new();
         for t in (1..=target_tier).rev() {

@@ -21,13 +21,13 @@ pub fn template() -> CardTemplate {
 pub fn on_activate(state: &mut TavernState, source_pos: usize) {
     if source_pos < state.board.len() {
         let bonus = if state.board[source_pos].is_golden { 4 } else { 2 };
-        state.board[source_pos].wrathguard_bonus += bonus;
+        state.board[source_pos].stacks += bonus;
     }
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     let base = if dying.is_golden { 4 } else { 2 };
-    let buff = base + dying.wrathguard_bonus;
+    let buff = base + dying.stacks;
     ctx.auras.tavern_all_atk += buff;
     ctx.auras.tavern_all_hp += buff;
 }

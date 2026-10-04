@@ -15,12 +15,13 @@ pub fn template() -> CardTemplate {
         .with_keyword(Keyword::DivineShield)
         .with_activate_cost(ACTIVATE_COST)
         .on_activate(|state, source_pos, _, _, _| on_activate(state, source_pos))
-        .on_reset_turn_charges(|u| u.extra_magnetize_this_turn = 0)
+        .on_reset_turn_charges(|u| u.charges = 0)
+        .on_extra_magnetizations(|u| std::mem::take(&mut u.charges))
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize) {
     if source_pos < state.board.len() {
         let extra = if state.board[source_pos].is_golden { 2 } else { 1 };
-        state.board[source_pos].extra_magnetize_this_turn += extra;
+        state.board[source_pos].charges += extra;
     }
 }

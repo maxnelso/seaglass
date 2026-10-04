@@ -515,14 +515,14 @@ fn card_323_malchezaar_prince_of_dance() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.board[0].malchezaar_refreshes_left, 2);
+    assert_eq!(state.board[0].charges, 2);
     state.gold = 0;
     let pre_hp = state.health;
     state
         .step(TavernAction::Refresh, &mut pool, &mut rng)
         .unwrap();
     assert_eq!(state.health, pre_hp - 1);
-    assert_eq!(state.board[0].malchezaar_refreshes_left, 1);
+    assert_eq!(state.board[0].charges, 1);
 }
 
 #[test]
@@ -728,7 +728,7 @@ fn card_334_thorned_trailblazer() {
     // Both options of Sly Infiltrator fired automatically!
     assert_eq!(state.auras.free_refreshes, 2);
     assert_eq!(state.hand.len(), 3);
-    assert_eq!(state.board[0].trailblazer_charges_left, 0);
+    assert_eq!(state.board[0].charges, 0);
 }
 
 #[test]

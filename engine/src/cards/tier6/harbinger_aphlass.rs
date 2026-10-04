@@ -22,8 +22,8 @@ pub fn after_friendly_discard(
     _: &mut Rng,
 ) {
     let aphlass = &mut state.board[self_idx];
-    let mult = (1 + aphlass.aphlass_stacks as i32) * aphlass.golden_mult();
-    aphlass.aphlass_stacks += 1;
+    let mult = (1 + aphlass.stacks) * aphlass.golden_mult();
+    aphlass.stacks += 1;
     state.auras.deity.attack += 2 * mult;
     state.auras.deity.health += mult;
 }

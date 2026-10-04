@@ -17,8 +17,8 @@ pub fn template() -> CardTemplate {
 
 pub fn on_damage_dealt(ctx: &mut BoardCtx<'_>, self_idx: usize, amount: i32) {
     let unit = &mut ctx.board[self_idx];
-    unit.damage_dealt_counter += amount;
-    if unit.threshold_triggered || unit.damage_dealt_counter < DAMAGE_THRESHOLD {
+    unit.counter += amount;
+    if unit.threshold_triggered || unit.counter < DAMAGE_THRESHOLD {
         return;
     }
     unit.threshold_triggered = true;
@@ -30,7 +30,7 @@ pub fn on_damage_dealt(ctx: &mut BoardCtx<'_>, self_idx: usize, amount: i32) {
 /// The damage counted in combat carries over to the Tavern copy.
 pub fn on_post_combat(pre_combat: &Unit, post_combat_units: &[Unit], tavern_unit: &mut Unit) {
     if let Some(post) = post_combat_units.iter().find(|u| u.id == pre_combat.id) {
-        tavern_unit.damage_dealt_counter = post.damage_dealt_counter;
+        tavern_unit.counter = post.counter;
         tavern_unit.threshold_triggered = post.threshold_triggered;
     }
 }

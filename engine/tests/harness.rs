@@ -891,7 +891,7 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
         .unwrap();
     assert_eq!(state.health, pre_hp); // Rewound by Soul Rewinder!
     assert_eq!(state.board[0].health, 4); // Soul Rewinder gained +1 Health (3 -> 4)!
-    assert_eq!(state.board[1].malchezaar_refreshes_left, 1);
+    assert_eq!(state.board[1].charges, 1);
 }
 
 #[test]

@@ -29,8 +29,8 @@ pub fn after_friendly_play(
         return;
     }
     let snapper = &mut state.board[self_idx];
-    let mult = (1 + snapper.spark_snapper_stacks as i32) * (if snapper.is_golden { 2 } else { 1 });
-    snapper.spark_snapper_stacks += 1;
+    let mult = (1 + snapper.stacks) * (if snapper.is_golden { 2 } else { 1 });
+    snapper.stacks += 1;
     let mut satellite = tokens::make_satellite(false);
     satellite.attack = 2 * mult;
     satellite.health = 3 * mult;

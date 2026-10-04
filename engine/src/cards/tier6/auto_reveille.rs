@@ -23,9 +23,9 @@ pub fn after_buy(
     rng: &mut Rng,
 ) {
     let reveille = &mut state.board[self_idx];
-    reveille.auto_reveille_buys += 1;
-    let procs = reveille.auto_reveille_buys / 3;
-    reveille.auto_reveille_buys %= 3;
+    reveille.counter += 1;
+    let procs = reveille.counter / 3;
+    reveille.counter %= 3;
     let copies = if reveille.is_golden { 2 } else { 1 };
     for _ in 0..procs {
         let mut vol = tier4::conveyor_construct::draw_random_volumizer(rng);

@@ -19,10 +19,10 @@ pub fn after_hero_damage(state: &mut TavernState, self_idx: usize, amount: i32) 
         return;
     }
     let eredar = &mut state.board[self_idx];
-    eredar.eredar_damage_progress += amount;
+    eredar.counter += amount;
     let mut cupcakes = 0;
-    while eredar.eredar_damage_progress >= 4 {
-        eredar.eredar_damage_progress -= 4;
+    while eredar.counter >= 4 {
+        eredar.counter -= 4;
         cupcakes += eredar.golden_mult();
     }
     for _ in 0..cupcakes {

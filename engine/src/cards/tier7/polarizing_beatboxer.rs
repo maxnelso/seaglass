@@ -31,7 +31,7 @@ pub fn after_friendly_magnetize(
     } else {
         1
     };
-    let extra = 1 + std::mem::take(&mut state.board[self_idx].extra_magnetize_this_turn);
+    let extra = 1 + cards::extra_magnetizations(&mut state.board[self_idx]);
     for _ in 0..base * extra {
         cards::apply_magnetization(state, card, self_idx, pool, rng);
     }

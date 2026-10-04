@@ -14,7 +14,7 @@ pub fn template() -> CardTemplate {
         .on_start_of_combat(|c, id, is_golden| {
             on_start_of_combat(c.side, c.board, id, is_golden, c.events)
         })
-        .on_friendly_divine_shield_lost(|unit| unit.hopebringer_stacks += 1)
+        .on_friendly_divine_shield_lost(|unit| unit.stacks += 1)
 }
 
 pub fn on_start_of_combat(
@@ -27,11 +27,11 @@ pub fn on_start_of_combat(
     let Some(stacks) = board
         .iter()
         .find(|u| u.id == source_id && u.health > 0)
-        .map(|u| u.hopebringer_stacks)
+        .map(|u| u.stacks)
     else {
         return;
     };
-    let mult = (1 + stacks as i32) * (if is_golden { 2 } else { 1 });
+    let mult = (1 + stacks) * (if is_golden { 2 } else { 1 });
     let d_atk = 4 * mult;
     let d_hp = 3 * mult;
     for u in board.iter_mut() {

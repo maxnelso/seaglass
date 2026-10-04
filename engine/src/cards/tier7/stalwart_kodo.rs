@@ -18,14 +18,14 @@ pub fn template() -> CardTemplate {
 
 /// Three summon triggers per combat.
 pub fn reset_charges(unit: &mut Unit) {
-    unit.kodo_triggers_left = 3;
+    unit.charges = 3;
 }
 
 pub fn on_friendly_summon(unit: &mut Unit, summoned: &mut Unit, in_combat: bool) {
-    if !in_combat || unit.kodo_triggers_left == 0 {
+    if !in_combat || unit.charges == 0 {
         return;
     }
-    unit.kodo_triggers_left -= 1;
+    unit.charges -= 1;
     let mult = if unit.is_golden { 2 } else { 1 };
     summoned.add_stats(unit.max_attack.max(0) * mult, unit.max_health.max(0) * mult);
 }

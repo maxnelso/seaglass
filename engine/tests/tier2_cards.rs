@@ -449,9 +449,9 @@ fn card_221_patient_scout() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.board[0].scout_tier, 1);
+    assert_eq!(tier2::patient_scout::discover_tier(&state.board[0]), 1);
     state.start_turn(&mut pool, &mut rng);
-    assert_eq!(state.board[0].scout_tier, 2);
+    assert_eq!(tier2::patient_scout::discover_tier(&state.board[0]), 2);
     state
         .step(TavernAction::Sell { board_pos: 0 }, &mut pool, &mut rng)
         .unwrap();

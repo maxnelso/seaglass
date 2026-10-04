@@ -32,9 +32,9 @@ pub fn after_friendly_play(
         .max_by_key(|u| (u.health, u.attack))
         .map(|u| (u.attack.max(0), u.health.max(0)));
     let tempest = &mut state.board[self_idx];
-    tempest.unbound_tempest_progress += 1;
-    while tempest.unbound_tempest_progress >= 4 {
-        tempest.unbound_tempest_progress -= 4;
+    tempest.counter += 1;
+    while tempest.counter >= 4 {
+        tempest.counter -= 4;
         if let Some((atk, hp)) = best_shop {
             let mult = if tempest.is_golden { 2 } else { 1 };
             tempest.add_stats(atk * mult, hp * mult);

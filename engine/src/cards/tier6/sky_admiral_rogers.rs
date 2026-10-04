@@ -23,10 +23,10 @@ pub fn on_gold_spent(
     rng: &mut Rng,
 ) {
     let rogers = &mut state.board[self_idx];
-    rogers.gunpowder_gold_progress += amount;
+    rogers.counter += amount as i32;
     let mut bounties = 0;
-    while rogers.gunpowder_gold_progress >= 9 {
-        rogers.gunpowder_gold_progress -= 9;
+    while rogers.counter >= 9 {
+        rogers.counter -= 9;
         bounties += rogers.golden_mult();
     }
     for _ in 0..bounties {

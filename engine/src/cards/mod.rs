@@ -362,6 +362,29 @@ pub fn init_unit_turn_charges(unit: &mut Unit) {
     }
 }
 
+/// Board index of the first (left-most) minion whose card has `flag` and that has `charges`
+/// left.
+fn charged_unit(board: &[Unit], flag: CardFlags) -> Option<usize> {
+    board
+        .iter()
+        .position(|u| u.charges > 0 && hooks(u.card_id).has(flag))
+}
+
+/// `true` if a minion on `board` whose card has `flag` has `charges` left.
+pub fn has_charge(board: &[Unit], flag: CardFlags) -> bool {
+    charged_unit(board, flag).is_some()
+}
+
+/// Use a charge of the first (left-most) minion on `board` whose card has `flag` and that has
+/// `charges` left (`false` if there is none).
+pub fn use_charge(board: &mut [Unit], flag: CardFlags) -> bool {
+    let Some(i) = charged_unit(board, flag) else {
+        return false;
+    };
+    board[i].charges -= 1;
+    true
+}
+
 /// Set `unit`'s board-aura spell bonus from its card's `spell_aura` (doubled when Golden).
 pub fn init_spell_aura(unit: &mut Unit) {
     set_spell_aura(unit, hooks(unit.card_id).spell_aura);
@@ -876,6 +899,14 @@ pub fn on_magnetize_transfer(source: &Unit, target: &mut Unit) {
     }
 }
 
+/// Extra times the next Magnetization onto `unit` happens, consuming what its card queued (its
+/// `extra_magnetizations` hook; 0 if none).
+pub fn extra_magnetizations(unit: &mut Unit) -> u32 {
+    hooks(unit.card_id)
+        .extra_magnetizations
+        .map_or(0, |f| f(unit))
+}
+
 /// Magnetize `card` onto `state.board[target_pos]` once: the target gains its stats, keywords,
 /// and carried state, then `after_friendly_play` observers see the Magnetization.
 pub fn apply_magnetization(
@@ -917,7 +948,7 @@ pub fn magnetize(
 ) {
     on_first_play_or_magnetize(state, card);
     let card: &Unit = card;
-    let repeats = 1 + std::mem::take(&mut state.board[target_pos].extra_magnetize_this_turn);
+    let repeats = 1 + extra_magnetizations(&mut state.board[target_pos]);
     for _ in 0..repeats {
         apply_magnetization(state, card, target_pos, pool, rng);
         notify_tavern(
@@ -1599,7 +1630,7 @@ pub fn keep_combat_gains(pre: &Unit, post: &Unit, tavern_unit: &mut Unit, mult: 
 
 /// Apply post-combat persistence from a combat unit back to its Tavern counterpart: the card's
 /// own `post_combat` hook, combat gains kept through its neighbours'
-/// `post_combat_neighbor_mult` hooks, then permanent gains and carried-over counters.
+/// `post_combat_neighbor_mult` hooks, then permanent gains and improvements (`stacks`).
 pub fn on_post_combat_unit(
     pre_board: &[Unit],
     idx: usize,
@@ -1635,6 +1666,5 @@ pub fn on_post_combat_unit(
         tavern_unit.blood_gem_stats_applied.0 += post.perm_atk_gained;
         tavern_unit.blood_gem_stats_applied.1 += post.perm_hp_gained;
     }
-    tavern_unit.hopebringer_stacks = post.hopebringer_stacks;
-    tavern_unit.leviathan_stacks = post.leviathan_stacks;
+    tavern_unit.stacks = post.stacks;
 }

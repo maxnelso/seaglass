@@ -22,11 +22,11 @@ pub fn after_spell_cast(
     rng: &mut Rng,
 ) {
     let felboar = &mut state.board[self_idx];
-    felboar.felboar_spell_progress += 1;
-    if felboar.felboar_spell_progress < 3 {
+    felboar.counter += 1;
+    if felboar.counter < 3 {
         return;
     }
-    felboar.felboar_spell_progress -= 3;
+    felboar.counter -= 3;
     let mult = felboar.golden_mult();
     let shop_minions: Vec<usize> = state
         .shop

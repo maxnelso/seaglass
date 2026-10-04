@@ -351,7 +351,7 @@ fn card_616_magicfin_mycologist() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.board[0].mycologist_charges_left, 1);
+    assert_eq!(state.board[0].charges, 1);
 
     // Put Azerite Empowerment (+2/+2 twice to all) in shop and buy it -> Mycologist gives a 1/1 Magicfin Apprentice taught that spell!
     state
@@ -588,7 +588,7 @@ fn card_627_ultraviolet_ascendant() {
         )
         .unwrap();
     // Playing Dune Dweller upgrades Ultraviolet Ascendant to 1 stack (+6/+6)!
-    assert_eq!(state.board[0].ultraviolet_stacks, 1);
+    assert_eq!(state.board[0].stacks, 1);
 
     let res = simulate(
         &state.board,
