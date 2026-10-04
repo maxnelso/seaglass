@@ -15,6 +15,7 @@ pub fn template() -> CardTemplate {
         .with_keyword(Keyword::DivineShield)
         .with_activate_cost(ACTIVATE_COST)
         .on_activate(|state, source_pos, _, _, _| on_activate(state, source_pos))
+        .on_reset_turn_charges(|u| u.extra_magnetize_this_turn = 0)
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize) {

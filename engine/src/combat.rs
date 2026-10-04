@@ -113,7 +113,6 @@ impl SideCombatState {
             &mut self.board,
             &self.auras,
             self.combat_beast_bonus_atk,
-            token.id,
             token,
         );
     }
@@ -1380,57 +1379,11 @@ fn resolve_deaths(
         }
 
         // 2. Reborn resummon
-        if unit.reborn && side_state.board.len() < MAX_BOARD_SIZE {
-            let mut reborn_copy = cards::make_reborn_copy(&unit, &side_state.auras);
-            reborn_copy.id = *next_id;
-            *next_id += 1;
-            if reborn_copy.tribe.matches(Tribe::Beast) {
-                if side_state.auras.goldrinn_bonus != 0 {
-                    reborn_copy.add_stats(
-                        side_state.auras.goldrinn_bonus,
-                        side_state.auras.goldrinn_bonus,
-                    );
-                }
-                if side_state.combat_beast_bonus_atk != 0 {
-                    reborn_copy.add_stats(side_state.combat_beast_bonus_atk, 0);
-                }
-            }
-            cards::tier5::lurking_leviathan::on_beast_summoned_combat(
-                &mut side_state.board,
-                reborn_copy.id,
-                &mut reborn_copy,
-            );
-            cards::tier4::banana_slamma::on_beast_summoned(
-                &side_state.board,
-                reborn_copy.id,
-                &mut reborn_copy,
-            );
-            cards::tier7::stalwart_kodo::on_minion_summoned_in_combat(
-                &mut side_state.board,
-                reborn_copy.id,
-                &mut reborn_copy,
-            );
-            reborn_copy.sync_max_stats();
-            cards::check_stat_thresholds(&mut reborn_copy);
-            let reborn_atk = reborn_copy.attack;
-            events.push(Event::UnitSummoned {
-                side,
-                source: unit.id,
-                unit: reborn_copy.id,
-                name: reborn_copy.name.clone(),
-                attack: reborn_copy.attack,
-                health: reborn_copy.health,
-                reason: "Reborn",
-            });
-            side_state.board.insert(cursor, reborn_copy);
-            cursor += 1;
-            cards::tier5::barrier_banshee::on_friendly_reborn(side, &mut side_state.board, events);
-            cards::tier6::snazzy_phantom::on_friendly_reborn(
-                side,
-                &mut side_state.board,
-                reborn_atk,
-                events,
-            );
+        if unit.reborn {
+            let mut ctx = side_state.ctx(side, next_id, rng, events);
+            ctx.cursor = cursor;
+            cards::reborn(&mut ctx, &unit);
+            cursor = ctx.cursor;
         }
     }
 
@@ -1449,7 +1402,6 @@ fn resolve_deaths(
             &mut side_state.board,
             &side_state.auras,
             side_state.combat_beast_bonus_atk,
-            deity_unit.id,
             &mut deity_unit,
         );
         let deity_id = deity_unit.id;

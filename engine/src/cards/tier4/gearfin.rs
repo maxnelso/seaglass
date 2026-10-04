@@ -16,7 +16,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, rng: &mut Rng) {
-    let count = if state.board[self_idx].is_golden { 4 } else { 2 };
+    let count = if state.board[self_idx].is_golden {
+        4
+    } else {
+        2
+    };
     for _ in 0..count {
         if state.hand.len() >= 10 {
             break;

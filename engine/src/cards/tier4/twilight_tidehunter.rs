@@ -4,19 +4,28 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 458;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Twilight Tidehunter", 4, 6, 4).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, "Twilight Tidehunter", 4, 6, 4)
+        .with_tribe(Tribe::Murloc)
+        .on_after_targeted_spell(after_targeted_spell)
 }
 
-pub fn after_cast_targeted_spell(state: &mut TavernState, target_pos: usize) {
-    if target_pos >= state.board.len() || state.board[target_pos].card_id != ID {
+pub fn after_targeted_spell(
+    state: &mut TavernState,
+    self_idx: usize,
+    target_pos: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    if self_idx != target_pos {
         return;
     }
-    let buff = if state.board[target_pos].is_golden { 16 } else { 8 };
+    let buff = 8 * state.board[self_idx].golden_mult();
     if let Some(h) = state.hand.iter_mut().find(|u| !u.is_spell) {
         h.add_stats(buff, buff);
     }

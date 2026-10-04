@@ -16,7 +16,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, pool: &mut CardPool, rng: &mut Rng) {
-    let max_discards = if state.board[self_idx].is_golden { 6 } else { 3 };
+    let max_discards = if state.board[self_idx].is_golden {
+        6
+    } else {
+        3
+    };
     let mut discarded_count = 0i32;
     for _ in 0..max_discards {
         let Some(h_idx) = state

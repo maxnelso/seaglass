@@ -46,13 +46,7 @@ pub fn on_friendly_death(
         }
         knight.id = *next_id;
         *next_id += 1;
-        apply_combat_summon_modifiers(
-            surviving_board,
-            auras,
-            combat_beast_bonus_atk,
-            knight.id,
-            &mut knight,
-        );
+        apply_combat_summon_modifiers(surviving_board, auras, combat_beast_bonus_atk, &mut knight);
         let kid = knight.id;
         events.push(Event::UnitSummoned {
             side,

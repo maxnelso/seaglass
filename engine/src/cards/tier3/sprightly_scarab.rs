@@ -2,9 +2,7 @@
 //! **Choose One -** Give a Beast `+1/+1` (`+2/+2` if Golden) and **Reborn**;
 //! or `+4` (`+8` if Golden) Attack and **Windfury**.
 
-use crate::cards::tokens::{
-    make_choice_option, CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY,
-};
+use crate::cards::tokens::{make_choice_option, CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY};
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;

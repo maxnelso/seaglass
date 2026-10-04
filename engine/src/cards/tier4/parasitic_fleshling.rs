@@ -5,8 +5,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 444;
 
@@ -17,7 +17,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
-    let mult = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let mult = if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
     let buff = (2 + state.auras.cards_discarded as i32) * mult;
     state.board[0].add_stats(buff, buff);
 }

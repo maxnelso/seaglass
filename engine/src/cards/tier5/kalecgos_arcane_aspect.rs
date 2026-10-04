@@ -9,24 +9,29 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 528;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Kalecgos, Arcane Aspect", 4, 12, 5).with_tribe(Tribe::Dragon)
+    CardTemplate::new(ID, "Kalecgos, Arcane Aspect", 4, 12, 5)
+        .with_tribe(Tribe::Dragon)
+        .on_after_friendly_battlecry(after_friendly_battlecry)
 }
 
-pub fn after_battlecry_triggered(state: &mut TavernState, played_unit: &mut Unit) {
-    let mut buff = 0i32;
-    for u in &state.board {
-        if u.card_id == ID {
-            buff += if u.is_golden { 4 } else { 2 };
+/// After a friendly Battlecry triggers: buff every friendly Dragon, including the played minion
+/// if it is not on the board yet.
+pub fn after_friendly_battlecry(
+    state: &mut TavernState,
+    self_idx: usize,
+    played: Option<&mut Unit>,
+) {
+    let buff = if state.board[self_idx].is_golden {
+        4
+    } else {
+        2
+    };
+    for u in &mut state.board {
+        if u.tribe.matches(Tribe::Dragon) {
+            u.add_stats(buff, buff);
         }
     }
-    if buff > 0 {
-        for u in &mut state.board {
-            if u.tribe.matches(Tribe::Dragon) {
-                u.add_stats(buff, buff);
-            }
-        }
-        if played_unit.tribe.matches(Tribe::Dragon) {
-            played_unit.add_stats(buff, buff);
-        }
+    if let Some(played) = played.filter(|u| u.tribe.matches(Tribe::Dragon)) {
+        played.add_stats(buff, buff);
     }
 }

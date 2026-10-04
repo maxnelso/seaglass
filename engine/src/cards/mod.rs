@@ -85,9 +85,20 @@ pub type DeathrattleContext<'a> = BoardCtx<'a>;
 impl<'a> BoardCtx<'a> {
     /// Summon `token` at the current board position (`self.cursor`) if the board has space
     /// (`< MAX_BOARD_SIZE`), applying all active summon modifiers.
-    pub fn summon(&mut self, source_id: UnitId, mut token: Unit) {
+    pub fn summon(&mut self, source_id: UnitId, token: Unit) {
+        self.summon_as(source_id, token, "Deathrattle");
+    }
+
+    /// [`summon`](Self::summon), logging the summon with `reason`. Returns the summoned unit's
+    /// board slot, or `None` if the board was full.
+    pub fn summon_as(
+        &mut self,
+        source_id: UnitId,
+        mut token: Unit,
+        reason: &'static str,
+    ) -> Option<usize> {
         if self.board.len() >= MAX_BOARD_SIZE {
-            return;
+            return None;
         }
         token.id = *self.next_id;
         *self.next_id += 1;
@@ -96,7 +107,6 @@ impl<'a> BoardCtx<'a> {
                 self.board,
                 self.auras,
                 *self.beast_bonus_atk,
-                token.id,
                 &mut token,
             );
         } else {
@@ -111,14 +121,15 @@ impl<'a> BoardCtx<'a> {
             name: token.name.clone(),
             attack: token.attack,
             health: token.health,
-            reason: "Deathrattle",
+            reason,
         });
-        let pos = self.cursor;
+        let pos = self.cursor.min(self.board.len());
         self.board.insert(pos, token);
-        self.cursor += 1;
+        self.cursor = pos + 1;
         if !self.in_combat {
             on_tavern_summon(self.board, pos);
         }
+        Some(pos)
     }
 
     /// Buff `self.board[board_idx]` by `(atk_delta, hp_delta)` and emit a `StatBuff` event.
@@ -340,14 +351,11 @@ impl CardTemplate {
     }
 }
 
-/// Initialize or reset per-turn charges on `unit` (the card's `reset_turn_charges` hook plus
-/// generic per-turn counters).
+/// Initialize or reset per-turn charges on `unit` (the card's `reset_turn_charges` hook).
 pub fn init_unit_turn_charges(unit: &mut Unit) {
     if let Some(f) = hooks(unit.card_id).reset_turn_charges {
         f(unit);
     }
-    unit.extra_magnetize_this_turn = 0;
-    unit.living_prison_stacks = 0;
 }
 
 /// Set `unit`'s board-aura spell bonus from its card's `spell_aura` (doubled when Golden).
@@ -570,10 +578,41 @@ fn notify_tavern<F>(
     }
 }
 
+/// Invoke the observer hook selected by `get` for every friendly unit on `ctx.board` carrying
+/// it, left to right. Observers are snapshotted up front and re-located before each call: by unit
+/// id in combat (where only living units observe), by slot in the Tavern.
+fn notify_board<'a, F>(
+    ctx: &mut BoardCtx<'a>,
+    get: impl Fn(&CardHooks) -> Option<F>,
+    mut call: impl FnMut(&mut BoardCtx<'a>, usize, F),
+) {
+    let snapshot: Vec<(usize, UnitId, CardId, F)> = ctx
+        .board
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, u)| get(hooks(u.card_id)).map(|f| (idx, u.id, u.card_id, f)))
+        .collect();
+    for (idx, id, card_id, f) in snapshot {
+        let pos = if ctx.in_combat {
+            ctx.board.iter().position(|u| u.id == id && u.health > 0)
+        } else {
+            ctx.board
+                .get(idx)
+                .filter(|u| u.card_id == card_id)
+                .map(|_| idx)
+        };
+        if let Some(pos) = pos {
+            call(ctx, pos, f);
+        }
+    }
+}
+
 /// Combined value of `passive` across `board`: the largest contribution (at least 1) for
 /// multipliers, the sum of contributions otherwise (see [`Passive`]).
 pub fn board_passive(board: &[Unit], passive: Passive) -> u32 {
-    let values = board.iter().map(|u| hooks(u.card_id).passive_of(u, passive));
+    let values = board
+        .iter()
+        .map(|u| hooks(u.card_id).passive_of(u, passive));
     if passive.is_multiplier() {
         values.fold(1, u32::max)
     } else {
@@ -668,15 +707,17 @@ pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
 
 /// Apply friendly-summon observers to the minion just summoned at `board[pos]` in the Tavern.
 pub fn on_tavern_summon(board: &mut [Unit], pos: usize) {
-    tier5::lurking_leviathan::on_beast_summoned_tavern(board, pos);
+    let mut summoned = board[pos].clone();
+    notify_friendly_summon(board, Some(pos), &mut summoned, false);
+    board[pos] = summoned;
 }
 
-/// Apply all combat summon modifiers (persistent auras, `Goldrinn`, `Humming Bird`, `Lurking Leviathan`, `Banana Slamma`, stat thresholds) to a newly summoned unit.
+/// Apply all combat summon modifiers (persistent auras, `Goldrinn`, the combat Beast bonus,
+/// `friendly_summon` observers, stat thresholds) to `token` before it joins `board`.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],
     auras: &PlayerAuras,
     combat_beast_bonus_atk: i32,
-    summoned_id: UnitId,
     token: &mut Unit,
 ) {
     sync_unit_auras(token, auras);
@@ -688,14 +729,49 @@ pub fn apply_combat_summon_modifiers(
             token.add_stats(combat_beast_bonus_atk, 0);
         }
     }
-    tier5::lurking_leviathan::on_beast_summoned_combat(board, summoned_id, token);
-    tier4::banana_slamma::on_beast_summoned(board, summoned_id, token);
-    tier7::stalwart_kodo::on_minion_summoned_in_combat(board, summoned_id, token);
+    notify_friendly_summon(board, None, token, true);
     token.sync_max_stats();
     check_stat_thresholds(token);
 }
 
-/// Apply on-play Battlecry / Choose-One when `unit` is played from `hand` onto `board` at `board_pos`.
+/// Let friendly units react to `summoned` joining `board` (`friendly_summon` hooks, left to
+/// right). `skip` is the summoned unit's own slot if it is already on the board; in combat only
+/// living units observe.
+fn notify_friendly_summon(
+    board: &mut [Unit],
+    skip: Option<usize>,
+    summoned: &mut Unit,
+    in_combat: bool,
+) {
+    for (idx, unit) in board.iter_mut().enumerate() {
+        if Some(idx) == skip || (in_combat && (unit.health <= 0 || unit.id == summoned.id)) {
+            continue;
+        }
+        if let Some(friendly_summon) = hooks(unit.card_id).friendly_summon {
+            friendly_summon(unit, summoned, in_combat);
+        }
+    }
+}
+
+/// Resummon `dying` with Reborn at `ctx.cursor` (if the board has room), then notify
+/// `after_friendly_reborn` observers. Returns `true` if the copy was summoned.
+pub fn reborn(ctx: &mut BoardCtx<'_>, dying: &Unit) -> bool {
+    let copy = make_reborn_copy(dying, ctx.auras);
+    let Some(pos) = ctx.summon_as(dying.id, copy, "Reborn") else {
+        return false;
+    };
+    let reborn_attack = ctx.board[pos].attack;
+    notify_board(
+        ctx,
+        |h| h.after_friendly_reborn,
+        |c, idx, f| f(c, idx, reborn_attack),
+    );
+    true
+}
+
+/// Apply on-play Battlecry / Choose-One when `unit` is played from `hand` onto `board` at
+/// `board_pos`. Battlecries repeat per [`Passive::BattlecryTriggers`], each followed by the
+/// `after_friendly_battlecry` observers.
 pub fn on_play_battlecry(
     state: &mut TavernState,
     unit: &mut Unit,
@@ -705,10 +781,14 @@ pub fn on_play_battlecry(
 ) {
     let card = hooks(unit.card_id);
     if let Some(battlecry) = card.battlecry {
-        let repeats = tier5::brann_bronzebeard::battlecry_multiplier(&state.board);
+        let repeats = board_passive(&state.board, Passive::BattlecryTriggers);
         for _ in 0..repeats {
             battlecry(state, unit, board_pos, pool, rng);
-            tier5::kalecgos_arcane_aspect::after_battlecry_triggered(state, unit);
+            notify_tavern(
+                state,
+                |h| h.after_friendly_battlecry,
+                |s, idx, f| f(s, idx, Some(&mut *unit)),
+            );
         }
     } else if let Some(choose_one) = card.choose_one {
         choose_one(state, unit, board_pos, pool, rng);
@@ -729,14 +809,17 @@ pub fn trigger_board_battlecry(
     else {
         return;
     };
-    let repeats = tier5::brann_bronzebeard::battlecry_multiplier(&state.board);
+    let repeats = board_passive(&state.board, Passive::BattlecryTriggers);
     let mut unit = state.board[board_pos].clone();
     let old_atk = unit.attack;
     let old_hp = unit.health;
     for _ in 0..repeats {
         battlecry(state, &mut unit, board_pos, pool, rng);
-        let mut dummy = Unit::new("", 0, 0);
-        tier5::kalecgos_arcane_aspect::after_battlecry_triggered(state, &mut dummy);
+        notify_tavern(
+            state,
+            |h| h.after_friendly_battlecry,
+            |s, idx, f| f(s, idx, None),
+        );
     }
     if board_pos < state.board.len() && state.board[board_pos].card_id == unit.card_id {
         let d_atk = unit.attack - old_atk;
@@ -777,32 +860,85 @@ pub fn on_magnetize_transfer(source: &Unit, target: &mut Unit) {
     }
 }
 
-/// Apply board-wide observers after a minion is played (`was_magnetized = false`) or Magnetized (`was_magnetized = true`).
-pub fn after_play_minion(
+/// Magnetize `card` onto `state.board[target_pos]` once: the target gains its stats, keywords,
+/// and carried state, then `after_friendly_play` observers see the Magnetization.
+pub fn apply_magnetization(
     state: &mut TavernState,
-    _played_card_id: CardId,
-    played_tribe: Tribe,
-    board_pos: usize,
-    was_magnetized: bool,
+    card: &Unit,
+    target_pos: usize,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if !was_magnetized {
-        tier1::wrath_weaver::after_play_minion(state, played_tribe, board_pos);
-        tier4::bream_counter::after_play_minion(state, played_tribe);
-        tier4::ichoron_the_protector::after_play_minion(state, played_tribe, board_pos);
-        tier5::insatiable_urzul::after_play_minion(state, played_tribe, board_pos, pool, rng);
-        tier5::spark_snapper::after_play_mech(state, played_tribe, board_pos, false);
-        tier5::lurking_leviathan::on_beast_summoned_tavern(&mut state.board, board_pos);
-        tier6::ultraviolet_ascendant::after_play_minion(state, played_tribe, board_pos);
-        tier6::unbound_tempest::after_play_minion(state, played_tribe, board_pos);
+    let target = &mut state.board[target_pos];
+    target.add_stats(card.attack, card.health);
+    target.taunt |= card.taunt;
+    target.divine_shield |= card.divine_shield;
+    target.inherent_divine_shield |= card.inherent_divine_shield;
+    target.windfury |= card.windfury;
+    target.reborn |= card.reborn;
+    target.venomous |= card.venomous;
+    target.stealth |= card.stealth;
+    target.magnetic |= card.magnetic;
+    on_magnetize_transfer(card, target);
+    let played = Played {
+        card_id: card.card_id,
+        tribe: card.tribe,
+        board_pos: target_pos,
+        magnetized: true,
+    };
+    after_play_minion(state, &played, pool, rng);
+}
+
+/// Magnetize `card` (from outside the board) onto `state.board[target_pos]`: its first
+/// play-or-Magnetize trigger, then one application per Magnetization queued on the target, each
+/// followed by the `after_friendly_magnetize` observers.
+pub fn magnetize(
+    state: &mut TavernState,
+    card: &mut Unit,
+    target_pos: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    on_first_play_or_magnetize(state, card);
+    let card: &Unit = card;
+    let repeats = 1 + std::mem::take(&mut state.board[target_pos].extra_magnetize_this_turn);
+    for _ in 0..repeats {
+        apply_magnetization(state, card, target_pos, pool, rng);
+        notify_tavern(
+            state,
+            |h| h.after_friendly_magnetize,
+            |s, idx, f| f(s, idx, card, target_pos, pool, rng),
+        );
     }
-    tier2::mechagnome_interpreter::after_play_or_magnetize_mech(
+}
+
+/// Apply board-wide observers after a minion is played (and thereby summoned) or Magnetized onto
+/// `state.board[played.board_pos]`: summon observers (plays only), `after_friendly_play`
+/// observers left to right (a played minion does not observe its own play), hand observers,
+/// then a board spell-aura resync.
+pub fn after_play_minion(
+    state: &mut TavernState,
+    played: &Played,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if !played.magnetized && played.board_pos < state.board.len() {
+        on_tavern_summon(&mut state.board, played.board_pos);
+    }
+    notify_tavern(
         state,
-        played_tribe,
-        board_pos,
-        was_magnetized,
+        |h| h.after_friendly_play,
+        |s, idx, f| {
+            if played.magnetized || idx != played.board_pos {
+                f(s, idx, played, pool, rng);
+            }
+        },
     );
+    for unit in &mut state.hand {
+        if let Some(after_play_in_hand) = hooks(unit.card_id).after_friendly_play_in_hand {
+            after_play_in_hand(unit, played);
+        }
+    }
     sync_board_spell_auras(&state.board, &mut state.auras);
 }
 
@@ -863,13 +999,23 @@ pub fn on_cast_tavern_spell(state: &mut TavernState) {
     tier7::sha_of_fear::on_cast_tavern_spell(state);
 }
 
-/// Apply board-wide observers when a targeted spell is cast on `board[target_pos]` (`Glambot`, `Twilight Tidehunter`, `Devilish Distractor`, `Shamanic Tidecaller`, `Gatekeeper Amalgam`).
-pub fn after_cast_targeted_spell(state: &mut TavernState, target_pos: usize, rng: &mut Rng) {
-    tier4::glambot::after_cast_targeted_spell(state, target_pos);
-    tier4::twilight_tidehunter::after_cast_targeted_spell(state, target_pos);
-    tier5::devilish_distractor::after_cast_targeted_spell(state, target_pos);
-    tier5::shamanic_tidecaller::after_cast_targeted_spell(state, target_pos);
-    tier6::gatekeeper_amalgam::after_cast_targeted_spell(state, target_pos, rng);
+/// Apply `after_targeted_spell` observers (left to right) after a spell targeted
+/// `state.board[target_pos]`.
+pub fn after_cast_targeted_spell(
+    state: &mut TavernState,
+    target_pos: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    notify_tavern(
+        state,
+        |h| h.after_targeted_spell,
+        |s, idx, f| {
+            if target_pos < s.board.len() {
+                f(s, idx, target_pos, pool, rng);
+            }
+        },
+    );
 }
 
 /// Apply board-wide observers after any spell is cast (`Felboar`).
@@ -895,12 +1041,23 @@ pub fn on_gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, 
     tier6::sky_admiral_rogers::on_gold_spent(state, amount, rng);
 }
 
-/// Apply board-wide observers after buying a card from the shop (`Magicfin Mycologist`, `Auto Reveille`).
-pub fn after_buy_card(state: &mut TavernState, bought: &Unit, rng: &mut Rng) {
-    if bought.is_spell {
-        tier6::magicfin_mycologist::after_buy_spell(state, bought.card_id);
-    }
-    tier6::auto_reveille::after_buy_card(state, rng);
+/// Apply `minion_bought` observers (left to right) to a minion being bought, before it reaches
+/// the hand.
+pub fn on_minion_bought(state: &mut TavernState, bought: &mut Unit) {
+    notify_tavern(
+        state,
+        |h| h.minion_bought,
+        |s, idx, f| f(s, idx, &mut *bought),
+    );
+}
+
+/// Apply `after_buy` observers (left to right) after buying a card from the shop.
+pub fn after_buy_card(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    notify_tavern(
+        state,
+        |h| h.after_buy,
+        |s, idx, f| f(s, idx, bought, pool, rng),
+    );
 }
 
 /// Apply board-wide observers after Discovering a card (`Hooktusk, Master Marauder`).
@@ -1027,7 +1184,7 @@ pub fn summon_boon_of_beetles(
         let mut beetle = tokens::make_beetle(false, auras).with_keyword(Keyword::Taunt);
         beetle.id = *next_id;
         *next_id += 1;
-        apply_combat_summon_modifiers(board, auras, combat_beast_bonus_atk, beetle.id, &mut beetle);
+        apply_combat_summon_modifiers(board, auras, combat_beast_bonus_atk, &mut beetle);
         events.push(Event::UnitSummoned {
             side,
             source: beetle.id,

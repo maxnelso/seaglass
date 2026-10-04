@@ -3,10 +3,11 @@
 //! Start of Combat: Give your other Elementals `+3/+3` (`+6/+6` if Golden).
 //! (Improves after you play an Elemental!)
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Played};
 use crate::events::Event;
 use crate::model::{CardId, Side, Tribe, Unit, UnitId};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 627;
 
@@ -16,16 +17,18 @@ pub fn template() -> CardTemplate {
         .on_start_of_combat(|c, id, is_golden| {
             on_start_of_combat(c.side, c.board, id, is_golden, c.events)
         })
+        .on_after_friendly_play(after_friendly_play)
 }
 
-pub fn after_play_minion(state: &mut TavernState, played_tribe: Tribe, board_pos: usize) {
-    if !played_tribe.matches(Tribe::Elemental) {
-        return;
-    }
-    for (idx, u) in state.board.iter_mut().enumerate() {
-        if u.card_id == ID && idx != board_pos {
-            u.ultraviolet_stacks += 1;
-        }
+pub fn after_friendly_play(
+    state: &mut TavernState,
+    self_idx: usize,
+    played: &Played,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    if !played.magnetized && played.tribe.matches(Tribe::Elemental) {
+        state.board[self_idx].ultraviolet_stacks += 1;
     }
 }
 

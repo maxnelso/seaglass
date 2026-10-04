@@ -4,7 +4,7 @@
 //! (`3` times per combat.)
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Tribe, Unit, UnitId};
+use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 709;
 
@@ -13,6 +13,7 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Beast)
         .on_reset_turn_charges(reset_charges)
         .on_combat_start(reset_charges)
+        .on_friendly_summon(on_friendly_summon)
 }
 
 /// Three summon triggers per combat.
@@ -20,18 +21,11 @@ pub fn reset_charges(unit: &mut Unit) {
     unit.kodo_triggers_left = 3;
 }
 
-pub fn on_minion_summoned_in_combat(
-    board: &mut [Unit],
-    summoned_id: UnitId,
-    token: &mut Unit,
-) {
-    for u in board.iter_mut() {
-        if u.health > 0 && u.id != summoned_id && u.card_id == ID && u.kodo_triggers_left > 0 {
-            u.kodo_triggers_left -= 1;
-            let mult = if u.is_golden { 2 } else { 1 };
-            let atk = u.max_attack.max(0) * mult;
-            let hp = u.max_health.max(0) * mult;
-            token.add_stats(atk, hp);
-        }
+pub fn on_friendly_summon(unit: &mut Unit, summoned: &mut Unit, in_combat: bool) {
+    if !in_combat || unit.kodo_triggers_left == 0 {
+        return;
     }
+    unit.kodo_triggers_left -= 1;
+    let mult = if unit.is_golden { 2 } else { 1 };
+    summoned.add_stats(unit.max_attack.max(0) * mult, unit.max_health.max(0) * mult);
 }

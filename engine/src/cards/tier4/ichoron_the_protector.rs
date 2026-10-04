@@ -2,9 +2,10 @@
 //!
 //! Divine Shield. Whenever you play an Elemental, give it Divine Shield until next turn (`permanently` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Played};
 use crate::model::{CardId, Keyword, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 433;
 
@@ -12,28 +13,29 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Ichoron the Protector", 3, 1, 4)
         .with_tribe(Tribe::Elemental)
         .with_keyword(Keyword::DivineShield)
+        .on_after_friendly_play(after_friendly_play)
 }
 
-pub fn after_play_minion(state: &mut TavernState, played_tribe: Tribe, board_pos: usize) {
-    if !played_tribe.matches(Tribe::Elemental) || board_pos >= state.board.len() {
+pub fn after_friendly_play(
+    state: &mut TavernState,
+    self_idx: usize,
+    played: &Played,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    if played.magnetized
+        || !played.tribe.matches(Tribe::Elemental)
+        || played.board_pos >= state.board.len()
+    {
         return;
     }
-    let mut has_normal = false;
-    let mut has_golden = false;
-    for (idx, u) in state.board.iter().enumerate() {
-        if idx != board_pos && u.card_id == ID {
-            if u.is_golden {
-                has_golden = true;
-            } else {
-                has_normal = true;
-            }
-        }
-    }
-    if has_golden {
-        state.board[board_pos].divine_shield = true;
-        state.board[board_pos].temp_divine_shield = false;
-    } else if has_normal && !state.board[board_pos].divine_shield {
-        state.board[board_pos].divine_shield = true;
-        state.board[board_pos].temp_divine_shield = true;
+    let permanent = state.board[self_idx].is_golden;
+    let target = &mut state.board[played.board_pos];
+    if permanent {
+        target.divine_shield = true;
+        target.temp_divine_shield = false;
+    } else if !target.divine_shield {
+        target.divine_shield = true;
+        target.temp_divine_shield = true;
     }
 }

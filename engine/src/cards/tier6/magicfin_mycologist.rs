@@ -14,26 +14,29 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Murloc)
         .on_reset_turn_charges(reset_turn_charges)
         .on_made_golden(|u| u.mycologist_charges_left += 1)
+        .on_after_buy(after_buy)
 }
 
 pub fn reset_turn_charges(unit: &mut Unit) {
     unit.mycologist_charges_left = if unit.is_golden { 2 } else { 1 };
 }
 
-pub fn after_buy_spell(state: &mut TavernState, spell_id: CardId) {
-    if !spells::is_tavern_spell(spell_id) {
+pub fn after_buy(
+    state: &mut TavernState,
+    self_idx: usize,
+    bought: &Unit,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    if !bought.is_spell || !spells::is_tavern_spell(bought.card_id) {
         return;
     }
-    let mut triggers = 0u32;
-    for u in &mut state.board {
-        if u.card_id == ID && u.mycologist_charges_left > 0 {
-            u.mycologist_charges_left -= 1;
-            triggers += 1;
-        }
+    let mycologist = &mut state.board[self_idx];
+    if mycologist.mycologist_charges_left == 0 {
+        return;
     }
-    for _ in 0..triggers {
-        state.add_to_hand(tokens::make_magicfin_apprentice(spell_id));
-    }
+    mycologist.mycologist_charges_left -= 1;
+    state.add_to_hand(tokens::make_magicfin_apprentice(bought.card_id));
 }
 
 pub fn on_apprentice_battlecry(

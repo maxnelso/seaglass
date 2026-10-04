@@ -653,6 +653,15 @@ impl Unit {
             self.max_health = self.health;
         }
     }
+
+    /// The usual Golden effect multiplier: `2` if this unit is Golden, else `1`.
+    pub fn golden_mult(&self) -> i32 {
+        if self.is_golden {
+            2
+        } else {
+            1
+        }
+    }
 }
 
 /// Which side of a battle a unit or hero belongs to.

@@ -4,8 +4,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 520;
 
@@ -16,7 +16,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
-    let bonus = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let bonus = if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
     state.auras.spell_bonus_atk += bonus;
     state.auras.spell_bonus_hp += bonus;
 }

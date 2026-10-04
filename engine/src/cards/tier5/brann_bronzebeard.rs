@@ -2,21 +2,20 @@
 //!
 //! Your Battlecries trigger twice (`three times` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};
 
 pub const ID: CardId = 504;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Brann Bronzebeard", 2, 4, 5)
+    CardTemplate::new(ID, "Brann Bronzebeard", 2, 4, 5).with_passive(passive)
 }
 
-pub fn battlecry_multiplier(board: &[Unit]) -> u32 {
-    let mut mult = 1u32;
-    for u in board {
-        if u.card_id == ID {
-            mult = mult.max(if u.is_golden { 3 } else { 2 });
-        }
+/// Battlecries trigger twice (three times if Golden).
+pub fn passive(unit: &Unit, passive: Passive) -> u32 {
+    match (passive, unit.is_golden) {
+        (Passive::BattlecryTriggers, true) => 3,
+        (Passive::BattlecryTriggers, false) => 2,
+        _ => 0,
     }
-    mult
 }

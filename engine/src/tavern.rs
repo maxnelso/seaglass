@@ -9,7 +9,7 @@ use crate::cards::tokens::{
     CHOICE_SLY_REFRESHES, CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER,
     CHOICE_TIME_MGMT_NOW,
 };
-use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate};
+use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
     BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit,
@@ -565,7 +565,7 @@ impl TavernState {
         for _ in 0..dr_repeats {
             cards::on_deathrattle(&dying, &mut dr_ctx);
         }
-        let cursor = dr_ctx.cursor;
+        let reborn = dying.reborn && cards::reborn(&mut dr_ctx, &dying);
 
         let d_tavern_atk = self.auras.tavern_all_atk - old_tavern_all.0;
         let d_tavern_hp = self.auras.tavern_all_hp - old_tavern_all.1;
@@ -577,25 +577,8 @@ impl TavernState {
             }
         }
 
-        if dying.reborn && self.board.len() < MAX_BOARD_SIZE {
-            let reborn_copy = cards::make_reborn_copy(&dying, &self.auras);
-            let cid = reborn_copy.card_id;
-            let reborn_atk = reborn_copy.attack;
-            let insert_pos = cursor.min(self.board.len());
-            self.board.insert(insert_pos, reborn_copy);
-            cards::on_tavern_summon(&mut self.board, insert_pos);
-            cards::tier5::barrier_banshee::on_friendly_reborn(
-                Side::A,
-                &mut self.board,
-                &mut events,
-            );
-            cards::tier6::snazzy_phantom::on_friendly_reborn(
-                Side::A,
-                &mut self.board,
-                reborn_atk,
-                &mut events,
-            );
-            self.check_and_resolve_triple(cid);
+        if reborn {
+            self.check_and_resolve_triple(dying.card_id);
         }
 
         self.open_ready_lockboxes(rng);
@@ -1684,20 +1667,13 @@ impl TavernState {
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                 } else {
                     self.spend_gold(3, pool, rng);
-                    for b in &mut self.board {
-                        if b.living_prison_stacks > 0 {
-                            let mult = b.living_prison_stacks as i32;
-                            b.living_prison_stacks = 0;
-                            b.add_stats(unit.attack * mult, unit.health * mult);
-                        }
-                    }
-                    cards::tier7::stone_age_slab::on_buy_minion(self, &mut unit);
+                    cards::on_minion_bought(self, &mut unit);
                     let cid = unit.card_id;
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
                 }
-                cards::after_buy_card(self, &bought_snapshot, rng);
+                cards::after_buy_card(self, &bought_snapshot, pool, rng);
                 Ok(false)
             }
             TavernAction::Play {
@@ -1752,34 +1728,7 @@ impl TavernState {
                     && board_pos < self.board.len()
                     && self.board[board_pos].tribe.matches(card.tribe)
                 {
-                    cards::on_first_play_or_magnetize(self, &mut card);
-                    let repeats = 1 + self.board[board_pos].extra_magnetize_this_turn;
-                    self.board[board_pos].extra_magnetize_this_turn = 0;
-                    for _ in 0..repeats {
-                        let target = &mut self.board[board_pos];
-                        target.add_stats(card.attack, card.health);
-                        target.taunt |= card.taunt;
-                        target.divine_shield |= card.divine_shield;
-                        target.inherent_divine_shield |= card.inherent_divine_shield;
-                        target.windfury |= card.windfury;
-                        target.reborn |= card.reborn;
-                        target.venomous |= card.venomous;
-                        target.stealth |= card.stealth;
-                        target.magnetic |= card.magnetic;
-                        cards::on_magnetize_transfer(&card, target);
-                        cards::after_play_minion(
-                            self,
-                            played_card_id,
-                            played_tribe,
-                            board_pos,
-                            true,
-                            pool,
-                            rng,
-                        );
-                        cards::tier7::polarizing_beatboxer::after_magnetize_to_minion(
-                            self, &card, board_pos,
-                        );
-                    }
+                    cards::magnetize(self, &mut card, board_pos, pool, rng);
                     pool.return_unit(&card);
                 } else {
                     cards::on_first_play_or_magnetize(self, &mut card);
@@ -1791,15 +1740,13 @@ impl TavernState {
                     let insert_idx = board_pos.min(self.board.len());
                     self.board.insert(insert_idx, card);
                     self.flush_combined_choices(pool, rng);
-                    cards::after_play_minion(
-                        self,
-                        played_card_id,
-                        played_tribe,
-                        insert_idx,
-                        false,
-                        pool,
-                        rng,
-                    );
+                    let played = Played {
+                        card_id: played_card_id,
+                        tribe: played_tribe,
+                        board_pos: insert_idx,
+                        magnetized: false,
+                    };
+                    cards::after_play_minion(self, &played, pool, rng);
                     if should_die_on_play
                         && insert_idx < self.board.len()
                         && self.board[insert_idx].dies_on_play_this_turn

@@ -8,8 +8,7 @@ use crate::model::{CardId, Unit};
 pub const ID: CardId = 512;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Drakkari Enchanter", 1, 5, 5)
-        .with_passive(passive)
+    CardTemplate::new(ID, "Drakkari Enchanter", 1, 5, 5).with_passive(passive)
 }
 
 /// End-of-turn effects trigger twice (three times if Golden).

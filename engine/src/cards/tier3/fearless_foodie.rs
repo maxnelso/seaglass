@@ -2,9 +2,7 @@
 //! **Choose One -** Your **Blood Gems** give an extra `+1/+1` (`+2/+2` if Golden) this game;
 //! or Get `4` (`8` if Golden) **Blood Gems**.
 
-use crate::cards::tokens::{
-    make_choice_option, CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS,
-};
+use crate::cards::tokens::{make_choice_option, CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS};
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;

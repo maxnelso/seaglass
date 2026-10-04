@@ -4,8 +4,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 229;
 pub const NAME: &str = "Surfing Sylvar";
@@ -20,7 +20,11 @@ pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _
     let len = state.board.len();
     let golden_count = state.board.iter().filter(|u| u.is_golden).count() as i32;
     let repeats = 1 + golden_count;
-    let atk_per_repeat = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let atk_per_repeat = if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
     let total_atk = atk_per_repeat * repeats;
     if self_idx > 0 {
         state.board[self_idx - 1].add_stats(total_atk, 0);

@@ -4,39 +4,30 @@
 
 use crate::cards::{self, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 424;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Glambot", 4, 4, 4).with_tribe(Tribe::Mech)
+    CardTemplate::new(ID, "Glambot", 4, 4, 4)
+        .with_tribe(Tribe::Mech)
+        .on_after_targeted_spell(after_targeted_spell)
 }
 
-pub fn after_cast_targeted_spell(state: &mut TavernState, target_pos: usize) {
-    if target_pos >= state.board.len() || !state.board[target_pos].tribe.matches(Tribe::Mech) {
+pub fn after_targeted_spell(
+    state: &mut TavernState,
+    self_idx: usize,
+    target_pos: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if !state.board[target_pos].tribe.matches(Tribe::Mech) {
         return;
     }
-    let mut sat_count = 0u32;
-    for u in &state.board {
-        if u.card_id == ID {
-            sat_count += if u.is_golden { 2 } else { 1 };
-        }
-    }
-    for _ in 0..sat_count {
-        let sat = tokens::make_satellite(false);
-        let repeats = 1 + state.board[target_pos].extra_magnetize_this_turn;
-        state.board[target_pos].extra_magnetize_this_turn = 0;
-        for _ in 0..repeats {
-            state.board[target_pos].add_stats(sat.attack, sat.health);
-            cards::on_magnetize_transfer(&sat, &mut state.board[target_pos]);
-            cards::tier2::mechagnome_interpreter::after_play_or_magnetize_mech(
-                state,
-                sat.tribe,
-                target_pos,
-                true,
-            );
-            cards::sync_board_spell_auras(&state.board, &mut state.auras);
-            cards::tier7::polarizing_beatboxer::after_magnetize_to_minion(state, &sat, target_pos);
-        }
+    let count = state.board[self_idx].golden_mult();
+    for _ in 0..count {
+        let mut satellite = tokens::make_satellite(false);
+        cards::magnetize(state, &mut satellite, target_pos, pool, rng);
     }
 }

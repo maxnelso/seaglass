@@ -3,8 +3,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Keyword, Tribe, Unit};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 302;
 pub const NAME: &str = "Accord-o-Tron";
@@ -18,7 +18,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_start_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
-    state.gold += if state.board[self_idx].is_golden { 2 } else { 1 };
+    state.gold += if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
 }
 
 /// Magnetized: the target gains this start-of-turn effect.

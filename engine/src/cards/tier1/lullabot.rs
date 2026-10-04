@@ -3,8 +3,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Keyword, Tribe, Unit};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 111;
 pub const NAME: &str = "Lullabot";

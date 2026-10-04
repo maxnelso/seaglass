@@ -1328,7 +1328,7 @@ pub fn cast_spell(
     }
 
     if targeted && board_pos < state.board.len() {
-        crate::cards::after_cast_targeted_spell(state, board_pos, rng);
+        crate::cards::after_cast_targeted_spell(state, board_pos, pool, rng);
     }
 
     crate::cards::after_cast_any_spell(state, pool, rng);

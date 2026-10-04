@@ -3,26 +3,24 @@
 //! After you summon a Beast in combat, double (`triple` if Golden) its Attack.
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Tribe, Unit, UnitId};
+use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 403;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Banana Slamma", 3, 6, 4).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, "Banana Slamma", 3, 6, 4)
+        .with_tribe(Tribe::Beast)
+        .on_friendly_summon(on_friendly_summon)
 }
 
-pub fn on_beast_summoned(board: &[Unit], summoned_id: UnitId, summoned: &mut Unit) {
-    if !summoned.tribe.matches(Tribe::Beast) {
+pub fn on_friendly_summon(unit: &mut Unit, summoned: &mut Unit, in_combat: bool) {
+    if !in_combat || !summoned.tribe.matches(Tribe::Beast) {
         return;
     }
-    for u in board {
-        if u.id != summoned_id && u.health > 0 && u.card_id == ID {
-            let extra = if u.is_golden {
-                summoned.attack * 2
-            } else {
-                summoned.attack
-            };
-            summoned.add_stats(extra, 0);
-        }
-    }
+    let extra = if unit.is_golden {
+        summoned.attack * 2
+    } else {
+        summoned.attack
+    };
+    summoned.add_stats(extra, 0);
 }

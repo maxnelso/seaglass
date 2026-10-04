@@ -143,6 +143,8 @@ pub type MagnetizeObserverFn = fn(&mut TavernState, usize, &Unit, usize, &mut Ca
 pub type TargetedSpellFn = fn(&mut TavernState, usize, usize, &mut CardPool, &mut Rng);
 /// A friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.
 pub type DamageDealtObserverFn = fn(&mut BoardCtx<'_>, usize, UnitId, Tribe);
+/// A friendly minion is being summoned: `(self, summoned, in_combat)`.
+pub type SummonFn = fn(&mut Unit, &mut Unit, bool);
 
 macro_rules! card_hooks {
     ($( $(#[$meta:meta])* $field:ident($builder:ident): $ty:ty ),* $(,)?) => {
@@ -237,6 +239,8 @@ card_hooks! {
     end_of_turn(on_end_of_turn): TavernFn,
     /// After a friendly minion is played or Magnetized: `(state, self_idx, played, pool, rng)`.
     after_friendly_play(on_after_friendly_play): PlayedFn,
+    /// While this card is in hand, after a friendly minion is played or Magnetized.
+    after_friendly_play_in_hand(on_after_friendly_play_in_hand): fn(&mut Unit, &Played),
     /// After a friendly Battlecry triggers: `(state, self_idx, played_unit_if_not_on_board)`.
     after_friendly_battlecry(on_after_friendly_battlecry): BattlecryObserverFn,
     /// After a Choose-One option is chosen.
@@ -303,8 +307,8 @@ card_hooks! {
     after_friendly_damage_dealt(on_after_friendly_damage_dealt): DamageDealtObserverFn,
     /// A friendly minion died (Tavern or Combat): `(ctx, self_idx, dying)`.
     friendly_death(on_friendly_death): fn(&mut BoardCtx<'_>, usize, &Unit),
-    /// A friendly minion is being summoned: `(self, summoned, in_combat)`.
-    friendly_summon(on_friendly_summon): fn(&mut Unit, &mut Unit, bool),
+    /// A friendly minion is being summoned (Tavern or Combat): `(self, summoned, in_combat)`.
+    friendly_summon(on_friendly_summon): SummonFn,
     /// After a friendly minion is Reborn: `(ctx, self_idx, reborn_attack)`.
     after_friendly_reborn(on_after_friendly_reborn): fn(&mut BoardCtx<'_>, usize, i32),
     /// A friendly minion lost its Divine Shield: `(self)`.

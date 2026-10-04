@@ -4,8 +4,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 420;
 
@@ -26,7 +26,11 @@ pub fn on_end_turn(state: &mut TavernState, self_idx: usize, pool: &mut CardPool
     if let Some(s_idx) = best_shop_idx {
         let consumed = state.shop.remove(s_idx);
         pool.return_unit(&consumed);
-        let mult = if state.board[self_idx].is_golden { 2 } else { 1 };
+        let mult = if state.board[self_idx].is_golden {
+            2
+        } else {
+            1
+        };
         state.board[self_idx].add_stats(consumed.attack * mult, consumed.health * mult);
     }
 }

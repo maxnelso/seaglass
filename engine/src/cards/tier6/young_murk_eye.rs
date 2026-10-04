@@ -16,7 +16,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, pool: &mut CardPool, rng: &mut Rng) {
-    let repeats = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let repeats = if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
     for _ in 0..repeats {
         if self_idx >= state.board.len() {
             break;

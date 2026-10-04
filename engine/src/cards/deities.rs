@@ -101,7 +101,10 @@ pub fn yshaarj_deathrattle_summons(is_golden: bool, dead_aberrations: &[Unit]) -
 
 /// Behaviour tables for the Deities (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
-    vec![(CARD_YSHAARJ, CardHooks::EMPTY.on_deathrattle(yshaarj_on_deathrattle))]
+    vec![(
+        CARD_YSHAARJ,
+        CardHooks::EMPTY.on_deathrattle(yshaarj_on_deathrattle),
+    )]
 }
 
 fn yshaarj_on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {

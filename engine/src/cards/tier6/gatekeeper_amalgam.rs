@@ -5,19 +5,27 @@
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 612;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Gatekeeper Amalgam", 6, 6, 6).with_tribe(Tribe::All)
+    CardTemplate::new(ID, "Gatekeeper Amalgam", 6, 6, 6)
+        .with_tribe(Tribe::All)
+        .on_after_targeted_spell(after_targeted_spell)
 }
 
-pub fn after_cast_targeted_spell(state: &mut TavernState, target_pos: usize, rng: &mut Rng) {
-    if target_pos >= state.board.len() || state.board[target_pos].card_id != ID {
+pub fn after_targeted_spell(
+    state: &mut TavernState,
+    self_idx: usize,
+    target_pos: usize,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if self_idx != target_pos {
         return;
     }
-    let count = if state.board[target_pos].is_golden {
+    let count = if state.board[self_idx].is_golden {
         2
     } else {
         1

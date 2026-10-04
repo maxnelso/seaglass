@@ -3,8 +3,8 @@
 
 use crate::cards::{tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 317;
 pub const NAME: &str = "Gem Rat";
@@ -16,7 +16,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
-    let count = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let count = if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
     for _ in 0..count {
         state.add_to_hand(tokens::make_gem_day());
     }

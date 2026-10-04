@@ -13,17 +13,18 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Stone Age Slab", 10, 10, 7)
         .with_tribe(Tribe::Elemental)
         .on_reset_turn_charges(|u| u.slab_charges_left = 1)
+        .on_minion_bought(on_minion_bought)
 }
 
-pub fn on_buy_minion(state: &mut TavernState, bought: &mut Unit) {
-    for u in &mut state.board {
-        if u.card_id == ID && u.slab_charges_left > 0 {
-            u.slab_charges_left -= 1;
-            bought.add_stats(20, 20);
-            let mult = if u.is_golden { 3 } else { 2 };
-            let extra_atk = bought.attack.max(0) * (mult - 1);
-            let extra_hp = bought.health.max(0) * (mult - 1);
-            bought.add_stats(extra_atk, extra_hp);
-        }
+pub fn on_minion_bought(state: &mut TavernState, self_idx: usize, bought: &mut Unit) {
+    let slab = &mut state.board[self_idx];
+    if slab.slab_charges_left == 0 {
+        return;
     }
+    slab.slab_charges_left -= 1;
+    let mult = if slab.is_golden { 3 } else { 2 };
+    bought.add_stats(20, 20);
+    let extra_atk = bought.attack.max(0) * (mult - 1);
+    let extra_hp = bought.health.max(0) * (mult - 1);
+    bought.add_stats(extra_atk, extra_hp);
 }

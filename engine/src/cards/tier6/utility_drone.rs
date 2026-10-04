@@ -4,8 +4,8 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState};
 use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 629;
 
@@ -16,7 +16,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_end_turn(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
-    let mult = if state.board[self_idx].is_golden { 2 } else { 1 };
+    let mult = if state.board[self_idx].is_golden {
+        2
+    } else {
+        1
+    };
     for u in &mut state.board {
         if u.magnetizations_count > 0 {
             let count = u.magnetizations_count as i32;

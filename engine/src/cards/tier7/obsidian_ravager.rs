@@ -15,7 +15,13 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Dragon)
         .on_rally(|c| {
             if let Some((def_board, def_pos)) = c.def_target.as_mut() {
-                on_rally(&c.board[c.attacker_pos], def_board, *def_pos, c.rng, c.events);
+                on_rally(
+                    &c.board[c.attacker_pos],
+                    def_board,
+                    *def_pos,
+                    c.rng,
+                    c.events,
+                );
             }
             Vec::new()
         })
