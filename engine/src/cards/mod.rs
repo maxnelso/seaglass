@@ -1,7 +1,7 @@
 //! Card templates, catalogs, and generic per-card hook dispatch.
 //!
 //! Card definitions are organized by folder (`src/cards/tier1/` .. `src/cards/tier7/`,
-//! `src/cards/deities.rs`, `src/cards/spells.rs`, `src/cards/tokens.rs`). Each card declares
+//! `src/cards/spells/`, `src/cards/deities.rs`, `src/cards/tokens.rs`). Each card declares
 //! its behaviour as a [`CardHooks`] table (see [`hooks`](mod@hooks)); the dispatch functions
 //! in this module look hooks up by `CardId` through the [registry](fn@hooks) and never name a
 //! specific card.

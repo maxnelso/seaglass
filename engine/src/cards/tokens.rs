@@ -1,13 +1,10 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
 use crate::cards::hooks::CardEventFn;
-use crate::cards::{
-    all_templates, board_passive, check_stat_thresholds, on_card_added_to_hand, spells, tier2,
-    tier3, tier4, tier5, tier6, CardFlags, CardHooks, CardTemplate, Passive,
-};
+use crate::cards::{spells, tier2, tier3, tier4, tier5, tier6, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::TavernState;
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -299,53 +296,6 @@ pub fn make_lockbox() -> Unit {
     box_card
 }
 
-/// `Lockbox` in hand at the start of your turn: count down, and open once the countdown ends.
-fn lockbox_turn_start(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
-    let lockbox = &mut state.hand[hand_idx];
-    lockbox.lockbox_turns_left = lockbox.lockbox_turns_left.saturating_sub(1);
-    if lockbox.lockbox_turns_left == 0 {
-        open_lockbox(state, hand_idx, rng);
-    }
-}
-
-/// `Lockbox` in hand: open it if its countdown has already ended (e.g. sped up in combat).
-fn lockbox_ready(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
-    if state.hand[hand_idx].lockbox_turns_left == 0 {
-        open_lockbox(state, hand_idx, rng);
-    }
-}
-
-/// Open the `Lockbox` at `state.hand[hand_idx]`, replacing it with a random Golden minion of your
-/// Tier with a type.
-pub fn open_lockbox(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
-    if hand_idx >= state.hand.len() || state.hand[hand_idx].card_id != SPELL_LOCKBOX {
-        return;
-    }
-    let target_tier = state.tavern_tier.max(1);
-    let typed = |t: &&CardTemplate| t.tribe != Tribe::None && !t.intrinsic_golden;
-    let mut typed_templates: Vec<&CardTemplate> = all_templates()
-        .iter()
-        .filter(|t| typed(t) && t.tavern_tier == target_tier)
-        .collect();
-    if typed_templates.is_empty() {
-        typed_templates = all_templates()
-            .iter()
-            .filter(|t| typed(t) && t.tavern_tier <= target_tier)
-            .collect();
-    }
-    if typed_templates.is_empty() {
-        return;
-    }
-    let pick = rng.below(typed_templates.len());
-    let mut golden = typed_templates[pick].instantiate();
-    golden.make_golden();
-    golden.intrinsic_golden = false;
-    state.apply_global_unit_auras(&mut golden);
-    check_stat_thresholds(&mut golden);
-    state.hand[hand_idx] = golden;
-    on_card_added_to_hand(&state.board, &mut state.auras);
-}
-
 /// `Gem Day` (`BG31_893` — Choose One: Your Blood Gems give an extra +1 Attack this game; or +1 Health).
 pub fn make_gem_day() -> Unit {
     let mut spell = Unit::new("Gem Day", 0, 0)
@@ -503,162 +453,6 @@ pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
     }
 }
 
-// --- Token spells' `cast` hooks (registered in `behaviors`) ---
-
-/// `Blood Gem`: play a Blood Gem on a minion, plus [`Passive::ExtraHandBloodGemCasts`] more.
-fn blood_gem(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, rng: &mut Rng) {
-    if board_pos < state.board.len() {
-        let extra = board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
-        state.board[board_pos].play_blood_gems(1 + extra, &state.auras);
-        crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
-    }
-}
-
-/// `Pointy Arrow`: give a minion +4 Attack.
-fn pointy_arrow(
-    state: &mut TavernState,
-    _: &Unit,
-    board_pos: usize,
-    _: &mut CardPool,
-    _: &mut Rng,
-) {
-    if board_pos < state.board.len() {
-        let (atk, hp) = state.auras.spell_stat_buff(4, 0);
-        state.board[board_pos].add_stats(atk, hp);
-    }
-}
-
-/// `Arcane Absorption`: give a friendly Elemental half the stats of the highest-Health minion in
-/// the Tavern.
-fn arcane_absorption(
-    state: &mut TavernState,
-    _: &Unit,
-    board_pos: usize,
-    _: &mut CardPool,
-    rng: &mut Rng,
-) {
-    if board_pos < state.board.len() && state.board[board_pos].tribe.matches(Tribe::Elemental) {
-        let max_hp = state
-            .shop
-            .iter()
-            .filter(|u| !u.is_spell)
-            .map(|u| u.health)
-            .max();
-        if let Some(best_hp) = max_hp {
-            let candidates: Vec<(i32, i32)> = state
-                .shop
-                .iter()
-                .filter(|u| !u.is_spell && u.health == best_hp)
-                .map(|u| (u.attack / 2, u.health / 2))
-                .collect();
-            let (base_atk, base_hp) = if candidates.len() == 1 {
-                candidates[0]
-            } else {
-                candidates[rng.below(candidates.len())]
-            };
-            let (atk, hp) = state.auras.spell_stat_buff(base_atk, base_hp);
-            state.board[board_pos].add_stats(atk, hp);
-        }
-    }
-}
-
-/// `Conflagration`: give a minion +4/+4, plus +1/+1 per Elemental played this turn.
-fn conflagration(
-    state: &mut TavernState,
-    _: &Unit,
-    board_pos: usize,
-    _: &mut CardPool,
-    _: &mut Rng,
-) {
-    if board_pos < state.board.len() {
-        let base = 4 + state.elementals_played_this_turn as i32;
-        let (atk, hp) = state.auras.spell_stat_buff(base, base);
-        state.board[board_pos].add_stats(atk, hp);
-    }
-}
-
-/// `Tavern Coin` (and `Hasty Excavation`): gain 1 Gold.
-pub(crate) fn tavern_coin(
-    state: &mut TavernState,
-    _: &Unit,
-    _: usize,
-    _: &mut CardPool,
-    _: &mut Rng,
-) {
-    state.gold += 1;
-}
-
-/// `Gem Day`: Choose One - your Blood Gems give an extra +1 Attack this game; or +1 Health.
-fn gem_day(state: &mut TavernState, _: &Unit, _: usize, pool: &mut CardPool, rng: &mut Rng) {
-    let opt0 = make_choice_option(CHOICE_GEM_DAY_ATK, "Gem Day (+1 Attack)", false);
-    let opt1 = make_choice_option(CHOICE_GEM_DAY_HP, "Gem Day (+1 Health)", false);
-    state.resolve_choose_one(opt0, opt1, pool, rng);
-}
-
-/// `Gem Confiscation`: play 3 Blood Gems on a minion and steal its neighbors' Blood Gems.
-fn gem_confiscation(
-    state: &mut TavernState,
-    _: &Unit,
-    board_pos: usize,
-    _: &mut CardPool,
-    rng: &mut Rng,
-) {
-    if board_pos < state.board.len() {
-        state.board[board_pos].play_blood_gems(3, &state.auras);
-        let mut neighbor_indices = Vec::new();
-        if board_pos > 0 {
-            neighbor_indices.push(board_pos - 1);
-        }
-        if board_pos + 1 < state.board.len() {
-            neighbor_indices.push(board_pos + 1);
-        }
-        let mut total_stolen_gems = 0u32;
-        let mut total_stolen_atk = 0i32;
-        let mut total_stolen_hp = 0i32;
-        for n_idx in neighbor_indices {
-            let neighbor = &mut state.board[n_idx];
-            if neighbor.blood_gems_played > 0 {
-                let (s_atk, s_hp) = neighbor.blood_gem_stats_applied;
-                total_stolen_gems += neighbor.blood_gems_played;
-                total_stolen_atk += s_atk;
-                total_stolen_hp += s_hp;
-                neighbor.attack = (neighbor.attack - s_atk).max(0);
-                neighbor.health = (neighbor.health - s_hp).max(1);
-                neighbor.blood_gems_played = 0;
-                neighbor.blood_gem_stats_applied = (0, 0);
-            }
-        }
-        if total_stolen_gems > 0 {
-            let target = &mut state.board[board_pos];
-            target.blood_gems_played += total_stolen_gems;
-            target.blood_gem_stats_applied.0 += total_stolen_atk;
-            target.blood_gem_stats_applied.1 += total_stolen_hp;
-            target.add_stats(total_stolen_atk, total_stolen_hp);
-        }
-        crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
-    }
-}
-
-/// `Golden Touch`: make a random minion in the Tavern Golden.
-fn golden_touch(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, rng: &mut Rng) {
-    let candidates: Vec<usize> = state
-        .shop
-        .iter()
-        .enumerate()
-        .filter(|(_, u)| !u.is_spell && !u.is_golden)
-        .map(|(i, _)| i)
-        .collect();
-    if !candidates.is_empty() {
-        let pick = if candidates.len() == 1 {
-            candidates[0]
-        } else {
-            candidates[rng.below(candidates.len())]
-        };
-        state.shop[pick].make_golden();
-        crate::cards::sync_unit_auras(&mut state.shop[pick], &state.auras);
-    }
-}
-
 /// Behaviour tables for tokens with card text (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     let chromadrake = CardHooks::EMPTY.on_battlecry(|state, unit, _, _, rng| {
@@ -684,45 +478,6 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             CardHooks::EMPTY.on_deathrattle(tier5::sewer_lord::on_sewer_rat_deathrattle),
         ),
         (
-            SPELL_BLOOD_GEM,
-            spells::targeted(blood_gem).with_flags(CardFlags::NOT_TAVERN_SPELL),
-        ),
-        (SPELL_POINTY_ARROW, spells::targeted(pointy_arrow)),
-        (
-            SPELL_ARCANE_ABSORPTION,
-            spells::targeted_tribe(Tribe::Elemental, arcane_absorption),
-        ),
-        (SPELL_CONFLAGRATION, spells::targeted(conflagration)),
-        (SPELL_TAVERN_COIN, spells::spell(tavern_coin)),
-        (SPELL_GEM_DAY, spells::spell(gem_day)),
-        (
-            SPELL_GEM_CONFISCATION,
-            spells::targeted(gem_confiscation).with_flags(CardFlags::NOT_IN_POOL),
-        ),
-        (
-            SPELL_GOLDEN_TOUCH,
-            spells::spell(golden_touch).with_flags(CardFlags::NOT_IN_POOL),
-        ),
-        (
-            SPELL_SLUDGE_CORROSION,
-            spells::spell(spells::shiny_ring)
-                .with_flags(CardFlags::NOT_IN_POOL)
-                .on_discarded(|state, _, pool, rng| {
-                    // Discarded: cast it twice.
-                    for _ in 0..2 {
-                        state.auras.spells_played += 1;
-                        spells::cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
-                    }
-                }),
-        ),
-        (
-            SPELL_LOCKBOX,
-            CardHooks::EMPTY
-                .with_flags(CardFlags::NOT_TAVERN_SPELL)
-                .on_turn_start_in_hand(lockbox_turn_start)
-                .on_ready_in_hand(lockbox_ready),
-        ),
-        (
             TOKEN_DEMON_FODDER,
             CardHooks::EMPTY.on_player_after_refresh(fodder_on_refresh),
         ),
@@ -732,16 +487,19 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         let option = CardHooks::EMPTY.on_chosen(on_chosen);
         (id, option.with_flags(CardFlags::CHOOSE_ONE_OPTION))
     }));
-    out.extend(
-        [CHOICE_HP_1, CHOICE_HP_2, CHOICE_HP_3]
-            .map(|id| (id, CardHooks::EMPTY.on_chosen(spells::choose_hero_power))),
-    );
+    out.extend([CHOICE_HP_1, CHOICE_HP_2, CHOICE_HP_3].map(|id| {
+        (
+            id,
+            CardHooks::EMPTY.on_chosen(spells::unmasked_identity::choose_hero_power),
+        )
+    }));
     out
 }
 
 /// Effects of the Choose-One option cards (`on_chosen` hooks), defined with the card or spell
 /// that offers them.
 fn choose_one_options() -> [(CardId, CardEventFn); 24] {
+    use spells::{alliance_flag, boundless_potential, forests_bounty, gem_day, time_management};
     use tier2::{crater_miner, intrepid_botanist};
     use tier3::{fearless_foodie, sly_infiltrator, sprightly_scarab};
     use tier4::snare_trapper;
@@ -749,26 +507,26 @@ fn choose_one_options() -> [(CardId, CardEventFn); 24] {
     [
         (CHOICE_BRIGAND_GEMS, veteran_brigand::choose_gems),
         (CHOICE_BRIGAND_BARRAGE, veteran_brigand::choose_barrage),
-        (CHOICE_FOREST_SINGLE, spells::choose_forest_single),
-        (CHOICE_FOREST_ALL, spells::choose_forest_all),
+        (CHOICE_FOREST_SINGLE, forests_bounty::choose_single),
+        (CHOICE_FOREST_ALL, forests_bounty::choose_all),
         (CHOICE_CRATER_GEMS, crater_miner::choose_gems),
         (CHOICE_CRATER_GEM_DAY, crater_miner::choose_gem_day),
-        (CHOICE_GEM_DAY_ATK, spells::choose_gem_day_atk),
-        (CHOICE_GEM_DAY_HP, spells::choose_gem_day_hp),
+        (CHOICE_GEM_DAY_ATK, gem_day::choose_atk),
+        (CHOICE_GEM_DAY_HP, gem_day::choose_hp),
         (CHOICE_BOTANIST_ATK, intrepid_botanist::choose_atk),
         (CHOICE_BOTANIST_HP, intrepid_botanist::choose_hp),
-        (CHOICE_ALLIANCE_ATK, spells::choose_alliance_atk),
-        (CHOICE_ALLIANCE_HP, spells::choose_alliance_hp),
+        (CHOICE_ALLIANCE_ATK, alliance_flag::choose_atk),
+        (CHOICE_ALLIANCE_HP, alliance_flag::choose_hp),
         (CHOICE_FOODIE_BUFF_GEMS, fearless_foodie::choose_buff_gems),
         (CHOICE_FOODIE_GET_GEMS, fearless_foodie::choose_get_gems),
         (CHOICE_SLY_REFRESHES, sly_infiltrator::choose_refreshes),
         (CHOICE_SLY_GEMS, sly_infiltrator::choose_gems),
         (CHOICE_SCARAB_REBORN, sprightly_scarab::choose_reborn),
         (CHOICE_SCARAB_WINDFURY, sprightly_scarab::choose_windfury),
-        (CHOICE_TIME_MGMT_NOW, spells::choose_time_now),
-        (CHOICE_TIME_MGMT_LATER, spells::choose_time_later),
-        (CHOICE_BOUNDLESS_MINION, spells::choose_boundless_minion),
-        (CHOICE_BOUNDLESS_SPELL, spells::choose_boundless_spell),
+        (CHOICE_TIME_MGMT_NOW, time_management::choose_now),
+        (CHOICE_TIME_MGMT_LATER, time_management::choose_later),
+        (CHOICE_BOUNDLESS_MINION, boundless_potential::choose_minion),
+        (CHOICE_BOUNDLESS_SPELL, boundless_potential::choose_spell),
         (CHOICE_SNARE_QUILBOAR, snare_trapper::choose_quilboar),
         (CHOICE_SNARE_MAX_GOLD, snare_trapper::choose_max_gold),
     ]
