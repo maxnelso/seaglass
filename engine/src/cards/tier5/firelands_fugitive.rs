@@ -9,7 +9,9 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 521;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Firelands Fugitive", 5, 7, 5).with_tribe(Tribe::Elemental)
+    CardTemplate::new(ID, "Firelands Fugitive", 5, 7, 5)
+        .with_tribe(Tribe::Elemental)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

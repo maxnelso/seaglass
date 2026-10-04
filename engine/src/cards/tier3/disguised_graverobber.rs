@@ -10,7 +10,11 @@ pub const ID: CardId = 312;
 pub const NAME: &str = "Disguised Graverobber";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 4, 4, 3).with_tribe(Tribe::None)
+    CardTemplate::new(ID, NAME, 4, 4, 3)
+        .with_tribe(Tribe::None)
+        .on_battlecry(|state, unit, board_pos, pool, rng| {
+            on_battlecry(state, unit, board_pos, pool, rng)
+        })
 }
 
 pub fn on_battlecry(

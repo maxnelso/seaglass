@@ -2,7 +2,7 @@
 //!
 //! Activate (1): Give another Murloc `+7/+7` (`+14/+14` if Golden) and a random Bonus Keyword.
 
-use crate::cards::CardTemplate;
+use crate::cards::{ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe, BONUS_KEYWORDS};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Sewer Escapee", 7, 7, 5)
         .with_tribe(Tribe::Murloc)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::BoardOtherMurloc)
+        .on_activate(|state, source_pos, target_pos, _, rng| {
+            on_activate(state, source_pos, target_pos, rng)
+        })
 }
 
 pub fn on_activate(

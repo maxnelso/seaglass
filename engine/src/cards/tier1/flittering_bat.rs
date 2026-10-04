@@ -8,7 +8,9 @@ pub const ID: CardId = 104;
 pub const NAME: &str = "Flittering Bat";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 4, 1).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 1, 4, 1)
+        .with_tribe(Tribe::Beast)
+        .on_rally(|c| on_rally(&mut c.board[c.attacker_pos]))
 }
 
 pub fn on_rally(attacker: &mut Unit) -> Vec<Unit> {

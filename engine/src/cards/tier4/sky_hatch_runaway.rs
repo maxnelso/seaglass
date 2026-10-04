@@ -2,7 +2,7 @@
 //!
 //! Activate (1): Trigger a friendly minion's Rally (`twice` if Golden).
 
-use crate::cards::{self, CardTemplate};
+use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Sky-hatch Runaway", 4, 7, 4)
         .with_tribe(Tribe::Dragon)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::BoardRally)
+        .on_activate(|state, source_pos, target_pos, _, rng| {
+            on_activate(state, source_pos, target_pos, rng)
+        })
 }
 
 pub fn on_activate(

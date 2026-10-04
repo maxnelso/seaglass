@@ -9,7 +9,9 @@ pub const ID: CardId = 220;
 pub const NAME: &str = "Nerubian Deathswarmer";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 4, 2).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, NAME, 1, 4, 2)
+        .with_tribe(Tribe::Undead)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
 }
 
 pub fn sync_unit_undead_attack(unit: &mut Unit, auras: &PlayerAuras) {

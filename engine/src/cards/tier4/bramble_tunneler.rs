@@ -9,7 +9,12 @@ use crate::rng::Rng;
 pub const ID: CardId = 408;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Bramble Tunneler", 3, 6, 4).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, "Bramble Tunneler", 3, 6, 4)
+        .with_tribe(Tribe::Quilboar)
+        .on_rally(|c| {
+            on_rally(&c.board[c.attacker_pos], c.generated_hand, c.rng);
+            Vec::new()
+        })
 }
 
 pub fn draw_random_choose_one_card(rng: &mut Rng) -> Unit {

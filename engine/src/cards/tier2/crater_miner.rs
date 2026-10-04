@@ -13,7 +13,9 @@ pub const ID: CardId = 206;
 pub const NAME: &str = "Crater Miner";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 2, 2).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, NAME, 2, 2, 2)
+        .with_tribe(Tribe::Quilboar)
+        .on_choose_one(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {

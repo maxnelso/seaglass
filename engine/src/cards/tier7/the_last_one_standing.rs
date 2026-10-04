@@ -10,7 +10,12 @@ use crate::rng::Rng;
 pub const ID: CardId = 712;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "The Last One Standing", 15, 15, 7).with_tribe(Tribe::All)
+    CardTemplate::new(ID, "The Last One Standing", 15, 15, 7)
+        .with_tribe(Tribe::All)
+        .on_rally(|c| {
+            on_rally(c.side, c.board, c.is_golden, c.in_combat, c.rng, c.events);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(

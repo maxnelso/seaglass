@@ -14,7 +14,11 @@ pub const ID: CardId = 332;
 pub const NAME: &str = "Sprightly Scarab";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 1, 3).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 3, 1, 3)
+        .with_tribe(Tribe::Beast)
+        .on_choose_one(|state, unit, board_pos, pool, rng| {
+            on_battlecry(state, unit, board_pos, pool, rng)
+        })
 }
 
 pub fn on_battlecry(

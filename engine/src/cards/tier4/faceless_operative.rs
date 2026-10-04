@@ -11,7 +11,9 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 419;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Faceless Operative", 4, 2, 4).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "Faceless Operative", 4, 2, 4)
+        .with_tribe(Tribe::Aberration)
+        .on_sell(|state, sold, pool, rng| on_sell(state, sold, pool, rng))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {

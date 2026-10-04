@@ -10,7 +10,9 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 711;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Stone Age Slab", 10, 10, 7).with_tribe(Tribe::Elemental)
+    CardTemplate::new(ID, "Stone Age Slab", 10, 10, 7)
+        .with_tribe(Tribe::Elemental)
+        .on_reset_turn_charges(|u| u.slab_charges_left = 1)
 }
 
 pub fn on_buy_minion(state: &mut TavernState, bought: &mut Unit) {

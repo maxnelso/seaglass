@@ -10,7 +10,10 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 548;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Shipwrecked Rascal", 5, 4, 5).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Shipwrecked Rascal", 5, 4, 5)
+        .with_tribe(Tribe::Pirate)
+        .on_battlecry(|state, unit, _, _, rng| on_battlecry(state, unit, rng))
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {

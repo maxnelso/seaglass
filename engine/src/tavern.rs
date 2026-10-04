@@ -9,7 +9,7 @@ use crate::cards::tokens::{
     CHOICE_SLY_REFRESHES, CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER,
     CHOICE_TIME_MGMT_NOW,
 };
-use crate::cards::{self, ActivateTargetKind, CardTemplate, DeathrattleContext};
+use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
     BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit,
@@ -540,29 +540,32 @@ impl TavernState {
 
         let dr_repeats = 1 + cards::extra_deathrattle_triggers(&self.board);
         let old_tavern_all = (self.auras.tavern_all_atk, self.auras.tavern_all_hp);
-        let mut cursor = board_pos;
         let mut hand_summoned = vec![false; self.hand.len()];
+        let mut beast_bonus_atk = 0;
+        let mut pending_attacks = Vec::new();
         let mut next_id = 1000u32;
         let mut events = Vec::new();
-        {
-            let mut dr_ctx = DeathrattleContext {
-                side: Side::A,
-                in_combat: false,
-                board: &mut self.board,
-                cursor: &mut cursor,
-                auras: &mut self.auras,
-                hand: &mut self.hand,
-                hand_summoned: &mut hand_summoned,
-                dead_aberrations: &[],
-                combat_beast_bonus_atk: 0,
-                next_id: &mut next_id,
-                rng,
-                events: &mut events,
-            };
-            for _ in 0..dr_repeats {
-                cards::on_deathrattle(&dying, &mut dr_ctx);
-            }
+        let mut dr_ctx = BoardCtx {
+            side: Side::A,
+            in_combat: false,
+            board: &mut self.board,
+            cursor: board_pos,
+            auras: &mut self.auras,
+            hand: &mut self.hand,
+            hand_summoned: &mut hand_summoned,
+            dead_aberrations: &[],
+            beast_bonus_atk: &mut beast_bonus_atk,
+            hero_tier: self.tavern_tier,
+            pending_attacks: &mut pending_attacks,
+            enemy_destroys: Vec::new(),
+            next_id: &mut next_id,
+            rng,
+            events: &mut events,
+        };
+        for _ in 0..dr_repeats {
+            cards::on_deathrattle(&dying, &mut dr_ctx);
         }
+        let cursor = dr_ctx.cursor;
 
         let d_tavern_atk = self.auras.tavern_all_atk - old_tavern_all.0;
         let d_tavern_hp = self.auras.tavern_all_hp - old_tavern_all.1;
@@ -580,7 +583,7 @@ impl TavernState {
             let reborn_atk = reborn_copy.attack;
             let insert_pos = cursor.min(self.board.len());
             self.board.insert(insert_pos, reborn_copy);
-            cards::tier5::lurking_leviathan::on_beast_summoned_tavern(&mut self.board, insert_pos);
+            cards::on_tavern_summon(&mut self.board, insert_pos);
             cards::tier5::barrier_banshee::on_friendly_reborn(
                 Side::A,
                 &mut self.board,
@@ -2141,8 +2144,7 @@ impl TavernState {
                 }
             })
             .sum();
-        cards::tier4::enchanted_sentinel::init_spell_aura(&mut golden);
-        cards::tier4::humongozz::init_spell_aura(&mut golden);
+        cards::init_spell_aura(&mut golden);
         golden.spell_atk_aura += extra_spell_atk;
         golden.spell_hp_aura += extra_spell_hp;
         golden.wrathguard_bonus = copies.iter().map(|u| u.wrathguard_bonus).sum();

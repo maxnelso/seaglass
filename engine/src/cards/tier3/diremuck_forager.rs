@@ -10,7 +10,22 @@ pub const ID: CardId = 311;
 pub const NAME: &str = "Diremuck Forager";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 4, 5, 3).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, NAME, 4, 5, 3)
+        .with_tribe(Tribe::Murloc)
+        .on_start_of_combat(|c, id, is_golden| {
+            on_start_of_combat(
+                c.side,
+                c.board,
+                id,
+                is_golden,
+                c.auras,
+                c.hand,
+                c.hand_summoned,
+                *c.beast_bonus_atk,
+                c.next_id,
+                c.events,
+            )
+        })
 }
 
 #[allow(clippy::too_many_arguments)]

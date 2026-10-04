@@ -10,7 +10,12 @@ pub const ID: CardId = 208;
 pub const NAME: &str = "Electric Synthesizer";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 4, 2).with_tribe(Tribe::Dragon)
+    CardTemplate::new(ID, NAME, 3, 4, 2)
+        .with_tribe(Tribe::Dragon)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
+        .on_start_of_combat(|c, id, is_golden| {
+            on_start_of_combat(c.side, c.board, id, is_golden, c.events)
+        })
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

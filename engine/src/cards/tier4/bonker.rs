@@ -12,6 +12,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Bonker", 2, 7, 4)
         .with_tribe(Tribe::Quilboar)
         .with_keyword(Keyword::Windfury)
+        .on_rally(|c| {
+            on_rally(c.side, c.board, c.attacker_pos, c.auras, c.events);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(

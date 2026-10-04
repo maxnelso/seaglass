@@ -9,7 +9,9 @@ pub const ID: CardId = 102;
 pub const NAME: &str = "Zoatroid";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 2, 1).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, NAME, 3, 2, 1)
+        .with_tribe(Tribe::Aberration)
+        .on_sell(|state, sold, _, _| on_sell(state, sold))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {

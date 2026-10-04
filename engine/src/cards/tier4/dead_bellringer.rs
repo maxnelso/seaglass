@@ -2,7 +2,7 @@
 //!
 //! Activate (1): Give a different friendly Undead Reborn. Then destroy it to gain `+4/+4` (`+8/+8` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Keyword, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Dead Bellringer", 3, 6, 4)
         .with_tribe(Tribe::Undead)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::BoardOtherUndead)
+        .on_activate(|state, source_pos, target_pos, pool, rng| {
+            on_activate(state, source_pos, target_pos, pool, rng)
+        })
 }
 
 pub fn on_activate(

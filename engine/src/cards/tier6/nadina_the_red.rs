@@ -9,6 +9,7 @@ pub const ID: CardId = 617;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Nadina the Red", 8, 4, 6)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

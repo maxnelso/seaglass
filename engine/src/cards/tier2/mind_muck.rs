@@ -10,7 +10,9 @@ pub const ID: CardId = 219;
 pub const NAME: &str = "Mind Muck";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 2, 2).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, NAME, 3, 2, 2)
+        .with_tribe(Tribe::Demon)
+        .on_battlecry(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
 pub fn on_battlecry(

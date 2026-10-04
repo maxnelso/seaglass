@@ -9,7 +9,11 @@ use crate::model::{CardId, PlayerAuras, Side, Tribe, Unit};
 pub const ID: CardId = 449;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Runic Arcanist", 2, 4, 4).with_tribe(Tribe::Dragon)
+    CardTemplate::new(ID, "Runic Arcanist", 2, 4, 4)
+        .with_tribe(Tribe::Dragon)
+        .on_start_of_combat(|c, _, is_golden| {
+            on_start_of_combat(c.side, c.board, c.auras, is_golden, c.events)
+        })
 }
 
 pub fn on_start_of_combat(

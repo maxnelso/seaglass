@@ -12,6 +12,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 1, 3, 2)
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::Magnetic)
+        .on_play_or_magnetize(on_first_play_or_magnetize)
 }
 
 pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {

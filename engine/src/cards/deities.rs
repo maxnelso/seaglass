@@ -10,6 +10,7 @@
 //! - `Y'Shaarj`: "Deity. Deathrattle: Summon your first 2 Aberrations that died this combat with
 //!   their maximum stats (except Deities)." (Golden: first 4 Aberrations.)
 
+use crate::cards::{BoardCtx, CardHooks};
 use crate::model::{CardId, DeityKind, DeityState, Tribe, Unit};
 use crate::rng::Rng;
 
@@ -96,4 +97,15 @@ pub fn yshaarj_deathrattle_summons(is_golden: bool, dead_aberrations: &[Unit]) -
             copy
         })
         .collect()
+}
+
+/// Behaviour tables for the Deities (registered in the card registry).
+pub fn behaviors() -> Vec<(CardId, CardHooks)> {
+    vec![(CARD_YSHAARJ, CardHooks::EMPTY.on_deathrattle(yshaarj_on_deathrattle))]
+}
+
+fn yshaarj_on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
+    for token in yshaarj_deathrattle_summons(dying.is_golden, ctx.dead_aberrations) {
+        ctx.summon(dying.id, token);
+    }
 }

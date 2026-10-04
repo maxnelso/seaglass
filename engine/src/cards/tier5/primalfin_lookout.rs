@@ -10,7 +10,9 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 538;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Primalfin Lookout", 3, 2, 5).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, "Primalfin Lookout", 3, 2, 5)
+        .with_tribe(Tribe::Murloc)
+        .on_battlecry(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {

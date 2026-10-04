@@ -10,7 +10,9 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 401;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Air Baller", 6, 6, 4).with_tribe(Tribe::Elemental)
+    CardTemplate::new(ID, "Air Baller", 6, 6, 4)
+        .with_tribe(Tribe::Elemental)
+        .on_sell(|state, sold, _, _| on_sell(state, sold))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {

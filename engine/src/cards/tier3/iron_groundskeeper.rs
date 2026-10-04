@@ -9,7 +9,9 @@ pub const ID: CardId = 321;
 pub const NAME: &str = "Iron Groundskeeper";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 2, 3).with_tribe(Tribe::None)
+    CardTemplate::new(ID, NAME, 2, 2, 3)
+        .with_tribe(Tribe::None)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

@@ -10,7 +10,9 @@ pub const ID: CardId = 201;
 pub const NAME: &str = "Bilgewater Breakout";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 2, 2).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, NAME, 3, 2, 2)
+        .with_tribe(Tribe::Pirate)
+        .on_battlecry(|state, unit, _, _, rng| on_battlecry(state, unit, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {

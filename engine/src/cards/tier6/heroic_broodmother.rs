@@ -8,7 +8,12 @@ use crate::model::{CardId, Keyword, Tribe, Unit};
 pub const ID: CardId = 614;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Heroic Broodmother", 7, 7, 6).with_tribe(Tribe::Dragon)
+    CardTemplate::new(ID, "Heroic Broodmother", 7, 7, 6)
+        .with_tribe(Tribe::Dragon)
+        .on_rally(|c| {
+            on_rally(&mut c.board[c.attacker_pos]);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(attacker: &mut Unit) {

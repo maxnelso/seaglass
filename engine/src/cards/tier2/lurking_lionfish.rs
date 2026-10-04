@@ -1,7 +1,7 @@
 //! `Lurking Lionfish` (`BG36_201`) — Tier 2 Beast (`3/4`).
 //! **Activate (2):** Choose a card in the Tavern. Replace it with a (`Golden` if Golden) `Fishbait` for your left-most Beast to attack.
 
-use crate::cards::{self, tokens, CardTemplate};
+use crate::cards::{self, tokens, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 4, 2)
         .with_tribe(Tribe::Beast)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::ShopCard)
+        .on_activate(|state, source_pos, target_pos, pool, rng| {
+            on_activate(state, source_pos, target_pos, pool, rng)
+        })
 }
 
 pub fn on_activate(

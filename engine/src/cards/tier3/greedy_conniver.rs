@@ -10,7 +10,9 @@ pub const ID: CardId = 318;
 pub const NAME: &str = "Greedy Conniver";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 7, 7, 3).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, NAME, 7, 7, 3)
+        .with_tribe(Tribe::Pirate)
+        .on_sell(|state, sold, pool, rng| on_sell(state, sold, pool, rng))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {

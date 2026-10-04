@@ -8,7 +8,13 @@ use crate::model::{CardId, Keyword, Unit};
 pub const ID: CardId = 428;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Heroic Underdog", 1, 10, 4).with_keyword(Keyword::Stealth)
+    CardTemplate::new(ID, "Heroic Underdog", 1, 10, 4)
+        .with_keyword(Keyword::Stealth)
+        .on_rally(|c| {
+            let def_unit = c.def_target.as_ref().and_then(|(b, idx)| b.get(*idx));
+            on_rally(&mut c.board[c.attacker_pos], def_unit);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(attacker: &mut Unit, target: Option<&Unit>) {

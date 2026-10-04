@@ -9,7 +9,15 @@ use crate::model::{CardId, Tribe, Unit, UnitId};
 pub const ID: CardId = 709;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Stalwart Kodo", 16, 32, 7).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, "Stalwart Kodo", 16, 32, 7)
+        .with_tribe(Tribe::Beast)
+        .on_reset_turn_charges(reset_charges)
+        .on_combat_start(reset_charges)
+}
+
+/// Three summon triggers per combat.
+pub fn reset_charges(unit: &mut Unit) {
+    unit.kodo_triggers_left = 3;
 }
 
 pub fn on_minion_summoned_in_combat(

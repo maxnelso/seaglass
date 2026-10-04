@@ -2,7 +2,7 @@
 //!
 //! Activate (0): Discard a card for your Tavern spells to give an extra `+1/+1` (`+2/+2` if Golden) this game.
 
-use crate::cards::CardTemplate;
+use crate::cards::{ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "N'raqi Frostcaller", 6, 3, 5)
         .with_tribe(Tribe::Aberration)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::HandCard)
+        .on_activate(|state, source_pos, target_pos, pool, rng| {
+            on_activate(state, source_pos, target_pos, pool, rng)
+        })
 }
 
 pub fn on_activate(

@@ -1,5 +1,6 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
+use crate::cards::{tier3, tier5, tier6, CardHooks};
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
@@ -385,3 +386,25 @@ pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
     }
 }
 
+/// Behaviour tables for tokens with card text (registered in the card registry).
+pub fn behaviors() -> Vec<(CardId, CardHooks)> {
+    let chromadrake = CardHooks::EMPTY.on_battlecry(|state, unit, _, _, rng| {
+        tier3::hired_mount::on_chromadrake_battlecry(state, unit, rng)
+    });
+    let mut out = vec![
+        (
+            TOKEN_MAGICFIN_APPRENTICE,
+            CardHooks::EMPTY.on_battlecry(|state, unit, board_pos, pool, rng| {
+                tier6::magicfin_mycologist::on_apprentice_battlecry(
+                    state, unit, board_pos, pool, rng,
+                )
+            }),
+        ),
+        (
+            TOKEN_SEWER_RAT,
+            CardHooks::EMPTY.on_deathrattle(tier5::sewer_lord::on_sewer_rat_deathrattle),
+        ),
+    ];
+    out.extend(CHROMADRAKE_IDS.iter().map(|&id| (id, chromadrake)));
+    out
+}

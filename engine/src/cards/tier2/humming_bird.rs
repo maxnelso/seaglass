@@ -9,7 +9,11 @@ pub const ID: CardId = 214;
 pub const NAME: &str = "Humming Bird";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 4, 2).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 1, 4, 2)
+        .with_tribe(Tribe::Beast)
+        .on_start_of_combat(|c, _, is_golden| {
+            on_start_of_combat(c.side, c.board, c.beast_bonus_atk, is_golden, c.events)
+        })
 }
 
 pub fn on_start_of_combat(

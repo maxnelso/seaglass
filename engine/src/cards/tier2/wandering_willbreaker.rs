@@ -11,7 +11,9 @@ pub const ID: CardId = 234;
 pub const NAME: &str = "Wandering Willbreaker";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 3, 2).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, NAME, 1, 3, 2)
+        .with_tribe(Tribe::Aberration)
+        .on_sell(|state, sold, _, rng| on_sell(state, sold, rng))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, rng: &mut Rng) {

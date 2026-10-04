@@ -10,7 +10,14 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 704;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Highkeeper Ra", 6, 6, 7).with_tribe(Tribe::None)
+    CardTemplate::new(ID, "Highkeeper Ra", 6, 6, 7)
+        .with_tribe(Tribe::None)
+        .on_battlecry(|state, unit, _, _, rng| on_battlecry(state, unit, rng))
+        .on_deathrattle(|dying, ctx| on_deathrattle(ctx, dying.is_golden))
+        .on_rally(|c| {
+            on_rally(c.is_golden, c.auras, c.generated_hand, c.rng);
+            Vec::new()
+        })
 }
 
 fn draw_random_tier6_minion(auras: &PlayerAuras, rng: &mut Rng) -> Unit {

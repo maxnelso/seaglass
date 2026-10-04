@@ -9,7 +9,10 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 702;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Champion of Sargeras", 8, 8, 7).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, "Champion of Sargeras", 8, 8, 7)
+        .with_tribe(Tribe::Demon)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
+        .on_deathrattle(|dying, ctx| on_deathrattle(ctx, dying.is_golden))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

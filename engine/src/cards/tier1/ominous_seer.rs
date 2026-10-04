@@ -9,7 +9,9 @@ pub const ID: CardId = 120;
 pub const NAME: &str = "Ominous Seer";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 1, 1).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, NAME, 2, 1, 1)
+        .with_tribe(Tribe::Demon)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

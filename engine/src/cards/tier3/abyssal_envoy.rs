@@ -1,7 +1,7 @@
 //! `Abyssal Envoy` (`BG36_311`) — Tier 3 Aberration (`2/2`).
 //! **Activate (0):** Discard a card in hand to get a (`2` if Golden) random Tavern spell(s).
 
-use crate::cards::{spells, CardTemplate};
+use crate::cards::{spells, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 2, 3)
         .with_tribe(Tribe::Aberration)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::HandCard)
+        .on_activate(|state, source_pos, target_pos, pool, rng| {
+            on_activate(state, source_pos, target_pos, pool, rng)
+        })
 }
 
 pub fn on_activate(

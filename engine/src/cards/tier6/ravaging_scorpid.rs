@@ -9,7 +9,9 @@ use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 pub const ID: CardId = 618;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Ravaging Scorpid", 6, 7, 6).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, "Ravaging Scorpid", 6, 7, 6)
+        .with_tribe(Tribe::Beast)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_friendly_attack(board: &[Unit], auras: &mut PlayerAuras) {

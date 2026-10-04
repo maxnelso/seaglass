@@ -618,22 +618,12 @@ impl Unit {
         if !self.name.starts_with("Golden ") {
             self.name = format!("Golden {}", self.name);
         }
-        if self.card_id == crate::cards::tier4::enchanted_sentinel::ID {
-            self.spell_atk_aura += 1;
-            self.spell_hp_aura += 1;
-        }
-        if self.card_id == crate::cards::tier4::humongozz::ID {
-            self.spell_atk_aura += 1;
-            self.spell_hp_aura += 2;
-        }
-        if self.card_id == crate::cards::tier3::malchezaar_prince_of_dance::ID {
-            self.malchezaar_refreshes_left += 2;
-        }
-        if self.card_id == crate::cards::tier3::thorned_trailblazer::ID {
-            self.trailblazer_charges_left += 1;
-        }
-        if self.card_id == crate::cards::tier6::magicfin_mycologist::ID {
-            self.mycologist_charges_left += 1;
+        let card = crate::cards::hooks(self.card_id);
+        let (aura_atk, aura_hp) = card.spell_aura;
+        self.spell_atk_aura += aura_atk;
+        self.spell_hp_aura += aura_hp;
+        if let Some(made_golden) = card.made_golden {
+            made_golden(self);
         }
         if self.eternal_knight_stacks_applied > 0 {
             let s = self.eternal_knight_stacks_applied as i32;

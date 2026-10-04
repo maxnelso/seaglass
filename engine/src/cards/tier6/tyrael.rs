@@ -2,7 +2,7 @@
 //!
 //! Activate (1): Set another minion's stats to `50/50` (`100/100` if Golden).
 
-use crate::cards::{self, CardTemplate};
+use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::model::CardId;
 use crate::tavern::TavernState;
 
@@ -10,7 +10,12 @@ pub const ID: CardId = 626;
 pub const ACTIVATE_COST: u32 = 1;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Tyrael", 10, 10, 6).with_activate_cost(ACTIVATE_COST)
+    CardTemplate::new(ID, "Tyrael", 10, 10, 6)
+        .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::BoardOther)
+        .on_activate(|state, source_pos, target_pos, _, _| {
+            on_activate(state, source_pos, target_pos)
+        })
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize, target_pos: Option<usize>) {

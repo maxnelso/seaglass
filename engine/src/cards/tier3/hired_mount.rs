@@ -18,6 +18,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 5, 3)
         .with_tribe(Tribe::Dragon)
         .with_activate_cost(ACTIVATE_COST)
+        .on_activate(|state, source_pos, _, _, rng| on_activate(state, source_pos, rng))
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize, rng: &mut Rng) {

@@ -9,7 +9,9 @@ pub const ID: CardId = 112;
 pub const NAME: &str = "Bubble Gunner";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 3, 1).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, NAME, 2, 3, 1)
+        .with_tribe(Tribe::Murloc)
+        .on_battlecry(|_, unit, _, _, rng| on_battlecry(unit, rng))
 }
 
 pub fn on_battlecry(unit: &mut Unit, rng: &mut Rng) {

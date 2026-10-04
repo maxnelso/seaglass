@@ -9,7 +9,9 @@ use crate::rng::Rng;
 pub const ID: CardId = 412;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Conveyor Construct", 5, 2, 4).with_tribe(Tribe::Mech)
+    CardTemplate::new(ID, "Conveyor Construct", 5, 2, 4)
+        .with_tribe(Tribe::Mech)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn draw_random_volumizer(rng: &mut Rng) -> Unit {

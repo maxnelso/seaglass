@@ -8,7 +8,9 @@ pub const ID: CardId = 341;
 pub const NAME: &str = "Waveling";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 5, 1, 3).with_tribe(Tribe::Elemental)
+    CardTemplate::new(ID, NAME, 5, 1, 3)
+        .with_tribe(Tribe::Elemental)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

@@ -8,7 +8,9 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 552;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Turquoise Skitterer", 5, 5, 5).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, "Turquoise Skitterer", 5, 5, 5)
+        .with_tribe(Tribe::Beast)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

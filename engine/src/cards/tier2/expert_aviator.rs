@@ -8,7 +8,9 @@ pub const ID: CardId = 210;
 pub const NAME: &str = "Expert Aviator";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 5, 2).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, NAME, 3, 5, 2)
+        .with_tribe(Tribe::Murloc)
+        .on_rally(|c| on_rally(&c.board[c.attacker_pos], c.hand, c.hand_summoned))
 }
 
 pub fn on_rally(

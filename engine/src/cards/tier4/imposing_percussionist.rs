@@ -10,7 +10,9 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 435;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Imposing Percussionist", 4, 4, 4).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, "Imposing Percussionist", 4, 4, 4)
+        .with_tribe(Tribe::Demon)
+        .on_battlecry(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {

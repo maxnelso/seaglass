@@ -8,11 +8,12 @@ pub const ID: CardId = 323;
 pub const NAME: &str = "Malchezaar, Prince of Dance";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 4, 3, 3).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, NAME, 4, 3, 3)
+        .with_tribe(Tribe::Demon)
+        .on_reset_turn_charges(reset_turn_charges)
+        .on_made_golden(|u| u.malchezaar_refreshes_left += 2)
 }
 
 pub fn reset_turn_charges(unit: &mut Unit) {
-    if unit.card_id == ID {
-        unit.malchezaar_refreshes_left = if unit.is_golden { 4 } else { 2 };
-    }
+    unit.malchezaar_refreshes_left = if unit.is_golden { 4 } else { 2 };
 }

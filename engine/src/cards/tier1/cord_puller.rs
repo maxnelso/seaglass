@@ -11,6 +11,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 1, 1, 1)
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::DivineShield)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

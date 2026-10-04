@@ -8,11 +8,12 @@ pub const ID: CardId = 334;
 pub const NAME: &str = "Thorned Trailblazer";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 4, 5, 3).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, NAME, 4, 5, 3)
+        .with_tribe(Tribe::Quilboar)
+        .on_reset_turn_charges(reset_turn_charges)
+        .on_made_golden(|u| u.trailblazer_charges_left += 1)
 }
 
 pub fn reset_turn_charges(unit: &mut Unit) {
-    if unit.card_id == ID {
-        unit.trailblazer_charges_left = if unit.is_golden { 2 } else { 1 };
-    }
+    unit.trailblazer_charges_left = if unit.is_golden { 2 } else { 1 };
 }

@@ -8,7 +8,9 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 705;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Jailbird Juggernaut", 6, 15, 7).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, "Jailbird Juggernaut", 6, 15, 7)
+        .with_tribe(Tribe::Quilboar)
+        .on_rally(|c| on_rally(&c.board[c.attacker_pos]))
 }
 
 pub fn on_rally(attacker: &Unit) -> Vec<Unit> {

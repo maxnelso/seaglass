@@ -10,7 +10,11 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 441;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Maw Caster", 4, 5, 4).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, "Maw Caster", 4, 5, 4)
+        .with_tribe(Tribe::Undead)
+        .on_battlecry(|state, unit, board_pos, pool, rng| {
+            on_battlecry(state, unit, board_pos, pool, rng)
+        })
 }
 
 pub fn on_battlecry(

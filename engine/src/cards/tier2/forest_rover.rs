@@ -10,7 +10,10 @@ pub const ID: CardId = 212;
 pub const NAME: &str = "Forest Rover";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 1, 2).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 1, 1, 2)
+        .with_tribe(Tribe::Beast)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

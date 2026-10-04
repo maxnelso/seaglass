@@ -10,6 +10,7 @@ pub const ID: CardId = 457;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Tortollan Blue Shell", 3, 6, 4)
+        .on_sell(|state, sold, _, _| on_sell(state, sold))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {

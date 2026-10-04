@@ -10,7 +10,9 @@ use crate::rng::Rng;
 pub const ID: CardId = 606;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Deathly Striker", 8, 8, 6).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, "Deathly Striker", 8, 8, 6)
+        .with_tribe(Tribe::Undead)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_avenge(

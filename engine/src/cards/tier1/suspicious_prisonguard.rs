@@ -1,7 +1,7 @@
 //! `Suspicious Prisonguard` (`BG36_345`) — Tier 1 Neutral (`3/3`).
 //! **Activate (1):** Give another minion `+3/+3` (`+6/+6` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::tavern::TavernState;
 
@@ -13,6 +13,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 3, 1)
         .with_tribe(Tribe::None)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::BoardOther)
+        .on_activate(|state, source_pos, target_pos, _, _| {
+            on_activate(state, source_pos, target_pos)
+        })
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize, target_pos: Option<usize>) {

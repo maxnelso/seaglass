@@ -9,7 +9,12 @@ pub const ID: CardId = 343;
 pub const NAME: &str = "Wolf Pup";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 6, 3).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 3, 6, 3)
+        .with_tribe(Tribe::Beast)
+        .on_rally(|c| {
+            on_rally(c.side, c.board, c.attacker_id, c.is_golden, c.events);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(

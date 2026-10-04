@@ -14,6 +14,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Soulkeeping Jailer", 3, 5, 4)
         .with_tribe(Tribe::Demon)
         .with_activate_cost(ACTIVATE_COST)
+        .on_activate(|state, source_pos, _, pool, rng| on_activate(state, source_pos, pool, rng))
 }
 
 pub fn on_activate(

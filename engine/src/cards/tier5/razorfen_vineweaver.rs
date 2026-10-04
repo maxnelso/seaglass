@@ -8,7 +8,12 @@ use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 pub const ID: CardId = 540;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Razorfen Vineweaver", 4, 4, 5).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, "Razorfen Vineweaver", 4, 4, 5)
+        .with_tribe(Tribe::Quilboar)
+        .on_rally(|c| {
+            on_rally(&mut c.board[c.attacker_pos], c.auras, true);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(attacker: &mut Unit, auras: &PlayerAuras, in_combat: bool) {

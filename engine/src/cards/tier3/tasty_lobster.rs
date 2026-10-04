@@ -8,7 +8,9 @@ pub const ID: CardId = 333;
 pub const NAME: &str = "Tasty Lobster";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 1, 3).with_tribe(Tribe::Beast)
+    CardTemplate::new(ID, NAME, 2, 1, 3)
+        .with_tribe(Tribe::Beast)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

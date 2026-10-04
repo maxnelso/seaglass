@@ -13,6 +13,9 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 2, 3)
         .with_tribe(Tribe::Dragon)
         .with_keyword(Keyword::Taunt)
+        .on_start_of_combat(|c, id, is_golden| {
+            on_start_of_combat(c.side, c.board, id, is_golden, c.rng, c.events)
+        })
 }
 
 pub fn on_start_of_combat(

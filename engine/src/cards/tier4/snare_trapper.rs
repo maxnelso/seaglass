@@ -11,7 +11,9 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 453;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Snare Trapper", 4, 4, 4).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, "Snare Trapper", 4, 4, 4)
+        .with_tribe(Tribe::Quilboar)
+        .on_choose_one(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {

@@ -11,7 +11,14 @@ use crate::rng::Rng;
 pub const ID: CardId = 706;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Obsidian Ravager", 7, 7, 7).with_tribe(Tribe::Dragon)
+    CardTemplate::new(ID, "Obsidian Ravager", 7, 7, 7)
+        .with_tribe(Tribe::Dragon)
+        .on_rally(|c| {
+            if let Some((def_board, def_pos)) = c.def_target.as_mut() {
+                on_rally(&c.board[c.attacker_pos], def_board, *def_pos, c.rng, c.events);
+            }
+            Vec::new()
+        })
 }
 
 pub fn on_rally(

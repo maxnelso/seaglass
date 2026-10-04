@@ -11,6 +11,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Sin'dorei Straight Shot", 3, 4, 4)
         .with_keyword(Keyword::DivineShield)
         .with_keyword(Keyword::Windfury)
+        .on_rally(|c| {
+            on_rally(c.def_target.as_mut().and_then(|(b, idx)| b.get_mut(*idx)));
+            Vec::new()
+        })
 }
 
 pub fn on_rally(target: Option<&mut Unit>) {

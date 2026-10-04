@@ -16,6 +16,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Deft Deserter", 8, 8, 5)
         .with_tribe(Tribe::Demon)
         .with_activate_cost(ACTIVATE_COST)
+        .on_activate(|state, source_pos, _, _, rng| on_activate(state, source_pos, rng))
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize, rng: &mut Rng) {

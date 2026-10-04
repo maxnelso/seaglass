@@ -11,6 +11,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 1, 3)
         .with_tribe(Tribe::Aberration)
         .with_keyword(Keyword::Reborn)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

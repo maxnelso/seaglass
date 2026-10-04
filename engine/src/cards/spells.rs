@@ -8,6 +8,7 @@ use crate::cards::tokens::{
     SPELL_CONFLAGRATION, SPELL_GEM_CONFISCATION, SPELL_GEM_DAY, SPELL_GOLDEN_TOUCH,
     SPELL_POINTY_ARROW, SPELL_SLUDGE_CORROSION, SPELL_TAVERN_COIN,
 };
+use crate::cards::CardHooks;
 use crate::model::{CardId, Keyword, Tribe, Unit, BONUS_KEYWORDS, SINGLE_TRIBES};
 use crate::rng::Rng;
 use crate::tavern::{shop_capacity, CardPool, TavernState};
@@ -1331,4 +1332,9 @@ pub fn cast_spell(
     }
 
     crate::cards::after_cast_any_spell(state, pool, rng);
+}
+
+/// Behaviour tables for spells (registered in the card registry).
+pub fn behaviors() -> Vec<(CardId, CardHooks)> {
+    Vec::new()
 }

@@ -12,6 +12,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Crimson Vindicator", 8, 9, 6)
         .with_tribe(Tribe::Dragon)
         .with_keyword(Keyword::DivineShield)
+        .on_rally(|c| {
+            on_rally(c.side, c.board, c.is_golden, c.auras, c.events);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(

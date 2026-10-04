@@ -9,7 +9,9 @@ pub const ID: CardId = 330;
 pub const NAME: &str = "Shoalfin Mystic";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 4, 4, 3).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, NAME, 4, 4, 3)
+        .with_tribe(Tribe::Murloc)
+        .on_sell(|state, sold, _, _| on_sell(state, sold))
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {

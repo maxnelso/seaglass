@@ -12,6 +12,9 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Costume Enthusiast", 4, 5, 5)
         .with_tribe(Tribe::Murloc)
         .with_keyword(Keyword::DivineShield)
+        .on_start_of_combat(|c, id, is_golden| {
+            on_start_of_combat(c.side, c.board, id, is_golden, c.hand, c.events)
+        })
 }
 
 pub fn on_start_of_combat(

@@ -11,7 +11,11 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 627;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Ultraviolet Ascendant", 6, 6, 6).with_tribe(Tribe::Elemental)
+    CardTemplate::new(ID, "Ultraviolet Ascendant", 6, 6, 6)
+        .with_tribe(Tribe::Elemental)
+        .on_start_of_combat(|c, id, is_golden| {
+            on_start_of_combat(c.side, c.board, id, is_golden, c.events)
+        })
 }
 
 pub fn after_play_minion(state: &mut TavernState, played_tribe: Tribe, board_pos: usize) {

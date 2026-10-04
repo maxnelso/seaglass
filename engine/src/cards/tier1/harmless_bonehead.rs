@@ -8,7 +8,9 @@ pub const ID: CardId = 118;
 pub const NAME: &str = "Harmless Bonehead";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 1, 1).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, NAME, 1, 1, 1)
+        .with_tribe(Tribe::Undead)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

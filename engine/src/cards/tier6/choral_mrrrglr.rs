@@ -9,7 +9,11 @@ use crate::model::{CardId, Side, Tribe, Unit, UnitId};
 pub const ID: CardId = 603;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Choral Mrrrglr", 6, 6, 6).with_tribe(Tribe::Murloc)
+    CardTemplate::new(ID, "Choral Mrrrglr", 6, 6, 6)
+        .with_tribe(Tribe::Murloc)
+        .on_start_of_combat(|c, id, is_golden| {
+            on_start_of_combat(c.side, c.board, id, is_golden, c.hand, c.events)
+        })
 }
 
 pub fn on_start_of_combat(

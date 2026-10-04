@@ -14,6 +14,8 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Sacrificial Wrathguard", 5, 3, 4)
         .with_tribe(Tribe::Demon)
         .with_activate_cost(ACTIVATE_COST)
+        .on_deathrattle(on_deathrattle)
+        .on_activate(|state, source_pos, _, _, _| on_activate(state, source_pos))
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize) {

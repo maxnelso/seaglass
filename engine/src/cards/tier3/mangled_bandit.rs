@@ -1,7 +1,7 @@
 //! `Mangled Bandit` (`BG28_582`) — Tier 3 Quilboar (`3/3`).
 //! **Activate (0):** Discard a card in hand to get `3` (`6` if Golden) **Blood Gems**.
 
-use crate::cards::{tokens, CardTemplate};
+use crate::cards::{tokens, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 3, 3)
         .with_tribe(Tribe::Quilboar)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::HandCard)
+        .on_activate(|state, source_pos, target_pos, pool, rng| {
+            on_activate(state, source_pos, target_pos, pool, rng)
+        })
 }
 
 pub fn on_activate(

@@ -10,7 +10,9 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 701;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Captain Sanders", 9, 9, 7).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Captain Sanders", 9, 9, 7)
+        .with_tribe(Tribe::Pirate)
+        .on_battlecry(|state, unit, board_pos, _, _| on_battlecry(state, unit, board_pos))
 }
 
 fn is_eligible(u: &Unit) -> bool {

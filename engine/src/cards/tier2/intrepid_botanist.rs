@@ -13,7 +13,9 @@ pub const ID: CardId = 215;
 pub const NAME: &str = "Intrepid Botanist";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 4, 2).with_tribe(Tribe::None)
+    CardTemplate::new(ID, NAME, 3, 4, 2)
+        .with_tribe(Tribe::None)
+        .on_choose_one(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {

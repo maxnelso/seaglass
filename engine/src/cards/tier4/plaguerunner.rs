@@ -9,7 +9,9 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 446;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Plaguerunner", 4, 2, 4).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, "Plaguerunner", 4, 2, 4)
+        .with_tribe(Tribe::Undead)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

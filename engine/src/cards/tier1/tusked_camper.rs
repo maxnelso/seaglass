@@ -8,7 +8,9 @@ pub const ID: CardId = 117;
 pub const NAME: &str = "Tusked Camper";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 3, 1).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, NAME, 2, 3, 1)
+        .with_tribe(Tribe::Quilboar)
+        .on_rally(|c| on_rally(&mut c.board[c.attacker_pos], c.auras))
 }
 
 pub fn on_rally(attacker: &mut Unit, auras: &PlayerAuras) -> Vec<Unit> {

@@ -9,7 +9,12 @@ use crate::rng::Rng;
 pub const ID: CardId = 414;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Dark Paradox", 2, 6, 4).with_tribe(Tribe::All)
+    CardTemplate::new(ID, "Dark Paradox", 2, 6, 4)
+        .with_tribe(Tribe::All)
+        .on_rally(|c| {
+            on_rally(c.board, c.attacker_pos, c.auras, c.generated_hand, c.rng);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(

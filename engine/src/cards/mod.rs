@@ -1,11 +1,14 @@
-//! Card templates, catalogs, and unified tier-agnostic per-card hook dispatch.
+//! Card templates, catalogs, and generic per-card hook dispatch.
 //!
-//! Card definitions are organized by folder (`src/cards/tier1/`, `src/cards/tier2/`,
-//! `src/cards/tier3/`, `src/cards/tier4/`, `src/cards/tier5/`, `src/cards/deities.rs`,
-//! `src/cards/spells.rs`, `src/cards/tokens.rs`), while all Tavern and Combat hooks are
-//! dispatched uniformly by `CardId` in this module without any tier-specific branching.
+//! Card definitions are organized by folder (`src/cards/tier1/` .. `src/cards/tier7/`,
+//! `src/cards/deities.rs`, `src/cards/spells.rs`, `src/cards/tokens.rs`). Each card declares
+//! its behaviour as a [`CardHooks`] table (see [`hooks`](mod@hooks)); the dispatch functions
+//! in this module look hooks up by `CardId` through the [registry](fn@hooks) and never name a
+//! specific card.
 
 pub mod deities;
+pub mod hooks;
+mod registry;
 pub mod spells;
 pub mod tier1;
 pub mod tier2;
@@ -15,6 +18,9 @@ pub mod tier5;
 pub mod tier6;
 pub mod tier7;
 pub mod tokens;
+
+pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
+pub use registry::{all_templates, hooks, template};
 
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
@@ -45,29 +51,40 @@ pub enum ActivateTargetKind {
     ShopCard,
 }
 
-/// Unified execution context passed to every `Deathrattle` handler.
+/// One side's board plus everything a combat-style hook may touch (Deathrattles,
+/// Start-of-Combat triggers, death/attack/summon observers).
 ///
-/// Supports summoning tokens at the dying minion's board slot (`cursor`),
-/// buffing friendly minions on the board, mutating persistent `auras`, and
-/// adding/modifying cards in `hand` in a single general hook.
-pub struct DeathrattleContext<'a> {
+/// Supports summoning tokens at the current board slot (`cursor`), buffing friendly
+/// minions, mutating persistent `auras`, and adding/modifying cards in `hand`. Also used
+/// in the Tavern (`in_combat = false`) when a minion is destroyed there.
+pub struct BoardCtx<'a> {
     pub side: Side,
     pub in_combat: bool,
     pub board: &'a mut Vec<Unit>,
-    pub cursor: &'a mut usize,
+    /// Board slot where the next summon is inserted.
+    pub cursor: usize,
     pub auras: &'a mut PlayerAuras,
     pub hand: &'a mut Vec<Unit>,
     pub hand_summoned: &'a mut Vec<bool>,
     pub dead_aberrations: &'a [Unit],
-    pub combat_beast_bonus_atk: i32,
+    /// Temporary combat Attack bonus for friendly Beasts.
+    pub beast_bonus_atk: &'a mut i32,
+    pub hero_tier: u32,
+    /// Friendly minions queued to attack immediately.
+    pub pending_attacks: &'a mut Vec<UnitId>,
+    /// Enemy minions this effect destroys (resolved by the engine after the hook returns).
+    pub enemy_destroys: Vec<UnitId>,
     pub next_id: &'a mut UnitId,
     pub rng: &'a mut Rng,
     pub events: &'a mut Vec<Event>,
 }
 
-impl<'a> DeathrattleContext<'a> {
-    /// Summon `token` at the dying minion's current board position (`*self.cursor`)
-    /// if the board has space (`< MAX_BOARD_SIZE`), applying all active combat auras.
+/// Former name of [`BoardCtx`].
+pub type DeathrattleContext<'a> = BoardCtx<'a>;
+
+impl<'a> BoardCtx<'a> {
+    /// Summon `token` at the current board position (`self.cursor`) if the board has space
+    /// (`< MAX_BOARD_SIZE`), applying all active summon modifiers.
     pub fn summon(&mut self, source_id: UnitId, mut token: Unit) {
         if self.board.len() >= MAX_BOARD_SIZE {
             return;
@@ -78,7 +95,7 @@ impl<'a> DeathrattleContext<'a> {
             apply_combat_summon_modifiers(
                 self.board,
                 self.auras,
-                self.combat_beast_bonus_atk,
+                *self.beast_bonus_atk,
                 token.id,
                 &mut token,
             );
@@ -96,11 +113,11 @@ impl<'a> DeathrattleContext<'a> {
             health: token.health,
             reason: "Deathrattle",
         });
-        let pos = *self.cursor;
+        let pos = self.cursor;
         self.board.insert(pos, token);
-        *self.cursor += 1;
+        self.cursor += 1;
         if !self.in_combat {
-            tier5::lurking_leviathan::on_beast_summoned_tavern(self.board, pos);
+            on_tavern_summon(self.board, pos);
         }
     }
 
@@ -144,6 +161,33 @@ impl<'a> DeathrattleContext<'a> {
             on_card_added_to_hand(self.board, self.auras);
         }
     }
+
+    /// Request that the enemy minion `unit` be destroyed once this hook returns.
+    pub fn destroy_enemy(&mut self, unit: UnitId) {
+        self.enemy_destroys.push(unit);
+    }
+}
+
+/// Everything a `Rally` (On-Attack) hook may touch.
+pub struct RallyCtx<'a> {
+    pub side: Side,
+    /// `false` when the Rally is triggered in the Tavern (`Sky-hatch Runaway`).
+    pub in_combat: bool,
+    pub board: &'a mut [Unit],
+    pub attacker_pos: usize,
+    pub attacker_id: UnitId,
+    pub is_golden: bool,
+    /// The defending board and the attack target's index (combat only).
+    pub def_target: Option<(&'a mut [Unit], usize)>,
+    pub auras: &'a mut PlayerAuras,
+    pub hand: &'a [Unit],
+    pub hand_summoned: &'a mut [bool],
+    /// Cards to add to hand once the Rally resolves.
+    pub generated_hand: &'a mut Vec<Unit>,
+    /// Set by the hook if the returned summons should strike the attack target first.
+    pub summons_attack_target: bool,
+    pub rng: &'a mut Rng,
+    pub events: &'a mut Vec<Event>,
 }
 
 /// Static definition of a purchasable minion in the shared card pool.
@@ -163,7 +207,8 @@ pub struct CardTemplate {
     pub stealth: bool,
     pub magnetic: bool,
     pub intrinsic_golden: bool,
-    pub activate_cost: Option<u32>,
+    /// The card's behaviour (see [`CardHooks`]).
+    pub hooks: CardHooks,
 }
 
 impl CardTemplate {
@@ -189,7 +234,7 @@ impl CardTemplate {
             stealth: false,
             magnetic: false,
             intrinsic_golden: false,
-            activate_cost: None,
+            hooks: CardHooks::EMPTY,
         }
     }
 
@@ -217,8 +262,29 @@ impl CardTemplate {
     }
 
     pub fn with_activate_cost(mut self, cost: u32) -> Self {
-        self.activate_cost = Some(cost);
+        self.hooks.activate_cost = Some(cost);
         self
+    }
+
+    pub fn with_activate_target(mut self, target: ActivateTargetKind) -> Self {
+        self.hooks.activate_target = target;
+        self
+    }
+
+    pub fn with_flags(mut self, flags: CardFlags) -> Self {
+        self.hooks.flags = self.hooks.flags | flags;
+        self
+    }
+
+    /// Board-aura bonus to Tavern spell stats while this is on board (doubled when Golden).
+    pub fn with_spell_aura(mut self, atk: i32, hp: i32) -> Self {
+        self.hooks.spell_aura = (atk, hp);
+        self
+    }
+
+    /// Gold cost of this card's `Activate` ability, if it has one.
+    pub fn activate_cost(&self) -> Option<u32> {
+        self.hooks.activate_cost
     }
 
     /// Return the printed keywords on this template.
@@ -266,25 +332,34 @@ impl CardTemplate {
             u.is_golden = true;
             u.intrinsic_golden = true;
         }
-        init_unit_turn_charges(&mut u);
-        tier4::enchanted_sentinel::init_spell_aura(&mut u);
-        tier4::humongozz::init_spell_aura(&mut u);
+        if let Some(reset_turn_charges) = self.hooks.reset_turn_charges {
+            reset_turn_charges(&mut u);
+        }
+        set_spell_aura(&mut u, self.hooks.spell_aura);
         u
     }
 }
 
-/// Initialize or reset per-turn charges (`Malchezaar`, `Thorned Trailblazer`, `Drone Duplicator`, `Living Prison`, `Magicfin Mycologist`, `Stalwart Kodo`, `Stone Age Slab`) on `unit`.
+/// Initialize or reset per-turn charges on `unit` (the card's `reset_turn_charges` hook plus
+/// generic per-turn counters).
 pub fn init_unit_turn_charges(unit: &mut Unit) {
-    tier3::malchezaar_prince_of_dance::reset_turn_charges(unit);
-    tier3::thorned_trailblazer::reset_turn_charges(unit);
-    tier6::magicfin_mycologist::init_charges(unit);
+    if let Some(f) = hooks(unit.card_id).reset_turn_charges {
+        f(unit);
+    }
     unit.extra_magnetize_this_turn = 0;
     unit.living_prison_stacks = 0;
-    if unit.card_id == tier7::stalwart_kodo::ID {
-        unit.kodo_triggers_left = 3;
-    }
-    if unit.card_id == tier7::stone_age_slab::ID {
-        unit.slab_charges_left = 1;
+}
+
+/// Set `unit`'s board-aura spell bonus from its card's `spell_aura` (doubled when Golden).
+pub fn init_spell_aura(unit: &mut Unit) {
+    set_spell_aura(unit, hooks(unit.card_id).spell_aura);
+}
+
+fn set_spell_aura(unit: &mut Unit, (atk, hp): (i32, i32)) {
+    if atk != 0 || hp != 0 {
+        let m = if unit.is_golden { 2 } else { 1 };
+        unit.spell_atk_aura = atk * m;
+        unit.spell_hp_aura = hp * m;
     }
 }
 
@@ -434,7 +509,7 @@ pub fn catalog_for(name: &str) -> Result<Vec<CardTemplate>, String> {
 
 /// Instantiate a plain (non-Golden, unbuffed) copy of `unit`.
 pub fn instantiate_plain_copy(unit: &Unit) -> Unit {
-    if let Some(tpl) = full_catalog().into_iter().find(|t| t.card_id == unit.card_id) {
+    if let Some(tpl) = template(unit.card_id) {
         tpl.instantiate()
     } else {
         let mut copy = unit.clone();
@@ -447,158 +522,24 @@ pub fn instantiate_plain_copy(unit: &Unit) -> Unit {
     }
 }
 
-/// Returns `true` if `card_id` is a Battlecry minion (`Brann Bronzebeard`, `Kalecgos`, `Hired Headhunter`, `Young Murk-Eye`).
+/// Returns `true` if `card_id` has a Battlecry.
 pub fn is_battlecry_minion(card_id: CardId) -> bool {
-    matches!(
-        card_id,
-        tier1::joyous::ID
-            | tier1::ominous_seer::ID
-            | tier1::dune_dweller::ID
-            | tier1::bubble_gunner::ID
-            | tier1::southsea_busker::ID
-            | tier1::razorfen_geomancer::ID
-            | tier2::bilgewater_breakout::ID
-            | tier2::electric_synthesizer::ID
-            | tier2::forest_rover::ID
-            | tier2::laboratory_assistant::ID
-            | tier2::mind_muck::ID
-            | tier2::nerubian_deathswarmer::ID
-            | tier3::auto_accelerator::ID
-            | tier3::azsharan_cutlassier::ID
-            | tier3::disguised_graverobber::ID
-            | tier3::fetid_corroder::ID
-            | tier3::iron_groundskeeper::ID
-            | tier4::en_djinn_blazer::ID
-            | tier4::gormling_gourmet::ID
-            | tier4::imposing_percussionist::ID
-            | tier4::leyline_surfacer::ID
-            | tier4::lovesick_balladist::ID
-            | tier4::maw_caster::ID
-            | tier4::razorfen_flapper::ID
-            | tier4::refreshing_anomaly::ID
-            | tier4::tavern_tempest::ID
-            | tier5::draconic_warden::ID
-            | tier5::elite_navigator::ID
-            | tier5::firelands_fugitive::ID
-            | tier5::firescale_hoarder::ID
-            | tier5::hackerfin::ID
-            | tier5::nightmare_par_tea_guest::ID
-            | tier5::nraqi_sapper::ID
-            | tier5::primalfin_lookout::ID
-            | tier5::rodeo_performer::ID
-            | tier5::shipwrecked_rascal::ID
-            | tier6::sanguine_champion::ID
-            | tier6::silent_deliverer::ID
-            | tier7::captain_sanders::ID
-            | tier7::champion_of_sargeras::ID
-            | tier7::highkeeper_ra::ID
-            | tokens::TOKEN_MAGICFIN_APPRENTICE
-            | tokens::TOKEN_BLUE_CHROMADRAKE
-            | tokens::TOKEN_BLACK_CHROMADRAKE
-            | tokens::TOKEN_GREEN_CHROMADRAKE
-            | tokens::TOKEN_BRONZE_CHROMADRAKE
-            | tokens::TOKEN_RED_CHROMADRAKE
-    )
+    hooks(card_id).battlecry.is_some()
 }
 
-/// Returns `true` if `card_id` is a Choose-One minion (`Fandral's Fortune`, `Turbo Hogrider`).
+/// Returns `true` if `card_id` has a Choose One.
 pub fn is_choose_one_minion(card_id: CardId) -> bool {
-    matches!(
-        card_id,
-        tier2::crater_miner::ID
-            | tier2::intrepid_botanist::ID
-            | tier3::fearless_foodie::ID
-            | tier3::sly_infiltrator::ID
-            | tier3::sprightly_scarab::ID
-            | tier4::snare_trapper::ID
-            | tier6::veteran_brigand::ID
-    )
+    hooks(card_id).choose_one.is_some()
 }
 
-/// Returns `true` if `card_id` is a Rally minion (`Deathstrider`).
+/// Returns `true` if `card_id` has a Rally.
 pub fn is_rally_minion(card_id: CardId) -> bool {
-    matches!(
-        card_id,
-        tier1::flittering_bat::ID
-            | tier1::glim_guardian::ID
-            | tier1::tusked_camper::ID
-            | tier2::expert_aviator::ID
-            | tier2::roadboar::ID
-            | tier3::blue_whelp::ID
-            | tier3::wolf_pup::ID
-            | tier4::bigwig_bandit::ID
-            | tier4::bonker::ID
-            | tier4::bramble_tunneler::ID
-            | tier4::bronze_timewalker::ID
-            | tier4::dark_paradox::ID
-            | tier4::headhunter_gryphon::ID
-            | tier4::heroic_underdog::ID
-            | tier4::hoarding_hyena::ID
-            | tier4::sindorei_straight_shot::ID
-            | tier5::bile_spitter::ID
-            | tier5::razorfen_vineweaver::ID
-            | tier5::sanguine_refiner::ID
-            | tier6::crimson_vindicator::ID
-            | tier6::heroic_broodmother::ID
-            | tier7::highkeeper_ra::ID
-            | tier7::jailbird_juggernaut::ID
-            | tier7::obsidian_ravager::ID
-            | tier7::the_last_one_standing::ID
-    )
+    hooks(card_id).rally.is_some()
 }
 
-/// Returns `true` if `card_id` is a Deathrattle minion (`Contracted Corpse`, `Ghastcoiler`, `Deathstrider`).
+/// Returns `true` if `card_id` has a Deathrattle.
 pub fn is_deathrattle_minion(card_id: CardId) -> bool {
-    matches!(
-        card_id,
-        tier1::buzzing_vermin::ID
-            | tier1::cord_puller::ID
-            | tier1::harmless_bonehead::ID
-            | tier2::forest_rover::ID
-            | tier2::scarlet_skull::ID
-            | tier2::underrot_spawn::ID
-            | tier3::cadaver_caretaker::ID
-            | tier3::drifting_sacrifice::ID
-            | tier3::handless_forsaken::ID
-            | tier3::locked_up_mutineer::ID
-            | tier3::mummifier::ID
-            | tier3::rescue_bot::ID
-            | tier3::tasty_lobster::ID
-            | tier3::trapped_clapper::ID
-            | tier3::unwilling_slacker::ID
-            | tier3::waveling::ID
-            | tier4::conveyor_construct::ID
-            | tier4::friendly_geist::ID
-            | tier4::gormling_gourmet::ID
-            | tier4::imp_lusionist::ID
-            | tier4::leyline_surfacer::ID
-            | tier4::plaguerunner::ID
-            | tier4::razorfen_flapper::ID
-            | tier4::sacrificial_wrathguard::ID
-            | tier5::draconic_warden::ID
-            | tier5::eternal_summoner::ID
-            | tier5::faceless_converter::ID
-            | tier5::firescale_hoarder::ID
-            | tier5::ghastcoiler::ID
-            | tier5::goldrinn_the_great_wolf::ID
-            | tier5::leeroy_the_reckless::ID
-            | tier5::nightmare_par_tea_guest::ID
-            | tier5::nraqi_sapper::ID
-            | tier5::sewer_lord::ID
-            | tier5::ship_master_eudora::ID
-            | tier5::shipwrecked_rascal::ID
-            | tier5::turquoise_skitterer::ID
-            | tier6::dark_puppeteer::ID
-            | tier6::deathly_striker::ID
-            | tier6::nadina_the_red::ID
-            | tier6::ravaging_scorpid::ID
-            | tier6::sanguine_champion::ID
-            | tier7::champion_of_sargeras::ID
-            | tier7::highkeeper_ra::ID
-            | tier7::stitched_salvager::ID
-            | tokens::TOKEN_SEWER_RAT
-            | deities::CARD_YSHAARJ
-    )
+    hooks(card_id).deathrattle.is_some()
 }
 
 // ---------------------------------------------------------------------------
@@ -623,8 +564,7 @@ pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
     tier4::holy_vanguard::sync_unit(unit, auras);
     tier4::maritime_extortionist::sync_unit(unit, auras);
     if unit.spell_atk_aura == 0 && unit.spell_hp_aura == 0 {
-        tier4::enchanted_sentinel::init_spell_aura(unit);
-        tier4::humongozz::init_spell_aura(unit);
+        init_spell_aura(unit);
     }
     tier6::falling_sky_golem::sync_aura(unit, auras);
     if matches!(
@@ -654,8 +594,7 @@ pub fn sync_board_spell_auras(board: &[Unit], auras: &mut PlayerAuras) {
 /// Construct the Reborn resummon copy of `dying` (base or Golden-base copy with `health = 1`, `reborn = false`,
 /// printed keywords restored, and global auras applied).
 pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
-    let catalog = full_catalog();
-    let mut copy = if let Some(tpl) = catalog.iter().find(|t| t.card_id == dying.card_id) {
+    let mut copy = if let Some(tpl) = template(dying.card_id) {
         let mut u = tpl.instantiate();
         if dying.is_golden {
             u.make_golden();
@@ -692,6 +631,11 @@ pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
     copy
 }
 
+/// Apply friendly-summon observers to the minion just summoned at `board[pos]` in the Tavern.
+pub fn on_tavern_summon(board: &mut [Unit], pos: usize) {
+    tier5::lurking_leviathan::on_beast_summoned_tavern(board, pos);
+}
+
 /// Apply all combat summon modifiers (persistent auras, `Goldrinn`, `Humming Bird`, `Lurking Leviathan`, `Banana Slamma`, stat thresholds) to a newly summoned unit.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],
@@ -716,106 +660,6 @@ pub fn apply_combat_summon_modifiers(
     check_stat_thresholds(token);
 }
 
-fn dispatch_single_play_battlecry(
-    state: &mut TavernState,
-    unit: &mut Unit,
-    board_pos: usize,
-    pool: &mut CardPool,
-    rng: &mut Rng,
-) {
-    match unit.card_id {
-        tier1::joyous::ID => tier1::joyous::on_battlecry(state, unit),
-        tier1::ominous_seer::ID => tier1::ominous_seer::on_battlecry(state, unit),
-        tier1::dune_dweller::ID => tier1::dune_dweller::on_battlecry(state, unit),
-        tier1::bubble_gunner::ID => tier1::bubble_gunner::on_battlecry(unit, rng),
-        tier1::southsea_busker::ID => tier1::southsea_busker::on_battlecry(state, unit),
-        tier1::razorfen_geomancer::ID => tier1::razorfen_geomancer::on_battlecry(state, unit),
-        tier2::bilgewater_breakout::ID => {
-            tier2::bilgewater_breakout::on_battlecry(state, unit, rng)
-        }
-        tier2::crater_miner::ID => tier2::crater_miner::on_battlecry(state, unit, pool, rng),
-        tier2::electric_synthesizer::ID => tier2::electric_synthesizer::on_battlecry(state, unit),
-        tier2::forest_rover::ID => tier2::forest_rover::on_battlecry(state, unit),
-        tier2::intrepid_botanist::ID => {
-            tier2::intrepid_botanist::on_battlecry(state, unit, pool, rng)
-        }
-        tier2::laboratory_assistant::ID => tier2::laboratory_assistant::on_battlecry(state, unit),
-        tier2::mind_muck::ID => tier2::mind_muck::on_battlecry(state, unit, pool, rng),
-        tier2::nerubian_deathswarmer::ID => {
-            tier2::nerubian_deathswarmer::on_battlecry(state, unit)
-        }
-        tier3::auto_accelerator::ID => tier3::auto_accelerator::on_battlecry(state, unit, rng),
-        tier3::azsharan_cutlassier::ID => tier3::azsharan_cutlassier::on_battlecry(state, unit),
-        tier3::disguised_graverobber::ID => {
-            tier3::disguised_graverobber::on_battlecry(state, unit, board_pos, pool, rng)
-        }
-        tier3::fearless_foodie::ID => {
-            tier3::fearless_foodie::on_battlecry(state, unit, pool, rng)
-        }
-        tier3::fetid_corroder::ID => tier3::fetid_corroder::on_battlecry(state, unit),
-        tier3::iron_groundskeeper::ID => tier3::iron_groundskeeper::on_battlecry(state, unit),
-        tier3::sly_infiltrator::ID => {
-            tier3::sly_infiltrator::on_battlecry(state, unit, pool, rng)
-        }
-        tier3::sprightly_scarab::ID => {
-            tier3::sprightly_scarab::on_battlecry(state, unit, board_pos, pool, rng)
-        }
-        tier4::en_djinn_blazer::ID => tier4::en_djinn_blazer::on_battlecry(state, unit),
-        tier4::gormling_gourmet::ID => tier4::gormling_gourmet::on_battlecry(state, unit),
-        tier4::imposing_percussionist::ID => {
-            tier4::imposing_percussionist::on_battlecry(state, unit, pool, rng)
-        }
-        tier4::leyline_surfacer::ID => tier4::leyline_surfacer::on_battlecry(state, unit),
-        tier4::lovesick_balladist::ID => tier4::lovesick_balladist::on_battlecry(state, unit),
-        tier4::maw_caster::ID => {
-            tier4::maw_caster::on_battlecry(state, unit, board_pos, pool, rng)
-        }
-        tier4::razorfen_flapper::ID => tier4::razorfen_flapper::on_battlecry(state, unit),
-        tier4::refreshing_anomaly::ID => tier4::refreshing_anomaly::on_battlecry(state, unit),
-        tier4::snare_trapper::ID => {
-            tier4::snare_trapper::on_battlecry(state, unit, pool, rng)
-        }
-        tier4::tavern_tempest::ID => {
-            tier4::tavern_tempest::on_battlecry(state, unit, pool, rng)
-        }
-        tier5::draconic_warden::ID => tier5::draconic_warden::on_battlecry(state, unit, rng),
-        tier5::elite_navigator::ID => tier5::elite_navigator::on_battlecry(state, unit, rng),
-        tier5::firelands_fugitive::ID => tier5::firelands_fugitive::on_battlecry(state, unit),
-        tier5::firescale_hoarder::ID => tier5::firescale_hoarder::on_battlecry(state, unit),
-        tier5::hackerfin::ID => tier5::hackerfin::on_battlecry(state, unit),
-        tier5::nightmare_par_tea_guest::ID => {
-            tier5::nightmare_par_tea_guest::on_battlecry(state, unit)
-        }
-        tier5::nraqi_sapper::ID => tier5::nraqi_sapper::on_battlecry(state, unit),
-        tier5::primalfin_lookout::ID => {
-            tier5::primalfin_lookout::on_battlecry(state, unit, pool, rng)
-        }
-        tier5::rodeo_performer::ID => tier5::rodeo_performer::on_battlecry(state, unit, rng),
-        tier5::shipwrecked_rascal::ID => tier5::shipwrecked_rascal::on_battlecry(state, unit, rng),
-        tier6::sanguine_champion::ID => tier6::sanguine_champion::on_battlecry(state, unit),
-        tier6::silent_deliverer::ID => tier6::silent_deliverer::on_battlecry(state, unit, rng),
-        tier6::veteran_brigand::ID => {
-            tier6::veteran_brigand::on_battlecry(state, unit, pool, rng)
-        }
-        tier7::captain_sanders::ID => {
-            tier7::captain_sanders::on_battlecry(state, unit, board_pos)
-        }
-        tier7::champion_of_sargeras::ID => tier7::champion_of_sargeras::on_battlecry(state, unit),
-        tier7::highkeeper_ra::ID => tier7::highkeeper_ra::on_battlecry(state, unit, rng),
-        tokens::TOKEN_MAGICFIN_APPRENTICE => {
-            tier6::magicfin_mycologist::on_apprentice_battlecry(state, unit, board_pos, pool, rng)
-        }
-        tokens::TOKEN_BLUE_CHROMADRAKE
-        | tokens::TOKEN_BLACK_CHROMADRAKE
-        | tokens::TOKEN_GREEN_CHROMADRAKE
-        | tokens::TOKEN_BRONZE_CHROMADRAKE
-        | tokens::TOKEN_RED_CHROMADRAKE => {
-            tier3::hired_mount::on_chromadrake_battlecry(state, unit, rng)
-        }
-        _ => {}
-    }
-}
-
 /// Apply on-play Battlecry / Choose-One when `unit` is played from `hand` onto `board` at `board_pos`.
 pub fn on_play_battlecry(
     state: &mut TavernState,
@@ -824,14 +668,15 @@ pub fn on_play_battlecry(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if is_battlecry_minion(unit.card_id) {
+    let card = hooks(unit.card_id);
+    if let Some(battlecry) = card.battlecry {
         let repeats = tier5::brann_bronzebeard::battlecry_multiplier(&state.board);
         for _ in 0..repeats {
-            dispatch_single_play_battlecry(state, unit, board_pos, pool, rng);
+            battlecry(state, unit, board_pos, pool, rng);
             tier5::kalecgos_arcane_aspect::after_battlecry_triggered(state, unit);
         }
-    } else {
-        dispatch_single_play_battlecry(state, unit, board_pos, pool, rng);
+    } else if let Some(choose_one) = card.choose_one {
+        choose_one(state, unit, board_pos, pool, rng);
     }
 }
 
@@ -842,15 +687,19 @@ pub fn trigger_board_battlecry(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if board_pos >= state.board.len() || !is_battlecry_minion(state.board[board_pos].card_id) {
+    let Some(battlecry) = state
+        .board
+        .get(board_pos)
+        .and_then(|u| hooks(u.card_id).battlecry)
+    else {
         return;
-    }
+    };
     let repeats = tier5::brann_bronzebeard::battlecry_multiplier(&state.board);
     let mut unit = state.board[board_pos].clone();
     let old_atk = unit.attack;
     let old_hp = unit.health;
     for _ in 0..repeats {
-        dispatch_single_play_battlecry(state, &mut unit, board_pos, pool, rng);
+        battlecry(state, &mut unit, board_pos, pool, rng);
         let mut dummy = Unit::new("", 0, 0);
         tier5::kalecgos_arcane_aspect::after_battlecry_triggered(state, &mut dummy);
     }
@@ -869,17 +718,10 @@ pub fn trigger_board_battlecry(
     }
 }
 
-/// Apply first-time play or Magnetize triggers (`Blue`/`Green`/`Red Volumizer`).
+/// Apply first-time play or Magnetize triggers (`play_or_magnetize` hook).
 pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
-    match unit.card_id {
-        tier2::blue_volumizer::ID => {
-            tier2::blue_volumizer::on_first_play_or_magnetize(state, unit)
-        }
-        tier2::green_volumizer::ID => {
-            tier2::green_volumizer::on_first_play_or_magnetize(state, unit)
-        }
-        tier2::red_volumizer::ID => tier2::red_volumizer::on_first_play_or_magnetize(state, unit),
-        _ => {}
+    if let Some(play_or_magnetize) = hooks(unit.card_id).play_or_magnetize {
+        play_or_magnetize(state, unit);
     }
 }
 
@@ -934,23 +776,8 @@ pub fn after_play_minion(
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     sync_board_spell_auras(&state.board, &mut state.auras);
     tier6::twisted_wrathguard::after_sell_minion(state);
-    match sold.card_id {
-        tier1::zoatroid::ID => tier1::zoatroid::on_sell(state, sold),
-        tier2::fire_baller::ID => tier2::fire_baller::on_sell(state, sold),
-        tier2::patient_scout::ID => tier2::patient_scout::on_sell(state, sold, pool, rng),
-        tier2::sellemental::ID => tier2::sellemental::on_sell(state, sold),
-        tier2::snow_baller::ID => tier2::snow_baller::on_sell(state, sold),
-        tier2::tad::ID => tier2::tad::on_sell(state, sold, pool, rng),
-        tier2::wandering_willbreaker::ID => tier2::wandering_willbreaker::on_sell(state, sold, rng),
-        tier3::greedy_conniver::ID => tier3::greedy_conniver::on_sell(state, sold, pool, rng),
-        tier3::shoalfin_mystic::ID => tier3::shoalfin_mystic::on_sell(state, sold),
-        tier4::air_baller::ID => tier4::air_baller::on_sell(state, sold),
-        tier4::faceless_operative::ID => {
-            tier4::faceless_operative::on_sell(state, sold, pool, rng)
-        }
-        tier4::snarky_shark::ID => tier4::snarky_shark::on_sell(state, sold, pool, rng),
-        tier4::tortollan_blue_shell::ID => tier4::tortollan_blue_shell::on_sell(state, sold),
-        _ => {}
+    if let Some(sell) = hooks(sold.card_id).sell {
+        sell(state, sold, pool, rng);
     }
 }
 
@@ -1122,52 +949,15 @@ pub fn on_hero_damage_taken(
 
 /// Returns the Gold cost of a minion's `Activate` ability, if it has one.
 pub fn activate_cost(card_id: CardId) -> Option<u32> {
-    match card_id {
-        tier1::suspicious_prisonguard::ID => Some(tier1::suspicious_prisonguard::ACTIVATE_COST),
-        tier2::brain_rotter::ID => Some(tier2::brain_rotter::ACTIVATE_COST),
-        tier2::clever_castaway::ID => Some(tier2::clever_castaway::ACTIVATE_COST),
-        tier2::decoy_conjurer::ID => Some(tier2::decoy_conjurer::ACTIVATE_COST),
-        tier2::lurking_lionfish::ID => Some(tier2::lurking_lionfish::ACTIVATE_COST),
-        tier3::abyssal_envoy::ID => Some(tier3::abyssal_envoy::ACTIVATE_COST),
-        tier3::fruit_vendor::ID => Some(tier3::fruit_vendor::ACTIVATE_COST),
-        tier3::hired_mount::ID => Some(tier3::hired_mount::ACTIVATE_COST),
-        tier3::mangled_bandit::ID => Some(tier3::mangled_bandit::ACTIVATE_COST),
-        tier4::dead_bellringer::ID => Some(tier4::dead_bellringer::ACTIVATE_COST),
-        tier4::drone_duplicator::ID => Some(tier4::drone_duplicator::ACTIVATE_COST),
-        tier4::kelp_keeper::ID => Some(tier4::kelp_keeper::ACTIVATE_COST),
-        tier4::living_prison::ID => Some(tier4::living_prison::ACTIVATE_COST),
-        tier4::mindbending_recruiter::ID => Some(tier4::mindbending_recruiter::ACTIVATE_COST),
-        tier4::sacrificial_wrathguard::ID => Some(tier4::sacrificial_wrathguard::ACTIVATE_COST),
-        tier4::sky_hatch_runaway::ID => Some(tier4::sky_hatch_runaway::ACTIVATE_COST),
-        tier4::soulkeeping_jailer::ID => Some(tier4::soulkeeping_jailer::ACTIVATE_COST),
-        tier5::deft_deserter::ID => Some(tier5::deft_deserter::ACTIVATE_COST),
-        tier5::nraqi_frostcaller::ID => Some(tier5::nraqi_frostcaller::ACTIVATE_COST),
-        tier5::sewer_escapee::ID => Some(tier5::sewer_escapee::ACTIVATE_COST),
-        tier6::tyrael::ID => Some(tier6::tyrael::ACTIVATE_COST),
-        tier6::victorious_geomant::ID => Some(tier6::victorious_geomant::ACTIVATE_COST),
-        _ => None,
-    }
+    hooks(card_id).activate_cost
 }
 
 /// Returns the target domain required by a minion's `Activate` ability.
 pub fn activate_target_kind(card_id: CardId) -> ActivateTargetKind {
-    match card_id {
-        tier1::suspicious_prisonguard::ID | tier6::tyrael::ID => ActivateTargetKind::BoardOther,
-        tier4::dead_bellringer::ID => ActivateTargetKind::BoardOtherUndead,
-        tier5::sewer_escapee::ID => ActivateTargetKind::BoardOtherMurloc,
-        tier4::kelp_keeper::ID => ActivateTargetKind::BoardBattlecry,
-        tier4::sky_hatch_runaway::ID => ActivateTargetKind::BoardRally,
-        tier2::brain_rotter::ID
-        | tier3::abyssal_envoy::ID
-        | tier3::mangled_bandit::ID
-        | tier4::mindbending_recruiter::ID
-        | tier5::nraqi_frostcaller::ID => ActivateTargetKind::HandCard,
-        tier2::lurking_lionfish::ID => ActivateTargetKind::ShopCard,
-        _ => ActivateTargetKind::None,
-    }
+    hooks(card_id).activate_target
 }
 
-/// Execute a minion's `Activate` ability on `board`.
+/// Execute the `Activate` ability of `state.board[source_pos]`.
 pub fn on_activate(
     state: &mut TavernState,
     source_pos: usize,
@@ -1175,58 +965,8 @@ pub fn on_activate(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    match state.board[source_pos].card_id {
-        tier1::suspicious_prisonguard::ID => {
-            tier1::suspicious_prisonguard::on_activate(state, source_pos, target_pos)
-        }
-        tier2::brain_rotter::ID => {
-            tier2::brain_rotter::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier2::clever_castaway::ID => tier2::clever_castaway::on_activate(state, source_pos, rng),
-        tier2::decoy_conjurer::ID => tier2::decoy_conjurer::on_activate(state, source_pos),
-        tier2::lurking_lionfish::ID => {
-            tier2::lurking_lionfish::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier3::abyssal_envoy::ID => {
-            tier3::abyssal_envoy::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier3::fruit_vendor::ID => tier3::fruit_vendor::on_activate(state, source_pos),
-        tier3::hired_mount::ID => tier3::hired_mount::on_activate(state, source_pos, rng),
-        tier3::mangled_bandit::ID => {
-            tier3::mangled_bandit::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier4::dead_bellringer::ID => {
-            tier4::dead_bellringer::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier4::drone_duplicator::ID => tier4::drone_duplicator::on_activate(state, source_pos),
-        tier4::kelp_keeper::ID => {
-            tier4::kelp_keeper::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier4::living_prison::ID => tier4::living_prison::on_activate(state, source_pos),
-        tier4::mindbending_recruiter::ID => {
-            tier4::mindbending_recruiter::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier4::sacrificial_wrathguard::ID => {
-            tier4::sacrificial_wrathguard::on_activate(state, source_pos)
-        }
-        tier4::sky_hatch_runaway::ID => {
-            tier4::sky_hatch_runaway::on_activate(state, source_pos, target_pos, rng)
-        }
-        tier4::soulkeeping_jailer::ID => {
-            tier4::soulkeeping_jailer::on_activate(state, source_pos, pool, rng)
-        }
-        tier5::deft_deserter::ID => tier5::deft_deserter::on_activate(state, source_pos, rng),
-        tier5::nraqi_frostcaller::ID => {
-            tier5::nraqi_frostcaller::on_activate(state, source_pos, target_pos, pool, rng)
-        }
-        tier5::sewer_escapee::ID => {
-            tier5::sewer_escapee::on_activate(state, source_pos, target_pos, rng)
-        }
-        tier6::tyrael::ID => tier6::tyrael::on_activate(state, source_pos, target_pos),
-        tier6::victorious_geomant::ID => {
-            tier6::victorious_geomant::on_activate(state, source_pos, rng)
-        }
-        _ => {}
+    if let Some(activate) = hooks(state.board[source_pos].card_id).activate {
+        activate(state, source_pos, target_pos, pool, rng);
     }
 }
 
@@ -1263,99 +1003,50 @@ pub fn summon_boon_of_beetles(
     }
 }
 
-/// Resolve Start-of-Combat board triggers for one side (`Flighty Scout`, `Electric Synthesizer`, `Humming Bird`, `Amber Guardian`, `Diremuck Forager`, `Runic Arcanist`, `Costume Enthusiast`, `Hopebringer`, `Choral Mrrrglr`, `Ultraviolet Ascendant`, `Boon of Beetles`).
-#[allow(clippy::too_many_arguments)]
-pub fn on_start_of_combat(
-    side: Side,
-    board: &mut Vec<Unit>,
-    auras: &mut PlayerAuras,
-    hand: &[Unit],
-    hand_summoned: &mut [bool],
-    combat_beast_bonus_atk: &mut i32,
-    next_id: &mut UnitId,
-    rng: &mut Rng,
-    events: &mut Vec<Event>,
-) {
+/// Resolve Start-of-Combat triggers for one side: hand effects (`Flighty Scout`), `Boon of
+/// Beetles`, then each living minion's `start_of_combat` hook, left to right.
+pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
     tier1::flighty_scout::on_start_of_combat(
-        side,
-        hand,
-        board,
-        auras,
-        *combat_beast_bonus_atk,
-        next_id,
-        events,
+        ctx.side,
+        ctx.hand,
+        ctx.board,
+        ctx.auras,
+        *ctx.beast_bonus_atk,
+        ctx.next_id,
+        ctx.events,
     );
-    summon_boon_of_beetles(side, board, auras, *combat_beast_bonus_atk, next_id, events);
-    let sources: Vec<(UnitId, CardId, bool)> = board
+    summon_boon_of_beetles(
+        ctx.side,
+        ctx.board,
+        ctx.auras,
+        *ctx.beast_bonus_atk,
+        ctx.next_id,
+        ctx.events,
+    );
+    let sources: Vec<(UnitId, CardId, bool)> = ctx
+        .board
         .iter()
         .map(|u| (u.id, u.card_id, u.is_golden))
         .collect();
     for (id, card_id, is_golden) in sources {
-        if !board.iter().any(|u| u.id == id && u.health > 0) {
+        if !ctx.board.iter().any(|u| u.id == id && u.health > 0) {
             continue;
         }
-        match card_id {
-            tier2::electric_synthesizer::ID => {
-                tier2::electric_synthesizer::on_start_of_combat(side, board, id, is_golden, events);
-            }
-            tier2::humming_bird::ID => {
-                tier2::humming_bird::on_start_of_combat(
-                    side,
-                    board,
-                    combat_beast_bonus_atk,
-                    is_golden,
-                    events,
-                );
-            }
-            tier3::amber_guardian::ID => {
-                tier3::amber_guardian::on_start_of_combat(
-                    side, board, id, is_golden, rng, events,
-                );
-            }
-            tier3::diremuck_forager::ID => {
-                tier3::diremuck_forager::on_start_of_combat(
-                    side,
-                    board,
-                    id,
-                    is_golden,
-                    auras,
-                    hand,
-                    hand_summoned,
-                    *combat_beast_bonus_atk,
-                    next_id,
-                    events,
-                );
-            }
-            tier4::runic_arcanist::ID => {
-                tier4::runic_arcanist::on_start_of_combat(side, board, auras, is_golden, events);
-            }
-            tier5::costume_enthusiast::ID => {
-                tier5::costume_enthusiast::on_start_of_combat(
-                    side, board, id, is_golden, hand, events,
-                );
-            }
-            tier5::hopebringer::ID => {
-                tier5::hopebringer::on_start_of_combat(side, board, id, is_golden, events);
-            }
-            tier6::choral_mrrrglr::ID => {
-                tier6::choral_mrrrglr::on_start_of_combat(side, board, id, is_golden, hand, events);
-            }
-            tier6::ultraviolet_ascendant::ID => {
-                tier6::ultraviolet_ascendant::on_start_of_combat(side, board, id, is_golden, events);
-            }
-            _ => {}
+        if let Some(start_of_combat) = hooks(card_id).start_of_combat {
+            start_of_combat(ctx, id, is_golden);
         }
     }
 }
 
-/// Resolve a minion's On-Attack (`Rally`) effect during combat.
+/// Resolve a minion's On-Attack (`Rally`) hook. `def_target` is the defending board and the
+/// attack target's index (`None` when the Rally is triggered in the Tavern).
 /// Returns any token(s) to be summoned immediately to the attacker's right.
 #[allow(clippy::too_many_arguments)]
 pub fn on_rally(
     side: Side,
     board: &mut [Unit],
     attacker_pos: usize,
-    mut def_target: Option<(&mut [Unit], usize)>,
+    def_target: Option<(&mut [Unit], usize)>,
     auras: &mut PlayerAuras,
     hand: &[Unit],
     hand_summoned: &mut [bool],
@@ -1363,115 +1054,28 @@ pub fn on_rally(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) -> Vec<Unit> {
-    let card_id = board[attacker_pos].card_id;
-    let attacker_id = board[attacker_pos].id;
-    let is_golden = board[attacker_pos].is_golden;
-    let summons = match card_id {
-        tier1::flittering_bat::ID => tier1::flittering_bat::on_rally(&mut board[attacker_pos]),
-        tier1::glim_guardian::ID => tier1::glim_guardian::on_rally(&mut board[attacker_pos]),
-        tier1::tusked_camper::ID => {
-            tier1::tusked_camper::on_rally(&mut board[attacker_pos], auras)
-        }
-        tier2::expert_aviator::ID => {
-            tier2::expert_aviator::on_rally(&board[attacker_pos], hand, hand_summoned)
-        }
-        tier2::roadboar::ID => {
-            tier2::roadboar::on_rally(&board[attacker_pos], generated_hand)
-        }
-        tier3::blue_whelp::ID => {
-            tier3::blue_whelp::on_rally(&board[attacker_pos], auras);
-            Vec::new()
-        }
-        tier3::wolf_pup::ID => {
-            tier3::wolf_pup::on_rally(side, board, attacker_id, is_golden, events);
-            Vec::new()
-        }
-        tier4::bigwig_bandit::ID => {
-            tier4::bigwig_bandit::on_rally(&board[attacker_pos], generated_hand, rng);
-            Vec::new()
-        }
-        tier4::bonker::ID => {
-            tier4::bonker::on_rally(side, board, attacker_pos, auras, events);
-            Vec::new()
-        }
-        tier4::bramble_tunneler::ID => {
-            tier4::bramble_tunneler::on_rally(&board[attacker_pos], generated_hand, rng);
-            Vec::new()
-        }
-        tier4::bronze_timewalker::ID => {
-            tier4::bronze_timewalker::on_rally(&board[attacker_pos], generated_hand, rng);
-            Vec::new()
-        }
-        tier4::dark_paradox::ID => {
-            tier4::dark_paradox::on_rally(board, attacker_pos, auras, generated_hand, rng);
-            Vec::new()
-        }
-        tier4::headhunter_gryphon::ID => {
-            tier4::headhunter_gryphon::on_rally(
-                &board[attacker_pos],
-                auras,
+    let attacker = &board[attacker_pos];
+    let summons = match hooks(attacker.card_id).rally {
+        Some(rally) => {
+            let mut ctx = RallyCtx {
+                side,
+                in_combat: def_target.is_some(),
+                attacker_id: attacker.id,
+                is_golden: attacker.is_golden,
+                board: &mut *board,
+                attacker_pos,
+                def_target,
+                auras: &mut *auras,
+                hand,
+                hand_summoned,
                 generated_hand,
-                rng,
-            );
-            Vec::new()
+                summons_attack_target: false,
+                rng: &mut *rng,
+                events,
+            };
+            rally(&mut ctx)
         }
-        tier4::heroic_underdog::ID => {
-            let def_unit = def_target.as_ref().and_then(|(b, idx)| b.get(*idx));
-            tier4::heroic_underdog::on_rally(&mut board[attacker_pos], def_unit);
-            Vec::new()
-        }
-        tier4::hoarding_hyena::ID => tier4::hoarding_hyena::on_rally(&board[attacker_pos]),
-        tier4::sindorei_straight_shot::ID => {
-            let def_unit = def_target.as_mut().and_then(|(b, idx)| b.get_mut(*idx));
-            tier4::sindorei_straight_shot::on_rally(def_unit);
-            Vec::new()
-        }
-        tier5::bile_spitter::ID => {
-            tier5::bile_spitter::on_rally(board, attacker_pos, rng);
-            Vec::new()
-        }
-        tier5::razorfen_vineweaver::ID => {
-            tier5::razorfen_vineweaver::on_rally(&mut board[attacker_pos], auras, true);
-            Vec::new()
-        }
-        tier5::sanguine_refiner::ID => {
-            tier5::sanguine_refiner::on_rally(&board[attacker_pos], auras);
-            Vec::new()
-        }
-        tier6::crimson_vindicator::ID => {
-            let is_golden = board[attacker_pos].is_golden;
-            tier6::crimson_vindicator::on_rally(side, board, is_golden, auras, events);
-            Vec::new()
-        }
-        tier6::heroic_broodmother::ID => {
-            tier6::heroic_broodmother::on_rally(&mut board[attacker_pos]);
-            Vec::new()
-        }
-        tier7::highkeeper_ra::ID => {
-            tier7::highkeeper_ra::on_rally(is_golden, auras, generated_hand, rng);
-            Vec::new()
-        }
-        tier7::jailbird_juggernaut::ID => {
-            tier7::jailbird_juggernaut::on_rally(&board[attacker_pos])
-        }
-        tier7::obsidian_ravager::ID => {
-            if let Some((def_board, def_pos)) = def_target.as_mut() {
-                tier7::obsidian_ravager::on_rally(
-                    &board[attacker_pos],
-                    def_board,
-                    *def_pos,
-                    rng,
-                    events,
-                );
-            }
-            Vec::new()
-        }
-        tier7::the_last_one_standing::ID => {
-            let in_combat = def_target.is_some();
-            tier7::the_last_one_standing::on_rally(side, board, is_golden, in_combat, rng, events);
-            Vec::new()
-        }
-        _ => Vec::new(),
+        None => Vec::new(),
     };
     resolve_roogug_procs(board, auras, rng);
     summons
@@ -1507,7 +1111,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             state.apply_global_unit_auras(&mut token);
             let cid = token.card_id;
             state.board.insert(insert_pos, token);
-            tier5::lurking_leviathan::on_beast_summoned_tavern(&mut state.board, insert_pos);
+            on_tavern_summon(&mut state.board, insert_pos);
             insert_pos += 1;
             state.check_and_resolve_triple(cid);
         }
@@ -1517,20 +1121,27 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
         let mut deathstrider_hand = state.hand.clone();
         let prev_hand_len = deathstrider_hand.len();
         let mut hand_summoned2 = vec![false; prev_hand_len];
+        let mut beast_bonus_atk = 0;
+        let mut pending_attacks = Vec::new();
         let mut next_id = 10_000;
-        tier6::deathstrider::after_rally_minion_attacks(
-            Side::A,
-            false,
-            &mut state.board,
-            &mut state.auras,
-            &mut deathstrider_hand,
-            &mut hand_summoned2,
-            &[],
-            0,
-            &mut next_id,
+        let mut ctx = BoardCtx {
+            side: Side::A,
+            in_combat: false,
+            board: &mut state.board,
+            cursor: 0,
+            auras: &mut state.auras,
+            hand: &mut deathstrider_hand,
+            hand_summoned: &mut hand_summoned2,
+            dead_aberrations: &[],
+            beast_bonus_atk: &mut beast_bonus_atk,
+            hero_tier: state.tavern_tier,
+            pending_attacks: &mut pending_attacks,
+            enemy_destroys: Vec::new(),
+            next_id: &mut next_id,
             rng,
-            &mut events,
-        );
+            events: &mut events,
+        };
+        tier6::deathstrider::after_rally_minion_attacks(&mut ctx);
         for card in deathstrider_hand.into_iter().skip(prev_hand_len) {
             state.add_to_hand(card);
         }
@@ -1691,73 +1302,11 @@ pub fn on_combat_friendly_death(
     );
 }
 
-/// Resolve a dying minion's `Deathrattle` (token summons, board buffs, aura scaling, and hand generation) via [`DeathrattleContext`].
-pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
-    if is_deathrattle_minion(dying.card_id) {
+/// Resolve a dying minion's `Deathrattle` hook (once; callers apply repeat multipliers).
+pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
+    if let Some(deathrattle) = hooks(dying.card_id).deathrattle {
         ctx.auras.deathrattles_triggered += 1;
-    }
-    match dying.card_id {
-        deities::CARD_YSHAARJ => {
-            for token in
-                deities::yshaarj_deathrattle_summons(dying.is_golden, ctx.dead_aberrations)
-            {
-                ctx.summon(dying.id, token);
-            }
-        }
-        tier1::buzzing_vermin::ID => tier1::buzzing_vermin::on_deathrattle(dying, ctx),
-        tier1::cord_puller::ID => tier1::cord_puller::on_deathrattle(dying, ctx),
-        tier1::harmless_bonehead::ID => tier1::harmless_bonehead::on_deathrattle(dying, ctx),
-        tier2::forest_rover::ID => tier2::forest_rover::on_deathrattle(dying, ctx),
-        tier2::scarlet_skull::ID => tier2::scarlet_skull::on_deathrattle(dying, ctx),
-        tier2::underrot_spawn::ID => tier2::underrot_spawn::on_deathrattle(dying, ctx),
-        tier3::cadaver_caretaker::ID => tier3::cadaver_caretaker::on_deathrattle(dying, ctx),
-        tier3::drifting_sacrifice::ID => tier3::drifting_sacrifice::on_deathrattle(dying, ctx),
-        tier3::handless_forsaken::ID => tier3::handless_forsaken::on_deathrattle(dying, ctx),
-        tier3::locked_up_mutineer::ID => tier3::locked_up_mutineer::on_deathrattle(dying, ctx),
-        tier3::mummifier::ID => tier3::mummifier::on_deathrattle(dying, ctx),
-        tier3::rescue_bot::ID => tier3::rescue_bot::on_deathrattle(dying, ctx),
-        tier3::tasty_lobster::ID => tier3::tasty_lobster::on_deathrattle(dying, ctx),
-        tier3::trapped_clapper::ID => tier3::trapped_clapper::on_deathrattle(dying, ctx),
-        tier3::unwilling_slacker::ID => tier3::unwilling_slacker::on_deathrattle(dying, ctx),
-        tier3::waveling::ID => tier3::waveling::on_deathrattle(dying, ctx),
-        tier4::conveyor_construct::ID => tier4::conveyor_construct::on_deathrattle(dying, ctx),
-        tier4::friendly_geist::ID => tier4::friendly_geist::on_deathrattle(dying, ctx),
-        tier4::gormling_gourmet::ID => tier4::gormling_gourmet::on_deathrattle(dying, ctx),
-        tier4::imp_lusionist::ID => tier4::imp_lusionist::on_deathrattle(dying, ctx),
-        tier4::leyline_surfacer::ID => tier4::leyline_surfacer::on_deathrattle(dying, ctx),
-        tier4::plaguerunner::ID => tier4::plaguerunner::on_deathrattle(dying, ctx),
-        tier4::razorfen_flapper::ID => tier4::razorfen_flapper::on_deathrattle(dying, ctx),
-        tier4::sacrificial_wrathguard::ID => {
-            tier4::sacrificial_wrathguard::on_deathrattle(dying, ctx)
-        }
-        tier5::draconic_warden::ID => tier5::draconic_warden::on_deathrattle(dying, ctx),
-        tier5::eternal_summoner::ID => tier5::eternal_summoner::on_deathrattle(dying, ctx),
-        tier5::faceless_converter::ID => tier5::faceless_converter::on_deathrattle(dying, ctx),
-        tier5::firescale_hoarder::ID => tier5::firescale_hoarder::on_deathrattle(dying, ctx),
-        tier5::ghastcoiler::ID => tier5::ghastcoiler::on_deathrattle(dying, ctx),
-        tier5::goldrinn_the_great_wolf::ID => {
-            tier5::goldrinn_the_great_wolf::on_deathrattle(dying, ctx)
-        }
-        tier5::nightmare_par_tea_guest::ID => {
-            tier5::nightmare_par_tea_guest::on_deathrattle(dying, ctx)
-        }
-        tier5::nraqi_sapper::ID => tier5::nraqi_sapper::on_deathrattle(dying, ctx),
-        tier5::sewer_lord::ID => tier5::sewer_lord::on_deathrattle(dying, ctx),
-        tier5::ship_master_eudora::ID => tier5::ship_master_eudora::on_deathrattle(dying, ctx),
-        tier5::shipwrecked_rascal::ID => tier5::shipwrecked_rascal::on_deathrattle(dying, ctx),
-        tier5::turquoise_skitterer::ID => tier5::turquoise_skitterer::on_deathrattle(dying, ctx),
-        tier6::dark_puppeteer::ID => tier6::dark_puppeteer::on_deathrattle(dying, ctx),
-        tier6::deathly_striker::ID => tier6::deathly_striker::on_deathrattle(dying, ctx),
-        tier6::nadina_the_red::ID => tier6::nadina_the_red::on_deathrattle(dying, ctx),
-        tier6::ravaging_scorpid::ID => tier6::ravaging_scorpid::on_deathrattle(dying, ctx),
-        tier6::sanguine_champion::ID => tier6::sanguine_champion::on_deathrattle(dying, ctx),
-        tier7::champion_of_sargeras::ID => {
-            tier7::champion_of_sargeras::on_deathrattle(ctx, dying.is_golden)
-        }
-        tier7::highkeeper_ra::ID => tier7::highkeeper_ra::on_deathrattle(ctx, dying.is_golden),
-        tier7::stitched_salvager::ID => tier7::stitched_salvager::on_deathrattle(dying, ctx),
-        tokens::TOKEN_SEWER_RAT => tier5::sewer_lord::on_sewer_rat_deathrattle(dying, ctx),
-        _ => {}
+        deathrattle(dying, ctx);
     }
 }
 

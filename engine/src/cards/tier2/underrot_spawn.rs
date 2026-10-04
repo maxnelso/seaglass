@@ -9,7 +9,9 @@ pub const ID: CardId = 232;
 pub const NAME: &str = "Underrot Spawn";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 2, 2).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, NAME, 2, 2, 2)
+        .with_tribe(Tribe::Aberration)
+        .on_deathrattle(on_deathrattle)
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

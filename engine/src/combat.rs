@@ -1,6 +1,6 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
-use crate::cards::{self, DeathrattleContext};
+use crate::cards::{self, BoardCtx};
 use crate::cards::deities::{self, DEITY_SACRIFICE_REQUIREMENT};
 use crate::events::Event;
 use crate::model::{BattleOutcome, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
@@ -52,8 +52,8 @@ impl SideCombatState {
         mut hand: Vec<Unit>,
     ) -> Self {
         for u in &mut board {
-            if u.card_id == cards::tier7::stalwart_kodo::ID {
-                u.kodo_triggers_left = 3;
+            if let Some(combat_start) = cards::hooks(u.card_id).combat_start {
+                combat_start(u);
             }
             cards::sync_unit_auras(u, &auras);
             u.sync_max_stats();
@@ -78,6 +78,33 @@ impl SideCombatState {
             dead_aberrations: Vec::new(),
             dead_units: Vec::new(),
             pending_immediate_attacks: Vec::new(),
+        }
+    }
+
+    /// Borrow this side as a [`BoardCtx`] for card hooks.
+    fn ctx<'a>(
+        &'a mut self,
+        side: Side,
+        next_id: &'a mut UnitId,
+        rng: &'a mut Rng,
+        events: &'a mut Vec<Event>,
+    ) -> BoardCtx<'a> {
+        BoardCtx {
+            side,
+            in_combat: true,
+            board: &mut self.board,
+            cursor: 0,
+            auras: &mut self.auras,
+            hand: &mut self.hand,
+            hand_summoned: &mut self.hand_summoned,
+            dead_aberrations: &self.dead_aberrations,
+            beast_bonus_atk: &mut self.combat_beast_bonus_atk,
+            hero_tier: self.hero_tier,
+            pending_attacks: &mut self.pending_immediate_attacks,
+            enemy_destroys: Vec::new(),
+            next_id,
+            rng,
+            events,
         }
     }
 
@@ -165,17 +192,7 @@ pub fn resolve_battle(
 
     // Start of Combat triggers: Side A first, then Side B, left-to-right.
     resolve_start_of_combat_spells(Side::A, &mut side_a, &mut side_b, &mut rng, &mut events);
-    cards::on_start_of_combat(
-        Side::A,
-        &mut side_a.board,
-        &mut side_a.auras,
-        &side_a.hand,
-        &mut side_a.hand_summoned,
-        &mut side_a.combat_beast_bonus_atk,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
+    cards::on_start_of_combat(&mut side_a.ctx(Side::A, &mut next_id, &mut rng, &mut events));
     resolve_start_of_combat_destroys(
         Side::A,
         &mut side_a,
@@ -185,17 +202,7 @@ pub fn resolve_battle(
         &mut events,
     );
     resolve_start_of_combat_spells(Side::B, &mut side_b, &mut side_a, &mut rng, &mut events);
-    cards::on_start_of_combat(
-        Side::B,
-        &mut side_b.board,
-        &mut side_b.auras,
-        &side_b.hand,
-        &mut side_b.hand_summoned,
-        &mut side_b.combat_beast_bonus_atk,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
+    cards::on_start_of_combat(&mut side_b.ctx(Side::B, &mut next_id, &mut rng, &mut events));
     resolve_start_of_combat_destroys(
         Side::B,
         &mut side_b,
@@ -728,17 +735,7 @@ fn perform_one_strike(
     if cards::is_rally_minion(attacker_card_id) {
         let prev_hand_len = atk_side.hand.len();
         cards::tier6::deathstrider::after_rally_minion_attacks(
-            side,
-            true,
-            &mut atk_side.board,
-            &mut atk_side.auras,
-            &mut atk_side.hand,
-            &mut atk_side.hand_summoned,
-            &atk_side.dead_aberrations,
-            atk_side.combat_beast_bonus_atk,
-            next_id,
-            rng,
-            events,
+            &mut atk_side.ctx(side, next_id, rng, events),
         );
         for _ in prev_hand_len..atk_side.hand.len() {
             cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
@@ -1320,16 +1317,12 @@ fn resolve_deaths(
         return;
     }
 
-    let old_board = std::mem::take(&mut side_state.board);
     // Living units always retain their board slots; summons insert at `cursor`
-    // while `rebuilt.len() < MAX_BOARD_SIZE`.
-    let mut rebuilt: Vec<Unit> = old_board
-        .iter()
-        .filter(|u| u.health > 0)
-        .cloned()
-        .collect();
+    // while `side_state.board.len() < MAX_BOARD_SIZE`.
+    let old_board = side_state.board.clone();
+    side_state.board.retain(|u| u.health > 0);
     let mut cursor: usize = 0;
-    let mut leeroy_killed_opp = false;
+    let mut killed_opp = false;
 
     for unit in old_board {
         if unit.health > 0 {
@@ -1343,7 +1336,7 @@ fn resolve_deaths(
         cards::on_combat_friendly_death(
             side,
             &unit,
-            &mut rebuilt,
+            &mut side_state.board,
             &mut side_state.auras,
             side_state.hero_tier,
             &mut side_state.hand,
@@ -1365,40 +1358,29 @@ fn resolve_deaths(
         }
 
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
-        let dr_repeats = 1 + cards::extra_deathrattle_triggers(&rebuilt);
+        let dr_repeats = 1 + cards::extra_deathrattle_triggers(&side_state.board);
+        let mut enemy_destroys = Vec::new();
         for _ in 0..dr_repeats {
-            let mut dr_ctx = DeathrattleContext {
-                side,
-                in_combat: true,
-                board: &mut rebuilt,
-                cursor: &mut cursor,
-                auras: &mut side_state.auras,
-                hand: &mut side_state.hand,
-                hand_summoned: &mut side_state.hand_summoned,
-                dead_aberrations: &side_state.dead_aberrations,
-                combat_beast_bonus_atk: side_state.combat_beast_bonus_atk,
-                next_id,
-                rng,
-                events,
-            };
+            let mut dr_ctx = side_state.ctx(side, next_id, rng, events);
+            dr_ctx.cursor = cursor;
             cards::on_deathrattle(&unit, &mut dr_ctx);
+            cursor = dr_ctx.cursor;
+            enemy_destroys.append(&mut dr_ctx.enemy_destroys);
         }
-        if unit.card_id == cards::tier5::leeroy_the_reckless::ID {
-            if let Some(killer_id) = unit.killed_by {
-                if let Some(killer) = opp_side
-                    .board
-                    .iter_mut()
-                    .find(|u| u.id == killer_id && u.health > 0)
-                {
-                    killer.health = 0;
-                    events.push(Event::Death { unit: killer.id });
-                    leeroy_killed_opp = true;
-                }
+        for target_id in enemy_destroys {
+            if let Some(target) = opp_side
+                .board
+                .iter_mut()
+                .find(|u| u.id == target_id && u.health > 0)
+            {
+                target.health = 0;
+                events.push(Event::Death { unit: target.id });
+                killed_opp = true;
             }
         }
 
         // 2. Reborn resummon
-        if unit.reborn && rebuilt.len() < MAX_BOARD_SIZE {
+        if unit.reborn && side_state.board.len() < MAX_BOARD_SIZE {
             let mut reborn_copy = cards::make_reborn_copy(&unit, &side_state.auras);
             reborn_copy.id = *next_id;
             *next_id += 1;
@@ -1414,17 +1396,17 @@ fn resolve_deaths(
                 }
             }
             cards::tier5::lurking_leviathan::on_beast_summoned_combat(
-                &mut rebuilt,
+                &mut side_state.board,
                 reborn_copy.id,
                 &mut reborn_copy,
             );
             cards::tier4::banana_slamma::on_beast_summoned(
-                &rebuilt,
+                &side_state.board,
                 reborn_copy.id,
                 &mut reborn_copy,
             );
             cards::tier7::stalwart_kodo::on_minion_summoned_in_combat(
-                &mut rebuilt,
+                &mut side_state.board,
                 reborn_copy.id,
                 &mut reborn_copy,
             );
@@ -1440,12 +1422,12 @@ fn resolve_deaths(
                 health: reborn_copy.health,
                 reason: "Reborn",
             });
-            rebuilt.insert(cursor, reborn_copy);
+            side_state.board.insert(cursor, reborn_copy);
             cursor += 1;
-            cards::tier5::barrier_banshee::on_friendly_reborn(side, &mut rebuilt, events);
+            cards::tier5::barrier_banshee::on_friendly_reborn(side, &mut side_state.board, events);
             cards::tier6::snazzy_phantom::on_friendly_reborn(
                 side,
-                &mut rebuilt,
+                &mut side_state.board,
                 reborn_atk,
                 events,
             );
@@ -1456,7 +1438,7 @@ fn resolve_deaths(
     if !side_state.deity_awakened
         && side_state.auras.deity.kind != crate::model::DeityKind::None
         && side_state.aberration_deaths >= DEITY_SACRIFICE_REQUIREMENT
-        && rebuilt.len() < MAX_BOARD_SIZE
+        && side_state.board.len() < MAX_BOARD_SIZE
     {
         side_state.deity_awakened = true;
         let deity_kind = side_state.auras.deity.kind;
@@ -1464,7 +1446,7 @@ fn resolve_deaths(
         deity_unit.id = *next_id;
         *next_id += 1;
         cards::apply_combat_summon_modifiers(
-            &mut rebuilt,
+            &mut side_state.board,
             &side_state.auras,
             side_state.combat_beast_bonus_atk,
             deity_unit.id,
@@ -1473,8 +1455,8 @@ fn resolve_deaths(
         let deity_id = deity_unit.id;
         let deity_name = deity_unit.name.clone();
         let is_cthun = deity_unit.card_id == deities::CARD_CTHUN;
-        let deity_idx = rebuilt.len();
-        rebuilt.push(deity_unit);
+        let deity_idx = side_state.board.len();
+        side_state.board.push(deity_unit);
 
         events.push(Event::DeityAwakened {
             side,
@@ -1485,9 +1467,9 @@ fn resolve_deaths(
 
         if is_cthun {
             let before: Vec<(UnitId, i32, i32)> =
-                rebuilt.iter().map(|u| (u.id, u.attack, u.health)).collect();
-            deities::on_cthun_awaken(&mut rebuilt, deity_idx, rng);
-            for (u, (id, old_atk, old_hp)) in rebuilt.iter().zip(before) {
+                side_state.board.iter().map(|u| (u.id, u.attack, u.health)).collect();
+            deities::on_cthun_awaken(&mut side_state.board, deity_idx, rng);
+            for (u, (id, old_atk, old_hp)) in side_state.board.iter().zip(before) {
                 if u.attack != old_atk || u.health != old_hp {
                     events.push(Event::StatBuff {
                         side,
@@ -1506,7 +1488,7 @@ fn resolve_deaths(
     // 3b. Summon `Boon of Beetles` into any open board slots.
     cards::summon_boon_of_beetles(
         side,
-        &mut rebuilt,
+        &mut side_state.board,
         &mut side_state.auras,
         side_state.combat_beast_bonus_atk,
         next_id,
@@ -1515,14 +1497,14 @@ fn resolve_deaths(
 
     // 4. Synchronize dynamic friendly-death and persistent auras.
     let before_aura: Vec<(UnitId, i32, i32)> =
-        rebuilt.iter().map(|u| (u.id, u.attack, u.health)).collect();
+        side_state.board.iter().map(|u| (u.id, u.attack, u.health)).collect();
     cards::sync_combat_auras(
-        &mut rebuilt,
+        &mut side_state.board,
         &mut side_state.hand,
         &side_state.auras,
         side_state.friendly_deaths_this_combat,
     );
-    for (u, (id, old_atk, old_hp)) in rebuilt.iter().zip(before_aura) {
+    for (u, (id, old_atk, old_hp)) in side_state.board.iter().zip(before_aura) {
         if u.attack != old_atk || u.health != old_hp {
             events.push(Event::StatBuff {
                 side,
@@ -1536,12 +1518,11 @@ fn resolve_deaths(
         }
     }
 
-    side_state.board = rebuilt;
     if side_state.ptr.is_none() && !side_state.board.is_empty() {
         side_state.ptr = Some(side_state.board[0].id);
     }
 
-    if leeroy_killed_opp {
+    if killed_opp {
         opp_side.ptr = preserve_defender_ptr(&opp_side.board, opp_side.ptr);
         resolve_deaths(side.other(), opp_side, side_state, next_id, rng, events);
     }

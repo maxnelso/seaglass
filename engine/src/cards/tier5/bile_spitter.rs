@@ -12,6 +12,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Bile Spitter", 1, 10, 5)
         .with_tribe(Tribe::Murloc)
         .with_keyword(Keyword::Venomous)
+        .on_rally(|c| {
+            on_rally(c.board, c.attacker_pos, c.rng);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(board: &mut [Unit], attacker_pos: usize, rng: &mut Rng) {

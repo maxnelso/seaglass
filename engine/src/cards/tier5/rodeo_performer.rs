@@ -11,6 +11,7 @@ pub const ID: CardId = 542;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Rodeo Performer", 3, 4, 5)
+        .on_battlecry(|state, unit, _, _, rng| on_battlecry(state, unit, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {

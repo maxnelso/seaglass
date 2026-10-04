@@ -10,7 +10,9 @@ pub const ID: CardId = 305;
 pub const NAME: &str = "Auto Accelerator";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 3, 3).with_tribe(Tribe::Mech)
+    CardTemplate::new(ID, NAME, 3, 3, 3)
+        .with_tribe(Tribe::Mech)
+        .on_battlecry(|state, unit, _, _, rng| on_battlecry(state, unit, rng))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {

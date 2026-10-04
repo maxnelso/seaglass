@@ -9,7 +9,9 @@ pub const ID: CardId = 116;
 pub const NAME: &str = "Razorfen Geomancer";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 2, 1, 1).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, NAME, 2, 1, 1)
+        .with_tribe(Tribe::Quilboar)
+        .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
 }
 
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {

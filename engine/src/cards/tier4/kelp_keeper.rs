@@ -2,7 +2,7 @@
 //!
 //! Activate (1): Trigger a friendly minion's Battlecry (`twice` if Golden).
 
-use crate::cards::{self, CardTemplate};
+use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -14,6 +14,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Kelp Keeper", 5, 5, 4)
         .with_tribe(Tribe::Murloc)
         .with_activate_cost(ACTIVATE_COST)
+        .with_activate_target(ActivateTargetKind::BoardBattlecry)
+        .on_activate(|state, source_pos, target_pos, pool, rng| {
+            on_activate(state, source_pos, target_pos, pool, rng)
+        })
 }
 
 pub fn on_activate(
