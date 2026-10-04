@@ -8,13 +8,12 @@ use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 pub const ID: CardId = 440;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Maritime Extortionist", 7, 7, 4).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Maritime Extortionist", 7, 7, 4)
+        .with_tribe(Tribe::Pirate)
+        .on_sync_aura(sync_unit)
 }
 
 pub fn sync_unit(unit: &mut Unit, auras: &PlayerAuras) {
-    if unit.card_id != ID {
-        return;
-    }
     let diff = auras.golden_minions_played as i32 - unit.maritime_stacks_applied as i32;
     if diff != 0 {
         let per_stack = if unit.is_golden { 14 } else { 7 };

@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 
 use super::hooks::CardHooks;
 use super::{deities, full_catalog, spells, tokens, CardTemplate};
-use crate::model::CardId;
+use crate::model::{CardId, PlayerAuras, Unit};
 
 const NO_SLOT: u16 = u16::MAX;
 
@@ -81,6 +81,15 @@ pub fn template(card_id: CardId) -> Option<&'static CardTemplate> {
     match r.template_slot.get(card_id as usize) {
         Some(&slot) if slot != NO_SLOT => Some(&r.templates[slot as usize]),
         _ => None,
+    }
+}
+
+/// A fresh, unbuffed, non-Golden instance of `unit`'s card: its catalog template, or the plain
+/// version of a token. `None` if the card is neither.
+pub fn plain_instance(unit: &Unit) -> Option<Unit> {
+    match template(unit.card_id) {
+        Some(tpl) => Some(tpl.instantiate()),
+        None => tokens::make_plain_token(unit, &PlayerAuras::default()),
     }
 }
 

@@ -7,6 +7,7 @@
 //! specific card.
 
 pub mod deities;
+mod effects;
 pub mod hooks;
 mod registry;
 pub mod spells;
@@ -19,8 +20,11 @@ pub mod tier6;
 pub mod tier7;
 pub mod tokens;
 
+pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
 pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
 pub use registry::{all_templates, hooks, template};
+
+use registry::plain_instance;
 
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
@@ -620,38 +624,26 @@ pub fn board_passive(board: &[Unit], passive: Passive) -> u32 {
     }
 }
 
-/// Run stat-threshold checks whenever a unit's stats change (in Tavern or Combat).
+/// Run the unit's stat-threshold checks (its `stat_threshold` hook) whenever its stats change
+/// (in Tavern or Combat).
 pub fn check_stat_thresholds(unit: &mut Unit) {
-    if unit.card_id == tier1::scarlet_survivor::ID {
-        tier1::scarlet_survivor::check_threshold(unit);
+    if let Some(stat_threshold) = hooks(unit.card_id).stat_threshold {
+        stat_threshold(unit);
     }
 }
 
-/// Synchronize a unit's persistent "wherever this is" auras (`Undead` attack, `Eternal Knight`, `Volumizers`, `Relentless Deflector`, `Holy Vanguard`, `Maritime Extortionist`, `Falling Sky Golem`).
+/// Synchronize a unit's persistent "wherever this is" auras: the player-wide stat auras, its
+/// board-aura spell bonus, and its card's own `sync_aura` hook.
 pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
     if unit.is_spell {
         return;
     }
-    tier2::nerubian_deathswarmer::sync_unit_undead_attack(unit, auras);
-    tier2::eternal_knight::sync_unit(unit, auras);
-    tier3::relentless_deflector::sync_taunt(unit);
-    tier4::holy_vanguard::sync_unit(unit, auras);
-    tier4::maritime_extortionist::sync_unit(unit, auras);
+    effects::sync_unit_auras(unit, auras);
     if unit.spell_atk_aura == 0 && unit.spell_hp_aura == 0 {
         init_spell_aura(unit);
     }
-    tier6::falling_sky_golem::sync_aura(unit, auras);
-    if matches!(
-        unit.card_id,
-        tier2::blue_volumizer::ID | tier2::green_volumizer::ID | tier2::red_volumizer::ID
-    ) {
-        let (app_atk, app_hp) = unit.volumizer_stacks_applied;
-        let d_atk = auras.volumizer_bonus_atk - app_atk;
-        let d_hp = auras.volumizer_bonus_hp - app_hp;
-        if d_atk != 0 || d_hp != 0 {
-            unit.volumizer_stacks_applied = (auras.volumizer_bonus_atk, auras.volumizer_bonus_hp);
-            unit.add_stats(d_atk, d_hp);
-        }
+    if let Some(sync_aura) = hooks(unit.card_id).sync_aura {
+        sync_aura(unit, auras);
     }
 }
 
@@ -668,19 +660,12 @@ pub fn sync_board_spell_auras(board: &[Unit], auras: &mut PlayerAuras) {
 /// Construct the Reborn resummon copy of `dying` (base or Golden-base copy with `health = 1`, `reborn = false`,
 /// printed keywords restored, and global auras applied).
 pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
-    let mut copy = if let Some(tpl) = template(dying.card_id) {
-        let mut u = tpl.instantiate();
+    let mut copy = if let Some(mut u) = plain_instance(dying) {
         if dying.is_golden {
             u.make_golden();
             u.intrinsic_golden = dying.intrinsic_golden;
         }
         u
-    } else if let Some(mut tok) = tokens::make_plain_token(dying, &PlayerAuras::default()) {
-        if dying.is_golden {
-            tok.make_golden();
-            tok.intrinsic_golden = dying.intrinsic_golden;
-        }
-        tok
     } else {
         let mut u = Unit::new(dying.name.clone(), dying.base_attack, dying.base_health)
             .with_card_id(dying.card_id)
@@ -1204,47 +1189,12 @@ fn summon_copies_from_hand(ctx: &mut BoardCtx<'_>) {
     }
 }
 
-/// Summon `Boon of Beetles` Taunt Beetles into any open board slots during combat.
-pub fn summon_boon_of_beetles(
-    side: Side,
-    board: &mut Vec<Unit>,
-    auras: &mut PlayerAuras,
-    combat_beast_bonus_atk: i32,
-    next_id: &mut UnitId,
-    events: &mut Vec<Event>,
-) {
-    while auras.boon_of_beetles_charges > 0 && board.len() < MAX_BOARD_SIZE {
-        auras.boon_of_beetles_charges -= 1;
-        let mut beetle = tokens::make_beetle(false, auras).with_keyword(Keyword::Taunt);
-        beetle.id = *next_id;
-        *next_id += 1;
-        apply_combat_summon_modifiers(board, auras, combat_beast_bonus_atk, &mut beetle);
-        events.push(Event::UnitSummoned {
-            side,
-            source: beetle.id,
-            unit: beetle.id,
-            name: beetle.name.clone(),
-            attack: beetle.attack,
-            health: beetle.health,
-            reason: "Boon of Beetles",
-        });
-        board.push(beetle);
-    }
-}
-
 /// Resolve Start-of-Combat triggers for one side: copies summoned from hand
-/// (`combat_copies_from_hand`), `Boon of Beetles`, then each living minion's `start_of_combat`
-/// hook, left to right.
+/// (`combat_copies_from_hand`), player-level effects (e.g. `Boon of Beetles`), then each living
+/// minion's `start_of_combat` hook, left to right.
 pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
     summon_copies_from_hand(ctx);
-    summon_boon_of_beetles(
-        ctx.side,
-        ctx.board,
-        ctx.auras,
-        *ctx.beast_bonus_atk,
-        ctx.next_id,
-        ctx.events,
-    );
+    effects::start_of_combat(ctx);
     let sources: Vec<(UnitId, CardId, bool)> = ctx
         .board
         .iter()
@@ -1257,6 +1207,18 @@ pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
         if let Some(start_of_combat) = hooks(card_id).start_of_combat {
             start_of_combat(ctx, id, is_golden);
         }
+    }
+}
+
+/// The engine-resolved Start-of-Combat action of `unit` (its `start_of_combat_action` hook).
+pub fn start_of_combat_action(unit: &Unit) -> Option<SocAction> {
+    hooks(unit.card_id).start_of_combat_action.map(|f| f(unit))
+}
+
+/// Resolve the `awaken` hook of the Deity that just awakened at `ctx.board[idx]`.
+pub fn on_awaken(ctx: &mut BoardCtx<'_>, idx: usize) {
+    if let Some(awaken) = hooks(ctx.board[idx].card_id).awaken {
+        awaken(ctx, idx);
     }
 }
 
@@ -1481,18 +1443,48 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
     }
 }
 
+/// Resolve effects that trigger after a round of combat deaths resolved for one side (player-level
+/// effects that fill open board slots, e.g. `Boon of Beetles`).
+pub fn after_combat_deaths(ctx: &mut BoardCtx<'_>) {
+    effects::after_combat_deaths(ctx);
+}
+
 /// Synchronize dynamic combat/player auras across `board` and `hand` after deaths resolve.
-pub fn sync_combat_auras(
-    board: &mut [Unit],
-    hand: &mut [Unit],
-    auras: &PlayerAuras,
-    _friendly_deaths_this_combat: u32,
-) {
+pub fn sync_combat_auras(board: &mut [Unit], hand: &mut [Unit], auras: &PlayerAuras) {
     for u in board.iter_mut() {
         sync_unit_auras(u, auras);
     }
     for h in hand.iter_mut() {
         sync_unit_auras(h, auras);
+    }
+}
+
+/// `(id, attack, health)` of every unit on `board`, for [`push_stat_changes`].
+pub fn stat_snapshot(board: &[Unit]) -> Vec<(UnitId, i32, i32)> {
+    board.iter().map(|u| (u.id, u.attack, u.health)).collect()
+}
+
+/// Emit a `StatBuff` event (logged with `reason`) for every unit on `board` whose stats differ
+/// from `before`, a [`stat_snapshot`] of the same board (compared slot by slot).
+pub fn push_stat_changes(
+    side: Side,
+    board: &[Unit],
+    before: &[(UnitId, i32, i32)],
+    reason: &'static str,
+    events: &mut Vec<Event>,
+) {
+    for (u, &(id, old_atk, old_hp)) in board.iter().zip(before) {
+        if u.attack != old_atk || u.health != old_hp {
+            events.push(Event::StatBuff {
+                side,
+                unit: id,
+                atk_delta: u.attack - old_atk,
+                hp_delta: u.health - old_hp,
+                attack: u.attack,
+                health: u.health,
+                reason,
+            });
+        }
     }
 }
 

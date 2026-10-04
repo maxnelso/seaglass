@@ -8,11 +8,13 @@ pub const ID: CardId = 107;
 pub const NAME: &str = "Scarlet Survivor";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 3, 3, 1).with_tribe(Tribe::Dragon)
+    CardTemplate::new(ID, NAME, 3, 3, 1)
+        .with_tribe(Tribe::Dragon)
+        .on_stat_threshold(check_threshold)
 }
 
 pub fn check_threshold(unit: &mut Unit) {
-    if unit.card_id == ID && !unit.threshold_triggered && unit.attack >= 6 {
+    if !unit.threshold_triggered && unit.attack >= 6 {
         unit.divine_shield = true;
         unit.inherent_divine_shield = true;
         unit.threshold_triggered = true;

@@ -10,7 +10,7 @@
 //! - `Y'Shaarj`: "Deity. Deathrattle: Summon your first 2 Aberrations that died this combat with
 //!   their maximum stats (except Deities)." (Golden: first 4 Aberrations.)
 
-use crate::cards::{BoardCtx, CardHooks};
+use crate::cards::{push_stat_changes, stat_snapshot, BoardCtx, CardHooks};
 use crate::model::{CardId, DeityKind, DeityState, Tribe, Unit};
 use crate::rng::Rng;
 
@@ -101,10 +101,19 @@ pub fn yshaarj_deathrattle_summons(is_golden: bool, dead_aberrations: &[Unit]) -
 
 /// Behaviour tables for the Deities (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
-    vec![(
-        CARD_YSHAARJ,
-        CardHooks::EMPTY.on_deathrattle(yshaarj_on_deathrattle),
-    )]
+    vec![
+        (CARD_CTHUN, CardHooks::EMPTY.on_awaken(cthun_on_awaken)),
+        (
+            CARD_YSHAARJ,
+            CardHooks::EMPTY.on_deathrattle(yshaarj_on_deathrattle),
+        ),
+    ]
+}
+
+fn cthun_on_awaken(ctx: &mut BoardCtx<'_>, self_idx: usize) {
+    let before = stat_snapshot(ctx.board);
+    on_cthun_awaken(ctx.board, self_idx, ctx.rng);
+    push_stat_changes(ctx.side, ctx.board, &before, "C'Thun Awakening", ctx.events);
 }
 
 fn yshaarj_on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {

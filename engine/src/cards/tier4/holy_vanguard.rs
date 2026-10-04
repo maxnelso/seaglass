@@ -8,13 +8,12 @@ use crate::model::{CardId, Keyword, PlayerAuras, Unit};
 pub const ID: CardId = 430;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Holy Vanguard", 10, 10, 4).with_keyword(Keyword::DivineShield)
+    CardTemplate::new(ID, "Holy Vanguard", 10, 10, 4)
+        .with_keyword(Keyword::DivineShield)
+        .on_sync_aura(sync_unit)
 }
 
 pub fn sync_unit(unit: &mut Unit, auras: &PlayerAuras) {
-    if unit.card_id != ID {
-        return;
-    }
     let mult = if unit.is_golden { 2 } else { 1 };
     let target = if auras.hero_low_health {
         (30 * mult, 30 * mult)

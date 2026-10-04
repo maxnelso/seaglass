@@ -11,13 +11,11 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 4, 2, 2)
         .with_tribe(Tribe::Undead)
         .on_died(on_died)
+        .on_sync_aura(sync_unit)
 }
 
 /// Synchronize this unit's `Eternal Knight` death-count aura with `auras.eternal_knights_died`.
 pub fn sync_unit(unit: &mut Unit, auras: &PlayerAuras) {
-    if unit.card_id != ID {
-        return;
-    }
     let target_stacks = auras.eternal_knights_died;
     if target_stacks > unit.eternal_knight_stacks_applied {
         let diff = (target_stacks - unit.eternal_knight_stacks_applied) as i32;

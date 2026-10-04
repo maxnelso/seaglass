@@ -2,11 +2,16 @@
 //!
 //! Taunt. Start of Combat: Deal 3 damage to all other minions (`twice` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, SocAction};
 use crate::model::{CardId, Keyword};
 
 pub const ID: CardId = 407;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Boom-in-a-Box", 5, 10, 4).with_keyword(Keyword::Taunt)
+    CardTemplate::new(ID, "Boom-in-a-Box", 5, 10, 4)
+        .with_keyword(Keyword::Taunt)
+        .on_start_of_combat_action(|u| SocAction::DamageAll {
+            amount: 3,
+            waves: u.golden_mult() as u32,
+        })
 }

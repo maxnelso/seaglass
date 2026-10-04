@@ -11,12 +11,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Falling Sky Golem", 4, 2, 6)
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::DivineShield)
+        .on_sync_aura(sync_aura)
 }
 
 pub fn sync_aura(unit: &mut Unit, auras: &PlayerAuras) {
-    if unit.card_id != ID {
-        return;
-    }
     if auras.deathrattles_triggered > unit.sky_golem_stacks_applied {
         let diff = (auras.deathrattles_triggered - unit.sky_golem_stacks_applied) as i32;
         unit.sky_golem_stacks_applied = auras.deathrattles_triggered;

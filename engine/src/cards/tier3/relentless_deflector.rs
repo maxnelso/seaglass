@@ -11,12 +11,12 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 5, 4, 3)
         .with_tribe(Tribe::Mech)
         .on_friendly_death(|ctx, self_idx, _| on_friendly_death(&mut ctx.board[self_idx]))
+        .on_sync_aura(|u, _| sync_taunt(u))
 }
 
+/// Has Taunt while this has Divine Shield.
 pub fn sync_taunt(unit: &mut Unit) {
-    if unit.card_id == ID {
-        unit.taunt = unit.divine_shield;
-    }
+    unit.taunt = unit.divine_shield;
 }
 
 /// Avenge (3): gain Divine Shield (and with it Taunt). Counts Tavern deaths too.

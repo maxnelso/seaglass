@@ -1,9 +1,10 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
-use crate::cards::{self, BoardCtx, Passive};
-use crate::cards::deities::{self, DEITY_SACRIFICE_REQUIREMENT};
+use crate::cards::{self, BoardCtx, Passive, SocAction};
 use crate::events::Event;
-use crate::model::{BattleOutcome, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
+use crate::model::{
+    BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit, UnitId,
+};
 use crate::rng::Rng;
 
 /// Maximum number of units a board can hold at once.
@@ -36,7 +37,6 @@ struct SideCombatState {
     hand: Vec<Unit>,
     hand_summoned: Vec<bool>,
     combat_beast_bonus_atk: i32,
-    friendly_deaths_this_combat: u32,
     aberration_deaths: u32,
     deity_awakened: bool,
     dead_aberrations: Vec<Unit>,
@@ -72,7 +72,6 @@ impl SideCombatState {
             hand,
             hand_summoned,
             combat_beast_bonus_atk: 0,
-            friendly_deaths_this_combat: 0,
             aberration_deaths: 0,
             deity_awakened: false,
             dead_aberrations: Vec::new(),
@@ -378,7 +377,20 @@ fn resolve_start_of_combat_spells(
     }
 }
 
-/// Resolve Start-of-Combat friendly neighbor destroys (`Stitched Salvager`).
+/// Living units on `board` whose Start-of-Combat action is selected by `pick`, left to right,
+/// evaluated now: `(unit_id, card_id, picked)`.
+fn soc_action_sources<T>(
+    board: &[Unit],
+    pick: impl Fn(SocAction) -> Option<T>,
+) -> Vec<(UnitId, CardId, T)> {
+    board
+        .iter()
+        .filter(|u| u.health > 0)
+        .filter_map(|u| pick(cards::start_of_combat_action(u)?).map(|t| (u.id, u.card_id, t)))
+        .collect()
+}
+
+/// Resolve Start-of-Combat friendly neighbor destroys ([`SocAction::DestroyNeighbors`]).
 fn resolve_start_of_combat_destroys(
     side: Side,
     own_side: &mut SideCombatState,
@@ -387,13 +399,11 @@ fn resolve_start_of_combat_destroys(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let sources: Vec<(UnitId, bool)> = own_side
-        .board
-        .iter()
-        .filter(|u| u.card_id == cards::tier7::stitched_salvager::ID && u.health > 0)
-        .map(|u| (u.id, u.is_golden))
-        .collect();
-    for (src_id, is_golden) in sources {
+    let sources = soc_action_sources(&own_side.board, |action| match action {
+        SocAction::DestroyNeighbors { both_sides } => Some(both_sides),
+        _ => None,
+    });
+    for (src_id, src_card, both_sides) in sources {
         let Some(src_pos) = own_side
             .board
             .iter()
@@ -404,14 +414,14 @@ fn resolve_start_of_combat_destroys(
         let mut victim_positions = Vec::new();
         if src_pos > 0
             && own_side.board[src_pos - 1].health > 0
-            && own_side.board[src_pos - 1].card_id != cards::tier7::stitched_salvager::ID
+            && own_side.board[src_pos - 1].card_id != src_card
         {
             victim_positions.push(src_pos - 1);
         }
-        if is_golden
+        if both_sides
             && src_pos + 1 < own_side.board.len()
             && own_side.board[src_pos + 1].health > 0
-            && own_side.board[src_pos + 1].card_id != cards::tier7::stitched_salvager::ID
+            && own_side.board[src_pos + 1].card_id != src_card
         {
             victim_positions.push(src_pos + 1);
         }
@@ -435,7 +445,7 @@ fn resolve_start_of_combat_destroys(
     }
 }
 
-/// Resolve Start-of-Combat board-wide AoE damage (`Boom-in-a-Box`).
+/// Resolve Start-of-Combat board-wide AoE damage ([`SocAction::DamageAll`]).
 fn resolve_start_of_combat_aoe(
     side: Side,
     own_side: &mut SideCombatState,
@@ -444,17 +454,14 @@ fn resolve_start_of_combat_aoe(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let sources: Vec<(UnitId, bool)> = own_side
-        .board
-        .iter()
-        .filter(|u| u.card_id == cards::tier4::boom_in_a_box::ID && u.health > 0)
-        .map(|u| (u.id, u.is_golden))
-        .collect();
-    for (src_id, is_golden) in sources {
+    let sources = soc_action_sources(&own_side.board, |action| match action {
+        SocAction::DamageAll { amount, waves } => Some((amount, waves)),
+        _ => None,
+    });
+    for (src_id, _, (amount, waves)) in sources {
         if !own_side.board.iter().any(|u| u.id == src_id && u.health > 0) {
             continue;
         }
-        let waves = if is_golden { 2 } else { 1 };
         for _ in 0..waves {
             let own_ids: Vec<UnitId> = own_side
                 .board
@@ -464,13 +471,14 @@ fn resolve_start_of_combat_aoe(
                 .collect();
             for tid in own_ids {
                 if let Some(pos) = own_side.board.iter().position(|u| u.id == tid) {
-                    let (_, took) = apply_damage(&mut own_side.board, pos, 3, src_id, false, events);
+                    let (_, took) =
+                        apply_damage(&mut own_side.board, pos, amount, src_id, false, events);
                     if took {
                         cards::on_damage_taken(&own_side.board[pos], &mut own_side.hand, rng);
                         cards::on_damage_dealt(
                             &mut own_side.ctx(side, next_id, rng, events),
                             src_id,
-                            3,
+                            amount,
                         );
                     }
                 }
@@ -483,13 +491,14 @@ fn resolve_start_of_combat_aoe(
                 .collect();
             for tid in opp_ids {
                 if let Some(pos) = opp_side.board.iter().position(|u| u.id == tid) {
-                    let (_, took) = apply_damage(&mut opp_side.board, pos, 3, src_id, false, events);
+                    let (_, took) =
+                        apply_damage(&mut opp_side.board, pos, amount, src_id, false, events);
                     if took {
                         cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
                         cards::on_damage_dealt(
                             &mut own_side.ctx(side, next_id, rng, events),
                             src_id,
-                            3,
+                            amount,
                         );
                     }
                 }
@@ -511,7 +520,7 @@ fn resolve_start_of_combat_aoe(
     }
 }
 
-/// Resolve Start-of-Combat immediate attacks (`Heroic Broodmother`).
+/// Resolve Start-of-Combat immediate attacks ([`SocAction::Attack`]).
 fn resolve_start_of_combat_attacks(
     side: Side,
     own_side: &mut SideCombatState,
@@ -520,14 +529,11 @@ fn resolve_start_of_combat_attacks(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let sources: Vec<(UnitId, bool)> = own_side
-        .board
-        .iter()
-        .filter(|u| u.card_id == cards::tier6::heroic_broodmother::ID && u.health > 0)
-        .map(|u| (u.id, u.is_golden))
-        .collect();
-    for (src_id, is_golden) in sources {
-        let strikes = if is_golden { 2 } else { 1 };
+    let sources = soc_action_sources(&own_side.board, |action| match action {
+        SocAction::Attack { times } => Some(times),
+        _ => None,
+    });
+    for (src_id, _, strikes) in sources {
         for _ in 0..strikes {
             if opp_side.is_empty()
                 || !own_side
@@ -1259,7 +1265,6 @@ fn resolve_deaths(
         }
 
         // Unit died.
-        side_state.friendly_deaths_this_combat += 1;
         side_state.dead_units.push(unit.clone());
         cards::on_friendly_death(&mut side_state.ctx(side, next_id, rng, events), &unit);
 
@@ -1305,13 +1310,13 @@ fn resolve_deaths(
 
     // 3. Check Deity Awakening (4 friendly Aberration deaths in combat, Patch 36.6.3).
     if !side_state.deity_awakened
-        && side_state.auras.deity.kind != crate::model::DeityKind::None
-        && side_state.aberration_deaths >= DEITY_SACRIFICE_REQUIREMENT
+        && side_state.auras.deity.kind != DeityKind::None
+        && side_state.aberration_deaths >= cards::DEITY_SACRIFICE_REQUIREMENT
         && side_state.board.len() < MAX_BOARD_SIZE
     {
         side_state.deity_awakened = true;
         let deity_kind = side_state.auras.deity.kind;
-        let mut deity_unit = deities::instantiate_deity(&side_state.auras.deity);
+        let mut deity_unit = cards::instantiate_deity(&side_state.auras.deity);
         deity_unit.id = *next_id;
         *next_id += 1;
         cards::apply_combat_summon_modifiers(
@@ -1322,7 +1327,6 @@ fn resolve_deaths(
         );
         let deity_id = deity_unit.id;
         let deity_name = deity_unit.name.clone();
-        let is_cthun = deity_unit.card_id == deities::CARD_CTHUN;
         let deity_idx = side_state.board.len();
         side_state.board.push(deity_unit);
 
@@ -1333,58 +1337,20 @@ fn resolve_deaths(
             name: deity_name,
         });
 
-        if is_cthun {
-            let before: Vec<(UnitId, i32, i32)> =
-                side_state.board.iter().map(|u| (u.id, u.attack, u.health)).collect();
-            deities::on_cthun_awaken(&mut side_state.board, deity_idx, rng);
-            for (u, (id, old_atk, old_hp)) in side_state.board.iter().zip(before) {
-                if u.attack != old_atk || u.health != old_hp {
-                    events.push(Event::StatBuff {
-                        side,
-                        unit: id,
-                        atk_delta: u.attack - old_atk,
-                        hp_delta: u.health - old_hp,
-                        attack: u.attack,
-                        health: u.health,
-                        reason: "C'Thun Awakening",
-                    });
-                }
-            }
-        }
+        cards::on_awaken(&mut side_state.ctx(side, next_id, rng, events), deity_idx);
     }
 
-    // 3b. Summon `Boon of Beetles` into any open board slots.
-    cards::summon_boon_of_beetles(
-        side,
-        &mut side_state.board,
-        &mut side_state.auras,
-        side_state.combat_beast_bonus_atk,
-        next_id,
-        events,
-    );
+    // 3b. Effects that fill open board slots after deaths (e.g. `Boon of Beetles`).
+    cards::after_combat_deaths(&mut side_state.ctx(side, next_id, rng, events));
 
     // 4. Synchronize dynamic friendly-death and persistent auras.
-    let before_aura: Vec<(UnitId, i32, i32)> =
-        side_state.board.iter().map(|u| (u.id, u.attack, u.health)).collect();
+    let before_aura = cards::stat_snapshot(&side_state.board);
     cards::sync_combat_auras(
         &mut side_state.board,
         &mut side_state.hand,
         &side_state.auras,
-        side_state.friendly_deaths_this_combat,
     );
-    for (u, (id, old_atk, old_hp)) in side_state.board.iter().zip(before_aura) {
-        if u.attack != old_atk || u.health != old_hp {
-            events.push(Event::StatBuff {
-                side,
-                unit: id,
-                atk_delta: u.attack - old_atk,
-                hp_delta: u.health - old_hp,
-                attack: u.attack,
-                health: u.health,
-                reason: "Death Aura",
-            });
-        }
-    }
+    cards::push_stat_changes(side, &side_state.board, &before_aura, "Death Aura", events);
 
     if side_state.ptr.is_none() && !side_state.board.is_empty() {
         side_state.ptr = Some(side_state.board[0].id);

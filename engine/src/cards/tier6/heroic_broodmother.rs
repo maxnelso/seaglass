@@ -2,7 +2,7 @@
 //!
 //! Rally: Gain Divine Shield. Start of Combat: Attack immediately (`twice` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, SocAction};
 use crate::model::{CardId, Keyword, Tribe, Unit};
 
 pub const ID: CardId = 614;
@@ -13,6 +13,9 @@ pub fn template() -> CardTemplate {
         .on_rally(|c| {
             on_rally(&mut c.board[c.attacker_pos]);
             Vec::new()
+        })
+        .on_start_of_combat_action(|u| SocAction::Attack {
+            times: u.golden_mult() as u32,
         })
 }
 

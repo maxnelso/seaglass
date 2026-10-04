@@ -13,6 +13,7 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Mech)
         .with_keyword(Keyword::Magnetic)
         .on_play_or_magnetize(on_first_play_or_magnetize)
+        .on_sync_aura(super::blue_volumizer::sync_volumizer_aura)
 }
 
 pub fn on_first_play_or_magnetize(state: &mut TavernState, unit: &mut Unit) {
