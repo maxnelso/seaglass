@@ -3,7 +3,8 @@
 
 use crate::cards::{self, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
-use crate::tavern::{CardPool, TavernState, MAX_BOARD_SIZE};
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 217;
 pub const NAME: &str = "Lurking Lionfish";
@@ -20,6 +21,7 @@ pub fn on_activate(
     source_pos: usize,
     target_pos: Option<usize>,
     pool: &mut CardPool,
+    rng: &mut Rng,
 ) {
     let Some(shop_idx) = target_pos else {
         return;
@@ -42,31 +44,7 @@ pub fn on_activate(
         return;
     };
 
-    let mut hand_summoned = Vec::new();
-    let mut generated_hand = Vec::new();
-    let mut dummy_events = Vec::new();
-    let rally_summons = cards::on_rally(
-        crate::model::Side::A,
-        &mut state.board,
-        beast_pos,
-        &mut state.auras,
-        &state.hand,
-        &mut hand_summoned,
-        &mut generated_hand,
-        &mut dummy_events,
-    );
-    for card in generated_hand {
-        if state.hand.len() < 10 {
-            state.add_to_hand(card);
-        }
-    }
-    let mut insert_pos = beast_pos + 1;
-    for token in rally_summons {
-        if state.board.len() < MAX_BOARD_SIZE {
-            state.board.insert(insert_pos, token);
-            insert_pos += 1;
-        }
-    }
+    cards::trigger_tavern_rally(state, beast_pos, rng);
 
     let beast_atk = state.board[beast_pos].attack;
     if beast_atk > 0 {

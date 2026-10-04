@@ -19,6 +19,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
     use cards::tier1::*;
     use cards::tier2::*;
     use cards::tier3::*;
+    use cards::tier4::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",
@@ -369,12 +370,314 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         }
         (wolf_pup::ID, false) => "Rally: Give your other minions +4/+1.",
         (wolf_pup::ID, true) => "Rally: Give your other minions +8/+2.",
+        // Tier 4 Minions
+        (air_baller::ID, false) => {
+            "On sell: Give your minions +2/+2 (upgrades future Ballers)."
+        }
+        (air_baller::ID, true) => {
+            "On sell: Give your minions +4/+4 (upgrades future Ballers by 2)."
+        }
+        (ashen_corruptor::ID, false) => {
+            "After hero takes damage, rewind it and give shop minions +2/+2 this turn."
+        }
+        (ashen_corruptor::ID, true) => {
+            "After hero takes damage, rewind it and give shop minions +4/+4 this turn."
+        }
+        (banana_slamma::ID, false) => {
+            "After you summon a Beast in combat, double its Attack."
+        }
+        (banana_slamma::ID, true) => {
+            "After you summon a Beast in combat, triple its Attack."
+        }
+        (bigwig_bandit::ID, false) => "Rally: Get a random Bounty.",
+        (bigwig_bandit::ID, true) => "Rally: Get 2 random Bounties.",
+        (blade_collector::ID, _) => "Also damages the enemies next to whomever this attacks.",
+        (bonker::ID, false) => "Windfury. Rally: Play a Blood Gem on all your other minions.",
+        (bonker::ID, true) => "Windfury. Rally: Play 2 Blood Gems on all your other minions.",
+        (boom_in_a_box::ID, false) => {
+            "Taunt. Start of Combat: Deal 3 damage to all other minions."
+        }
+        (boom_in_a_box::ID, true) => {
+            "Taunt. Start of Combat: Deal 3 damage to all other minions twice."
+        }
+        (bramble_tunneler::ID, false) => "Rally: Get a random Choose One card.",
+        (bramble_tunneler::ID, true) => "Rally: Get 2 random Choose One cards.",
+        (bream_counter::ID, false) => {
+            "While in hand, after you play a Murloc, gain +6/+6."
+        }
+        (bream_counter::ID, true) => {
+            "While in hand, after you play a Murloc, gain +12/+12."
+        }
+        (bronze_timewalker::ID, false) => "Rally: Get a random Chromadrake.",
+        (bronze_timewalker::ID, true) => "Rally: Get 2 random Chromadrakes.",
+        (cage_gnawer::ID, false) => {
+            "Whenever a friendly Beast attacks, give your Beasts +2/+1."
+        }
+        (cage_gnawer::ID, true) => {
+            "Whenever a friendly Beast attacks, give your Beasts +4/+2."
+        }
+        (conveyor_construct::ID, false) => {
+            "Deathrattle: Get a random Magnetic Volumizer."
+        }
+        (conveyor_construct::ID, true) => {
+            "Deathrattle: Get 2 random Magnetic Volumizers."
+        }
+        (cutthroat_kthir::ID, false) => {
+            "Whenever you discard a card, give this and your Deity +4/+4."
+        }
+        (cutthroat_kthir::ID, true) => {
+            "Whenever you discard a card, give this and your Deity +8/+8."
+        }
+        (dark_paradox::ID, false) => {
+            "Rally: Get a random minion of your most common type."
+        }
+        (dark_paradox::ID, true) => {
+            "Rally: Get 2 random minions of your most common type."
+        }
+        (dead_bellringer::ID, false) => {
+            "Activate (1g): Give another Undead Reborn, then destroy it to gain +4/+4."
+        }
+        (dead_bellringer::ID, true) => {
+            "Activate (1g): Give another Undead Reborn, then destroy it to gain +8/+8."
+        }
+        (drone_duplicator::ID, false) => {
+            "Divine Shield. Activate (1g): Next Magnetize to this happens an extra time."
+        }
+        (drone_duplicator::ID, true) => {
+            "Divine Shield. Activate (1g): Next Magnetize to this happens 2 extra times."
+        }
+        (en_djinn_blazer::ID, false) => {
+            "Battlecry: After Tavern is Refreshed this game, give a shop minion +10/+10."
+        }
+        (en_djinn_blazer::ID, true) => {
+            "Battlecry: After Tavern is Refreshed this game, give a shop minion +10/+10 twice."
+        }
+        (enchanted_sentinel::ID, false) => {
+            "Magnetic. Your Tavern spells give an extra +1/+1."
+        }
+        (enchanted_sentinel::ID, true) => {
+            "Magnetic. Your Tavern spells give an extra +2/+2."
+        }
+        (faceless_operative::ID, false) => {
+            "On sell: Get 2 random Aberrations; when you play 1, discard the other."
+        }
+        (faceless_operative::ID, true) => {
+            "On sell: Get 4 random Aberrations; when you play 2, discard the rest."
+        }
+        (flaming_enforcer::ID, false) => {
+            "End of Turn: Consume highest-Health shop minion to gain its stats."
+        }
+        (flaming_enforcer::ID, true) => {
+            "End of Turn: Consume highest-Health shop minion to gain double its stats."
+        }
+        (friendly_geist::ID, false) => {
+            "Deathrattle: Your Tavern spells give an extra +1 Attack this game."
+        }
+        (friendly_geist::ID, true) => {
+            "Deathrattle: Your Tavern spells give an extra +2 Attack this game."
+        }
+        (gearfin::ID, false) => {
+            "At the end of your turn, get two 1-Cost Tavern spells."
+        }
+        (gearfin::ID, true) => {
+            "At the end of your turn, get four 1-Cost Tavern spells."
+        }
+        (geomagus_roogug::ID, false) => {
+            "Divine Shield. Whenever a Blood Gem is played on this, play 1 on another minion."
+        }
+        (geomagus_roogug::ID, true) => {
+            "Divine Shield. Whenever a Blood Gem is played on this, play 2 on another minion."
+        }
+        (glambot::ID, false) => {
+            "Whenever you cast a spell on a Mech, Magnetize a 4/4 Satellite to it."
+        }
+        (glambot::ID, true) => {
+            "Whenever you cast a spell on a Mech, Magnetize two 4/4 Satellites to it."
+        }
+        (gormling_gourmet::ID, false) => {
+            "Taunt. Battlecry & Deathrattle: Get a Seafood Stew."
+        }
+        (gormling_gourmet::ID, true) => {
+            "Taunt. Battlecry & Deathrattle: Get 2 Seafood Stews."
+        }
+        (gunpowder_courier::ID, false) => {
+            "Whenever you spend 5 Gold, give your Pirates +3/+1."
+        }
+        (gunpowder_courier::ID, true) => {
+            "Whenever you spend 5 Gold, give your Pirates +3/+1 twice."
+        }
+        (headhunter_gryphon::ID, false) => "Rally: Get a random Beast.",
+        (headhunter_gryphon::ID, true) => "Rally: Get 2 random Beasts.",
+        (heroic_underdog::ID, false) => {
+            "Stealth. Rally: Gain the target's Attack."
+        }
+        (heroic_underdog::ID, true) => {
+            "Stealth. Rally: Gain double the target's Attack."
+        }
+        (hoarding_hyena::ID, false) => "Rally: Summon a Tasty Lobster.",
+        (hoarding_hyena::ID, true) => "Rally: Summon a Golden Tasty Lobster.",
+        (holy_vanguard::ID, false) => {
+            "Divine Shield. Has +30/+30 if you have 15 or less Health."
+        }
+        (holy_vanguard::ID, true) => {
+            "Divine Shield. Has +60/+60 if you have 15 or less Health."
+        }
+        (hot_air_surveyor::ID, false) => {
+            "Blood Gems played from your hand cast an extra time."
+        }
+        (hot_air_surveyor::ID, true) => {
+            "Blood Gems played from your hand cast 2 extra times."
+        }
+        (humongozz::ID, false) => {
+            "Divine Shield. Your Tavern spells give an extra +1/+2."
+        }
+        (humongozz::ID, true) => {
+            "Divine Shield. Your Tavern spells give an extra +2/+4."
+        }
+        (ichoron_the_protector::ID, false) => {
+            "Divine Shield. Whenever you play an Elemental, give it Divine Shield until next turn."
+        }
+        (ichoron_the_protector::ID, true) => {
+            "Divine Shield. Whenever you play an Elemental, give it Divine Shield permanently."
+        }
+        (imp_lusionist::ID, false) => "Deathrattle: Get a Methodical Madness.",
+        (imp_lusionist::ID, true) => "Deathrattle: Get 2 Methodical Madnesses.",
+        (imposing_percussionist::ID, false) => {
+            "Battlecry: Discover a Demon. Deal damage to your hero equal to its Tier."
+        }
+        (imposing_percussionist::ID, true) => {
+            "Battlecry: Discover 2 Demons. Deal damage to your hero equal to their Tiers."
+        }
+        (kelp_keeper::ID, false) => {
+            "Activate (1g): Trigger a friendly minion's Battlecry."
+        }
+        (kelp_keeper::ID, true) => {
+            "Activate (1g): Trigger a friendly minion's Battlecry twice."
+        }
+        (leyline_surfacer::ID, false) => {
+            "Battlecry & Deathrattle: Get an Arcane Absorption."
+        }
+        (leyline_surfacer::ID, true) => {
+            "Battlecry & Deathrattle: Get 2 Arcane Absorptions."
+        }
+        (living_prison::ID, false) => {
+            "Activate (1g): Gain the stats of the next minion you buy this turn."
+        }
+        (living_prison::ID, true) => {
+            "Activate (1g): Gain double the stats of the next minion you buy this turn."
+        }
+        (lovesick_balladist::ID, false) => {
+            "Battlecry: Give a Pirate +2 Health (improved by Gold spent this turn)."
+        }
+        (lovesick_balladist::ID, true) => {
+            "Battlecry: Give a Pirate +2 Health twice (improved by Gold spent this turn)."
+        }
+        (maritime_extortionist::ID, false) => {
+            "Has +7/+7 for each Golden minion you've played this game."
+        }
+        (maritime_extortionist::ID, true) => {
+            "Has +14/+14 for each Golden minion you've played this game."
+        }
+        (maw_caster::ID, false) => {
+            "Battlecry: Destroy a friendly Undead to Discover an Undead."
+        }
+        (maw_caster::ID, true) => {
+            "Battlecry: Destroy a friendly Undead to Discover 2 Undead."
+        }
+        (mindbending_recruiter::ID, false) => {
+            "Activate (0g): Discard a card to get a random Aberration."
+        }
+        (mindbending_recruiter::ID, true) => {
+            "Activate (0g): Discard a card to get 2 random Aberrations."
+        }
+        (nightmare_corroder::ID, false) => {
+            "At the end of your turn, get a Sludge Corrosion."
+        }
+        (nightmare_corroder::ID, true) => {
+            "At the end of your turn, get 2 Sludge Corrosions."
+        }
+        (parasitic_fleshling::ID, false) => {
+            "End of Turn: Give left-most minion +2/+2 (+1/+1 per card discarded this game)."
+        }
+        (parasitic_fleshling::ID, true) => {
+            "End of Turn: Give left-most minion +4/+4 (+2/+2 per card discarded this game)."
+        }
+        (persistent_poet::ID, false) => {
+            "Divine Shield. Adjacent Dragons permanently keep Bonus Keywords and stats gained in combat."
+        }
+        (persistent_poet::ID, true) => {
+            "Divine Shield. Adjacent Dragons permanently keep Bonus Keywords and double stats gained in combat."
+        }
+        (plaguerunner::ID, false) => {
+            "Deathrattle: Undead have +2 Attack this game (+4 outside combat)."
+        }
+        (plaguerunner::ID, true) => {
+            "Deathrattle: Undead have +4 Attack this game (+8 outside combat)."
+        }
+        (razorfen_flapper::ID, false) => {
+            "Battlecry & Deathrattle: Get a Blood Gem Barrage."
+        }
+        (razorfen_flapper::ID, true) => {
+            "Battlecry & Deathrattle: Get 2 Blood Gem Barrages."
+        }
+        (refreshing_anomaly::ID, false) => "Battlecry: Gain 2 free Refreshes.",
+        (refreshing_anomaly::ID, true) => "Battlecry: Gain 4 free Refreshes.",
+        (runic_arcanist::ID, false) => "Start of Combat: Cast Shiny Ring twice.",
+        (runic_arcanist::ID, true) => "Start of Combat: Cast Shiny Ring 4 times.",
+        (sacrificial_wrathguard::ID, false) => {
+            "Deathrattle: Give shop minions +2/+2 this game. Activate (1g): Improve this."
+        }
+        (sacrificial_wrathguard::ID, true) => {
+            "Deathrattle: Give shop minions +4/+4 this game. Activate (1g): Improve this."
+        }
+        (sindorei_straight_shot::ID, _) => {
+            "Divine Shield, Windfury. Rally: Remove Reborn and Taunt from the target."
+        }
+        (sky_hatch_runaway::ID, false) => {
+            "Activate (1g): Trigger a friendly minion's Rally."
+        }
+        (sky_hatch_runaway::ID, true) => {
+            "Activate (1g): Trigger a friendly minion's Rally twice."
+        }
+        (snare_trapper::ID, false) => {
+            "Choose One: Get a random Quilboar; or Increase your maximum Gold by 1."
+        }
+        (snare_trapper::ID, true) => {
+            "Choose One: Get 2 random Quilboars; or Increase your maximum Gold by 2."
+        }
+        (snarky_shark::ID, false) => {
+            "On sell: Refresh Tavern with a Fishbait; left-most Beast attacks it."
+        }
+        (snarky_shark::ID, true) => {
+            "On sell: Refresh Tavern with a Golden Fishbait; left-most Beast attacks it."
+        }
+        (soulkeeping_jailer::ID, false) => {
+            "Activate (2g): Your Demons each consume a random shop minion to gain its stats."
+        }
+        (soulkeeping_jailer::ID, true) => {
+            "Activate (2g): Your Demons each consume a random shop minion to gain double its stats."
+        }
+        (tavern_tempest::ID, false) => "Battlecry: Get a random Elemental.",
+        (tavern_tempest::ID, true) => "Battlecry: Get 2 random Elementals.",
+        (tortollan_blue_shell::ID, false) => {
+            "If you lost your last combat, this sells for 5 Gold."
+        }
+        (tortollan_blue_shell::ID, true) => {
+            "If you lost your last combat, this sells for 10 Gold."
+        }
+        (twilight_tidehunter::ID, false) => {
+            "Whenever you cast a spell on this, give left-most minion in hand +8/+8."
+        }
+        (twilight_tidehunter::ID, true) => {
+            "Whenever you cast a spell on this, give left-most minion in hand +16/+16."
+        }
         // Tokens & Spells
         (tokens::TOKEN_ABERRANT_TENTACLE, _) => "Taunt.",
         (tokens::TOKEN_WATER_DROPLET, _) => "Token Elemental.",
         (tokens::TOKEN_DEMON_FODDER, _) => "Feeds itself to a friendly Demon on Refresh.",
         (tokens::TOKEN_FISHBAIT, _) => "Cannot gain stats. Deathrattle: Give killer +5/+5.",
         (tokens::TOKEN_HELPING_HAND, _) => "Reborn.",
+        (tokens::TOKEN_SATELLITE, _) => "Token Mech.",
         (tokens::TOKEN_BLUE_CHROMADRAKE, _) => "Battlecry: Get a random 2-Cost Tavern spell.",
         (tokens::TOKEN_BLACK_CHROMADRAKE, _) => {
             "Battlecry: Your Tavern spells give an extra +1 Health this game."
@@ -395,6 +698,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Spell: Play 3 Blood Gems on a minion and steal all Blood Gems from its neighbors."
         }
         (tokens::SPELL_GOLDEN_TOUCH, _) => "Spell: Make a random minion in the Tavern Golden.",
+        (tokens::SPELL_POINTY_ARROW, _) => "Spell (1g): Give a minion +4 Attack.",
+        (tokens::SPELL_ARCANE_ABSORPTION, _) => {
+            "Spell (0g): Consume a minion in the Tavern to give a Demon its stats."
+        }
         (SPELL_A_NEW_SPROUT, _) => "Spell (3g): Discover a Tier 1 minion.",
         (SPELL_ALLIANCE_FLAG, _) => "Spell (1g): Choose One — Give a minion +3/+1 or +1/+3.",
         (SPELL_ENCHANTED_LASSO, _) => "Spell (2g): Steal a random minion from the Tavern.",
@@ -423,7 +730,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (SPELL_PLANAR_TELESCOPE, _) => {
             "Spell (3g): Discover a minion of your most common type."
         }
-        (SPELL_REPAIR_JOB, _) => "Spell (2g): Give a random Magnetic Volumizer to a minion.",
+        (SPELL_REPAIR_JOB, _) => "Spell (2g): Give a minion +4/+8.",
         (SPELL_ROBUST_EVOLUTION, _) => {
             "Spell (2g): Choose One — Set a minion's Attack or Health to highest on board."
         }
@@ -440,6 +747,47 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Spell (1g): Give a minion +1/+2 and toggle its Taunt."
         }
         (SPELL_WEALTHY_BOUNTY, _) => "Spell (1g): Get a Tavern Coin.",
+        // Tier 4 Spells
+        (SPELL_BLOOD_GEM_BARRAGE, _) => {
+            "Spell (1g): Give minions in the Tavern +2/+1 this game."
+        }
+        (SPELL_BOON_OF_BEETLES, _) => {
+            "Spell (1g): When you have space in combat, summon a 2/2 Beetle with Taunt (4 times)."
+        }
+        (SPELL_BOUNDLESS_POTENTIAL, _) => {
+            "Spell (3g): Choose One — Discover a minion or Tavern spell from your Tier."
+        }
+        (SPELL_CLONING_CONCH, _) => {
+            "Spell (3g): Get a copy of a Murloc in your hand."
+        }
+        (SPELL_DEFENDERS_RITES, _) => "Spell (2g): Give a friendly minion +8/+8 and Taunt.",
+        (SPELL_EASTERLY_WINDS, _) => {
+            "Spell (2g): Give a random minion in the Tavern +5/+5; repeat on future Refreshes."
+        }
+        (SPELL_EONARS_FAVOR, _) => {
+            "Spell (1g): Choose a minion. Minions of its type in the Tavern have +3/+2 this game."
+        }
+        (SPELL_METHODICAL_MADNESS, _) => {
+            "Spell (3g): Friendly Demon consumes a random shop minion; repeat 2 more times."
+        }
+        (SPELL_MIGHTY_DRAGONBREATH, _) => {
+            "Spell (2g): Give a minion +3/+5. If it's a Dragon, also give it Windfury."
+        }
+        (SPELL_MISPLACED_TEA_SET, _) => {
+            "Spell (2g): Give a friendly minion of each type +3/+3."
+        }
+        (SPELL_NATURAL_BLESSING, _) => {
+            "Spell (3g): Choose a minion. Give all minions that share a type with it +3/+2."
+        }
+        (SPELL_TEMPERATURE_SHIFT, _) => {
+            "Spell (2g): Get a Fire Baller and a Snow Baller."
+        }
+        (SPELL_TOMB_TURNING, _) => {
+            "Spell (3g): Discover an Undead. If you play it this turn, it dies."
+        }
+        (SPELL_WEAPONS_FORGE, _) => {
+            "Spell (2g): Give a minion +2/+2 for each Bonus Keyword in your warband."
+        }
         _ => "",
     }
 }

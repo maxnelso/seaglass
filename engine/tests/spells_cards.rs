@@ -671,7 +671,390 @@ fn spell_830_wealthy_bounty() {
 }
 
 // ============================================================================
-// Generated Token Spells (6)
+// Tier 4 Tavern Spells (14 new + Gem Confiscation + Sludge Corrosion = 16)
+// ============================================================================
+
+#[test]
+fn spell_831_blood_gem_barrage() {
+    let (mut state, mut pool, mut rng) = setup_tavern(831);
+    state.auras.blood_gem_bonus_atk = 1; // Blood Gems give +2/+1
+    state.add_to_hand(spells::spell_by_name("Blood Gem Barrage").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.blood_gem_barrage_stacks, 1);
+    state
+        .step(TavernAction::Refresh, &mut pool, &mut rng)
+        .unwrap();
+    assert!(
+        state
+            .shop
+            .iter()
+            .filter(|u| !u.is_spell)
+            .all(|u| u.blood_gems_played == 2)
+    );
+}
+
+#[test]
+fn spell_832_boon_of_beetles() {
+    let (mut state, mut pool, mut rng) = setup_tavern(832);
+    state.add_to_hand(spells::spell_by_name("Boon of Beetles").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.boon_of_beetles_charges, 2);
+
+    // Verify combat summons 2 Taunt 2/2 Beetles when board has space!
+    let gs = seaglass::GameState {
+        auras_a: state.auras.clone(),
+        ..Default::default()
+    };
+    let res = seaglass::simulate(&[], &[Unit::new("Dummy", 1, 1)], &gs, 832);
+    assert_eq!(res.outcome, seaglass::BattleOutcome::AWin);
+    assert_eq!(res.survivors_a.len(), 2);
+    assert!(res.survivors_a.iter().all(|u| u.name == "Beetle" && u.taunt));
+}
+
+#[test]
+fn spell_833_boundless_potential() {
+    let (mut state, mut pool, mut rng) = setup_tavern(833);
+    state.tavern_tier = 4;
+    state.add_to_hand(spells::spell_by_name("Boundless Potential").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    // Choose option 1: Discover a Tavern spell from your Tier (4)
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 1 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert!(state.hand[0].is_spell);
+    assert_eq!(state.hand[0].tavern_tier, 4);
+}
+
+#[test]
+fn spell_834_cloning_conch() {
+    let (mut state, mut pool, mut rng) = setup_tavern(834);
+    state.add_to_hand(spells::spell_by_name("Cloning Conch").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 2);
+    assert!(state.hand[0].tribe.matches(Tribe::Murloc));
+    assert_eq!(state.hand[0].card_id, state.hand[1].card_id);
+}
+
+#[test]
+fn spell_835_defenders_rites() {
+    let (mut state, mut pool, mut rng) = setup_tavern(835);
+    state.board.push(Unit::new("Target", 2, 2));
+    state.add_to_hand(spells::spell_by_name("Defender's Rites").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 9);
+    assert_eq!(state.board[0].health, 9);
+    assert!(state.board[0].taunt);
+}
+
+#[test]
+fn spell_836_easterly_winds() {
+    let (mut state, mut pool, mut rng) = setup_tavern(836);
+    state.add_to_hand(spells::spell_by_name("Easterly Winds").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.refresh_random_buffs, vec![(9, 9)]);
+    state
+        .step(TavernAction::Refresh, &mut pool, &mut rng)
+        .unwrap();
+    assert!(state
+        .shop
+        .iter()
+        .any(|u| u.attack >= u.base_attack + 9 && u.health >= u.base_health + 9));
+}
+
+#[test]
+fn spell_837_eonars_favor() {
+    let (mut state, mut pool, mut rng) = setup_tavern(837);
+    state
+        .board
+        .push(Unit::new("MyBeast", 2, 2).with_tribe(Tribe::Beast));
+    state
+        .shop
+        .push(Unit::new("ShopBeast", 3, 3).with_tribe(Tribe::Beast));
+    state
+        .shop
+        .push(Unit::new("ShopMech", 3, 3).with_tribe(Tribe::Mech));
+    state.add_to_hand(spells::spell_by_name("Eonar's Favor").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.shop[0].attack, 6);
+    assert_eq!(state.shop[0].health, 6);
+    assert_eq!(state.shop[1].attack, 3);
+    assert_eq!(state.shop[1].health, 3);
+}
+
+#[test]
+fn spell_838_methodical_madness() {
+    let (mut state, mut pool, mut rng) = setup_tavern(838);
+    state
+        .board
+        .push(Unit::new("Target", 2, 2).with_tribe(Tribe::Demon));
+    state
+        .shop
+        .push(Unit::new("S1", 3, 4).with_keyword(Keyword::Taunt));
+    state
+        .shop
+        .push(Unit::new("S2", 5, 6).with_keyword(Keyword::DivineShield));
+    state.add_to_hand(spells::spell_by_name("Methodical Madness").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.shop.is_empty());
+    assert_eq!(state.board[0].attack, 10);
+    assert_eq!(state.board[0].health, 12);
+    assert!(state.board[0].taunt);
+    assert!(state.board[0].divine_shield);
+}
+
+#[test]
+fn spell_839_mighty_dragonbreath() {
+    let (mut state, mut pool, mut rng) = setup_tavern(839);
+    state.board.push(
+        Unit::new("DSDragon", 2, 2)
+            .with_tribe(Tribe::Dragon)
+            .with_keyword(Keyword::DivineShield),
+    );
+    state.add_to_hand(spells::spell_by_name("Mighty Dragonbreath").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Base +3/+2 + Dragon +3/+2 + Divine Shield +3/+2 = +9/+6 -> 11/8!
+    assert_eq!(state.board[0].attack, 11);
+    assert_eq!(state.board[0].health, 8);
+}
+
+#[test]
+fn spell_840_misplaced_tea_set() {
+    let (mut state, mut pool, mut rng) = setup_tavern(840);
+    state
+        .board
+        .push(Unit::new("Beast1", 1, 1).with_tribe(Tribe::Beast));
+    state
+        .board
+        .push(Unit::new("Mech1", 1, 1).with_tribe(Tribe::Mech));
+    state.add_to_hand(spells::spell_by_name("Misplaced Tea Set").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 5);
+    assert_eq!(state.board[0].health, 5);
+    assert_eq!(state.board[1].attack, 5);
+    assert_eq!(state.board[1].health, 5);
+}
+
+#[test]
+fn spell_841_natural_blessing() {
+    let (mut state, mut pool, mut rng) = setup_tavern(841);
+    state
+        .board
+        .push(Unit::new("Elem1", 1, 1).with_tribe(Tribe::Elemental));
+    state
+        .board
+        .push(Unit::new("Elem2", 2, 2).with_tribe(Tribe::Elemental));
+    state
+        .shop
+        .push(Unit::new("ShopElem", 3, 3).with_tribe(Tribe::Elemental));
+    state.add_to_hand(spells::spell_by_name("Natural Blessing").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 3);
+    assert_eq!(state.board[0].health, 2);
+    assert_eq!(state.board[1].attack, 4);
+    assert_eq!(state.board[1].health, 3);
+    assert_eq!(state.shop[0].attack, 5);
+    assert_eq!(state.shop[0].health, 4);
+}
+
+#[test]
+fn spell_842_temperature_shift() {
+    let (mut state, mut pool, mut rng) = setup_tavern(842);
+    state.add_to_hand(spells::spell_by_name("Temperature Shift").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 2);
+    assert_eq!(state.hand[0].card_id, tier2::fire_baller::ID);
+    assert_eq!(state.hand[1].card_id, tier2::snow_baller::ID);
+}
+
+#[test]
+fn spell_843_tomb_turning() {
+    let (mut state, mut pool, mut rng) = setup_tavern(843);
+    state.tavern_tier = 4;
+    state.add_to_hand(spells::spell_by_name("Tomb Turning").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert!(state.hand[0].dies_on_play_this_turn);
+
+    // Replace with Plaguerunner with dies_on_play_this_turn = true and play it: it dies outside combat (+4 undead attack)!
+    let mut pr = seaglass::cards::tier4::plaguerunner::template().instantiate();
+    pr.dies_on_play_this_turn = true;
+    state.hand[0] = pr;
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.board.is_empty());
+    assert_eq!(state.auras.undead_bonus_attack, 4);
+}
+
+#[test]
+fn spell_844_weapons_forge() {
+    let (mut state, mut pool, mut rng) = setup_tavern(844);
+    state.add_to_hand(spells::spell_by_name("Weapons Forge").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 3);
+    assert!(state
+        .hand
+        .iter()
+        .all(|u| u.card_id == tokens::SPELL_POINTY_ARROW));
+}
+
+// ============================================================================
+// Generated Token Spells (8)
 // ============================================================================
 
 #[test]
@@ -797,4 +1180,46 @@ fn token_spell_956_golden_touch() {
     assert!(state.shop[0].is_golden);
     assert_eq!(state.shop[0].attack, 6);
     assert_eq!(state.shop[0].health, 6);
+}
+
+#[test]
+fn token_spell_957_pointy_arrow() {
+    let (mut state, mut pool, mut rng) = setup_tavern(957);
+    state.board.push(Unit::new("Target", 2, 2));
+    state.add_to_hand(tokens::make_pointy_arrow());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 6);
+    assert_eq!(state.board[0].health, 2);
+}
+
+#[test]
+fn token_spell_958_arcane_absorption() {
+    let (mut state, mut pool, mut rng) = setup_tavern(958);
+    state.board.push(Unit::new("Target", 2, 2));
+    state
+        .shop
+        .push(Unit::new("ShopElem", 6, 8).with_tribe(Tribe::Elemental));
+    state.add_to_hand(tokens::make_arcane_absorption());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Gives half the stats (+3/+4) of the highest-Health minion in the Tavern!
+    assert_eq!(state.board[0].attack, 5);
+    assert_eq!(state.board[0].health, 6);
 }

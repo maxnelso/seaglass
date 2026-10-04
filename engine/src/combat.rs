@@ -70,12 +70,13 @@ impl SideCombatState {
     }
 
     fn prepare_summoned_unit(&self, token: &mut Unit) {
-        cards::sync_unit_auras(token, &self.auras);
-        if token.tribe.matches(Tribe::Beast) && self.combat_beast_bonus_atk != 0 {
-            token.add_stats(self.combat_beast_bonus_atk, 0);
-        }
-        token.sync_max_stats();
-        cards::check_stat_thresholds(token);
+        cards::apply_combat_summon_modifiers(
+            &self.board,
+            &self.auras,
+            self.combat_beast_bonus_atk,
+            token.id,
+            token,
+        );
     }
 
     #[inline]
@@ -144,7 +145,7 @@ pub fn resolve_battle(
     cards::on_start_of_combat(
         Side::A,
         &mut side_a.board,
-        &side_a.auras,
+        &mut side_a.auras,
         &side_a.hand,
         &mut side_a.hand_summoned,
         &mut side_a.combat_beast_bonus_atk,
@@ -155,10 +156,27 @@ pub fn resolve_battle(
     cards::on_start_of_combat(
         Side::B,
         &mut side_b.board,
-        &side_b.auras,
+        &mut side_b.auras,
         &side_b.hand,
         &mut side_b.hand_summoned,
         &mut side_b.combat_beast_bonus_atk,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
+
+    resolve_start_of_combat_aoe(
+        Side::A,
+        &mut side_a,
+        &mut side_b,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
+    resolve_start_of_combat_aoe(
+        Side::B,
+        &mut side_b,
+        &mut side_a,
         &mut next_id,
         &mut rng,
         &mut events,
@@ -232,6 +250,89 @@ pub fn resolve_battle(
     }
 }
 
+/// Resolve Start-of-Combat board-wide AoE damage (`Boom-in-a-Box`).
+fn resolve_start_of_combat_aoe(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    let sources: Vec<(UnitId, bool)> = own_side
+        .board
+        .iter()
+        .filter(|u| u.card_id == cards::tier4::boom_in_a_box::ID && u.health > 0)
+        .map(|u| (u.id, u.is_golden))
+        .collect();
+    for (src_id, is_golden) in sources {
+        if !own_side.board.iter().any(|u| u.id == src_id && u.health > 0) {
+            continue;
+        }
+        let waves = if is_golden { 2 } else { 1 };
+        for _ in 0..waves {
+            let own_ids: Vec<UnitId> = own_side
+                .board
+                .iter()
+                .filter(|u| u.id != src_id && u.health > 0)
+                .map(|u| u.id)
+                .collect();
+            for tid in own_ids {
+                if let Some(pos) = own_side.board.iter().position(|u| u.id == tid) {
+                    let (_, took) = apply_damage(&mut own_side.board[pos], 3, src_id, false, events);
+                    if took {
+                        cards::on_damage_taken(&own_side.board[pos], &mut own_side.hand, rng);
+                        cards::on_damage_dealt(
+                            side,
+                            &mut own_side.board,
+                            src_id,
+                            3,
+                            &mut own_side.hand,
+                            &mut own_side.hand_summoned,
+                            events,
+                        );
+                    }
+                }
+            }
+            let opp_ids: Vec<UnitId> = opp_side
+                .board
+                .iter()
+                .filter(|u| u.health > 0)
+                .map(|u| u.id)
+                .collect();
+            for tid in opp_ids {
+                if let Some(pos) = opp_side.board.iter().position(|u| u.id == tid) {
+                    let (_, took) = apply_damage(&mut opp_side.board[pos], 3, src_id, false, events);
+                    if took {
+                        cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
+                        cards::on_damage_dealt(
+                            side,
+                            &mut own_side.board,
+                            src_id,
+                            3,
+                            &mut own_side.hand,
+                            &mut own_side.hand_summoned,
+                            events,
+                        );
+                    }
+                }
+            }
+            for u in &opp_side.board {
+                if u.health <= 0 {
+                    events.push(Event::Death { unit: u.id });
+                }
+            }
+            for u in &own_side.board {
+                if u.health <= 0 {
+                    events.push(Event::Death { unit: u.id });
+                }
+            }
+            resolve_deaths(side.other(), opp_side, next_id, rng, events);
+            resolve_deaths(side, own_side, next_id, rng, events);
+        }
+    }
+}
+
 fn perform_attack_turn(
     side: Side,
     atk_side: &mut SideCombatState,
@@ -300,11 +401,14 @@ fn perform_one_strike(
     let Some(initial_atk_pos) = atk_side.board.iter().position(|u| u.id == attacker_id) else {
         return;
     };
+    let Some(def_pos) = choose_target(&def_side.board, rng) else {
+        return;
+    };
 
     // Attacking breaks Stealth.
     atk_side.board[initial_atk_pos].stealth = false;
 
-    // 1. Fire On-Attack (Rally) hook before target selection and before damage.
+    // 1. Fire On-Attack (Rally) hook before damage.
     let pre_atk = atk_side.board[initial_atk_pos].attack;
     let pre_hp = atk_side.board[initial_atk_pos].health;
     let mut generated_hand = Vec::new();
@@ -312,10 +416,12 @@ fn perform_one_strike(
         side,
         &mut atk_side.board,
         initial_atk_pos,
+        def_side.board.get_mut(def_pos),
         &mut atk_side.auras,
         &atk_side.hand,
         &mut atk_side.hand_summoned,
         &mut generated_hand,
+        rng,
         events,
     );
     let post_atk = atk_side.board[initial_atk_pos].attack;
@@ -365,6 +471,7 @@ fn perform_one_strike(
         &mut atk_side.board,
         attacker_id,
         &atk_side.auras,
+        rng,
         events,
     );
 
@@ -374,10 +481,6 @@ fn perform_one_strike(
     let attacker_attack = atk_side.board[atk_pos].attack;
     let attacker_venomous = atk_side.board[atk_pos].venomous;
 
-    // 2. Choose target on defending board (respecting Stealth and Taunt).
-    let Some(def_pos) = choose_target(&def_side.board, rng) else {
-        return;
-    };
     let target_id = def_side.board[def_pos].id;
     let target_attack = def_side.board[def_pos].attack;
     let target_venomous = def_side.board[def_pos].venomous;
@@ -435,6 +538,38 @@ fn perform_one_strike(
             &mut def_side.hand_summoned,
             events,
         );
+    }
+
+    // 4a. Cleave damage to adjacent enemies (`Blade Collector`).
+    if cards::cleaves_adjacent_enemies(atk_side.board[atk_pos].card_id) {
+        let mut adj_positions = Vec::with_capacity(2);
+        if def_pos > 0 {
+            adj_positions.push(def_pos - 1);
+        }
+        if def_pos + 1 < def_side.board.len() {
+            adj_positions.push(def_pos + 1);
+        }
+        for n_pos in adj_positions {
+            let (_, n_took_damage) = apply_damage(
+                &mut def_side.board[n_pos],
+                attacker_attack,
+                attacker_id,
+                false,
+                events,
+            );
+            if n_took_damage {
+                cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
+                cards::on_damage_dealt(
+                    side,
+                    &mut atk_side.board,
+                    attacker_id,
+                    attacker_attack,
+                    &mut atk_side.hand,
+                    &mut atk_side.hand_summoned,
+                    events,
+                );
+            }
+        }
     }
 
     // 4b. Excess attack damage to adjacent enemies (e.g., `Wildfire Elemental`).
@@ -655,6 +790,7 @@ fn resolve_deaths(
         {
             let mut dr_ctx = DeathrattleContext {
                 side,
+                in_combat: true,
                 board: &mut rebuilt,
                 cursor: &mut cursor,
                 auras: &mut side_state.auras,
@@ -677,6 +813,11 @@ fn resolve_deaths(
             reborn_copy.health = 1;
             reborn_copy.reborn = false;
             reborn_copy.divine_shield = unit.divine_shield || unit.inherent_divine_shield;
+            cards::tier4::banana_slamma::on_beast_summoned(
+                &rebuilt,
+                reborn_copy.id,
+                &mut reborn_copy,
+            );
             reborn_copy.sync_max_stats();
             events.push(Event::UnitSummoned {
                 side,
@@ -703,7 +844,13 @@ fn resolve_deaths(
         let mut deity_unit = deities::instantiate_deity(&side_state.auras.deity);
         deity_unit.id = *next_id;
         *next_id += 1;
-        side_state.prepare_summoned_unit(&mut deity_unit);
+        cards::apply_combat_summon_modifiers(
+            &rebuilt,
+            &side_state.auras,
+            side_state.combat_beast_bonus_atk,
+            deity_unit.id,
+            &mut deity_unit,
+        );
         let deity_id = deity_unit.id;
         let deity_name = deity_unit.name.clone();
         let is_cthun = deity_unit.card_id == deities::CARD_CTHUN;
@@ -736,6 +883,16 @@ fn resolve_deaths(
             }
         }
     }
+
+    // 3b. Summon `Boon of Beetles` into any open board slots.
+    cards::summon_boon_of_beetles(
+        side,
+        &mut rebuilt,
+        &mut side_state.auras,
+        side_state.combat_beast_bonus_atk,
+        next_id,
+        events,
+    );
 
     // 4. Synchronize dynamic friendly-death and persistent auras.
     let before_aura: Vec<(UnitId, i32, i32)> =
