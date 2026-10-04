@@ -455,7 +455,8 @@ fn card_524_goldrinn_the_great_wolf() {
     let beast = tier1::buzzing_vermin::template().instantiate(); // 1/1 Beast
     let enemy = Unit::new("Enemy", 10, 5);
     let res = simulate(&[goldrinn, beast], &[enemy], &GameState::default(), 524);
-    assert_eq!(res.auras_a.goldrinn_bonus, 7);
+    let goldrinn = tier5::goldrinn_the_great_wolf::ID;
+    assert_eq!(res.auras_a.effect_stacks(goldrinn), 7);
     let surv_beast = res
         .survivors_a
         .iter()

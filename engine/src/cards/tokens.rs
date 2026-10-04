@@ -5,7 +5,7 @@ use crate::cards::{
     all_templates, check_stat_thresholds, on_card_added_to_hand, spells, tier2, tier3, tier4,
     tier5, tier6, CardFlags, CardHooks, CardTemplate,
 };
-use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
+use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
 
@@ -203,6 +203,58 @@ pub fn make_demon_fodder(is_golden: bool) -> Unit {
         .with_tavern_tier(2)
         .with_tribe(Tribe::Demon)
         .with_golden(is_golden)
+}
+
+/// Add `count` Demon Fodders to each of the player's next `refreshes` shop Refreshes (this
+/// token's player effect, see [`fodder_on_refresh`]).
+pub fn add_fodder_to_refreshes(auras: &mut PlayerAuras, count: u32, refreshes: u32) {
+    let duration = EffectDuration::Refreshes(refreshes);
+    auras.add_effect(TOKEN_DEMON_FODDER, count, duration);
+}
+
+/// Demon Fodders the player's next 3 shop Refreshes will add.
+pub fn fodder_per_refresh(auras: &PlayerAuras) -> [u32; 3] {
+    let mut per_refresh = [0; 3];
+    for e in &auras.effects {
+        if let (TOKEN_DEMON_FODDER, EffectDuration::Refreshes(n)) = (e.card_id, e.duration) {
+            for slot in per_refresh.iter_mut().take(n as usize) {
+                *slot += e.stacks;
+            }
+        }
+    }
+    per_refresh
+}
+
+/// The Demon Fodder player effect (`Laboratory Assistant`, `Trapped Clapper`, `Twisted
+/// Wrathguard`): on each Refresh it lasts, add a Demon Fodder per stack to the Tavern, or give
+/// its stats to a random friendly Demon instead.
+fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &mut Rng) {
+    for _ in 0..effect.stacks {
+        let mut fodder = make_demon_fodder(false);
+        state.apply_shop_auras(&mut fodder);
+        if state.auras.blood_gem_barrage_stacks > 0 {
+            fodder.play_blood_gems(2 * state.auras.blood_gem_barrage_stacks, &state.auras);
+        }
+
+        let demon_indices: Vec<usize> = state
+            .board
+            .iter()
+            .enumerate()
+            .filter(|(_, u)| u.tribe.matches(Tribe::Demon))
+            .map(|(i, _)| i)
+            .collect();
+
+        if !demon_indices.is_empty() {
+            let idx = if demon_indices.len() == 1 {
+                demon_indices[0]
+            } else {
+                demon_indices[rng.below(demon_indices.len())]
+            };
+            state.board[idx].add_stats(fodder.attack, fodder.health);
+        } else {
+            state.shop.push(fodder);
+        }
+    }
 }
 
 /// `Fishbait` (`0/1` Beast, or `0/2` if Golden, generated in shop by `Lurking Lionfish`).
@@ -489,6 +541,10 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             CardHooks::EMPTY
                 .on_turn_start_in_hand(lockbox_turn_start)
                 .on_ready_in_hand(lockbox_ready),
+        ),
+        (
+            TOKEN_DEMON_FODDER,
+            CardHooks::EMPTY.on_player_after_refresh(fodder_on_refresh),
         ),
     ];
     out.extend(CHROMADRAKE_IDS.iter().map(|&id| (id, chromadrake)));

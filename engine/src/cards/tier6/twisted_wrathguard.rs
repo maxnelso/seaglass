@@ -2,7 +2,7 @@
 //!
 //! After you sell a minion, add a (`2` if Golden) Fodder to your next Refresh.
 
-use crate::cards::CardTemplate;
+use crate::cards::{tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -21,5 +21,6 @@ pub fn after_friendly_sell(
     _: &mut CardPool,
     _: &mut Rng,
 ) {
-    state.auras.fodder_per_refresh[0] += state.board[self_idx].golden_mult() as u32;
+    let count = state.board[self_idx].golden_mult() as u32;
+    tokens::add_fodder_to_refreshes(&mut state.auras, count, 1);
 }

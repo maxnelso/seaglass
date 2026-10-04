@@ -187,7 +187,7 @@ pub fn resolve_battle(
     );
 
     // Start of Combat triggers: Side A first, then Side B, left-to-right.
-    resolve_start_of_combat_spells(Side::A, &mut side_a, &mut side_b, &mut rng, &mut events);
+    resolve_start_of_combat_effects(Side::A, &mut side_a, &mut side_b, &mut rng, &mut events);
     cards::on_start_of_combat(&mut side_a.ctx(Side::A, &mut next_id, &mut rng, &mut events));
     resolve_start_of_combat_destroys(
         Side::A,
@@ -197,7 +197,7 @@ pub fn resolve_battle(
         &mut rng,
         &mut events,
     );
-    resolve_start_of_combat_spells(Side::B, &mut side_b, &mut side_a, &mut rng, &mut events);
+    resolve_start_of_combat_effects(Side::B, &mut side_b, &mut side_a, &mut rng, &mut events);
     cards::on_start_of_combat(&mut side_b.ctx(Side::B, &mut next_id, &mut rng, &mut events));
     resolve_start_of_combat_destroys(
         Side::B,
@@ -308,69 +308,23 @@ pub fn resolve_battle(
     }
 }
 
-/// Resolve Start-of-Combat Tavern spells (`Brood of Nozdormu`, `Upper Hand`, `Sharing is Caring`).
-fn resolve_start_of_combat_spells(
+/// Resolve the player's own Start-of-Combat effects (recorded in the Tavern, e.g. by spells),
+/// before any minion's Start-of-Combat trigger.
+fn resolve_start_of_combat_effects(
     side: Side,
     own_side: &mut SideCombatState,
     opp_side: &mut SideCombatState,
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    while own_side.auras.brood_of_nozdormu_stacks > 0 {
-        own_side.auras.brood_of_nozdormu_stacks -= 1;
-        if let Some(leftmost) = own_side.board.first_mut() {
-            let add = leftmost.attack;
-            leftmost.add_stats(add, 0);
-            events.push(Event::StatBuff {
-                side,
-                unit: leftmost.id,
-                atk_delta: add,
-                hp_delta: 0,
-                attack: leftmost.attack,
-                health: leftmost.health,
-                reason: "Brood of Nozdormu",
-            });
-        }
-    }
-    while own_side.auras.upper_hand_stacks > 0 {
-        own_side.auras.upper_hand_stacks -= 1;
-        let candidates: Vec<usize> = opp_side
-            .board
-            .iter()
-            .enumerate()
-            .filter(|(_, u)| u.health > 0)
-            .map(|(i, _)| i)
-            .collect();
-        if !candidates.is_empty() {
-            let idx = if candidates.len() == 1 {
-                candidates[0]
-            } else {
-                candidates[rng.below(candidates.len())]
-            };
-            opp_side.board[idx].health = 1;
-            opp_side.board[idx].max_health = opp_side.board[idx].max_health.max(1);
-        }
-    }
-    while own_side.auras.sharing_is_caring_stacks > 0 {
-        own_side.auras.sharing_is_caring_stacks -= 1;
-        if let (Some(leftmost), Some(nearest_opp)) = (
-            own_side.board.first_mut(),
-            opp_side.board.iter().find(|u| u.health > 0),
-        ) {
-            let add_atk = nearest_opp.attack.max(0);
-            let add_hp = nearest_opp.health.max(0);
-            leftmost.add_stats(add_atk, add_hp);
-            events.push(Event::StatBuff {
-                side,
-                unit: leftmost.id,
-                atk_delta: add_atk,
-                hp_delta: add_hp,
-                attack: leftmost.attack,
-                health: leftmost.health,
-                reason: "Sharing is Caring",
-            });
-        }
-    }
+    cards::on_player_start_of_combat(
+        side,
+        &mut own_side.board,
+        &mut own_side.auras,
+        &mut opp_side.board,
+        rng,
+        events,
+    );
 }
 
 /// Living units on `board` whose Start-of-Combat action is selected by `pick`, left to right,

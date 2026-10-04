@@ -438,7 +438,7 @@ fn spell_820_overconfidence() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.overconfidence_stacks, 1);
+    assert_eq!(state.auras.effect_stacks(spells::SPELL_OVERCONFIDENCE), 1);
     state.board.push(Unit::new("Winner", 10, 10));
     let opp = vec![Unit::new("Loser", 1, 1)];
     let res = state.resolve_combat_against(&opp, 1, &Default::default(), &[], 820);
@@ -626,7 +626,7 @@ fn spell_828_time_management() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.time_management_next_turn, 2);
+    assert_eq!(state.auras.effect_stacks(spells::SPELL_TIME_MANAGEMENT), 2);
     state.start_turn(&mut pool, &mut rng);
     assert_eq!(state.board[0].attack, 6);
     assert_eq!(state.board[0].health, 6);
@@ -716,7 +716,7 @@ fn spell_832_boon_of_beetles() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.boon_of_beetles_charges, 2);
+    assert_eq!(state.auras.effect_stacks(spells::SPELL_BOON_OF_BEETLES), 2);
 
     // Verify combat summons 2 Taunt 2/2 Beetles when board has space!
     let gs = seaglass::GameState {
@@ -1282,7 +1282,8 @@ fn spell_846_brood_of_nozdormu() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.brood_of_nozdormu_stacks, 1);
+    let brood = spells::SPELL_BROOD_OF_NOZDORMU;
+    assert_eq!(state.auras.effect_stacks(brood), 1);
 
     let gs = seaglass::GameState {
         auras_a: state.auras.clone(),
@@ -1571,7 +1572,7 @@ fn spell_857_upper_hand() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.upper_hand_stacks, 1);
+    assert_eq!(state.auras.effect_stacks(spells::SPELL_UPPER_HAND), 1);
 
     let gs = seaglass::GameState {
         auras_a: state.auras.clone(),
@@ -1860,7 +1861,8 @@ fn spell_867_sharing_is_caring() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.sharing_is_caring_stacks, 1);
+    let sharing = spells::SPELL_SHARING_IS_CARING;
+    assert_eq!(state.auras.effect_stacks(sharing), 1);
 
     let gs = seaglass::GameState {
         auras_a: state.auras.clone(),

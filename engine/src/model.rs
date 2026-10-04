@@ -185,6 +185,36 @@ impl DeityState {
     }
 }
 
+/// How long a [`PlayerEffect`] lasts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EffectDuration {
+    /// Until its card's hooks use up its stacks.
+    Game,
+    /// Until the start of the next turn (or until its card's hooks use up its stacks).
+    Turn,
+    /// For the next `n` shop Refreshes.
+    Refreshes(u32),
+}
+
+/// A player-level effect recorded by card text (e.g. a Tavern spell's "next combat" effect)
+/// that acts through its card's `player_*` hooks. `stacks` is how many times it was recorded
+/// (or how much of it is left); an effect ends when it has no stacks left.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayerEffect {
+    /// The card whose hooks implement the effect.
+    pub card_id: CardId,
+    pub stacks: u32,
+    pub duration: EffectDuration,
+}
+
+/// Outcome of a combat for one player.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CombatResult {
+    Won,
+    Lost,
+    Tied,
+}
+
 /// Persistent game-long scaling counters and auras (`docs/tavern.md` §7.6).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerAuras {
@@ -206,16 +236,10 @@ pub struct PlayerAuras {
     pub spell_bonus_hp: i32,
     /// Number of `Waveling` Deathrattle stacks (each gives a random Tavern minion `+4/+4` on Refresh).
     pub waveling_stacks: u32,
-    /// Number of `Demon Fodder`s to add on the next 3 shop Refreshes (`Laboratory Assistant` / `Trapped Clapper`).
-    pub fodder_per_refresh: [u32; 3],
     /// Free shop Refreshes remaining (`Leaf Through the Pages` / `Sly Infiltrator`).
     pub free_refreshes: u32,
     /// Permanent bonus to maximum Gold (`Strike Oil`).
     pub base_max_gold_bonus: u32,
-    /// Stacks of `Overconfidence` active for the next combat (`+3` Gold on win, `+1` on tie).
-    pub overconfidence_stacks: u32,
-    /// Number of `+2/+2` board buffs queued for the start of next turn (`Time Management`).
-    pub time_management_next_turn: u32,
     /// Total spells cast this game.
     pub spells_played: u32,
     /// Cost reduction on the next Tavern spell bought (`Ominous Seer`).
@@ -226,8 +250,6 @@ pub struct PlayerAuras {
     pub refresh_random_buffs: Vec<(i32, i32)>,
     /// Stacks of `Blood Gem Barrage` (each stack plays 2 Blood Gems on every Tavern minion on `Refresh`).
     pub blood_gem_barrage_stacks: u32,
-    /// Remaining Taunt `Beetle` summons when space opens in combat (`Boon of Beetles`).
-    pub boon_of_beetles_charges: u32,
     /// Total cards discarded from hand this game (`Parasitic Fleshling`).
     pub cards_discarded: u32,
     /// Total Golden minions played this game (`Maritime Extortionist`).
@@ -238,24 +260,19 @@ pub struct PlayerAuras {
     pub board_spell_bonus_applied: (i32, i32),
     /// Card ID of the last Tavern spell cast (`Cataclysmic Harbinger`).
     pub last_tavern_spell_cast: Option<CardId>,
-    /// Temporary `+X/+X` bonus to friendly Beasts until next turn (`Goldrinn, the Great Wolf`).
-    pub goldrinn_bonus: i32,
-    /// Queued Start-of-Combat left-most Attack doublings (`Brood of Nozdormu`).
-    pub brood_of_nozdormu_stacks: u32,
-    /// Queued Start-of-Combat random enemy Health-to-1 triggers (`Upper Hand`).
-    pub upper_hand_stacks: u32,
     /// Discovered Hero Power ID (`Unmasked Identity`).
     pub hero_power_id: u32,
     /// Total Deathrattles triggered this game (`Falling Sky Golem`).
     pub deathrattles_triggered: u32,
-    /// Queued Start-of-Combat left-most stat gains from the nearest enemy minion (`Sharing is Caring`).
-    pub sharing_is_caring_stacks: u32,
     /// Player's Old God Deity state (awakens after 4 friendly Aberration deaths in combat).
     pub deity: DeityState,
     /// Per-card "this game" counters that card text records and reads, keyed by the card that
     /// owns them (`Eternal Knight` deaths, `Baller` improvements, the `Beetle` stat bonus, ...).
     /// The engine never interprets them; see [`Self::counter`] and [`Self::counter_pair`].
     pub card_counters: BTreeMap<CardId, (i32, i32)>,
+    /// Player-level effects recorded by card text, in the order they were recorded (see
+    /// [`PlayerEffect`] and [`Self::add_effect`]).
+    pub effects: Vec<PlayerEffect>,
 }
 
 impl PlayerAuras {
@@ -291,6 +308,52 @@ impl PlayerAuras {
         let counter = self.card_counters.entry(key).or_default();
         counter.0 += a;
         counter.1 += b;
+    }
+
+    /// Record `stacks` of the player effect of `card_id`, lasting `duration` (merged into an
+    /// existing effect of the same card and duration).
+    pub fn add_effect(&mut self, card_id: CardId, stacks: u32, duration: EffectDuration) {
+        if stacks == 0 {
+            return;
+        }
+        match self
+            .effects
+            .iter_mut()
+            .find(|e| e.card_id == card_id && e.duration == duration)
+        {
+            Some(effect) => effect.stacks += stacks,
+            None => self.effects.push(PlayerEffect {
+                card_id,
+                stacks,
+                duration,
+            }),
+        }
+    }
+
+    /// Total stacks of the player effects of `card_id`.
+    pub fn effect_stacks(&self, card_id: CardId) -> u32 {
+        self.effects
+            .iter()
+            .filter(|e| e.card_id == card_id)
+            .map(|e| e.stacks)
+            .sum()
+    }
+
+    /// End the player effects that last until the start of the turn.
+    pub fn expire_turn_effects(&mut self) {
+        self.effects.retain(|e| e.duration != EffectDuration::Turn);
+    }
+
+    /// A shop Refresh happened: count down the player effects that last a number of Refreshes,
+    /// ending those with none left.
+    pub fn count_down_refresh_effects(&mut self) {
+        for effect in &mut self.effects {
+            if let EffectDuration::Refreshes(n) = &mut effect.duration {
+                *n = n.saturating_sub(1);
+            }
+        }
+        let used_up = EffectDuration::Refreshes(0);
+        self.effects.retain(|e| e.duration != used_up);
     }
 }
 

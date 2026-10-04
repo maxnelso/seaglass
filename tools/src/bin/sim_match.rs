@@ -521,41 +521,19 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.golden_minions_played, after.golden_minions_played
         ));
     }
-    if before.boon_of_beetles_charges != after.boon_of_beetles_charges {
-        diffs.push(format!(
-            "boon_of_beetles_charges: {} -> {}",
-            before.boon_of_beetles_charges, after.boon_of_beetles_charges
-        ));
-    }
-    if before.overconfidence_stacks != after.overconfidence_stacks {
-        diffs.push(format!(
-            "overconfidence_stacks: {} -> {}",
-            before.overconfidence_stacks, after.overconfidence_stacks
-        ));
-    }
-    if before.time_management_next_turn != after.time_management_next_turn {
-        diffs.push(format!(
-            "time_management_next_turn: {} -> {}",
-            before.time_management_next_turn, after.time_management_next_turn
-        ));
-    }
-    if before.upper_hand_stacks != after.upper_hand_stacks {
-        diffs.push(format!(
-            "upper_hand_stacks: {} -> {}",
-            before.upper_hand_stacks, after.upper_hand_stacks
-        ));
-    }
-    if before.brood_of_nozdormu_stacks != after.brood_of_nozdormu_stacks {
-        diffs.push(format!(
-            "brood_of_nozdormu_stacks: {} -> {}",
-            before.brood_of_nozdormu_stacks, after.brood_of_nozdormu_stacks
-        ));
-    }
-    if before.sharing_is_caring_stacks != after.sharing_is_caring_stacks {
-        diffs.push(format!(
-            "sharing_is_caring_stacks: {} -> {}",
-            before.sharing_is_caring_stacks, after.sharing_is_caring_stacks
-        ));
+    let effects = [
+        (spells::SPELL_BOON_OF_BEETLES, "boon_of_beetles_charges"),
+        (spells::SPELL_OVERCONFIDENCE, "overconfidence_stacks"),
+        (spells::SPELL_TIME_MANAGEMENT, "time_management_next_turn"),
+        (spells::SPELL_UPPER_HAND, "upper_hand_stacks"),
+        (spells::SPELL_BROOD_OF_NOZDORMU, "brood_of_nozdormu_stacks"),
+        (spells::SPELL_SHARING_IS_CARING, "sharing_is_caring_stacks"),
+    ];
+    for (card_id, label) in effects {
+        let (b, a) = (before.effect_stacks(card_id), after.effect_stacks(card_id));
+        if b != a {
+            diffs.push(format!("{label}: {b} -> {a}"));
+        }
     }
     if before.waveling_stacks != after.waveling_stacks {
         diffs.push(format!(
@@ -569,10 +547,12 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.blood_gem_barrage_stacks, after.blood_gem_barrage_stacks
         ));
     }
-    if before.fodder_per_refresh != after.fodder_per_refresh {
+    let fodder = tokens::fodder_per_refresh;
+    if fodder(before) != fodder(after) {
         diffs.push(format!(
             "fodder_per_refresh: {:?} -> {:?}",
-            before.fodder_per_refresh, after.fodder_per_refresh
+            fodder(before),
+            fodder(after)
         ));
     }
     let ballers = tier2::fire_baller::baller_bonus;

@@ -341,11 +341,11 @@ fn card_216_laboratory_assistant() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 1]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 1, 1]);
     state
         .step(TavernAction::Refresh, &mut pool, &mut rng)
         .unwrap();
-    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 0]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 1, 0]);
 }
 
 #[test]

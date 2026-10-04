@@ -13,9 +13,12 @@
 //!   order, and receive the observer's own board index (`end_of_turn`, `on_spell_cast`,
 //!   `on_friendly_death`, ...).
 //! - **Passives** are numeric contributions combined across the board ([`Passive`]).
+//! - **Player-effect hooks** fire for each of the player's
+//!   [`PlayerEffect`](crate::model::PlayerEffect)s of the card, in the order they were recorded
+//!   (`player_turn_start`, `player_start_of_combat`, ...).
 
-use crate::cards::{ActivateTargetKind, BoardCtx, RallyCtx};
-use crate::model::{CardId, PlayerAuras, Tribe, Unit, UnitId};
+use crate::cards::{ActivateTargetKind, BoardCtx, CombatSides, RallyCtx};
+use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -149,6 +152,14 @@ pub type TargetedSpellFn = fn(&mut TavernState, usize, usize, &mut CardPool, &mu
 pub type DamageDealtObserverFn = fn(&mut BoardCtx<'_>, usize, UnitId, Tribe);
 /// A friendly minion is being summoned: `(self, summoned, in_combat)`.
 pub type SummonFn = fn(&mut Unit, &mut Unit, bool);
+/// Player effect in the Tavern: `(state, effect)`.
+pub type EffectFn = fn(&mut TavernState, &mut PlayerEffect);
+/// Player effect after a shop Refresh: `(state, effect, rng)`.
+pub type EffectRefreshFn = fn(&mut TavernState, &mut PlayerEffect, &mut Rng);
+/// Player effect at Start of Combat: `(sides, effect)`.
+pub type EffectSocFn = fn(&mut CombatSides<'_>, &mut PlayerEffect);
+/// Player effect after combat: `(state, effect, result)`.
+pub type EffectAfterCombatFn = fn(&mut TavernState, &mut PlayerEffect, CombatResult);
 
 macro_rules! card_hooks {
     ($( $(#[$meta:meta])* $field:ident($builder:ident): $ty:ty ),* $(,)?) => {
@@ -325,6 +336,21 @@ card_hooks! {
     after_friendly_reborn(on_after_friendly_reborn): fn(&mut BoardCtx<'_>, usize, i32),
     /// A friendly minion lost its Divine Shield: `(self)`.
     friendly_divine_shield_lost(on_friendly_divine_shield_lost): UnitFn,
+
+    // ---- Player effects (fire for each of the player's effects of this card, in the order
+    // they were recorded) ----------------------------------------------------------------
+    /// Start of turn (after minions' start-of-turn upkeep, before hand cards').
+    player_turn_start(on_player_turn_start): EffectFn,
+    /// After a shop Refresh (including the start-of-turn one).
+    player_after_refresh(on_player_after_refresh): EffectRefreshFn,
+    /// Start of Combat, before any minion's trigger.
+    player_start_of_combat(on_player_start_of_combat): EffectSocFn,
+    /// Room may have opened on the board in combat (Start of Combat, after each round of deaths).
+    player_combat_space(on_player_combat_space): fn(&mut BoardCtx<'_>, &mut PlayerEffect),
+    /// A friendly minion is being summoned in combat: `(effect, summoned)`.
+    player_combat_summon(on_player_combat_summon): fn(&PlayerEffect, &mut Unit),
+    /// After combat.
+    player_after_combat(on_player_after_combat): EffectAfterCombatFn,
 }
 
 impl Default for CardHooks {

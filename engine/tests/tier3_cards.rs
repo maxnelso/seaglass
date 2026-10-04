@@ -756,7 +756,7 @@ fn card_336_trapped_clapper() {
     let board_a = vec![tier3::trapped_clapper::template().instantiate()]; // 2/2 DR: Add a Fodder to next 3 Refreshes
     let board_b = vec![Unit::new("Enemy", 3, 3)];
     let res = simulate(&board_a, &board_b, &GameState::default(), 336);
-    assert_eq!(res.auras_a.fodder_per_refresh, [1, 1, 1]);
+    assert_eq!(tokens::fodder_per_refresh(&res.auras_a), [1, 1, 1]);
 }
 
 #[test]

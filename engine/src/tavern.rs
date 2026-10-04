@@ -3,7 +3,7 @@
 use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
-    BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit,
+    BattleOutcome, CardId, CombatResult, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit,
 };
 use crate::rng::Rng;
 
@@ -744,9 +744,7 @@ impl TavernState {
         self.last_combat_won = false;
         self.gold_spent_this_turn = 0;
         self.elementals_played_this_turn = 0;
-        self.auras.goldrinn_bonus = 0;
-        self.auras.brood_of_nozdormu_stacks = 0;
-        self.auras.upper_hand_stacks = 0;
+        self.auras.expire_turn_effects();
         let prev_ashen = self.auras.ashen_corruptor_turn_buff;
         self.auras.ashen_corruptor_turn_buff = 0;
         if prev_ashen != 0 && self.is_frozen {
@@ -772,22 +770,7 @@ impl TavernState {
             }
         }
         cards::resolve_pending_effects(&mut self.board, &self.auras, rng);
-
-        if self.auras.time_management_next_turn > 0 {
-            let stacks = self.auras.time_management_next_turn;
-            self.auras.time_management_next_turn = 0;
-            let (atk, hp) = self.auras.spell_stat_buff(2, 2);
-            for _ in 0..stacks {
-                for b in &mut self.board {
-                    b.add_stats(atk, hp);
-                }
-                for h in &mut self.hand {
-                    if !h.is_spell {
-                        h.add_stats(atk, hp);
-                    }
-                }
-            }
-        }
+        cards::on_player_turn_start(self);
 
         for idx in 0..self.hand.len() {
             self.hand[idx].dies_on_play_this_turn = false;
@@ -886,15 +869,14 @@ impl TavernState {
             }
         }
 
-        let overconf = self.auras.overconfidence_stacks;
-        self.auras.overconfidence_stacks = 0;
-        if overconf > 0 {
-            if won {
-                self.bonus_gold_next_turn += 3 * overconf;
-            } else if res.outcome == BattleOutcome::Draw {
-                self.bonus_gold_next_turn += overconf;
-            }
-        }
+        let result = if won {
+            CombatResult::Won
+        } else if lost {
+            CombatResult::Lost
+        } else {
+            CombatResult::Tied
+        };
+        cards::on_player_after_combat(self, result);
         self.hand = new_hand;
         // Hand cards that became ready during combat (e.g. a sped-up `Lockbox`) resolve with a
         // per-side RNG derived from the battle seed.

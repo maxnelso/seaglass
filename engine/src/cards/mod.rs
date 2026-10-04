@@ -28,7 +28,9 @@ use registry::plain_instance;
 
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
-use crate::model::{CardId, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId, BONUS_KEYWORDS};
+use crate::model::{
+    CardId, CombatResult, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId, BONUS_KEYWORDS,
+};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -201,6 +203,16 @@ pub struct RallyCtx<'a> {
     pub generated_hand: &'a mut Vec<Unit>,
     /// Set by the hook if the returned summons should strike the attack target first.
     pub summons_attack_target: bool,
+    pub rng: &'a mut Rng,
+    pub events: &'a mut Vec<Event>,
+}
+
+/// Both boards as seen by a player effect at Start of Combat (`player_start_of_combat` hooks).
+pub struct CombatSides<'a> {
+    /// The side whose effect resolves.
+    pub side: Side,
+    pub board: &'a mut [Unit],
+    pub enemy_board: &'a mut [Unit],
     pub rng: &'a mut Rng,
     pub events: &'a mut Vec<Event>,
 }
@@ -751,8 +763,9 @@ pub fn on_tavern_summon(board: &mut [Unit], pos: usize) {
     board[pos] = summoned;
 }
 
-/// Apply all combat summon modifiers (persistent auras, `Goldrinn`, the combat Beast bonus,
-/// `friendly_summon` observers, stat thresholds) to `token` before it joins `board`.
+/// Apply all combat summon modifiers (persistent auras, the player effects'
+/// `player_combat_summon` hooks, the combat Beast bonus, `friendly_summon` observers, stat
+/// thresholds) to `token` before it joins `board`.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],
     auras: &PlayerAuras,
@@ -760,13 +773,9 @@ pub fn apply_combat_summon_modifiers(
     token: &mut Unit,
 ) {
     sync_unit_auras(token, auras);
-    if token.tribe.matches(Tribe::Beast) {
-        if auras.goldrinn_bonus != 0 {
-            token.add_stats(auras.goldrinn_bonus, auras.goldrinn_bonus);
-        }
-        if combat_beast_bonus_atk != 0 {
-            token.add_stats(combat_beast_bonus_atk, 0);
-        }
+    effects::combat_summon(auras, token);
+    if token.tribe.matches(Tribe::Beast) && combat_beast_bonus_atk != 0 {
+        token.add_stats(combat_beast_bonus_atk, 0);
     }
     notify_friendly_summon(board, None, token, true);
     token.sync_max_stats();
@@ -1023,6 +1032,12 @@ pub fn on_start_turn_board(state: &mut TavernState, pool: &mut CardPool, rng: &m
     state.gold += magnetized_gold;
     notify_tavern(state, |h| h.turn_start, |s, idx, f| f(s, idx, pool, rng));
     resolve_pending_effects(&mut state.board, &state.auras, rng);
+}
+
+/// Start of turn, after the minions' start-of-turn upkeep: the player effects'
+/// `player_turn_start` hooks.
+pub fn on_player_turn_start(state: &mut TavernState) {
+    effects::turn_start(state);
 }
 
 /// Apply End-of-Turn triggers when `EndTurn` is taken, repeated per
@@ -1313,12 +1328,25 @@ fn summon_copies_from_hand(ctx: &mut BoardCtx<'_>) {
     }
 }
 
+/// Resolve the player's own Start-of-Combat effects for `side`, before any minion's trigger
+/// (the player effects' `player_start_of_combat` hooks).
+pub fn on_player_start_of_combat(
+    side: Side,
+    board: &mut [Unit],
+    auras: &mut PlayerAuras,
+    enemy_board: &mut [Unit],
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    effects::start_of_combat(side, board, auras, enemy_board, rng, events);
+}
+
 /// Resolve Start-of-Combat triggers for one side: copies summoned from hand
-/// (`combat_copies_from_hand`), player-level effects (e.g. `Boon of Beetles`), then each living
-/// minion's `start_of_combat` hook, left to right.
+/// (`combat_copies_from_hand`), player effects that fill open board slots
+/// (`player_combat_space`), then each living minion's `start_of_combat` hook, left to right.
 pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
     summon_copies_from_hand(ctx);
-    effects::start_of_combat(ctx);
+    effects::combat_space(ctx);
     let sources: Vec<(UnitId, CardId, bool)> = ctx
         .board
         .iter()
@@ -1567,10 +1595,10 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
     }
 }
 
-/// Resolve effects that trigger after a round of combat deaths resolved for one side (player-level
-/// effects that fill open board slots, e.g. `Boon of Beetles`).
+/// Resolve effects that trigger after a round of combat deaths resolved for one side (player
+/// effects that fill open board slots, `player_combat_space`).
 pub fn after_combat_deaths(ctx: &mut BoardCtx<'_>) {
-    effects::after_combat_deaths(ctx);
+    effects::combat_space(ctx);
 }
 
 /// Synchronize dynamic combat/player auras across `board` and `hand` after deaths resolve.
@@ -1667,4 +1695,10 @@ pub fn on_post_combat_unit(
         tavern_unit.blood_gem_stats_applied.1 += post.perm_hp_gained;
     }
     tavern_unit.stacks = post.stacks;
+}
+
+/// After combat, once the combat results are back in the Tavern: the player effects'
+/// `player_after_combat` hooks.
+pub fn on_player_after_combat(state: &mut TavernState, result: CombatResult) {
+    effects::after_combat(state, result);
 }

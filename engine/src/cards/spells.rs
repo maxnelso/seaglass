@@ -8,8 +8,15 @@ use crate::cards::tokens::{
     SPELL_CONFLAGRATION, SPELL_GEM_CONFISCATION, SPELL_GEM_DAY, SPELL_GOLDEN_TOUCH,
     SPELL_POINTY_ARROW, SPELL_SLUDGE_CORROSION, SPELL_TAVERN_COIN,
 };
-use crate::cards::{board_passive, CardHooks, Passive};
-use crate::model::{CardId, Keyword, Tribe, Unit, BONUS_KEYWORDS, SINGLE_TRIBES};
+use crate::cards::{
+    apply_combat_summon_modifiers, board_passive, BoardCtx, CardHooks, CombatSides, Passive,
+};
+use crate::combat::MAX_BOARD_SIZE;
+use crate::events::Event;
+use crate::model::{
+    CardId, CombatResult, EffectDuration, Keyword, PlayerEffect, Tribe, Unit, BONUS_KEYWORDS,
+    SINGLE_TRIBES,
+};
 use crate::rng::Rng;
 use crate::tavern::{shop_capacity, CardPool, TavernState};
 
@@ -838,7 +845,7 @@ pub fn cast_spell(
                 buff_random_friendly(state, 4, 4, 0, rng);
             }
             SPELL_OVERCONFIDENCE => {
-                state.auras.overconfidence_stacks += 1;
+                record_effect(state, SPELL_OVERCONFIDENCE, 1, EffectDuration::Turn);
             }
             SPELL_PLANAR_TELESCOPE => {
                 let tribe = most_common_tribe(&state.board, rng);
@@ -929,7 +936,7 @@ pub fn cast_spell(
                 state.auras.blood_gem_barrage_stacks += 1;
             }
             SPELL_BOON_OF_BEETLES => {
-                state.auras.boon_of_beetles_charges += 2;
+                record_effect(state, SPELL_BOON_OF_BEETLES, 2, EffectDuration::Game);
             }
             SPELL_BOUNDLESS_POTENTIAL => {
                 let opt0 = make_choice_option(
@@ -1124,7 +1131,7 @@ pub fn cast_spell(
                 state.armor = 5;
             }
             SPELL_BROOD_OF_NOZDORMU => {
-                state.auras.brood_of_nozdormu_stacks += 1;
+                record_effect(state, SPELL_BROOD_OF_NOZDORMU, 1, EffectDuration::Turn);
             }
             SPELL_BUTCHERING => {
                 if board_pos < state.board.len()
@@ -1253,7 +1260,7 @@ pub fn cast_spell(
                 state.push_discover(opts);
             }
             SPELL_UPPER_HAND => {
-                state.auras.upper_hand_stacks += 1;
+                record_effect(state, SPELL_UPPER_HAND, 1, EffectDuration::Turn);
             }
             SPELL_WAVE_OF_GOLD => {
                 let (atk, hp) = state.auras.spell_stat_buff(3, 2);
@@ -1327,7 +1334,7 @@ pub fn cast_spell(
                 }
             }
             SPELL_SHARING_IS_CARING => {
-                state.auras.sharing_is_caring_stacks += 1;
+                record_effect(state, SPELL_SHARING_IS_CARING, 1, EffectDuration::Turn);
             }
             _ => {
                 if board_pos < state.board.len() {
@@ -1343,6 +1350,12 @@ pub fn cast_spell(
     }
 
     crate::cards::after_cast_any_spell(state, pool, rng);
+}
+
+/// Record `stacks` of `spell`'s player effect, lasting `duration` (it acts through the spell's
+/// `player_*` hooks, registered in [`behaviors`]).
+fn record_effect(state: &mut TavernState, spell: CardId, stacks: u32, duration: EffectDuration) {
+    state.auras.add_effect(spell, stacks, duration);
 }
 
 /// `Corrupted Coin` discarded: gain 2 maximum Gold.
@@ -1409,7 +1422,7 @@ pub fn choose_time_now(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &
 
 /// `Time Management` (Do It Later): +2/+2 twice next turn.
 pub fn choose_time_later(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
-    state.auras.time_management_next_turn += 2;
+    record_effect(state, SPELL_TIME_MANAGEMENT, 2, EffectDuration::Game);
 }
 
 /// `Boundless Potential` (Way of the Warrior): Discover a minion of your Tier.
@@ -1464,6 +1477,130 @@ pub fn choose_hero_power(state: &mut TavernState, chosen: &Unit, _: &mut CardPoo
     };
 }
 
+// --- Player effects recorded by Tavern spells (registered in `behaviors`) ---
+
+/// `Overconfidence`: after the next combat, get 3 Gold next turn per stack if you won (1 if
+/// tied).
+fn overconfidence_after_combat(
+    state: &mut TavernState,
+    effect: &mut PlayerEffect,
+    result: CombatResult,
+) {
+    let stacks = std::mem::take(&mut effect.stacks);
+    match result {
+        CombatResult::Won => state.bonus_gold_next_turn += 3 * stacks,
+        CombatResult::Tied => state.bonus_gold_next_turn += stacks,
+        CombatResult::Lost => {}
+    }
+}
+
+/// `Time Management` (Do It Later): at the start of next turn, give your minions (board and
+/// hand) +2/+2 per stack.
+fn time_management_turn_start(state: &mut TavernState, effect: &mut PlayerEffect) {
+    let stacks = std::mem::take(&mut effect.stacks);
+    let (atk, hp) = state.auras.spell_stat_buff(2, 2);
+    for _ in 0..stacks {
+        for b in &mut state.board {
+            b.add_stats(atk, hp);
+        }
+        for h in &mut state.hand {
+            if !h.is_spell {
+                h.add_stats(atk, hp);
+            }
+        }
+    }
+}
+
+/// `Boon of Beetles`: whenever there is room on the board in combat, summon a Taunt Beetle at
+/// the end of it (one per stack).
+fn boon_of_beetles_combat_space(ctx: &mut BoardCtx<'_>, effect: &mut PlayerEffect) {
+    while effect.stacks > 0 && ctx.board.len() < MAX_BOARD_SIZE {
+        effect.stacks -= 1;
+        let mut beetle = tokens::make_beetle(false, ctx.auras).with_keyword(Keyword::Taunt);
+        beetle.id = *ctx.next_id;
+        *ctx.next_id += 1;
+        apply_combat_summon_modifiers(ctx.board, ctx.auras, *ctx.beast_bonus_atk, &mut beetle);
+        ctx.events.push(Event::UnitSummoned {
+            side: ctx.side,
+            source: beetle.id,
+            unit: beetle.id,
+            name: beetle.name.clone(),
+            attack: beetle.attack,
+            health: beetle.health,
+            reason: "Boon of Beetles",
+        });
+        ctx.board.push(beetle);
+    }
+}
+
+/// `Brood of Nozdormu`: at the start of the next combat, double the Attack of your left-most
+/// minion (once per stack).
+fn brood_of_nozdormu_start_of_combat(sides: &mut CombatSides<'_>, effect: &mut PlayerEffect) {
+    for _ in 0..std::mem::take(&mut effect.stacks) {
+        if let Some(leftmost) = sides.board.first_mut() {
+            let add = leftmost.attack;
+            leftmost.add_stats(add, 0);
+            sides.events.push(Event::StatBuff {
+                side: sides.side,
+                unit: leftmost.id,
+                atk_delta: add,
+                hp_delta: 0,
+                attack: leftmost.attack,
+                health: leftmost.health,
+                reason: "Brood of Nozdormu",
+            });
+        }
+    }
+}
+
+/// `Upper Hand`: at the start of the next combat, set a random enemy minion's Health to 1 (once
+/// per stack).
+fn upper_hand_start_of_combat(sides: &mut CombatSides<'_>, effect: &mut PlayerEffect) {
+    for _ in 0..std::mem::take(&mut effect.stacks) {
+        let candidates: Vec<usize> = sides
+            .enemy_board
+            .iter()
+            .enumerate()
+            .filter(|(_, u)| u.health > 0)
+            .map(|(i, _)| i)
+            .collect();
+        if !candidates.is_empty() {
+            let idx = if candidates.len() == 1 {
+                candidates[0]
+            } else {
+                candidates[sides.rng.below(candidates.len())]
+            };
+            let target = &mut sides.enemy_board[idx];
+            target.health = 1;
+            target.max_health = target.max_health.max(1);
+        }
+    }
+}
+
+/// `Sharing is Caring`: at the start of the next combat, give your left-most minion the stats of
+/// the nearest enemy minion (once per stack).
+fn sharing_is_caring_start_of_combat(sides: &mut CombatSides<'_>, effect: &mut PlayerEffect) {
+    for _ in 0..std::mem::take(&mut effect.stacks) {
+        if let (Some(leftmost), Some(nearest_opp)) = (
+            sides.board.first_mut(),
+            sides.enemy_board.iter().find(|u| u.health > 0),
+        ) {
+            let add_atk = nearest_opp.attack.max(0);
+            let add_hp = nearest_opp.health.max(0);
+            leftmost.add_stats(add_atk, add_hp);
+            sides.events.push(Event::StatBuff {
+                side: sides.side,
+                unit: leftmost.id,
+                atk_delta: add_atk,
+                hp_delta: add_hp,
+                attack: leftmost.attack,
+                health: leftmost.health,
+                reason: "Sharing is Caring",
+            });
+        }
+    }
+}
+
 /// Behaviour tables for spells (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![
@@ -1474,6 +1611,30 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         (
             SPELL_ENERGIZING_CHAMBER,
             CardHooks::EMPTY.on_discarded(energizing_chamber_discarded),
+        ),
+        (
+            SPELL_OVERCONFIDENCE,
+            CardHooks::EMPTY.on_player_after_combat(overconfidence_after_combat),
+        ),
+        (
+            SPELL_TIME_MANAGEMENT,
+            CardHooks::EMPTY.on_player_turn_start(time_management_turn_start),
+        ),
+        (
+            SPELL_BOON_OF_BEETLES,
+            CardHooks::EMPTY.on_player_combat_space(boon_of_beetles_combat_space),
+        ),
+        (
+            SPELL_BROOD_OF_NOZDORMU,
+            CardHooks::EMPTY.on_player_start_of_combat(brood_of_nozdormu_start_of_combat),
+        ),
+        (
+            SPELL_UPPER_HAND,
+            CardHooks::EMPTY.on_player_start_of_combat(upper_hand_start_of_combat),
+        ),
+        (
+            SPELL_SHARING_IS_CARING,
+            CardHooks::EMPTY.on_player_start_of_combat(sharing_is_caring_start_of_combat),
         ),
     ]
 }

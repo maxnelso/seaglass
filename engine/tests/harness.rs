@@ -523,7 +523,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 1]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 1, 1]);
     let total_demon_atk_before: i32 = state
         .board
         .iter()
@@ -540,7 +540,7 @@ fn tier2_tavern_minions_and_spells_work_end_to_end() {
         .map(|u| u.attack)
         .sum();
     assert_eq!(total_demon_atk_after - total_demon_atk_before, 2);
-    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 0]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 1, 0]);
 
     // 5. Wandering Willbreaker -> sell gives 2 spells, casting 1 discards the other
     state.hand.clear();
@@ -1005,11 +1005,11 @@ fn audit_regression_suite_covers_all_15_bugs() {
             &mut rng,
         )
         .unwrap();
-    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 1]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 1, 1]);
     // With a friendly Demon (the Assistant itself) on board, the Fodder is absorbed by it.
     let (atk_before, hp_before) = (state.board[0].attack, state.board[0].health);
     state.start_turn(&mut pool, &mut rng);
-    assert_eq!(state.auras.fodder_per_refresh, [1, 1, 0]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 1, 0]);
     assert!(
         state.board[0].attack > atk_before && state.board[0].health > hp_before,
         "Fodder should buff the only friendly Demon"
@@ -1017,7 +1017,7 @@ fn audit_regression_suite_covers_all_15_bugs() {
     // With no friendly Demon, the Fodder appears in the shop on the next start-of-turn roll.
     state.board.clear();
     state.start_turn(&mut pool, &mut rng);
-    assert_eq!(state.auras.fodder_per_refresh, [1, 0, 0]);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras), [1, 0, 0]);
     assert!(state
         .shop
         .iter()

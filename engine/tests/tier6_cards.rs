@@ -547,7 +547,7 @@ fn card_625_twisted_wrathguard() {
         .step(TavernAction::Sell { board_pos: 1 }, &mut pool, &mut rng)
         .unwrap();
     // Selling a minion adds 1 Fodder to next Refresh!
-    assert_eq!(state.auras.fodder_per_refresh[0], 1);
+    assert_eq!(tokens::fodder_per_refresh(&state.auras)[0], 1);
 }
 
 #[test]

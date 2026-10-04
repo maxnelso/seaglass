@@ -1,7 +1,7 @@
 //! `Trapped Clapper` (`BG36_730`) — Tier 3 Demon (`2/2`).
 //! **Deathrattle:** Add a (`two` if Golden) **Fodder**(s) to your next 3 **Refreshes**.
 
-use crate::cards::{CardTemplate, DeathrattleContext};
+use crate::cards::{tokens, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 336;
@@ -15,7 +15,5 @@ pub fn template() -> CardTemplate {
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     let count = if dying.is_golden { 2 } else { 1 };
-    for slot in &mut ctx.auras.fodder_per_refresh {
-        *slot += count;
-    }
+    tokens::add_fodder_to_refreshes(ctx.auras, count, 3);
 }
