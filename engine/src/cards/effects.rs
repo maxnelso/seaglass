@@ -8,6 +8,8 @@ use crate::cards::{apply_combat_summon_modifiers, tokens, BoardCtx};
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
 use crate::model::{Keyword, PlayerAuras, Tribe, Unit};
+use crate::rng::Rng;
+use crate::tavern::TavernState;
 
 /// Apply the player-wide "wherever this is" stat auras to `unit` (the Undead Attack bonus from
 /// `Nerubian Deathswarmer`).
@@ -19,6 +21,12 @@ pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
             unit.add_stats(diff, 0);
         }
     }
+}
+
+/// After a shop `Refresh` (including the start-of-turn one): buff the new shop and add Fodder.
+pub fn after_shop_refresh(state: &mut TavernState, rng: &mut Rng) {
+    buff_refreshed_shop(state, rng);
+    spawn_refresh_fodder(state, rng);
 }
 
 /// Start of Combat, after the copies summoned from hand and before minion triggers.
@@ -50,5 +58,92 @@ fn summon_boon_of_beetles(ctx: &mut BoardCtx<'_>) {
             reason: "Boon of Beetles",
         });
         ctx.board.push(beetle);
+    }
+}
+
+/// Resolve `Waveling`, `Easterly Winds`, `En-Djinn Blazer`, and `Blood Gem Barrage` buffs on shop `Refresh`.
+fn buff_refreshed_shop(state: &mut TavernState, rng: &mut Rng) {
+    for _ in 0..state.auras.waveling_stacks {
+        let minion_indices: Vec<usize> = state
+            .shop
+            .iter()
+            .enumerate()
+            .filter(|(_, u)| !u.is_spell)
+            .map(|(i, _)| i)
+            .collect();
+        if !minion_indices.is_empty() {
+            let idx = if minion_indices.len() == 1 {
+                minion_indices[0]
+            } else {
+                minion_indices[rng.below(minion_indices.len())]
+            };
+            state.shop[idx].add_stats(4, 4);
+        }
+    }
+    let random_buffs = state.auras.refresh_random_buffs.clone();
+    for (atk, hp) in random_buffs {
+        let minion_indices: Vec<usize> = state
+            .shop
+            .iter()
+            .enumerate()
+            .filter(|(_, u)| !u.is_spell)
+            .map(|(i, _)| i)
+            .collect();
+        if !minion_indices.is_empty() {
+            let idx = if minion_indices.len() == 1 {
+                minion_indices[0]
+            } else {
+                minion_indices[rng.below(minion_indices.len())]
+            };
+            state.shop[idx].add_stats(atk, hp);
+        }
+    }
+    if state.auras.blood_gem_barrage_stacks > 0 {
+        let gems = 2 * state.auras.blood_gem_barrage_stacks;
+        for u in &mut state.shop {
+            if !u.is_spell {
+                u.play_blood_gems(gems, &state.auras);
+            }
+        }
+    }
+}
+
+/// Resolve `Laboratory Assistant` / `Trapped Clapper` Fodder spawns on a shop `Refresh`.
+fn spawn_refresh_fodder(state: &mut TavernState, rng: &mut Rng) {
+    let fodder_count = state.auras.fodder_per_refresh[0];
+    state.auras.fodder_per_refresh = [
+        state.auras.fodder_per_refresh[1],
+        state.auras.fodder_per_refresh[2],
+        0,
+    ];
+    if fodder_count == 0 {
+        return;
+    }
+
+    for _ in 0..fodder_count {
+        let mut fodder = tokens::make_demon_fodder(false);
+        state.apply_shop_auras(&mut fodder);
+        if state.auras.blood_gem_barrage_stacks > 0 {
+            fodder.play_blood_gems(2 * state.auras.blood_gem_barrage_stacks, &state.auras);
+        }
+
+        let demon_indices: Vec<usize> = state
+            .board
+            .iter()
+            .enumerate()
+            .filter(|(_, u)| u.tribe.matches(Tribe::Demon))
+            .map(|(i, _)| i)
+            .collect();
+
+        if !demon_indices.is_empty() {
+            let idx = if demon_indices.len() == 1 {
+                demon_indices[0]
+            } else {
+                demon_indices[rng.below(demon_indices.len())]
+            };
+            state.board[idx].add_stats(fodder.attack, fodder.health);
+        } else {
+            state.shop.push(fodder);
+        }
     }
 }

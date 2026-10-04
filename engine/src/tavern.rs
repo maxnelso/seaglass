@@ -1,7 +1,7 @@
 //! Card-agnostic Tavern Phase (Recruit Phase) state machine (`docs/tavern.md`).
 
 use crate::cards::tokens;
-use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate, Passive, Played};
+use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
     BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit,
@@ -723,8 +723,7 @@ impl TavernState {
             self.shop
                 .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
         }
-        self.resolve_refresh_waveling(rng);
-        self.resolve_refresh_fodder(rng);
+        cards::after_shop_refresh(self, rng);
     }
 
     /// Refresh the Tavern with minions of `tribe` (`Lost Staff of Hamuul`).
@@ -744,95 +743,7 @@ impl TavernState {
             self.shop
                 .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
         }
-        self.resolve_refresh_waveling(rng);
-        self.resolve_refresh_fodder(rng);
-    }
-
-    /// Resolve `Waveling`, `Easterly Winds`, `En-Djinn Blazer`, and `Blood Gem Barrage` buffs on shop `Refresh`.
-    fn resolve_refresh_waveling(&mut self, rng: &mut Rng) {
-        for _ in 0..self.auras.waveling_stacks {
-            let minion_indices: Vec<usize> = self
-                .shop
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| !u.is_spell)
-                .map(|(i, _)| i)
-                .collect();
-            if !minion_indices.is_empty() {
-                let idx = if minion_indices.len() == 1 {
-                    minion_indices[0]
-                } else {
-                    minion_indices[rng.below(minion_indices.len())]
-                };
-                self.shop[idx].add_stats(4, 4);
-            }
-        }
-        let random_buffs = self.auras.refresh_random_buffs.clone();
-        for (atk, hp) in random_buffs {
-            let minion_indices: Vec<usize> = self
-                .shop
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| !u.is_spell)
-                .map(|(i, _)| i)
-                .collect();
-            if !minion_indices.is_empty() {
-                let idx = if minion_indices.len() == 1 {
-                    minion_indices[0]
-                } else {
-                    minion_indices[rng.below(minion_indices.len())]
-                };
-                self.shop[idx].add_stats(atk, hp);
-            }
-        }
-        if self.auras.blood_gem_barrage_stacks > 0 {
-            let gems = 2 * self.auras.blood_gem_barrage_stacks;
-            for u in &mut self.shop {
-                if !u.is_spell {
-                    u.play_blood_gems(gems, &self.auras);
-                }
-            }
-        }
-    }
-
-    /// Resolve `Laboratory Assistant` / `Trapped Clapper` Fodder spawns on a shop `Refresh`.
-    fn resolve_refresh_fodder(&mut self, rng: &mut Rng) {
-        let fodder_count = self.auras.fodder_per_refresh[0];
-        self.auras.fodder_per_refresh = [
-            self.auras.fodder_per_refresh[1],
-            self.auras.fodder_per_refresh[2],
-            0,
-        ];
-        if fodder_count == 0 {
-            return;
-        }
-
-        for _ in 0..fodder_count {
-            let mut fodder = tokens::make_demon_fodder(false);
-            self.apply_shop_auras(&mut fodder);
-            if self.auras.blood_gem_barrage_stacks > 0 {
-                fodder.play_blood_gems(2 * self.auras.blood_gem_barrage_stacks, &self.auras);
-            }
-
-            let demon_indices: Vec<usize> = self
-                .board
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| u.tribe.matches(Tribe::Demon))
-                .map(|(i, _)| i)
-                .collect();
-
-            if !demon_indices.is_empty() {
-                let idx = if demon_indices.len() == 1 {
-                    demon_indices[0]
-                } else {
-                    demon_indices[rng.below(demon_indices.len())]
-                };
-                self.board[idx].add_stats(fodder.attack, fodder.health);
-            } else {
-                self.shop.push(fodder);
-            }
-        }
+        cards::after_shop_refresh(self, rng);
     }
 
     /// Execute the start-of-turn sequence (`docs/tavern.md` §4).
@@ -934,8 +845,7 @@ impl TavernState {
                 self.shop
                     .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
             }
-            self.resolve_refresh_waveling(rng);
-            self.resolve_refresh_fodder(rng);
+            cards::after_shop_refresh(self, rng);
         }
         self.sync_all_auras();
     }
@@ -1104,16 +1014,6 @@ impl TavernState {
         res
     }
 
-    /// Check whether `unit` is a valid board target for targeted spell `spell_id`.
-    fn spell_valid_board_target(spell_id: CardId, unit: &Unit) -> bool {
-        match spell_id {
-            cards::spells::SPELL_BUTCHERING => unit.tribe.matches(Tribe::Undead),
-            cards::spells::SPELL_CORRUPTED_CUPCAKES => unit.tribe.matches(Tribe::Demon),
-            tokens::SPELL_ARCANE_ABSORPTION => unit.tribe.matches(Tribe::Elemental),
-            _ => true,
-        }
-    }
-
     /// Check whether `action` is currently legal (`docs/tavern.md` §6).
     pub fn is_legal(&self, action: &TavernAction) -> bool {
         if let Some(ref opts) = self.discover_pending {
@@ -1128,7 +1028,7 @@ impl TavernState {
                 let Some(card) = self.shop.get(shop_index) else {
                     return false;
                 };
-                if self.hand.len() >= 10 || card.card_id == tokens::TOKEN_FISHBAIT {
+                if self.hand.len() >= 10 || cards::hooks(card.card_id).has(CardFlags::UNBUYABLE) {
                     return false;
                 }
                 if card.is_spell {
@@ -1155,7 +1055,7 @@ impl TavernState {
                 if card.is_spell {
                     if cards::spells::spell_requires_board_target(card.card_id) {
                         board_pos < self.board.len()
-                            && Self::spell_valid_board_target(card.card_id, &self.board[board_pos])
+                            && cards::spells::can_target(card.card_id, &self.board[board_pos])
                     } else {
                         board_pos == 0
                     }
@@ -1267,7 +1167,7 @@ impl TavernState {
             if card.is_spell {
                 if cards::spells::spell_requires_board_target(card.card_id) {
                     for (b_pos, unit) in self.board.iter().enumerate() {
-                        if Self::spell_valid_board_target(card.card_id, unit) {
+                        if cards::spells::can_target(card.card_id, unit) {
                             actions.push(TavernAction::Play {
                                 hand_index: h_idx,
                                 board_pos: b_pos,

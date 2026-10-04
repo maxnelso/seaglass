@@ -454,6 +454,10 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             }),
         ),
         (
+            TOKEN_FISHBAIT,
+            CardHooks::EMPTY.with_flags(CardFlags::UNBUYABLE),
+        ),
+        (
             TOKEN_SEWER_RAT,
             CardHooks::EMPTY.on_deathrattle(tier5::sewer_lord::on_sewer_rat_deathrattle),
         ),

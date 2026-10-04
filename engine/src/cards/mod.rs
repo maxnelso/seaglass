@@ -1045,6 +1045,12 @@ pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mu
     notify_tavern(state, |h| h.discover, |s, idx, f| f(s, idx, pool, rng));
 }
 
+/// After a shop `Refresh` (including the start-of-turn one): resolve the player's Refresh
+/// effects on the new shop.
+pub fn after_shop_refresh(state: &mut TavernState, rng: &mut Rng) {
+    effects::after_shop_refresh(state, rng);
+}
+
 /// Start-of-turn upkeep of the hand card at `state.hand[hand_idx]` (its `turn_start_in_hand`
 /// hook).
 pub fn on_turn_start_in_hand(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {

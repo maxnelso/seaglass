@@ -518,6 +518,16 @@ pub fn spell_requires_board_target(card_id: CardId) -> bool {
     )
 }
 
+/// Check whether `unit` is a valid board target for targeted spell `spell_id`.
+pub fn can_target(spell_id: CardId, unit: &Unit) -> bool {
+    match spell_id {
+        SPELL_BUTCHERING => unit.tribe.matches(Tribe::Undead),
+        SPELL_CORRUPTED_CUPCAKES => unit.tribe.matches(Tribe::Demon),
+        SPELL_ARCANE_ABSORPTION => unit.tribe.matches(Tribe::Elemental),
+        _ => true,
+    }
+}
+
 /// Select up to one distinct living friendly minion on `board` for each single tribe (`Misplaced Tea Set`, `Veteran Technican`, `The Last One Standing`).
 pub(crate) fn select_menagerie_targets(board: &[Unit], rng: &mut Rng) -> Vec<usize> {
     let mut chosen_indices: Vec<usize> = Vec::new();
