@@ -4,22 +4,22 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 625;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Twisted Wrathguard", 8, 8, 6).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, "Twisted Wrathguard", 8, 8, 6)
+        .with_tribe(Tribe::Demon)
+        .on_after_friendly_sell(after_friendly_sell)
 }
 
-pub fn after_sell_minion(state: &mut TavernState) {
-    let mut count = 0u32;
-    for u in &state.board {
-        if u.card_id == ID {
-            count += if u.is_golden { 2 } else { 1 };
-        }
-    }
-    if count > 0 {
-        state.auras.fodder_per_refresh[0] += count;
-    }
+pub fn after_friendly_sell(
+    state: &mut TavernState,
+    self_idx: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    state.auras.fodder_per_refresh[0] += state.board[self_idx].golden_mult() as u32;
 }

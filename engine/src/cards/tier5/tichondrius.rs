@@ -3,26 +3,24 @@
 //! After your hero takes damage, give your Demons `+4/+4` (`+8/+8` if Golden).
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Tribe, Unit};
+use crate::model::{CardId, Tribe};
+use crate::tavern::TavernState;
 
 pub const ID: CardId = 550;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Tichondrius", 4, 4, 5).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, "Tichondrius", 4, 4, 5)
+        .with_tribe(Tribe::Demon)
+        .on_hero_damage(on_hero_damage)
 }
 
-pub fn on_hero_damage_taken(board: &mut [Unit]) {
-    let mut total_buff = 0i32;
-    for u in board.iter() {
-        if u.card_id == ID {
-            total_buff += if u.is_golden { 8 } else { 4 };
-        }
-    }
-    if total_buff > 0 {
-        for u in board.iter_mut() {
-            if u.tribe.matches(Tribe::Demon) {
-                u.add_stats(total_buff, total_buff);
-            }
-        }
+pub fn on_hero_damage(state: &mut TavernState, self_idx: usize, _amount: i32) {
+    let buff = 4 * state.board[self_idx].golden_mult();
+    for u in state
+        .board
+        .iter_mut()
+        .filter(|u| u.tribe.matches(Tribe::Demon))
+    {
+        u.add_stats(buff, buff);
     }
 }

@@ -1,6 +1,6 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
-use crate::cards::{tier3, tier5, tier6, CardHooks};
+use crate::cards::{spells, tier3, tier5, tier6, CardHooks};
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
@@ -403,6 +403,16 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         (
             TOKEN_SEWER_RAT,
             CardHooks::EMPTY.on_deathrattle(tier5::sewer_lord::on_sewer_rat_deathrattle),
+        ),
+        (
+            SPELL_SLUDGE_CORROSION,
+            CardHooks::EMPTY.on_discarded(|state, _, pool, rng| {
+                // Discarded: cast it twice.
+                for _ in 0..2 {
+                    state.auras.spells_played += 1;
+                    spells::cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
+                }
+            }),
         ),
     ];
     out.extend(CHROMADRAKE_IDS.iter().map(|&id| (id, chromadrake)));

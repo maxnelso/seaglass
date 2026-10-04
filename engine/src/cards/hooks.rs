@@ -268,8 +268,9 @@ card_hooks! {
     after_friendly_discard(on_after_friendly_discard): TavernFn,
     /// A card was added to hand (Tavern or Combat): `(self, auras)`.
     card_added_to_hand(on_card_added_to_hand): fn(&Unit, &mut PlayerAuras),
-    /// Hero is about to take Tavern damage: `(state, self_idx, amount) -> rewound`.
-    hero_damage(on_hero_damage): fn(&mut TavernState, usize, i32) -> bool,
+    /// Hero is about to take Tavern damage: `(state, self_idx, amount)`. Whether the damage is
+    /// rewound is decided by [`CardFlags::REWINDS_HERO_DAMAGE`].
+    hero_damage(on_hero_damage): fn(&mut TavernState, usize, i32),
     /// After the hero took damage: `(state, self_idx, amount)`.
     after_hero_damage(on_after_hero_damage): fn(&mut TavernState, usize, i32),
     /// Numeric contribution to a board-wide [`Passive`] (0 = none).

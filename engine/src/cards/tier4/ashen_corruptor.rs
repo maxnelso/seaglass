@@ -2,31 +2,25 @@
 //!
 //! After your hero takes damage, rewind it and give minions in the Tavern `+2/+2` (`+4/+4` if Golden) this turn.
 
-use crate::cards::CardTemplate;
-use crate::model::{CardId, PlayerAuras, Tribe, Unit};
+use crate::cards::{CardFlags, CardTemplate};
+use crate::model::{CardId, Tribe};
+use crate::tavern::TavernState;
 
 pub const ID: CardId = 402;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Ashen Corruptor", 6, 6, 4).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, "Ashen Corruptor", 6, 6, 4)
+        .with_tribe(Tribe::Demon)
+        .with_flags(CardFlags::REWINDS_HERO_DAMAGE)
+        .on_hero_damage(on_hero_damage)
 }
 
-pub fn on_hero_damage_taken(board: &[Unit], shop: &mut [Unit], auras: &mut PlayerAuras) -> bool {
-    let mut rewound = false;
-    let mut total_buff = 0i32;
-    for u in board {
-        if u.card_id == ID {
-            rewound = true;
-            total_buff += if u.is_golden { 4 } else { 2 };
-        }
+/// Hero damage taken in the Tavern is rewound (see [`CardFlags::REWINDS_HERO_DAMAGE`]); minions
+/// in the Tavern get `+2/+2` (`+4/+4` if Golden) this turn instead.
+pub fn on_hero_damage(state: &mut TavernState, self_idx: usize, _amount: i32) {
+    let buff = 2 * state.board[self_idx].golden_mult();
+    state.auras.ashen_corruptor_turn_buff += buff;
+    for s in state.shop.iter_mut().filter(|s| !s.is_spell) {
+        s.add_stats(buff, buff);
     }
-    if total_buff > 0 {
-        auras.ashen_corruptor_turn_buff += total_buff;
-        for s in shop.iter_mut() {
-            if !s.is_spell {
-                s.add_stats(total_buff, total_buff);
-            }
-        }
-    }
-    rewound
 }

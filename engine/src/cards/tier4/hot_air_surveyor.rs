@@ -2,19 +2,21 @@
 //!
 //! Blood Gems played from your hand cast an extra time (`2` extra times if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 431;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Hot-Air Surveyor", 3, 7, 4).with_tribe(Tribe::Quilboar)
+    CardTemplate::new(ID, "Hot-Air Surveyor", 3, 7, 4)
+        .with_tribe(Tribe::Quilboar)
+        .with_passive(passive)
 }
 
-pub fn extra_hand_blood_gem_casts(board: &[Unit]) -> u32 {
-    board
-        .iter()
-        .filter(|u| u.card_id == ID)
-        .map(|u| if u.is_golden { 2 } else { 1 })
-        .sum()
+/// Blood Gems played from hand are cast one extra time (two if Golden).
+pub fn passive(unit: &Unit, passive: Passive) -> u32 {
+    match passive {
+        Passive::ExtraHandBloodGemCasts => unit.golden_mult() as u32,
+        _ => 0,
+    }
 }

@@ -2,21 +2,19 @@
 //!
 //! Your Deathrattles trigger an extra time (`2` extra times if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};
 
 pub const ID: CardId = 551;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Titus Rivendare", 1, 7, 5)
+    CardTemplate::new(ID, "Titus Rivendare", 1, 7, 5).with_passive(passive)
 }
 
-pub fn extra_deathrattle_triggers(board: &[Unit]) -> u32 {
-    let mut extra = 0u32;
-    for u in board {
-        if u.card_id == ID && u.health > 0 {
-            extra += if u.is_golden { 2 } else { 1 };
-        }
+/// Friendly Deathrattles trigger one extra time (two if Golden) while this is alive.
+pub fn passive(unit: &Unit, passive: Passive) -> u32 {
+    match passive {
+        Passive::ExtraDeathrattles if unit.health > 0 => unit.golden_mult() as u32,
+        _ => 0,
     }
-    extra
 }

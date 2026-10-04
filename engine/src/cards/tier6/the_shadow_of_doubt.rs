@@ -8,18 +8,13 @@ use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 pub const ID: CardId = 623;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "The Shadow of Doubt", 6, 8, 6).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "The Shadow of Doubt", 6, 8, 6)
+        .with_tribe(Tribe::Aberration)
+        .on_card_added_to_hand(on_card_added_to_hand)
 }
 
-pub fn on_card_added_to_hand(board: &[Unit], auras: &mut PlayerAuras) {
-    let mut mult = 0i32;
-    for u in board {
-        if u.health > 0 && u.card_id == ID {
-            mult += if u.is_golden { 2 } else { 1 };
-        }
-    }
-    if mult > 0 {
-        auras.deity.attack += 4 * mult;
-        auras.deity.health += 5 * mult;
-    }
+pub fn on_card_added_to_hand(unit: &Unit, auras: &mut PlayerAuras) {
+    let mult = unit.golden_mult();
+    auras.deity.attack += 4 * mult;
+    auras.deity.health += 5 * mult;
 }

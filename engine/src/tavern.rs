@@ -9,7 +9,7 @@ use crate::cards::tokens::{
     CHOICE_SLY_REFRESHES, CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER,
     CHOICE_TIME_MGMT_NOW,
 };
-use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate, Played};
+use crate::cards::{self, ActivateTargetKind, BoardCtx, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
     BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit,
@@ -538,7 +538,7 @@ impl TavernState {
         pool.return_unit(&dying);
         cards::on_unit_died(&dying, &mut self.board, &mut self.auras);
 
-        let dr_repeats = 1 + cards::extra_deathrattle_triggers(&self.board);
+        let dr_repeats = 1 + cards::board_passive(&self.board, Passive::ExtraDeathrattles);
         let old_tavern_all = (self.auras.tavern_all_atk, self.auras.tavern_all_hp);
         let mut hand_summoned = vec![false; self.hand.len()];
         let mut beast_bonus_atk = 0;
@@ -909,20 +909,18 @@ impl TavernState {
     }
 
     /// Deal `amount` damage to the friendly hero during the Tavern Phase.
-    /// Rewinds the damage if a friendly `Soul Rewinder` or `Ashen Corruptor` is on `board`;
+    /// Rewinds the damage if a friendly minion rewinds hero damage (`cards::on_hero_damage`);
     /// otherwise absorbs into `armor` before reducing `health`.
     pub fn deal_hero_damage(&mut self, amount: i32) {
         if amount <= 0 {
             return;
         }
-        let rewound =
-            cards::on_hero_damage_taken(&mut self.board, &mut self.shop, &mut self.auras);
-        if !rewound {
+        if !cards::on_hero_damage(self, amount) {
             let absorbed = amount.min(self.armor.max(0));
             self.armor -= absorbed;
             self.health -= amount - absorbed;
         }
-        cards::tier6::eredar_escapist::on_hero_damage_taken(self, amount);
+        cards::after_hero_damage(self, amount);
         self.sync_all_auras();
     }
 
@@ -1252,7 +1250,7 @@ impl TavernState {
             let net_dmg = dmg - absorbed;
             self.health -= net_dmg;
             if net_dmg > 0 {
-                cards::tier6::eredar_escapist::on_hero_damage_taken(self, net_dmg);
+                cards::after_hero_damage(self, net_dmg);
             }
         }
         self.sync_all_auras();
@@ -1849,7 +1847,7 @@ impl TavernState {
                     self.deal_hero_damage(dmg);
                 }
                 self.add_to_hand(chosen);
-                cards::on_card_discovered(self);
+                cards::on_card_discovered(self, pool, rng);
                 Ok(false)
             }
             TavernAction::EndTurn => {

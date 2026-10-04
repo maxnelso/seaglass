@@ -10,21 +10,23 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 501;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Air Revenant", 3, 6, 5).with_tribe(Tribe::Elemental)
+    CardTemplate::new(ID, "Air Revenant", 3, 6, 5)
+        .with_tribe(Tribe::Elemental)
+        .on_gold_spent(on_gold_spent)
 }
 
-pub fn on_gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
-    let mut total_casts = 0u32;
-    for u in &mut state.board {
-        if u.card_id == ID {
-            u.gunpowder_gold_progress += amount;
-            let triggers = u.gunpowder_gold_progress / 7;
-            u.gunpowder_gold_progress %= 7;
-            let mult = if u.is_golden { 2 } else { 1 };
-            total_casts += triggers * mult;
-        }
-    }
-    for _ in 0..total_casts {
+pub fn on_gold_spent(
+    state: &mut TavernState,
+    self_idx: usize,
+    amount: u32,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let revenant = &mut state.board[self_idx];
+    revenant.gunpowder_gold_progress += amount;
+    let casts = revenant.gunpowder_gold_progress / 7 * revenant.golden_mult() as u32;
+    revenant.gunpowder_gold_progress %= 7;
+    for _ in 0..casts {
         state.auras.spells_played += 1;
         let spell = spells::spell_by_name("Easterly Winds")
             .expect("Easterly Winds must exist in spell catalog");

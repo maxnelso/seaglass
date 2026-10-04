@@ -9,26 +9,25 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 609;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Eredar Escapist", 6, 8, 6).with_tribe(Tribe::Demon)
+    CardTemplate::new(ID, "Eredar Escapist", 6, 8, 6)
+        .with_tribe(Tribe::Demon)
+        .on_after_hero_damage(after_hero_damage)
 }
 
-pub fn on_hero_damage_taken(state: &mut TavernState, amount: i32) {
+pub fn after_hero_damage(state: &mut TavernState, self_idx: usize, amount: i32) {
     if amount <= 0 {
         return;
     }
-    let mut cupcakes_to_add = 0u32;
-    for u in &mut state.board {
-        if u.card_id == ID {
-            u.eredar_damage_progress += amount;
-            while u.eredar_damage_progress >= 4 {
-                u.eredar_damage_progress -= 4;
-                cupcakes_to_add += if u.is_golden { 2 } else { 1 };
-            }
-        }
+    let eredar = &mut state.board[self_idx];
+    eredar.eredar_damage_progress += amount;
+    let mut cupcakes = 0;
+    while eredar.eredar_damage_progress >= 4 {
+        eredar.eredar_damage_progress -= 4;
+        cupcakes += eredar.golden_mult();
     }
-    for _ in 0..cupcakes_to_add {
-        if let Some(cupcakes) = spells::spell_by_id(spells::SPELL_CORRUPTED_CUPCAKES) {
-            state.add_to_hand(cupcakes);
+    for _ in 0..cupcakes {
+        if let Some(card) = spells::spell_by_id(spells::SPELL_CORRUPTED_CUPCAKES) {
+            state.add_to_hand(card);
         }
     }
 }

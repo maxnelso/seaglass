@@ -4,25 +4,25 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 413;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Cutthroat K'Thir", 4, 4, 4).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "Cutthroat K'Thir", 4, 4, 4)
+        .with_tribe(Tribe::Aberration)
+        .on_after_friendly_discard(after_friendly_discard)
 }
 
-pub fn on_discard(state: &mut TavernState) {
-    let mut deity_buff = 0i32;
-    for u in &mut state.board {
-        if u.card_id == ID {
-            let buff = if u.is_golden { 8 } else { 4 };
-            u.add_stats(buff, buff);
-            deity_buff += buff;
-        }
-    }
-    if deity_buff > 0 {
-        state.auras.deity.attack += deity_buff;
-        state.auras.deity.health += deity_buff;
-    }
+pub fn after_friendly_discard(
+    state: &mut TavernState,
+    self_idx: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    let buff = 4 * state.board[self_idx].golden_mult();
+    state.board[self_idx].add_stats(buff, buff);
+    state.auras.deity.attack += buff;
+    state.auras.deity.health += buff;
 }

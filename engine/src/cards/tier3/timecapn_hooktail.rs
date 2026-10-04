@@ -3,25 +3,21 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 335;
 pub const NAME: &str = "Timecap'n Hooktail";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 4, 3).with_tribe(Tribe::DragonPirate)
+    CardTemplate::new(ID, NAME, 1, 4, 3)
+        .with_tribe(Tribe::DragonPirate)
+        .on_spell_cast(on_spell_cast)
 }
 
-pub fn on_cast_tavern_spell(state: &mut TavernState) {
-    let mut bonus_atk = 0i32;
-    for u in &state.board {
-        if u.card_id == ID {
-            bonus_atk += if u.is_golden { 2 } else { 1 };
-        }
-    }
-    if bonus_atk > 0 {
-        for u in &mut state.board {
-            u.add_stats(bonus_atk, 0);
-        }
+pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
+    let bonus_atk = state.board[self_idx].golden_mult();
+    for u in &mut state.board {
+        u.add_stats(bonus_atk, 0);
     }
 }

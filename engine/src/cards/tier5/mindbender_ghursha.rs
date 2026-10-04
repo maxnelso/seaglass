@@ -4,27 +4,27 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 533;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Mindbender Ghur'sha", 3, 9, 5).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "Mindbender Ghur'sha", 3, 9, 5)
+        .with_tribe(Tribe::Aberration)
+        .on_after_friendly_discard(after_friendly_discard)
 }
 
-pub fn on_discard(state: &mut TavernState) {
-    let sources: Vec<(usize, i32)> = state
-        .board
-        .iter()
-        .enumerate()
-        .filter(|(_, u)| u.card_id == ID)
-        .map(|(i, u)| (i, if u.is_golden { 8 } else { 4 }))
-        .collect();
-    for (src_idx, buff) in sources {
-        for (idx, u) in state.board.iter_mut().enumerate() {
-            if idx != src_idx {
-                u.add_stats(buff, buff);
-            }
+pub fn after_friendly_discard(
+    state: &mut TavernState,
+    self_idx: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    let buff = 4 * state.board[self_idx].golden_mult();
+    for (idx, u) in state.board.iter_mut().enumerate() {
+        if idx != self_idx {
+            u.add_stats(buff, buff);
         }
     }
 }

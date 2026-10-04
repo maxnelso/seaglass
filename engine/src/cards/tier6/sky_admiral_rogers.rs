@@ -5,26 +5,31 @@
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 621;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Sky Admiral Rogers", 4, 5, 6).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Sky Admiral Rogers", 4, 5, 6)
+        .with_tribe(Tribe::Pirate)
+        .on_gold_spent(on_gold_spent)
 }
 
-pub fn on_gold_spent(state: &mut TavernState, amount: u32, rng: &mut Rng) {
-    let mut bounties_to_add = 0u32;
-    for u in &mut state.board {
-        if u.card_id == ID {
-            u.gunpowder_gold_progress += amount;
-            while u.gunpowder_gold_progress >= 9 {
-                u.gunpowder_gold_progress -= 9;
-                bounties_to_add += if u.is_golden { 2 } else { 1 };
-            }
-        }
+pub fn on_gold_spent(
+    state: &mut TavernState,
+    self_idx: usize,
+    amount: u32,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let rogers = &mut state.board[self_idx];
+    rogers.gunpowder_gold_progress += amount;
+    let mut bounties = 0;
+    while rogers.gunpowder_gold_progress >= 9 {
+        rogers.gunpowder_gold_progress -= 9;
+        bounties += rogers.golden_mult();
     }
-    for _ in 0..bounties_to_add {
+    for _ in 0..bounties {
         state.add_to_hand(spells::draw_random_bounty(rng));
     }
 }

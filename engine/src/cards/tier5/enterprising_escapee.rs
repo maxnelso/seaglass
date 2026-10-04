@@ -5,28 +5,29 @@
 use crate::cards::{tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 515;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Enterprising Escapee", 6, 6, 5).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Enterprising Escapee", 6, 6, 5)
+        .with_tribe(Tribe::Pirate)
+        .on_gold_spent(on_gold_spent)
 }
 
-pub fn on_gold_spent(state: &mut TavernState, amount: u32, rng: &mut Rng) {
-    let mut triggers: Vec<u32> = Vec::new();
-    for u in &mut state.board {
-        if u.card_id == ID {
-            u.gunpowder_gold_progress += amount;
-            let n = u.gunpowder_gold_progress / 6;
-            u.gunpowder_gold_progress %= 6;
-            let reduction = if u.is_golden { 2 } else { 1 };
-            for _ in 0..n {
-                triggers.push(reduction);
-            }
-        }
-    }
-    for reduction in triggers {
+pub fn on_gold_spent(
+    state: &mut TavernState,
+    self_idx: usize,
+    amount: u32,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let escapee = &mut state.board[self_idx];
+    escapee.gunpowder_gold_progress += amount;
+    let triggers = escapee.gunpowder_gold_progress / 6;
+    escapee.gunpowder_gold_progress %= 6;
+    let reduction = escapee.golden_mult() as u32;
+    for _ in 0..triggers {
         if let Some(lockbox) = state
             .hand
             .iter_mut()

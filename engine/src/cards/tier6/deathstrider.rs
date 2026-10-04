@@ -2,7 +2,7 @@
 //!
 //! After a friendly Rally minion attacks, trigger your left-most Deathrattle (`twice` if Golden).
 
-use crate::cards::{self, BoardCtx, CardTemplate};
+use crate::cards::{self, BoardCtx, CardTemplate, Passive};
 use crate::model::{CardId, Tribe};
 
 pub const ID: CardId = 607;
@@ -21,7 +21,7 @@ pub fn after_rally_minion_attacks(ctx: &mut BoardCtx<'_>) {
     if triggers == 0 {
         return;
     }
-    let dr_mult = 1 + cards::extra_deathrattle_triggers(ctx.board);
+    let dr_mult = 1 + cards::board_passive(ctx.board, Passive::ExtraDeathrattles);
     for _ in 0..triggers {
         let Some(dr_idx) = ctx
             .board

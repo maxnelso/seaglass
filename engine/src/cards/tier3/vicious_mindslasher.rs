@@ -3,28 +3,21 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 340;
 pub const NAME: &str = "Vicious Mindslasher";
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, NAME, 1, 2, 3).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, NAME, 1, 2, 3)
+        .with_tribe(Tribe::Aberration)
+        .on_spell_cast(on_spell_cast)
 }
 
-pub fn on_cast_tavern_spell(state: &mut TavernState) {
-    let mut deity_atk = 0i32;
-    let mut deity_hp = 0i32;
-    for u in &mut state.board {
-        if u.card_id == ID {
-            let m = if u.is_golden { 2 } else { 1 };
-            u.add_stats(m, 2 * m);
-            deity_atk += m;
-            deity_hp += 2 * m;
-        }
-    }
-    if deity_atk > 0 || deity_hp > 0 {
-        state.auras.deity.attack += deity_atk;
-        state.auras.deity.health += deity_hp;
-    }
+pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
+    let m = state.board[self_idx].golden_mult();
+    state.board[self_idx].add_stats(m, 2 * m);
+    state.auras.deity.attack += m;
+    state.auras.deity.health += 2 * m;
 }

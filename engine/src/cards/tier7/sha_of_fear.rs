@@ -4,24 +4,19 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 708;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Sha of Fear", 10, 13, 7).with_tribe(Tribe::Aberration)
+    CardTemplate::new(ID, "Sha of Fear", 10, 13, 7)
+        .with_tribe(Tribe::Aberration)
+        .on_spell_cast(on_spell_cast)
 }
 
-pub fn on_cast_tavern_spell(state: &mut TavernState) {
-    let mut buff = 0i32;
-    for u in &state.board {
-        if u.card_id == ID {
-            buff += if u.is_golden { 6 } else { 3 };
-        }
-    }
-    if buff == 0 {
-        return;
-    }
+pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
+    let buff = 3 * state.board[self_idx].golden_mult();
     for u in &mut state.board {
         u.add_stats(buff, buff);
     }

@@ -4,23 +4,18 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 611;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Forsaken Weaver", 3, 8, 6).with_tribe(Tribe::Undead)
+    CardTemplate::new(ID, "Forsaken Weaver", 3, 8, 6)
+        .with_tribe(Tribe::Undead)
+        .on_spell_cast(on_spell_cast)
 }
 
-pub fn after_cast_tavern_spell(state: &mut TavernState) {
-    let mut bonus = 0i32;
-    for u in &state.board {
-        if u.card_id == ID {
-            bonus += if u.is_golden { 6 } else { 3 };
-        }
-    }
-    if bonus > 0 {
-        state.auras.undead_bonus_attack += bonus;
-        state.sync_all_auras();
-    }
+pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
+    state.auras.undead_bonus_attack += 3 * state.board[self_idx].golden_mult();
+    state.sync_all_auras();
 }

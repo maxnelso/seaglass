@@ -942,10 +942,15 @@ pub fn after_play_minion(
     sync_board_spell_auras(&state.board, &mut state.auras);
 }
 
-/// Apply On-Sell triggers when `sold` is sold from `board`.
+/// Apply On-Sell triggers when `sold` is sold from the board: `after_friendly_sell` observers
+/// (left to right), then the sold card's own `sell` hook.
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     sync_board_spell_auras(&state.board, &mut state.auras);
-    tier6::twisted_wrathguard::after_sell_minion(state);
+    notify_tavern(
+        state,
+        |h| h.after_friendly_sell,
+        |s, idx, f| f(s, idx, pool, rng),
+    );
     if let Some(sell) = hooks(sold.card_id).sell {
         sell(state, sold, pool, rng);
     }
@@ -989,14 +994,9 @@ pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) 
     }
 }
 
-/// Apply board-wide observers when a Tavern spell is cast (`Timecap'n Hooktail`, `Vicious Mindslasher`, `Charging Czarina`, `Living Azerite`, `Forsaken Weaver`, `Sha of Fear`).
-pub fn on_cast_tavern_spell(state: &mut TavernState) {
-    tier3::timecapn_hooktail::on_cast_tavern_spell(state);
-    tier3::vicious_mindslasher::on_cast_tavern_spell(state);
-    tier5::charging_czarina::on_cast_tavern_spell(state);
-    tier5::living_azerite::on_cast_tavern_spell(state);
-    tier6::forsaken_weaver::after_cast_tavern_spell(state);
-    tier7::sha_of_fear::on_cast_tavern_spell(state);
+/// Apply `spell_cast` observers (left to right) when a Tavern spell is cast.
+pub fn on_cast_tavern_spell(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    notify_tavern(state, |h| h.spell_cast, |s, idx, f| f(s, idx, pool, rng));
 }
 
 /// Apply `after_targeted_spell` observers (left to right) after a spell targeted
@@ -1018,27 +1018,22 @@ pub fn after_cast_targeted_spell(
     );
 }
 
-/// Apply board-wide observers after any spell is cast (`Felboar`).
+/// Apply `after_spell_cast` observers (left to right) after any spell is cast.
 pub fn after_cast_any_spell(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    tier5::felboar::after_cast_any_spell(state, pool, rng);
+    notify_tavern(
+        state,
+        |h| h.after_spell_cast,
+        |s, idx, f| f(s, idx, pool, rng),
+    );
 }
 
-/// Return the cast multiplier for Bounty spells (`Proud Privateer`).
-pub fn bounty_cast_multiplier(board: &[Unit]) -> u32 {
-    tier5::proud_privateer::bounty_cast_multiplier(board)
-}
-
-/// Return the number of extra Deathrattle triggers from `Titus Rivendare` on `board`.
-pub fn extra_deathrattle_triggers(board: &[Unit]) -> u32 {
-    tier5::titus_rivendare::extra_deathrattle_triggers(board)
-}
-
-/// Apply board-wide observers when Gold is spent (`Gunpowder Courier`, `Air Revenant`, `Enterprising Escapee`, `Sky Admiral Rogers`).
+/// Apply `gold_spent` observers (left to right) after `amount` Gold is spent.
 pub fn on_gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
-    tier4::gunpowder_courier::on_gold_spent(state, amount);
-    tier5::air_revenant::on_gold_spent(state, amount, pool, rng);
-    tier5::enterprising_escapee::on_gold_spent(state, amount, rng);
-    tier6::sky_admiral_rogers::on_gold_spent(state, amount, rng);
+    notify_tavern(
+        state,
+        |h| h.gold_spent,
+        |s, idx, f| f(s, idx, amount, pool, rng),
+    );
 }
 
 /// Apply `minion_bought` observers (left to right) to a minion being bought, before it reaches
@@ -1060,19 +1055,19 @@ pub fn after_buy_card(state: &mut TavernState, bought: &Unit, pool: &mut CardPoo
     );
 }
 
-/// Apply board-wide observers after Discovering a card (`Hooktusk, Master Marauder`).
-pub fn on_card_discovered(state: &mut TavernState) {
-    tier6::hooktusk_master_marauder::on_card_discovered(state);
+/// Apply `discover` observers (left to right) after a card is Discovered.
+pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    notify_tavern(state, |h| h.discover, |s, idx, f| f(s, idx, pool, rng));
 }
 
-/// Apply board-wide observers whenever a card is added to `hand` (`The Shadow of Doubt`).
+/// Apply `card_added_to_hand` observers (living minions on `board`, left to right) after a card
+/// is added to the hand.
 pub fn on_card_added_to_hand(board: &[Unit], auras: &mut PlayerAuras) {
-    tier6::the_shadow_of_doubt::on_card_added_to_hand(board, auras);
-}
-
-/// Return the number of extra times a Blood Gem played from hand should cast (`Hot-Air Surveyor`).
-pub fn extra_hand_blood_gem_casts(board: &[Unit]) -> u32 {
-    tier4::hot_air_surveyor::extra_hand_blood_gem_casts(board)
+    for unit in board.iter().filter(|u| u.health > 0) {
+        if let Some(card_added_to_hand) = hooks(unit.card_id).card_added_to_hand {
+            card_added_to_hand(unit, auras);
+        }
+    }
 }
 
 /// Hook called whenever `count` Blood Gems are played on `unit` (its `blood_gems_played` hook).
@@ -1091,7 +1086,8 @@ pub fn resolve_pending_effects(board: &mut [Unit], auras: &PlayerAuras, rng: &mu
     }
 }
 
-/// Resolve discard triggers when `discarded` is discarded from hand (`Sludge Corrosion`, `Corrupted Coin`, `Energizing Chamber`, `Cutthroat K'Thir`, `Mindbender Ghur'sha`, `Harbinger Aph'lass`).
+/// Resolve a discard from hand: `after_friendly_discard` observers (left to right), then the
+/// discarded card's own `discarded` hook.
 pub fn on_discard_hand_card(
     state: &mut TavernState,
     discarded: &Unit,
@@ -1099,47 +1095,39 @@ pub fn on_discard_hand_card(
     rng: &mut Rng,
 ) {
     state.auras.cards_discarded += 1;
-    tier4::cutthroat_kthir::on_discard(state);
-    tier5::mindbender_ghursha::on_discard(state);
-    tier6::harbinger_aphlass::on_discard(state);
-    if discarded.card_id == tokens::SPELL_SLUDGE_CORROSION {
-        for _ in 0..2 {
-            state.auras.spells_played += 1;
-            spells::cast_spell(state, tokens::make_sludge_corrosion(), 0, pool, rng);
-        }
-    } else if discarded.card_id == spells::SPELL_CORRUPTED_COIN {
-        state.auras.base_max_gold_bonus += 2;
-        state.max_gold += 2;
-    } else if discarded.card_id == spells::SPELL_ENERGIZING_CHAMBER {
-        if let Some(chamber) = spells::spell_by_id(spells::SPELL_ENERGIZING_CHAMBER) {
-            for _ in 0..2 {
-                state.auras.spells_played += 1;
-                spells::cast_spell(state, chamber.clone(), 0, pool, rng);
-            }
-        }
+    notify_tavern(
+        state,
+        |h| h.after_friendly_discard,
+        |s, idx, f| f(s, idx, pool, rng),
+    );
+    if let Some(on_discarded) = hooks(discarded.card_id).discarded {
+        on_discarded(state, discarded, pool, rng);
     }
 }
 
-/// Returns `true` if any minion on `board` rewinds hero damage (`Soul Rewinder`, `Ashen Corruptor`).
+/// Returns `true` if a minion on `board` rewinds hero damage taken in the Tavern
+/// ([`CardFlags::REWINDS_HERO_DAMAGE`]).
 pub fn board_prevents_hero_damage(board: &[Unit]) -> bool {
-    board.iter().any(|u| {
-        matches!(
-            u.card_id,
-            tier2::soul_rewinder::ID | tier4::ashen_corruptor::ID
-        )
-    })
+    board
+        .iter()
+        .any(|u| hooks(u.card_id).has(CardFlags::REWINDS_HERO_DAMAGE))
 }
 
-/// Trigger hero-damage observers (`Soul Rewinder`, `Ashen Corruptor`, `Tichondrius`), returning `true` if the damage was rewound.
-pub fn on_hero_damage_taken(
-    board: &mut [Unit],
-    shop: &mut [Unit],
-    auras: &mut PlayerAuras,
-) -> bool {
-    let r1 = tier2::soul_rewinder::on_hero_damage_taken(board);
-    let r2 = tier4::ashen_corruptor::on_hero_damage_taken(board, shop, auras);
-    tier5::tichondrius::on_hero_damage_taken(board);
-    r1 || r2
+/// Apply `hero_damage` observers (left to right) before the hero takes `amount` Tavern damage.
+/// Returns `true` if the damage is rewound.
+pub fn on_hero_damage(state: &mut TavernState, amount: i32) -> bool {
+    let rewound = board_prevents_hero_damage(&state.board);
+    notify_tavern(state, |h| h.hero_damage, |s, idx, f| f(s, idx, amount));
+    rewound
+}
+
+/// Apply `after_hero_damage` observers (left to right) after the hero took `amount` damage.
+pub fn after_hero_damage(state: &mut TavernState, amount: i32) {
+    notify_tavern(
+        state,
+        |h| h.after_hero_damage,
+        |s, idx, f| f(s, idx, amount),
+    );
 }
 
 /// Returns the Gold cost of a minion's `Activate` ability, if it has one.

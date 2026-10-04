@@ -4,30 +4,36 @@
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
-use crate::tavern::TavernState;
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 426;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Gunpowder Courier", 2, 5, 4).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Gunpowder Courier", 2, 5, 4)
+        .with_tribe(Tribe::Pirate)
+        .on_gold_spent(on_gold_spent)
 }
 
-pub fn on_gold_spent(state: &mut TavernState, amount: u32) {
-    let mut total_procs = 0i32;
-    for u in &mut state.board {
-        if u.card_id == ID {
-            u.gunpowder_gold_progress += amount;
-            let triggers = u.gunpowder_gold_progress / 5;
-            u.gunpowder_gold_progress %= 5;
-            let mult = if u.is_golden { 2 } else { 1 };
-            total_procs += (triggers as i32) * mult;
-        }
+pub fn on_gold_spent(
+    state: &mut TavernState,
+    self_idx: usize,
+    amount: u32,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    let courier = &mut state.board[self_idx];
+    courier.gunpowder_gold_progress += amount;
+    let procs = (courier.gunpowder_gold_progress / 5) as i32 * courier.golden_mult();
+    courier.gunpowder_gold_progress %= 5;
+    if procs == 0 {
+        return;
     }
-    if total_procs > 0 {
-        for u in &mut state.board {
-            if u.tribe.matches(Tribe::Pirate) {
-                u.add_stats(3 * total_procs, total_procs);
-            }
-        }
+    for u in state
+        .board
+        .iter_mut()
+        .filter(|u| u.tribe.matches(Tribe::Pirate))
+    {
+        u.add_stats(3 * procs, procs);
     }
 }

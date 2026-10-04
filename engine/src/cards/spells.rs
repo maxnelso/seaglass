@@ -8,7 +8,7 @@ use crate::cards::tokens::{
     SPELL_CONFLAGRATION, SPELL_GEM_CONFISCATION, SPELL_GEM_DAY, SPELL_GOLDEN_TOUCH,
     SPELL_POINTY_ARROW, SPELL_SLUDGE_CORROSION, SPELL_TAVERN_COIN,
 };
-use crate::cards::CardHooks;
+use crate::cards::{board_passive, CardHooks, Passive};
 use crate::model::{CardId, Keyword, Tribe, Unit, BONUS_KEYWORDS, SINGLE_TRIBES};
 use crate::rng::Rng;
 use crate::tavern::{shop_capacity, CardPool, TavernState};
@@ -632,16 +632,16 @@ pub fn cast_spell(
     let targeted = spell_requires_board_target(card.card_id);
     if is_tavern_spell(card.card_id) {
         state.auras.last_tavern_spell_cast = Some(card.card_id);
-        crate::cards::on_cast_tavern_spell(state);
+        crate::cards::on_cast_tavern_spell(state, pool, rng);
     }
 
     let mut casts = if BOUNTY_SPELL_IDS.contains(&card.card_id) {
-        crate::cards::bounty_cast_multiplier(&state.board)
+        board_passive(&state.board, Passive::BountyCasts)
     } else {
         1
     };
     if targeted {
-        casts *= crate::cards::tier6::balinda_stonehearth::targeted_spell_multiplier(&state.board);
+        casts *= board_passive(&state.board, Passive::TargetedSpellCasts);
     }
 
     for _ in 0..casts {
@@ -649,7 +649,7 @@ pub fn cast_spell(
         match card.card_id {
             SPELL_BLOOD_GEM => {
                 if board_pos < state.board.len() {
-                    let extra = crate::cards::extra_hand_blood_gem_casts(&state.board);
+                    let extra = board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
                     state.board[board_pos].play_blood_gems(1 + extra, &state.auras);
                     crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
                 }
@@ -1334,7 +1334,37 @@ pub fn cast_spell(
     crate::cards::after_cast_any_spell(state, pool, rng);
 }
 
+/// `Corrupted Coin` discarded: gain 2 maximum Gold.
+fn corrupted_coin_discarded(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
+    state.auras.base_max_gold_bonus += 2;
+    state.max_gold += 2;
+}
+
+/// `Energizing Chamber` discarded: cast it twice.
+fn energizing_chamber_discarded(
+    state: &mut TavernState,
+    _: &Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if let Some(chamber) = spell_by_id(SPELL_ENERGIZING_CHAMBER) {
+        for _ in 0..2 {
+            state.auras.spells_played += 1;
+            cast_spell(state, chamber.clone(), 0, pool, rng);
+        }
+    }
+}
+
 /// Behaviour tables for spells (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
-    Vec::new()
+    vec![
+        (
+            SPELL_CORRUPTED_COIN,
+            CardHooks::EMPTY.on_discarded(corrupted_coin_discarded),
+        ),
+        (
+            SPELL_ENERGIZING_CHAMBER,
+            CardHooks::EMPTY.on_discarded(energizing_chamber_discarded),
+        ),
+    ]
 }

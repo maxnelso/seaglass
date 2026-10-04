@@ -1,6 +1,6 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
-use crate::cards::{self, BoardCtx};
+use crate::cards::{self, BoardCtx, Passive};
 use crate::cards::deities::{self, DEITY_SACRIFICE_REQUIREMENT};
 use crate::events::Event;
 use crate::model::{BattleOutcome, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
@@ -1357,7 +1357,7 @@ fn resolve_deaths(
         }
 
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
-        let dr_repeats = 1 + cards::extra_deathrattle_triggers(&side_state.board);
+        let dr_repeats = 1 + cards::board_passive(&side_state.board, Passive::ExtraDeathrattles);
         let mut enemy_destroys = Vec::new();
         for _ in 0..dr_repeats {
             let mut dr_ctx = side_state.ctx(side, next_id, rng, events);

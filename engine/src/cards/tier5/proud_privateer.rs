@@ -2,21 +2,22 @@
 //!
 //! Your Bounties cast twice (`three times` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 539;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Proud Privateer", 8, 8, 5).with_tribe(Tribe::Pirate)
+    CardTemplate::new(ID, "Proud Privateer", 8, 8, 5)
+        .with_tribe(Tribe::Pirate)
+        .with_passive(passive)
 }
 
-pub fn bounty_cast_multiplier(board: &[Unit]) -> u32 {
-    let mut mult = 1u32;
-    for u in board {
-        if u.card_id == ID {
-            mult = mult.max(if u.is_golden { 3 } else { 2 });
-        }
+/// Bounty spells are cast twice (three times if Golden).
+pub fn passive(unit: &Unit, passive: Passive) -> u32 {
+    match (passive, unit.is_golden) {
+        (Passive::BountyCasts, true) => 3,
+        (Passive::BountyCasts, false) => 2,
+        _ => 0,
     }
-    mult
 }

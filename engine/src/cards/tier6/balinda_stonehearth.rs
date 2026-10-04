@@ -2,21 +2,20 @@
 //!
 //! Your spells that target friendly minions cast twice (`three times` if Golden).
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};
 
 pub const ID: CardId = 602;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Balinda Stonehearth", 6, 6, 6)
+    CardTemplate::new(ID, "Balinda Stonehearth", 6, 6, 6).with_passive(passive)
 }
 
-pub fn targeted_spell_multiplier(board: &[Unit]) -> u32 {
-    let mut mult = 1u32;
-    for u in board {
-        if u.card_id == ID {
-            mult = mult.max(if u.is_golden { 3 } else { 2 });
-        }
+/// Targeted Tavern spells are cast twice (three times if Golden).
+pub fn passive(unit: &Unit, passive: Passive) -> u32 {
+    match (passive, unit.is_golden) {
+        (Passive::TargetedSpellCasts, true) => 3,
+        (Passive::TargetedSpellCasts, false) => 2,
+        _ => 0,
     }
-    mult
 }
