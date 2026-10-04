@@ -373,9 +373,24 @@ pub fn spell_by_name(name: &str) -> Option<Unit> {
     spells_up_to_tier(7).into_iter().find(|s| s.name == name)
 }
 
+/// Returns `true` if `card_id` is a collectible Tavern spell eligible for the shop and random/Discover Tavern spell pools
+/// (excludes minion-generated token spells and unimplemented Hero Power stubs).
+pub fn is_pool_tavern_spell(card_id: CardId) -> bool {
+    !matches!(
+        card_id,
+        SPELL_GEM_CONFISCATION
+            | SPELL_SLUDGE_CORROSION
+            | SPELL_GOLDEN_TOUCH
+            | SPELL_UNMASKED_IDENTITY
+    )
+}
+
 /// Draw a uniformly random Tavern Spell with `tavern_tier <= max_tier`.
 pub fn draw_random_tavern_spell(max_tier: u32, rng: &mut Rng) -> Unit {
-    let pool = spells_up_to_tier(max_tier);
+    let pool: Vec<Unit> = spells_up_to_tier(max_tier)
+        .into_iter()
+        .filter(|s| is_pool_tavern_spell(s.card_id))
+        .collect();
     let idx = rng.below(pool.len());
     pool[idx].clone()
 }
@@ -393,7 +408,7 @@ pub fn draw_random_bounty(rng: &mut Rng) -> Unit {
 pub fn draw_random_cost_tavern_spell(cost: u32, rng: &mut Rng) -> Unit {
     let pool: Vec<Unit> = spells_up_to_tier(6)
         .into_iter()
-        .filter(|s| s.spell_cost == cost && !s.costs_health)
+        .filter(|s| is_pool_tavern_spell(s.card_id) && s.spell_cost == cost && !s.costs_health)
         .collect();
     let idx = rng.below(pool.len());
     pool[idx].clone()
@@ -401,7 +416,10 @@ pub fn draw_random_cost_tavern_spell(cost: u32, rng: &mut Rng) -> Unit {
 
 /// Draw up to `count` distinct Tavern Spells with `tavern_tier <= max_tier` for Discover.
 pub fn draw_discover_tavern_spells(max_tier: u32, count: usize, rng: &mut Rng) -> Vec<Unit> {
-    let mut pool = spells_up_to_tier(max_tier);
+    let mut pool: Vec<Unit> = spells_up_to_tier(max_tier)
+        .into_iter()
+        .filter(|s| is_pool_tavern_spell(s.card_id))
+        .collect();
     let mut out = Vec::with_capacity(count);
     for _ in 0..count {
         if pool.is_empty() {
@@ -421,10 +439,13 @@ pub fn draw_discover_tavern_spells(max_tier: u32, count: usize, rng: &mut Rng) -
 pub fn draw_discover_tavern_spells_exact_tier(tier: u32, count: usize, rng: &mut Rng) -> Vec<Unit> {
     let mut pool: Vec<Unit> = spells_up_to_tier(tier)
         .into_iter()
-        .filter(|s| s.tavern_tier == tier)
+        .filter(|s| is_pool_tavern_spell(s.card_id) && s.tavern_tier == tier)
         .collect();
     if pool.is_empty() {
-        pool = spells_up_to_tier(tier);
+        pool = spells_up_to_tier(tier)
+            .into_iter()
+            .filter(|s| is_pool_tavern_spell(s.card_id))
+            .collect();
     }
     let mut out = Vec::with_capacity(count);
     for _ in 0..count {
@@ -639,14 +660,27 @@ pub fn cast_spell(
                 }
             }
             SPELL_ARCANE_ABSORPTION => {
-                if board_pos < state.board.len() {
-                    let best = state
+                if board_pos < state.board.len()
+                    && state.board[board_pos].tribe.matches(Tribe::Elemental)
+                {
+                    let max_hp = state
                         .shop
                         .iter()
                         .filter(|u| !u.is_spell)
-                        .max_by_key(|u| (u.health, u.attack))
-                        .map(|u| (u.attack / 2, u.health / 2));
-                    if let Some((base_atk, base_hp)) = best {
+                        .map(|u| u.health)
+                        .max();
+                    if let Some(best_hp) = max_hp {
+                        let candidates: Vec<(i32, i32)> = state
+                            .shop
+                            .iter()
+                            .filter(|u| !u.is_spell && u.health == best_hp)
+                            .map(|u| (u.attack / 2, u.health / 2))
+                            .collect();
+                        let (base_atk, base_hp) = if candidates.len() == 1 {
+                            candidates[0]
+                        } else {
+                            candidates[rng.below(candidates.len())]
+                        };
                         let (atk, hp) = state.auras.spell_stat_buff(base_atk, base_hp);
                         state.board[board_pos].add_stats(atk, hp);
                     }
@@ -660,8 +694,7 @@ pub fn cast_spell(
                 }
             }
             SPELL_TAVERN_COIN | SPELL_HASTY_EXCAVATION => {
-                let cap = 10 + state.auras.base_max_gold_bonus;
-                state.gold = (state.gold + 1).min(cap);
+                state.gold += 1;
             }
             SPELL_GEM_DAY => {
                 let opt0 = make_choice_option(CHOICE_GEM_DAY_ATK, "Gem Day (+1 Attack)", false);
@@ -879,8 +912,7 @@ pub fn cast_spell(
                 }
             }
             SPELL_WEALTHY_BOUNTY => {
-                let cap = 10 + state.auras.base_max_gold_bonus;
-                state.gold = (state.gold + 2).min(cap);
+                state.gold += 2;
             }
             SPELL_BLOOD_GEM_BARRAGE => {
                 state.auras.blood_gem_barrage_stacks += 1;
@@ -1097,8 +1129,7 @@ pub fn cast_spell(
                     let sold = state.board.remove(board_pos);
                     let (sold_atk, sold_hp) = (sold.attack, sold.health);
                     pool.return_unit(&sold);
-                    let cap = 10 + state.auras.base_max_gold_bonus;
-                    state.gold = (state.gold + 1).min(cap);
+                    state.gold += 1;
                     crate::cards::on_sell(state, &sold, pool, rng);
                     if !state.board.is_empty() {
                         let pick = if state.board.len() == 1 {
@@ -1126,8 +1157,7 @@ pub fn cast_spell(
                 }
             }
             SPELL_CORRUPTED_COIN => {
-                let cap = 10 + state.auras.base_max_gold_bonus;
-                state.gold = (state.gold + 2).min(cap);
+                state.gold += 2;
             }
             SPELL_CORRUPTED_CUPCAKES => {
                 if board_pos < state.board.len()

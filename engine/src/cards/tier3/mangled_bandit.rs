@@ -33,8 +33,6 @@ pub fn on_activate(
     state.discard_hand_card(hand_idx, pool, rng);
     let count = if is_golden { 6 } else { 3 };
     for _ in 0..count {
-        if state.hand.len() < 10 {
-            state.hand.push(tokens::make_blood_gem());
-        }
+        state.add_to_hand(tokens::make_blood_gem());
     }
 }

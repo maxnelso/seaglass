@@ -14,6 +14,7 @@ pub fn template() -> CardTemplate {
 pub fn check_threshold(unit: &mut Unit) {
     if unit.card_id == ID && !unit.threshold_triggered && unit.attack >= 6 {
         unit.divine_shield = true;
+        unit.inherent_divine_shield = true;
         unit.threshold_triggered = true;
     }
 }

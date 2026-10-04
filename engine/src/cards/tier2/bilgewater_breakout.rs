@@ -18,14 +18,14 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {
     if let Some(idx) = state
         .hand
         .iter()
-        .position(|c| c.card_id == tokens::SPELL_LOCKBOX)
+        .position(|c| c.card_id == tokens::SPELL_LOCKBOX && c.lockbox_turns_left > 0)
     {
         state.hand[idx].lockbox_turns_left =
             state.hand[idx].lockbox_turns_left.saturating_sub(accel);
         if state.hand[idx].lockbox_turns_left == 0 {
             state.open_lockbox_at(idx, rng);
         }
-    } else if state.hand.len() < 10 {
-        state.hand.push(tokens::make_lockbox());
+    } else {
+        state.add_to_hand(tokens::make_lockbox());
     }
 }

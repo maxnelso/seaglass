@@ -3,7 +3,7 @@
 //! After your hero takes damage, rewind it and give minions in the Tavern `+2/+2` (`+4/+4` if Golden) this turn.
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Tribe, Unit};
+use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 
 pub const ID: CardId = 402;
 
@@ -11,7 +11,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Ashen Corruptor", 6, 6, 4).with_tribe(Tribe::Demon)
 }
 
-pub fn on_hero_damage_taken(board: &[Unit], shop: &mut [Unit]) -> bool {
+pub fn on_hero_damage_taken(board: &[Unit], shop: &mut [Unit], auras: &mut PlayerAuras) -> bool {
     let mut rewound = false;
     let mut total_buff = 0i32;
     for u in board {
@@ -21,6 +21,7 @@ pub fn on_hero_damage_taken(board: &[Unit], shop: &mut [Unit]) -> bool {
         }
     }
     if total_buff > 0 {
+        auras.ashen_corruptor_turn_buff += total_buff;
         for s in shop.iter_mut() {
             if !s.is_spell {
                 s.add_stats(total_buff, total_buff);

@@ -29,8 +29,11 @@ pub fn apply_post_combat_persistence(
         tavern_unit.add_stats(gained_atk, gained_hp);
     }
     for kw in BONUS_KEYWORDS {
-        if survivor.has_keyword(kw) {
+        if survivor.has_keyword(kw)
+            || (kw == Keyword::DivineShield && survivor.inherent_divine_shield)
+        {
             tavern_unit.apply_keyword(kw, kw == Keyword::DivineShield);
         }
     }
+    crate::cards::check_stat_thresholds(tavern_unit);
 }

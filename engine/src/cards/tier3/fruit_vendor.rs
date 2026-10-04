@@ -22,8 +22,6 @@ pub fn on_activate(state: &mut TavernState, source_pos: usize) {
         2
     };
     for _ in 0..count {
-        if state.hand.len() < 10 {
-            state.hand.push(spells::make_tavern_dish_banana());
-        }
+        state.add_to_hand(spells::make_tavern_dish_banana());
     }
 }

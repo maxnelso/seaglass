@@ -15,7 +15,6 @@ pub fn template() -> CardTemplate {
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {
     if state.last_combat_lost {
         let extra = if sold.is_golden { 9 } else { 4 };
-        let cap = 10 + state.auras.base_max_gold_bonus;
-        state.gold = (state.gold + extra).min(cap);
+        state.gold += extra;
     }
 }

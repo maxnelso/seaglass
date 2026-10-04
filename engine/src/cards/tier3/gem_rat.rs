@@ -20,8 +20,6 @@ pub fn on_end_turn(state: &mut TavernState) {
         }
     }
     for _ in 0..total {
-        if state.hand.len() < 10 {
-            state.hand.push(tokens::make_gem_day());
-        }
+        state.add_to_hand(tokens::make_gem_day());
     }
 }

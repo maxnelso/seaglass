@@ -43,9 +43,8 @@ pub fn on_chromadrake_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut 
         TOKEN_BLUE_CHROMADRAKE => {
             for _ in 0..mult {
                 if state.hand.len() < 10 {
-                    state
-                        .hand
-                        .push(spells::draw_random_cost_tavern_spell(2, rng));
+                    let spell = spells::draw_random_cost_tavern_spell(2, rng);
+                    state.add_to_hand(spell);
                 }
             }
         }

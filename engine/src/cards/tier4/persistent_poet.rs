@@ -44,8 +44,9 @@ pub fn on_post_combat_adjacent_dragon(
         tavern_unit.add_stats(atk_gain, hp_gain);
     }
     for kw in BONUS_KEYWORDS {
-        if post.has_keyword(kw) {
-            tavern_unit.apply_keyword(kw, false);
+        if post.has_keyword(kw) || (kw == Keyword::DivineShield && post.inherent_divine_shield) {
+            tavern_unit.apply_keyword(kw, kw == Keyword::DivineShield);
         }
     }
+    crate::cards::check_stat_thresholds(tavern_unit);
 }

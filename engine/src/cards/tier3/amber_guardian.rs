@@ -40,7 +40,7 @@ pub fn on_start_of_combat(
         let idx = candidates.remove(pick);
         let u = &mut board[idx];
         u.add_stats(2, 2);
-        u.apply_keyword(Keyword::DivineShield, false);
+        u.apply_keyword(Keyword::DivineShield, true);
         events.push(Event::StatBuff {
             side,
             unit: u.id,

@@ -35,7 +35,7 @@ pub fn on_activate(
     for _ in 0..count {
         if state.hand.len() < 10 {
             let spell = spells::draw_random_tavern_spell(state.tavern_tier, rng);
-            state.hand.push(spell);
+            state.add_to_hand(spell);
         }
     }
 }

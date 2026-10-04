@@ -43,7 +43,7 @@ pub fn on_battlecry(
             idx
         }
     } else {
-        board_pos
+        return;
     };
     state.pending_choice_target = Some(target_after_insert);
     let g = unit.is_golden;

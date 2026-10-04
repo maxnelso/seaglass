@@ -626,10 +626,21 @@ fn perform_one_strike(
     // Attacking breaks Stealth.
     atk_side.board[initial_atk_pos].stealth = false;
 
-    // 1. Fire On-Attack (Rally) hook before damage.
+    // 1. Emit AttackDeclared when the attack is declared (before Rally and on-attack observers).
+    events.push(Event::AttackDeclared {
+        side,
+        attacker: attacker_id,
+        target: target_id,
+    });
+
+    // 2. Fire On-Attack (Rally) hook before damage.
     let attacker_card_id = atk_side.board[initial_atk_pos].card_id;
-    let pre_atk = atk_side.board[initial_atk_pos].attack;
-    let pre_hp = atk_side.board[initial_atk_pos].health;
+    let before_rally: Vec<(UnitId, i32, i32)> = atk_side
+        .board
+        .iter()
+        .map(|u| (u.id, u.attack, u.health))
+        .collect();
+    let events_len_before_rally = events.len();
     let def_had_ds = def_side.board[initial_def_pos].divine_shield;
     let mut generated_hand = Vec::new();
     let rally_summons = cards::on_rally(
@@ -651,18 +662,34 @@ fn perform_one_strike(
     {
         cards::tier5::hopebringer::on_friendly_divine_shield_lost(&mut def_side.board);
     }
-    let post_atk = atk_side.board[initial_atk_pos].attack;
-    let post_hp = atk_side.board[initial_atk_pos].health;
-    if post_atk != pre_atk || post_hp != pre_hp {
-        events.push(Event::StatBuff {
-            side,
-            unit: attacker_id,
-            atk_delta: post_atk - pre_atk,
-            hp_delta: post_hp - pre_hp,
-            attack: post_atk,
-            health: post_hp,
-            reason: "Rally",
-        });
+    let already_logged_units: Vec<UnitId> = events[events_len_before_rally..]
+        .iter()
+        .filter_map(|ev| match *ev {
+            Event::StatBuff {
+                side: ev_side,
+                unit,
+                ..
+            } if ev_side == side => Some(unit),
+            _ => None,
+        })
+        .collect();
+    for (id, old_atk, old_hp) in before_rally {
+        if already_logged_units.contains(&id) {
+            continue;
+        }
+        if let Some(u) = atk_side.board.iter().find(|u| u.id == id) {
+            if u.attack != old_atk || u.health != old_hp {
+                events.push(Event::StatBuff {
+                    side,
+                    unit: id,
+                    atk_delta: u.attack - old_atk,
+                    hp_delta: u.health - old_hp,
+                    attack: u.attack,
+                    health: u.health,
+                    reason: "Rally",
+                });
+            }
+        }
     }
     for mut card in generated_hand {
         if atk_side.hand.len() < 10 {
@@ -718,7 +745,7 @@ fn perform_one_strike(
         }
     }
 
-    // 1b. Fire friendly-attack observers.
+    // 2b. Fire friendly-attack observers.
     cards::on_friendly_attack(
         side,
         &mut atk_side.board,
@@ -728,7 +755,7 @@ fn perform_one_strike(
         events,
     );
 
-    // 1c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
+    // 2c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
     if def_side.board.iter().any(|u| u.health <= 0)
         || atk_side.board.iter().any(|u| u.health <= 0)
     {
@@ -749,7 +776,7 @@ fn perform_one_strike(
         resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
     }
 
-    // 1d. `Jailbird Juggernaut`: Summoned Golem attacks the target first.
+    // 2d. `Jailbird Juggernaut`: Summoned Golem attacks the target first.
     if let Some(golem_id) = juggernaut_golem_id {
         perform_forced_target_strike(
             side, golem_id, target_id, atk_side, def_side, next_id, rng, events,
@@ -780,13 +807,6 @@ fn perform_one_strike(
     let target_attack = def_side.board[def_pos].attack;
     let target_venomous = def_side.board[def_pos].venomous;
     let def_pre_hp = def_side.board[def_pos].health;
-
-    // 3. Emit AttackDeclared.
-    events.push(Event::AttackDeclared {
-        side,
-        attacker: attacker_id,
-        target: target_id,
-    });
 
     // 4. Simultaneous damage (target first, then attacker).
     let (atk_consumed_venom, def_took_damage) = apply_damage(
@@ -1017,6 +1037,12 @@ fn perform_forced_target_strike(
         return;
     }
 
+    events.push(Event::AttackDeclared {
+        side,
+        attacker: attacker_id,
+        target: target_id,
+    });
+
     cards::on_friendly_attack(
         side,
         &mut atk_side.board,
@@ -1045,12 +1071,6 @@ fn perform_forced_target_strike(
     let attacker_venomous = atk_side.board[atk_pos].venomous;
     let target_attack = def_side.board[def_pos].attack;
     let target_venomous = def_side.board[def_pos].venomous;
-
-    events.push(Event::AttackDeclared {
-        side,
-        attacker: attacker_id,
-        target: target_id,
-    });
 
     let (atk_consumed_venom, def_took_damage) = apply_damage(
         &mut def_side.board,

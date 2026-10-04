@@ -33,8 +33,12 @@ pub enum ActivateTargetKind {
     BoardOtherUndead,
     /// Requires a different friendly Murloc minion on `board` (`Sewer Escapee`).
     BoardOtherMurloc,
-    /// Requires any friendly minion on `board` (`Kelp Keeper`, `Sky-hatch Runaway`).
+    /// Requires any friendly minion on `board`.
     BoardAny,
+    /// Requires any friendly Battlecry minion on `board` (`Kelp Keeper`).
+    BoardBattlecry,
+    /// Requires any friendly Rally minion on `board` (`Sky-hatch Runaway`).
+    BoardRally,
     /// Requires a card in `hand` (`Brain Rotter`, `Abyssal Envoy`, `Mangled Bandit`, `Mindbending Recruiter`, `N'raqi Frostcaller`).
     HandCard,
     /// Requires a card in `shop` (`Lurking Lionfish`).
@@ -618,8 +622,10 @@ pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
     tier3::relentless_deflector::sync_taunt(unit);
     tier4::holy_vanguard::sync_unit(unit, auras);
     tier4::maritime_extortionist::sync_unit(unit, auras);
-    tier4::enchanted_sentinel::init_spell_aura(unit);
-    tier4::humongozz::init_spell_aura(unit);
+    if unit.spell_atk_aura == 0 && unit.spell_hp_aura == 0 {
+        tier4::enchanted_sentinel::init_spell_aura(unit);
+        tier4::humongozz::init_spell_aura(unit);
+    }
     tier6::falling_sky_golem::sync_aura(unit, auras);
     if matches!(
         unit.card_id,
@@ -829,7 +835,7 @@ pub fn on_play_battlecry(
     }
 }
 
-/// Trigger the Battlecry of an existing minion at `state.board[board_pos]` (`Young Murk-Eye`).
+/// Trigger the Battlecry of an existing minion at `state.board[board_pos]` (`Young Murk-Eye`, `Kelp Keeper`).
 pub fn trigger_board_battlecry(
     state: &mut TavernState,
     board_pos: usize,
@@ -841,11 +847,19 @@ pub fn trigger_board_battlecry(
     }
     let repeats = tier5::brann_bronzebeard::battlecry_multiplier(&state.board);
     let mut unit = state.board[board_pos].clone();
+    let old_atk = unit.attack;
+    let old_hp = unit.health;
     for _ in 0..repeats {
         dispatch_single_play_battlecry(state, &mut unit, board_pos, pool, rng);
-        tier5::kalecgos_arcane_aspect::after_battlecry_triggered(state, &mut unit);
+        let mut dummy = Unit::new("", 0, 0);
+        tier5::kalecgos_arcane_aspect::after_battlecry_triggered(state, &mut dummy);
     }
     if board_pos < state.board.len() && state.board[board_pos].card_id == unit.card_id {
+        let d_atk = unit.attack - old_atk;
+        let d_hp = unit.health - old_hp;
+        if d_atk != 0 || d_hp != 0 {
+            state.board[board_pos].add_stats(d_atk, d_hp);
+        }
         state.board[board_pos].taunt |= unit.taunt;
         state.board[board_pos].divine_shield |= unit.divine_shield;
         state.board[board_pos].windfury |= unit.windfury;
@@ -1095,9 +1109,13 @@ pub fn board_prevents_hero_damage(board: &[Unit]) -> bool {
 }
 
 /// Trigger hero-damage observers (`Soul Rewinder`, `Ashen Corruptor`, `Tichondrius`), returning `true` if the damage was rewound.
-pub fn on_hero_damage_taken(board: &mut [Unit], shop: &mut [Unit]) -> bool {
+pub fn on_hero_damage_taken(
+    board: &mut [Unit],
+    shop: &mut [Unit],
+    auras: &mut PlayerAuras,
+) -> bool {
     let r1 = tier2::soul_rewinder::on_hero_damage_taken(board);
-    let r2 = tier4::ashen_corruptor::on_hero_damage_taken(board, shop);
+    let r2 = tier4::ashen_corruptor::on_hero_damage_taken(board, shop, auras);
     tier5::tichondrius::on_hero_damage_taken(board);
     r1 || r2
 }
@@ -1137,7 +1155,8 @@ pub fn activate_target_kind(card_id: CardId) -> ActivateTargetKind {
         tier1::suspicious_prisonguard::ID | tier6::tyrael::ID => ActivateTargetKind::BoardOther,
         tier4::dead_bellringer::ID => ActivateTargetKind::BoardOtherUndead,
         tier5::sewer_escapee::ID => ActivateTargetKind::BoardOtherMurloc,
-        tier4::kelp_keeper::ID | tier4::sky_hatch_runaway::ID => ActivateTargetKind::BoardAny,
+        tier4::kelp_keeper::ID => ActivateTargetKind::BoardBattlecry,
+        tier4::sky_hatch_runaway::ID => ActivateTargetKind::BoardRally,
         tier2::brain_rotter::ID
         | tier3::abyssal_envoy::ID
         | tier3::mangled_bandit::ID
@@ -1739,12 +1758,6 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
         tier7::stitched_salvager::ID => tier7::stitched_salvager::on_deathrattle(dying, ctx),
         tokens::TOKEN_SEWER_RAT => tier5::sewer_lord::on_sewer_rat_deathrattle(dying, ctx),
         _ => {}
-    }
-    for u in ctx.board.iter_mut() {
-        tier6::falling_sky_golem::sync_aura(u, ctx.auras);
-    }
-    for h in ctx.hand.iter_mut() {
-        tier6::falling_sky_golem::sync_aura(h, ctx.auras);
     }
 }
 

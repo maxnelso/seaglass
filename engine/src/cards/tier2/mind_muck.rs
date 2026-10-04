@@ -15,10 +15,13 @@ pub fn template() -> CardTemplate {
 
 pub fn on_battlecry(
     state: &mut TavernState,
-    unit: &mut Unit,
+    unit: &Unit,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
+    if !state.board.iter().any(|u| u.tribe.matches(Tribe::Demon)) {
+        return;
+    }
     let shop_minions: Vec<usize> = state
         .shop
         .iter()
@@ -41,14 +44,11 @@ pub fn on_battlecry(
     let gain_atk = consumed.attack * mult;
     let gain_hp = consumed.health * mult;
 
-    // Pick the leftmost friendly Demon on board; if none on board, Mind Muck itself is a Demon.
     if let Some(demon) = state
         .board
         .iter_mut()
         .find(|u| u.tribe.matches(Tribe::Demon))
     {
         demon.add_stats(gain_atk, gain_hp);
-    } else {
-        unit.add_stats(gain_atk, gain_hp);
     }
 }

@@ -15,11 +15,6 @@ pub fn template() -> CardTemplate {
 pub fn on_sell(state: &mut TavernState, sold: &Unit) {
     let count = if sold.is_golden { 2 } else { 1 };
     for _ in 0..count {
-        if state.hand.len() < 10 {
-            let tentacle = tokens::make_aberrant_tentacle();
-            let cid = tentacle.card_id;
-            state.hand.push(tentacle);
-            state.check_and_resolve_triple(cid);
-        }
+        state.add_to_hand(tokens::make_aberrant_tentacle());
     }
 }

@@ -13,8 +13,8 @@
 use crate::model::{CardId, DeityKind, DeityState, Tribe, Unit};
 use crate::rng::Rng;
 
-pub const CARD_CTHUN: CardId = 801;
-pub const CARD_YSHAARJ: CardId = 802;
+pub const CARD_CTHUN: CardId = 9901;
+pub const CARD_YSHAARJ: CardId = 9902;
 
 /// Number of friendly Aberration deaths required in a single combat to awaken a Deity (Patch 36.6.3).
 pub const DEITY_SACRIFICE_REQUIREMENT: u32 = 4;

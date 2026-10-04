@@ -16,7 +16,7 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     if let Some(idx) = ctx
         .hand
         .iter()
-        .position(|c| c.card_id == tokens::SPELL_LOCKBOX)
+        .position(|c| c.card_id == tokens::SPELL_LOCKBOX && c.lockbox_turns_left > 0)
     {
         ctx.hand[idx].lockbox_turns_left =
             ctx.hand[idx].lockbox_turns_left.saturating_sub(accel);

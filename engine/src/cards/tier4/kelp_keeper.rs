@@ -34,10 +34,6 @@ pub fn on_activate(
         if t_pos >= state.board.len() {
             break;
         }
-        let mut target = state.board[t_pos].clone();
-        cards::on_play_battlecry(state, &mut target, t_pos, pool, rng);
-        if t_pos < state.board.len() && state.board[t_pos].card_id == target.card_id {
-            state.board[t_pos] = target;
-        }
+        cards::trigger_board_battlecry(state, t_pos, pool, rng);
     }
 }

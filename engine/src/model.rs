@@ -192,6 +192,8 @@ pub struct PlayerAuras {
     /// Bonus Attack/Health applied to all minions in the Tavern (`Staff of Enrichment`).
     pub tavern_all_atk: i32,
     pub tavern_all_hp: i32,
+    /// Turn-scoped bonus Attack/Health applied to all minions in the Tavern (`Ashen Corruptor`).
+    pub ashen_corruptor_turn_buff: i32,
     /// Bonus Attack/Health applied to summoned Beetles (`Buzzing Vermin` / `Forest Rover`).
     pub beetle_bonus_atk: i32,
     pub beetle_bonus_hp: i32,
@@ -615,6 +617,40 @@ impl Unit {
         self.intrinsic_golden = true;
         if !self.name.starts_with("Golden ") {
             self.name = format!("Golden {}", self.name);
+        }
+        if self.card_id == crate::cards::tier4::enchanted_sentinel::ID {
+            self.spell_atk_aura += 1;
+            self.spell_hp_aura += 1;
+        }
+        if self.card_id == crate::cards::tier4::humongozz::ID {
+            self.spell_atk_aura += 1;
+            self.spell_hp_aura += 2;
+        }
+        if self.card_id == crate::cards::tier3::malchezaar_prince_of_dance::ID {
+            self.malchezaar_refreshes_left += 2;
+        }
+        if self.card_id == crate::cards::tier3::thorned_trailblazer::ID {
+            self.trailblazer_charges_left += 1;
+        }
+        if self.card_id == crate::cards::tier6::magicfin_mycologist::ID {
+            self.mycologist_charges_left += 1;
+        }
+        if self.eternal_knight_stacks_applied > 0 {
+            let s = self.eternal_knight_stacks_applied as i32;
+            self.add_stats(4 * s, 2 * s);
+        }
+        if self.sky_golem_stacks_applied > 0 {
+            let s = self.sky_golem_stacks_applied as i32;
+            self.add_stats(4 * s, 2 * s);
+        }
+        if self.maritime_stacks_applied > 0 {
+            let s = self.maritime_stacks_applied as i32;
+            self.add_stats(7 * s, 7 * s);
+        }
+        if self.holy_vanguard_buff_applied != (0, 0) {
+            let (ha, hh) = self.holy_vanguard_buff_applied;
+            self.holy_vanguard_buff_applied = (ha * 2, hh * 2);
+            self.add_stats(ha, hh);
         }
     }
 
