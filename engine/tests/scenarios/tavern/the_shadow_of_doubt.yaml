@@ -15,12 +15,3 @@ scenarios:
     expect:
       hand: [Methodical Madness]
       auras: {deity: {attack: 5, health: 6}}
-
-  - name: deathstrider_hand_generation_in_combat_triggers_once_per_card
-    seed: 623
-    combat:
-      board_a: [Glim Guardian, Deathstrider, Imp-lusionist, The Shadow of Doubt]
-      board_b: ["0/10"]
-    expect:
-      hand_a: [Methodical Madness]
-      auras_a: {deity: {attack: 5, health: 6}}

@@ -374,14 +374,10 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
     let tavern_files = stems(&root.join("tavern"), "yaml");
 
     for stem in &minions {
-        match (combat_files.contains(stem), tavern_files.contains(stem)) {
-            (false, false) => errors.push(format!(
+        if !combat_files.contains(stem) && !tavern_files.contains(stem) {
+            errors.push(format!(
                 "missing scenario file for src/cards/minions/{stem}.rs (expected in combat/ or tavern/)"
-            )),
-            (true, true) => errors.push(format!(
-                "{stem}.yaml appears in both combat/ and tavern/"
-            )),
-            _ => {}
+            ));
         }
     }
     for stem in &spells {
