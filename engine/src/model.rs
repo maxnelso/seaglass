@@ -456,7 +456,7 @@ pub struct Unit {
     /// Total Magnetizations attached to this unit (`Utility Drone`).
     pub magnetizations_count: u32,
     /// True if this Choose One card has both effects combined (`Fandral's Fortune`).
-    pub fandral_combined: bool,
+    pub combine_choose_one: bool,
     /// Minions destroyed at Start of Combat and stored inside `Stitched Salvager` for its Deathrattle.
     pub stitched_stored: Vec<Unit>,
 }
@@ -520,7 +520,7 @@ impl Unit {
             killed_by: None,
             taught_spell_id: None,
             magnetizations_count: 0,
-            fandral_combined: false,
+            combine_choose_one: false,
             stitched_stored: Vec::new(),
         }
     }

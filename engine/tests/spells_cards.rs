@@ -1686,11 +1686,11 @@ fn spell_861_fandrals_fortune() {
         )
         .unwrap();
     assert_eq!(state.hand.len(), 1);
-    assert!(state.hand[0].fandral_combined);
+    assert!(state.hand[0].combine_choose_one);
 
-    // Replace with Alliance Flag with fandral_combined = true and play it: both options (+3/+1 and +1/+3 = +4/+4) apply without prompting!
+    // Replace with Alliance Flag with combine_choose_one = true and play it: both options (+3/+1 and +1/+3 = +4/+4) apply without prompting!
     let mut flag = spells::spell_by_name("Alliance Flag").unwrap();
-    flag.fandral_combined = true;
+    flag.combine_choose_one = true;
     state.hand[0] = flag;
     state
         .step(

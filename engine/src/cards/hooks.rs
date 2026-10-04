@@ -8,7 +8,7 @@
 //!
 //! Hook families:
 //! - **Own-text hooks** fire for the unit whose card text it is (`battlecry`, `deathrattle`,
-//!   `rally`, `on_sell`, ...).
+//!   `rally`, `on_sell`, a spell's `cast`, ...).
 //! - **Observer hooks** fire for every friendly unit carrying them, left to right in board
 //!   order, and receive the observer's own board index (`end_of_turn`, `on_spell_cast`,
 //!   `on_friendly_death`, ...).
@@ -46,6 +46,12 @@ impl CardFlags {
     pub const HEALTH_REFRESHES: CardFlags = CardFlags(1 << 7);
     /// While this has `charges` left, a Choose One has both effects combined, using a charge.
     pub const COMBINES_CHOOSE_ONE: CardFlags = CardFlags(1 << 8);
+    /// A Bounty spell: cast [`Passive::BountyCasts`] times.
+    pub const BOUNTY: CardFlags = CardFlags(1 << 9);
+    /// Never offered by the shop or by random / Discover Tavern-spell pools.
+    pub const NOT_IN_POOL: CardFlags = CardFlags(1 << 10);
+    /// A spell card that is not a Tavern spell (casting it doesn't count as casting one).
+    pub const NOT_TAVERN_SPELL: CardFlags = CardFlags(1 << 11);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -118,6 +124,17 @@ pub struct Played {
     pub magnetized: bool,
 }
 
+/// What a spell is cast on (see [`CardHooks::spell_target`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SpellTarget {
+    /// Untargeted.
+    None,
+    /// A friendly minion.
+    Friendly,
+    /// A friendly minion of the given type.
+    FriendlyTribe(Tribe),
+}
+
 // --- Hook signatures --------------------------------------------------------------------
 
 /// Battlecry / Choose One: `(state, played_unit, board_pos, pool, rng)`.
@@ -152,6 +169,8 @@ pub type TargetedSpellFn = fn(&mut TavernState, usize, usize, &mut CardPool, &mu
 pub type DamageDealtObserverFn = fn(&mut BoardCtx<'_>, usize, UnitId, Tribe);
 /// A friendly minion is being summoned: `(self, summoned, in_combat)`.
 pub type SummonFn = fn(&mut Unit, &mut Unit, bool);
+/// Spell cast: `(state, spell, target_pos, pool, rng)`.
+pub type CastFn = fn(&mut TavernState, &Unit, usize, &mut CardPool, &mut Rng);
 /// Player effect in the Tavern: `(state, effect)`.
 pub type EffectFn = fn(&mut TavernState, &mut PlayerEffect);
 /// Player effect after a shop Refresh: `(state, effect, rng)`.
@@ -174,6 +193,8 @@ macro_rules! card_hooks {
             /// Board-aura bonus to Tavern spell stats while on board, `(atk, hp)` per
             /// non-Golden copy (doubled when Golden).
             pub spell_aura: (i32, i32),
+            /// What this spell is cast on.
+            pub spell_target: SpellTarget,
             $( $(#[$meta])* pub $field: Option<$ty>, )*
         }
 
@@ -184,6 +205,7 @@ macro_rules! card_hooks {
                 activate_cost: None,
                 activate_target: ActivateTargetKind::None,
                 spell_aura: (0, 0),
+                spell_target: SpellTarget::None,
                 $( $field: None, )*
             };
 
@@ -253,6 +275,11 @@ card_hooks! {
     /// combat (see [`keep_combat_gains`](super::keep_combat_gains); the largest across both
     /// neighbours applies, 0 = none): `(pre_board, self_idx, neighbour_idx)`.
     post_combat_neighbor_mult(on_post_combat_neighbor_mult): fn(&[Unit], usize, usize) -> i32,
+
+    // ---- Own card text: spells ----------------------------------------------------------
+    /// This spell is cast on `target_pos` (0 if untargeted; see `spell_target`), once per cast. A
+    /// spell without one adds its stats to the target.
+    cast(on_cast): CastFn,
 
     // ---- Observers: Tavern (fire for each friendly board unit, left to right) ----------
     /// Start of turn (after Gold is refreshed).
@@ -367,6 +394,11 @@ impl CardHooks {
 
     pub fn with_flags(mut self, flags: CardFlags) -> Self {
         self.flags = self.flags | flags;
+        self
+    }
+
+    pub fn with_spell_target(mut self, target: SpellTarget) -> Self {
+        self.spell_target = target;
         self
     }
 

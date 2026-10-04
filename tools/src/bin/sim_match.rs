@@ -94,7 +94,7 @@ fn format_unit_inline(u: &Unit) -> String {
         if u.locked_turns > 0 {
             extras.push(format!("locked {}t", u.locked_turns));
         }
-        if u.fandral_combined {
+        if u.combine_choose_one {
             extras.push("FandralCombined".to_string());
         }
         let extra_str = if extras.is_empty() {

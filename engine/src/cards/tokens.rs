@@ -2,12 +2,12 @@
 
 use crate::cards::hooks::CardEventFn;
 use crate::cards::{
-    all_templates, check_stat_thresholds, on_card_added_to_hand, spells, tier2, tier3, tier4,
-    tier5, tier6, CardFlags, CardHooks, CardTemplate,
+    all_templates, board_passive, check_stat_thresholds, on_card_added_to_hand, spells, tier2,
+    tier3, tier4, tier5, tier6, CardFlags, CardHooks, CardTemplate, Passive,
 };
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -503,6 +503,162 @@ pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
     }
 }
 
+// --- Token spells' `cast` hooks (registered in `behaviors`) ---
+
+/// `Blood Gem`: play a Blood Gem on a minion, plus [`Passive::ExtraHandBloodGemCasts`] more.
+fn blood_gem(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, rng: &mut Rng) {
+    if board_pos < state.board.len() {
+        let extra = board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
+        state.board[board_pos].play_blood_gems(1 + extra, &state.auras);
+        crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
+    }
+}
+
+/// `Pointy Arrow`: give a minion +4 Attack.
+fn pointy_arrow(
+    state: &mut TavernState,
+    _: &Unit,
+    board_pos: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    if board_pos < state.board.len() {
+        let (atk, hp) = state.auras.spell_stat_buff(4, 0);
+        state.board[board_pos].add_stats(atk, hp);
+    }
+}
+
+/// `Arcane Absorption`: give a friendly Elemental half the stats of the highest-Health minion in
+/// the Tavern.
+fn arcane_absorption(
+    state: &mut TavernState,
+    _: &Unit,
+    board_pos: usize,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if board_pos < state.board.len() && state.board[board_pos].tribe.matches(Tribe::Elemental) {
+        let max_hp = state
+            .shop
+            .iter()
+            .filter(|u| !u.is_spell)
+            .map(|u| u.health)
+            .max();
+        if let Some(best_hp) = max_hp {
+            let candidates: Vec<(i32, i32)> = state
+                .shop
+                .iter()
+                .filter(|u| !u.is_spell && u.health == best_hp)
+                .map(|u| (u.attack / 2, u.health / 2))
+                .collect();
+            let (base_atk, base_hp) = if candidates.len() == 1 {
+                candidates[0]
+            } else {
+                candidates[rng.below(candidates.len())]
+            };
+            let (atk, hp) = state.auras.spell_stat_buff(base_atk, base_hp);
+            state.board[board_pos].add_stats(atk, hp);
+        }
+    }
+}
+
+/// `Conflagration`: give a minion +4/+4, plus +1/+1 per Elemental played this turn.
+fn conflagration(
+    state: &mut TavernState,
+    _: &Unit,
+    board_pos: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    if board_pos < state.board.len() {
+        let base = 4 + state.elementals_played_this_turn as i32;
+        let (atk, hp) = state.auras.spell_stat_buff(base, base);
+        state.board[board_pos].add_stats(atk, hp);
+    }
+}
+
+/// `Tavern Coin` (and `Hasty Excavation`): gain 1 Gold.
+pub(crate) fn tavern_coin(
+    state: &mut TavernState,
+    _: &Unit,
+    _: usize,
+    _: &mut CardPool,
+    _: &mut Rng,
+) {
+    state.gold += 1;
+}
+
+/// `Gem Day`: Choose One - your Blood Gems give an extra +1 Attack this game; or +1 Health.
+fn gem_day(state: &mut TavernState, _: &Unit, _: usize, pool: &mut CardPool, rng: &mut Rng) {
+    let opt0 = make_choice_option(CHOICE_GEM_DAY_ATK, "Gem Day (+1 Attack)", false);
+    let opt1 = make_choice_option(CHOICE_GEM_DAY_HP, "Gem Day (+1 Health)", false);
+    state.resolve_choose_one(opt0, opt1, pool, rng);
+}
+
+/// `Gem Confiscation`: play 3 Blood Gems on a minion and steal its neighbors' Blood Gems.
+fn gem_confiscation(
+    state: &mut TavernState,
+    _: &Unit,
+    board_pos: usize,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if board_pos < state.board.len() {
+        state.board[board_pos].play_blood_gems(3, &state.auras);
+        let mut neighbor_indices = Vec::new();
+        if board_pos > 0 {
+            neighbor_indices.push(board_pos - 1);
+        }
+        if board_pos + 1 < state.board.len() {
+            neighbor_indices.push(board_pos + 1);
+        }
+        let mut total_stolen_gems = 0u32;
+        let mut total_stolen_atk = 0i32;
+        let mut total_stolen_hp = 0i32;
+        for n_idx in neighbor_indices {
+            let neighbor = &mut state.board[n_idx];
+            if neighbor.blood_gems_played > 0 {
+                let (s_atk, s_hp) = neighbor.blood_gem_stats_applied;
+                total_stolen_gems += neighbor.blood_gems_played;
+                total_stolen_atk += s_atk;
+                total_stolen_hp += s_hp;
+                neighbor.attack = (neighbor.attack - s_atk).max(0);
+                neighbor.health = (neighbor.health - s_hp).max(1);
+                neighbor.blood_gems_played = 0;
+                neighbor.blood_gem_stats_applied = (0, 0);
+            }
+        }
+        if total_stolen_gems > 0 {
+            let target = &mut state.board[board_pos];
+            target.blood_gems_played += total_stolen_gems;
+            target.blood_gem_stats_applied.0 += total_stolen_atk;
+            target.blood_gem_stats_applied.1 += total_stolen_hp;
+            target.add_stats(total_stolen_atk, total_stolen_hp);
+        }
+        crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
+    }
+}
+
+/// `Golden Touch`: make a random minion in the Tavern Golden.
+fn golden_touch(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, rng: &mut Rng) {
+    let candidates: Vec<usize> = state
+        .shop
+        .iter()
+        .enumerate()
+        .filter(|(_, u)| !u.is_spell && !u.is_golden)
+        .map(|(i, _)| i)
+        .collect();
+    if !candidates.is_empty() {
+        let pick = if candidates.len() == 1 {
+            candidates[0]
+        } else {
+            candidates[rng.below(candidates.len())]
+        };
+        state.shop[pick].make_golden();
+        crate::cards::sync_unit_auras(&mut state.shop[pick], &state.auras);
+    }
+}
+
 /// Behaviour tables for tokens with card text (registered in the card registry).
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     let chromadrake = CardHooks::EMPTY.on_battlecry(|state, unit, _, _, rng| {
@@ -528,18 +684,41 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             CardHooks::EMPTY.on_deathrattle(tier5::sewer_lord::on_sewer_rat_deathrattle),
         ),
         (
+            SPELL_BLOOD_GEM,
+            spells::targeted(blood_gem).with_flags(CardFlags::NOT_TAVERN_SPELL),
+        ),
+        (SPELL_POINTY_ARROW, spells::targeted(pointy_arrow)),
+        (
+            SPELL_ARCANE_ABSORPTION,
+            spells::targeted_tribe(Tribe::Elemental, arcane_absorption),
+        ),
+        (SPELL_CONFLAGRATION, spells::targeted(conflagration)),
+        (SPELL_TAVERN_COIN, spells::spell(tavern_coin)),
+        (SPELL_GEM_DAY, spells::spell(gem_day)),
+        (
+            SPELL_GEM_CONFISCATION,
+            spells::targeted(gem_confiscation).with_flags(CardFlags::NOT_IN_POOL),
+        ),
+        (
+            SPELL_GOLDEN_TOUCH,
+            spells::spell(golden_touch).with_flags(CardFlags::NOT_IN_POOL),
+        ),
+        (
             SPELL_SLUDGE_CORROSION,
-            CardHooks::EMPTY.on_discarded(|state, _, pool, rng| {
-                // Discarded: cast it twice.
-                for _ in 0..2 {
-                    state.auras.spells_played += 1;
-                    spells::cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
-                }
-            }),
+            spells::spell(spells::shiny_ring)
+                .with_flags(CardFlags::NOT_IN_POOL)
+                .on_discarded(|state, _, pool, rng| {
+                    // Discarded: cast it twice.
+                    for _ in 0..2 {
+                        state.auras.spells_played += 1;
+                        spells::cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
+                    }
+                }),
         ),
         (
             SPELL_LOCKBOX,
             CardHooks::EMPTY
+                .with_flags(CardFlags::NOT_TAVERN_SPELL)
                 .on_turn_start_in_hand(lockbox_turn_start)
                 .on_ready_in_hand(lockbox_ready),
         ),

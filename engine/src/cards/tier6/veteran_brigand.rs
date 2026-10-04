@@ -23,13 +23,13 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
         "Brigand's Share (Play 3 Blood Gems on all your minions)",
         is_golden,
     );
-    opt0.fandral_combined = unit.fandral_combined;
+    opt0.combine_choose_one = unit.combine_choose_one;
     let mut opt1 = make_choice_option(
         CHOICE_BRIGAND_BARRAGE,
         "Brigand's Barrage (Cast Blood Gem Barrage 3 times)",
         is_golden,
     );
-    opt1.fandral_combined = unit.fandral_combined;
+    opt1.combine_choose_one = unit.combine_choose_one;
     state.resolve_choose_one(opt0, opt1, pool, rng);
 }
 

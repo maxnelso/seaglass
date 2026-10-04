@@ -396,7 +396,8 @@ pub struct TavernState {
     pub discover_pending: Option<Vec<Unit>>,
     pub discover_queue: Vec<Vec<Unit>>,
     pub pending_choice_target: Option<usize>,
-    pub fandral_combined_active: bool,
+    /// While set, Choose Ones resolve with both effects combined (see `resolve_choose_one`).
+    pub combine_choose_one: bool,
     pub defer_combined_choose_one: bool,
     pub pending_combined_choices: Vec<(Unit, Unit)>,
     pub next_willbreaker_group: u32,
@@ -432,7 +433,7 @@ impl TavernState {
             discover_pending: None,
             discover_queue: Vec::new(),
             pending_choice_target: None,
-            fandral_combined_active: false,
+            combine_choose_one: false,
             defer_combined_choose_one: false,
             pending_combined_choices: Vec::new(),
             next_willbreaker_group: 1,
@@ -616,7 +617,7 @@ impl TavernState {
     }
 
     /// Resolve a Choose-One prompt (`opt0` vs `opt1`).
-    /// If `fandral_combined` is active or a friendly minion with [`CardFlags::COMBINES_CHOOSE_ONE`]
+    /// If `combine_choose_one` is active or a friendly minion with [`CardFlags::COMBINES_CHOOSE_ONE`]
     /// has charges left (using one), applies both options immediately.
     pub fn resolve_choose_one(
         &mut self,
@@ -625,8 +626,8 @@ impl TavernState {
         pool: &mut CardPool,
         rng: &mut Rng,
     ) {
-        let combined = self.fandral_combined_active
-            || opt0.fandral_combined
+        let combined = self.combine_choose_one
+            || opt0.combine_choose_one
             || cards::use_charge(&mut self.board, CardFlags::COMBINES_CHOOSE_ONE);
 
         if combined {
@@ -1381,11 +1382,11 @@ impl TavernState {
                     pool.return_unit(&card);
                 } else {
                     cards::on_first_play_or_magnetize(self, &mut card);
-                    self.fandral_combined_active = card.fandral_combined;
+                    self.combine_choose_one = card.combine_choose_one;
                     self.defer_combined_choose_one = true;
                     cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
                     self.defer_combined_choose_one = false;
-                    self.fandral_combined_active = false;
+                    self.combine_choose_one = false;
                     let insert_idx = board_pos.min(self.board.len());
                     self.board.insert(insert_idx, card);
                     self.flush_combined_choices(pool, rng);
