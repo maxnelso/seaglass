@@ -40,6 +40,7 @@ struct SideCombatState {
     deity_awakened: bool,
     dead_aberrations: Vec<Unit>,
     dead_units: Vec<Unit>,
+    pending_immediate_attacks: Vec<UnitId>,
 }
 
 impl SideCombatState {
@@ -66,12 +67,13 @@ impl SideCombatState {
             deity_awakened: false,
             dead_aberrations: Vec::new(),
             dead_units: Vec::new(),
+            pending_immediate_attacks: Vec::new(),
         }
     }
 
-    fn prepare_summoned_unit(&self, token: &mut Unit) {
+    fn prepare_summoned_unit(&mut self, token: &mut Unit) {
         cards::apply_combat_summon_modifiers(
-            &self.board,
+            &mut self.board,
             &self.auras,
             self.combat_beast_bonus_atk,
             token.id,
@@ -142,6 +144,7 @@ pub fn resolve_battle(
     let mut side_b = SideCombatState::new(units_b, state.auras_b.clone(), state.hand_b.clone());
 
     // Start of Combat triggers: Side A first, then Side B, left-to-right.
+    resolve_start_of_combat_spells(Side::A, &mut side_a, &mut side_b, &mut rng, &mut events);
     cards::on_start_of_combat(
         Side::A,
         &mut side_a.board,
@@ -153,6 +156,7 @@ pub fn resolve_battle(
         &mut rng,
         &mut events,
     );
+    resolve_start_of_combat_spells(Side::B, &mut side_b, &mut side_a, &mut rng, &mut events);
     cards::on_start_of_combat(
         Side::B,
         &mut side_b.board,
@@ -250,6 +254,51 @@ pub fn resolve_battle(
     }
 }
 
+/// Resolve Start-of-Combat Tavern spells (`Brood of Nozdormu`, `Upper Hand`).
+fn resolve_start_of_combat_spells(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    while own_side.auras.brood_of_nozdormu_stacks > 0 {
+        own_side.auras.brood_of_nozdormu_stacks -= 1;
+        if let Some(leftmost) = own_side.board.first_mut() {
+            let add = leftmost.attack;
+            leftmost.add_stats(add, 0);
+            events.push(Event::StatBuff {
+                side,
+                unit: leftmost.id,
+                atk_delta: add,
+                hp_delta: 0,
+                attack: leftmost.attack,
+                health: leftmost.health,
+                reason: "Brood of Nozdormu",
+            });
+        }
+    }
+    while own_side.auras.upper_hand_stacks > 0 {
+        own_side.auras.upper_hand_stacks -= 1;
+        let candidates: Vec<usize> = opp_side
+            .board
+            .iter()
+            .enumerate()
+            .filter(|(_, u)| u.health > 0)
+            .map(|(i, _)| i)
+            .collect();
+        if !candidates.is_empty() {
+            let idx = if candidates.len() == 1 {
+                candidates[0]
+            } else {
+                candidates[rng.below(candidates.len())]
+            };
+            opp_side.board[idx].health = 1;
+            opp_side.board[idx].max_health = opp_side.board[idx].max_health.max(1);
+        }
+    }
+}
+
 /// Resolve Start-of-Combat board-wide AoE damage (`Boom-in-a-Box`).
 fn resolve_start_of_combat_aoe(
     side: Side,
@@ -279,7 +328,7 @@ fn resolve_start_of_combat_aoe(
                 .collect();
             for tid in own_ids {
                 if let Some(pos) = own_side.board.iter().position(|u| u.id == tid) {
-                    let (_, took) = apply_damage(&mut own_side.board[pos], 3, src_id, false, events);
+                    let (_, took) = apply_damage(&mut own_side.board, pos, 3, src_id, false, events);
                     if took {
                         cards::on_damage_taken(&own_side.board[pos], &mut own_side.hand, rng);
                         cards::on_damage_dealt(
@@ -302,7 +351,7 @@ fn resolve_start_of_combat_aoe(
                 .collect();
             for tid in opp_ids {
                 if let Some(pos) = opp_side.board.iter().position(|u| u.id == tid) {
-                    let (_, took) = apply_damage(&mut opp_side.board[pos], 3, src_id, false, events);
+                    let (_, took) = apply_damage(&mut opp_side.board, pos, 3, src_id, false, events);
                     if took {
                         cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
                         cards::on_damage_dealt(
@@ -327,8 +376,9 @@ fn resolve_start_of_combat_aoe(
                     events.push(Event::Death { unit: u.id });
                 }
             }
-            resolve_deaths(side.other(), opp_side, next_id, rng, events);
-            resolve_deaths(side, own_side, next_id, rng, events);
+            resolve_deaths(side.other(), opp_side, own_side, next_id, rng, events);
+            resolve_deaths(side, own_side, opp_side, next_id, rng, events);
+            resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
         }
     }
 }
@@ -350,6 +400,7 @@ fn perform_attack_turn(
         attacker_id,
         atk_side,
         def_side,
+        true,
         next_id,
         rng,
         events,
@@ -364,6 +415,7 @@ fn perform_attack_turn(
             attacker_id,
             atk_side,
             def_side,
+            true,
             next_id,
             rng,
             events,
@@ -389,11 +441,13 @@ fn select_attacker(board: &[Unit], ptr: Option<UnitId>) -> Option<(UnitId, bool)
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn perform_one_strike(
     side: Side,
     attacker_id: UnitId,
     atk_side: &mut SideCombatState,
     def_side: &mut SideCombatState,
+    advance_ptr: bool,
     next_id: &mut UnitId,
     rng: &mut Rng,
     events: &mut Vec<Event>,
@@ -411,6 +465,7 @@ fn perform_one_strike(
     // 1. Fire On-Attack (Rally) hook before damage.
     let pre_atk = atk_side.board[initial_atk_pos].attack;
     let pre_hp = atk_side.board[initial_atk_pos].health;
+    let def_had_ds = def_side.board[def_pos].divine_shield;
     let mut generated_hand = Vec::new();
     let rally_summons = cards::on_rally(
         side,
@@ -424,6 +479,9 @@ fn perform_one_strike(
         rng,
         events,
     );
+    if def_had_ds && !def_side.board[def_pos].divine_shield {
+        cards::tier5::hopebringer::on_friendly_divine_shield_lost(&mut def_side.board);
+    }
     let post_atk = atk_side.board[initial_atk_pos].attack;
     let post_hp = atk_side.board[initial_atk_pos].health;
     if post_atk != pre_atk || post_hp != pre_hp {
@@ -495,7 +553,8 @@ fn perform_one_strike(
 
     // 4. Simultaneous damage (target first, then attacker).
     let (atk_consumed_venom, def_took_damage) = apply_damage(
-        &mut def_side.board[def_pos],
+        &mut def_side.board,
+        def_pos,
         attacker_attack,
         attacker_id,
         attacker_venomous,
@@ -518,7 +577,8 @@ fn perform_one_strike(
     }
 
     let (def_consumed_venom, atk_took_damage) = apply_damage(
-        &mut atk_side.board[atk_pos],
+        &mut atk_side.board,
+        atk_pos,
         target_attack,
         target_id,
         target_venomous,
@@ -551,7 +611,8 @@ fn perform_one_strike(
         }
         for n_pos in adj_positions {
             let (_, n_took_damage) = apply_damage(
-                &mut def_side.board[n_pos],
+                &mut def_side.board,
+                n_pos,
                 attacker_attack,
                 attacker_id,
                 false,
@@ -597,7 +658,8 @@ fn perform_one_strike(
             };
             for n_pos in targets {
                 let (_, n_took_damage) = apply_damage(
-                    &mut def_side.board[n_pos],
+                    &mut def_side.board,
+                    n_pos,
                     excess,
                     attacker_id,
                     false,
@@ -619,6 +681,51 @@ fn perform_one_strike(
         }
     }
 
+    // 4c. After-attack bonus damage (`De-volition-ist`).
+    let after_dmg = cards::tier5::de_volition_ist::after_attack_damage(&atk_side.board[atk_pos]);
+    if after_dmg > 0 {
+        let max_hp = def_side
+            .board
+            .iter()
+            .filter(|u| u.health > 0)
+            .map(|u| u.health)
+            .max();
+        if let Some(m_hp) = max_hp {
+            let candidates: Vec<usize> = def_side
+                .board
+                .iter()
+                .enumerate()
+                .filter(|(_, u)| u.health == m_hp)
+                .map(|(i, _)| i)
+                .collect();
+            let pick_pos = if candidates.len() == 1 {
+                candidates[0]
+            } else {
+                candidates[rng.below(candidates.len())]
+            };
+            let (_, took) = apply_damage(
+                &mut def_side.board,
+                pick_pos,
+                after_dmg,
+                attacker_id,
+                false,
+                events,
+            );
+            if took {
+                cards::on_damage_taken(&def_side.board[pick_pos], &mut def_side.hand, rng);
+                cards::on_damage_dealt(
+                    side,
+                    &mut atk_side.board,
+                    attacker_id,
+                    after_dmg,
+                    &mut atk_side.hand,
+                    &mut atk_side.hand_summoned,
+                    events,
+                );
+            }
+        }
+    }
+
     // 5. Emit Deaths (defending side first left->right, then attacking side left->right).
     for u in &def_side.board {
         if u.health <= 0 {
@@ -632,12 +739,72 @@ fn perform_one_strike(
     }
 
     // 6. Re-anchor both pointers while dead units are still in place.
-    atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
+    if advance_ptr {
+        atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
+    } else {
+        atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
+    }
     def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
 
     // 7. Resolve deaths (defending side first, then attacking side).
-    resolve_deaths(side.other(), def_side, next_id, rng, events);
-    resolve_deaths(side, atk_side, next_id, rng, events);
+    resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
+    resolve_deaths(side, atk_side, def_side, next_id, rng, events);
+    resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
+}
+
+fn resolve_pending_immediate_attacks(
+    side_a_turn: Side,
+    side_a: &mut SideCombatState,
+    side_b: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    loop {
+        if let Some(attacker_id) = side_a.pending_immediate_attacks.first().copied() {
+            side_a.pending_immediate_attacks.remove(0);
+            if !side_b.is_empty()
+                && side_a
+                    .board
+                    .iter()
+                    .any(|u| u.id == attacker_id && u.health > 0 && u.attack > 0)
+            {
+                perform_one_strike(
+                    side_a_turn,
+                    attacker_id,
+                    side_a,
+                    side_b,
+                    false,
+                    next_id,
+                    rng,
+                    events,
+                );
+            }
+            continue;
+        }
+        if let Some(attacker_id) = side_b.pending_immediate_attacks.first().copied() {
+            side_b.pending_immediate_attacks.remove(0);
+            if !side_a.is_empty()
+                && side_b
+                    .board
+                    .iter()
+                    .any(|u| u.id == attacker_id && u.health > 0 && u.attack > 0)
+            {
+                perform_one_strike(
+                    side_a_turn.other(),
+                    attacker_id,
+                    side_b,
+                    side_a,
+                    false,
+                    next_id,
+                    rng,
+                    events,
+                );
+            }
+            continue;
+        }
+        break;
+    }
 }
 
 fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
@@ -675,10 +842,11 @@ fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
     }
 }
 
-/// Apply `amount` damage from `source_id` to `unit`.
+/// Apply `amount` damage from `source_id` to `board[pos]`.
 /// Returns `(venomous_consumed, health_damage_dealt)`.
 fn apply_damage(
-    unit: &mut Unit,
+    board: &mut [Unit],
+    pos: usize,
     amount: i32,
     source_id: UnitId,
     source_venomous: bool,
@@ -687,18 +855,20 @@ fn apply_damage(
     if amount <= 0 {
         return (false, false);
     }
-    if unit.divine_shield {
-        unit.divine_shield = false;
-        events.push(Event::DivineShieldPopped { unit: unit.id });
+    if board[pos].divine_shield {
+        board[pos].divine_shield = false;
+        events.push(Event::DivineShieldPopped { unit: board[pos].id });
+        cards::tier5::hopebringer::on_friendly_divine_shield_lost(board);
         (false, false)
     } else {
+        let unit = &mut board[pos];
         unit.health -= amount;
         events.push(Event::DamageDealt {
             unit: unit.id,
             amount,
             from: source_id,
         });
-        if source_venomous {
+        let res = if source_venomous {
             if unit.health > 0 {
                 unit.health = 0;
             }
@@ -709,7 +879,11 @@ fn apply_damage(
             (true, true)
         } else {
             (false, true)
+        };
+        if unit.health <= 0 {
+            unit.killed_by = Some(source_id);
         }
+        res
     }
 }
 
@@ -748,6 +922,7 @@ fn preserve_defender_ptr(board: &[Unit], current_ptr: Option<UnitId>) -> Option<
 fn resolve_deaths(
     side: Side,
     side_state: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
     next_id: &mut UnitId,
     rng: &mut Rng,
     events: &mut Vec<Event>,
@@ -765,6 +940,7 @@ fn resolve_deaths(
         .cloned()
         .collect();
     let mut cursor: usize = 0;
+    let mut leeroy_killed_opp = false;
 
     for unit in old_board {
         if unit.health > 0 {
@@ -775,7 +951,19 @@ fn resolve_deaths(
         // Unit died.
         side_state.friendly_deaths_this_combat += 1;
         side_state.dead_units.push(unit.clone());
-        cards::on_unit_died(&unit, &mut rebuilt, &mut side_state.auras);
+        cards::on_combat_friendly_death(
+            side,
+            &unit,
+            &mut rebuilt,
+            &mut side_state.auras,
+            &mut side_state.hand,
+            &mut side_state.hand_summoned,
+            side_state.combat_beast_bonus_atk,
+            next_id,
+            &mut side_state.pending_immediate_attacks,
+            rng,
+            events,
+        );
 
         if unit.tribe.matches(Tribe::Aberration) {
             if !unit.is_deity {
@@ -787,7 +975,8 @@ fn resolve_deaths(
         }
 
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
-        {
+        let dr_repeats = 1 + cards::extra_deathrattle_triggers(&rebuilt);
+        for _ in 0..dr_repeats {
             let mut dr_ctx = DeathrattleContext {
                 side,
                 in_combat: true,
@@ -804,6 +993,19 @@ fn resolve_deaths(
             };
             cards::on_deathrattle(&unit, &mut dr_ctx);
         }
+        if unit.card_id == cards::tier5::leeroy_the_reckless::ID {
+            if let Some(killer_id) = unit.killed_by {
+                if let Some(killer) = opp_side
+                    .board
+                    .iter_mut()
+                    .find(|u| u.id == killer_id && u.health > 0)
+                {
+                    killer.health = 0;
+                    events.push(Event::Death { unit: killer.id });
+                    leeroy_killed_opp = true;
+                }
+            }
+        }
 
         // 2. Reborn resummon
         if unit.reborn && rebuilt.len() < MAX_BOARD_SIZE {
@@ -813,6 +1015,11 @@ fn resolve_deaths(
             reborn_copy.health = 1;
             reborn_copy.reborn = false;
             reborn_copy.divine_shield = unit.divine_shield || unit.inherent_divine_shield;
+            cards::tier5::lurking_leviathan::on_beast_summoned_combat(
+                &mut rebuilt,
+                reborn_copy.id,
+                &mut reborn_copy,
+            );
             cards::tier4::banana_slamma::on_beast_summoned(
                 &rebuilt,
                 reborn_copy.id,
@@ -830,6 +1037,7 @@ fn resolve_deaths(
             });
             rebuilt.insert(cursor, reborn_copy);
             cursor += 1;
+            cards::tier5::barrier_banshee::on_friendly_reborn(side, &mut rebuilt, events);
         }
     }
 
@@ -845,7 +1053,7 @@ fn resolve_deaths(
         deity_unit.id = *next_id;
         *next_id += 1;
         cards::apply_combat_summon_modifiers(
-            &rebuilt,
+            &mut rebuilt,
             &side_state.auras,
             side_state.combat_beast_bonus_atk,
             deity_unit.id,
@@ -920,5 +1128,10 @@ fn resolve_deaths(
     side_state.board = rebuilt;
     if side_state.ptr.is_none() && !side_state.board.is_empty() {
         side_state.ptr = Some(side_state.board[0].id);
+    }
+
+    if leeroy_killed_opp {
+        opp_side.ptr = preserve_defender_ptr(&opp_side.board, opp_side.ptr);
+        resolve_deaths(side.other(), opp_side, side_state, next_id, rng, events);
     }
 }

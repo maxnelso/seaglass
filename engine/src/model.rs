@@ -244,6 +244,16 @@ pub struct PlayerAuras {
     pub hero_low_health: bool,
     /// Currently applied board-aura contribution to `(spell_bonus_atk, spell_bonus_hp)` (`Enchanted Sentinel`, `Humon'gozz`).
     pub board_spell_bonus_applied: (i32, i32),
+    /// Card ID of the last Tavern spell cast (`Cataclysmic Harbinger`).
+    pub last_tavern_spell_cast: Option<CardId>,
+    /// Temporary `+X/+X` bonus to friendly Beasts until next turn (`Goldrinn, the Great Wolf`).
+    pub goldrinn_bonus: i32,
+    /// Queued Start-of-Combat left-most Attack doublings (`Brood of Nozdormu`).
+    pub brood_of_nozdormu_stacks: u32,
+    /// Queued Start-of-Combat random enemy Health-to-1 triggers (`Upper Hand`).
+    pub upper_hand_stacks: u32,
+    /// Discovered Hero Power ID (`Unmasked Identity`).
+    pub hero_power_id: u32,
     /// Player's Old God Deity state (awakens after 4 friendly Aberration deaths in combat).
     pub deity: DeityState,
 }
@@ -335,9 +345,11 @@ pub struct Unit {
     pub avenge_counter: u32,
     /// Cumulative damage dealt by this unit (`Treasure Parrot`).
     pub damage_dealt_counter: i32,
-    /// Permanent Attack/Health gained during combat (`Devout Hellcaller`).
+    /// Permanent Attack/Health gained during combat (`Devout Hellcaller`, `Razorfen Vineweaver`, `Ship Master Eudora`).
     pub perm_atk_gained: i32,
     pub perm_hp_gained: i32,
+    /// Permanent Blood Gem count gained during combat (`Razorfen Vineweaver`).
+    pub perm_blood_gems_gained: u32,
     /// Total Blood Gems played on this unit and total `(atk, hp)` granted by them (`Gem Confiscation`).
     pub blood_gems_played: u32,
     pub blood_gem_stats_applied: (i32, i32),
@@ -351,7 +363,7 @@ pub struct Unit {
     pub extra_magnetize_this_turn: u32,
     /// Multiplier queued for the next minion bought this turn (`Living Prison`).
     pub living_prison_stacks: u32,
-    /// Gold-spent progress toward the next 5-Gold trigger (`Gunpowder Courier`).
+    /// Gold-spent progress toward the next Gold-spent trigger (`Gunpowder Courier`, `Air Revenant`, `Enterprising Escapee`).
     pub gunpowder_gold_progress: u32,
     /// Bonus Tavern-all stats added to `Sacrificial Wrathguard`'s Deathrattle via `Activate`.
     pub wrathguard_bonus: i32,
@@ -364,6 +376,16 @@ pub struct Unit {
     /// Board-aura bonus to Tavern spell Attack/Health contributed while this unit is on the board (`Enchanted Sentinel`, `Humon'gozz`).
     pub spell_atk_aura: i32,
     pub spell_hp_aura: i32,
+    /// Spells-cast progress toward the next 3-spell Tavern consume (`Felboar`).
+    pub felboar_spell_progress: u32,
+    /// Permanent improvement stacks from friendly Divine Shield losses (`Hopebringer`).
+    pub hopebringer_stacks: u32,
+    /// Permanent improvement stacks from friendly Beast summons (`Lurking Leviathan`).
+    pub leviathan_stacks: u32,
+    /// Permanent improvement stacks from friendly Mech plays (`Spark Snapper`).
+    pub spark_snapper_stacks: u32,
+    /// Combat `UnitId` of the minion that dealt the killing blow to this unit (`Leeroy the Reckless`).
+    pub killed_by: Option<UnitId>,
 }
 
 impl Unit {
@@ -416,6 +438,7 @@ impl Unit {
             damage_dealt_counter: 0,
             perm_atk_gained: 0,
             perm_hp_gained: 0,
+            perm_blood_gems_gained: 0,
             blood_gems_played: 0,
             blood_gem_stats_applied: (0, 0),
             dies_on_play_this_turn: false,
@@ -430,6 +453,11 @@ impl Unit {
             holy_vanguard_buff_applied: (0, 0),
             spell_atk_aura: 0,
             spell_hp_aura: 0,
+            felboar_spell_progress: 0,
+            hopebringer_stacks: 0,
+            leviathan_stacks: 0,
+            spark_snapper_stacks: 0,
+            killed_by: None,
         }
     }
 
@@ -528,6 +556,23 @@ impl Unit {
         self.blood_gem_stats_applied.1 += d_hp;
         self.add_stats(d_atk, d_hp);
         crate::cards::on_blood_gems_played_on_unit(self, count);
+    }
+
+    /// Convert this plain minion into a Golden version (`Golden Touch`, `Elite Navigator`).
+    pub fn make_golden(&mut self) {
+        if self.is_golden {
+            return;
+        }
+        let add_atk = self.base_attack.max(0);
+        let add_hp = self.base_health.max(0);
+        self.base_attack *= 2;
+        self.base_health *= 2;
+        self.add_stats(add_atk, add_hp);
+        self.is_golden = true;
+        self.intrinsic_golden = true;
+        if !self.name.starts_with("Golden ") {
+            self.name = format!("Golden {}", self.name);
+        }
     }
 
     /// Refresh `max_attack` and `max_health` from current stats.

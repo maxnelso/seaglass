@@ -29,7 +29,13 @@ pub fn after_cast_targeted_spell(state: &mut TavernState, target_pos: usize) {
         for _ in 0..repeats {
             state.board[target_pos].add_stats(sat.attack, sat.health);
             cards::on_magnetize_transfer(&sat, &mut state.board[target_pos]);
-            cards::after_play_minion(state, sat.card_id, sat.tribe, target_pos, true);
+            cards::tier2::mechagnome_interpreter::after_play_or_magnetize_mech(
+                state,
+                sat.tribe,
+                target_pos,
+                true,
+            );
+            cards::sync_board_spell_auras(&state.board, &mut state.auras);
         }
     }
 }

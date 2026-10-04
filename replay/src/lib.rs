@@ -542,7 +542,7 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             Tribe::Aberration,
         )),
         // Tier 3 Minions
-        "BG36_102" => Some((
+        "BG36_311" => Some((
             seaglass::cards::tier3::abyssal_envoy::ID,
             "abyssal_envoy",
             Tribe::Aberration,
@@ -602,7 +602,7 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             "disguised_graverobber",
             Tribe::None,
         )),
-        "BG36_103" => Some((
+        "BG36_113" => Some((
             seaglass::cards::tier3::drifting_sacrifice::ID,
             "drifting_sacrifice",
             Tribe::Aberration,
@@ -702,10 +702,10 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             "sprightly_scarab",
             Tribe::Beast,
         )),
-        "BG36_113" => Some((
+        "BG36_202" => Some((
             seaglass::cards::tier3::tasty_lobster::ID,
             "tasty_lobster",
-            Tribe::Aberration,
+            Tribe::Beast,
         )),
         "BG32_202" => Some((
             seaglass::cards::tier3::thorned_trailblazer::ID,
@@ -1058,6 +1058,267 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
             "twilight_tidehunter",
             Tribe::Murloc,
         )),
+        // Tier 5 Minions
+        "BG34_858" => Some((
+            seaglass::cards::tier5::air_revenant::ID,
+            "air_revenant",
+            Tribe::Elemental,
+        )),
+        "BG36_514" => Some((
+            seaglass::cards::tier5::barrier_banshee::ID,
+            "barrier_banshee",
+            Tribe::Undead,
+        )),
+        "BG33_318" => Some((
+            seaglass::cards::tier5::bile_spitter::ID,
+            "bile_spitter",
+            Tribe::Murloc,
+        )),
+        "BG_LOE_077" | "TB_BaconUps_045" => Some((
+            seaglass::cards::tier5::brann_bronzebeard::ID,
+            "brann_bronzebeard",
+            Tribe::None,
+        )),
+        "BG35_123" => Some((
+            seaglass::cards::tier5::cataclysmic_harbinger::ID,
+            "cataclysmic_harbinger",
+            Tribe::None,
+        )),
+        "BG28_741" => Some((
+            seaglass::cards::tier5::charging_czarina::ID,
+            "charging_czarina",
+            Tribe::Mech,
+        )),
+        "BG34_142" => Some((
+            seaglass::cards::tier5::costume_enthusiast::ID,
+            "costume_enthusiast",
+            Tribe::Murloc,
+        )),
+        "BG36_102" => Some((
+            seaglass::cards::tier5::de_volition_ist::ID,
+            "de_volition_ist",
+            Tribe::Aberration,
+        )),
+        "BG36_621" => Some((
+            seaglass::cards::tier5::deft_deserter::ID,
+            "deft_deserter",
+            Tribe::Demon,
+        )),
+        "BG36_762" => Some((
+            seaglass::cards::tier5::devilish_distractor::ID,
+            "devilish_distractor",
+            Tribe::Demon,
+        )),
+        "BG34_633" => Some((
+            seaglass::cards::tier5::draconic_warden::ID,
+            "draconic_warden",
+            Tribe::Dragon,
+        )),
+        "BG26_ICC_901" => Some((
+            seaglass::cards::tier5::drakkari_enchanter::ID,
+            "drakkari_enchanter",
+            Tribe::None,
+        )),
+        "BG32_324" => Some((
+            seaglass::cards::tier5::drustfallen_butcher::ID,
+            "drustfallen_butcher",
+            Tribe::Undead,
+        )),
+        "BG32_231" => Some((
+            seaglass::cards::tier5::elite_navigator::ID,
+            "elite_navigator",
+            Tribe::Pirate,
+        )),
+        "BG36_523" => Some((
+            seaglass::cards::tier5::enterprising_escapee::ID,
+            "enterprising_escapee",
+            Tribe::Pirate,
+        )),
+        "BG25_009" => Some((
+            seaglass::cards::tier5::eternal_summoner::ID,
+            "eternal_summoner",
+            Tribe::Undead,
+        )),
+        "BG34_403" => Some((
+            seaglass::cards::tier5::eternal_tycoon::ID,
+            "eternal_tycoon",
+            Tribe::Undead,
+        )),
+        "BG36_318" => Some((
+            seaglass::cards::tier5::faceless_converter::ID,
+            "faceless_converter",
+            Tribe::Aberration,
+        )),
+        "BG28_633" => Some((
+            seaglass::cards::tier5::felboar::ID,
+            "felboar",
+            Tribe::DemonQuilboar,
+        )),
+        "BG32_821" => Some((
+            seaglass::cards::tier5::felfire_conjurer::ID,
+            "felfire_conjurer",
+            Tribe::DemonDragon,
+        )),
+        "BG35_882" => Some((
+            seaglass::cards::tier5::firelands_fugitive::ID,
+            "firelands_fugitive",
+            Tribe::Elemental,
+        )),
+        "BG32_820" => Some((
+            seaglass::cards::tier5::firescale_hoarder::ID,
+            "firescale_hoarder",
+            Tribe::Dragon,
+        )),
+        "BGS_008" | "TB_BaconUps_057" => Some((
+            seaglass::cards::tier5::ghastcoiler::ID,
+            "ghastcoiler",
+            Tribe::Beast,
+        )),
+        "BGS_018" | "TB_BaconUps_085" => Some((
+            seaglass::cards::tier5::goldrinn_the_great_wolf::ID,
+            "goldrinn_the_great_wolf",
+            Tribe::Beast,
+        )),
+        "BG31_148" => Some((
+            seaglass::cards::tier5::hackerfin::ID,
+            "hackerfin",
+            Tribe::Murloc,
+        )),
+        "BG36_364" => Some((
+            seaglass::cards::tier5::hopebringer::ID,
+            "hopebringer",
+            Tribe::Dragon,
+        )),
+        "BG21_004" | "TB_BaconUps_302" => Some((
+            seaglass::cards::tier5::insatiable_urzul::ID,
+            "insatiable_urzul",
+            Tribe::Demon,
+        )),
+        "BGS_041" | "TB_BaconUps_109" => Some((
+            seaglass::cards::tier5::kalecgos_arcane_aspect::ID,
+            "kalecgos_arcane_aspect",
+            Tribe::Dragon,
+        )),
+        "BG23_318" => Some((
+            seaglass::cards::tier5::leeroy_the_reckless::ID,
+            "leeroy_the_reckless",
+            Tribe::None,
+        )),
+        "BG36_848" => Some((
+            seaglass::cards::tier5::lichling_hoarder::ID,
+            "lichling_hoarder",
+            Tribe::Undead,
+        )),
+        "BG28_707" => Some((
+            seaglass::cards::tier5::living_azerite::ID,
+            "living_azerite",
+            Tribe::Elemental,
+        )),
+        "BG35_602" => Some((
+            seaglass::cards::tier5::lurking_leviathan::ID,
+            "lurking_leviathan",
+            Tribe::Beast,
+        )),
+        "BG36_097" => Some((
+            seaglass::cards::tier5::mindbender_ghursha::ID,
+            "mindbender_ghursha",
+            Tribe::Aberration,
+        )),
+        "BG36_320" => Some((
+            seaglass::cards::tier5::mysterious_kthir::ID,
+            "mysterious_kthir",
+            Tribe::Aberration,
+        )),
+        "BG36_300" => Some((
+            seaglass::cards::tier5::nraqi_frostcaller::ID,
+            "nraqi_frostcaller",
+            Tribe::Aberration,
+        )),
+        "BG36_103" => Some((
+            seaglass::cards::tier5::nraqi_sapper::ID,
+            "nraqi_sapper",
+            Tribe::Aberration,
+        )),
+        "BG32_111" => Some((
+            seaglass::cards::tier5::nightmare_par_tea_guest::ID,
+            "nightmare_par_tea_guest",
+            Tribe::All,
+        )),
+        "BGS_020" | "TB_BaconUps_089" => Some((
+            seaglass::cards::tier5::primalfin_lookout::ID,
+            "primalfin_lookout",
+            Tribe::Murloc,
+        )),
+        "BG33_825" => Some((
+            seaglass::cards::tier5::proud_privateer::ID,
+            "proud_privateer",
+            Tribe::Pirate,
+        )),
+        "BG33_883" => Some((
+            seaglass::cards::tier5::razorfen_vineweaver::ID,
+            "razorfen_vineweaver",
+            Tribe::Quilboar,
+        )),
+        "BG36_366" => Some((
+            seaglass::cards::tier5::resourceful_robot::ID,
+            "resourceful_robot",
+            Tribe::Mech,
+        )),
+        "BG28_550" => Some((
+            seaglass::cards::tier5::rodeo_performer::ID,
+            "rodeo_performer",
+            Tribe::None,
+        )),
+        "BG33_885" => Some((
+            seaglass::cards::tier5::sanguine_refiner::ID,
+            "sanguine_refiner",
+            Tribe::Quilboar,
+        )),
+        "BG36_700" => Some((
+            seaglass::cards::tier5::sewer_escapee::ID,
+            "sewer_escapee",
+            Tribe::Murloc,
+        )),
+        "BG35_604" => Some((
+            seaglass::cards::tier5::sewer_lord::ID,
+            "sewer_lord",
+            Tribe::Beast,
+        )),
+        "BG36_704" => Some((
+            seaglass::cards::tier5::shamanic_tidecaller::ID,
+            "shamanic_tidecaller",
+            Tribe::Murloc,
+        )),
+        "BG33_828" => Some((
+            seaglass::cards::tier5::ship_master_eudora::ID,
+            "ship_master_eudora",
+            Tribe::Pirate,
+        )),
+        "BG33_821" => Some((
+            seaglass::cards::tier5::shipwrecked_rascal::ID,
+            "shipwrecked_rascal",
+            Tribe::Pirate,
+        )),
+        "BG36_851" => Some((
+            seaglass::cards::tier5::spark_snapper::ID,
+            "spark_snapper",
+            Tribe::Mech,
+        )),
+        "BG26_523" => Some((
+            seaglass::cards::tier5::tichondrius::ID,
+            "tichondrius",
+            Tribe::Demon,
+        )),
+        "BG25_354" => Some((
+            seaglass::cards::tier5::titus_rivendare::ID,
+            "titus_rivendare",
+            Tribe::None,
+        )),
+        "BG31_809" => Some((
+            seaglass::cards::tier5::turquoise_skitterer::ID,
+            "turquoise_skitterer",
+            Tribe::Beast,
+        )),
         // Tokens
         "BG28_603t" => Some((tokens::TOKEN_BEETLE, "beetle", Tribe::Beast)),
         "BG36_200t" => Some((tokens::TOKEN_BAT, "bat", Tribe::Beast)),
@@ -1080,6 +1341,12 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
         "BG25_010t" => Some((tokens::TOKEN_HELPING_HAND, "helping_hand", Tribe::Undead)),
         "BG31_171t" | "BG31_171_Gt" | "BG34_Giant_610t" | "BG34_Giant_610_Gt" => {
             Some((tokens::TOKEN_SATELLITE, "satellite", Tribe::Mech))
+        }
+        "BG19_010" | "TB_BaconUps_259" => {
+            Some((tokens::TOKEN_SEWER_RAT, "sewer_rat", Tribe::Beast))
+        }
+        "BG19_010t" | "TB_BaconUps_259t" => {
+            Some((tokens::TOKEN_HALF_SHELL, "half_shell", Tribe::Beast))
         }
         "BG34_634t" => Some((
             tokens::TOKEN_BLUE_CHROMADRAKE,

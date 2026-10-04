@@ -1223,3 +1223,387 @@ fn token_spell_958_arcane_absorption() {
     assert_eq!(state.board[0].attack, 5);
     assert_eq!(state.board[0].health, 6);
 }
+
+#[test]
+fn token_spell_959_conflagration() {
+    let (mut state, mut pool, mut rng) = setup_tavern(959);
+    state.board.push(Unit::new("Target", 2, 2));
+    state.add_to_hand(tokens::make_conflagration());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 6);
+    assert_eq!(state.board[0].health, 6);
+}
+
+// ============================================================================
+// Tier 5 Tavern Spells (14 new + Golden Touch = 15)
+// ============================================================================
+
+#[test]
+fn spell_845_armor_stash() {
+    let (mut state, mut pool, mut rng) = setup_tavern(845);
+    state.armor = 0;
+    state.add_to_hand(spells::spell_by_name("Armor Stash").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.armor, 5);
+}
+
+#[test]
+fn spell_846_brood_of_nozdormu() {
+    let (mut state, mut pool, mut rng) = setup_tavern(846);
+    state.board.push(Unit::new("Left", 10, 10));
+    state.add_to_hand(spells::spell_by_name("Brood of Nozdormu").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.brood_of_nozdormu_stacks, 1);
+
+    let gs = seaglass::GameState {
+        auras_a: state.auras.clone(),
+        ..Default::default()
+    };
+    let res = seaglass::simulate(&state.board, &[Unit::new("Enemy", 1, 1)], &gs, 846);
+    assert_eq!(res.survivors_a[0].attack, 20);
+}
+
+#[test]
+fn spell_847_butchering() {
+    let (mut state, mut pool, mut rng) = setup_tavern(847);
+    state
+        .board
+        .push(seaglass::cards::tier1::harmless_bonehead::template().instantiate());
+    state.add_to_hand(spells::spell_by_name("Butchering").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.undead_bonus_attack, 8);
+    // Harmless Bonehead died and summoned two 1/1 Skeletons with +8 Attack (9/1)!
+    assert_eq!(state.board.len(), 2);
+    assert!(state.board.iter().all(|u| u.attack == 9 && u.health == 1));
+}
+
+#[test]
+fn spell_848_channel_the_devourer() {
+    let (mut state, mut pool, mut rng) = setup_tavern(848);
+    state.gold = 0;
+    state.board.push(Unit::new("Sacrifice", 6, 8));
+    state.board.push(Unit::new("Receiver", 2, 2));
+    state.add_to_hand(spells::spell_by_name("Channel the Devourer").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.gold, 1);
+    assert_eq!(state.board.len(), 1);
+    assert_eq!(state.board[0].attack, 8);
+    assert_eq!(state.board[0].health, 10);
+}
+
+#[test]
+fn spell_849_contracted_corpse() {
+    let (mut state, mut pool, mut rng) = setup_tavern(849);
+    state.tavern_tier = 5;
+    state.add_to_hand(spells::spell_by_name("Contracted Corpse").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert!(seaglass::cards::is_deathrattle_minion(state.hand[0].card_id));
+}
+
+#[test]
+fn spell_850_corrupted_coin() {
+    let (mut state, mut pool, mut rng) = setup_tavern(850);
+    state.gold = 3;
+    state.add_to_hand(spells::spell_by_name("Corrupted Coin").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.gold, 5);
+
+    // Discarding Corrupted Coin increases max_gold by 2!
+    let pre_max = state.max_gold;
+    state.board.push(tier2::brain_rotter::template().instantiate());
+    state.add_to_hand(spells::spell_by_name("Corrupted Coin").unwrap());
+    state
+        .step(
+            TavernAction::Activate {
+                board_pos: 0,
+                target_pos: Some(0),
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.max_gold, pre_max + 2);
+}
+
+#[test]
+fn spell_851_corrupted_cupcakes() {
+    let (mut state, mut pool, mut rng) = setup_tavern(851);
+    state
+        .board
+        .push(Unit::new("Demon1", 2, 2).with_tribe(Tribe::Demon));
+    state.shop.push(Unit::new("S1", 2, 3));
+    state.shop.push(Unit::new("S2", 3, 4));
+    state.shop.push(Unit::new("S3", 4, 5));
+    state.add_to_hand(spells::spell_by_name("Corrupted Cupcakes").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.shop.is_empty());
+    assert_eq!(state.board[0].attack, 11);
+    assert_eq!(state.board[0].health, 14);
+}
+
+#[test]
+fn spell_852_energizing_chamber() {
+    let (mut state, mut pool, mut rng) = setup_tavern(852);
+    state.add_to_hand(spells::spell_by_name("Energizing Chamber").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.deity.attack, 8);
+    assert_eq!(state.auras.deity.health, 8);
+
+    // Discarding Energizing Chamber casts it twice (+14/+14) + Brain Rotter (+2/+2) = +16/+16 -> 24/24!
+    state.board.push(tier2::brain_rotter::template().instantiate());
+    state.add_to_hand(spells::spell_by_name("Energizing Chamber").unwrap());
+    state
+        .step(
+            TavernAction::Activate {
+                board_pos: 0,
+                target_pos: Some(0),
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.deity.attack, 24);
+    assert_eq!(state.auras.deity.health, 24);
+}
+
+#[test]
+fn spell_853_forests_bounty() {
+    let (mut state, mut pool, mut rng) = setup_tavern(853);
+    state.board.push(Unit::new("Target", 2, 2));
+    state.add_to_hand(spells::spell_by_name("Forest's Bounty").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // Option 0: Give a minion +6/+6 twice (+12/+12 -> 14/14)
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 14);
+    assert_eq!(state.board[0].health, 14);
+}
+
+#[test]
+fn spell_854_hired_headhunter() {
+    let (mut state, mut pool, mut rng) = setup_tavern(854);
+    state.tavern_tier = 5;
+    state.add_to_hand(spells::spell_by_name("Hired Headhunter").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert!(seaglass::cards::is_battlecry_minion(state.hand[0].card_id));
+}
+
+#[test]
+fn spell_855_saloons_finest() {
+    let (mut state, mut pool, mut rng) = setup_tavern(855);
+    state.tavern_tier = 5;
+    state.shop.push(Unit::new("Minion", 1, 1));
+    state.add_to_hand(spells::spell_by_name("Saloon's Finest").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(!state.shop.is_empty());
+    assert!(state.shop.iter().all(|u| u.is_spell));
+}
+
+#[test]
+fn spell_856_unmasked_identity() {
+    let (mut state, mut pool, mut rng) = setup_tavern(856);
+    state.add_to_hand(spells::spell_by_name("Unmasked Identity").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 1 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.hero_power_id, 2);
+}
+
+#[test]
+fn spell_857_upper_hand() {
+    let (mut state, mut pool, mut rng) = setup_tavern(857);
+    state.add_to_hand(spells::spell_by_name("Upper Hand").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.auras.upper_hand_stacks, 1);
+
+    let gs = seaglass::GameState {
+        auras_a: state.auras.clone(),
+        ..Default::default()
+    };
+    let res = seaglass::simulate(
+        &[Unit::new("MyUnit", 2, 2)],
+        &[Unit::new("BigEnemy", 1, 50)],
+        &gs,
+        857,
+    );
+    assert_eq!(res.outcome, seaglass::BattleOutcome::AWin);
+}
+
+#[test]
+fn spell_858_wave_of_gold() {
+    let (mut state, mut pool, mut rng) = setup_tavern(858);
+    state.board.push(Unit::new("Plain", 2, 2));
+    let mut gold = Unit::new("Gold", 4, 4);
+    gold.is_golden = true;
+    state.board.push(gold);
+    state.add_to_hand(spells::spell_by_name("Wave of Gold").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 5);
+    assert_eq!(state.board[0].health, 4);
+    assert_eq!(state.board[1].attack, 10);
+    assert_eq!(state.board[1].health, 8);
+}

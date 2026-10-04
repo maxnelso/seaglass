@@ -1,15 +1,16 @@
-//! Tier 1, Tier 2, Tier 3, and Tier 4 Tavern Spells (`Patch 36.6.3`).
+//! Tier 1, Tier 2, Tier 3, Tier 4, and Tier 5 Tavern Spells (`Patch 36.6.3`).
 
 use crate::cards::tokens::{
     self, is_choice_option, make_choice_option, CHOICE_ALLIANCE_ATK, CHOICE_ALLIANCE_HP,
-    CHOICE_BOUNDLESS_MINION, CHOICE_BOUNDLESS_SPELL, CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP,
+    CHOICE_BOUNDLESS_MINION, CHOICE_BOUNDLESS_SPELL, CHOICE_FOREST_ALL, CHOICE_FOREST_SINGLE,
+    CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP, CHOICE_HP_1, CHOICE_HP_2, CHOICE_HP_3,
     CHOICE_TIME_MGMT_LATER, CHOICE_TIME_MGMT_NOW, SPELL_ARCANE_ABSORPTION, SPELL_BLOOD_GEM,
-    SPELL_GEM_CONFISCATION, SPELL_GEM_DAY, SPELL_GOLDEN_TOUCH, SPELL_POINTY_ARROW,
-    SPELL_SLUDGE_CORROSION, SPELL_TAVERN_COIN,
+    SPELL_CONFLAGRATION, SPELL_GEM_CONFISCATION, SPELL_GEM_DAY, SPELL_GOLDEN_TOUCH,
+    SPELL_POINTY_ARROW, SPELL_SLUDGE_CORROSION, SPELL_TAVERN_COIN,
 };
 use crate::model::{CardId, Keyword, Tribe, Unit, BONUS_KEYWORDS, SINGLE_TRIBES};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{shop_capacity, CardPool, TavernState};
 
 // Tier 1 Tavern Spells (8)
 pub const SPELL_A_NEW_SPROUT: CardId = 801;
@@ -63,7 +64,23 @@ pub const SPELL_TEMPERATURE_SHIFT: CardId = 842;
 pub const SPELL_TOMB_TURNING: CardId = 843;
 pub const SPELL_WEAPONS_FORGE: CardId = 844;
 
-/// All 5 Bounty Tavern Spells (`Bigwig Bandit`).
+// Tier 5 Tavern Spells (15 = 14 below + SPELL_GOLDEN_TOUCH)
+pub const SPELL_ARMOR_STASH: CardId = 845;
+pub const SPELL_BROOD_OF_NOZDORMU: CardId = 846;
+pub const SPELL_BUTCHERING: CardId = 847;
+pub const SPELL_CHANNEL_THE_DEVOURER: CardId = 848;
+pub const SPELL_CONTRACTED_CORPSE: CardId = 849;
+pub const SPELL_CORRUPTED_COIN: CardId = 850;
+pub const SPELL_CORRUPTED_CUPCAKES: CardId = 851;
+pub const SPELL_ENERGIZING_CHAMBER: CardId = 852;
+pub const SPELL_FORESTS_BOUNTY: CardId = 853;
+pub const SPELL_HIRED_HEADHUNTER: CardId = 854;
+pub const SPELL_SALOONS_FINEST: CardId = 855;
+pub const SPELL_UNMASKED_IDENTITY: CardId = 856;
+pub const SPELL_UPPER_HAND: CardId = 857;
+pub const SPELL_WAVE_OF_GOLD: CardId = 858;
+
+/// All 5 Bounty Tavern Spells (`Bigwig Bandit`, `Shipwrecked Rascal`, `Proud Privateer`).
 pub const BOUNTY_SPELL_IDS: [CardId; 5] = [
     SPELL_FRIENDLY_BOUNTY,
     SPELL_HEALTHY_BOUNTY,
@@ -219,6 +236,33 @@ pub fn tier4_spells() -> Vec<Unit> {
     ]
 }
 
+/// All 15 active Tier 5 Tavern Spells (Patch 36.6.3).
+pub fn tier5_spells() -> Vec<Unit> {
+    vec![
+        make_tavern_spell(SPELL_ARMOR_STASH, "Armor Stash", 5, 3, false),
+        make_tavern_spell(SPELL_BROOD_OF_NOZDORMU, "Brood of Nozdormu", 5, 2, false),
+        make_tavern_spell(SPELL_BUTCHERING, "Butchering", 5, 3, false),
+        make_tavern_spell(
+            SPELL_CHANNEL_THE_DEVOURER,
+            "Channel the Devourer",
+            5,
+            4,
+            false,
+        ),
+        make_tavern_spell(SPELL_CONTRACTED_CORPSE, "Contracted Corpse", 5, 3, false),
+        make_tavern_spell(SPELL_CORRUPTED_COIN, "Corrupted Coin", 5, 2, false),
+        make_tavern_spell(SPELL_CORRUPTED_CUPCAKES, "Corrupted Cupcakes", 5, 4, false),
+        make_tavern_spell(SPELL_ENERGIZING_CHAMBER, "Energizing Chamber", 5, 1, false),
+        make_tavern_spell(SPELL_FORESTS_BOUNTY, "Forest's Bounty", 5, 2, false),
+        tokens::make_golden_touch(),
+        make_tavern_spell(SPELL_HIRED_HEADHUNTER, "Hired Headhunter", 5, 3, false),
+        make_tavern_spell(SPELL_SALOONS_FINEST, "Saloon's Finest", 5, 2, false),
+        make_tavern_spell(SPELL_UNMASKED_IDENTITY, "Unmasked Identity", 5, 3, false),
+        make_tavern_spell(SPELL_UPPER_HAND, "Upper Hand", 5, 3, false),
+        make_tavern_spell(SPELL_WAVE_OF_GOLD, "Wave of Gold", 5, 2, false),
+    ]
+}
+
 /// Return all Tavern Spells with `tavern_tier <= max_tier`.
 pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
     let mut list = tier1_spells();
@@ -231,7 +275,27 @@ pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
     if max_tier >= 4 {
         list.extend(tier4_spells());
     }
+    if max_tier >= 5 {
+        list.extend(tier5_spells());
+    }
     list
+}
+
+/// Look up a Tavern Spell or token spell by `CardId`.
+pub fn spell_by_id(card_id: CardId) -> Option<Unit> {
+    match card_id {
+        SPELL_BLOOD_GEM => return Some(tokens::make_blood_gem()),
+        tokens::SPELL_LOCKBOX => return Some(tokens::make_lockbox()),
+        SPELL_GEM_DAY => return Some(tokens::make_gem_day()),
+        SPELL_SLUDGE_CORROSION => return Some(tokens::make_sludge_corrosion()),
+        SPELL_GEM_CONFISCATION => return Some(tokens::make_gem_confiscation()),
+        SPELL_GOLDEN_TOUCH => return Some(tokens::make_golden_touch()),
+        SPELL_POINTY_ARROW => return Some(tokens::make_pointy_arrow()),
+        SPELL_ARCANE_ABSORPTION => return Some(tokens::make_arcane_absorption()),
+        SPELL_CONFLAGRATION => return Some(tokens::make_conflagration()),
+        _ => {}
+    }
+    spells_up_to_tier(6).into_iter().find(|s| s.card_id == card_id)
 }
 
 /// Look up a Tavern Spell or token spell by exact name.
@@ -245,6 +309,7 @@ pub fn spell_by_name(name: &str) -> Option<Unit> {
         "Golden Touch" => return Some(tokens::make_golden_touch()),
         "Pointy Arrow" => return Some(tokens::make_pointy_arrow()),
         "Arcane Absorption" => return Some(tokens::make_arcane_absorption()),
+        "Conflagration" => return Some(tokens::make_conflagration()),
         _ => {}
     }
     spells_up_to_tier(6).into_iter().find(|s| s.name == name)
@@ -361,6 +426,11 @@ pub fn spell_requires_board_target(card_id: CardId) -> bool {
             | SPELL_NATURAL_BLESSING
             | SPELL_POINTY_ARROW
             | SPELL_ARCANE_ABSORPTION
+            | SPELL_CONFLAGRATION
+            | SPELL_BUTCHERING
+            | SPELL_CHANNEL_THE_DEVOURER
+            | SPELL_CORRUPTED_CUPCAKES
+            | SPELL_FORESTS_BOUNTY
     )
 }
 
@@ -398,361 +468,479 @@ pub fn cast_spell(
 ) {
     let targeted = spell_requires_board_target(card.card_id);
     if is_tavern_spell(card.card_id) {
+        state.auras.last_tavern_spell_cast = Some(card.card_id);
         crate::cards::on_cast_tavern_spell(state);
     }
 
-    match card.card_id {
-        SPELL_BLOOD_GEM => {
-            if board_pos < state.board.len() {
-                let extra = crate::cards::extra_hand_blood_gem_casts(&state.board);
-                state.board[board_pos].play_blood_gems(1 + extra, &state.auras);
-                crate::cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+    let casts = if BOUNTY_SPELL_IDS.contains(&card.card_id) {
+        crate::cards::bounty_cast_multiplier(&state.board)
+    } else {
+        1
+    };
+
+    for _ in 0..casts {
+        match card.card_id {
+            SPELL_BLOOD_GEM => {
+                if board_pos < state.board.len() {
+                    let extra = crate::cards::extra_hand_blood_gem_casts(&state.board);
+                    state.board[board_pos].play_blood_gems(1 + extra, &state.auras);
+                    crate::cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+                }
             }
-        }
-        SPELL_POINTY_ARROW => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(4, 0);
-                state.board[board_pos].add_stats(atk, hp);
-            }
-        }
-        SPELL_ARCANE_ABSORPTION => {
-            if board_pos < state.board.len() {
-                let best = state
-                    .shop
-                    .iter()
-                    .filter(|u| !u.is_spell)
-                    .max_by_key(|u| (u.health, u.attack))
-                    .map(|u| (u.attack / 2, u.health / 2));
-                if let Some((base_atk, base_hp)) = best {
-                    let (atk, hp) = state.auras.spell_stat_buff(base_atk, base_hp);
+            SPELL_POINTY_ARROW => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(4, 0);
                     state.board[board_pos].add_stats(atk, hp);
                 }
             }
-        }
-        SPELL_TAVERN_COIN | SPELL_HASTY_EXCAVATION => {
-            let cap = 10 + state.auras.base_max_gold_bonus;
-            state.gold = (state.gold + 1).min(cap);
-        }
-        SPELL_GEM_DAY => {
-            let opt0 = make_choice_option(CHOICE_GEM_DAY_ATK, "Gem Day (+1 Attack)", false);
-            let opt1 = make_choice_option(CHOICE_GEM_DAY_HP, "Gem Day (+1 Health)", false);
-            state.resolve_choose_one(opt0, opt1, pool, rng);
-        }
-        SPELL_A_NEW_SPROUT => {
-            let mut opts = pool.draw_discover_options(1, 3, rng);
-            for opt in &mut opts {
-                state.apply_global_unit_auras(opt);
-            }
-            if !opts.is_empty() {
-                state.push_discover(opts);
-            }
-        }
-        SPELL_ALLIANCE_FLAG => {
-            if board_pos < state.board.len() {
-                state.pending_choice_target = Some(board_pos);
-                let opt0 = make_choice_option(CHOICE_ALLIANCE_ATK, "Alliance Flag (+3/+1)", false);
-                let opt1 = make_choice_option(CHOICE_ALLIANCE_HP, "Alliance Flag (+1/+3)", false);
-                state.resolve_choose_one(opt0, opt1, pool, rng);
-            }
-        }
-        SPELL_ENCHANTED_LASSO => {
-            let shop_minions: Vec<usize> = state
-                .shop
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| !u.is_spell)
-                .map(|(i, _)| i)
-                .collect();
-            if !shop_minions.is_empty() && state.hand.len() < 10 {
-                let pick = if shop_minions.len() == 1 {
-                    shop_minions[0]
-                } else {
-                    shop_minions[rng.below(shop_minions.len())]
-                };
-                let stolen = state.shop.remove(pick);
-                state.add_to_hand(stolen);
-            }
-        }
-        SPELL_FORTIFY => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(0, 3);
-                state.board[board_pos].add_stats(atk, hp);
-                state.board[board_pos].apply_keyword(Keyword::Taunt, false);
-            }
-        }
-        SPELL_RECRUIT_A_TRAINEE => {
-            if state.hand.len() < 10 {
-                if let Some(mut drawn) = pool.draw_from_pool(1, rng) {
-                    state.apply_global_unit_auras(&mut drawn);
-                    state.add_to_hand(drawn);
-                }
-            }
-        }
-        SPELL_TAVERN_DISH_BANANA => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(2, 2);
-                state.board[board_pos].add_stats(atk, hp);
-            }
-        }
-        SPELL_THEM_APPLES => {
-            let (atk, hp) = state.auras.spell_stat_buff(1, 2);
-            for u in &mut state.shop {
-                if !u.is_spell {
-                    u.add_stats(atk, hp);
-                }
-            }
-        }
-        SPELL_CHEFS_CHOICE => {
-            if board_pos < state.board.len() && state.hand.len() < 10 {
-                let target_tribe = state.board[board_pos].tribe;
-                let exclude_id = state.board[board_pos].card_id;
-                if let Some(mut drawn) =
-                    pool.draw_by_tribe(target_tribe, Some(exclude_id), state.tavern_tier, rng)
-                {
-                    state.apply_global_unit_auras(&mut drawn);
-                    state.add_to_hand(drawn);
-                }
-            }
-        }
-        SPELL_LEAF_THROUGH_THE_PAGES => {
-            state.auras.free_refreshes += 2;
-        }
-        SPELL_MIGHT_OF_STORMWIND => {
-            buff_random_friendly(state, 4, 1, 2, rng);
-        }
-        SPELL_SEARCH_THROUGH_TIME => {
-            let mut opts = pool.draw_discover_options(state.tavern_tier, 3, rng);
-            for opt in &mut opts {
-                state.apply_global_unit_auras(opt);
-                opt.locked_turns = 1;
-            }
-            if !opts.is_empty() {
-                state.push_discover(opts);
-            }
-        }
-        SPELL_STRIKE_OIL => {
-            state.auras.base_max_gold_bonus += 1;
-            state.max_gold += 1;
-        }
-        SPELL_WINNERS_BREAD => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(2, 3);
-                state.board[board_pos].add_stats(atk, hp);
-                state.board[board_pos].winners_bread_stacks += 1;
-            }
-        }
-        SPELL_CAREFUL_INVESTMENT => {
-            state.bonus_gold_next_turn += 2;
-        }
-        SPELL_FRIENDLY_BOUNTY => {
-            if state.hand.len() < 10 {
-                let tribe = most_common_tribe(&state.board, rng);
-                if let Some(mut drawn) = pool.draw_by_tribe(tribe, None, state.tavern_tier, rng) {
-                    state.apply_global_unit_auras(&mut drawn);
-                    state.add_to_hand(drawn);
-                }
-            }
-        }
-        SPELL_HEALTHY_BOUNTY => {
-            buff_random_friendly(state, 4, 0, 4, rng);
-        }
-        SPELL_HOSTILE_BOUNTY => {
-            buff_random_friendly(state, 4, 4, 0, rng);
-        }
-        SPELL_OVERCONFIDENCE => {
-            state.auras.overconfidence_stacks += 1;
-        }
-        SPELL_PLANAR_TELESCOPE => {
-            let tribe = most_common_tribe(&state.board, rng);
-            let mut opts = pool.draw_discover_by_tribe(tribe, state.tavern_tier, 3, rng);
-            for opt in &mut opts {
-                state.apply_global_unit_auras(opt);
-            }
-            if !opts.is_empty() {
-                state.push_discover(opts);
-            }
-        }
-        SPELL_REPAIR_JOB => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(4, 8);
-                state.board[board_pos].add_stats(atk, hp);
-            }
-        }
-        SPELL_ROBUST_EVOLUTION => {
-            if board_pos < state.board.len() {
-                let old = state.board[board_pos].clone();
-                let target_tier = (old.tavern_tier + 1).min(6);
-                let mut opts = pool.draw_discover_options(target_tier, 1, rng);
-                if let Some(mut evolved) = opts.pop() {
-                    pool.return_unit(&old);
-                    evolved.attack = old.attack;
-                    evolved.health = old.health;
-                    evolved.max_attack = old.attack.max(evolved.base_attack);
-                    evolved.max_health = old.health.max(evolved.base_health);
-                    crate::cards::check_stat_thresholds(&mut evolved);
-                    state.board[board_pos] = evolved;
-                    state.sync_all_auras();
-                }
-            }
-        }
-        SPELL_SEAFOOD_STEW => {
-            if board_pos < state.board.len() {
-                let kw_count = BONUS_KEYWORDS
-                    .iter()
-                    .filter(|&&kw| state.board.iter().any(|u| u.has_keyword(kw)))
-                    .count();
-                let repeats = (1 + kw_count) as i32;
-                let (atk, hp) = state.auras.spell_stat_buff(1, 1);
-                state.board[board_pos].add_stats(atk * repeats, hp * repeats);
-            }
-        }
-        SPELL_SELFISH_BOUNTY => {
-            if !state.board.is_empty() {
-                let (atk, hp) = state.auras.spell_stat_buff(6, 6);
-                state.board[0].add_stats(atk, hp);
-            }
-        }
-        SPELL_SHINY_RING | SPELL_SLUDGE_CORROSION => {
-            let (atk, hp) = state.auras.spell_stat_buff(1, 1);
-            for u in &mut state.board {
-                u.add_stats(atk, hp);
-            }
-        }
-        SPELL_STAFF_OF_ENRICHMENT => {
-            let (atk, hp) = state.auras.spell_stat_buff(2, 2);
-            state.auras.tavern_all_atk += atk;
-            state.auras.tavern_all_hp += hp;
-            for u in &mut state.shop {
-                if !u.is_spell {
-                    u.add_stats(atk, hp);
-                }
-            }
-        }
-        SPELL_TIME_MANAGEMENT => {
-            let opt0 = make_choice_option(CHOICE_TIME_MGMT_NOW, "Hurry Up (+2/+2 now)", false);
-            let opt1 = make_choice_option(
-                CHOICE_TIME_MGMT_LATER,
-                "Do It Later (+2/+2 twice next turn)",
-                false,
-            );
-            state.resolve_choose_one(opt0, opt1, pool, rng);
-        }
-        SPELL_TRICKY_TROUSERS => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(1, 2);
-                state.board[board_pos].add_stats(atk, hp);
-                state.board[board_pos].taunt = !state.board[board_pos].taunt;
-            }
-        }
-        SPELL_WEALTHY_BOUNTY => {
-            let cap = 10 + state.auras.base_max_gold_bonus;
-            state.gold = (state.gold + 2).min(cap);
-        }
-        SPELL_BLOOD_GEM_BARRAGE => {
-            state.auras.blood_gem_barrage_stacks += 1;
-        }
-        SPELL_BOON_OF_BEETLES => {
-            state.auras.boon_of_beetles_charges += 2;
-        }
-        SPELL_BOUNDLESS_POTENTIAL => {
-            let opt0 = make_choice_option(
-                CHOICE_BOUNDLESS_MINION,
-                "Way of the Warrior (Discover a minion of your Tier)",
-                false,
-            );
-            let opt1 = make_choice_option(
-                CHOICE_BOUNDLESS_SPELL,
-                "Way of the Mage (Discover a Tavern spell of your Tier)",
-                false,
-            );
-            state.resolve_choose_one(opt0, opt1, pool, rng);
-        }
-        SPELL_CLONING_CONCH => {
-            if let Some(mut drawn) =
-                pool.draw_by_tribe(Tribe::Murloc, None, state.tavern_tier, rng)
-            {
-                state.apply_global_unit_auras(&mut drawn);
-                let copy = drawn.clone();
-                state.add_to_hand(drawn);
-                state.add_to_hand(copy);
-            }
-        }
-        SPELL_DEFENDERS_RITES => {
-            if board_pos < state.board.len() {
-                let (atk, hp) = state.auras.spell_stat_buff(7, 7);
-                state.board[board_pos].add_stats(atk, hp);
-                state.board[board_pos].apply_keyword(Keyword::Taunt, false);
-            }
-        }
-        SPELL_EASTERLY_WINDS => {
-            let (atk, hp) = state.auras.spell_stat_buff(9, 9);
-            state.auras.refresh_random_buffs.push((atk, hp));
-        }
-        SPELL_EONARS_FAVOR => {
-            if board_pos < state.board.len() {
-                let target_tribe = state.board[board_pos].tribe;
-                if target_tribe != Tribe::None {
-                    let (atk, hp) = state.auras.spell_stat_buff(3, 3);
-                    state.auras.tavern_tribe_buffs.push((target_tribe, atk, hp));
-                    for u in &mut state.shop {
-                        if !u.is_spell && u.tribe.matches(target_tribe) {
-                            u.add_stats(atk, hp);
-                        }
-                    }
-                }
-            }
-        }
-        SPELL_METHODICAL_MADNESS => {
-            if board_pos < state.board.len() {
-                for _ in 0..2 {
-                    let shop_minions: Vec<usize> = state
+            SPELL_ARCANE_ABSORPTION => {
+                if board_pos < state.board.len() {
+                    let best = state
                         .shop
                         .iter()
-                        .enumerate()
-                        .filter(|(_, u)| !u.is_spell)
-                        .map(|(i, _)| i)
-                        .collect();
-                    if shop_minions.is_empty() {
-                        break;
+                        .filter(|u| !u.is_spell)
+                        .max_by_key(|u| (u.health, u.attack))
+                        .map(|u| (u.attack / 2, u.health / 2));
+                    if let Some((base_atk, base_hp)) = best {
+                        let (atk, hp) = state.auras.spell_stat_buff(base_atk, base_hp);
+                        state.board[board_pos].add_stats(atk, hp);
                     }
+                }
+            }
+            SPELL_CONFLAGRATION => {
+                if board_pos < state.board.len() {
+                    let base = 4 + state.elementals_played_this_turn as i32;
+                    let (atk, hp) = state.auras.spell_stat_buff(base, base);
+                    state.board[board_pos].add_stats(atk, hp);
+                }
+            }
+            SPELL_TAVERN_COIN | SPELL_HASTY_EXCAVATION => {
+                let cap = 10 + state.auras.base_max_gold_bonus;
+                state.gold = (state.gold + 1).min(cap);
+            }
+            SPELL_GEM_DAY => {
+                let opt0 = make_choice_option(CHOICE_GEM_DAY_ATK, "Gem Day (+1 Attack)", false);
+                let opt1 = make_choice_option(CHOICE_GEM_DAY_HP, "Gem Day (+1 Health)", false);
+                state.resolve_choose_one(opt0, opt1, pool, rng);
+            }
+            SPELL_A_NEW_SPROUT => {
+                let mut opts = pool.draw_discover_options(1, 3, rng);
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_ALLIANCE_FLAG => {
+                if board_pos < state.board.len() {
+                    state.pending_choice_target = Some(board_pos);
+                    let opt0 =
+                        make_choice_option(CHOICE_ALLIANCE_ATK, "Alliance Flag (+3/+1)", false);
+                    let opt1 =
+                        make_choice_option(CHOICE_ALLIANCE_HP, "Alliance Flag (+1/+3)", false);
+                    state.resolve_choose_one(opt0, opt1, pool, rng);
+                }
+            }
+            SPELL_ENCHANTED_LASSO => {
+                let shop_minions: Vec<usize> = state
+                    .shop
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, u)| !u.is_spell)
+                    .map(|(i, _)| i)
+                    .collect();
+                if !shop_minions.is_empty() && state.hand.len() < 10 {
                     let pick = if shop_minions.len() == 1 {
                         shop_minions[0]
                     } else {
                         shop_minions[rng.below(shop_minions.len())]
                     };
-                    let consumed = state.shop.remove(pick);
-                    pool.return_unit(&consumed);
-                    let target = &mut state.board[board_pos];
-                    target.add_stats(consumed.attack, consumed.health);
-                    for kw in BONUS_KEYWORDS {
-                        if consumed.has_keyword(kw) {
-                            target.apply_keyword(kw, false);
+                    let stolen = state.shop.remove(pick);
+                    state.add_to_hand(stolen);
+                }
+            }
+            SPELL_FORTIFY => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(0, 3);
+                    state.board[board_pos].add_stats(atk, hp);
+                    state.board[board_pos].apply_keyword(Keyword::Taunt, false);
+                }
+            }
+            SPELL_RECRUIT_A_TRAINEE => {
+                if state.hand.len() < 10 {
+                    if let Some(mut drawn) = pool.draw_from_pool(1, rng) {
+                        state.apply_global_unit_auras(&mut drawn);
+                        state.add_to_hand(drawn);
+                    }
+                }
+            }
+            SPELL_TAVERN_DISH_BANANA => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(2, 2);
+                    state.board[board_pos].add_stats(atk, hp);
+                }
+            }
+            SPELL_THEM_APPLES => {
+                let (atk, hp) = state.auras.spell_stat_buff(1, 2);
+                for u in &mut state.shop {
+                    if !u.is_spell {
+                        u.add_stats(atk, hp);
+                    }
+                }
+            }
+            SPELL_CHEFS_CHOICE => {
+                if board_pos < state.board.len() && state.hand.len() < 10 {
+                    let target_tribe = state.board[board_pos].tribe;
+                    let exclude_id = state.board[board_pos].card_id;
+                    if let Some(mut drawn) =
+                        pool.draw_by_tribe(target_tribe, Some(exclude_id), state.tavern_tier, rng)
+                    {
+                        state.apply_global_unit_auras(&mut drawn);
+                        state.add_to_hand(drawn);
+                    }
+                }
+            }
+            SPELL_LEAF_THROUGH_THE_PAGES => {
+                state.auras.free_refreshes += 2;
+            }
+            SPELL_MIGHT_OF_STORMWIND => {
+                buff_random_friendly(state, 4, 1, 2, rng);
+            }
+            SPELL_SEARCH_THROUGH_TIME => {
+                let mut opts = pool.draw_discover_options(state.tavern_tier, 3, rng);
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                    opt.locked_turns = 1;
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_STRIKE_OIL => {
+                state.auras.base_max_gold_bonus += 1;
+                state.max_gold += 1;
+            }
+            SPELL_WINNERS_BREAD => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(2, 3);
+                    state.board[board_pos].add_stats(atk, hp);
+                    state.board[board_pos].winners_bread_stacks += 1;
+                }
+            }
+            SPELL_CAREFUL_INVESTMENT => {
+                state.bonus_gold_next_turn += 2;
+            }
+            SPELL_FRIENDLY_BOUNTY => {
+                if state.hand.len() < 10 {
+                    let tribe = most_common_tribe(&state.board, rng);
+                    if let Some(mut drawn) =
+                        pool.draw_by_tribe(tribe, None, state.tavern_tier, rng)
+                    {
+                        state.apply_global_unit_auras(&mut drawn);
+                        state.add_to_hand(drawn);
+                    }
+                }
+            }
+            SPELL_HEALTHY_BOUNTY => {
+                buff_random_friendly(state, 4, 0, 4, rng);
+            }
+            SPELL_HOSTILE_BOUNTY => {
+                buff_random_friendly(state, 4, 4, 0, rng);
+            }
+            SPELL_OVERCONFIDENCE => {
+                state.auras.overconfidence_stacks += 1;
+            }
+            SPELL_PLANAR_TELESCOPE => {
+                let tribe = most_common_tribe(&state.board, rng);
+                let mut opts = pool.draw_discover_by_tribe(tribe, state.tavern_tier, 3, rng);
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_REPAIR_JOB => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(4, 8);
+                    state.board[board_pos].add_stats(atk, hp);
+                }
+            }
+            SPELL_ROBUST_EVOLUTION => {
+                if board_pos < state.board.len() {
+                    let old = state.board[board_pos].clone();
+                    let target_tier = (old.tavern_tier + 1).min(6);
+                    let mut opts = pool.draw_discover_options(target_tier, 1, rng);
+                    if let Some(mut evolved) = opts.pop() {
+                        pool.return_unit(&old);
+                        evolved.attack = old.attack;
+                        evolved.health = old.health;
+                        evolved.max_attack = old.attack.max(evolved.base_attack);
+                        evolved.max_health = old.health.max(evolved.base_health);
+                        crate::cards::check_stat_thresholds(&mut evolved);
+                        state.board[board_pos] = evolved;
+                        state.sync_all_auras();
+                    }
+                }
+            }
+            SPELL_SEAFOOD_STEW => {
+                if board_pos < state.board.len() {
+                    let kw_count = BONUS_KEYWORDS
+                        .iter()
+                        .filter(|&&kw| state.board.iter().any(|u| u.has_keyword(kw)))
+                        .count();
+                    let repeats = (1 + kw_count) as i32;
+                    let (atk, hp) = state.auras.spell_stat_buff(1, 1);
+                    state.board[board_pos].add_stats(atk * repeats, hp * repeats);
+                }
+            }
+            SPELL_SELFISH_BOUNTY => {
+                if !state.board.is_empty() {
+                    let (atk, hp) = state.auras.spell_stat_buff(6, 6);
+                    state.board[0].add_stats(atk, hp);
+                }
+            }
+            SPELL_SHINY_RING | SPELL_SLUDGE_CORROSION => {
+                let (atk, hp) = state.auras.spell_stat_buff(1, 1);
+                for u in &mut state.board {
+                    u.add_stats(atk, hp);
+                }
+            }
+            SPELL_STAFF_OF_ENRICHMENT => {
+                let (atk, hp) = state.auras.spell_stat_buff(2, 2);
+                state.auras.tavern_all_atk += atk;
+                state.auras.tavern_all_hp += hp;
+                for u in &mut state.shop {
+                    if !u.is_spell {
+                        u.add_stats(atk, hp);
+                    }
+                }
+            }
+            SPELL_TIME_MANAGEMENT => {
+                let opt0 = make_choice_option(CHOICE_TIME_MGMT_NOW, "Hurry Up (+2/+2 now)", false);
+                let opt1 = make_choice_option(
+                    CHOICE_TIME_MGMT_LATER,
+                    "Do It Later (+2/+2 twice next turn)",
+                    false,
+                );
+                state.resolve_choose_one(opt0, opt1, pool, rng);
+            }
+            SPELL_TRICKY_TROUSERS => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(1, 2);
+                    state.board[board_pos].add_stats(atk, hp);
+                    state.board[board_pos].taunt = !state.board[board_pos].taunt;
+                }
+            }
+            SPELL_WEALTHY_BOUNTY => {
+                let cap = 10 + state.auras.base_max_gold_bonus;
+                state.gold = (state.gold + 2).min(cap);
+            }
+            SPELL_BLOOD_GEM_BARRAGE => {
+                state.auras.blood_gem_barrage_stacks += 1;
+            }
+            SPELL_BOON_OF_BEETLES => {
+                state.auras.boon_of_beetles_charges += 2;
+            }
+            SPELL_BOUNDLESS_POTENTIAL => {
+                let opt0 = make_choice_option(
+                    CHOICE_BOUNDLESS_MINION,
+                    "Way of the Warrior (Discover a minion of your Tier)",
+                    false,
+                );
+                let opt1 = make_choice_option(
+                    CHOICE_BOUNDLESS_SPELL,
+                    "Way of the Mage (Discover a Tavern spell of your Tier)",
+                    false,
+                );
+                state.resolve_choose_one(opt0, opt1, pool, rng);
+            }
+            SPELL_CLONING_CONCH => {
+                if let Some(mut drawn) =
+                    pool.draw_by_tribe(Tribe::Murloc, None, state.tavern_tier, rng)
+                {
+                    state.apply_global_unit_auras(&mut drawn);
+                    let copy = drawn.clone();
+                    state.add_to_hand(drawn);
+                    state.add_to_hand(copy);
+                }
+            }
+            SPELL_DEFENDERS_RITES => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(7, 7);
+                    state.board[board_pos].add_stats(atk, hp);
+                    state.board[board_pos].apply_keyword(Keyword::Taunt, false);
+                }
+            }
+            SPELL_EASTERLY_WINDS => {
+                let (atk, hp) = state.auras.spell_stat_buff(9, 9);
+                state.auras.refresh_random_buffs.push((atk, hp));
+            }
+            SPELL_EONARS_FAVOR => {
+                if board_pos < state.board.len() {
+                    let target_tribe = state.board[board_pos].tribe;
+                    if target_tribe != Tribe::None {
+                        let (atk, hp) = state.auras.spell_stat_buff(3, 3);
+                        state.auras.tavern_tribe_buffs.push((target_tribe, atk, hp));
+                        for u in &mut state.shop {
+                            if !u.is_spell && u.tribe.matches(target_tribe) {
+                                u.add_stats(atk, hp);
+                            }
                         }
                     }
                 }
             }
-        }
-        SPELL_MIGHTY_DRAGONBREATH => {
-            let (atk, hp) = state.auras.spell_stat_buff(3, 2);
-            for u in &mut state.board {
-                u.add_stats(atk, hp);
-                if u.tribe.matches(Tribe::Dragon) {
-                    u.add_stats(atk, hp);
-                }
-                if u.divine_shield {
-                    u.add_stats(atk, hp);
+            SPELL_METHODICAL_MADNESS => {
+                if board_pos < state.board.len() {
+                    for _ in 0..2 {
+                        let shop_minions: Vec<usize> = state
+                            .shop
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, u)| !u.is_spell)
+                            .map(|(i, _)| i)
+                            .collect();
+                        if shop_minions.is_empty() {
+                            break;
+                        }
+                        let pick = if shop_minions.len() == 1 {
+                            shop_minions[0]
+                        } else {
+                            shop_minions[rng.below(shop_minions.len())]
+                        };
+                        let consumed = state.shop.remove(pick);
+                        pool.return_unit(&consumed);
+                        let target = &mut state.board[board_pos];
+                        target.add_stats(consumed.attack, consumed.health);
+                        for kw in BONUS_KEYWORDS {
+                            if consumed.has_keyword(kw) {
+                                target.apply_keyword(kw, false);
+                            }
+                        }
+                    }
                 }
             }
-        }
-        SPELL_MISPLACED_TEA_SET => {
-            let (atk, hp) = state.auras.spell_stat_buff(4, 4);
-            let mut chosen_indices: Vec<usize> = Vec::new();
-            for &tribe in &SINGLE_TRIBES {
+            SPELL_MIGHTY_DRAGONBREATH => {
+                let (atk, hp) = state.auras.spell_stat_buff(3, 2);
+                for u in &mut state.board {
+                    u.add_stats(atk, hp);
+                    if u.tribe.matches(Tribe::Dragon) {
+                        u.add_stats(atk, hp);
+                    }
+                    if u.divine_shield {
+                        u.add_stats(atk, hp);
+                    }
+                }
+            }
+            SPELL_MISPLACED_TEA_SET => {
+                let (atk, hp) = state.auras.spell_stat_buff(4, 4);
+                let mut chosen_indices: Vec<usize> = Vec::new();
+                for &tribe in &SINGLE_TRIBES {
+                    let candidates: Vec<usize> = state
+                        .board
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, u)| !chosen_indices.contains(i) && u.tribe.matches(tribe))
+                        .map(|(i, _)| i)
+                        .collect();
+                    if !candidates.is_empty() {
+                        let pick = if candidates.len() == 1 {
+                            candidates[0]
+                        } else {
+                            candidates[rng.below(candidates.len())]
+                        };
+                        chosen_indices.push(pick);
+                    }
+                }
+                for idx in chosen_indices {
+                    state.board[idx].add_stats(atk, hp);
+                }
+            }
+            SPELL_NATURAL_BLESSING => {
+                if board_pos < state.board.len() {
+                    let target_tribe = state.board[board_pos].tribe;
+                    if target_tribe != Tribe::None {
+                        let (atk, hp) = state.auras.spell_stat_buff(2, 1);
+                        for u in &mut state.board {
+                            if u.tribe.matches(target_tribe) {
+                                u.add_stats(atk, hp);
+                            }
+                        }
+                        for u in &mut state.shop {
+                            if !u.is_spell && u.tribe.matches(target_tribe) {
+                                u.add_stats(atk, hp);
+                            }
+                        }
+                    }
+                }
+            }
+            SPELL_TEMPERATURE_SHIFT => {
+                let mut fire = crate::cards::tier2::fire_baller::template().instantiate();
+                state.apply_global_unit_auras(&mut fire);
+                state.add_to_hand(fire);
+                let mut snow = crate::cards::tier2::snow_baller::template().instantiate();
+                state.apply_global_unit_auras(&mut snow);
+                state.add_to_hand(snow);
+            }
+            SPELL_TOMB_TURNING => {
+                let mut opts =
+                    pool.draw_discover_by_tribe(Tribe::Undead, state.tavern_tier, 3, rng);
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                    opt.dies_on_play_this_turn = true;
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_WEAPONS_FORGE => {
+                for _ in 0..3 {
+                    state.add_to_hand(tokens::make_pointy_arrow());
+                }
+            }
+            SPELL_GEM_CONFISCATION => {
+                if board_pos < state.board.len() {
+                    state.board[board_pos].play_blood_gems(3, &state.auras);
+                    let mut neighbor_indices = Vec::new();
+                    if board_pos > 0 {
+                        neighbor_indices.push(board_pos - 1);
+                    }
+                    if board_pos + 1 < state.board.len() {
+                        neighbor_indices.push(board_pos + 1);
+                    }
+                    let mut total_stolen_gems = 0u32;
+                    let mut total_stolen_atk = 0i32;
+                    let mut total_stolen_hp = 0i32;
+                    for n_idx in neighbor_indices {
+                        let neighbor = &mut state.board[n_idx];
+                        if neighbor.blood_gems_played > 0 {
+                            let (s_atk, s_hp) = neighbor.blood_gem_stats_applied;
+                            total_stolen_gems += neighbor.blood_gems_played;
+                            total_stolen_atk += s_atk;
+                            total_stolen_hp += s_hp;
+                            neighbor.attack = (neighbor.attack - s_atk).max(0);
+                            neighbor.health = (neighbor.health - s_hp).max(1);
+                            neighbor.blood_gems_played = 0;
+                            neighbor.blood_gem_stats_applied = (0, 0);
+                        }
+                    }
+                    if total_stolen_gems > 0 {
+                        let target = &mut state.board[board_pos];
+                        target.blood_gems_played += total_stolen_gems;
+                        target.blood_gem_stats_applied.0 += total_stolen_atk;
+                        target.blood_gem_stats_applied.1 += total_stolen_hp;
+                        target.add_stats(total_stolen_atk, total_stolen_hp);
+                    }
+                    crate::cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
+                }
+            }
+            SPELL_GOLDEN_TOUCH => {
                 let candidates: Vec<usize> = state
-                    .board
+                    .shop
                     .iter()
                     .enumerate()
-                    .filter(|(i, u)| !chosen_indices.contains(i) && u.tribe.matches(tribe))
+                    .filter(|(_, u)| !u.is_spell && !u.is_golden)
                     .map(|(i, _)| i)
                     .collect();
                 if !candidates.is_empty() {
@@ -761,114 +949,159 @@ pub fn cast_spell(
                     } else {
                         candidates[rng.below(candidates.len())]
                     };
-                    chosen_indices.push(pick);
+                    state.shop[pick].make_golden();
                 }
             }
-            for idx in chosen_indices {
-                state.board[idx].add_stats(atk, hp);
+            SPELL_ARMOR_STASH => {
+                state.armor = 5;
             }
-        }
-        SPELL_NATURAL_BLESSING => {
-            if board_pos < state.board.len() {
-                let target_tribe = state.board[board_pos].tribe;
-                if target_tribe != Tribe::None {
-                    let (atk, hp) = state.auras.spell_stat_buff(2, 1);
-                    for u in &mut state.board {
-                        if u.tribe.matches(target_tribe) {
-                            u.add_stats(atk, hp);
-                        }
-                    }
-                    for u in &mut state.shop {
-                        if !u.is_spell && u.tribe.matches(target_tribe) {
-                            u.add_stats(atk, hp);
-                        }
+            SPELL_BROOD_OF_NOZDORMU => {
+                state.auras.brood_of_nozdormu_stacks += 1;
+            }
+            SPELL_BUTCHERING => {
+                if board_pos < state.board.len()
+                    && state.board[board_pos].tribe.matches(Tribe::Undead)
+                {
+                    state.destroy_board_unit(board_pos, pool, rng);
+                    let (atk, _hp) = state.auras.spell_stat_buff(8, 0);
+                    state.auras.undead_bonus_attack += atk;
+                    state.sync_all_auras();
+                }
+            }
+            SPELL_CHANNEL_THE_DEVOURER => {
+                if board_pos < state.board.len() {
+                    let sold = state.board.remove(board_pos);
+                    let (sold_atk, sold_hp) = (sold.attack, sold.health);
+                    pool.return_unit(&sold);
+                    let cap = 10 + state.auras.base_max_gold_bonus;
+                    state.gold = (state.gold + 1).min(cap);
+                    crate::cards::on_sell(state, &sold, pool, rng);
+                    if !state.board.is_empty() {
+                        let pick = if state.board.len() == 1 {
+                            0
+                        } else {
+                            rng.below(state.board.len())
+                        };
+                        let (atk, hp) = state.auras.spell_stat_buff(sold_atk, sold_hp);
+                        state.board[pick].add_stats(atk, hp);
                     }
                 }
             }
-        }
-        SPELL_TEMPERATURE_SHIFT => {
-            let mut fire = crate::cards::tier2::fire_baller::template().instantiate();
-            state.apply_global_unit_auras(&mut fire);
-            state.add_to_hand(fire);
-            let mut snow = crate::cards::tier2::snow_baller::template().instantiate();
-            state.apply_global_unit_auras(&mut snow);
-            state.add_to_hand(snow);
-        }
-        SPELL_TOMB_TURNING => {
-            let mut opts = pool.draw_discover_by_tribe(Tribe::Undead, state.tavern_tier, 3, rng);
-            for opt in &mut opts {
-                state.apply_global_unit_auras(opt);
-                opt.dies_on_play_this_turn = true;
+            SPELL_CONTRACTED_CORPSE => {
+                let mut opts = pool.draw_discover_filtered(
+                    state.tavern_tier,
+                    3,
+                    crate::cards::is_deathrattle_minion,
+                    rng,
+                );
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
             }
-            if !opts.is_empty() {
+            SPELL_CORRUPTED_COIN => {
+                let cap = 10 + state.auras.base_max_gold_bonus;
+                state.gold = (state.gold + 2).min(cap);
+            }
+            SPELL_CORRUPTED_CUPCAKES => {
+                if board_pos < state.board.len()
+                    && state.board[board_pos].tribe.matches(Tribe::Demon)
+                {
+                    for _ in 0..3 {
+                        let shop_minions: Vec<usize> = state
+                            .shop
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, u)| !u.is_spell)
+                            .map(|(i, _)| i)
+                            .collect();
+                        if shop_minions.is_empty() {
+                            break;
+                        }
+                        let pick = if shop_minions.len() == 1 {
+                            shop_minions[0]
+                        } else {
+                            shop_minions[rng.below(shop_minions.len())]
+                        };
+                        let consumed = state.shop.remove(pick);
+                        pool.return_unit(&consumed);
+                        state.board[board_pos].add_stats(consumed.attack, consumed.health);
+                    }
+                }
+            }
+            SPELL_ENERGIZING_CHAMBER => {
+                let (atk, hp) = state.auras.spell_stat_buff(7, 7);
+                state.auras.deity.attack += atk;
+                state.auras.deity.health += hp;
+            }
+            SPELL_FORESTS_BOUNTY => {
+                if board_pos < state.board.len() {
+                    state.pending_choice_target = Some(board_pos);
+                    let opt0 = make_choice_option(
+                        CHOICE_FOREST_SINGLE,
+                        "Forest's Bounty (+6/+6 twice)",
+                        false,
+                    );
+                    let opt1 = make_choice_option(
+                        CHOICE_FOREST_ALL,
+                        "Forest's Bounty (+2/+2 to all)",
+                        false,
+                    );
+                    state.resolve_choose_one(opt0, opt1, pool, rng);
+                }
+            }
+            SPELL_HIRED_HEADHUNTER => {
+                let mut opts = pool.draw_discover_filtered(
+                    state.tavern_tier,
+                    3,
+                    crate::cards::is_battlecry_minion,
+                    rng,
+                );
+                for opt in &mut opts {
+                    state.apply_global_unit_auras(opt);
+                }
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_SALOONS_FINEST => {
+                state.is_frozen = false;
+                for old in state.shop.drain(..) {
+                    pool.return_unit(&old);
+                }
+                let cap = shop_capacity(state.tavern_tier);
+                for _ in 0..cap {
+                    state
+                        .shop
+                        .push(draw_random_tavern_spell(state.tavern_tier, rng));
+                }
+            }
+            SPELL_UNMASKED_IDENTITY => {
+                let opts = vec![
+                    make_choice_option(CHOICE_HP_1, "Hero Power Option 1", false),
+                    make_choice_option(CHOICE_HP_2, "Hero Power Option 2", false),
+                    make_choice_option(CHOICE_HP_3, "Hero Power Option 3", false),
+                ];
                 state.push_discover(opts);
             }
-        }
-        SPELL_WEAPONS_FORGE => {
-            for _ in 0..3 {
-                state.add_to_hand(tokens::make_pointy_arrow());
+            SPELL_UPPER_HAND => {
+                state.auras.upper_hand_stacks += 1;
             }
-        }
-        SPELL_GEM_CONFISCATION => {
-            if board_pos < state.board.len() {
-                state.board[board_pos].play_blood_gems(3, &state.auras);
-                let mut neighbor_indices = Vec::new();
-                if board_pos > 0 {
-                    neighbor_indices.push(board_pos - 1);
-                }
-                if board_pos + 1 < state.board.len() {
-                    neighbor_indices.push(board_pos + 1);
-                }
-                let mut total_stolen_gems = 0u32;
-                let mut total_stolen_atk = 0i32;
-                let mut total_stolen_hp = 0i32;
-                for n_idx in neighbor_indices {
-                    let neighbor = &mut state.board[n_idx];
-                    if neighbor.blood_gems_played > 0 {
-                        let (s_atk, s_hp) = neighbor.blood_gem_stats_applied;
-                        total_stolen_gems += neighbor.blood_gems_played;
-                        total_stolen_atk += s_atk;
-                        total_stolen_hp += s_hp;
-                        neighbor.attack = (neighbor.attack - s_atk).max(0);
-                        neighbor.health = (neighbor.health - s_hp).max(1);
-                        neighbor.blood_gems_played = 0;
-                        neighbor.blood_gem_stats_applied = (0, 0);
+            SPELL_WAVE_OF_GOLD => {
+                let (atk, hp) = state.auras.spell_stat_buff(3, 2);
+                for u in &mut state.board {
+                    u.add_stats(atk, hp);
+                    if u.is_golden {
+                        u.add_stats(atk, hp);
                     }
                 }
-                if total_stolen_gems > 0 {
-                    let target = &mut state.board[board_pos];
-                    target.blood_gems_played += total_stolen_gems;
-                    target.blood_gem_stats_applied.0 += total_stolen_atk;
-                    target.blood_gem_stats_applied.1 += total_stolen_hp;
-                    target.add_stats(total_stolen_atk, total_stolen_hp);
+            }
+            _ => {
+                if board_pos < state.board.len() {
+                    state.board[board_pos].add_stats(card.attack, card.health);
                 }
-                crate::cards::resolve_roogug_procs(&mut state.board, &state.auras, rng);
-            }
-        }
-        SPELL_GOLDEN_TOUCH => {
-            let candidates: Vec<usize> = state
-                .shop
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| !u.is_spell && !u.is_golden)
-                .map(|(i, _)| i)
-                .collect();
-            if !candidates.is_empty() {
-                let pick = if candidates.len() == 1 {
-                    candidates[0]
-                } else {
-                    candidates[rng.below(candidates.len())]
-                };
-                let target = &mut state.shop[pick];
-                target.is_golden = true;
-                target.add_stats(target.base_attack, target.base_health);
-                target.base_attack *= 2;
-                target.base_health *= 2;
-            }
-        }
-        _ => {
-            if board_pos < state.board.len() {
-                state.board[board_pos].add_stats(card.attack, card.health);
             }
         }
     }
@@ -876,4 +1109,6 @@ pub fn cast_spell(
     if targeted && board_pos < state.board.len() {
         crate::cards::after_cast_targeted_spell(state, board_pos);
     }
+
+    crate::cards::after_cast_any_spell(state, pool, rng);
 }

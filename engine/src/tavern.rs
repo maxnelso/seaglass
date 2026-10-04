@@ -3,7 +3,8 @@
 use crate::cards::tokens::{
     self, CHOICE_ALLIANCE_ATK, CHOICE_ALLIANCE_HP, CHOICE_BOTANIST_ATK, CHOICE_BOTANIST_HP,
     CHOICE_BOUNDLESS_MINION, CHOICE_BOUNDLESS_SPELL, CHOICE_CRATER_GEMS, CHOICE_CRATER_GEM_DAY,
-    CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS, CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP,
+    CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS, CHOICE_FOREST_ALL, CHOICE_FOREST_SINGLE,
+    CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP, CHOICE_HP_1, CHOICE_HP_2, CHOICE_HP_3,
     CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY, CHOICE_SLY_GEMS, CHOICE_SLY_REFRESHES,
     CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER, CHOICE_TIME_MGMT_NOW,
 };
@@ -271,6 +272,57 @@ impl CardPool {
         options
     }
 
+    /// Draw up to `count` distinct `card_id`s matching `predicate` with `tavern_tier <= max_tier` (`Contracted Corpse`, `Hired Headhunter`).
+    pub fn draw_discover_filtered<F>(
+        &mut self,
+        max_tier: u32,
+        count: usize,
+        predicate: F,
+        rng: &mut Rng,
+    ) -> Vec<Unit>
+    where
+        F: Fn(CardId) -> bool,
+    {
+        let mut options = Vec::with_capacity(count);
+        let mut chosen_ids = Vec::with_capacity(count);
+
+        for _ in 0..count {
+            let total_copies: u32 = self
+                .entries
+                .iter()
+                .filter(|e| {
+                    e.template.tavern_tier <= max_tier
+                        && e.remaining > 0
+                        && predicate(e.template.card_id)
+                        && !chosen_ids.contains(&e.template.card_id)
+                })
+                .map(|e| e.remaining)
+                .sum();
+
+            if total_copies == 0 {
+                break;
+            }
+
+            let mut pick = rng.below(total_copies as usize) as u32;
+            for entry in &mut self.entries {
+                if entry.template.tavern_tier <= max_tier
+                    && entry.remaining > 0
+                    && predicate(entry.template.card_id)
+                    && !chosen_ids.contains(&entry.template.card_id)
+                {
+                    if pick < entry.remaining {
+                        entry.remaining -= 1;
+                        chosen_ids.push(entry.template.card_id);
+                        options.push(entry.template.instantiate());
+                        break;
+                    }
+                    pick -= entry.remaining;
+                }
+            }
+        }
+        options
+    }
+
     /// Return a unit's copy (or 3 copies if tripled Golden) back to the shared card pool.
     pub fn return_unit(&mut self, unit: &Unit) {
         if unit.is_spell {
@@ -326,11 +378,13 @@ pub enum TavernAction {
 pub struct TavernState {
     pub turn: u32,
     pub health: i32,
+    pub armor: i32,
     pub tavern_tier: u32,
     pub max_gold: u32,
     pub gold: u32,
     pub bonus_gold_next_turn: u32,
     pub gold_spent_this_turn: u32,
+    pub elementals_played_this_turn: u32,
     pub upgrade_cost: u32,
     pub is_frozen: bool,
     pub board: Vec<Unit>,
@@ -357,11 +411,13 @@ impl TavernState {
         Self {
             turn: 0,
             health: 30,
+            armor: 0,
             tavern_tier: 1,
             max_gold: 0,
             gold: 0,
             bonus_gold_next_turn: 0,
             gold_spent_this_turn: 0,
+            elementals_played_this_turn: 0,
             upgrade_cost: base_upgrade_cost(1),
             is_frozen: false,
             board: Vec::new(),
@@ -385,13 +441,13 @@ impl TavernState {
     }
 
     /// Spend `amount` Gold, updating `gold_spent_this_turn` and firing `cards::on_gold_spent`.
-    pub fn spend_gold(&mut self, amount: u32) {
+    pub fn spend_gold(&mut self, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
         if amount == 0 {
             return;
         }
         self.gold -= amount;
         self.gold_spent_this_turn += amount;
-        cards::on_gold_spent(self, amount);
+        cards::on_gold_spent(self, amount, pool, rng);
     }
 
     /// Enqueue a Discover or Choose-One prompt (`discover_pending`).
@@ -460,6 +516,7 @@ impl TavernState {
         pool.return_unit(&dying);
         cards::on_unit_died(&dying, &mut self.board, &mut self.auras);
 
+        let dr_repeats = 1 + cards::extra_deathrattle_triggers(&self.board);
         let old_tavern_all = (self.auras.tavern_all_atk, self.auras.tavern_all_hp);
         let mut cursor = board_pos;
         let mut hand_summoned = vec![false; self.hand.len()];
@@ -480,7 +537,9 @@ impl TavernState {
                 rng,
                 events: &mut events,
             };
-            cards::on_deathrattle(&dying, &mut dr_ctx);
+            for _ in 0..dr_repeats {
+                cards::on_deathrattle(&dying, &mut dr_ctx);
+            }
         }
 
         let d_tavern_atk = self.auras.tavern_all_atk - old_tavern_all.0;
@@ -500,7 +559,14 @@ impl TavernState {
             reborn_copy.divine_shield = dying.divine_shield || dying.inherent_divine_shield;
             reborn_copy.sync_max_stats();
             let cid = reborn_copy.card_id;
-            self.board.insert(cursor.min(self.board.len()), reborn_copy);
+            let insert_pos = cursor.min(self.board.len());
+            self.board.insert(insert_pos, reborn_copy);
+            cards::tier5::lurking_leviathan::on_beast_summoned_tavern(&mut self.board, insert_pos);
+            cards::tier5::barrier_banshee::on_friendly_reborn(
+                Side::A,
+                &mut self.board,
+                &mut events,
+            );
             self.check_and_resolve_triple(cid);
         }
 
@@ -693,6 +759,31 @@ impl TavernState {
                 self.auras.base_max_gold_bonus += mult as u32;
                 self.max_gold += mult as u32;
             }
+            CHOICE_HP_1 => {
+                self.auras.hero_power_id = 1;
+            }
+            CHOICE_HP_2 => {
+                self.auras.hero_power_id = 2;
+            }
+            CHOICE_HP_3 => {
+                self.auras.hero_power_id = 3;
+            }
+            CHOICE_FOREST_SINGLE => {
+                if let Some(pos) = self.pending_choice_target {
+                    if pos < self.board.len() {
+                        let (atk, hp) = self.auras.spell_stat_buff(6, 6);
+                        for _ in 0..2 {
+                            self.board[pos].add_stats(atk, hp);
+                        }
+                    }
+                }
+            }
+            CHOICE_FOREST_ALL => {
+                let (atk, hp) = self.auras.spell_stat_buff(2, 2);
+                for b in &mut self.board {
+                    b.add_stats(atk, hp);
+                }
+            }
             _ => {}
         }
     }
@@ -875,6 +966,10 @@ impl TavernState {
         let won_last = self.last_combat_won;
         self.last_combat_won = false;
         self.gold_spent_this_turn = 0;
+        self.elementals_played_this_turn = 0;
+        self.auras.goldrinn_bonus = 0;
+        self.auras.brood_of_nozdormu_stacks = 0;
+        self.auras.upper_hand_stacks = 0;
 
         for u in &mut self.board {
             u.activated_this_turn = false;
@@ -1023,7 +1118,10 @@ impl TavernState {
         self.last_combat_won = res.outcome == BattleOutcome::AWin;
         self.last_combat_lost = res.outcome == BattleOutcome::BWin;
         if res.outcome == BattleOutcome::BWin {
-            self.health -= res.hero_damage as i32;
+            let dmg = res.hero_damage as i32;
+            let absorbed = dmg.min(self.armor.max(0));
+            self.armor -= absorbed;
+            self.health -= dmg - absorbed;
         }
         self.sync_all_auras();
 
@@ -1112,6 +1210,12 @@ impl TavernState {
                         matches!(
                             target_pos,
                             Some(t) if t < self.board.len() && t != board_pos && self.board[t].tribe.matches(Tribe::Undead)
+                        )
+                    }
+                    ActivateTargetKind::BoardOtherMurloc => {
+                        matches!(
+                            target_pos,
+                            Some(t) if t < self.board.len() && t != board_pos && self.board[t].tribe.matches(Tribe::Murloc)
                         )
                     }
                     ActivateTargetKind::BoardAny => {
@@ -1234,6 +1338,16 @@ impl TavernState {
                                     }
                                 }
                             }
+                            ActivateTargetKind::BoardOtherMurloc => {
+                                for (t_pos, t_unit) in self.board.iter().enumerate() {
+                                    if t_pos != b_pos && t_unit.tribe.matches(Tribe::Murloc) {
+                                        actions.push(TavernAction::Activate {
+                                            board_pos: b_pos,
+                                            target_pos: Some(t_pos),
+                                        });
+                                    }
+                                }
+                            }
                             ActivateTargetKind::BoardAny => {
                                 for t_pos in 0..self.board.len() {
                                     actions.push(TavernAction::Activate {
@@ -1296,11 +1410,11 @@ impl TavernState {
                     } else {
                         let cost = self.effective_spell_buy_cost(&unit);
                         self.auras.next_spell_discount = 0;
-                        self.spend_gold(cost);
+                        self.spend_gold(cost, pool, rng);
                     }
                     self.hand.push(unit);
                 } else {
-                    self.spend_gold(3);
+                    self.spend_gold(3, pool, rng);
                     for b in &mut self.board {
                         if b.living_prison_stacks > 0 {
                             let mult = b.living_prison_stacks as i32;
@@ -1352,6 +1466,10 @@ impl TavernState {
                 let was_tripled_golden = card.is_golden && !card.intrinsic_golden;
                 let should_die_on_play = card.dies_on_play_this_turn;
 
+                if played_tribe.matches(Tribe::Elemental) {
+                    self.elementals_played_this_turn += 1;
+                }
+
                 if was_golden_minion {
                     self.auras.golden_minions_played += 1;
                     self.sync_all_auras();
@@ -1383,6 +1501,8 @@ impl TavernState {
                             played_tribe,
                             board_pos,
                             true,
+                            pool,
+                            rng,
                         );
                     }
                     pool.return_unit(&card);
@@ -1391,7 +1511,15 @@ impl TavernState {
                     cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
                     let insert_idx = board_pos.min(self.board.len());
                     self.board.insert(insert_idx, card);
-                    cards::after_play_minion(self, played_card_id, played_tribe, insert_idx, false);
+                    cards::after_play_minion(
+                        self,
+                        played_card_id,
+                        played_tribe,
+                        insert_idx,
+                        false,
+                        pool,
+                        rng,
+                    );
                     if should_die_on_play
                         && insert_idx < self.board.len()
                         && self.board[insert_idx].dies_on_play_this_turn
@@ -1432,7 +1560,7 @@ impl TavernState {
                 let cid = self.board[board_pos].card_id;
                 let cost = cards::activate_cost(cid).unwrap_or(0);
                 self.board[board_pos].activated_this_turn = true;
-                self.spend_gold(cost);
+                self.spend_gold(cost, pool, rng);
                 cards::on_activate(self, board_pos, target_pos, pool, rng);
                 Ok(false)
             }
@@ -1449,14 +1577,14 @@ impl TavernState {
                     }
                     self.deal_hero_damage(1);
                 } else {
-                    self.spend_gold(1);
+                    self.spend_gold(1, pool, rng);
                 }
                 self.refresh_shop_free(pool, rng);
                 Ok(false)
             }
             TavernAction::UpgradeTavern => {
                 let cost = self.upgrade_cost;
-                self.spend_gold(cost);
+                self.spend_gold(cost, pool, rng);
                 self.tavern_tier += 1;
                 self.upgrade_cost = base_upgrade_cost(self.tavern_tier);
                 Ok(false)
@@ -1594,6 +1722,10 @@ impl TavernState {
         golden.wrathguard_bonus = copies.iter().map(|u| u.wrathguard_bonus).sum();
         golden.perm_atk_gained = copies.iter().map(|u| u.perm_atk_gained).sum();
         golden.perm_hp_gained = copies.iter().map(|u| u.perm_hp_gained).sum();
+        golden.perm_blood_gems_gained = copies.iter().map(|u| u.perm_blood_gems_gained).sum();
+        golden.hopebringer_stacks = copies.iter().map(|u| u.hopebringer_stacks).sum();
+        golden.leviathan_stacks = copies.iter().map(|u| u.leviathan_stacks).sum();
+        golden.spark_snapper_stacks = copies.iter().map(|u| u.spark_snapper_stacks).sum();
         golden.blood_gems_played = copies.iter().map(|u| u.blood_gems_played).sum();
         golden.blood_gem_stats_applied = (
             copies.iter().map(|u| u.blood_gem_stats_applied.0).sum(),

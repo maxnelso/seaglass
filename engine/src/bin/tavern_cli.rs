@@ -20,6 +20,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
     use cards::tier2::*;
     use cards::tier3::*;
     use cards::tier4::*;
+    use cards::tier5::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",
@@ -671,6 +672,254 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (twilight_tidehunter::ID, true) => {
             "Whenever you cast a spell on this, give left-most minion in hand +16/+16."
         }
+        // Tier 5 Minions
+        (air_revenant::ID, false) => "After you spend 7 Gold, cast Easterly Winds.",
+        (air_revenant::ID, true) => "After you spend 7 Gold, cast Easterly Winds twice.",
+        (insatiable_urzul::ID, false) => {
+            "Taunt. After you play a Demon, consume a shop minion to gain its stats."
+        }
+        (insatiable_urzul::ID, true) => {
+            "Taunt. After you play a Demon, consume a shop minion to gain double its stats."
+        }
+        (barrier_banshee::ID, false) => {
+            "After a friendly minion is Reborn, gain Divine Shield and +8/+8."
+        }
+        (barrier_banshee::ID, true) => {
+            "After a friendly minion is Reborn, gain Divine Shield and +16/+16."
+        }
+        (bile_spitter::ID, false) => {
+            "Venomous. Rally: Give another friendly Murloc Venomous."
+        }
+        (bile_spitter::ID, true) => {
+            "Venomous. Rally: Give 2 other friendly Murlocs Venomous."
+        }
+        (brann_bronzebeard::ID, false) => "Your Battlecries trigger twice.",
+        (brann_bronzebeard::ID, true) => "Your Battlecries trigger three times.",
+        (cataclysmic_harbinger::ID, false) => {
+            "End of Turn: Get a copy of the last Tavern spell you cast."
+        }
+        (cataclysmic_harbinger::ID, true) => {
+            "End of Turn: Get 2 copies of the last Tavern spell you cast."
+        }
+        (charging_czarina::ID, false) => {
+            "Divine Shield. Whenever you cast a Tavern spell, give Divine Shield minions +4 Attack."
+        }
+        (charging_czarina::ID, true) => {
+            "Divine Shield. Whenever you cast a Tavern spell, give Divine Shield minions +8 Attack."
+        }
+        (costume_enthusiast::ID, false) => {
+            "Divine Shield. Start of Combat: Gain Attack of your highest-Attack minion in hand."
+        }
+        (costume_enthusiast::ID, true) => {
+            "Divine Shield. Start of Combat: Gain double Attack of your highest-Attack minion in hand."
+        }
+        (de_volition_ist::ID, false) => {
+            "After this attacks, deal its Attack to the highest-Health enemy minion."
+        }
+        (de_volition_ist::ID, true) => {
+            "After this attacks, deal double its Attack to the highest-Health enemy minion."
+        }
+        (deft_deserter::ID, false) => {
+            "Activate (1g): Give shop minions +8/+8 and Taunt, Divine Shield, or Windfury."
+        }
+        (deft_deserter::ID, true) => {
+            "Activate (1g): Give shop minions +16/+16 and Taunt, Divine Shield, or Windfury."
+        }
+        (devilish_distractor::ID, false) => {
+            "Whenever you cast a spell on this, give shop minions +1/+2 this game."
+        }
+        (devilish_distractor::ID, true) => {
+            "Whenever you cast a spell on this, give shop minions +2/+4 this game."
+        }
+        (draconic_warden::ID, false) => "Battlecry & Deathrattle: Get a random Chromadrake.",
+        (draconic_warden::ID, true) => "Battlecry & Deathrattle: Get 2 random Chromadrakes.",
+        (drakkari_enchanter::ID, false) => "Your end of turn effects trigger twice.",
+        (drakkari_enchanter::ID, true) => "Your end of turn effects trigger three times.",
+        (drustfallen_butcher::ID, false) => "Avenge (4): Get a Butchering.",
+        (drustfallen_butcher::ID, true) => "Avenge (4): Get 2 Butcherings.",
+        (elite_navigator::ID, false) => "Battlecry: Make a Tier 4 or lower Pirate Golden.",
+        (elite_navigator::ID, true) => "Battlecry: Make 2 Tier 4 or lower Pirates Golden.",
+        (enterprising_escapee::ID, false) => {
+            "After you spend 6 Gold, get a Lockbox (or accelerate yours by 1 turn)."
+        }
+        (enterprising_escapee::ID, true) => {
+            "After you spend 6 Gold, get a Lockbox (or accelerate yours by 2 turns)."
+        }
+        (eternal_summoner::ID, false) => "Reborn. Deathrattle: Summon 1 Eternal Knight.",
+        (eternal_summoner::ID, true) => "Reborn. Deathrattle: Summon a Golden Eternal Knight.",
+        (eternal_tycoon::ID, false) => {
+            "Avenge (5): Summon an Eternal Knight. It attacks immediately."
+        }
+        (eternal_tycoon::ID, true) => {
+            "Avenge (5): Summon a Golden Eternal Knight. It attacks immediately."
+        }
+        (faceless_converter::ID, false) => {
+            "Deathrattle: Give your Deity +2/+1 (improved per Tavern spell cast)."
+        }
+        (faceless_converter::ID, true) => {
+            "Deathrattle: Give your Deity +4/+2 (improved per Tavern spell cast)."
+        }
+        (felboar::ID, false) => {
+            "After you cast 3 spells, consume a shop minion to gain its stats."
+        }
+        (felboar::ID, true) => {
+            "After you cast 3 spells, consume a shop minion to gain double its stats."
+        }
+        (felfire_conjurer::ID, false) => {
+            "End of Turn: Your Tavern spells give an extra +1/+1 this game."
+        }
+        (felfire_conjurer::ID, true) => {
+            "End of Turn: Your Tavern spells give an extra +2/+2 this game."
+        }
+        (firelands_fugitive::ID, false) => "Battlecry: Get a Conflagration.",
+        (firelands_fugitive::ID, true) => "Battlecry: Get 2 Conflagrations.",
+        (firescale_hoarder::ID, false) => "Battlecry & Deathrattle: Get a Shiny Ring.",
+        (firescale_hoarder::ID, true) => "Battlecry & Deathrattle: Get 2 Shiny Rings.",
+        (ghastcoiler::ID, false) => "Deathrattle: Summon 2 random Deathrattle minions.",
+        (ghastcoiler::ID, true) => "Deathrattle: Summon 4 random Deathrattle minions.",
+        (goldrinn_the_great_wolf::ID, false) => {
+            "Deathrattle: Your Beasts have +7/+7 until next turn."
+        }
+        (goldrinn_the_great_wolf::ID, true) => {
+            "Deathrattle: Your Beasts have +14/+14 until next turn."
+        }
+        (hackerfin::ID, false) => {
+            "Battlecry: Give your other minions +3/+2 (improved per Bonus Keyword)."
+        }
+        (hackerfin::ID, true) => {
+            "Battlecry: Give your other minions +6/+4 (improved per Bonus Keyword)."
+        }
+        (hopebringer::ID, false) => {
+            "Start of Combat: Give minions +4/+3 (improves when friendly loses Divine Shield)."
+        }
+        (hopebringer::ID, true) => {
+            "Start of Combat: Give minions +8/+6 (improves when friendly loses Divine Shield)."
+        }
+        (kalecgos_arcane_aspect::ID, false) => {
+            "After you trigger a Battlecry, give your Dragons +2/+2."
+        }
+        (kalecgos_arcane_aspect::ID, true) => {
+            "After you trigger a Battlecry, give your Dragons +4/+4."
+        }
+        (leeroy_the_reckless::ID, _) => "Deathrattle: Destroy the minion that killed this.",
+        (lichling_hoarder::ID, false) => {
+            "Avenge (3): Get a plain copy of a minion that started in your warband."
+        }
+        (lichling_hoarder::ID, true) => {
+            "Avenge (3): Get 2 plain copies of a minion that started in your warband."
+        }
+        (living_azerite::ID, false) => {
+            "Whenever you cast a Tavern spell, give Elementals in the Tavern +4/+3 this game."
+        }
+        (living_azerite::ID, true) => {
+            "Whenever you cast a Tavern spell, give Elementals in the Tavern +8/+6 this game."
+        }
+        (lurking_leviathan::ID, false) => {
+            "Whenever you summon a Beast, give it +3 Attack and improve this permanently."
+        }
+        (lurking_leviathan::ID, true) => {
+            "Whenever you summon a Beast, give it +6 Attack and improve this permanently."
+        }
+        (mindbender_ghursha::ID, false) => {
+            "Whenever you discard a card, give your other minions +4/+4."
+        }
+        (mindbender_ghursha::ID, true) => {
+            "Whenever you discard a card, give your other minions +8/+8."
+        }
+        (mysterious_kthir::ID, false) => {
+            "End of Turn: Discard 3 left-most Tavern spells. Gain +7/+7 for each."
+        }
+        (mysterious_kthir::ID, true) => {
+            "End of Turn: Discard 6 left-most Tavern spells. Gain +7/+7 for each."
+        }
+        (nightmare_par_tea_guest::ID, false) => {
+            "Battlecry & Deathrattle: Get a Misplaced Tea Set."
+        }
+        (nightmare_par_tea_guest::ID, true) => {
+            "Battlecry & Deathrattle: Get 2 Misplaced Tea Sets."
+        }
+        (nraqi_frostcaller::ID, false) => {
+            "Activate (0g): Discard a card for Tavern spells to give +1/+1 this game."
+        }
+        (nraqi_frostcaller::ID, true) => {
+            "Activate (0g): Discard a card for Tavern spells to give +2/+2 this game."
+        }
+        (nraqi_sapper::ID, false) => "Battlecry & Deathrattle: Get an Energizing Chamber.",
+        (nraqi_sapper::ID, true) => "Battlecry & Deathrattle: Get 2 Energizing Chambers.",
+        (primalfin_lookout::ID, false) => {
+            "Battlecry: If you control another Murloc, Discover a Murloc."
+        }
+        (primalfin_lookout::ID, true) => {
+            "Battlecry: If you control another Murloc, Discover 2 Murlocs."
+        }
+        (proud_privateer::ID, false) => "Your Bounties cast twice.",
+        (proud_privateer::ID, true) => "Your Bounties cast three times.",
+        (razorfen_vineweaver::ID, false) => {
+            "Rally: This plays 4 permanent Blood Gems on itself."
+        }
+        (razorfen_vineweaver::ID, true) => {
+            "Rally: This plays 8 permanent Blood Gems on itself."
+        }
+        (resourceful_robot::ID, false) => {
+            "End of Turn: Magnetize a random Volumizer to this and get a copy of it."
+        }
+        (resourceful_robot::ID, true) => {
+            "End of Turn: Magnetize 2 random Volumizers to this and get copies of them."
+        }
+        (rodeo_performer::ID, false) => "Battlecry: Discover a Tavern spell.",
+        (rodeo_performer::ID, true) => "Battlecry: Discover 2 Tavern spells.",
+        (sanguine_refiner::ID, false) => {
+            "Rally: Your Blood Gems give an extra +1/+2 this game."
+        }
+        (sanguine_refiner::ID, true) => {
+            "Rally: Your Blood Gems give an extra +2/+4 this game."
+        }
+        (sewer_escapee::ID, false) => {
+            "Activate (1g): Give another Murloc +7/+7 and a random Bonus Keyword."
+        }
+        (sewer_escapee::ID, true) => {
+            "Activate (1g): Give another Murloc +14/+14 and a random Bonus Keyword."
+        }
+        (sewer_lord::ID, false) => {
+            "Deathrattle: Summon two 3/2 Sewer Rats that summon 2/3 Taunt Turtles."
+        }
+        (sewer_lord::ID, true) => {
+            "Deathrattle: Summon two 6/4 Sewer Rats that summon 4/6 Taunt Turtles."
+        }
+        (shamanic_tidecaller::ID, false) => {
+            "Whenever you cast a spell on a Murloc, give Murlocs in hand & board +3/+3."
+        }
+        (shamanic_tidecaller::ID, true) => {
+            "Whenever you cast a spell on a Murloc, give Murlocs in hand & board +6/+6."
+        }
+        (ship_master_eudora::ID, false) => {
+            "Deathrattle: Give your minions +6/+6. Golden ones keep it permanently."
+        }
+        (ship_master_eudora::ID, true) => {
+            "Deathrattle: Give your minions +12/+12. Golden ones keep it permanently."
+        }
+        (shipwrecked_rascal::ID, false) => {
+            "Battlecry & Deathrattle: Get a random Bounty."
+        }
+        (shipwrecked_rascal::ID, true) => {
+            "Battlecry & Deathrattle: Get 2 random Bounties."
+        }
+        (spark_snapper::ID, false) => {
+            "Whenever you play a Mech, Magnetize a 2/3 Satellite to it and improve this."
+        }
+        (spark_snapper::ID, true) => {
+            "Whenever you play a Mech, Magnetize a 4/6 Satellite to it and improve this."
+        }
+        (tichondrius::ID, false) => "After your hero takes damage, give your Demons +4/+4.",
+        (tichondrius::ID, true) => "After your hero takes damage, give your Demons +8/+8.",
+        (titus_rivendare::ID, false) => "Your Deathrattles trigger an extra time.",
+        (titus_rivendare::ID, true) => "Your Deathrattles trigger 2 extra times.",
+        (turquoise_skitterer::ID, false) => {
+            "Deathrattle: Your Beetles have +5/+5 this game. Summon a 2/2 Beetle."
+        }
+        (turquoise_skitterer::ID, true) => {
+            "Deathrattle: Your Beetles have +10/+10 this game. Summon two 2/2 Beetles."
+        }
         // Tokens & Spells
         (tokens::TOKEN_ABERRANT_TENTACLE, _) => "Taunt.",
         (tokens::TOKEN_WATER_DROPLET, _) => "Token Elemental.",
@@ -678,6 +927,9 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (tokens::TOKEN_FISHBAIT, _) => "Cannot gain stats. Deathrattle: Give killer +5/+5.",
         (tokens::TOKEN_HELPING_HAND, _) => "Reborn.",
         (tokens::TOKEN_SATELLITE, _) => "Token Mech.",
+        (tokens::TOKEN_SEWER_RAT, false) => "Deathrattle: Summon a 2/3 Turtle with Taunt.",
+        (tokens::TOKEN_SEWER_RAT, true) => "Deathrattle: Summon a 4/6 Turtle with Taunt.",
+        (tokens::TOKEN_HALF_SHELL, _) => "Taunt.",
         (tokens::TOKEN_BLUE_CHROMADRAKE, _) => "Battlecry: Get a random 2-Cost Tavern spell.",
         (tokens::TOKEN_BLACK_CHROMADRAKE, _) => {
             "Battlecry: Your Tavern spells give an extra +1 Health this game."
@@ -697,10 +949,13 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (tokens::SPELL_GEM_CONFISCATION, _) => {
             "Spell: Play 3 Blood Gems on a minion and steal all Blood Gems from its neighbors."
         }
-        (tokens::SPELL_GOLDEN_TOUCH, _) => "Spell: Make a random minion in the Tavern Golden.",
+        (tokens::SPELL_GOLDEN_TOUCH, _) => "Spell (5g): Make a random minion in the Tavern Golden.",
         (tokens::SPELL_POINTY_ARROW, _) => "Spell (1g): Give a minion +4 Attack.",
         (tokens::SPELL_ARCANE_ABSORPTION, _) => {
             "Spell (0g): Consume a minion in the Tavern to give a Demon its stats."
+        }
+        (tokens::SPELL_CONFLAGRATION, _) => {
+            "Spell (0g): Give a minion +3/+3; Your Tavern spells give an extra +1/+1 this game."
         }
         (SPELL_A_NEW_SPROUT, _) => "Spell (3g): Discover a Tier 1 minion.",
         (SPELL_ALLIANCE_FLAG, _) => "Spell (1g): Choose One — Give a minion +3/+1 or +1/+3.",
@@ -787,6 +1042,39 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         }
         (SPELL_WEAPONS_FORGE, _) => {
             "Spell (2g): Give a minion +2/+2 for each Bonus Keyword in your warband."
+        }
+        // Tier 5 Spells
+        (SPELL_ARMOR_STASH, _) => "Spell (3g): Set your Armor to 5.",
+        (SPELL_BROOD_OF_NOZDORMU, _) => {
+            "Spell (2g): Start of Combat — Double your left-most minion's Attack."
+        }
+        (SPELL_BUTCHERING, _) => {
+            "Spell (3g): Destroy a friendly Undead. Your Undead have +8 Attack this game."
+        }
+        (SPELL_CHANNEL_THE_DEVOURER, _) => {
+            "Spell (4g): Sell a friendly minion. Give its stats to a random friendly minion."
+        }
+        (SPELL_CONTRACTED_CORPSE, _) => "Spell (3g): Discover a Deathrattle minion.",
+        (SPELL_CORRUPTED_COIN, _) => {
+            "Spell (2g): Gain 2 Gold. If you discard this, increase your maximum Gold by 2."
+        }
+        (SPELL_CORRUPTED_CUPCAKES, _) => {
+            "Spell (4g): Choose a Demon. It consumes 3 random shop minions to gain their stats."
+        }
+        (SPELL_ENERGIZING_CHAMBER, _) => {
+            "Spell (1g): Give your Deity +7/+7. If you discard this, cast it twice."
+        }
+        (SPELL_FORESTS_BOUNTY, _) => {
+            "Spell (2g): Choose One — Give a minion +6/+6 twice; or Give your minions +2/+2."
+        }
+        (SPELL_HIRED_HEADHUNTER, _) => "Spell (3g): Discover a Battlecry minion.",
+        (SPELL_SALOONS_FINEST, _) => "Spell (2g): Refresh the Tavern with Tavern spells.",
+        (SPELL_UNMASKED_IDENTITY, _) => "Spell (3g): Discover a new Hero Power.",
+        (SPELL_UPPER_HAND, _) => {
+            "Spell (3g): Start of Combat — Set a random enemy minion's Health to 1."
+        }
+        (SPELL_WAVE_OF_GOLD, _) => {
+            "Spell (2g): Give your minions +3/+2. Give Golden ones another +3/+2."
         }
         _ => "",
     }

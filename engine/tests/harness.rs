@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 use seaglass::cards::{spells, tier1, tier2, tier3, tokens};
 use seaglass::{
     catalog_for, full_catalog, parse_unit, run_scenario, run_tavern_scenario, simulate,
-    simulate_batch, tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, BattleOutcome,
-    CardPool, Defaults, DeityKind, Event, GameState, Keyword, Rng, Scenario, Side, TavernAction,
-    TavernScenario, TavernState, Tribe, Unit,
+    simulate_batch, tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, tier5_catalog,
+    BattleOutcome, CardPool, Defaults, DeityKind, Event, GameState, Keyword, Rng, Scenario, Side,
+    TavernAction, TavernScenario, TavernState, Tribe, Unit,
 };
 
 fn collect_yaml_files(dir: &Path) -> Vec<PathBuf> {
@@ -113,7 +113,7 @@ fn tier1_catalog_contains_all_21_live_solo_minions() {
 fn tier2_catalog_contains_all_34_live_solo_minions_and_15_spells() {
     let cards = tier2_catalog();
     assert_eq!(cards.len(), 34);
-    assert_eq!(full_catalog().len(), 156);
+    assert_eq!(full_catalog().len(), 208);
 
     let names: Vec<&str> = cards.iter().map(|c| c.name.as_str()).collect();
     let expected = [
@@ -898,7 +898,7 @@ fn tier3_tavern_minions_and_spells_work_end_to_end() {
 fn tier4_catalog_contains_all_58_live_solo_minions_and_16_spells() {
     let cards = tier4_catalog();
     assert_eq!(cards.len(), 58);
-    assert_eq!(full_catalog().len(), 156);
+    assert_eq!(full_catalog().len(), 208);
     assert_eq!(catalog_for("tier4").unwrap().len(), 58);
 
     for (idx, card) in cards.iter().enumerate() {
@@ -911,4 +911,23 @@ fn tier4_catalog_contains_all_58_live_solo_minions_and_16_spells() {
 
     assert_eq!(spells::tier4_spells().len(), 16);
     assert_eq!(spells::spells_up_to_tier(4).len(), 46);
+}
+
+#[test]
+fn tier5_catalog_contains_all_52_live_solo_minions_and_15_spells() {
+    let cards = tier5_catalog();
+    assert_eq!(cards.len(), 52);
+    assert_eq!(full_catalog().len(), 208);
+    assert_eq!(catalog_for("tier5").unwrap().len(), 52);
+
+    for (idx, card) in cards.iter().enumerate() {
+        assert_eq!(card.tavern_tier, 5);
+        assert!(card.card_id >= 501 && card.card_id <= 552);
+        for other in &cards[idx + 1..] {
+            assert_ne!(card.card_id, other.card_id);
+        }
+    }
+
+    assert_eq!(spells::tier5_spells().len(), 15);
+    assert_eq!(spells::spells_up_to_tier(5).len(), 61);
 }
