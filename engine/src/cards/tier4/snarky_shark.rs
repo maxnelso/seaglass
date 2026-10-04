@@ -13,7 +13,7 @@ pub const ID: CardId = 454;
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Snarky Shark", 4, 5, 4)
         .with_tribe(Tribe::Beast)
-        .on_sell(|state, sold, pool, rng| on_sell(state, sold, pool, rng))
+        .on_sell(on_sell)
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {

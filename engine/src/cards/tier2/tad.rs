@@ -12,7 +12,7 @@ pub const NAME: &str = "Tad";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 2, 2)
         .with_tribe(Tribe::Murloc)
-        .on_sell(|state, sold, pool, rng| on_sell(state, sold, pool, rng))
+        .on_sell(on_sell)
 }
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {

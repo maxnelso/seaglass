@@ -12,7 +12,7 @@ pub const NAME: &str = "Patient Scout";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 1, 1, 2)
         .with_tribe(Tribe::None)
-        .on_sell(|state, sold, pool, rng| on_sell(state, sold, pool, rng))
+        .on_sell(on_sell)
         .on_turn_start_unit(on_start_turn)
 }
 
