@@ -1,0 +1,8 @@
+[package]
+name = "seaglass_tools"
+version = "0.1.0"
+edition = "2021"
+description = "Developer CLI tools and match simulators for seaglass"
+
+[dependencies]
+seaglass = { path = "../engine" }

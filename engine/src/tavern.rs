@@ -571,11 +571,7 @@ impl TavernState {
         }
 
         if dying.reborn && self.board.len() < MAX_BOARD_SIZE {
-            let mut reborn_copy = dying.clone();
-            reborn_copy.health = 1;
-            reborn_copy.reborn = false;
-            reborn_copy.divine_shield = dying.divine_shield || dying.inherent_divine_shield;
-            reborn_copy.sync_max_stats();
+            let reborn_copy = cards::make_reborn_copy(&dying, &self.auras);
             let cid = reborn_copy.card_id;
             let reborn_atk = reborn_copy.attack;
             let insert_pos = cursor.min(self.board.len());
@@ -1163,6 +1159,81 @@ impl TavernState {
         b
     }
 
+    fn apply_post_combat_side(
+        &mut self,
+        side: Side,
+        pre_combat_snapshot: &[Unit],
+        res: &BattleResult,
+        seed: u64,
+    ) {
+        let (new_auras, new_hand, survivors, dead_units, won, lost) = match side {
+            Side::A => (
+                res.auras_a.clone(),
+                res.hand_a.clone(),
+                &res.survivors_a,
+                &res.dead_units_a,
+                res.outcome == BattleOutcome::AWin,
+                res.outcome == BattleOutcome::BWin,
+            ),
+            Side::B => (
+                res.auras_b.clone(),
+                res.hand_b.clone(),
+                &res.survivors_b,
+                &res.dead_units_b,
+                res.outcome == BattleOutcome::BWin,
+                res.outcome == BattleOutcome::AWin,
+            ),
+        };
+
+        let d_tavern_atk = new_auras.tavern_all_atk - self.auras.tavern_all_atk;
+        let d_tavern_hp = new_auras.tavern_all_hp - self.auras.tavern_all_hp;
+        self.auras = new_auras;
+        if d_tavern_atk != 0 || d_tavern_hp != 0 {
+            for s in &mut self.shop {
+                if !s.is_spell {
+                    s.add_stats(d_tavern_atk, d_tavern_hp);
+                }
+            }
+        }
+
+        let overconf = self.auras.overconfidence_stacks;
+        self.auras.overconfidence_stacks = 0;
+        if overconf > 0 {
+            if won {
+                self.bonus_gold_next_turn += 3 * overconf;
+            } else if res.outcome == BattleOutcome::Draw {
+                self.bonus_gold_next_turn += overconf;
+            }
+        }
+        self.hand = new_hand;
+        let lockbox_salt = match side {
+            Side::A => 0x9E37_79B9_7F4A_7C15,
+            Side::B => 0xBF58_476D_1CE4_E5B9,
+        };
+        let mut lockbox_rng = Rng::new(seed ^ lockbox_salt);
+        self.open_ready_lockboxes(&mut lockbox_rng);
+
+        let mut post_units = survivors.clone();
+        post_units.extend_from_slice(dead_units);
+        for (idx, tavern_unit) in self.board.iter_mut().enumerate() {
+            cards::on_post_combat_unit(pre_combat_snapshot, idx, &post_units, tavern_unit);
+        }
+
+        self.last_combat_won = won;
+        self.last_combat_lost = lost;
+        if lost {
+            let dmg = res.hero_damage as i32;
+            let absorbed = dmg.min(self.armor.max(0));
+            self.armor -= absorbed;
+            let net_dmg = dmg - absorbed;
+            self.health -= net_dmg;
+            if net_dmg > 0 {
+                cards::tier6::eredar_escapist::on_hero_damage_taken(self, net_dmg);
+            }
+        }
+        self.sync_all_auras();
+    }
+
     /// Run a combat phase against an opponent and apply all Combat-to-Tavern persistence.
     pub fn resolve_combat_against(
         &mut self,
@@ -1189,41 +1260,47 @@ impl TavernState {
         };
 
         let res = resolve_battle(&board_a, opponent_board, &game_state, seed);
+        self.apply_post_combat_side(Side::A, &pre_combat_snapshot, &res, seed);
+        res
+    }
 
-        self.auras = res.auras_a.clone();
-        let overconf = self.auras.overconfidence_stacks;
-        self.auras.overconfidence_stacks = 0;
-        if overconf > 0 {
-            match res.outcome {
-                BattleOutcome::AWin => self.bonus_gold_next_turn += 3 * overconf,
-                BattleOutcome::Draw => self.bonus_gold_next_turn += overconf,
-                BattleOutcome::BWin => {}
-            }
+    /// Run a symmetric head-to-head combat phase between `player_a` and `player_b`,
+    /// applying all Combat-to-Tavern persistence and hero damage to both players.
+    pub fn resolve_combat_pair(
+        player_a: &mut TavernState,
+        player_b: &mut TavernState,
+        seed: u64,
+    ) -> BattleResult {
+        player_a.sync_all_auras();
+        player_b.sync_all_auras();
+
+        let mut board_a = player_a.board.clone();
+        board_a.truncate(MAX_BOARD_SIZE);
+        for (i, u) in board_a.iter_mut().enumerate() {
+            u.id = i as u32;
         }
-        self.hand = res.hand_a.clone();
-        let mut lockbox_rng = Rng::new(seed ^ 0x9E37_79B9_7F4A_7C15);
-        self.open_ready_lockboxes(&mut lockbox_rng);
+        let pre_a = board_a.clone();
 
-        let mut post_units = res.survivors_a.clone();
-        post_units.extend_from_slice(&res.dead_units_a);
-        for (idx, tavern_unit) in self.board.iter_mut().enumerate() {
-            cards::on_post_combat_unit(&pre_combat_snapshot, idx, &post_units, tavern_unit);
+        let mut board_b = player_b.board.clone();
+        board_b.truncate(MAX_BOARD_SIZE);
+        let offset = board_a.len() as u32;
+        for (i, u) in board_b.iter_mut().enumerate() {
+            u.id = offset + i as u32;
         }
+        let pre_b = board_b.clone();
 
-        self.last_combat_won = res.outcome == BattleOutcome::AWin;
-        self.last_combat_lost = res.outcome == BattleOutcome::BWin;
-        if res.outcome == BattleOutcome::BWin {
-            let dmg = res.hero_damage as i32;
-            let absorbed = dmg.min(self.armor.max(0));
-            self.armor -= absorbed;
-            let net_dmg = dmg - absorbed;
-            self.health -= net_dmg;
-            if net_dmg > 0 {
-                cards::tier6::eredar_escapist::on_hero_damage_taken(self, net_dmg);
-            }
-        }
-        self.sync_all_auras();
+        let game_state = GameState {
+            hero_tier_a: player_a.tavern_tier,
+            hero_tier_b: player_b.tavern_tier,
+            auras_a: player_a.auras.clone(),
+            auras_b: player_b.auras.clone(),
+            hand_a: player_a.hand.clone(),
+            hand_b: player_b.hand.clone(),
+        };
 
+        let res = resolve_battle(&board_a, &board_b, &game_state, seed);
+        player_a.apply_post_combat_side(Side::A, &pre_a, &res, seed);
+        player_b.apply_post_combat_side(Side::B, &pre_b, &res, seed);
         res
     }
 

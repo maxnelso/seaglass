@@ -1379,12 +1379,20 @@ fn resolve_deaths(
 
         // 2. Reborn resummon
         if unit.reborn && rebuilt.len() < MAX_BOARD_SIZE {
-            let mut reborn_copy = unit.clone();
+            let mut reborn_copy = cards::make_reborn_copy(&unit, &side_state.auras);
             reborn_copy.id = *next_id;
             *next_id += 1;
-            reborn_copy.health = 1;
-            reborn_copy.reborn = false;
-            reborn_copy.divine_shield = unit.divine_shield || unit.inherent_divine_shield;
+            if reborn_copy.tribe.matches(Tribe::Beast) {
+                if side_state.auras.goldrinn_bonus != 0 {
+                    reborn_copy.add_stats(
+                        side_state.auras.goldrinn_bonus,
+                        side_state.auras.goldrinn_bonus,
+                    );
+                }
+                if side_state.combat_beast_bonus_atk != 0 {
+                    reborn_copy.add_stats(side_state.combat_beast_bonus_atk, 0);
+                }
+            }
             cards::tier5::lurking_leviathan::on_beast_summoned_combat(
                 &mut rebuilt,
                 reborn_copy.id,
@@ -1401,6 +1409,7 @@ fn resolve_deaths(
                 &mut reborn_copy,
             );
             reborn_copy.sync_max_stats();
+            cards::check_stat_thresholds(&mut reborn_copy);
             let reborn_atk = reborn_copy.attack;
             events.push(Event::UnitSummoned {
                 side,

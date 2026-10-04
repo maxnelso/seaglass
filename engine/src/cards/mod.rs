@@ -645,6 +645,47 @@ pub fn sync_board_spell_auras(board: &[Unit], auras: &mut PlayerAuras) {
     auras.board_spell_bonus_applied = (total_atk, total_hp);
 }
 
+/// Construct the Reborn resummon copy of `dying` (base or Golden-base copy with `health = 1`, `reborn = false`,
+/// printed keywords restored, and global auras applied).
+pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
+    let catalog = full_catalog();
+    let mut copy = if let Some(tpl) = catalog.iter().find(|t| t.card_id == dying.card_id) {
+        let mut u = tpl.instantiate();
+        if dying.is_golden {
+            u.make_golden();
+            u.intrinsic_golden = dying.intrinsic_golden;
+        }
+        u
+    } else if let Some(mut tok) = tokens::make_plain_token(dying, &PlayerAuras::default()) {
+        if dying.is_golden {
+            tok.make_golden();
+            tok.intrinsic_golden = dying.intrinsic_golden;
+        }
+        tok
+    } else {
+        let mut u = Unit::new(dying.name.clone(), dying.base_attack, dying.base_health)
+            .with_card_id(dying.card_id)
+            .with_tavern_tier(dying.tavern_tier)
+            .with_tribe(dying.tribe)
+            .with_golden(dying.is_golden);
+        u.intrinsic_golden = dying.intrinsic_golden;
+        u.taunt = dying.taunt;
+        u.divine_shield = dying.inherent_divine_shield;
+        u.inherent_divine_shield = dying.inherent_divine_shield;
+        u.windfury = dying.windfury;
+        u.venomous = dying.venomous;
+        u.stealth = dying.stealth;
+        u.magnetic = dying.magnetic;
+        u
+    };
+    copy.health = 1;
+    copy.reborn = false;
+    sync_unit_auras(&mut copy, auras);
+    copy.sync_max_stats();
+    check_stat_thresholds(&mut copy);
+    copy
+}
+
 /// Apply all combat summon modifiers (persistent auras, `Goldrinn`, `Humming Bird`, `Lurking Leviathan`, `Banana Slamma`, stat thresholds) to a newly summoned unit.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],

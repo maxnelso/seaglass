@@ -340,15 +340,23 @@ fn card_118_harmless_bonehead() {
 
 #[test]
 fn card_119_risen_rider() {
-    let rider = tier1::risen_rider::template().instantiate();
+    let mut rider = tier1::risen_rider::template().instantiate();
     assert!(rider.taunt);
     assert!(rider.reborn);
-    let board_a = vec![rider]; // 2/1 Taunt Reborn
-    let board_b = vec![Unit::new("Enemy", 1, 2)];
-    let res = simulate(&board_a, &board_b, &GameState::default(), 119);
+    // Buff Risen Rider to 7/2 externally; on Reborn it must return as a base 2/1 (+ any global Undead Attack aura), not 7/1.
+    rider.add_stats(5, 1);
+    let mut gs = GameState::default();
+    gs.auras_a.undead_bonus_attack = 1; // +1 Undead Attack everywhere
+    seaglass::cards::sync_unit_auras(&mut rider, &gs.auras_a);
+    assert_eq!(rider.attack, 8);
+    let board_a = vec![rider];
+    let board_b = vec![Unit::new("Enemy", 5, 8)];
+    let res = simulate(&board_a, &board_b, &gs, 119);
     assert_eq!(res.outcome, BattleOutcome::AWin);
     assert_eq!(res.survivors_a.len(), 1);
     assert!(!res.survivors_a[0].reborn);
+    assert_eq!(res.survivors_a[0].attack, 3); // 2 base + 1 undead_bonus_attack (external +5 stripped!)
+    assert_eq!(res.survivors_a[0].health, 1);
 }
 
 #[test]

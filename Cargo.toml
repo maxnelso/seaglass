@@ -1,0 +1,7 @@
+[workspace]
+members = ["engine", "replay", "tools"]
+resolver = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1

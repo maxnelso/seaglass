@@ -14,7 +14,7 @@ The combat loop is **card-agnostic**: it knows only about units, keywords, and g
 - **Taunt** — Must be targeted before non-Taunt minions.
 - **Divine Shield** — Absorbs the first instance of damage $> 0$, then pops.
 - **Windfury** — A unit selected to attack strikes a **second time**, immediately, if it is still alive after the first strike and the enemy board is non-empty. Windfury is read **once**, before the first strike (§5.3), so Windfury granted mid-turn does not add a strike.
-- **Reborn** — On death, resummons at the dying unit's slot with `health = 1` and `reborn = false`, respecting the 7-unit board cap. Resolved **after** that same unit's Deathrattle. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield that was merely granted by a buff is not restored once popped. All other state (accumulated buffs, attack) is carried over as it died (§5.3.1 step 9).
+- **Reborn** — On death, resummons a base (or Golden-base) copy of the unit at the dying unit's slot with `health = 1` and `reborn = false` (plus any "wherever this is" / combat summon auras), respecting the 7-unit board cap. Resolved **after** that same unit's Deathrattle. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield or stat buff that was merely granted to the dying instance is not carried over (§5.3.1 step 9).
 
 ### Trigger Phases
 
@@ -141,7 +141,7 @@ One *turn* is one or two *strikes* by a single attacker:
 8. **Re-anchor both pointers** per §5.4 while the dead are still on their boards.
 9. **Resolve deaths**, **defending side first, then attacking side**. For one side: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its **Deathrattle** first, then its **Reborn**, inserting each summon at the dead unit's position:
    - Summons respect the 7-unit board cap.
-   - **Reborn** clones the unit *as it died* (accumulated buffs are kept), sets `health = 1`, `reborn = false`, and sets `divine_shield = divine_shield || inherent_divine_shield`.
+   - **Reborn** instantiates a base (or Golden-base) copy of the unit with `health = 1`, `reborn = false`, printed keywords restored, and global/combat summon auras applied.
 
 ### 5.4 Pointer Advance
 
