@@ -1,0 +1,8 @@
+card: Intrepid Botanist
+scenarios:
+  - name: choose_one_pristine_lilies_gives_tavern_spells_1_attack
+    steps:
+      - add_to_hand: Intrepid Botanist
+      - play: Intrepid Botanist
+      - choose_discover: 0   # Pristine Lilies: +1 Attack
+    expect: {auras: {spell_bonus_atk: 1}}

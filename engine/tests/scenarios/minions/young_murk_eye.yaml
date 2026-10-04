@@ -1,0 +1,7 @@
+card: Young Murk-Eye
+scenarios:
+  - name: end_of_turn_triggers_the_battlecries_of_adjacent_minions
+    tavern: {board: [Razorfen Geomancer, Young Murk-Eye]}   # Geomancer: Battlecry: get 2 Blood Gems
+    steps:
+      - end_turn
+    expect: {hand: [Blood Gem, Blood Gem]}

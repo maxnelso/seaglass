@@ -1,0 +1,9 @@
+card: Hostile Bounty
+scenarios:
+  - name: gives_random_friendly_minions_4_attack
+    seed: 819
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Hostile Bounty
+      - play: {hand: Hostile Bounty, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["6/2"]}

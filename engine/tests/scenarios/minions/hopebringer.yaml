@@ -1,0 +1,9 @@
+card: Hopebringer
+scenarios:
+  - name: start_of_combat_buffs_and_improves_after_a_divine_shield_is_lost
+    description: >-
+      Start of Combat gives +4/+3 (Hopebringer 4/3 -> 8/6, the shielded 2/2 -> 6/5); the enemy
+      pops the Divine Shield, so Hopebringer gains a stack.
+    seed: 526
+    combat: {board_a: ["2/2 taunt divine_shield", Hopebringer], board_b: ["1/1"]}
+    expect: {survivors_a: {any: {card: Hopebringer, stats: "8/6", stacks: 1}}}

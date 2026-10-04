@@ -1,0 +1,9 @@
+card: Air Revenant
+scenarios:
+  - name: spending_7_gold_casts_easterly_winds
+    seed: 501
+    tavern: {gold: 7, board: [Air Revenant]}
+    steps:
+      - repeat: 7   # 7 Refreshes: 7 Gold spent
+        steps: [refresh]
+    expect: {auras: {refresh_random_buffs: [[9, 9]]}}   # Easterly Winds: +9/+9 after each Refresh

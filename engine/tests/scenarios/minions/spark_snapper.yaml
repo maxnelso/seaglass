@@ -1,0 +1,10 @@
+card: Spark Snapper
+scenarios:
+  - name: played_mechs_get_a_satellite_that_improves
+    tavern: {board: [Spark Snapper]}
+    steps:
+      - add_to_hand: [Cord Puller, Lullabot]   # a 1/1 and a 2/2 Mech
+      - play: Cord Puller
+      - expect: {board: {1: "Cord Puller 3/4"}}   # a 2/3 Satellite
+      - play: Lullabot   # to the end of the board: not Magnetized
+    expect: {board: {2: "Lullabot 6/8"}}   # an improved 4/6 Satellite

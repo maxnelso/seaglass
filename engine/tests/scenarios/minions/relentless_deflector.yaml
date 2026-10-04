@@ -1,0 +1,9 @@
+card: Relentless Deflector
+scenarios:
+  - name: avenge_3_regains_divine_shield_and_wins
+    seed: 327
+    combat:
+      # Harmless Bonehead: 1/1, Deathrattle: two 1/1 Skeletons (3 friendly deaths in all).
+      board_a: [Harmless Bonehead, Relentless Deflector]
+      board_b: ["2/10"]
+    expect: {outcome: a_win}

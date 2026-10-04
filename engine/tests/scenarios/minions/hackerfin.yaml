@@ -1,0 +1,9 @@
+card: Hackerfin
+scenarios:
+  - name: battlecry_buff_is_improved_by_each_bonus_keyword
+    description: Base +3/+2, times 1 + 2 Bonus Keywords (Taunt, Divine Shield) = +9/+6.
+    tavern: {board: ["2/2 taunt divine_shield"]}
+    steps:
+      - add_to_hand: Hackerfin
+      - play: Hackerfin
+    expect: {board: ["11/8", "Hackerfin 5/3"]}

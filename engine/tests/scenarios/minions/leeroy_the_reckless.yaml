@@ -1,0 +1,9 @@
+card: Leeroy the Reckless
+scenarios:
+  - name: deathrattle_destroys_its_killer_through_divine_shield
+    description: >-
+      Leeroy pops the Divine Shield or is killed by the 50/500, then its Deathrattle destroys the
+      50/500 anyway.
+    seed: 529
+    combat: {board_a: [Leeroy the Reckless], board_b: ["50/500 divine_shield"]}
+    expect: {outcome: draw, survivors_b: []}

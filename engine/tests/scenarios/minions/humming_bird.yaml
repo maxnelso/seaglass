@@ -1,0 +1,8 @@
+card: Humming Bird
+scenarios:
+  - name: start_of_combat_gives_your_beasts_1_attack
+    seed: 214
+    combat:
+      board_a: [Humming Bird, Flittering Bat]   # 1/4 Beasts; the Bat's 1/1 Bat also gets +1 Attack
+      board_b: ["2/3"]
+    expect: {outcome: a_win, survivors_a: {all: {attack: ">= 2"}}}

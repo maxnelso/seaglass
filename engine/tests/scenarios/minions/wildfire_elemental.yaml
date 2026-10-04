@@ -1,0 +1,8 @@
+card: Wildfire Elemental
+scenarios:
+  - name: golden_excess_damage_hits_both_neighbours
+    seed: 342
+    combat:
+      board_a: [golden Wildfire Elemental]   # the golden flag only: still 6/3
+      board_b: ["1/4", "1/2 taunt", "1/4"]
+    expect: {outcome: a_win}

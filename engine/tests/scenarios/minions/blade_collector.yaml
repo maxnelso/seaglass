@@ -1,0 +1,8 @@
+card: Blade Collector
+scenarios:
+  - name: cleave_kills_the_taunt_and_its_neighbours
+    seed: 405
+    combat:
+      board_a: [Blade Collector]   # 3/2, also damages the enemies next to its target
+      board_b: ["1/3", "1/3 taunt", "1/3"]
+    expect: {outcome: draw, survivors_b: []}

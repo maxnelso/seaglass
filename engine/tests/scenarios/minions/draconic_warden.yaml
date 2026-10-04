@@ -1,0 +1,10 @@
+card: Draconic Warden
+scenarios:
+  - name: battlecry_gets_a_random_chromadrake
+    seed: 511
+    steps:
+      - add_to_hand: Draconic Warden
+      - play: Draconic Warden
+    expect:
+      hand:
+        - card: {any_of: [Blue Chromadrake, Black Chromadrake, Green Chromadrake, Bronze Chromadrake, Red Chromadrake]}

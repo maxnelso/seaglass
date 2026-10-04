@@ -1,0 +1,7 @@
+card: Twilight Tidehunter
+scenarios:
+  - name: a_spell_cast_on_it_gives_the_left_most_hand_minion_8_8
+    tavern: {board: [Twilight Tidehunter], hand: ["2/2", Tavern Dish Banana]}
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on the Tidehunter
+    expect: {hand: ["10/10"]}

@@ -1,0 +1,12 @@
+card: Vicious Mindslasher
+scenarios:
+  - name: casting_a_tavern_spell_gives_it_and_the_deity_1_2
+    tavern:
+      auras: {deity: {kind: cthun}}
+      board: [Vicious Mindslasher]   # 1/2
+      hand: [Hasty Excavation]
+    steps:
+      - play: {hand: Hasty Excavation, pos: 0}   # untargeted spells are played at 0
+    expect:
+      board: ["Vicious Mindslasher 2/4"]
+      auras: {deity: {attack: 2, health: 3}}

@@ -1,0 +1,10 @@
+card: Bronze Warden
+scenarios:
+  - name: has_divine_shield_and_reborn
+    tavern: {board: [Bronze Warden]}
+    expect: {board: ["Bronze Warden divine_shield reborn"]}
+
+  - name: divine_shield_and_reborn_beat_a_2_4_and_a_2_2
+    seed: 204
+    combat: {board_a: [Bronze Warden], board_b: ["2/4", "2/2"]}   # a 2/1; its Reborn copy also has Divine Shield
+    expect: {outcome: a_win}

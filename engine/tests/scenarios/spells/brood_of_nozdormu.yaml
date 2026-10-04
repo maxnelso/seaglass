@@ -1,0 +1,11 @@
+card: Brood of Nozdormu
+scenarios:
+  - name: doubles_the_left_most_minions_attack_next_combat
+    seed: 846
+    tavern: {board: ["10/10"]}
+    steps:
+      - add_to_hand: Brood of Nozdormu
+      - play: {hand: Brood of Nozdormu, pos: 0}   # an untargeted spell is played at 0
+      - expect: {auras: {effect_stacks: {Brood of Nozdormu: 1}}}
+      - simulate: {board_a: tavern, auras_a: tavern, board_b: ["1/1"]}
+    expect: {combat: {survivors_a: {0: {attack: 20}}}}

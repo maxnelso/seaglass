@@ -1,0 +1,16 @@
+card: De-volition-ist
+scenarios:
+  - name: after_attacking_deals_its_attack_to_the_highest_health_enemy
+    seed: 508
+    combat: {board_a: [De-volition-ist], board_b: ["1/5 taunt", "1/10"]}   # 4/8
+    expect:
+      outcome: a_win
+      events:
+        all_of:
+          - {where: {type: damage_dealt, amount: 4}, count: ">= 4"}
+          # unit ids: De-volition-ist 0, the taunt 1, the 1/10 2. After it attacks the taunt, the
+          # 1/10 (highest Health) takes 4 from it before the taunt's death resolves.
+          - sequence:
+              - {type: attack_declared, side: a, target: 1}
+              - {type: damage_dealt, unit: 2, amount: 4, from: 0}
+              - {type: death, unit: 1}

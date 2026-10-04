@@ -1,0 +1,8 @@
+card: Sly Infiltrator
+scenarios:
+  - name: hug_the_wall_gains_2_free_refreshes
+    steps:
+      - add_to_hand: Sly Infiltrator
+      - play: Sly Infiltrator
+      - choose_discover: 0   # Hug the Wall: gain 2 free Refreshes
+    expect: {auras: {free_refreshes: 2}}

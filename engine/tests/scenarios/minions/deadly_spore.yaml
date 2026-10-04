@@ -1,0 +1,10 @@
+card: Deadly Spore
+scenarios:
+  - name: has_venomous
+    tavern: {board: [Deadly Spore]}
+    expect: {board: ["Deadly Spore venomous"]}
+
+  - name: venomous_trades_with_a_50_50
+    seed: 309
+    combat: {board_a: [Deadly Spore], board_b: ["50/50"]}
+    expect: {outcome: draw}

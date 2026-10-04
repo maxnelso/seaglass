@@ -1,0 +1,9 @@
+card: Arcane Absorption
+scenarios:
+  - name: gives_an_elemental_half_the_stats_of_the_highest_health_tavern_minion
+    seed: 958
+    tavern: {board: ["2/2 elemental"], shop: ["6/8 elemental"]}
+    steps:
+      - add_to_hand: Arcane Absorption
+      - play: {hand: Arcane Absorption, pos: 0}
+    expect: {board: ["5/6"]}   # +3/+4

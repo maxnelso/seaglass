@@ -1,0 +1,11 @@
+card: Contracted Corpse
+scenarios:
+  - name: discovers_a_deathrattle_minion
+    seed: 849
+    tavern: {tavern_tier: 5}
+    steps:
+      - add_to_hand: Contracted Corpse
+      - play: Contracted Corpse
+      - expect: {discover_pending: {count: 3}}
+      - choose_discover: 0
+    expect: {hand: [{deathrattle: true}]}

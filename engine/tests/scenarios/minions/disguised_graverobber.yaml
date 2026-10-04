@@ -1,0 +1,38 @@
+card: Disguised Graverobber
+scenarios:
+  - name: battlecry_destroys_a_friendly_undead_for_a_plain_copy
+    description: >-
+      Three Battlecries in a row. A buffed Eternal Knight comes back as a plain copy (8/4 with
+      the dead Knight's aura); a destroyed Scarlet Skull still triggers its Deathrattle and its
+      Reborn; a Golden Helping Hand token comes back as a plain token.
+    tavern: {board: ["Eternal Knight +5/+5 taunt"]}
+    steps:
+      - take_from_pool: Eternal Knight   # the copy on the board
+      - expect: {pool: {Eternal Knight: 14}}
+      - add_to_hand: Disguised Graverobber
+      - play: {hand: Disguised Graverobber, pos: 0}   # destroys the Knight
+      - expect:
+          auras: {counters: {Eternal Knight: {0: 1}}}   # Eternal Knights that died
+          pool: {Eternal Knight: 14}   # 1 returned when destroyed, 1 taken for the copy
+          hand: ["Eternal Knight 8/4 -taunt"]   # a plain 4/2, +4/+2 for the dead Knight
+
+      - clear: [board, hand]
+      # Scarlet Skull: 2/1 Undead, Reborn, Deathrattle: give a friendly Undead +1/+2.
+      # Risen Rider: 2/1 Undead, Taunt, Reborn.
+      - push_board: [Scarlet Skull, Risen Rider]
+      - add_to_hand: Disguised Graverobber
+      - play: {hand: Disguised Graverobber, pos: 0}   # destroys Scarlet Skull
+      - expect:
+          board: [Disguised Graverobber, "Scarlet Skull -reborn", "Risen Rider 3/3"]
+          hand: ["Scarlet Skull reborn"]
+
+      - clear: [board, hand]
+      - push_board:   # make_helping_hand(true, ..) that lost Reborn and gained Taunt
+          card: "golden Helping Hand 4/2 -reborn taunt"
+          max_attack: 4
+          max_health: 2
+          base_attack: 4
+          base_health: 2
+      - add_to_hand: Disguised Graverobber
+      - play: {hand: Disguised Graverobber, pos: 0}
+    expect: {hand: ["Helping Hand 2/1 -golden reborn -taunt"]}

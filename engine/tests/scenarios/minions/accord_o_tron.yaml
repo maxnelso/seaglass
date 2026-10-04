@@ -1,0 +1,11 @@
+card: Accord-o-Tron
+scenarios:
+  - name: magnetized_mech_gains_1_gold_at_start_of_turn
+    seed: 302
+    tavern: {board: [Cord Puller]}   # a 1/1 Mech
+    steps:
+      - add_to_hand: Accord-o-Tron   # 3/3 Magnetic
+      - play: {hand: Accord-o-Tron, pos: 0}   # onto Cord Puller
+      - expect: {board: [{card: Cord Puller, sot_gold_bonus: 1}]}
+      - start_turn
+    expect: {gold: 4}   # turn 1 base Gold (3) + 1

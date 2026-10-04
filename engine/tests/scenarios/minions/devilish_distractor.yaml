@@ -1,0 +1,10 @@
+card: Devilish Distractor
+scenarios:
+  - name: a_spell_cast_on_it_gives_tavern_minions_1_2_this_game
+    tavern: {board: [Devilish Distractor], shop: ["2/2"], hand: [Tavern Dish Banana]}   # 4/7
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # +2/+2 on Devilish Distractor
+    expect:
+      board: ["Devilish Distractor 6/9"]
+      auras: {tavern_all_atk: 1, tavern_all_hp: 2}
+      shop: ["3/4"]

@@ -1,0 +1,11 @@
+card: Eternal Knight
+scenarios:
+  - name: has_4_2_for_each_dead_knight_and_its_own_death_counts
+    seed: 209
+    combat:
+      board_a: [Eternal Knight]   # 4/2 + 2 x 4/2 = 12/6
+      board_b: ["10/10"]
+      auras_a: {counters: {Eternal Knight: 2}}   # 2 friendly Eternal Knights died this game
+    expect:
+      outcome: draw
+      auras_a: {counters: {Eternal Knight: {0: 3}}}

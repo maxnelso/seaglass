@@ -1,0 +1,8 @@
+card: Selfish Bounty
+scenarios:
+  - name: gives_your_left_most_minion_6_6
+    tavern: {board: ["2/2", "2/2"]}
+    steps:
+      - add_to_hand: Selfish Bounty
+      - play: {hand: Selfish Bounty, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["8/8", "2/2"]}

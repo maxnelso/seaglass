@@ -1,0 +1,7 @@
+card: Gem Rat
+scenarios:
+  - name: end_of_turn_gets_a_gem_day
+    tavern: {board: [Gem Rat]}
+    steps:
+      - end_turn
+    expect: {hand: [Gem Day]}

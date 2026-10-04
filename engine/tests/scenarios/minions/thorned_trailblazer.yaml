@@ -1,0 +1,11 @@
+card: Thorned Trailblazer
+scenarios:
+  - name: the_next_choose_one_card_has_both_effects
+    steps:
+      - add_to_hand: [Thorned Trailblazer, Sly Infiltrator]
+      - play: Thorned Trailblazer
+      - play: Sly Infiltrator   # both options, no Choose One
+    expect:
+      auras: {free_refreshes: 2}   # Hug the Wall
+      hand: [Blood Gem, Blood Gem, Blood Gem]   # Nick the Gems
+      board: [{card: Thorned Trailblazer, charges: 0}, Sly Infiltrator]

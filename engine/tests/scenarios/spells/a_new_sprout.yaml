@@ -1,0 +1,9 @@
+card: A New Sprout
+scenarios:
+  - name: discovers_a_tier_1_minion_even_at_tavern_tier_3
+    seed: 801
+    tavern: {tavern_tier: 3}
+    steps:
+      - add_to_hand: A New Sprout
+      - play: A New Sprout
+    expect: {discover_pending: {count: 3, all: t1}}

@@ -1,0 +1,7 @@
+card: Mindbender Ghur'sha
+scenarios:
+  - name: discarding_a_card_gives_other_minions_4_4
+    tavern: {board: [Mindbender Ghur'sha, Brain Rotter], hand: [Blood Gem]}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}   # Activate (0): discards the Blood Gem
+    expect: {board: {1: "Brain Rotter 7/8"}}   # 3/4 + 4/4

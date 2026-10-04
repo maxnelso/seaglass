@@ -1,0 +1,7 @@
+card: Trench Fighter
+scenarios:
+  - name: end_of_turn_gets_a_gem_confiscation
+    tavern: {board: [Trench Fighter]}
+    steps:
+      - end_turn
+    expect: {hand: [Gem Confiscation]}

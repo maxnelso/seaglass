@@ -1,0 +1,32 @@
+card: Hired Mount
+scenarios:
+  - name: activate_spends_2_gold_for_a_random_chromadrake
+    seed: 320
+    tavern: {gold: 10, board: [Hired Mount]}
+    steps:
+      - activate: Hired Mount
+    expect:
+      gold: 8
+      hand:
+        - any_of:
+            [Blue Chromadrake, Black Chromadrake, Green Chromadrake, Bronze Chromadrake, Red Chromadrake]
+
+  - name: each_chromadrake_battlecry
+    description: >-
+      The 5 Chromadrakes played next to a Dragon: Green gives your Dragons +1/+3, Bronze +3/+1;
+      Red and Black give Tavern spells +1 Attack and +1 Health; Blue gets a random 2-Cost
+      Tavern spell.
+    seed: 320
+    tavern: {board: [Glim Guardian]}   # a 1/4 Dragon
+    steps:
+      - add_to_hand:
+          [Blue Chromadrake, Black Chromadrake, Green Chromadrake, Bronze Chromadrake, Red Chromadrake]
+      - play: Blue Chromadrake
+      - play: Black Chromadrake
+      - play: Green Chromadrake
+      - play: Bronze Chromadrake
+      - play: Red Chromadrake
+    expect:
+      board: {0: "Glim Guardian 5/8"}   # 1/4 +1/+3 (Green) +3/+1 (Bronze)
+      auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}   # Red, Black
+      hand: [{spell_cost: 2}]   # Blue

@@ -1,0 +1,13 @@
+card: Ichoron the Protector
+scenarios:
+  - name: played_elementals_get_divine_shield_until_next_turn
+    seed: 433
+    tavern: {board: [Ichoron the Protector], hand: [Dune Dweller]}   # an Elemental without Divine Shield
+    steps:
+      - play: Dune Dweller
+      - expect:
+          board:
+            - Ichoron the Protector
+            - {card: Dune Dweller, divine_shield: true, temp_divine_shield: true}
+      - start_turn   # the shield expires
+    expect: {board: [Ichoron the Protector, "Dune Dweller -divine_shield"]}

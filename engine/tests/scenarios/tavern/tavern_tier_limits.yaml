@@ -1,0 +1,33 @@
+topic: Tier 7 is out of reach of a normal Tavern (no upgrade to it, no Tier 7 cards in the shop)
+scenarios:
+  - name: every_tier_7_minion_has_5_copies_in_a_fresh_pool
+    # Which minions are Tier 7 (and base_copies_for_tier(7) == 5) is checked by `catalog`.
+    expect:
+      pool:
+        Captain Sanders: 5
+        Champion of Sargeras: 5
+        Futurefin: 5
+        Highkeeper Ra: 5
+        Jailbird Juggernaut: 5
+        Obsidian Ravager: 5
+        Polarizing Beatboxer: 5
+        Sha of Fear: 5
+        Stalwart Kodo: 5
+        Stitched Salvager: 5
+        Stone Age Slab: 5
+        The Last One Standing: 5
+
+  - name: tier_6_cannot_upgrade_even_with_enough_gold
+    tavern: {tavern_tier: 6, gold: 20}
+    steps:
+      - expect_error: upgrade_tavern
+    expect: {tavern_tier: 6}
+
+  - name: tier_6_refreshes_never_offer_tier_7_minions_or_spells
+    seed: 700
+    tavern: {include_shop_spells: true, tavern_tier: 6, gold: 10}
+    steps:
+      - repeat: 10
+        steps:
+          - refresh
+          - expect: {shop: {count: 7, all: {tavern_tier: "<= 6"}}}   # 6 minions and a spell

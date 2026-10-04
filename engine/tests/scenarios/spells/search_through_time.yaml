@@ -1,0 +1,13 @@
+card: Search Through Time
+scenarios:
+  - name: discovered_minion_is_locked_until_next_turn
+    seed: 813
+    tavern: {tavern_tier: 3}
+    steps:
+      - add_to_hand: Search Through Time
+      - play: Search Through Time
+      - expect: {discover_pending: {count: 3}}
+      - choose_discover: 0
+      - expect: {hand: [{locked_turns: 1}]}
+      - start_turn   # unlocks it
+    expect: {hand: [{locked_turns: 0}]}

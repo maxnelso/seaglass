@@ -1,0 +1,10 @@
+card: Cage Gnawer
+scenarios:
+  - name: a_friendly_beast_attacking_gives_your_beasts_2_1
+    seed: 411
+    combat:
+      board_a: ["2/10 beast", Cage Gnawer]   # Cage Gnawer: 2/7 Beast
+      board_b: ["1/5"]
+    expect:
+      outcome: a_win
+      survivors_a: {0: {attack: ">= 4"}, 1: {attack: ">= 4"}}

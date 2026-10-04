@@ -1,0 +1,8 @@
+card: Captain Sanders
+scenarios:
+  - name: battlecry_makes_a_friendly_minion_golden
+    tavern: {board: [Cord Puller]}   # a 1/1 Mech
+    steps:
+      - add_to_hand: Captain Sanders
+      - play: Captain Sanders
+    expect: {board: ["golden Cord Puller 2/2", Captain Sanders]}

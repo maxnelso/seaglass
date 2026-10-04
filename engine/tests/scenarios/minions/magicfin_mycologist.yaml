@@ -1,0 +1,16 @@
+card: Magicfin Mycologist
+scenarios:
+  - name: buying_a_tavern_spell_gets_an_apprentice_that_casts_it
+    tavern: {gold: 10}
+    steps:
+      - add_to_hand: Magicfin Mycologist   # 4/8
+      - play: Magicfin Mycologist
+      - expect: {board: [{card: Magicfin Mycologist, charges: 1}]}
+      - push_shop: Azerite Empowerment   # give your minions +2/+2 twice
+      - buy: Azerite Empowerment
+      - expect:
+          hand:
+            - Azerite Empowerment
+            - {card: Magicfin Apprentice, taught_spell_id: 859}   # 859: Azerite Empowerment
+      - play: Magicfin Apprentice   # Battlecry: cast Azerite Empowerment
+    expect: {board: ["Magicfin Mycologist 8/12", Magicfin Apprentice]}

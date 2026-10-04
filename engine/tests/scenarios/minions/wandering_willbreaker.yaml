@@ -1,0 +1,16 @@
+card: Wandering Willbreaker
+scenarios:
+  - name: selling_it_gets_2_spells_and_casting_one_discards_the_other
+    description: >-
+      The spells are random: the setup and seed are the Rust test's, so that the same spells are
+      drawn.
+    seed: 234
+    tavern: {include_shop_spells: true, tavern_tier: 2, gold: 20, board: [Wandering Willbreaker]}
+    steps:
+      - sell: Wandering Willbreaker
+      - expect: {hand: {count: 2, 0: {willbreaker_group: "> 0"}}}
+      - push_board: "2/2"   # a target for the spell
+      - play: {hand: 0, pos: 0}
+      - if: {discover_pending: {not: null}}
+        then: [{choose_discover: 0}]
+    expect: {hand: {none: {willbreaker_group: "> 0"}}}

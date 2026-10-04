@@ -1,0 +1,6 @@
+card: Runic Arcanist
+scenarios:
+  - name: start_of_combat_casts_shiny_ring_twice
+    seed: 449
+    combat: {board_a: [Runic Arcanist], board_b: ["2/5"]}   # 2/4 -> 4/6 after two +1/+1 Shiny Rings
+    expect: {outcome: a_win, survivors_a: ["Runic Arcanist 4/2"]}

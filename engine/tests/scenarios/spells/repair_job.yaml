@@ -1,0 +1,8 @@
+card: Repair Job
+scenarios:
+  - name: gives_a_minion_4_8
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Repair Job
+      - play: {hand: Repair Job, pos: 0}
+    expect: {board: ["6/10"]}

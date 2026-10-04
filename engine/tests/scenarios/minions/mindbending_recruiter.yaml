@@ -1,0 +1,8 @@
+card: Mindbending Recruiter
+scenarios:
+  - name: activate_discards_a_card_to_get_a_random_aberration
+    seed: 442
+    tavern: {tavern_tier: 4, board: [Mindbending Recruiter], hand: ["1/1"]}
+    steps:
+      - activate: {pos: Mindbending Recruiter, target: 0}   # discards the 1/1
+    expect: {hand: [aberration]}

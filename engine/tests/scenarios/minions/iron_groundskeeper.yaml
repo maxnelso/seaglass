@@ -1,0 +1,7 @@
+card: Iron Groundskeeper
+scenarios:
+  - name: battlecry_gets_2_fortify
+    steps:
+      - add_to_hand: Iron Groundskeeper
+      - play: Iron Groundskeeper
+    expect: {hand: [Fortify, Fortify]}

@@ -1,0 +1,9 @@
+card: Elemental of Surprise
+scenarios:
+  - name: triples_with_any_elemental
+    tavern: {gold: 10, board: [Dune Dweller, Dune Dweller], shop: [Elemental of Surprise]}
+    steps:
+      - buy: Elemental of Surprise
+    expect:
+      board: []
+      hand: ["golden Dune Dweller divine_shield"]

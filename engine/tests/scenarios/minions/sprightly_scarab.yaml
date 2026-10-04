@@ -1,0 +1,17 @@
+card: Sprightly Scarab
+scenarios:
+  - name: sprightly_sprucing_gives_a_beast_1_1_and_reborn
+    tavern: {board: [Flittering Bat]}   # a 1/4 Beast
+    steps:
+      - add_to_hand: Sprightly Scarab
+      - play: {hand: Sprightly Scarab, pos: 0}   # targets the Beast it pushes right
+      - choose_discover: 0   # Sprightly Sprucing: +1/+1 and Reborn
+    expect: {board: [Sprightly Scarab, "Flittering Bat 2/5 reborn"]}
+
+  - name: battlecry_does_not_target_itself_when_no_other_beast_is_on_board
+    steps:
+      - add_to_hand: Sprightly Scarab
+      - play: Sprightly Scarab
+    expect:
+      discover_pending: null
+      board: ["Sprightly Scarab 3/1"]

@@ -1,0 +1,8 @@
+card: Headhunter Gryphon
+scenarios:
+  - name: rally_gets_a_random_beast
+    seed: 427
+    tavern: {board: [Headhunter Gryphon]}
+    steps:
+      - fight: {board: ["1/1"]}
+    expect: {hand: ["beast"]}

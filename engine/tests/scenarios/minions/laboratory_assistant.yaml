@@ -1,0 +1,39 @@
+card: Laboratory Assistant
+scenarios:
+  - name: battlecry_adds_a_fodder_to_the_next_3_refreshes
+    description: >-
+      The Fodders are a Demon Fodder player effect (1 per Refresh) lasting {Refreshes: n}; each
+      Refresh uses one.
+    seed: 216
+    tavern: {gold: 1}   # the Refresh
+    steps:
+      - add_to_hand: Laboratory Assistant
+      - play: Laboratory Assistant
+      - expect: {auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 3}}]}}
+      - refresh
+    expect: {auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 2}}]}}
+
+  - name: fodder_is_absorbed_by_friendly_demons_or_offered_in_shop
+    seeds: "1..=5"
+    tavern: {gold: 10}
+    steps:
+      - start_turn
+      - set: {gold: 10}
+      - add_to_hand: Laboratory Assistant
+      - play: Laboratory Assistant
+      - expect:
+          auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 3}}]}
+          board:
+            0: {attack: {capture: atk_before}, health: {capture: hp_before}}
+      # With a friendly Demon (Laboratory Assistant) on board, the Fodder is absorbed on start_turn.
+      - start_turn
+      - expect:
+          auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 2}}]}
+          board:
+            0: {attack: "> $atk_before", health: "> $hp_before"}
+      # With no friendly Demon on board, the Fodder appears in the shop on the next start_turn roll.
+      - clear: board
+      - start_turn
+    expect:
+      auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}
+      shop: {any: Demon Fodder}

@@ -1,0 +1,9 @@
+card: Lichling Hoarder
+scenarios:
+  - name: avenge_3_gets_a_plain_copy_of_a_starting_minion
+    description: Risen Rider (2 deaths, with Reborn) and Harmless Bonehead (1) trigger Avenge (3).
+    seed: 530
+    combat:
+      board_a: [Risen Rider, Harmless Bonehead, Lichling Hoarder]
+      board_b: ["3/20"]
+    expect: {hand_a: {count: ">= 1"}}

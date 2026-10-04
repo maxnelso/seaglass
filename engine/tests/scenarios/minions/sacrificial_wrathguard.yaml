@@ -1,0 +1,10 @@
+card: Sacrificial Wrathguard
+scenarios:
+  - name: activate_improves_the_deathrattle_tavern_buff
+    seed: 450
+    tavern: {gold: 10, board: [Sacrificial Wrathguard]}
+    steps:
+      - activate: Sacrificial Wrathguard
+      - expect: {board: [{card: Sacrificial Wrathguard, stacks: 2}]}
+      - fight: {board: ["10/10"]}   # it dies
+    expect: {auras: {tavern_all_atk: 4, tavern_all_hp: 4}}   # +2/+2, improved by +2/+2

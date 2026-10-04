@@ -1,0 +1,8 @@
+card: Sludge Corrosion
+scenarios:
+  - name: discarding_it_casts_it_twice
+    tavern: {board: [Brain Rotter]}   # Activate: discard a card
+    steps:
+      - add_to_hand: Sludge Corrosion
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {board: ["Brain Rotter 5/6"]}   # 3/4, +1/+1 twice

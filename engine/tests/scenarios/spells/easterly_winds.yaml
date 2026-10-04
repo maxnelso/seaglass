@@ -1,0 +1,12 @@
+card: Easterly Winds
+scenarios:
+  - name: each_refresh_gives_a_random_minion_in_the_tavern_9_9
+    seed: 836
+    tavern: {gold: 1}   # the Refresh
+    steps:
+      - add_to_hand: Easterly Winds
+      - play: Easterly Winds
+      - expect: {auras: {refresh_random_buffs: [[9, 9]]}}
+      - refresh
+    expect:
+      shop: {any: {attack: ">= @base_attack + 9", health: ">= @base_health + 9"}}

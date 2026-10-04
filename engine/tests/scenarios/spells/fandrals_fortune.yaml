@@ -1,0 +1,17 @@
+card: Fandral's Fortune
+scenarios:
+  - name: discovers_a_choose_one_card_with_both_effects_combined
+    seed: 861
+    tavern: {tavern_tier: 6, board: ["2/2"]}
+    steps:
+      - add_to_hand: Fandral's Fortune
+      - play: {hand: Fandral's Fortune, pos: 0}   # an untargeted spell is played at 0
+      - expect: {discover_pending: {count: 3}}
+      - choose_discover: 0
+      - expect: {hand: [{combine_choose_one: true}]}
+      # An Alliance Flag so marked applies both options (+3/+1 and +1/+3) without prompting.
+      - set: {hand: {0: {card: Alliance Flag, combine_choose_one: true}}}
+      - play: {hand: Alliance Flag, pos: 0}
+    expect:
+      discover_pending: null
+      board: ["6/6"]

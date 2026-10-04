@@ -1,0 +1,10 @@
+card: Mysterious K'Thir
+scenarios:
+  - name: end_of_turn_discards_tavern_spells_for_7_7_each
+    tavern: {board: [Mysterious K'Thir], hand: [Armor Stash, Tavern Dish Banana]}
+    steps:
+      - end_turn
+    expect:
+      auras: {cards_discarded: 2}
+      hand: []
+      board: ["Mysterious K'Thir 21/21"]   # 7/7 + 2 x 7/7

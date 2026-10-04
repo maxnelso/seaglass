@@ -1,0 +1,8 @@
+card: Hot-Air Surveyor
+scenarios:
+  - name: blood_gems_played_from_hand_cast_an_extra_time
+    tavern: {board: [Hot-Air Surveyor], hand: [Blood Gem]}   # a 3/7; a Blood Gem is +1/+1
+    steps:
+      - play: {hand: Blood Gem, pos: 0}   # on the Surveyor
+    expect:
+      board: [{card: Hot-Air Surveyor, stats: 5/9, blood_gems_played: 2}]   # cast twice

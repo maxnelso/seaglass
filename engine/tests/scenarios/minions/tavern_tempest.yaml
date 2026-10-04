@@ -1,0 +1,9 @@
+card: Tavern Tempest
+scenarios:
+  - name: battlecry_gets_a_random_elemental
+    seed: 456
+    tavern: {tavern_tier: 4}
+    steps:
+      - add_to_hand: Tavern Tempest
+      - play: Tavern Tempest
+    expect: {hand: [elemental]}

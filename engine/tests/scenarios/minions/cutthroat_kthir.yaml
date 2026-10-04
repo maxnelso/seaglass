@@ -1,0 +1,12 @@
+card: Cutthroat K'Thir
+scenarios:
+  - name: discarding_a_card_gives_it_and_your_deity_4_4
+    tavern:
+      auras: {deity: {kind: cthun}}
+      board: [Brain Rotter, Cutthroat K'Thir]   # K'Thir: 4/4
+      hand: ["1/1"]
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}   # discards the 1/1 to give the Deity +2/+2
+    expect:
+      board: [Brain Rotter, "Cutthroat K'Thir 8/8"]
+      auras: {deity: {attack: 7, health: 7}}   # 1/1 + 2/2 (Brain Rotter) + 4/4 (K'Thir)

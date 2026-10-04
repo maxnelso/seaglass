@@ -1,0 +1,11 @@
+card: Enchanted Lasso
+scenarios:
+  - name: gets_the_minion_from_the_tavern
+    seed: 803
+    tavern: {shop: [{card: "4/4", name: ShopMinion}]}
+    steps:
+      - add_to_hand: Enchanted Lasso
+      - play: Enchanted Lasso
+    expect:
+      hand: [{name: ShopMinion, stats: "4/4"}]
+      shop: []

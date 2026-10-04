@@ -1,0 +1,8 @@
+card: Annoy-o-Module
+scenarios:
+  - name: magnetizing_gives_divine_shield_and_taunt
+    tavern: {board: [Mechagnome Interpreter]}   # a 3/1 Mech without Divine Shield or Taunt
+    steps:
+      - add_to_hand: Annoy-o-Module   # 2/4 Magnetic, Divine Shield, Taunt
+      - play: {hand: Annoy-o-Module, pos: 0}   # onto Mechagnome Interpreter
+    expect: {board: ["Mechagnome Interpreter divine_shield taunt"]}

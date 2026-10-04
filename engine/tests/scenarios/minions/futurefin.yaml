@@ -1,0 +1,7 @@
+card: Futurefin
+scenarios:
+  - name: end_of_turn_gives_its_stats_to_the_left_most_hand_minion
+    tavern: {board: [Futurefin], hand: ["2/3"]}   # Futurefin is 7/13
+    steps:
+      - end_turn
+    expect: {hand: ["9/16"]}

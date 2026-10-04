@@ -1,0 +1,23 @@
+card: Falling Sky Golem
+scenarios:
+  - name: has_4_2_for_each_deathrattle_triggered_this_game
+    tavern: {auras: {deathrattles_triggered: 3}, board: [Falling Sky Golem]}   # a 4/2
+    steps:
+      - apply_global_unit_auras: {board: 0}
+    expect: {board: ["Falling Sky Golem 16/8"]}   # 4/2 + 3 x 4/2
+
+  - name: emits_death_aura_stat_buff_and_attack_declared_precedes_rally_in_combat
+    seed: 7
+    combat:
+      board_a: [Glim Guardian, Cord Puller, "Falling Sky Golem 8/8"]
+      board_b: ["5/20 taunt"]
+    expect:
+      events:
+        all_of:
+          - where:
+              any_of:
+                - {type: attack_declared}
+                - {type: stat_buff, reason: Rally}
+            0: {type: attack_declared}
+            any: {type: stat_buff, reason: Rally}
+          - any: {type: stat_buff, reason: Death Aura}

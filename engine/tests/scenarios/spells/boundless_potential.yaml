@@ -1,0 +1,13 @@
+card: Boundless Potential
+scenarios:
+  - name: way_of_the_mage_discovers_a_tavern_spell_of_your_tier
+    seed: 833
+    tavern: {tavern_tier: 4}
+    steps:
+      - add_to_hand: Boundless Potential
+      - play: Boundless Potential
+      - expect: {discover_pending: {count: 2}}   # Choose One
+      - choose_discover: 1   # Way of the Mage (option 0: Way of the Warrior, a minion)
+      - expect: {discover_pending: {count: 3}}
+      - choose_discover: 0
+    expect: {hand: [{is_spell: true, tavern_tier: 4}]}

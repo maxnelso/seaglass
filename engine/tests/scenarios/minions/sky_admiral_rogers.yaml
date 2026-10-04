@@ -1,0 +1,9 @@
+card: Sky Admiral Rogers
+scenarios:
+  - name: spending_9_gold_gets_a_random_bounty
+    seed: 621
+    tavern: {gold: 10, board: [Sky Admiral Rogers]}
+    steps:
+      - repeat: 9
+        steps: [refresh]   # 1 Gold each
+    expect: {hand: [{is_spell: true}]}

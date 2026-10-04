@@ -1,0 +1,13 @@
+card: Forest Rover
+scenarios:
+  - name: battlecry_improves_beetles_and_its_deathrattle_beetle_has_the_bonus
+    seed: 212
+    steps:
+      - add_to_hand: Forest Rover
+      - play: Forest Rover
+      - expect: {auras: {counters: {Beetle: [2, 1]}}}
+      - fight: {board: ["3/1"]}
+    expect:
+      combat:
+        outcome: a_win
+        survivors_a: ["Beetle 4/3"]   # 2/2 + the 2/1 bonus

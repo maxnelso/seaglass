@@ -1,0 +1,9 @@
+card: Heroic Broodmother
+scenarios:
+  - name: attacks_at_start_of_combat_and_rally_gives_it_divine_shield
+    description: >-
+      The 7/7 attacks immediately at Start of Combat; Rally grants Divine Shield before the
+      damage, so it takes no damage and kills the 3/5.
+    seed: 614
+    combat: {board_a: [Heroic Broodmother], board_b: ["3/5"]}
+    expect: {outcome: a_win, survivors_a: ["Heroic Broodmother 7/7"]}

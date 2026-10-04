@@ -1,0 +1,7 @@
+card: Humon'gozz
+scenarios:
+  - name: tavern_spells_give_an_extra_1_2
+    steps:
+      - add_to_hand: Humon'gozz
+      - play: Humon'gozz
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 2}}

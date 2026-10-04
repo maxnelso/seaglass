@@ -1,0 +1,10 @@
+card: Butchering
+scenarios:
+  - name: destroys_an_undead_and_gives_undead_8_attack
+    tavern: {board: [Harmless Bonehead]}
+    steps:
+      - add_to_hand: Butchering
+      - play: {hand: Butchering, pos: 0}
+    expect:
+      auras: {undead_bonus_attack: 8}
+      board: ["Skeleton 9/1", "Skeleton 9/1"]   # its Deathrattle's 1/1 Skeletons, +8 Attack

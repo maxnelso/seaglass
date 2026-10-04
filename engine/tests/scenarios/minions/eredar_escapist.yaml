@@ -1,0 +1,7 @@
+card: Eredar Escapist
+scenarios:
+  - name: after_4_hero_damage_gets_corrupted_cupcakes
+    tavern: {board: [Eredar Escapist]}
+    steps:
+      - deal_hero_damage: 4
+    expect: {hand: [Corrupted Cupcakes]}

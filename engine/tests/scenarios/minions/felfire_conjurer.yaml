@@ -1,0 +1,7 @@
+card: Felfire Conjurer
+scenarios:
+  - name: end_of_turn_tavern_spells_give_an_extra_1_1
+    tavern: {board: [Felfire Conjurer]}
+    steps:
+      - end_turn
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}

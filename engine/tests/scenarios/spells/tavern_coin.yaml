@@ -1,0 +1,8 @@
+card: Tavern Coin
+scenarios:
+  - name: gains_1_gold
+    tavern: {gold: 5}
+    steps:
+      - add_to_hand: Tavern Coin
+      - play: Tavern Coin
+    expect: {gold: 6}

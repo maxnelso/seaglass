@@ -1,0 +1,11 @@
+card: Corrupted Cupcakes
+scenarios:
+  - name: a_demon_consumes_3_tavern_minions
+    seed: 851
+    tavern: {board: ["2/2 demon"], shop: ["2/3", "3/4", "4/5"]}
+    steps:
+      - add_to_hand: Corrupted Cupcakes
+      - play: {hand: Corrupted Cupcakes, pos: 0}
+    expect:
+      shop: []
+      board: ["11/14"]

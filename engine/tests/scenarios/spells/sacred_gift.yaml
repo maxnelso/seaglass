@@ -1,0 +1,8 @@
+card: Sacred Gift
+scenarios:
+  - name: gives_a_minion_divine_shield
+    tavern: {board: ["4/5"]}
+    steps:
+      - add_to_hand: Sacred Gift
+      - play: {hand: Sacred Gift, pos: 0}
+    expect: {board: ["4/5 divine_shield"]}

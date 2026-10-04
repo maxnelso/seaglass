@@ -1,0 +1,8 @@
+card: Silent Deliverer
+scenarios:
+  - name: battlecry_gets_a_random_golden_tier_4_minion
+    seed: 620
+    steps:
+      - add_to_hand: Silent Deliverer
+      - play: Silent Deliverer
+    expect: {hand: [{tavern_tier: 4, is_golden: true}]}

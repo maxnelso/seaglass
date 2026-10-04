@@ -1,0 +1,13 @@
+card: Stalwart Kodo
+scenarios:
+  - name: summoned_skeletons_gain_its_maximum_stats
+    description: >-
+      Harmless Bonehead's Deathrattle summons two 1/1 Skeletons; the 16/32 Kodo gives them its
+      maximum stats (17/33). Risen Rider's Reborn would be the third summon.
+    seed: 709
+    combat:
+      board_a: [Harmless Bonehead, Risen Rider, Stalwart Kodo]
+      board_b: ["3/2", "3/2"]
+    expect:
+      outcome: a_win
+      survivors_a: {any: {card: Skeleton, attack: 17, max_health: 33}}

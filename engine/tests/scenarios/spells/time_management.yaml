@@ -1,0 +1,12 @@
+card: Time Management
+scenarios:
+  - name: do_it_later_gives_your_minions_2_2_twice_next_turn
+    seed: 828
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Time Management
+      - play: {hand: Time Management, pos: 0}   # an untargeted spell is played at 0
+      - choose_discover: 1   # Do It Later (option 0 is Hurry Up: +2/+2 now)
+      - expect: {auras: {effect_stacks: {Time Management: 2}}}
+      - start_turn
+    expect: {board: ["6/6"]}

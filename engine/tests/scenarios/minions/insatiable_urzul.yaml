@@ -1,0 +1,11 @@
+card: Insatiable Ur'zul
+scenarios:
+  - name: playing_a_demon_consumes_a_tavern_minion_for_its_stats
+    seed: 527
+    tavern: {board: [Insatiable Ur'zul], shop: ["5/7"]}   # 4/6
+    steps:
+      - add_to_hand: Ominous Seer   # a Demon
+      - play: Ominous Seer
+    expect:
+      shop: []
+      board: {0: "Insatiable Ur'zul 9/13"}   # 4/6 + the 5/7

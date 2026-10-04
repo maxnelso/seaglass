@@ -1,0 +1,12 @@
+card: Corrupted Coin
+scenarios:
+  - name: gains_2_gold_or_2_max_gold_if_discarded
+    tavern: {gold: 3}
+    steps:
+      - add_to_hand: Corrupted Coin
+      - play: Corrupted Coin
+      - expect: {gold: 5}
+      - push_board: Brain Rotter   # Activate: discard a card
+      - add_to_hand: Corrupted Coin
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {max_gold: 2}

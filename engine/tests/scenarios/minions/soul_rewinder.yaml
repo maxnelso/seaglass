@@ -1,0 +1,9 @@
+card: Soul Rewinder
+scenarios:
+  - name: rewinds_hero_damage_and_gains_2_health
+    tavern: {board: [Soul Rewinder]}   # 4/2
+    steps:
+      - deal_hero_damage: 2
+    expect:
+      health: 30
+      board: ["Soul Rewinder 4/4"]

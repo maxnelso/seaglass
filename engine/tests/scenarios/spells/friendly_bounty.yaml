@@ -1,0 +1,9 @@
+card: Friendly Bounty
+scenarios:
+  - name: gets_a_random_minion_of_your_most_common_type
+    seed: 817
+    tavern: {tavern_tier: 3, board: [Glim Guardian]}   # a Dragon
+    steps:
+      - add_to_hand: Friendly Bounty
+      - play: {hand: Friendly Bounty, pos: 0}   # an untargeted spell is played at 0
+    expect: {hand: [dragon]}

@@ -1,0 +1,24 @@
+card: Tarecgosa
+scenarios:
+  - name: keeps_the_stats_it_gains_in_combat
+    seed: 231
+    tavern: {board: [Tarecgosa, Electric Synthesizer]}   # the 4/4 gets +1/+1 at Start of Combat
+    steps:
+      - fight: {board: ["1/1"]}
+    expect: {board: {0: "Tarecgosa 5/5"}}
+
+  - name: retains_divine_shield_gained_in_combat_even_when_popped_in_combat
+    seed: 12345
+    tavern:
+      board: [Tarecgosa, Amber Guardian]
+    steps:
+      # Amber Guardian grants Tarecgosa +2/+2 and Divine Shield at Start of Combat;
+      # Tarecgosa attacks and pops its Divine Shield during combat, then persists it post-combat.
+      - fight: {board: ["1/1", "1/1"]}
+    expect:
+      combat:
+        outcome: a_win
+        survivors_a:
+          0: {card: Tarecgosa, divine_shield: false, inherent_divine_shield: true}
+      board:
+        0: {card: Tarecgosa, divine_shield: true, inherent_divine_shield: true}

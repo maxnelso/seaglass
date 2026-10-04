@@ -1,0 +1,9 @@
+card: Gunpowder Courier
+scenarios:
+  - name: spending_5_gold_gives_your_pirates_3_1
+    tavern: {gold: 10, board: [Gunpowder Courier], shop: ["1/1", "1/1"]}   # Courier: 2/5 Pirate
+    steps:
+      - buy: 0   # 3 Gold spent
+      - expect: {board: ["Gunpowder Courier 2/5"]}
+      - buy: 0   # 6 Gold spent
+    expect: {board: ["Gunpowder Courier 5/6"]}

@@ -1,0 +1,7 @@
+card: Mangled Bandit
+scenarios:
+  - name: activate_discards_a_card_for_3_blood_gems
+    tavern: {board: [Mangled Bandit], hand: [Tavern Coin]}
+    steps:
+      - activate: {pos: Mangled Bandit, target: 0}   # discards the Tavern Coin
+    expect: {hand: [Blood Gem, Blood Gem, Blood Gem]}

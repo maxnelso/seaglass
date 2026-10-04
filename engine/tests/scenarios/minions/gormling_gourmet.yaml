@@ -1,0 +1,10 @@
+card: Gormling Gourmet
+scenarios:
+  - name: battlecry_and_deathrattle_each_get_a_seafood_stew
+    seed: 425
+    steps:
+      - add_to_hand: Gormling Gourmet
+      - play: Gormling Gourmet
+      - expect: {hand: [Seafood Stew]}
+      - fight: {board: ["10/10"]}
+    expect: {hand: [Seafood Stew, Seafood Stew]}

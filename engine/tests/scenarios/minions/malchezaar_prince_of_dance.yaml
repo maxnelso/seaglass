@@ -1,0 +1,12 @@
+card: Malchezaar, Prince of Dance
+scenarios:
+  - name: refreshes_cost_health_instead_of_gold
+    seed: 323
+    steps:
+      - add_to_hand: "Malchezaar, Prince of Dance"
+      - play: "Malchezaar, Prince of Dance"
+      - expect: {board: [{card: "Malchezaar, Prince of Dance", charges: 2}]}
+      - refresh   # with 0 Gold
+    expect:
+      health: 29
+      board: [{card: "Malchezaar, Prince of Dance", charges: 1}]

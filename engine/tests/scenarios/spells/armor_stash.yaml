@@ -1,0 +1,7 @@
+card: Armor Stash
+scenarios:
+  - name: sets_armor_to_5
+    steps:
+      - add_to_hand: Armor Stash
+      - play: Armor Stash
+    expect: {armor: 5}

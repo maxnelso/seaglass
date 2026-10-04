@@ -1,0 +1,9 @@
+card: Unmasked Identity
+scenarios:
+  - name: discovers_a_hero_power
+    steps:
+      - add_to_hand: Unmasked Identity
+      - play: Unmasked Identity
+      - expect: {discover_pending: {count: 3}}
+      - choose_discover: 1
+    expect: {auras: {hero_power_id: 2}}

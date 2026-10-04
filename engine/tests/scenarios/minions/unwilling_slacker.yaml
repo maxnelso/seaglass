@@ -1,0 +1,6 @@
+card: Unwilling Slacker
+scenarios:
+  - name: deathrattle_gets_a_random_1_cost_tavern_spell
+    seed: 339
+    combat: {board_a: [Unwilling Slacker], board_b: ["3/3"]}
+    expect: {hand_a: [{is_spell: true, spell_cost: 1}]}

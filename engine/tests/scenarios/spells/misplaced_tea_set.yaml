@@ -1,0 +1,9 @@
+card: Misplaced Tea Set
+scenarios:
+  - name: gives_a_minion_of_each_type_4_4
+    seed: 840
+    tavern: {board: ["1/1 beast", "1/1 mech"]}
+    steps:
+      - add_to_hand: Misplaced Tea Set
+      - play: {hand: Misplaced Tea Set, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["5/5", "5/5"]}

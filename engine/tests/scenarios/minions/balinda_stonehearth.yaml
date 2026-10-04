@@ -1,0 +1,7 @@
+card: Balinda Stonehearth
+scenarios:
+  - name: spells_targeting_a_friendly_minion_cast_twice
+    tavern: {board: [Balinda Stonehearth, "2/2"], hand: [Fortify]}   # Fortify: +0/+3 and Taunt
+    steps:
+      - play: {hand: Fortify, pos: 1}
+    expect: {board: [Balinda Stonehearth, "2/8 taunt"]}   # cast twice: +0/+6

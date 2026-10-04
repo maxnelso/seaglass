@@ -1,0 +1,11 @@
+card: Ultraviolet Ascendant
+scenarios:
+  - name: playing_an_elemental_improves_its_start_of_combat_buff
+    seed: 627
+    tavern: {board: [Ultraviolet Ascendant], hand: [Dune Dweller]}   # Dune Dweller: an Elemental
+    steps:
+      - play: Dune Dweller
+      - expect: {board: {0: {card: Ultraviolet Ascendant, stacks: 1}}}   # +3/+3 -> +6/+6
+      - simulate: {board_a: tavern, board_b: ["1/1"]}
+    expect:
+      combat: {survivors_a: {any: "Dune Dweller 9/9"}}   # 3/3 + 6/6

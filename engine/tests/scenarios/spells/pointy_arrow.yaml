@@ -1,0 +1,8 @@
+card: Pointy Arrow
+scenarios:
+  - name: gives_a_minion_4_attack
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Pointy Arrow
+      - play: {hand: Pointy Arrow, pos: 0}
+    expect: {board: ["6/2"]}

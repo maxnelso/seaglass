@@ -1,0 +1,7 @@
+card: Tichondrius
+scenarios:
+  - name: hero_damage_gives_demons_4_4
+    tavern: {board: [Tichondrius]}   # a 4/4 Demon
+    steps:
+      - deal_hero_damage: 1
+    expect: {board: ["Tichondrius 8/8"]}

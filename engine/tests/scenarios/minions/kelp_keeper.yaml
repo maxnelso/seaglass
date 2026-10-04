@@ -1,0 +1,19 @@
+card: Kelp Keeper
+scenarios:
+  - name: activate_triggers_a_friendly_battlecry
+    tavern: {gold: 10, board: [Kelp Keeper, Razorfen Geomancer]}   # Battlecry: get 2 Blood Gems
+    steps:
+      - activate: {pos: Kelp Keeper, target: 1}
+    expect: {hand: [Blood Gem, Blood Gem]}
+
+  - name: preserves_buffs_on_battlecry_target_and_rejects_non_battlecry_targets
+    tavern:
+      gold: 10
+      board: ["Razorfen Geomancer +10/+10", Kelp Keeper, "2/2"]
+    steps:
+      - expect_legal: {activate: {pos: 1, target: 0}}
+      - expect_illegal: {activate: {pos: 1, target: 2}}
+      - activate: {pos: Kelp Keeper, target: 0}
+    expect:
+      board: {0: "Razorfen Geomancer 12/11"}
+      hand: [Blood Gem, Blood Gem]

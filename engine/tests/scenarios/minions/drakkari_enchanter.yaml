@@ -1,0 +1,7 @@
+card: Drakkari Enchanter
+scenarios:
+  - name: end_of_turn_effects_trigger_twice
+    tavern: {board: [Drakkari Enchanter, Lullabot]}   # Lullabot: 2/2, +1 Health at end of turn
+    steps:
+      - end_turn
+    expect: {board: [Drakkari Enchanter, "Lullabot 2/4"]}

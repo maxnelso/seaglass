@@ -1,0 +1,11 @@
+card: Persistent Poet
+scenarios:
+  - name: adjacent_dragons_keep_stats_gained_in_combat
+    description: >-
+      Electric Synthesizer gives the other Dragons +1/+1 at the start of combat; the 2/2 Dragon
+      next to Persistent Poet keeps it after the combat.
+    seed: 445
+    tavern: {board: [Electric Synthesizer, Persistent Poet, "2/2 dragon"]}
+    steps:
+      - fight: {board: ["1/1"]}
+    expect: {board: [Electric Synthesizer, Persistent Poet, "3/3"]}

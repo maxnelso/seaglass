@@ -1,0 +1,10 @@
+card: Eonar's Favor
+scenarios:
+  - name: tavern_minions_of_the_targets_type_get_3_3
+    tavern:
+      board: ["2/2 beast"]
+      shop: ["3/3 beast", "3/3 mech"]
+    steps:
+      - add_to_hand: Eonar's Favor
+      - play: {hand: Eonar's Favor, pos: 0}
+    expect: {shop: ["6/6 beast", "3/3 mech"]}

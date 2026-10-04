@@ -1,0 +1,7 @@
+card: Barrier Banshee
+scenarios:
+  - name: gains_divine_shield_and_8_8_after_a_friendly_minion_is_reborn
+    description: Risen Rider (2/1 Taunt Reborn) dies and is Reborn, so Barrier Banshee (8/8) gains Divine Shield and +8/+8.
+    seed: 502
+    combat: {board_a: [Risen Rider, Barrier Banshee], board_b: ["2/4"]}
+    expect: {survivors_a: {any: "Barrier Banshee 16/16 divine_shield"}}

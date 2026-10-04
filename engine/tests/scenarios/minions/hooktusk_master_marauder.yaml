@@ -1,0 +1,12 @@
+card: Hooktusk, Master Marauder
+scenarios:
+  - name: discovering_gives_other_pirates_stats_improved_by_golden_minions_played
+    seed: 615
+    tavern:
+      auras: {golden_minions_played: 2}   # +1/+1 improved twice: +3/+3
+      board: ["Hooktusk, Master Marauder", "2/2 pirate"]
+      hand: [A New Sprout]   # Discover a Tier 1 minion
+    steps:
+      - play: {hand: A New Sprout, pos: 0}   # an untargeted spell is played with pos 0
+      - choose_discover: 0
+    expect: {board: ["Hooktusk, Master Marauder", "5/5"]}

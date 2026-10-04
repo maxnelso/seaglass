@@ -1,0 +1,7 @@
+card: Proud Privateer
+scenarios:
+  - name: bounties_cast_twice
+    tavern: {board: [Proud Privateer], hand: [Selfish Bounty]}   # +6/+6 to the left-most minion
+    steps:
+      - play: {hand: Selfish Bounty, pos: 0}
+    expect: {board: ["Proud Privateer 20/20"]}   # 8/8 + 2 x 6/6

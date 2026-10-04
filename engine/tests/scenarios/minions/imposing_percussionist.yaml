@@ -1,0 +1,13 @@
+card: Imposing Percussionist
+scenarios:
+  - name: battlecry_discovers_a_demon_and_deals_its_tier_to_the_hero
+    seed: 435
+    tavern: {tavern_tier: 4}
+    steps:
+      - add_to_hand: Imposing Percussionist
+      - play: Imposing Percussionist
+      - expect: {discover_pending: {0: {tavern_tier: {capture: tier}}}}
+      - choose_discover: 0
+    expect:
+      health: "30 - $tier"
+      hand: [demon]

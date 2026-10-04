@@ -1,0 +1,7 @@
+card: Careful Investment
+scenarios:
+  - name: gets_2_extra_gold_next_turn
+    steps:
+      - add_to_hand: Careful Investment
+      - play: Careful Investment
+    expect: {bonus_gold_next_turn: 2}

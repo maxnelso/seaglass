@@ -1,0 +1,8 @@
+card: Turbo Hogrider
+scenarios:
+  - name: playing_a_choose_one_card_plays_2_blood_gems_on_your_quilboar
+    tavern: {board: [Turbo Hogrider], hand: [Alliance Flag]}   # a 6/8 Quilboar
+    steps:
+      - play: {hand: Alliance Flag, pos: 0}
+      - choose_discover: 0   # +3/+1
+    expect: {board: ["Turbo Hogrider 11/11"]}   # 6/8 + 3/1 + 2 Blood Gems (+2/+2)

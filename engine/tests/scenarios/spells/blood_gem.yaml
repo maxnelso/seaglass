@@ -1,0 +1,10 @@
+card: Blood Gem
+scenarios:
+  - name: gives_1_1_plus_the_blood_gem_bonus
+    tavern:
+      auras: {blood_gem_bonus_atk: 2, blood_gem_bonus_hp: 1}
+      board: ["2/2"]
+    steps:
+      - add_to_hand: Blood Gem
+      - play: {hand: Blood Gem, pos: 0}
+    expect: {board: [{stats: "5/4", blood_gems_played: 1}]}   # +1/+1 and the +2/+1 bonus

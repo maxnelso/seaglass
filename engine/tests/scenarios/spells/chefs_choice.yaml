@@ -1,0 +1,9 @@
+card: Chef's Choice
+scenarios:
+  - name: gets_a_different_minion_of_the_targets_type
+    seed: 809
+    tavern: {tavern_tier: 3, board: [Glim Guardian]}   # a Dragon
+    steps:
+      - add_to_hand: Chef's Choice
+      - play: {hand: Chef's Choice, pos: 0}
+    expect: {hand: [{all_of: [dragon, {not: Glim Guardian}]}]}

@@ -1,0 +1,9 @@
+card: Forsaken Weaver
+scenarios:
+  - name: casting_a_tavern_spell_gives_undead_3_attack_this_game
+    tavern: {board: [Forsaken Weaver], hand: [Tavern Coin]}   # a 3/8 Undead
+    steps:
+      - play: {hand: Tavern Coin, pos: 0}   # an untargeted spell is played with pos 0
+    expect:
+      auras: {undead_bonus_attack: 3}
+      board: ["Forsaken Weaver 6/8"]

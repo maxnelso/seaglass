@@ -1,0 +1,9 @@
+card: Crater Miner
+scenarios:
+  - name: choose_one_take_the_gems_gets_2_blood_gems
+    steps:
+      - add_to_hand: Crater Miner
+      - play: Crater Miner
+      - expect: {discover_pending: {not: null}}
+      - choose_discover: 0   # Take the Gems: get 2 Blood Gems
+    expect: {hand: [Blood Gem, Blood Gem]}

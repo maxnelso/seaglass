@@ -1,0 +1,9 @@
+card: Fruit Vendor
+scenarios:
+  - name: activate_spends_1_gold_for_2_bananas
+    tavern: {gold: 10, board: [Fruit Vendor]}
+    steps:
+      - activate: Fruit Vendor
+    expect:
+      gold: 9
+      hand: [Tavern Dish Banana, Tavern Dish Banana]

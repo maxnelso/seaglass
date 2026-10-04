@@ -1,0 +1,7 @@
+card: N'raqi Frostcaller
+scenarios:
+  - name: activate_discards_a_card_for_1_1_on_tavern_spells
+    tavern: {board: [N'raqi Frostcaller], hand: ["1/1"]}
+    steps:
+      - activate: {pos: N'raqi Frostcaller, target: 0}   # Activate (0): discards the 1/1
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}

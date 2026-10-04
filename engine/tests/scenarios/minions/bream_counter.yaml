@@ -1,0 +1,7 @@
+card: Bream Counter
+scenarios:
+  - name: gains_6_6_in_hand_after_you_play_a_murloc
+    tavern: {hand: [Bream Counter, Flighty Scout]}   # Bream Counter: 6/6; Flighty Scout is a Murloc
+    steps:
+      - play: Flighty Scout
+    expect: {hand: ["Bream Counter 12/12"]}

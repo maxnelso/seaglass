@@ -1,0 +1,8 @@
+card: Tasty Lobster
+scenarios:
+  - name: deathrattles_improve_future_lobsters
+    seed: 333
+    combat:
+      board_a: [Tasty Lobster, Tasty Lobster, Flittering Bat]   # Flittering Bat: a 1/4 Beast
+      board_b: ["4/10"]
+    expect: {auras_a: {counters: {Tasty Lobster: {0: 2}}}}

@@ -1,0 +1,7 @@
+card: Utility Drone
+scenarios:
+  - name: end_of_turn_gives_4_5_for_each_magnetization
+    tavern: {board: [Utility Drone, {card: "3/3 mech", magnetizations_count: 2}]}
+    steps:
+      - end_turn
+    expect: {board: [Utility Drone, "11/13"]}   # 3/3 + 2 x 4/5

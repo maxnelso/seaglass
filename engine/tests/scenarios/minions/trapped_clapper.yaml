@@ -1,0 +1,8 @@
+card: Trapped Clapper
+scenarios:
+  - name: deathrattle_adds_a_fodder_to_the_next_3_refreshes
+    seed: 336
+    combat: {board_a: [Trapped Clapper], board_b: ["3/3"]}
+    expect:
+      auras_a:   # one Fodder for each of the next 3 Refreshes
+        effects: {where: {card: Demon Fodder}, count: 1, 0: {stacks: 1, duration: {Refreshes: 3}}}

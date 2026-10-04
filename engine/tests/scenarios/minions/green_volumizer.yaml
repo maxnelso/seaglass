@@ -1,0 +1,25 @@
+card: Green Volumizer
+scenarios:
+  - name: played_it_gives_volumizers_1_1
+    steps:
+      - add_to_hand: Green Volumizer
+      - play: Green Volumizer
+    expect:
+      auras: {counters: {Blue Volumizer: [1, 1]}}   # the counter all Volumizers share
+      board: ["Green Volumizer 4/4"]
+
+  - name: tripling_does_not_triple_global_auras_and_resets_golden_threshold
+    steps:
+      - add_to_hand: Green Volumizer
+      - play: Green Volumizer
+      - add_to_hand: Green Volumizer
+      - play: Green Volumizer
+      - add_to_hand: Green Volumizer
+    expect:
+      # Golden Green Volumizer is 6/6 base + 2/2 from the 2 Volumizer stacks = 8/8 (not 12/12).
+      hand:
+        - card: Green Volumizer
+          is_golden: true
+          threshold_triggered: false
+          attack: 8
+          health: 8

@@ -1,0 +1,7 @@
+card: Fetid Corroder
+scenarios:
+  - name: battlecry_gets_a_sludge_corrosion
+    steps:
+      - add_to_hand: Fetid Corroder
+      - play: Fetid Corroder
+    expect: {hand: [Sludge Corrosion]}

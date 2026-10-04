@@ -1,0 +1,10 @@
+card: Razorfen Flapper
+scenarios:
+  - name: battlecry_and_deathrattle_get_a_blood_gem_barrage
+    seed: 447
+    steps:
+      - add_to_hand: Razorfen Flapper
+      - play: Razorfen Flapper
+      - expect: {hand: [Blood Gem Barrage]}
+      - fight: {board: ["10/10"]}   # it dies
+    expect: {hand: [Blood Gem Barrage, Blood Gem Barrage]}

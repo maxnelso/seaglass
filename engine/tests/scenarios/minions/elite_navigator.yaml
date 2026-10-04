@@ -1,0 +1,8 @@
+card: Elite Navigator
+scenarios:
+  - name: battlecry_makes_a_friendly_pirate_golden
+    tavern: {board: [Southsea Busker]}   # a Tier 1 Pirate, 3/1
+    steps:
+      - add_to_hand: Elite Navigator
+      - play: Elite Navigator
+    expect: {board: ["golden Southsea Busker 6/2", Elite Navigator]}

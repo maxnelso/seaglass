@@ -1,0 +1,15 @@
+card: Victorious Geomant
+scenarios:
+  - name: activate_gets_6_blood_gems_and_casts_the_ones_that_dont_fit
+    description: >-
+      With 8 cards in hand only 2 of the 6 Blood Gems fit; the other 4 are played on the
+      left-most minion (+4/+4).
+    tavern:
+      gold: 10
+      board: [Victorious Geomant]   # 10/10, Activate (2)
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem]
+    steps:
+      - activate: Victorious Geomant
+    expect:
+      hand: {count: 10}
+      board: ["Victorious Geomant 14/14"]

@@ -1,0 +1,11 @@
+card: Deathstrider
+scenarios:
+  - name: after_a_rally_minion_attacks_triggers_the_left_most_deathrattle
+    description: >-
+      Heroic Broodmother (Rally) attacks at Start of Combat; Deathstrider then triggers the
+      left-most Deathrattle, Harmless Bonehead's, which summons Skeletons.
+    seed: 607
+    combat:
+      board_a: [Heroic Broodmother, Harmless Bonehead, Deathstrider]
+      board_b: ["1/7"]
+    expect: {survivors_a: {any: Skeleton}}

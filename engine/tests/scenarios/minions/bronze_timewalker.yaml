@@ -1,0 +1,11 @@
+card: Bronze Timewalker
+scenarios:
+  - name: rally_gets_a_random_chromadrake
+    seed: 410
+    tavern: {board: [Bronze Timewalker]}
+    steps:
+      - fight: {board: ["1/1"]}
+    expect:
+      hand:
+        - any_of:
+            [Blue Chromadrake, Black Chromadrake, Green Chromadrake, Bronze Chromadrake, Red Chromadrake]

@@ -1,0 +1,6 @@
+card: Dark Puppeteer
+scenarios:
+  - name: deathrattle_gives_tavern_spells_4_extra_health
+    seed: 605
+    combat: {board_a: [Dark Puppeteer], board_b: ["10/10"]}   # an 8/4
+    expect: {auras_a: {spell_bonus_hp: 4}}

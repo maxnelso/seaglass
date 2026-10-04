@@ -1,0 +1,7 @@
+card: Firelands Fugitive
+scenarios:
+  - name: battlecry_gets_a_conflagration
+    steps:
+      - add_to_hand: Firelands Fugitive
+      - play: Firelands Fugitive
+    expect: {hand: [Conflagration]}

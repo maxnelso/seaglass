@@ -1,0 +1,11 @@
+card: Energizing Chamber
+scenarios:
+  - name: gives_the_deity_7_7_cast_twice_if_discarded
+    steps:
+      - add_to_hand: Energizing Chamber
+      - play: Energizing Chamber
+      - expect: {auras: {deity: {attack: 8, health: 8}}}
+      - push_board: Brain Rotter   # Activate: discard a card to give your Deity +2/+2
+      - add_to_hand: Energizing Chamber
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {auras: {deity: {attack: 24, health: 24}}}   # cast twice (+14/+14), Brain Rotter +2/+2

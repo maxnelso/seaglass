@@ -1,0 +1,7 @@
+card: Brann Bronzebeard
+scenarios:
+  - name: battlecries_trigger_twice
+    tavern: {board: [Brann Bronzebeard], hand: [Razorfen Geomancer]}   # Battlecry: get 2 Blood Gems
+    steps:
+      - play: Razorfen Geomancer
+    expect: {hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem]}

@@ -1,0 +1,11 @@
+card: Gatekeeper Amalgam
+scenarios:
+  - name: a_spell_cast_on_it_casts_misplaced_tea_set
+    description: >-
+      Fortify on the Amalgam casts Misplaced Tea Set: +4/+4 to a friendly minion of each type.
+      The Amalgam (All) takes the first type (Aberration), so the 2/2 Beast gets the Beast buff.
+    seed: 612
+    tavern: {board: [Gatekeeper Amalgam, "2/2 beast"], hand: [Fortify]}   # a 6/6 All
+    steps:
+      - play: {hand: Fortify, pos: 0}
+    expect: {board: {1: "6/6"}}

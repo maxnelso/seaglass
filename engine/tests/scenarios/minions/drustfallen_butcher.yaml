@@ -1,0 +1,8 @@
+card: Drustfallen Butcher
+scenarios:
+  - name: avenge_4_gets_a_butchering
+    seed: 513
+    combat:
+      board_a: ["1/1 taunt", "1/1 taunt", "1/1 taunt", "1/1 taunt", Drustfallen Butcher]
+      board_b: ["2/20"]
+    expect: {hand_a: [Butchering]}

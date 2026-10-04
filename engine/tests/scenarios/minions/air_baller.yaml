@@ -1,0 +1,9 @@
+card: Air Baller
+scenarios:
+  - name: selling_it_gives_your_minions_2_2_and_improves_ballers
+    tavern: {board: ["1/1", Air Baller]}
+    steps:
+      - sell: Air Baller
+    expect:
+      board: ["3/3"]   # +2/+2 (no Baller improvements yet)
+      auras: {counters: {Fire Baller: {0: 1}}}   # future Ballers improved by 1

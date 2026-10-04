@@ -1,0 +1,22 @@
+card: Auto Reveille
+scenarios:
+  - name: buying_3_cards_magnetizes_a_random_volumizer_and_gets_a_copy
+    seed: 601
+    tavern:
+      gold: 10
+      board: [Auto Reveille]   # 4/8 Mech
+      shop: [Cord Puller, Lullabot, Bubble Gunner]
+    steps:
+      - buy: Cord Puller
+      - buy: Lullabot
+      - buy: Bubble Gunner
+    expect:
+      board:
+        - all_of:
+            - {card: Auto Reveille, magnetizations_count: 1}
+            - any_of: [{attack: "> 4"}, {health: "> 8"}]
+      hand:
+        - Cord Puller
+        - Lullabot
+        - Bubble Gunner
+        - any_of: [Blue Volumizer, Green Volumizer, Red Volumizer]

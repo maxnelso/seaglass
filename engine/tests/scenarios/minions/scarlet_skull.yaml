@@ -1,0 +1,6 @@
+card: Scarlet Skull
+scenarios:
+  - name: deathrattle_gives_a_friendly_undead_1_2
+    seed: 225
+    combat: {board_a: [Scarlet Skull, Risen Rider], board_b: ["2/2"]}
+    expect: {outcome: a_win, survivors_a: {any: "Risen Rider 3/3"}}   # buffed from 2/1

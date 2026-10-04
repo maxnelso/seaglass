@@ -1,0 +1,9 @@
+card: Robust Evolution
+scenarios:
+  - name: transforms_a_minion_into_a_next_tier_minion_keeping_its_stats
+    seed: 823
+    tavern: {board: ["Glim Guardian 12/15"]}   # Tier 1
+    steps:
+      - add_to_hand: Robust Evolution
+      - play: {hand: Robust Evolution, pos: 0}
+    expect: {board: ["12/15 t2"]}

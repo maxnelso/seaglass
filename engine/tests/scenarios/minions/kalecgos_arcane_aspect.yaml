@@ -1,0 +1,8 @@
+card: Kalecgos, Arcane Aspect
+scenarios:
+  - name: after_a_battlecry_gives_dragons_2_2
+    tavern: {board: ["Kalecgos, Arcane Aspect"]}   # a 4/12 Dragon
+    steps:
+      - add_to_hand: Southsea Busker   # a Battlecry minion
+      - play: Southsea Busker
+    expect: {board: {0: "Kalecgos, Arcane Aspect 6/14"}}

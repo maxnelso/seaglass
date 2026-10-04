@@ -1,0 +1,10 @@
+card: Snazzy Phantom
+scenarios:
+  - name: a_reborn_minion_gives_its_attack_to_the_right_most_undead
+    description: >-
+      Risen Rider (2 Attack, Reborn) is Reborn: Snazzy Phantom, the right-most Undead, gets
+      +2/+2 (6/8 -> 8/10).
+    seed: 622
+    combat: {board_a: [Risen Rider, Snazzy Phantom], board_b: ["2/4"]}
+    expect:
+      survivors_a: {any: {card: Snazzy Phantom, attack: 8, max_health: 10}}

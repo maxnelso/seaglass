@@ -1,0 +1,8 @@
+card: Lurking Leviathan
+scenarios:
+  - name: summoning_a_beast_gives_it_3_attack_and_improves_this
+    tavern: {board: [Lurking Leviathan]}
+    steps:
+      - add_to_hand: Flittering Bat   # a 1/4 Beast
+      - play: Flittering Bat
+    expect: {board: [{card: Lurking Leviathan, stacks: 1}, "Flittering Bat 4/4"]}

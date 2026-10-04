@@ -1,0 +1,10 @@
+card: Enchanted Sentinel
+scenarios:
+  - name: your_tavern_spells_give_an_extra_1_1
+    steps:
+      - add_to_hand: Enchanted Sentinel
+      - play: Enchanted Sentinel
+      - expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}
+      - add_to_hand: Tavern Dish Banana   # +2/+2
+      - play: {hand: Tavern Dish Banana, pos: 0}
+    expect: {board: ["Enchanted Sentinel 6/8"]}   # 3/5 + 3/3

@@ -1,0 +1,7 @@
+card: The Shadow of Doubt
+scenarios:
+  - name: a_card_added_to_hand_gives_the_deity_4_5
+    tavern: {board: [The Shadow of Doubt]}
+    steps:
+      - add_to_hand: Blood Gem
+    expect: {auras: {deity: {attack: 5, health: 6}}}   # 1/1 + 4/5

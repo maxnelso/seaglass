@@ -1,0 +1,8 @@
+card: Friendly Geist
+scenarios:
+  - name: deathrattle_makes_tavern_spells_give_1_more_attack
+    seed: 421
+    tavern: {board: [Friendly Geist]}
+    steps:
+      - fight: {board: ["10/10"]}
+    expect: {auras: {spell_bonus_atk: 1}}

@@ -1,0 +1,7 @@
+card: Sellemental
+scenarios:
+  - name: selling_it_gets_a_3_3_water_droplet
+    tavern: {board: [Sellemental]}
+    steps:
+      - sell: Sellemental
+    expect: {hand: ["Water Droplet 3/3"]}

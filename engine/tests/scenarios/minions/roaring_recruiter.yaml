@@ -1,0 +1,8 @@
+card: Roaring Recruiter
+scenarios:
+  - name: gives_another_attacking_dragon_3_1
+    seed: 329
+    combat: {board_a: [Glim Guardian, Roaring Recruiter], board_b: ["2/5"]}   # Glim Guardian: a 1/4 Dragon
+    expect:
+      outcome: a_win
+      survivors_a: {0: "Glim Guardian 6/3"}   # +2 Attack (Rally) and +3/+1, then takes 2

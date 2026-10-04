@@ -1,0 +1,8 @@
+card: Conveyor Construct
+scenarios:
+  - name: deathrattle_gets_a_random_volumizer
+    seed: 412
+    tavern: {board: [Conveyor Construct]}
+    steps:
+      - fight: {board: ["10/10"]}
+    expect: {hand: [{any_of: [Blue Volumizer, Green Volumizer, Red Volumizer]}]}

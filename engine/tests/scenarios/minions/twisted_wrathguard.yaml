@@ -1,0 +1,9 @@
+card: Twisted Wrathguard
+scenarios:
+  - name: selling_a_minion_adds_a_fodder_to_the_next_refresh
+    tavern: {board: [Twisted Wrathguard, "1/1"]}
+    steps:
+      - sell: "1/1"
+    expect:
+      # The Demon Fodder player effect: 1 Fodder on each of the next 1 Refresh(es).
+      auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}

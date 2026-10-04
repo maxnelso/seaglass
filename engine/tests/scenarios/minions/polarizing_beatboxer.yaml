@@ -1,0 +1,11 @@
+card: Polarizing Beatboxer
+scenarios:
+  - name: magnetizing_another_mech_also_magnetizes_a_copy_to_it
+    tavern: {board: [Polarizing Beatboxer, Cord Puller]}   # a 5/10 Mech and a 1/1 Mech
+    steps:
+      - add_to_hand: Lullabot   # 2/2 Magnetic: +1 Health at end of turn
+      - play: {hand: Lullabot, pos: 1}   # onto Cord Puller
+    expect:
+      board:
+        - {card: Polarizing Beatboxer, stats: 7/12, magnetizations_count: 1, eot_health_bonus: 1}
+        - "Cord Puller 3/3"

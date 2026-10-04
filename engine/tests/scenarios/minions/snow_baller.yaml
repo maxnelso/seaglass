@@ -1,0 +1,9 @@
+card: Snow Baller
+scenarios:
+  - name: selling_it_gives_your_minions_1_health_and_improves_ballers
+    tavern: {board: ["2/2", Snow Baller]}
+    steps:
+      - sell: Snow Baller
+    expect:
+      board: ["2/3"]
+      auras: {counters: {Fire Baller: {0: 1}}}   # the counter all Ballers share

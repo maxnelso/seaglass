@@ -1,0 +1,6 @@
+card: Handless Forsaken
+scenarios:
+  - name: deathrattle_summons_a_helping_hand
+    seed: 319
+    combat: {board_a: [Handless Forsaken], board_b: ["2/4"]}
+    expect: {outcome: a_win, survivors_a: [Helping Hand]}

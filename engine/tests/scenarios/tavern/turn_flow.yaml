@@ -15,3 +15,21 @@ scenarios:
       board: {count: 1}
       hand: {count: 0}
       shop: {count: 2}
+
+  - name: gold_above_ten_is_preserved_and_armor_absorbs_hero_damage_first
+    seed: 12345
+    tavern:
+      turn: 9
+      bonus_gold_next_turn: 3
+      health: 30
+      armor: 5
+    steps:
+      - start_turn
+      - expect: {max_gold: 10, gold: 13}
+      - push_board: "1/1"
+      - sell: 0
+      - expect: {gold: 14}
+      - deal_hero_damage: 3
+    expect:
+      health: 30
+      armor: 2

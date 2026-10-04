@@ -1,0 +1,8 @@
+card: Snare Trapper
+scenarios:
+  - name: choose_one_collect_the_bounty_gives_1_max_gold
+    steps:
+      - add_to_hand: Snare Trapper
+      - play: Snare Trapper
+      - choose_discover: 1   # Collect the Bounty (+1 Max Gold)
+    expect: {auras: {base_max_gold_bonus: 1}}

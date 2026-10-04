@@ -1,0 +1,11 @@
+card: Rodeo Performer
+scenarios:
+  - name: battlecry_discovers_a_tavern_spell
+    seed: 542
+    tavern: {tavern_tier: 5}
+    steps:
+      - add_to_hand: Rodeo Performer
+      - play: Rodeo Performer
+      - expect: {discover_pending: {not: null}}
+      - choose_discover: 0
+    expect: {hand: [{is_spell: true}]}

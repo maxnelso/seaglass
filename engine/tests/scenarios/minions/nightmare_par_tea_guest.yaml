@@ -1,0 +1,7 @@
+card: Nightmare Par-tea Guest
+scenarios:
+  - name: battlecry_gets_a_misplaced_tea_set
+    steps:
+      - add_to_hand: Nightmare Par-tea Guest
+      - play: Nightmare Par-tea Guest
+    expect: {hand: [Misplaced Tea Set]}

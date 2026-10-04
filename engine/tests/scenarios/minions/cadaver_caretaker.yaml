@@ -1,0 +1,8 @@
+card: Cadaver Caretaker
+scenarios:
+  - name: deathrattle_skeletons_win
+    description: >-
+      It deals 3 to the 3/4 and dies; of its three 1/1 Skeletons, the first finishes off the 3/1.
+    seed: 308
+    combat: {board_a: [Cadaver Caretaker], board_b: ["3/4"]}
+    expect: {outcome: a_win, survivors_a: {count: 2}}

@@ -1,0 +1,10 @@
+card: Bilgewater Breakout
+scenarios:
+  - name: battlecry_gets_a_lockbox_and_a_second_one_opens_it_a_turn_sooner
+    steps:
+      - add_to_hand: Bilgewater Breakout
+      - play: Bilgewater Breakout
+      - expect: {hand: [{card: Lockbox, lockbox_turns_left: 5}]}
+      - add_to_hand: Bilgewater Breakout
+      - play: Bilgewater Breakout   # the Lockbox opens 1 turn sooner (5 -> 4)
+    expect: {hand: [{card: Lockbox, lockbox_turns_left: 4}]}

@@ -1,0 +1,10 @@
+card: Upper Hand
+scenarios:
+  - name: sets_an_enemy_minions_health_to_1_next_combat
+    seed: 857
+    steps:
+      - add_to_hand: Upper Hand
+      - play: Upper Hand
+      - expect: {auras: {effect_stacks: {Upper Hand: 1}}}
+      - simulate: {board_a: ["2/2"], board_b: ["1/50"], auras_a: tavern}
+    expect: {combat: {outcome: a_win}}

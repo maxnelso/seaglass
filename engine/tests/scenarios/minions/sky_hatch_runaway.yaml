@@ -1,0 +1,7 @@
+card: Sky-hatch Runaway
+scenarios:
+  - name: activate_triggers_a_friendly_rally
+    tavern: {gold: 10, board: [Sky-hatch Runaway, Glim Guardian]}   # Glim Guardian: 1/4, Rally: gain +2 Attack
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect: {board: [Sky-hatch Runaway, "Glim Guardian 3/4"]}

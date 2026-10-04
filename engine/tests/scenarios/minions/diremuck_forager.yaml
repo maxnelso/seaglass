@@ -1,0 +1,9 @@
+card: Diremuck Forager
+scenarios:
+  - name: start_of_combat_summons_the_highest_attack_murloc_from_hand
+    seed: 311
+    combat:
+      board_a: [Diremuck Forager]
+      board_b: ["1/1"]
+      hand_a: ["2/2 murloc", {card: "9/9 murloc", name: BigMurloc}]
+    expect: {outcome: a_win, survivors_a: {any: {name: BigMurloc}}}

@@ -1,0 +1,8 @@
+card: Lockbox
+scenarios:
+  - name: opens_into_a_golden_minion_when_the_countdown_ends
+    seed: 952
+    steps:
+      - add_to_hand: {card: Lockbox, lockbox_turns_left: 1}
+      - start_turn
+    expect: {hand: [{is_spell: false, is_golden: true}]}

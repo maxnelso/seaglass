@@ -1,0 +1,7 @@
+card: Leaf Through the Pages
+scenarios:
+  - name: gets_2_free_refreshes
+    steps:
+      - add_to_hand: Leaf Through the Pages
+      - play: Leaf Through the Pages
+    expect: {auras: {free_refreshes: 2}}

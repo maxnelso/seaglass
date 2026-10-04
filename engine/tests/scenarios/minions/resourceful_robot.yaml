@@ -1,0 +1,13 @@
+card: Resourceful Robot
+scenarios:
+  - name: end_of_turn_magnetizes_a_random_volumizer_and_gets_a_copy
+    description: >-
+      Every Volumizer adds Attack (Blue 1/3 with its +3 Health, Green 3/3 with +1/+1, Red 3/1 with
+      +3 Attack), so the 4/8 Robot ends above 4 Attack whichever one it gets.
+    seed: 541
+    tavern: {board: [Resourceful Robot]}   # 4/8
+    steps:
+      - end_turn
+    expect:
+      board: [{card: Resourceful Robot, attack: "> 4"}]
+      hand: [{card: {any_of: [Blue Volumizer, Green Volumizer, Red Volumizer]}}]

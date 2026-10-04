@@ -1,0 +1,7 @@
+card: N'raqi Sapper
+scenarios:
+  - name: battlecry_gets_an_energizing_chamber
+    steps:
+      - add_to_hand: N'raqi Sapper
+      - play: N'raqi Sapper
+    expect: {hand: [Energizing Chamber]}

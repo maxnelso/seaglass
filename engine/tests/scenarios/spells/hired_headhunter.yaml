@@ -1,0 +1,11 @@
+card: Hired Headhunter
+scenarios:
+  - name: discovers_a_battlecry_minion
+    seed: 854
+    tavern: {tavern_tier: 5}
+    steps:
+      - add_to_hand: Hired Headhunter
+      - play: Hired Headhunter
+      - expect: {discover_pending: {count: 3}}
+      - choose_discover: 0
+    expect: {hand: [{battlecry: true}]}

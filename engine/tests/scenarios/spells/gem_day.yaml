@@ -1,0 +1,8 @@
+card: Gem Day
+scenarios:
+  - name: choose_one_blood_gems_give_1_more_attack
+    steps:
+      - add_to_hand: Gem Day
+      - play: Gem Day
+      - choose_discover: 0   # +1 Attack (option 1 is +1 Health)
+    expect: {auras: {blood_gem_bonus_atk: 1}}

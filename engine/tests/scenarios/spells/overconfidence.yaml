@@ -1,0 +1,13 @@
+card: Overconfidence
+scenarios:
+  - name: winning_the_next_combat_gives_3_gold_next_turn
+    seed: 820
+    steps:
+      - add_to_hand: Overconfidence
+      - play: Overconfidence
+      - expect: {auras: {effect_stacks: {Overconfidence: 1}}}
+      - push_board: "10/10"
+      - fight: {board: ["1/1"]}
+    expect:
+      combat: {outcome: a_win}
+      bonus_gold_next_turn: 3

@@ -1,0 +1,7 @@
+card: Timecap'n Hooktail
+scenarios:
+  - name: casting_a_tavern_spell_gives_your_minions_1_attack
+    tavern: {board: [Timecap'n Hooktail], hand: [Hasty Excavation]}
+    steps:
+      - play: {hand: Hasty Excavation, pos: 0}   # untargeted spells are played at 0
+    expect: {board: ["Timecap'n Hooktail 2/4"]}

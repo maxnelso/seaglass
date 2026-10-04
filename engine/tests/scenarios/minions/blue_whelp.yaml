@@ -1,0 +1,6 @@
+card: Blue Whelp
+scenarios:
+  - name: rally_gives_tavern_spells_1_extra_health
+    seed: 307
+    combat: {board_a: [Blue Whelp], board_b: ["1/1"]}
+    expect: {outcome: a_win, auras_a: {spell_bonus_hp: 1}}

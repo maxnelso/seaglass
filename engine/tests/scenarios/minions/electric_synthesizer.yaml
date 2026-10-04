@@ -1,0 +1,8 @@
+card: Electric Synthesizer
+scenarios:
+  - name: battlecry_gives_your_other_dragons_1_1
+    tavern: {board: [Glim Guardian]}   # a 1/4 Dragon
+    steps:
+      - add_to_hand: Electric Synthesizer
+      - play: Electric Synthesizer
+    expect: {board: ["Glim Guardian 2/5", "Electric Synthesizer 3/4"]}

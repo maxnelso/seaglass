@@ -1,0 +1,7 @@
+card: Weapons Forge
+scenarios:
+  - name: gets_3_pointy_arrows
+    steps:
+      - add_to_hand: Weapons Forge
+      - play: Weapons Forge
+    expect: {hand: [Pointy Arrow, Pointy Arrow, Pointy Arrow]}

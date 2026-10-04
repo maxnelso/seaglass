@@ -62,10 +62,9 @@ fn main() {
     let catalog = root.join("catalog.yaml");
     trials.push(Trial::test("catalog", move || check_catalog(&catalog)));
     let (src, scenarios) = (manifest.join("src/cards"), root.clone());
-    // Ignored until every card has its scenarios (`cargo test --test scenarios -- --ignored`).
-    trials.push(
-        Trial::test("coverage", move || check_coverage(&src, &scenarios)).with_ignored_flag(true),
-    );
+    trials.push(Trial::test("coverage", move || {
+        check_coverage(&src, &scenarios)
+    }));
 
     let ledger: Vec<String> = trials
         .iter()

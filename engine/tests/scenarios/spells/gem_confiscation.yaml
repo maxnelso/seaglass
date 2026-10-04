@@ -1,0 +1,11 @@
+card: Gem Confiscation
+scenarios:
+  - name: plays_3_blood_gems_and_steals_the_neighbors_gems
+    tavern: {board: ["3/3", "2/2"]}
+    steps:
+      - play_blood_gems: {board: 0, count: 2}   # the left one is 5/5 with 2 Gems
+      - add_to_hand: Gem Confiscation
+      - play: {hand: Gem Confiscation, pos: 1}
+    expect:
+      # The left one lost its 2 Gems; the target got 3 Gems + the 2 stolen ones.
+      board: ["3/3", {stats: "7/7", blood_gems_played: 5}]

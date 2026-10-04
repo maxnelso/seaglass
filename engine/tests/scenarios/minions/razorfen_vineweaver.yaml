@@ -1,0 +1,10 @@
+card: Razorfen Vineweaver
+scenarios:
+  - name: rally_plays_4_permanent_blood_gems_on_itself
+    seed: 540
+    tavern: {board: [Razorfen Vineweaver]}   # 4/4
+    steps:
+      - fight: {board: ["1/1"]}
+    expect:
+      combat: {outcome: a_win}
+      board: [{card: Razorfen Vineweaver, stats: "8/8", blood_gems_played: 4}]   # kept +4/+4

@@ -1,0 +1,8 @@
+card: Azerite Empowerment
+scenarios:
+  - name: gives_your_minions_2_2_twice
+    tavern: {board: ["2/2", "3/3"]}
+    steps:
+      - add_to_hand: Azerite Empowerment
+      - play: {hand: Azerite Empowerment, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["6/6", "7/7"]}

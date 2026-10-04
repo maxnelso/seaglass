@@ -1,0 +1,6 @@
+card: Eternal Summoner
+scenarios:
+  - name: deathrattle_summons_an_eternal_knight
+    seed: 516
+    combat: {board_a: [Eternal Summoner], board_b: ["10/5"]}   # 8/1 Reborn
+    expect: {outcome: a_win, survivors_a: {any: Eternal Knight}}

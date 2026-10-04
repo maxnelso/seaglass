@@ -1,0 +1,13 @@
+card: Obsidian Ravager
+scenarios:
+  - name: rally_damages_the_target_and_a_neighbour_before_combat_damage
+    description: >-
+      Side A (3 minions) attacks first: the 7/7 Ravager attacks the 10/7 Taunt, and its Rally deals
+      7 damage to it and to the adjacent 0/7, killing both before combat damage.
+    seed: 706
+    combat:
+      board_a: [Obsidian Ravager, "0/1", "0/1"]
+      board_b: ["0/7", "10/7 taunt"]
+    expect:
+      outcome: a_win
+      survivors_a: ["Obsidian Ravager 7/7", "0/1", "0/1"]

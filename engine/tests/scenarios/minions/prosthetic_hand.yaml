@@ -1,0 +1,8 @@
+card: Prosthetic Hand
+scenarios:
+  - name: magnetizes_onto_an_undead
+    tavern: {board: [Eternal Knight]}   # a 4/2 Undead
+    steps:
+      - add_to_hand: Prosthetic Hand   # 3/1 Undead/Mech, Magnetic, Reborn
+      - play: {hand: Prosthetic Hand, pos: 0}   # onto Eternal Knight
+    expect: {board: ["Eternal Knight 7/3 reborn"]}

@@ -1,0 +1,12 @@
+card: Hallowed Ritual
+scenarios:
+  # The Rust test's catalog checks (4 Tier 7 spells, 70 Tavern spells in all) are the `catalog`
+  # test's job (catalog.yaml `spells`).
+  - name: discovers_a_tier_7_minion
+    seed: 864
+    steps:
+      - add_to_hand: Hallowed Ritual
+      - play: Hallowed Ritual
+      - expect: {discover_pending: {count: 3, all: t7}}
+      - choose_discover: 0
+    expect: {hand: [t7]}

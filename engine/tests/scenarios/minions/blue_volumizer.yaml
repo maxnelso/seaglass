@@ -1,0 +1,11 @@
+card: Blue Volumizer
+scenarios:
+  - name: magnetized_it_gives_volumizers_3_health
+    description: Blue Volumizer becomes 1/6 before it magnetizes onto the 1/1 Cord Puller (2/7).
+    tavern: {board: [Cord Puller]}   # a 1/1 Mech
+    steps:
+      - add_to_hand: Blue Volumizer   # 1/3 Magnetic
+      - play: {hand: Blue Volumizer, pos: 0}   # onto Cord Puller
+    expect:
+      auras: {counters: {Blue Volumizer: [0, 3]}}   # the counter all Volumizers share
+      board: ["Cord Puller 2/7"]

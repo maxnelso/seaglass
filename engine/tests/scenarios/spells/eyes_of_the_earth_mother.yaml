@@ -1,0 +1,8 @@
+card: Eyes of the Earth Mother
+scenarios:
+  - name: makes_a_tier_4_minion_golden
+    tavern: {board: [Conveyor Construct]}   # Tier 4, 5/2
+    steps:
+      - add_to_hand: Eyes of the Earth Mother
+      - play: {hand: Eyes of the Earth Mother, pos: 0}
+    expect: {board: ["golden Conveyor Construct 10/4"]}

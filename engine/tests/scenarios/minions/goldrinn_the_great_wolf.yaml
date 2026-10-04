@@ -1,0 +1,10 @@
+card: Goldrinn, the Great Wolf
+scenarios:
+  - name: deathrattle_gives_beasts_7_7_until_next_turn
+    seed: 524
+    combat:
+      board_a: ["Goldrinn, the Great Wolf taunt", Buzzing Vermin]   # Buzzing Vermin: a 1/1 Beast
+      board_b: ["10/5"]
+    expect:
+      auras_a: {effect_stacks: {"Goldrinn, the Great Wolf": 7}}
+      survivors_a: {any: "Buzzing Vermin 8/8"}

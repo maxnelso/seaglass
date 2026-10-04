@@ -1,0 +1,11 @@
+card: Heroic Underdog
+scenarios:
+  - name: rally_gains_the_targets_attack_before_damage
+    description: >-
+      Heroic Underdog (1/10) attacks first (its side has more minions) and gains the 9/8's 9
+      Attack before damage: it kills it in one hit and survives at 10/1.
+    seed: 428
+    combat:
+      board_a: [Heroic Underdog, "0/1"]
+      board_b: ["9/8"]
+    expect: {outcome: a_win, survivors_a: {0: "Heroic Underdog 10/1"}}

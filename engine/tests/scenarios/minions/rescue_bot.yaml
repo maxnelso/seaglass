@@ -1,0 +1,6 @@
+card: Rescue Bot
+scenarios:
+  - name: deathrattle_gets_a_repair_job
+    seed: 328
+    combat: {board_a: [Rescue Bot], board_b: ["2/2"]}
+    expect: {outcome: draw, hand_a: [Repair Job]}

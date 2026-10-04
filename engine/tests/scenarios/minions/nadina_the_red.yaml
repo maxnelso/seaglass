@@ -1,0 +1,10 @@
+card: Nadina the Red
+scenarios:
+  - name: deathrattle_gives_friendly_dragons_divine_shield
+    seed: 617
+    combat:
+      board_a: [Nadina the Red, "4/4 dragon", "4/4 dragon"]
+      board_b: ["10/4"]
+    expect:
+      outcome: a_win
+      survivors_a: {all: {any_of: [{divine_shield: true}, {health: 4}]}}

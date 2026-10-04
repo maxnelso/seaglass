@@ -1,0 +1,8 @@
+card: Cataclysmic Harbinger
+scenarios:
+  - name: end_of_turn_gets_a_copy_of_the_last_tavern_spell_cast
+    tavern: {board: [Cataclysmic Harbinger], hand: [Armor Stash]}
+    steps:
+      - play: {hand: Armor Stash, pos: 0}   # an untargeted spell is played at 0
+      - end_turn
+    expect: {hand: [Armor Stash]}

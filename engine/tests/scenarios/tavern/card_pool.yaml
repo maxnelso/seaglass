@@ -1,0 +1,14 @@
+topic: The card pool and the cards the shop offers
+scenarios:
+  - name: fresh_pool_has_15_copies_and_the_bought_card_is_the_one_played
+    seed: 99
+    tavern: {catalog: tier1}
+    steps:
+      - expect: {pool: {Joyous: 15}}   # every Tier 1 minion starts with 15 copies
+      - start_turn
+      - expect:
+          gold: 3
+          shop: {count: 3, 0: {card_id: {capture: bought}}}
+      - buy: 0
+      - play: 0
+    expect: {board: [{card_id: {same_as: bought}}]}

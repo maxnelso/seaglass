@@ -1,0 +1,7 @@
+card: Firescale Hoarder
+scenarios:
+  - name: battlecry_gets_a_shiny_ring
+    steps:
+      - add_to_hand: Firescale Hoarder
+      - play: Firescale Hoarder
+    expect: {hand: [Shiny Ring]}

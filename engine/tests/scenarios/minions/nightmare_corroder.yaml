@@ -1,0 +1,7 @@
+card: Nightmare Corroder
+scenarios:
+  - name: end_of_turn_gets_a_sludge_corrosion
+    tavern: {board: [Nightmare Corroder]}
+    steps:
+      - end_turn
+    expect: {hand: [Sludge Corrosion]}

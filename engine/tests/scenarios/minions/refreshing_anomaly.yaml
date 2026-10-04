@@ -1,0 +1,7 @@
+card: Refreshing Anomaly
+scenarios:
+  - name: battlecry_gives_2_free_refreshes
+    steps:
+      - add_to_hand: Refreshing Anomaly
+      - play: Refreshing Anomaly
+    expect: {auras: {free_refreshes: 2}}

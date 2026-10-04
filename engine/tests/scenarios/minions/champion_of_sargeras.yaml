@@ -1,0 +1,12 @@
+card: Champion of Sargeras
+scenarios:
+  - name: battlecry_and_deathrattle_each_give_tavern_minions_8_8
+    seed: 702
+    steps:
+      - add_to_hand: Champion of Sargeras
+      - play: Champion of Sargeras
+      - expect: {auras: {tavern_all_atk: 8, tavern_all_hp: 8}}
+      - fight: {board: ["30/30"]}   # it dies: the Deathrattle fires in combat
+    expect:
+      combat: {outcome: b_win}
+      auras: {tavern_all_atk: 16, tavern_all_hp: 16}

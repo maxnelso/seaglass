@@ -1,0 +1,9 @@
+card: Healthy Bounty
+scenarios:
+  - name: gives_random_friendly_minions_4_health
+    seed: 818
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Healthy Bounty
+      - play: {hand: Healthy Bounty, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["2/6"]}

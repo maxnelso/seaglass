@@ -1,0 +1,7 @@
+card: Living Azerite
+scenarios:
+  - name: casting_a_tavern_spell_gives_tavern_elementals_4_3
+    tavern: {board: [Living Azerite], hand: [Armor Stash]}
+    steps:
+      - play: {hand: Armor Stash, pos: 0}
+    expect: {auras: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}}

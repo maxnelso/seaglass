@@ -312,7 +312,7 @@ The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
 - `token_minions`, `token_spells`, `deities`;
 - card ids and names are unique across all cards, and unit specs can name every card.
 
-The `coverage` test (ignored for now: `-- --ignored`) checks that every
+The `coverage` test checks that every
 `src/cards/{minions,spells}/<card>.rs` has a `tests/scenarios/{minions,spells}/<card>.yaml`
 starting with `card: <Card Name>` (the file name is the card's slug: `Fandral's Fortune` ->
 `fandrals_fortune`), that every scenario file belongs to a card or a topic, and that

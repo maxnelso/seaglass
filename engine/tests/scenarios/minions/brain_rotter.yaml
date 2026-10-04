@@ -1,0 +1,9 @@
+card: Brain Rotter
+scenarios:
+  - name: activate_discards_a_card_to_give_the_deity_2_2
+    tavern: {auras: {deity: {kind: cthun}}, board: [Brain Rotter], hand: [Blood Gem]}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}   # discard the Blood Gem
+    expect:
+      hand: []
+      auras: {deity: {attack: 3, health: 3}}

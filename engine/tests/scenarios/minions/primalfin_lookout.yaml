@@ -1,0 +1,11 @@
+card: Primalfin Lookout
+scenarios:
+  - name: battlecry_with_another_murloc_discovers_a_murloc
+    seed: 538
+    tavern: {tavern_tier: 5, board: [Bubble Gunner]}   # a Murloc
+    steps:
+      - add_to_hand: Primalfin Lookout
+      - play: Primalfin Lookout
+      - expect: {discover_pending: {not: null}}
+      - choose_discover: 0
+    expect: {hand: [murloc]}

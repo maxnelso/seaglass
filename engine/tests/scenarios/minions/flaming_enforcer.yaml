@@ -1,0 +1,9 @@
+card: Flaming Enforcer
+scenarios:
+  - name: end_of_turn_consumes_the_highest_health_tavern_minion
+    tavern: {board: [Flaming Enforcer], shop: ["2/2", "6/9"]}   # Enforcer: 4/5
+    steps:
+      - end_turn
+    expect:
+      shop: ["2/2"]
+      board: ["Flaming Enforcer 10/14"]   # + the 6/9's stats

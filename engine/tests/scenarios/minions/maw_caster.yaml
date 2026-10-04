@@ -1,0 +1,11 @@
+card: Maw Caster
+scenarios:
+  - name: battlecry_destroys_an_undead_to_discover_an_undead
+    seed: 441
+    tavern: {tavern_tier: 4, board: [Risen Rider]}   # an Undead
+    steps:
+      - add_to_hand: Maw Caster
+      - play: {hand: Maw Caster, pos: 0}
+      - expect: {discover_pending: {not: null}}
+      - choose_discover: 0
+    expect: {hand: [undead]}

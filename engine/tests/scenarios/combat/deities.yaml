@@ -26,3 +26,24 @@ scenarios:
       auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
     expect:
       outcome: a_win
+
+  # The awakenings themselves, as logged events (ported from harness.rs
+  # `cthun_and_yshaarj_awaken_after_4_friendly_aberrations_die`).
+  - name: cthun_awakening_is_logged_after_four_aberrations_die
+    seed: 7
+    combat:
+      board_a: ["3/2 card:zoatroid", "3/2 card:zoatroid", "3/2 card:zoatroid", "3/2 card:zoatroid", "2/2"]
+      board_b: ["6/30 taunt"]
+      auras_a: {deity: {kind: cthun, attack: 5, health: 5}}
+    expect:
+      events: {any: {type: deity_awakened, side: a, deity: cthun}}
+
+  - name: yshaarj_awakening_is_logged_after_four_aberrations_die
+    seed: 7
+    combat:
+      board_a: ["5/3 card:zoatroid", "4/3 card:joyous", "3/2 card:zoatroid", "3/2 card:zoatroid"]
+      board_b: ["10/22 taunt"]
+      auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
+    expect:
+      outcome: a_win
+      events: {any: {type: deity_awakened, side: a, deity: yshaarj}}

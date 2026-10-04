@@ -1,0 +1,9 @@
+card: Hasty Excavation
+scenarios:
+  - name: costs_3_health_and_gains_1_gold
+    tavern: {gold: 10, shop: [Hasty Excavation]}
+    steps:
+      - buy: Hasty Excavation
+      - expect: {health: 27, gold: 10}
+      - play: Hasty Excavation
+    expect: {gold: 11}

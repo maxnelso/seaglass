@@ -1,0 +1,7 @@
+card: Temperature Shift
+scenarios:
+  - name: gets_a_fire_baller_and_a_snow_baller
+    steps:
+      - add_to_hand: Temperature Shift
+      - play: Temperature Shift
+    expect: {hand: [Fire Baller, Snow Baller]}

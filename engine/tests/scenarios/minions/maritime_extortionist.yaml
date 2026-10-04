@@ -1,0 +1,9 @@
+card: Maritime Extortionist
+scenarios:
+  - name: has_7_7_more_per_golden_minion_played
+    tavern: {board: [Maritime Extortionist], hand: [Aureate Laureate]}   # 7/7; Aureate Laureate is always Golden
+    steps:
+      - play: Aureate Laureate
+    expect:
+      auras: {golden_minions_played: 1}
+      board: ["Maritime Extortionist 14/14", Aureate Laureate]

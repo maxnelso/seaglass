@@ -1,0 +1,15 @@
+card: Faceless Operative
+scenarios:
+  - name: selling_it_gets_2_aberrations_and_playing_one_discards_the_other
+    description: >-
+      The Aberrations are drawn at random from the Tier 4 pool: the original setup and seed are
+      kept so that the same cards are drawn and played.
+    seed: 419
+    tavern: {tavern_tier: 4, gold: 10, board: [Faceless Operative]}
+    steps:
+      - sell: Faceless Operative
+      - expect: {hand: {count: 2, all: "aberration"}}
+      - play: 0
+    expect:
+      hand: []
+      auras: {cards_discarded: 1}

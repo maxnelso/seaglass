@@ -1,0 +1,8 @@
+card: Living Prison
+scenarios:
+  - name: activate_gains_the_stats_of_the_next_minion_bought
+    tavern: {gold: 10, board: [Living Prison], shop: ["6/7"]}   # Living Prison is 4/5
+    steps:
+      - activate: Living Prison
+      - buy: "6/7"
+    expect: {board: ["Living Prison 10/12"]}

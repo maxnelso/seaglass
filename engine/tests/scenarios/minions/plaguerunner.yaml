@@ -1,0 +1,8 @@
+card: Plaguerunner
+scenarios:
+  - name: deathrattle_in_combat_gives_undead_2_attack
+    seed: 446
+    tavern: {board: [Plaguerunner]}
+    steps:
+      - fight: {board: ["10/10"]}
+    expect: {auras: {undead_bonus_attack: 2}}

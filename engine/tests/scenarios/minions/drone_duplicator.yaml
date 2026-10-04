@@ -1,0 +1,12 @@
+card: Drone Duplicator
+scenarios:
+  - name: activate_makes_the_next_magnetization_happen_twice
+    tavern:
+      gold: 10   # the Activate costs 1
+      board: [Drone Duplicator]   # 5/2 Mech
+      hand: [Lullabot]   # 2/2 Magnetic: +1 Health at the end of turn
+    steps:
+      - activate: Drone Duplicator
+      - play: {hand: Lullabot, pos: 0}
+    expect:
+      board: [{card: Drone Duplicator, stats: "9/6", eot_health_bonus: 2}]   # magnetized twice

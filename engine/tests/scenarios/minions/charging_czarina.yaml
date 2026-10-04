@@ -1,0 +1,7 @@
+card: Charging Czarina
+scenarios:
+  - name: a_tavern_spell_gives_divine_shield_minions_4_attack
+    tavern: {board: [Charging Czarina, "2/2"], hand: [Tavern Dish Banana]}   # Czarina: 4/1 Divine Shield
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 1}   # +2/+2 on the 2/2
+    expect: {board: ["Charging Czarina 8/1", "4/4"]}

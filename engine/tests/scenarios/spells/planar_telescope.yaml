@@ -1,0 +1,9 @@
+card: Planar Telescope
+scenarios:
+  - name: discovers_a_minion_of_your_most_common_type
+    seed: 821
+    tavern: {tavern_tier: 3, board: [Glim Guardian]}   # a Dragon
+    steps:
+      - add_to_hand: Planar Telescope
+      - play: {hand: Planar Telescope, pos: 0}   # an untargeted spell is played at 0
+    expect: {discover_pending: {count: 3, all: dragon}}

@@ -1,0 +1,8 @@
+card: Abyssal Envoy
+scenarios:
+  - name: activate_discards_a_card_for_a_random_tavern_spell
+    seed: 301
+    tavern: {tavern_tier: 3, board: [Abyssal Envoy], hand: [Blood Gem]}   # spells up to Tier 3
+    steps:
+      - activate: {pos: Abyssal Envoy, target: 0}   # discards the Blood Gem
+    expect: {hand: [{is_spell: true, card: {not: Blood Gem}}]}

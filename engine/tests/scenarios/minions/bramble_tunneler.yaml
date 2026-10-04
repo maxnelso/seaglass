@@ -1,0 +1,8 @@
+card: Bramble Tunneler
+scenarios:
+  - name: rally_gets_a_choose_one_card
+    seed: 408
+    tavern: {board: [Bramble Tunneler]}
+    steps:
+      - fight: {board: ["1/1"]}
+    expect: {hand: {count: 1}}

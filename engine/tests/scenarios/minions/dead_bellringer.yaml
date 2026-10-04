@@ -1,0 +1,11 @@
+card: Dead Bellringer
+scenarios:
+  - name: activate_destroys_an_undead_given_reborn_to_gain_4_4
+    description: >-
+      Harmless Bonehead gets Reborn and is destroyed: its Deathrattle summons two 1/1 Skeletons
+      and it comes back with Reborn.
+    tavern: {gold: 10, board: [Dead Bellringer, Harmless Bonehead]}   # Bellringer: 3/6, Activate costs 1
+    steps:
+      - activate: {pos: Dead Bellringer, target: 1}
+    expect:
+      board: {count: 4, 0: "Dead Bellringer 7/10", any: Skeleton}

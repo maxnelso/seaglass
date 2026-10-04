@@ -1,0 +1,9 @@
+card: Sha of Fear
+scenarios:
+  - name: casting_a_tavern_spell_gives_minions_and_the_deity_3_3
+    tavern: {board: [Sha of Fear], hand: [Leaf Through the Pages]}   # 10/13; the deity starts 1/1
+    steps:
+      - play: {hand: Leaf Through the Pages, pos: 0}   # an untargeted spell is played at 0
+    expect:
+      board: ["Sha of Fear 13/16"]
+      auras: {deity: {attack: 4, health: 4}}

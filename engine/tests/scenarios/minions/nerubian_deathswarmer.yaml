@@ -1,0 +1,10 @@
+card: Nerubian Deathswarmer
+scenarios:
+  - name: battlecry_gives_your_undead_1_attack_this_game
+    tavern: {board: [Risen Rider]}   # a 2/1 Undead
+    steps:
+      - add_to_hand: Nerubian Deathswarmer   # a 1/4 Undead
+      - play: Nerubian Deathswarmer
+    expect:
+      auras: {undead_bonus_attack: 1}
+      board: ["Risen Rider 3/1", "Nerubian Deathswarmer 2/4"]

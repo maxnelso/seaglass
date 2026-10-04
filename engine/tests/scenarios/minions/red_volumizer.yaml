@@ -1,0 +1,9 @@
+card: Red Volumizer
+scenarios:
+  - name: played_it_gives_volumizers_3_attack
+    steps:
+      - add_to_hand: Red Volumizer
+      - play: Red Volumizer
+    expect:
+      auras: {counters: {Blue Volumizer: [3, 0]}}   # the counter all Volumizers share
+      board: ["Red Volumizer 6/1"]

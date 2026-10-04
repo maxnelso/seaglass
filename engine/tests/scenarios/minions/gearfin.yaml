@@ -1,0 +1,8 @@
+card: Gearfin
+scenarios:
+  - name: end_of_turn_gets_two_1_cost_tavern_spells
+    seed: 422
+    tavern: {board: [Gearfin]}
+    steps:
+      - end_turn
+    expect: {hand: {count: 2, all: {is_spell: true, spell_cost: 1}}}

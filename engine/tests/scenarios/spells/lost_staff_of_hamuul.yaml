@@ -1,0 +1,10 @@
+card: Lost Staff of Hamuul
+scenarios:
+  - name: refreshes_the_tavern_with_minions_of_the_targets_type
+    seed: 862
+    tavern: {include_shop_spells: true, tavern_tier: 6, board: ["2/2 dragon"]}
+    steps:
+      - add_to_hand: Lost Staff of Hamuul
+      - play: {hand: Lost Staff of Hamuul, pos: 0}
+    expect:
+      shop: {count: ">= 1", all: {any_of: [{is_spell: true}, dragon]}}   # every minion is a Dragon

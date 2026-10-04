@@ -1,0 +1,8 @@
+card: Mechagnome Interpreter
+scenarios:
+  - name: playing_a_mech_gives_it_3_1
+    tavern: {board: [Mechagnome Interpreter]}
+    steps:
+      - add_to_hand: Cord Puller   # a 1/1 Mech
+      - play: Cord Puller
+    expect: {board: {1: "Cord Puller 4/2"}}

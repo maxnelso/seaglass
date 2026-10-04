@@ -1,0 +1,9 @@
+card: Enterprising Escapee
+scenarios:
+  - name: spending_6_gold_gets_a_lockbox
+    seed: 515
+    tavern: {gold: 6, board: [Enterprising Escapee]}
+    steps:
+      - repeat: 6   # 6 Refreshes: 6 Gold spent
+        steps: [refresh]
+    expect: {hand: [Lockbox]}

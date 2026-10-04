@@ -1,0 +1,7 @@
+card: Tortollan Blue Shell
+scenarios:
+  - name: sells_for_5_gold_after_a_lost_combat
+    tavern: {gold: 2, last_combat_lost: true, board: [Tortollan Blue Shell]}
+    steps:
+      - sell: Tortollan Blue Shell
+    expect: {gold: 7}   # 2 + 5 instead of 2 + 1

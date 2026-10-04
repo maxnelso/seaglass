@@ -1,0 +1,9 @@
+card: Golden Touch
+scenarios:
+  - name: makes_a_minion_in_the_tavern_golden
+    seed: 956
+    tavern: {shop: [Fetid Corroder]}   # 3/3
+    steps:
+      - add_to_hand: Golden Touch
+      - play: Golden Touch
+    expect: {shop: ["golden Fetid Corroder 6/6"]}

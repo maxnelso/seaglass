@@ -1,0 +1,9 @@
+card: Forest's Bounty
+scenarios:
+  - name: choose_one_gives_a_minion_6_6_twice
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Forest's Bounty
+      - play: {hand: Forest's Bounty, pos: 0}
+      - choose_discover: 0   # +6/+6 twice (option 1 is +2/+2 to your minions)
+    expect: {board: ["14/14"]}

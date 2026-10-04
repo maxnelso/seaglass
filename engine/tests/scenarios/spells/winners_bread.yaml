@@ -1,0 +1,12 @@
+card: Winner's Bread
+scenarios:
+  - name: gives_2_3_and_a_blood_gem_next_turn_after_a_win
+    seed: 815
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Winner's Bread
+      - play: {hand: Winner's Bread, pos: 0}
+      - expect: {board: [{stats: "4/5", winners_bread_stacks: 1}]}
+      - set: {last_combat_won: true}
+      - start_turn   # plays 1 Blood Gem on it
+    expect: {board: ["5/6"]}

@@ -1,0 +1,12 @@
+card: Harbinger Aph'lass
+scenarios:
+  - name: discarding_a_card_gives_the_deity_2_1_and_improves_it
+    tavern: {board: ["Harbinger Aph'lass", Brain Rotter], hand: [Blood Gem, Blood Gem]}
+    steps:
+      # Brain Rotter discards: Aph'lass +2/+1 and Brain Rotter +2/+2 on the 1/1 Deity
+      - activate: {pos: Brain Rotter, target: 0}
+      - expect: {auras: {deity: {attack: 5, health: 4}}}
+      - set: {board: {1: {activated_this_turn: false}}}
+      # Aph'lass is improved to +4/+2, plus Brain Rotter's +2/+2
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {auras: {deity: {attack: 11, health: 8}}}

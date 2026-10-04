@@ -1,0 +1,15 @@
+card: Lovesick Balladist
+scenarios:
+  - name: battlecry_health_is_improved_by_gold_spent_this_turn
+    description: Buying it spends 3 Gold, so its Battlecry gives the Pirate +2 +3 = +5 Health.
+    tavern: {gold: 10, board: ["2/2 pirate"], shop: [Lovesick Balladist]}
+    steps:
+      - buy: Lovesick Balladist
+      - play: Lovesick Balladist
+    expect: {board: ["2/7 pirate", Lovesick Balladist]}
+
+  - name: battlecry_does_not_target_itself_when_no_other_pirate_is_on_board
+    steps:
+      - add_to_hand: Lovesick Balladist
+      - play: Lovesick Balladist
+    expect: {board: ["Lovesick Balladist 3/4"]}

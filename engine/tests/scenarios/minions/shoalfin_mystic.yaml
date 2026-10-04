@@ -1,0 +1,7 @@
+card: Shoalfin Mystic
+scenarios:
+  - name: selling_it_gives_tavern_spells_1_1_more
+    tavern: {board: [Shoalfin Mystic]}
+    steps:
+      - sell: Shoalfin Mystic
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}

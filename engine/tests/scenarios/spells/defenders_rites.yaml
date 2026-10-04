@@ -1,0 +1,8 @@
+card: Defender's Rites
+scenarios:
+  - name: gives_a_minion_7_7_and_taunt
+    tavern: {board: ["2/2"]}
+    steps:
+      - add_to_hand: Defender's Rites
+      - play: {hand: Defender's Rites, pos: 0}
+    expect: {board: ["9/9 taunt"]}

@@ -1,0 +1,7 @@
+card: Glambot
+scenarios:
+  - name: a_spell_on_a_mech_magnetizes_a_4_4_satellite_to_it
+    tavern: {board: [Glambot], hand: [Tavern Dish Banana]}   # Glambot: 4/4 Mech; Banana: +2/+2
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}
+    expect: {board: ["Glambot 10/10"]}   # +2/+2 and the 4/4 Satellite

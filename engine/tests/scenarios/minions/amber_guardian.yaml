@@ -1,0 +1,8 @@
+card: Amber Guardian
+scenarios:
+  - name: start_of_combat_gives_another_dragon_2_2_and_divine_shield
+    seed: 303
+    combat: {board_a: [Glim Guardian, Amber Guardian], board_b: ["1/1"]}   # Glim Guardian: a 1/4 Dragon
+    expect:
+      outcome: a_win
+      survivors_a: {0: "Glim Guardian 5/6"}   # +2/+2 at Start of Combat, +2 Attack on Rally

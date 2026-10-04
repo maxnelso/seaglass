@@ -1,0 +1,11 @@
+card: Holy Vanguard
+scenarios:
+  - name: has_30_30_more_at_15_health_or_less
+    steps:
+      - add_to_hand: Holy Vanguard
+      - play: Holy Vanguard
+      - expect: {board: ["Holy Vanguard 10/10"]}
+      - deal_hero_damage: 15
+    expect:
+      health: 15
+      board: ["Holy Vanguard 40/40"]

@@ -1,0 +1,13 @@
+card: Patient Scout
+scenarios:
+  - name: improves_each_turn_and_discovers_from_that_tier_when_sold
+    description: It Discovers minions of Tier 1 + its counter (+1 each turn).
+    seed: 221
+    steps:
+      - add_to_hand: Patient Scout
+      - play: Patient Scout
+      - expect: {board: [{card: Patient Scout, counter: 0}]}   # Tier 1
+      - start_turn
+      - expect: {board: [{card: Patient Scout, counter: 1}]}   # Tier 2
+      - sell: Patient Scout
+    expect: {discover_pending: {all: {tavern_tier: 2}}}

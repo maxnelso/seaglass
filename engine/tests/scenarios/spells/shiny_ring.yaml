@@ -1,0 +1,8 @@
+card: Shiny Ring
+scenarios:
+  - name: gives_your_minions_1_1
+    tavern: {board: ["2/2", "3/3"]}
+    steps:
+      - add_to_hand: Shiny Ring
+      - play: {hand: Shiny Ring, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["3/3", "4/4"]}

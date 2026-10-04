@@ -1,0 +1,6 @@
+card: Sanguine Refiner
+scenarios:
+  - name: rally_gives_blood_gems_an_extra_1_2
+    seed: 543
+    combat: {board_a: [Sanguine Refiner], board_b: ["1/5"]}
+    expect: {auras_a: {blood_gem_bonus_atk: 1, blood_gem_bonus_hp: 2}}

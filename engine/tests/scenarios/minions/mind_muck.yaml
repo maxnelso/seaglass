@@ -1,0 +1,19 @@
+card: Mind Muck
+scenarios:
+  - name: battlecry_demon_consumes_a_tavern_minion_to_gain_its_stats
+    tavern: {shop: ["4/5"], board: [Ominous Seer]}   # a 2/1 Demon
+    steps:
+      - add_to_hand: Mind Muck
+      - play: Mind Muck
+    expect:
+      board: {0: "Ominous Seer 6/6"}
+      shop: []
+
+  - name: battlecry_does_not_target_itself_when_no_other_demon_is_on_board
+    tavern: {shop: ["4/5"]}
+    steps:
+      - add_to_hand: Mind Muck
+      - play: Mind Muck
+    expect:
+      board: ["Mind Muck 3/2"]
+      shop: ["4/5"]

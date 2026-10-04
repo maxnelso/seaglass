@@ -1,0 +1,8 @@
+card: Fearless Foodie
+scenarios:
+  - name: culinary_creation_makes_blood_gems_give_1_1_more
+    steps:
+      - add_to_hand: Fearless Foodie
+      - play: Fearless Foodie
+      - choose_discover: 0   # Culinary Creation: Blood Gems give an extra +1/+1 this game
+    expect: {auras: {blood_gem_bonus_atk: 1, blood_gem_bonus_hp: 1}}

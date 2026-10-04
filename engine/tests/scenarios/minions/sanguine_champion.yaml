@@ -1,0 +1,11 @@
+card: Sanguine Champion
+scenarios:
+  - name: battlecry_and_deathrattle_give_blood_gems_2_1
+    seed: 619
+    steps:
+      - add_to_hand: Sanguine Champion
+      - play: Sanguine Champion
+      - expect: {auras: {blood_gem_bonus_atk: 2, blood_gem_bonus_hp: 1}}
+      - simulate: {board_a: tavern, auras_a: tavern, board_b: ["20/20"]}
+    expect:
+      combat: {auras_a: {blood_gem_bonus_atk: 4, blood_gem_bonus_hp: 2}}

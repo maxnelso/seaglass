@@ -1,0 +1,7 @@
+card: Azsharan Cutlassier
+scenarios:
+  - name: battlecry_gives_tavern_spells_1_extra_attack
+    steps:
+      - add_to_hand: Azsharan Cutlassier
+      - play: Azsharan Cutlassier
+    expect: {auras: {spell_bonus_atk: 1}}

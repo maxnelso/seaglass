@@ -1,0 +1,11 @@
+card: Waveling
+scenarios:
+  - name: deathrattle_buffs_a_random_tavern_minion_4_4_after_refreshes
+    seed: 341
+    tavern: {gold: 1, board: [Waveling]}   # 5/1: it dies in the fight
+    steps:
+      - fight: {board: ["5/5"]}
+      - expect: {auras: {refresh_random_buffs: [[4, 4]]}}
+      - refresh
+    expect:
+      shop: {any: {is_spell: false, attack: "@base_attack + 4", health: "@base_health + 4"}}

@@ -1,0 +1,14 @@
+card: Sharing is Caring
+scenarios:
+  - name: left_most_minion_gains_the_nearest_enemys_stats_next_combat
+    seed: 867
+    tavern: {board: ["3/4", "2/2"]}
+    steps:
+      - add_to_hand: Sharing is Caring
+      - play: {hand: Sharing is Caring, pos: 0}   # an untargeted spell is played at 0
+      - expect: {auras: {effect_stacks: {Sharing is Caring: 1}}}
+      - simulate: {board_a: tavern, auras_a: tavern, board_b: ["15/15", "1/1"]}
+    expect:
+      combat:
+        outcome: a_win
+        survivors_a: {0: {attack: 18}}   # the 3/4 gained the nearest enemy's 15/15

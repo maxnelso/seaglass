@@ -1,0 +1,8 @@
+card: Auto Accelerator
+scenarios:
+  - name: battlecry_gets_a_random_volumizer
+    seed: 305
+    steps:
+      - add_to_hand: Auto Accelerator
+      - play: Auto Accelerator
+    expect: {hand: [{any_of: [Red Volumizer, Blue Volumizer, Green Volumizer]}]}

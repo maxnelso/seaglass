@@ -1,0 +1,13 @@
+card: Methodical Madness
+scenarios:
+  - name: consumes_2_tavern_minions_gaining_their_stats_and_keywords
+    seed: 838
+    tavern:
+      board: ["2/2 demon"]
+      shop: ["3/4 taunt", "5/6 divine_shield"]
+    steps:
+      - add_to_hand: Methodical Madness
+      - play: {hand: Methodical Madness, pos: 0}
+    expect:
+      shop: []
+      board: ["10/12 taunt divine_shield"]

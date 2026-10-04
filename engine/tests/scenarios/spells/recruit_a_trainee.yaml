@@ -1,0 +1,9 @@
+card: Recruit a Trainee
+scenarios:
+  - name: gets_a_random_tier_1_minion_even_at_tavern_tier_3
+    seed: 805
+    tavern: {tavern_tier: 3}
+    steps:
+      - add_to_hand: Recruit a Trainee
+      - play: Recruit a Trainee
+    expect: {hand: [t1]}

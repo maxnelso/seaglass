@@ -1,0 +1,9 @@
+card: Soulkeeping Jailer
+scenarios:
+  - name: activate_makes_demons_consume_a_tavern_minion_for_its_stats
+    tavern: {gold: 10, board: [Soulkeeping Jailer], shop: ["4/6"]}   # a 3/5 Demon; the only minion in the Tavern
+    steps:
+      - activate: Soulkeeping Jailer
+    expect:
+      shop: []
+      board: ["Soulkeeping Jailer 7/11"]

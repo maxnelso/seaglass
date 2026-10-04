@@ -1,0 +1,6 @@
+card: Treasure Parrot
+scenarios:
+  - name: dealing_35_damage_gets_a_golden_touch
+    seed: 337
+    combat: {board_a: ["Treasure Parrot 35/5"], board_b: ["1/40"]}   # one hit reaches 35
+    expect: {outcome: a_win, hand_a: [Golden Touch]}

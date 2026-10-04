@@ -1,0 +1,8 @@
+card: Tad
+scenarios:
+  - name: selling_it_gets_another_random_murloc
+    seed: 230
+    tavern: {tavern_tier: 2, board: [Tad]}
+    steps:
+      - sell: Tad
+    expect: {hand: [{all_of: [murloc, {not: Tad}]}]}

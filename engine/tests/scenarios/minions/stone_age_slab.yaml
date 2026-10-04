@@ -1,0 +1,14 @@
+card: Stone Age Slab
+scenarios:
+  - name: first_bought_minion_gets_20_20_then_doubled
+    seed: 711
+    tavern: {board: [Stone Age Slab]}   # 10/10
+    steps:
+      - start_turn   # 1 charge this turn (and 3 Gold)
+      - expect: {board: [{card: Stone Age Slab, charges: 1}]}
+      - clear: shop
+      - push_shop: Cord Puller   # 1/1
+      - buy: Cord Puller
+    expect:
+      board: [{card: Stone Age Slab, charges: 0}]
+      hand: ["Cord Puller 42/42"]   # (1 + 20) * 2

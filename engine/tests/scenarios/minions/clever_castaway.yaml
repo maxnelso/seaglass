@@ -1,0 +1,10 @@
+card: Clever Castaway
+scenarios:
+  - name: activate_spends_2_gold_to_discover_a_tavern_spell
+    seed: 205
+    tavern: {tavern_tier: 2, gold: 10, board: [Clever Castaway]}
+    steps:
+      - activate: Clever Castaway
+      - expect: {gold: 8, discover_pending: {0: {is_spell: true}}}
+      - choose_discover: 0
+    expect: {hand: [{is_spell: true}]}

@@ -1,0 +1,10 @@
+card: Staff of Enrichment
+scenarios:
+  - name: minions_in_the_tavern_have_2_2_for_the_rest_of_the_game
+    tavern: {shop: ["2/2"]}
+    steps:
+      - add_to_hand: Staff of Enrichment
+      - play: Staff of Enrichment
+    expect:
+      auras: {tavern_all_atk: 2, tavern_all_hp: 2}
+      shop: ["4/4"]

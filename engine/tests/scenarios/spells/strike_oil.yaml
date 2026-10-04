@@ -1,0 +1,9 @@
+card: Strike Oil
+scenarios:
+  - name: gains_1_maximum_gold
+    steps:
+      - add_to_hand: Strike Oil
+      - play: Strike Oil
+    expect:
+      max_gold: 1
+      auras: {base_max_gold_bonus: 1}

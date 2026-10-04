@@ -10,3 +10,14 @@ scenarios:
       a_win_rate: "0.40..=1.00"
       b_win_rate: "0.00..=0.40"
       draw_rate: "0.00..=0.50"
+
+  # Ported from harness.rs `simulate_batch_is_strictly_deterministic`: like every scenario it
+  # runs twice, and the runner checks that both distributions are identical.
+  - name: batch_is_deterministic_and_counts_every_battle
+    combat:
+      board_a: ["1/1 card:harmless_bonehead", "1/4 card:flittering_bat"]
+      board_b: ["1/1 card:cord_puller", "2/1 card:scarlet_survivor"]
+    batch: {base_seed: 12345, n: 200}
+    expect:
+      battles: 200
+      a_wins: "200 - @b_wins - @draws"

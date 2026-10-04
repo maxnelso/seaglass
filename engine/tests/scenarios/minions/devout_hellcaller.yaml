@@ -1,0 +1,8 @@
+card: Devout Hellcaller
+scenarios:
+  - name: gains_2_2_permanently_after_another_demon_deals_damage
+    seed: 310
+    tavern: {board: [Ominous Seer, Devout Hellcaller]}   # Ominous Seer: a 2/1 Demon
+    steps:
+      - fight: {board: ["1/1"]}
+    expect: {board: [Ominous Seer, "Devout Hellcaller 6/6"]}

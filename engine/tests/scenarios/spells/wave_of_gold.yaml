@@ -1,0 +1,8 @@
+card: Wave of Gold
+scenarios:
+  - name: gives_3_2_twice_for_golden_minions
+    tavern: {board: ["2/2", "4/4 golden"]}
+    steps:
+      - add_to_hand: Wave of Gold
+      - play: {hand: Wave of Gold, pos: 0}   # an untargeted spell is played at 0
+    expect: {board: ["5/4", "10/8"]}

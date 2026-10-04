@@ -1,0 +1,11 @@
+card: Shipwrecked Rascal
+scenarios:
+  - name: battlecry_gets_a_random_bounty
+    seed: 548
+    steps:
+      - add_to_hand: Shipwrecked Rascal
+      - play: Shipwrecked Rascal
+    expect:
+      hand:
+        - card:
+            any_of: [Friendly Bounty, Healthy Bounty, Hostile Bounty, Selfish Bounty, Wealthy Bounty]

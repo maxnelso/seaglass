@@ -1,0 +1,10 @@
+card: Leyline Surfacer
+scenarios:
+  - name: battlecry_and_deathrattle_get_an_arcane_absorption
+    seed: 437
+    steps:
+      - add_to_hand: Leyline Surfacer
+      - play: Leyline Surfacer
+      - expect: {hand: [Arcane Absorption]}
+      - fight: {board: ["10/10"]}   # it dies
+    expect: {hand: [Arcane Absorption, Arcane Absorption]}

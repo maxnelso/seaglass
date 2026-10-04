@@ -1,0 +1,10 @@
+card: Locked-up Mutineer
+scenarios:
+  - name: deathrattle_gets_a_lockbox_then_opens_it_1_turn_sooner
+    seed: 322
+    tavern: {board: [Locked-up Mutineer]}   # 6/3: it dies in each fight
+    steps:
+      - fight: {board: ["5/5"]}
+      - expect: {hand: [{card: Lockbox, lockbox_turns_left: 5}]}
+      - fight: {board: ["5/5"]}
+    expect: {hand: [{card: Lockbox, lockbox_turns_left: 4}]}

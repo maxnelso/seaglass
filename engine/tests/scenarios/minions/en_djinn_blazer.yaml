@@ -1,0 +1,12 @@
+card: En-Djinn Blazer
+scenarios:
+  - name: battlecry_makes_refreshes_give_a_random_tavern_minion_10_10
+    seed: 417
+    tavern: {gold: 10, tavern_tier: 4}
+    steps:
+      - add_to_hand: En-Djinn Blazer
+      - play: En-Djinn Blazer
+      - expect: {auras: {refresh_random_buffs: [[10, 10]]}}
+      - refresh
+    expect:
+      shop: {any: {attack: ">= @base_attack + 10", health: ">= @base_health + 10"}}
