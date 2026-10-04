@@ -15,8 +15,6 @@ pub fn template() -> CardTemplate {
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit) {
     let count = if unit.is_golden { 4 } else { 2 };
     for _ in 0..count {
-        if state.hand.len() < 10 {
-            state.hand.push(tokens::make_blood_gem());
-        }
+        state.add_to_hand(tokens::make_blood_gem());
     }
 }

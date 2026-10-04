@@ -1607,3 +1607,147 @@ fn spell_858_wave_of_gold() {
     assert_eq!(state.board[1].attack, 10);
     assert_eq!(state.board[1].health, 8);
 }
+
+// ============================================================================
+// Tier 6 Tavern Spells (5)
+// ============================================================================
+
+#[test]
+fn spell_859_azerite_empowerment() {
+    let (mut state, mut pool, mut rng) = setup_tavern(859);
+    state.board.push(Unit::new("M1", 2, 2));
+    state.board.push(Unit::new("M2", 3, 3));
+    state.add_to_hand(spells::spell_by_name("Azerite Empowerment").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    // +2/+2 twice = +4/+4 to all friendly minions
+    assert_eq!(state.board[0].attack, 6);
+    assert_eq!(state.board[0].health, 6);
+    assert_eq!(state.board[1].attack, 7);
+    assert_eq!(state.board[1].health, 7);
+}
+
+#[test]
+fn spell_860_eyes_of_the_earth_mother() {
+    let (mut state, mut pool, mut rng) = setup_tavern(860);
+    state.gold = 10;
+    state
+        .board
+        .push(seaglass::cards::tier4::conveyor_construct::template().instantiate()); // Tier 4 (5/2)
+    state.add_to_hand(spells::spell_by_name("Eyes of the Earth Mother").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.board[0].is_golden);
+    assert_eq!(state.board[0].attack, 10);
+    assert_eq!(state.board[0].health, 4);
+}
+
+#[test]
+fn spell_861_fandrals_fortune() {
+    let (mut state, mut pool, mut rng) = setup_tavern(861);
+    state.tavern_tier = 6;
+    state.board.push(Unit::new("Target", 2, 2));
+    state.add_to_hand(spells::spell_by_name("Fandral's Fortune").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_some());
+    state
+        .step(
+            TavernAction::ChooseDiscover { option_index: 0 },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.hand.len(), 1);
+    assert!(state.hand[0].fandral_combined);
+
+    // Replace with Alliance Flag with fandral_combined = true and play it: both options (+3/+1 and +1/+3 = +4/+4) apply without prompting!
+    let mut flag = spells::spell_by_name("Alliance Flag").unwrap();
+    flag.fandral_combined = true;
+    state.hand[0] = flag;
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(state.discover_pending.is_none());
+    assert_eq!(state.board[0].attack, 6);
+    assert_eq!(state.board[0].health, 6);
+}
+
+#[test]
+fn spell_862_lost_staff_of_hamuul() {
+    let (mut state, mut pool, mut rng) = setup_tavern(862);
+    state.tavern_tier = 6;
+    state
+        .board
+        .push(Unit::new("MyDragon", 2, 2).with_tribe(Tribe::Dragon));
+    state.add_to_hand(spells::spell_by_name("Lost Staff of Hamuul").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert!(!state.shop.is_empty());
+    assert!(
+        state
+            .shop
+            .iter()
+            .filter(|u| !u.is_spell)
+            .all(|u| u.tribe.matches(Tribe::Dragon))
+    );
+}
+
+#[test]
+fn spell_863_perfect_vision() {
+    let (mut state, mut pool, mut rng) = setup_tavern(863);
+    state.board.push(Unit::new("Small", 1, 1));
+    state.add_to_hand(spells::spell_by_name("Perfect Vision").unwrap());
+    state
+        .step(
+            TavernAction::Play {
+                hand_index: 0,
+                board_pos: 0,
+            },
+            &mut pool,
+            &mut rng,
+        )
+        .unwrap();
+    assert_eq!(state.board[0].attack, 20);
+    assert_eq!(state.board[0].health, 20);
+}
+

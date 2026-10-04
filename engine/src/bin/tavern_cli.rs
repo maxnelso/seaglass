@@ -21,6 +21,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
     use cards::tier3::*;
     use cards::tier4::*;
     use cards::tier5::*;
+    use cards::tier6::*;
     match (card_id, is_golden) {
         (joyous::ID, false) => "Battlecry: Give your Deity +2/+1.",
         (joyous::ID, true) => "Battlecry: Give your Deity +4/+2.",
@@ -920,7 +921,203 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (turquoise_skitterer::ID, true) => {
             "Deathrattle: Your Beetles have +10/+10 this game. Summon two 2/2 Beetles."
         }
+        // Tier 6 Minions
+        (auto_reveille::ID, false) => {
+            "After you buy 4 cards, get 2 random Magnetic Volumizers."
+        }
+        (auto_reveille::ID, true) => {
+            "After you buy 4 cards, get 4 random Magnetic Volumizers."
+        }
+        (balinda_stonehearth::ID, false) => {
+            "Tavern spells you cast on a minion give double their stats."
+        }
+        (balinda_stonehearth::ID, true) => {
+            "Tavern spells you cast on a minion give triple their stats."
+        }
+        (choral_mrrrglr::ID, false) => {
+            "Start of Combat: Gain the stats of all minions in your hand."
+        }
+        (choral_mrrrglr::ID, true) => {
+            "Start of Combat: Gain double the stats of all minions in your hand."
+        }
+        (crimson_vindicator::ID, false) => {
+            "Divine Shield, Windfury. Rally: Double this minion's Attack."
+        }
+        (crimson_vindicator::ID, true) => {
+            "Divine Shield, Windfury. Rally: Triple this minion's Attack."
+        }
+        (dark_puppeteer::ID, false) => {
+            "Reborn. Deathrattle: Your Undead have +4 Attack this game."
+        }
+        (dark_puppeteer::ID, true) => {
+            "Reborn. Deathrattle: Your Undead have +8 Attack this game."
+        }
+        (deathly_striker::ID, false) => {
+            "Avenge (4): Get a random Undead. Deathrattle: Summon highest-Attack Undead from hand."
+        }
+        (deathly_striker::ID, true) => {
+            "Avenge (4): Get 2 random Undead. Deathrattle: Summon 2 highest-Attack Undead from hand."
+        }
+        (deathstrider::ID, false) => {
+            "After a friendly Rally minion attacks, trigger a friendly Deathrattle."
+        }
+        (deathstrider::ID, true) => {
+            "After a friendly Rally minion attacks, trigger 2 friendly Deathrattles."
+        }
+        (elemental_of_surprise::ID, _) => {
+            "Divine Shield. This minion can triple with any Elemental."
+        }
+        (eredar_escapist::ID, false) => {
+            "Tavern spells cost (1) less (improves by 1 after hero takes 5 damage)."
+        }
+        (eredar_escapist::ID, true) => {
+            "Tavern spells cost (2) less (improves by 2 after hero takes 5 damage)."
+        }
+        (falling_sky_golem::ID, false) => {
+            "Has +5/+5 for each Deathrattle you've triggered this game."
+        }
+        (falling_sky_golem::ID, true) => {
+            "Has +10/+10 for each Deathrattle you've triggered this game."
+        }
+        (forsaken_weaver::ID, false) => {
+            "After you cast a Tavern spell, give your Deity +2/+2 and minions +1/+1."
+        }
+        (forsaken_weaver::ID, true) => {
+            "After you cast a Tavern spell, give your Deity +4/+4 and minions +2/+2."
+        }
+        (gatekeeper_amalgam::ID, false) => {
+            "End of Turn: Play Misplaced Tea Set on your minions."
+        }
+        (gatekeeper_amalgam::ID, true) => {
+            "End of Turn: Play Misplaced Tea Set on your minions twice."
+        }
+        (harbinger_aphlass::ID, false) => {
+            "End of Turn: Give minions +1/+1 (improves when you discard a card)."
+        }
+        (harbinger_aphlass::ID, true) => {
+            "End of Turn: Give minions +2/+2 (improves when you discard a card)."
+        }
+        (heroic_broodmother::ID, false) => {
+            "Start of Combat: Attack immediately. Rally: Give other Dragons +5 Attack."
+        }
+        (heroic_broodmother::ID, true) => {
+            "Start of Combat: Attack twice immediately. Rally: Give other Dragons +10 Attack."
+        }
+        (hooktusk_master_marauder::ID, false) => {
+            "After you Discover a card, give your minions +2/+1 per friendly Tier 5+ minion."
+        }
+        (hooktusk_master_marauder::ID, true) => {
+            "After you Discover a card, give your minions +4/+2 per friendly Tier 5+ minion."
+        }
+        (magicfin_mycologist::ID, false) => {
+            "Once per turn after buying a Tavern spell, get a 5/5 Murloc that casts it."
+        }
+        (magicfin_mycologist::ID, true) => {
+            "Twice per turn after buying a Tavern spell, get a 5/5 Murloc that casts it."
+        }
+        (nadina_the_red::ID, false) => {
+            "Deathrattle: Give 3 friendly Dragons Divine Shield."
+        }
+        (nadina_the_red::ID, true) => {
+            "Deathrattle: Give 6 friendly Dragons Divine Shield."
+        }
+        (ravaging_scorpid::ID, false) => {
+            "Deathrattle: Summon a 2/2 Beetle. Whenever a friendly minion attacks, Beetles gain +1/+1."
+        }
+        (ravaging_scorpid::ID, true) => {
+            "Deathrattle: Summon two 2/2 Beetles. Whenever a friendly minion attacks, Beetles gain +2/+2."
+        }
+        (sanguine_champion::ID, false) => {
+            "Battlecry & Deathrattle: Your Blood Gems give an extra +1/+1 this game."
+        }
+        (sanguine_champion::ID, true) => {
+            "Battlecry & Deathrattle: Your Blood Gems give an extra +2/+2 this game."
+        }
+        (silent_deliverer::ID, false) => {
+            "Battlecry: Get 2 copies of Corrupted Coin."
+        }
+        (silent_deliverer::ID, true) => {
+            "Battlecry: Get 4 copies of Corrupted Coin."
+        }
+        (sky_admiral_rogers::ID, false) => {
+            "After you add 5 cards to your hand, get a random Bounty."
+        }
+        (sky_admiral_rogers::ID, true) => {
+            "After you add 5 cards to your hand, get 2 random Bounties."
+        }
+        (snazzy_phantom::ID, false) => {
+            "Reborn. Whenever a friendly minion is Reborn, give your minions +1/3 of its Attack."
+        }
+        (snazzy_phantom::ID, true) => {
+            "Reborn. Whenever a friendly minion is Reborn, give your minions +2/3 of its Attack."
+        }
+        (the_shadow_of_doubt::ID, false) => {
+            "Whenever you discard a card, give your minions +3/+3 and your Deity +2/+2."
+        }
+        (the_shadow_of_doubt::ID, true) => {
+            "Whenever you discard a card, give your minions +6/+6 and your Deity +4/+4."
+        }
+        (turbo_hogrider::ID, false) => {
+            "After you play a Choose One card, play 2 Blood Gems on all your minions."
+        }
+        (turbo_hogrider::ID, true) => {
+            "After you play a Choose One card, play 4 Blood Gems on all your minions."
+        }
+        (twisted_wrathguard::ID, false) => {
+            "Friendly minions gain double the stats from consuming minions in the Tavern."
+        }
+        (twisted_wrathguard::ID, true) => {
+            "Friendly minions gain triple the stats from consuming minions in the Tavern."
+        }
+        (tyrael::ID, false) => {
+            "Divine Shield. End of Turn: Give minions +1/+2 for each different friendly type."
+        }
+        (tyrael::ID, true) => {
+            "Divine Shield. End of Turn: Give minions +2/+4 for each different friendly type."
+        }
+        (ultraviolet_ascendant::ID, false) => {
+            "Start of Combat: Give other Elementals +2/+2 (upgrades when you play an Elemental)."
+        }
+        (ultraviolet_ascendant::ID, true) => {
+            "Start of Combat: Give other Elementals +4/+4 (upgrades when you play an Elemental)."
+        }
+        (unbound_tempest::ID, false) => {
+            "End of Turn & after every 2 Tavern spells cast: Get a random Elemental."
+        }
+        (unbound_tempest::ID, true) => {
+            "End of Turn & after every 2 Tavern spells cast: Get 2 random Elementals."
+        }
+        (utility_drone::ID, false) => {
+            "End of Turn: Give minions +3/+2 for each Magnetization they have."
+        }
+        (utility_drone::ID, true) => {
+            "End of Turn: Give minions +6/+4 for each Magnetization they have."
+        }
+        (veteran_brigand::ID, false) => {
+            "Choose One: Play 3 Blood Gems on all minions; or Cast Blood Gem Barrage 3 times."
+        }
+        (veteran_brigand::ID, true) => {
+            "Choose One: Play 6 Blood Gems on all minions; or Cast Blood Gem Barrage 6 times."
+        }
+        (victorious_geomant::ID, false) => {
+            "Activate (0g): Give your Dragons +3/+1 and trigger their Battlecries."
+        }
+        (victorious_geomant::ID, true) => {
+            "Activate (0g): Give your Dragons +6/+2 and trigger their Battlecries twice."
+        }
+        (young_murk_eye::ID, false) => {
+            "End of Turn: Adjacent minions trigger their Battlecries."
+        }
+        (young_murk_eye::ID, true) => {
+            "End of Turn: Adjacent minions trigger their Battlecries twice."
+        }
         // Tokens & Spells
+        (tokens::TOKEN_MAGICFIN_APPRENTICE, false) => {
+            "Battlecry: Cast the taught Tavern spell. (Can't be tripled.)"
+        }
+        (tokens::TOKEN_MAGICFIN_APPRENTICE, true) => {
+            "Battlecry: Cast the taught Tavern spell twice. (Can't be tripled.)"
+        }
         (tokens::TOKEN_ABERRANT_TENTACLE, _) => "Taunt.",
         (tokens::TOKEN_WATER_DROPLET, _) => "Token Elemental.",
         (tokens::TOKEN_DEMON_FODDER, _) => "Feeds itself to a friendly Demon on Refresh.",
@@ -1076,6 +1273,18 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (SPELL_WAVE_OF_GOLD, _) => {
             "Spell (2g): Give your minions +3/+2. Give Golden ones another +3/+2."
         }
+        // Tier 6 Spells
+        (SPELL_AZERITE_EMPOWERMENT, _) => "Spell (4g): Give your minions +3/+3 twice.",
+        (SPELL_EYES_OF_THE_EARTH_MOTHER, _) => {
+            "Spell (6g): Choose a friendly Tier 4 or lower minion. Make it Golden."
+        }
+        (SPELL_FANDRALS_FORTUNE, _) => {
+            "Spell (3g): Discover a Choose One card with both effects combined."
+        }
+        (SPELL_LOST_STAFF_OF_HAMUUL, _) => {
+            "Spell (2g): Choose a minion. Refresh the Tavern with minions of its type."
+        }
+        (SPELL_PERFECT_VISION, _) => "Spell (3g): Set a minion's stats to 20/20.",
         _ => "",
     }
 }

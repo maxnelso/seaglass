@@ -254,6 +254,8 @@ pub struct PlayerAuras {
     pub upper_hand_stacks: u32,
     /// Discovered Hero Power ID (`Unmasked Identity`).
     pub hero_power_id: u32,
+    /// Total Deathrattles triggered this game (`Falling Sky Golem`).
+    pub deathrattles_triggered: u32,
     /// Player's Old God Deity state (awakens after 4 friendly Aberration deaths in combat).
     pub deity: DeityState,
 }
@@ -363,7 +365,7 @@ pub struct Unit {
     pub extra_magnetize_this_turn: u32,
     /// Multiplier queued for the next minion bought this turn (`Living Prison`).
     pub living_prison_stacks: u32,
-    /// Gold-spent progress toward the next Gold-spent trigger (`Gunpowder Courier`, `Air Revenant`, `Enterprising Escapee`).
+    /// Gold-spent progress toward the next Gold-spent trigger (`Gunpowder Courier`, `Air Revenant`, `Enterprising Escapee`, `Sky Admiral Rogers`).
     pub gunpowder_gold_progress: u32,
     /// Bonus Tavern-all stats added to `Sacrificial Wrathguard`'s Deathrattle via `Activate`.
     pub wrathguard_bonus: i32,
@@ -386,6 +388,26 @@ pub struct Unit {
     pub spark_snapper_stacks: u32,
     /// Combat `UnitId` of the minion that dealt the killing blow to this unit (`Leeroy the Reckless`).
     pub killed_by: Option<UnitId>,
+    /// Cards-bought progress toward the next 3-buy Volumizer Magnetization (`Auto Reveille`).
+    pub auto_reveille_buys: u32,
+    /// Hero damage progress toward the next 4-damage `Corrupted Cupcakes` (`Eredar Escapist`).
+    pub eredar_damage_progress: i32,
+    /// Number of `deathrattles_triggered` stacks already applied to this `Falling Sky Golem`.
+    pub sky_golem_stacks_applied: u32,
+    /// Permanent improvement stacks from cards discarded (`Harbinger Aph'lass`).
+    pub aphlass_stacks: u32,
+    /// Remaining `Magicfin Mycologist` spell-buy triggers this turn.
+    pub mycologist_charges_left: u32,
+    /// Tavern spell taught to a `Magicfin Apprentice` token (`Magicfin Mycologist`).
+    pub taught_spell_id: Option<CardId>,
+    /// Permanent improvement stacks from Elementals played (`Ultraviolet Ascendant`).
+    pub ultraviolet_stacks: u32,
+    /// Elementals-played progress toward the next 4-Elemental Tavern stat gain (`Unbound Tempest`).
+    pub unbound_tempest_progress: u32,
+    /// Total Magnetizations attached to this unit (`Utility Drone`).
+    pub magnetizations_count: u32,
+    /// True if this Choose One card has both effects combined (`Fandral's Fortune`).
+    pub fandral_combined: bool,
 }
 
 impl Unit {
@@ -458,6 +480,16 @@ impl Unit {
             leviathan_stacks: 0,
             spark_snapper_stacks: 0,
             killed_by: None,
+            auto_reveille_buys: 0,
+            eredar_damage_progress: 0,
+            sky_golem_stacks_applied: 0,
+            aphlass_stacks: 0,
+            mycologist_charges_left: 0,
+            taught_spell_id: None,
+            ultraviolet_stacks: 0,
+            unbound_tempest_progress: 0,
+            magnetizations_count: 0,
+            fandral_combined: false,
         }
     }
 

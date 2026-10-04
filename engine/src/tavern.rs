@@ -2,11 +2,12 @@
 
 use crate::cards::tokens::{
     self, CHOICE_ALLIANCE_ATK, CHOICE_ALLIANCE_HP, CHOICE_BOTANIST_ATK, CHOICE_BOTANIST_HP,
-    CHOICE_BOUNDLESS_MINION, CHOICE_BOUNDLESS_SPELL, CHOICE_CRATER_GEMS, CHOICE_CRATER_GEM_DAY,
-    CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS, CHOICE_FOREST_ALL, CHOICE_FOREST_SINGLE,
-    CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP, CHOICE_HP_1, CHOICE_HP_2, CHOICE_HP_3,
-    CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY, CHOICE_SLY_GEMS, CHOICE_SLY_REFRESHES,
-    CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER, CHOICE_TIME_MGMT_NOW,
+    CHOICE_BOUNDLESS_MINION, CHOICE_BOUNDLESS_SPELL, CHOICE_BRIGAND_BARRAGE, CHOICE_BRIGAND_GEMS,
+    CHOICE_CRATER_GEMS, CHOICE_CRATER_GEM_DAY, CHOICE_FOODIE_BUFF_GEMS, CHOICE_FOODIE_GET_GEMS,
+    CHOICE_FOREST_ALL, CHOICE_FOREST_SINGLE, CHOICE_GEM_DAY_ATK, CHOICE_GEM_DAY_HP, CHOICE_HP_1,
+    CHOICE_HP_2, CHOICE_HP_3, CHOICE_SCARAB_REBORN, CHOICE_SCARAB_WINDFURY, CHOICE_SLY_GEMS,
+    CHOICE_SLY_REFRESHES, CHOICE_SNARE_MAX_GOLD, CHOICE_SNARE_QUILBOAR, CHOICE_TIME_MGMT_LATER,
+    CHOICE_TIME_MGMT_NOW,
 };
 use crate::cards::{self, ActivateTargetKind, CardTemplate, DeathrattleContext};
 use crate::combat::{resolve_battle, BattleResult};
@@ -393,6 +394,9 @@ pub struct TavernState {
     pub discover_pending: Option<Vec<Unit>>,
     pub discover_queue: Vec<Vec<Unit>>,
     pub pending_choice_target: Option<usize>,
+    pub fandral_combined_active: bool,
+    pub defer_combined_choose_one: bool,
+    pub pending_combined_choices: Vec<(Unit, Unit)>,
     pub next_willbreaker_group: u32,
     pub last_combat_won: bool,
     pub last_combat_lost: bool,
@@ -426,6 +430,9 @@ impl TavernState {
             discover_pending: None,
             discover_queue: Vec::new(),
             pending_choice_target: None,
+            fandral_combined_active: false,
+            defer_combined_choose_one: false,
+            pending_combined_choices: Vec::new(),
             next_willbreaker_group: 1,
             last_combat_won: false,
             last_combat_lost: false,
@@ -559,12 +566,19 @@ impl TavernState {
             reborn_copy.divine_shield = dying.divine_shield || dying.inherent_divine_shield;
             reborn_copy.sync_max_stats();
             let cid = reborn_copy.card_id;
+            let reborn_atk = reborn_copy.attack;
             let insert_pos = cursor.min(self.board.len());
             self.board.insert(insert_pos, reborn_copy);
             cards::tier5::lurking_leviathan::on_beast_summoned_tavern(&mut self.board, insert_pos);
             cards::tier5::barrier_banshee::on_friendly_reborn(
                 Side::A,
                 &mut self.board,
+                &mut events,
+            );
+            cards::tier6::snazzy_phantom::on_friendly_reborn(
+                Side::A,
+                &mut self.board,
+                reborn_atk,
                 &mut events,
             );
             self.check_and_resolve_triple(cid);
@@ -591,6 +605,7 @@ impl TavernState {
         let cid = card.card_id;
         let is_spell = card.is_spell;
         self.hand.push(card);
+        cards::on_card_added_to_hand(&self.board, &mut self.auras);
         if !is_spell {
             self.check_and_resolve_triple(cid);
         }
@@ -613,7 +628,7 @@ impl TavernState {
     }
 
     /// Resolve a Choose-One prompt (`opt0` vs `opt1`).
-    /// If a friendly `Thorned Trailblazer` has charges remaining, consumes 1 charge and applies both options immediately.
+    /// If `fandral_combined` is active or a friendly `Thorned Trailblazer` has charges remaining, applies both options immediately.
     pub fn resolve_choose_one(
         &mut self,
         opt0: Unit,
@@ -621,17 +636,49 @@ impl TavernState {
         pool: &mut CardPool,
         rng: &mut Rng,
     ) {
-        if let Some(tb) = self
+        let combined = if self.fandral_combined_active || opt0.fandral_combined {
+            true
+        } else if let Some(tb) = self
             .board
             .iter_mut()
             .find(|u| u.trailblazer_charges_left > 0)
         {
             tb.trailblazer_charges_left -= 1;
-            self.apply_choice_option(&opt0, pool, rng);
-            self.apply_choice_option(&opt1, pool, rng);
-            self.pending_choice_target = None;
+            true
+        } else {
+            false
+        };
+
+        if combined {
+            if self.defer_combined_choose_one {
+                self.pending_combined_choices.push((opt0, opt1));
+            } else {
+                self.apply_choice_option(&opt0, pool, rng);
+                self.apply_choice_option(&opt1, pool, rng);
+                if !matches!(opt0.card_id, CHOICE_HP_1 | CHOICE_HP_2 | CHOICE_HP_3) {
+                    cards::tier6::turbo_hogrider::after_play_choose_one(self, rng);
+                }
+                if self.discover_pending.is_none() {
+                    self.pending_choice_target = None;
+                }
+            }
         } else {
             self.push_discover(vec![opt0, opt1]);
+        }
+    }
+
+    /// Flush any deferred combined Choose-One options after the played minion has entered `self.board`.
+    pub fn flush_combined_choices(&mut self, pool: &mut CardPool, rng: &mut Rng) {
+        let pending = std::mem::take(&mut self.pending_combined_choices);
+        for (opt0, opt1) in pending {
+            self.apply_choice_option(&opt0, pool, rng);
+            self.apply_choice_option(&opt1, pool, rng);
+            if !matches!(opt0.card_id, CHOICE_HP_1 | CHOICE_HP_2 | CHOICE_HP_3) {
+                cards::tier6::turbo_hogrider::after_play_choose_one(self, rng);
+            }
+            if self.discover_pending.is_none() {
+                self.pending_choice_target = None;
+            }
         }
     }
 
@@ -784,6 +831,21 @@ impl TavernState {
                     b.add_stats(atk, hp);
                 }
             }
+            CHOICE_BRIGAND_GEMS => {
+                let gems = (3 * mult) as u32;
+                for b in &mut self.board {
+                    b.play_blood_gems(gems, &self.auras);
+                }
+                cards::resolve_roogug_procs(&mut self.board, &self.auras, rng);
+            }
+            CHOICE_BRIGAND_BARRAGE => {
+                let count = (3 * mult) as usize;
+                for _ in 0..count {
+                    let spell = cards::spells::spell_by_id(cards::spells::SPELL_BLOOD_GEM_BARRAGE)
+                        .expect("SPELL_BLOOD_GEM_BARRAGE exists");
+                    cards::spells::cast_spell(self, spell, 0, pool, rng);
+                }
+            }
             _ => {}
         }
     }
@@ -853,6 +915,7 @@ impl TavernState {
         if cards::on_hero_damage_taken(&mut self.board, &mut self.shop) {
             self.health += amount;
         }
+        cards::tier6::eredar_escapist::on_hero_damage_taken(self, amount);
         self.sync_all_auras();
     }
 
@@ -865,6 +928,27 @@ impl TavernState {
         let cap = shop_capacity(self.tavern_tier);
         for _ in 0..cap {
             if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
+                self.apply_shop_auras(&mut drawn);
+                self.shop.push(drawn);
+            }
+        }
+        if self.include_shop_spells {
+            self.shop
+                .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
+        }
+        self.resolve_refresh_waveling(rng);
+        self.resolve_refresh_fodder(rng);
+    }
+
+    /// Refresh the Tavern with minions of `tribe` (`Lost Staff of Hamuul`).
+    pub fn refresh_shop_with_tribe(&mut self, tribe: Tribe, pool: &mut CardPool, rng: &mut Rng) {
+        self.is_frozen = false;
+        for old in self.shop.drain(..) {
+            pool.return_unit(&old);
+        }
+        let cap = shop_capacity(self.tavern_tier);
+        for _ in 0..cap {
+            if let Some(mut drawn) = pool.draw_by_tribe(tribe, None, self.tavern_tier, rng) {
                 self.apply_shop_auras(&mut drawn);
                 self.shop.push(drawn);
             }
@@ -1121,7 +1205,11 @@ impl TavernState {
             let dmg = res.hero_damage as i32;
             let absorbed = dmg.min(self.armor.max(0));
             self.armor -= absorbed;
-            self.health -= dmg - absorbed;
+            let net_dmg = dmg - absorbed;
+            self.health -= net_dmg;
+            if net_dmg > 0 {
+                cards::tier6::eredar_escapist::on_hero_damage_taken(self, net_dmg);
+            }
         }
         self.sync_all_auras();
 
@@ -1404,6 +1492,7 @@ impl TavernState {
         match action {
             TavernAction::Buy { shop_index } => {
                 let unit = self.shop.remove(shop_index);
+                let bought_snapshot = unit.clone();
                 if unit.is_spell {
                     if unit.costs_health {
                         self.deal_hero_damage(unit.spell_cost as i32);
@@ -1413,6 +1502,7 @@ impl TavernState {
                         self.spend_gold(cost, pool, rng);
                     }
                     self.hand.push(unit);
+                    cards::on_card_added_to_hand(&self.board, &mut self.auras);
                 } else {
                     self.spend_gold(3, pool, rng);
                     for b in &mut self.board {
@@ -1424,8 +1514,10 @@ impl TavernState {
                     }
                     let cid = unit.card_id;
                     self.hand.push(unit);
+                    cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
                 }
+                cards::after_buy_card(self, &bought_snapshot, rng);
                 Ok(false)
             }
             TavernAction::Play {
@@ -1508,9 +1600,14 @@ impl TavernState {
                     pool.return_unit(&card);
                 } else {
                     cards::on_first_play_or_magnetize(self, &mut card);
+                    self.fandral_combined_active = card.fandral_combined;
+                    self.defer_combined_choose_one = true;
                     cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
+                    self.defer_combined_choose_one = false;
+                    self.fandral_combined_active = false;
                     let insert_idx = board_pos.min(self.board.len());
                     self.board.insert(insert_idx, card);
+                    self.flush_combined_choices(pool, rng);
                     cards::after_play_minion(
                         self,
                         played_card_id,
@@ -1605,7 +1702,12 @@ impl TavernState {
 
                 if tokens::is_choice_option(chosen.card_id) {
                     self.apply_choice_option(&chosen, pool, rng);
-                    self.pending_choice_target = None;
+                    if !matches!(chosen.card_id, CHOICE_HP_1 | CHOICE_HP_2 | CHOICE_HP_3) {
+                        cards::tier6::turbo_hogrider::after_play_choose_one(self, rng);
+                    }
+                    if self.discover_pending.is_none() {
+                        self.pending_choice_target = None;
+                    }
                     return Ok(false);
                 }
 
@@ -1618,6 +1720,7 @@ impl TavernState {
                     self.deal_hero_damage(dmg);
                 }
                 self.add_to_hand(chosen);
+                cards::on_card_discovered(self);
                 Ok(false)
             }
             TavernAction::EndTurn => {
@@ -1628,33 +1731,102 @@ impl TavernState {
     }
 
     /// Combine 3 non-golden copies of `card_id` across `board` and `hand` into 1 Golden copy in `hand` (`docs/tavern.md` §5.1).
+    /// Also supports `Elemental of Surprise`, which can triple with any Elemental.
     pub fn check_and_resolve_triple(&mut self, card_id: CardId) {
-        if card_id == 0 {
+        if card_id == 0 || card_id == tokens::TOKEN_MAGICFIN_APPRENTICE {
             return;
         }
-        let count_board = self
+        let eos_id = cards::tier6::elemental_of_surprise::ID;
+        let is_eligible = |u: &Unit| -> bool {
+            !u.is_golden
+                && !u.intrinsic_golden
+                && !u.is_spell
+                && u.card_id != 0
+                && u.card_id != tokens::TOKEN_MAGICFIN_APPRENTICE
+        };
+
+        let exact_count = self
             .board
             .iter()
-            .filter(|u| !u.is_golden && !u.intrinsic_golden && !u.is_spell && u.card_id == card_id)
-            .count();
-        let count_hand = self
-            .hand
-            .iter()
-            .filter(|u| !u.is_golden && !u.intrinsic_golden && !u.is_spell && u.card_id == card_id)
+            .chain(self.hand.iter())
+            .filter(|u| is_eligible(u) && u.card_id == card_id)
             .count();
 
-        if count_board + count_hand < 3 {
-            return;
-        }
+        let (target_cid, use_eos) = if exact_count >= 3 {
+            (card_id, false)
+        } else {
+            let eos_count = self
+                .board
+                .iter()
+                .chain(self.hand.iter())
+                .filter(|u| is_eligible(u) && u.card_id == eos_id)
+                .count();
+            if eos_count == 0 {
+                return;
+            }
+            if card_id != eos_id {
+                let elem_count = self
+                    .board
+                    .iter()
+                    .chain(self.hand.iter())
+                    .filter(|u| {
+                        is_eligible(u) && u.card_id == card_id && u.tribe.matches(Tribe::Elemental)
+                    })
+                    .count();
+                if elem_count >= 1 && elem_count + eos_count >= 3 {
+                    (card_id, true)
+                } else {
+                    return;
+                }
+            } else {
+                let mut candidate_cids: Vec<CardId> = Vec::new();
+                for u in self.board.iter().chain(self.hand.iter()) {
+                    if is_eligible(u)
+                        && u.card_id != eos_id
+                        && u.tribe.matches(Tribe::Elemental)
+                        && !candidate_cids.contains(&u.card_id)
+                    {
+                        candidate_cids.push(u.card_id);
+                    }
+                }
+                let mut found = None;
+                for &cid in &candidate_cids {
+                    let cnt = self
+                        .board
+                        .iter()
+                        .chain(self.hand.iter())
+                        .filter(|u| is_eligible(u) && u.card_id == cid)
+                        .count();
+                    if cnt == 2 && cnt + eos_count >= 3 {
+                        found = Some(cid);
+                        break;
+                    }
+                }
+                if found.is_none() {
+                    for &cid in &candidate_cids {
+                        let cnt = self
+                            .board
+                            .iter()
+                            .chain(self.hand.iter())
+                            .filter(|u| is_eligible(u) && u.card_id == cid)
+                            .count();
+                        if cnt >= 1 && cnt + eos_count >= 3 {
+                            found = Some(cid);
+                            break;
+                        }
+                    }
+                }
+                if let Some(cid) = found {
+                    (cid, true)
+                } else {
+                    return;
+                }
+            }
+        };
 
         let mut copies = Vec::with_capacity(3);
         self.board.retain(|u| {
-            if copies.len() < 3
-                && !u.is_golden
-                && !u.intrinsic_golden
-                && !u.is_spell
-                && u.card_id == card_id
-            {
+            if copies.len() < 3 && is_eligible(u) && u.card_id == target_cid {
                 copies.push(u.clone());
                 false
             } else {
@@ -1662,34 +1834,51 @@ impl TavernState {
             }
         });
         self.hand.retain(|u| {
-            if copies.len() < 3
-                && !u.is_golden
-                && !u.intrinsic_golden
-                && !u.is_spell
-                && u.card_id == card_id
-            {
+            if copies.len() < 3 && is_eligible(u) && u.card_id == target_cid {
                 copies.push(u.clone());
                 false
             } else {
                 true
             }
         });
+        if use_eos && copies.len() < 3 {
+            self.board.retain(|u| {
+                if copies.len() < 3 && is_eligible(u) && u.card_id == eos_id {
+                    copies.push(u.clone());
+                    false
+                } else {
+                    true
+                }
+            });
+            self.hand.retain(|u| {
+                if copies.len() < 3 && is_eligible(u) && u.card_id == eos_id {
+                    copies.push(u.clone());
+                    false
+                } else {
+                    true
+                }
+            });
+        }
 
         debug_assert_eq!(copies.len(), 3);
-        let base_atk = copies[0].base_attack;
-        let base_hp = copies[0].base_health;
-        let tier = copies[0].tavern_tier;
-        let tribe = copies[0].tribe;
-        let name = format!("Golden {}", copies[0].name);
+        let primary = copies
+            .iter()
+            .find(|u| u.card_id == target_cid)
+            .unwrap_or(&copies[0]);
+        let base_atk = primary.base_attack;
+        let base_hp = primary.base_health;
+        let tier = primary.tavern_tier;
+        let tribe = primary.tribe;
+        let name = format!("Golden {}", primary.name);
 
-        let atk_buffs: i32 = copies.iter().map(|u| u.attack - base_atk).sum();
-        let hp_buffs: i32 = copies.iter().map(|u| u.health - base_hp).sum();
+        let atk_buffs: i32 = copies.iter().map(|u| u.attack - u.base_attack).sum();
+        let hp_buffs: i32 = copies.iter().map(|u| u.health - u.base_health).sum();
 
         let golden_atk = 2 * base_atk + atk_buffs;
         let golden_hp = 2 * base_hp + hp_buffs;
 
         let mut golden = Unit::new(name, golden_atk, golden_hp)
-            .with_card_id(card_id)
+            .with_card_id(target_cid)
             .with_tavern_tier(tier)
             .with_tribe(tribe)
             .with_golden(true);
@@ -1706,16 +1895,19 @@ impl TavernState {
         golden.threshold_triggered = copies.iter().any(|u| u.threshold_triggered);
         golden.scout_tier = copies.iter().map(|u| u.scout_tier).max().unwrap_or(1);
         let sum_sot_gold: u32 = copies.iter().map(|u| u.sot_gold_bonus).sum();
-        golden.sot_gold_bonus = if card_id == cards::tier3::accord_o_tron::ID {
+        golden.sot_gold_bonus = if target_cid == cards::tier3::accord_o_tron::ID {
             sum_sot_gold.saturating_sub(1).max(2)
         } else {
             sum_sot_gold
         };
-        if card_id == cards::tier3::malchezaar_prince_of_dance::ID {
+        if target_cid == cards::tier3::malchezaar_prince_of_dance::ID {
             golden.malchezaar_refreshes_left = 4;
         }
-        if card_id == cards::tier3::thorned_trailblazer::ID {
+        if target_cid == cards::tier3::thorned_trailblazer::ID {
             golden.trailblazer_charges_left = 2;
+        }
+        if target_cid == cards::tier6::magicfin_mycologist::ID {
+            golden.mycologist_charges_left = 2;
         }
         cards::tier4::enchanted_sentinel::init_spell_aura(&mut golden);
         cards::tier4::humongozz::init_spell_aura(&mut golden);
@@ -1726,6 +1918,25 @@ impl TavernState {
         golden.hopebringer_stacks = copies.iter().map(|u| u.hopebringer_stacks).sum();
         golden.leviathan_stacks = copies.iter().map(|u| u.leviathan_stacks).sum();
         golden.spark_snapper_stacks = copies.iter().map(|u| u.spark_snapper_stacks).sum();
+        golden.auto_reveille_buys = copies
+            .iter()
+            .map(|u| u.auto_reveille_buys)
+            .max()
+            .unwrap_or(0);
+        golden.eredar_damage_progress = copies
+            .iter()
+            .map(|u| u.eredar_damage_progress)
+            .max()
+            .unwrap_or(0);
+        golden.sky_golem_stacks_applied = self.auras.deathrattles_triggered;
+        golden.aphlass_stacks = copies.iter().map(|u| u.aphlass_stacks).sum();
+        golden.ultraviolet_stacks = copies.iter().map(|u| u.ultraviolet_stacks).sum();
+        golden.unbound_tempest_progress = copies
+            .iter()
+            .map(|u| u.unbound_tempest_progress)
+            .max()
+            .unwrap_or(0);
+        golden.magnetizations_count = copies.iter().map(|u| u.magnetizations_count).sum();
         golden.blood_gems_played = copies.iter().map(|u| u.blood_gems_played).sum();
         golden.blood_gem_stats_applied = (
             copies.iter().map(|u| u.blood_gem_stats_applied.0).sum(),

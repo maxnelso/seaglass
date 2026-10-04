@@ -31,6 +31,7 @@ pub fn after_play_mech(
     }
     for (sat_atk, sat_hp) in sats {
         state.board[board_pos].add_stats(sat_atk, sat_hp);
+        state.board[board_pos].magnetizations_count += 1;
         tier2::mechagnome_interpreter::after_play_or_magnetize_mech(
             state,
             Tribe::Mech,

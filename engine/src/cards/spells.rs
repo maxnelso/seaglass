@@ -80,6 +80,13 @@ pub const SPELL_UNMASKED_IDENTITY: CardId = 856;
 pub const SPELL_UPPER_HAND: CardId = 857;
 pub const SPELL_WAVE_OF_GOLD: CardId = 858;
 
+// Tier 6 Tavern Spells (5)
+pub const SPELL_AZERITE_EMPOWERMENT: CardId = 859;
+pub const SPELL_EYES_OF_THE_EARTH_MOTHER: CardId = 860;
+pub const SPELL_FANDRALS_FORTUNE: CardId = 861;
+pub const SPELL_LOST_STAFF_OF_HAMUUL: CardId = 862;
+pub const SPELL_PERFECT_VISION: CardId = 863;
+
 /// All 5 Bounty Tavern Spells (`Bigwig Bandit`, `Shipwrecked Rascal`, `Proud Privateer`).
 pub const BOUNTY_SPELL_IDS: [CardId; 5] = [
     SPELL_FRIENDLY_BOUNTY,
@@ -263,6 +270,29 @@ pub fn tier5_spells() -> Vec<Unit> {
     ]
 }
 
+/// All 5 active Tier 6 Tavern Spells (Patch 36.6.3).
+pub fn tier6_spells() -> Vec<Unit> {
+    vec![
+        make_tavern_spell(SPELL_AZERITE_EMPOWERMENT, "Azerite Empowerment", 6, 4, false),
+        make_tavern_spell(
+            SPELL_EYES_OF_THE_EARTH_MOTHER,
+            "Eyes of the Earth Mother",
+            6,
+            4,
+            false,
+        ),
+        make_tavern_spell(SPELL_FANDRALS_FORTUNE, "Fandral's Fortune", 6, 3, false),
+        make_tavern_spell(
+            SPELL_LOST_STAFF_OF_HAMUUL,
+            "Lost Staff of Hamuul",
+            6,
+            2,
+            false,
+        ),
+        make_tavern_spell(SPELL_PERFECT_VISION, "Perfect Vision", 6, 2, false),
+    ]
+}
+
 /// Return all Tavern Spells with `tavern_tier <= max_tier`.
 pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
     let mut list = tier1_spells();
@@ -277,6 +307,9 @@ pub fn spells_up_to_tier(max_tier: u32) -> Vec<Unit> {
     }
     if max_tier >= 5 {
         list.extend(tier5_spells());
+    }
+    if max_tier >= 6 {
+        list.extend(tier6_spells());
     }
     list
 }
@@ -431,7 +464,84 @@ pub fn spell_requires_board_target(card_id: CardId) -> bool {
             | SPELL_CHANNEL_THE_DEVOURER
             | SPELL_CORRUPTED_CUPCAKES
             | SPELL_FORESTS_BOUNTY
+            | SPELL_EYES_OF_THE_EARTH_MOTHER
+            | SPELL_LOST_STAFF_OF_HAMUUL
+            | SPELL_PERFECT_VISION
     )
+}
+
+/// Apply the `Misplaced Tea Set` effect (`Give a friendly minion of each type +4/+4`).
+pub fn apply_misplaced_tea_set(state: &mut TavernState, rng: &mut Rng) {
+    let (atk, hp) = state.auras.spell_stat_buff(4, 4);
+    let mut chosen_indices: Vec<usize> = Vec::new();
+    for &tribe in &SINGLE_TRIBES {
+        let candidates: Vec<usize> = state
+            .board
+            .iter()
+            .enumerate()
+            .filter(|(i, u)| !chosen_indices.contains(i) && u.tribe.matches(tribe))
+            .map(|(i, _)| i)
+            .collect();
+        if !candidates.is_empty() {
+            let pick = if candidates.len() == 1 {
+                candidates[0]
+            } else {
+                candidates[rng.below(candidates.len())]
+            };
+            chosen_indices.push(pick);
+        }
+    }
+    for idx in chosen_indices {
+        state.board[idx].add_stats(atk, hp);
+    }
+}
+
+/// Draw up to `count` distinct Choose-One cards (minions and spells) with both effects combined (`Fandral's Fortune`).
+pub fn draw_discover_choose_one(state: &TavernState, count: usize, rng: &mut Rng) -> Vec<Unit> {
+    let max_tier = state.tavern_tier.max(1);
+    let mut all_choose_one: Vec<Unit> = crate::cards::full_catalog()
+        .into_iter()
+        .filter(|t| crate::cards::is_choose_one_minion(t.card_id))
+        .map(|t| {
+            let mut u = t.instantiate();
+            state.apply_global_unit_auras(&mut u);
+            u
+        })
+        .collect();
+    for spell_id in [
+        SPELL_ALLIANCE_FLAG,
+        SPELL_GEM_DAY,
+        SPELL_TIME_MANAGEMENT,
+        SPELL_BOUNDLESS_POTENTIAL,
+        SPELL_FORESTS_BOUNTY,
+    ] {
+        if let Some(s) = spell_by_id(spell_id) {
+            all_choose_one.push(s);
+        }
+    }
+    let mut pool: Vec<Unit> = all_choose_one
+        .iter()
+        .filter(|u| u.tavern_tier <= max_tier)
+        .cloned()
+        .collect();
+    if pool.len() < count {
+        pool = all_choose_one;
+    }
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        if pool.is_empty() {
+            break;
+        }
+        let idx = if pool.len() == 1 {
+            0
+        } else {
+            rng.below(pool.len())
+        };
+        let mut opt = pool.remove(idx);
+        opt.fandral_combined = true;
+        out.push(opt);
+    }
+    out
 }
 
 fn buff_random_friendly(
@@ -472,13 +582,17 @@ pub fn cast_spell(
         crate::cards::on_cast_tavern_spell(state);
     }
 
-    let casts = if BOUNTY_SPELL_IDS.contains(&card.card_id) {
+    let mut casts = if BOUNTY_SPELL_IDS.contains(&card.card_id) {
         crate::cards::bounty_cast_multiplier(&state.board)
     } else {
         1
     };
+    if targeted {
+        casts *= crate::cards::tier6::balinda_stonehearth::targeted_spell_multiplier(&state.board);
+    }
 
     for _ in 0..casts {
+        state.fandral_combined_active = card.fandral_combined;
         match card.card_id {
             SPELL_BLOOD_GEM => {
                 if board_pos < state.board.len() {
@@ -834,28 +948,7 @@ pub fn cast_spell(
                 }
             }
             SPELL_MISPLACED_TEA_SET => {
-                let (atk, hp) = state.auras.spell_stat_buff(4, 4);
-                let mut chosen_indices: Vec<usize> = Vec::new();
-                for &tribe in &SINGLE_TRIBES {
-                    let candidates: Vec<usize> = state
-                        .board
-                        .iter()
-                        .enumerate()
-                        .filter(|(i, u)| !chosen_indices.contains(i) && u.tribe.matches(tribe))
-                        .map(|(i, _)| i)
-                        .collect();
-                    if !candidates.is_empty() {
-                        let pick = if candidates.len() == 1 {
-                            candidates[0]
-                        } else {
-                            candidates[rng.below(candidates.len())]
-                        };
-                        chosen_indices.push(pick);
-                    }
-                }
-                for idx in chosen_indices {
-                    state.board[idx].add_stats(atk, hp);
-                }
+                apply_misplaced_tea_set(state, rng);
             }
             SPELL_NATURAL_BLESSING => {
                 if board_pos < state.board.len() {
@@ -1098,16 +1191,56 @@ pub fn cast_spell(
                     }
                 }
             }
+            SPELL_AZERITE_EMPOWERMENT => {
+                let (atk, hp) = state.auras.spell_stat_buff(2, 2);
+                for _ in 0..2 {
+                    for u in &mut state.board {
+                        u.add_stats(atk, hp);
+                    }
+                }
+            }
+            SPELL_EYES_OF_THE_EARTH_MOTHER => {
+                if board_pos < state.board.len()
+                    && state.board[board_pos].tavern_tier <= 4
+                    && !state.board[board_pos].is_golden
+                {
+                    state.board[board_pos].make_golden();
+                    state.sync_all_auras();
+                }
+            }
+            SPELL_FANDRALS_FORTUNE => {
+                let opts = draw_discover_choose_one(state, 3, rng);
+                if !opts.is_empty() {
+                    state.push_discover(opts);
+                }
+            }
+            SPELL_LOST_STAFF_OF_HAMUUL => {
+                if board_pos < state.board.len() {
+                    let target_tribe = state.board[board_pos].tribe;
+                    state.refresh_shop_with_tribe(target_tribe, pool, rng);
+                }
+            }
+            SPELL_PERFECT_VISION => {
+                if board_pos < state.board.len() {
+                    let (atk, hp) = state.auras.spell_stat_buff(20, 20);
+                    let target = &mut state.board[board_pos];
+                    target.attack = atk;
+                    target.health = hp;
+                    target.sync_max_stats();
+                    crate::cards::check_stat_thresholds(target);
+                }
+            }
             _ => {
                 if board_pos < state.board.len() {
                     state.board[board_pos].add_stats(card.attack, card.health);
                 }
             }
         }
+        state.fandral_combined_active = false;
     }
 
     if targeted && board_pos < state.board.len() {
-        crate::cards::after_cast_targeted_spell(state, board_pos);
+        crate::cards::after_cast_targeted_spell(state, board_pos, rng);
     }
 
     crate::cards::after_cast_any_spell(state, pool, rng);

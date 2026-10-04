@@ -31,6 +31,7 @@ pub struct BattleResult {
 struct SideCombatState {
     board: Vec<Unit>,
     ptr: Option<UnitId>,
+    hero_tier: u32,
     auras: PlayerAuras,
     hand: Vec<Unit>,
     hand_summoned: Vec<bool>,
@@ -44,7 +45,12 @@ struct SideCombatState {
 }
 
 impl SideCombatState {
-    fn new(mut board: Vec<Unit>, auras: PlayerAuras, mut hand: Vec<Unit>) -> Self {
+    fn new(
+        mut board: Vec<Unit>,
+        hero_tier: u32,
+        auras: PlayerAuras,
+        mut hand: Vec<Unit>,
+    ) -> Self {
         for u in &mut board {
             cards::sync_unit_auras(u, &auras);
             u.sync_max_stats();
@@ -58,6 +64,7 @@ impl SideCombatState {
         Self {
             board,
             ptr,
+            hero_tier,
             auras,
             hand,
             hand_summoned,
@@ -140,8 +147,18 @@ pub fn resolve_battle(
         first_attacker,
     }];
 
-    let mut side_a = SideCombatState::new(units_a, state.auras_a.clone(), state.hand_a.clone());
-    let mut side_b = SideCombatState::new(units_b, state.auras_b.clone(), state.hand_b.clone());
+    let mut side_a = SideCombatState::new(
+        units_a,
+        state.hero_tier_a,
+        state.auras_a.clone(),
+        state.hand_a.clone(),
+    );
+    let mut side_b = SideCombatState::new(
+        units_b,
+        state.hero_tier_b,
+        state.auras_b.clone(),
+        state.hand_b.clone(),
+    );
 
     // Start of Combat triggers: Side A first, then Side B, left-to-right.
     resolve_start_of_combat_spells(Side::A, &mut side_a, &mut side_b, &mut rng, &mut events);
@@ -178,6 +195,23 @@ pub fn resolve_battle(
         &mut events,
     );
     resolve_start_of_combat_aoe(
+        Side::B,
+        &mut side_b,
+        &mut side_a,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
+
+    resolve_start_of_combat_attacks(
+        Side::A,
+        &mut side_a,
+        &mut side_b,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
+    resolve_start_of_combat_attacks(
         Side::B,
         &mut side_b,
         &mut side_a,
@@ -336,6 +370,7 @@ fn resolve_start_of_combat_aoe(
                             &mut own_side.board,
                             src_id,
                             3,
+                            &mut own_side.auras,
                             &mut own_side.hand,
                             &mut own_side.hand_summoned,
                             events,
@@ -359,6 +394,7 @@ fn resolve_start_of_combat_aoe(
                             &mut own_side.board,
                             src_id,
                             3,
+                            &mut own_side.auras,
                             &mut own_side.hand,
                             &mut own_side.hand_summoned,
                             events,
@@ -379,6 +415,37 @@ fn resolve_start_of_combat_aoe(
             resolve_deaths(side.other(), opp_side, own_side, next_id, rng, events);
             resolve_deaths(side, own_side, opp_side, next_id, rng, events);
             resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
+        }
+    }
+}
+
+/// Resolve Start-of-Combat immediate attacks (`Heroic Broodmother`).
+fn resolve_start_of_combat_attacks(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    let sources: Vec<(UnitId, bool)> = own_side
+        .board
+        .iter()
+        .filter(|u| u.card_id == cards::tier6::heroic_broodmother::ID && u.health > 0)
+        .map(|u| (u.id, u.is_golden))
+        .collect();
+    for (src_id, is_golden) in sources {
+        let strikes = if is_golden { 2 } else { 1 };
+        for _ in 0..strikes {
+            if opp_side.is_empty()
+                || !own_side
+                    .board
+                    .iter()
+                    .any(|u| u.id == src_id && u.health > 0 && u.attack > 0)
+            {
+                break;
+            }
+            perform_one_strike(side, src_id, own_side, opp_side, false, next_id, rng, events);
         }
     }
 }
@@ -463,6 +530,7 @@ fn perform_one_strike(
     atk_side.board[initial_atk_pos].stealth = false;
 
     // 1. Fire On-Attack (Rally) hook before damage.
+    let attacker_card_id = atk_side.board[initial_atk_pos].card_id;
     let pre_atk = atk_side.board[initial_atk_pos].attack;
     let pre_hp = atk_side.board[initial_atk_pos].health;
     let def_had_ds = def_side.board[def_pos].divine_shield;
@@ -495,10 +563,12 @@ fn perform_one_strike(
             reason: "Rally",
         });
     }
-    for card in generated_hand {
+    for mut card in generated_hand {
         if atk_side.hand.len() < 10 {
+            cards::sync_unit_auras(&mut card, &atk_side.auras);
             atk_side.hand.push(card);
             atk_side.hand_summoned.push(false);
+            cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
         }
     }
     if !rally_summons.is_empty() {
@@ -523,12 +593,32 @@ fn perform_one_strike(
         }
     }
 
+    if cards::is_rally_minion(attacker_card_id) {
+        let prev_hand_len = atk_side.hand.len();
+        cards::tier6::deathstrider::after_rally_minion_attacks(
+            side,
+            true,
+            &mut atk_side.board,
+            &mut atk_side.auras,
+            &mut atk_side.hand,
+            &mut atk_side.hand_summoned,
+            &atk_side.dead_aberrations,
+            atk_side.combat_beast_bonus_atk,
+            next_id,
+            rng,
+            events,
+        );
+        for _ in prev_hand_len..atk_side.hand.len() {
+            cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
+        }
+    }
+
     // 1b. Fire friendly-attack observers.
     cards::on_friendly_attack(
         side,
         &mut atk_side.board,
         attacker_id,
-        &atk_side.auras,
+        &mut atk_side.auras,
         rng,
         events,
     );
@@ -570,6 +660,7 @@ fn perform_one_strike(
             &mut atk_side.board,
             attacker_id,
             attacker_attack,
+            &mut atk_side.auras,
             &mut atk_side.hand,
             &mut atk_side.hand_summoned,
             events,
@@ -594,6 +685,7 @@ fn perform_one_strike(
             &mut def_side.board,
             target_id,
             target_attack,
+            &mut def_side.auras,
             &mut def_side.hand,
             &mut def_side.hand_summoned,
             events,
@@ -625,6 +717,7 @@ fn perform_one_strike(
                     &mut atk_side.board,
                     attacker_id,
                     attacker_attack,
+                    &mut atk_side.auras,
                     &mut atk_side.hand,
                     &mut atk_side.hand_summoned,
                     events,
@@ -672,6 +765,7 @@ fn perform_one_strike(
                         &mut atk_side.board,
                         attacker_id,
                         excess,
+                        &mut atk_side.auras,
                         &mut atk_side.hand,
                         &mut atk_side.hand_summoned,
                         events,
@@ -718,6 +812,7 @@ fn perform_one_strike(
                     &mut atk_side.board,
                     attacker_id,
                     after_dmg,
+                    &mut atk_side.auras,
                     &mut atk_side.hand,
                     &mut atk_side.hand_summoned,
                     events,
@@ -956,6 +1051,7 @@ fn resolve_deaths(
             &unit,
             &mut rebuilt,
             &mut side_state.auras,
+            side_state.hero_tier,
             &mut side_state.hand,
             &mut side_state.hand_summoned,
             side_state.combat_beast_bonus_atk,
@@ -1026,6 +1122,7 @@ fn resolve_deaths(
                 &mut reborn_copy,
             );
             reborn_copy.sync_max_stats();
+            let reborn_atk = reborn_copy.attack;
             events.push(Event::UnitSummoned {
                 side,
                 source: unit.id,
@@ -1038,6 +1135,12 @@ fn resolve_deaths(
             rebuilt.insert(cursor, reborn_copy);
             cursor += 1;
             cards::tier5::barrier_banshee::on_friendly_reborn(side, &mut rebuilt, events);
+            cards::tier6::snazzy_phantom::on_friendly_reborn(
+                side,
+                &mut rebuilt,
+                reborn_atk,
+                events,
+            );
         }
     }
 
