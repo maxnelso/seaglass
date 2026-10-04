@@ -335,6 +335,27 @@ impl World {
                 t.state.apply_global_unit_auras(&mut unit);
                 zone_mut(&mut t.state, *z)[i] = unit;
             }
+            StepKind::TakeFromPool(ids) => {
+                let t = tavern_mut(&mut self.tavern)?;
+                for &id in ids {
+                    if !t.catalog.iter().any(|tpl| tpl.card_id == id) {
+                        return Err(Failure::Invalid(format!(
+                            "{} is not in this Tavern's pool",
+                            super::view::card_name(id)
+                        )));
+                    }
+                    t.pool.take_copy(id);
+                }
+            }
+            StepKind::PlayBloodGems(z, index, count) => {
+                let t = tavern_mut(&mut self.tavern)?;
+                let i = position(zone(&t.state, *z), index, z.name(), &self.captures)?;
+                let auras = t.state.auras.clone();
+                let unit = zone_mut(&mut t.state, *z)
+                    .get_mut(i)
+                    .ok_or_else(|| Failure::Mismatch(format!("{}[{i}]: no such card", z.name())))?;
+                unit.play_blood_gems(*count, &auras);
+            }
             StepKind::Fight(plan) => {
                 let seed = plan.seed.unwrap_or(self.seed);
                 let t = tavern_mut(&mut self.tavern)?;

@@ -25,7 +25,7 @@ use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 
 use crate::cards;
-use crate::model::{PlayerAuras, Unit};
+use crate::model::{CardId, PlayerAuras, Unit};
 
 use super::matchup::Batch;
 use super::patch;
@@ -94,6 +94,10 @@ pub(super) enum StepKind {
     Set(Value),
     DealHeroDamage(i32),
     ApplyGlobalUnitAuras(Zone, Index),
+    /// `CardPool::take_copy` for each card.
+    TakeFromPool(Vec<CardId>),
+    /// `Unit::play_blood_gems(count, auras)` on one card.
+    PlayBloodGems(Zone, Index, u32),
     Fight(Box<FightPlan>),
     Simulate(Box<CombatPlan>),
     Expect(Value),
@@ -272,8 +276,8 @@ fn tier_one() -> u32 {
 const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, refresh, \
     upgrade_tavern, toggle_freeze, choose_discover, end_turn, add_to_hand, push_board, \
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
-    sync_all_auras, fight, simulate, expect, expect_error, expect_legal, expect_illegal, \
-    if/then/else, repeat/steps";
+    sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
+    expect_legal, expect_illegal, if/then/else, repeat/steps";
 
 impl ScenarioFile {
     /// Load and validate the scenario file at `path`.
@@ -726,6 +730,25 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 index(at)?,
             )
         }
+        "take_from_pool" => StepKind::TakeFromPool(card_ids(arg)?),
+        "play_blood_gems" => {
+            let usage = "`play_blood_gems` takes {<zone>: <index>, count: <n>}";
+            let m = arg.as_mapping().filter(|m| m.len() == 2).ok_or(usage)?;
+            let count = m
+                .get("count")
+                .and_then(Value::as_u64)
+                .and_then(|n| u32::try_from(n).ok())
+                .ok_or(usage)?;
+            let (zone, at) = m
+                .iter()
+                .find(|(key, _)| key.as_str() != Some("count"))
+                .ok_or(usage)?;
+            StepKind::PlayBloodGems(
+                Zone::parse(zone.as_str().unwrap_or_default())?,
+                index(at)?,
+                count,
+            )
+        }
         "fight" => StepKind::Fight(Box::new(compile_fight(arg)?)),
         "simulate" => StepKind::Simulate(Box::new(compile_combat(arg)?)),
         "expect" => StepKind::Expect(arg.clone()),
@@ -738,6 +761,21 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
 
 fn unknown_step(name: &str) -> String {
     format!("unknown step `{name}` (steps: {STEP_NAMES})")
+}
+
+/// A card name, or a list of them, as card ids.
+fn card_ids(value: &Value) -> Result<Vec<CardId>, String> {
+    let names: Vec<&Value> = match value {
+        Value::Sequence(list) => list.iter().collect(),
+        one => vec![one],
+    };
+    names
+        .into_iter()
+        .map(|name| match name.as_str() {
+            Some(name) => Ok(card_index().resolve(name)?.card_id),
+            None => Err(format!("expected a card name, got {}", show(name))),
+        })
+        .collect()
 }
 
 /// The Tavern action a step performs (`expect_error: buy: 0`).

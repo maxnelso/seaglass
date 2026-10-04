@@ -2,6 +2,8 @@
 #
 # - minions: every shop minion by Tavern Tier, in catalog order (`tier<N>_catalog()`; together
 #   they are `full_catalog()`), and minion_ids: each tier's card id range.
+# - tiers: per Tavern Tier, the pool copies of each minion (`base_copies_for_tier`), the shop
+#   capacity (`shop_capacity`) and the cost to upgrade from it (`base_upgrade_cost`).
 # - spells: every Tavern spell by tier (`spells::tier<N>_spells()`), and not_in_pool: the Tavern
 #   spells never drawn into the shop or random spell pools.
 # - token_minions, token_spells, deities: the other cards that unit specs can name.
@@ -277,6 +279,15 @@ minion_ids:
   5: [501, 552]
   6: [601, 632]
   7: [701, 712]
+
+tiers:
+  1: {copies: 15, shop_capacity: 3, upgrade_cost: 5}
+  2: {copies: 15, shop_capacity: 4, upgrade_cost: 7}
+  3: {copies: 13, shop_capacity: 4, upgrade_cost: 8}
+  4: {copies: 11, shop_capacity: 5, upgrade_cost: 10}
+  5: {copies: 9, shop_capacity: 5, upgrade_cost: 10}
+  6: {copies: 7, shop_capacity: 6, upgrade_cost: 0}
+  7: {copies: 5}
 
 spells:
   1:  # 8

@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 use libtest_mimic::{Arguments, Failed, Trial};
 use seaglass::cards::{self, spells, tokens};
 use seaglass::scenario::{card_index, slug, CardKind, Failure, Header, Scenario, ScenarioFile};
-use seaglass::{CardTemplate, DeityKind, DeityState, Unit};
+use seaglass::{
+    base_copies_for_tier, base_upgrade_cost, CardTemplate, DeityKind, DeityState, Unit,
+};
 use serde::Deserialize;
 
 fn main() {
@@ -119,11 +121,22 @@ fn yaml_files(dir: &Path) -> Vec<PathBuf> {
 struct Catalog {
     minions: BTreeMap<u32, Vec<String>>,
     minion_ids: BTreeMap<u32, [u32; 2]>,
+    tiers: BTreeMap<u32, TierRow>,
     spells: BTreeMap<u32, Vec<String>>,
     not_in_pool: Vec<String>,
     token_minions: Vec<String>,
     token_spells: Vec<String>,
     deities: Vec<String>,
+}
+
+/// One Tavern Tier's row of `catalog.yaml`'s `tiers` (Tier 7 is never a Tavern's tier: it
+/// has no shop capacity or upgrade cost).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TierRow {
+    copies: u32,
+    shop_capacity: Option<usize>,
+    upgrade_cost: Option<u32>,
 }
 
 /// How `got` differs from `want` (`None` if they are equal).
@@ -154,6 +167,26 @@ fn unit_names(units: &[Unit]) -> Vec<&str> {
     units.iter().map(|u| u.name.as_str()).collect()
 }
 
+/// How Tier `tier`'s pool copies, shop capacity and upgrade cost differ from `want`.
+fn tier_row_diff(tier: u32, want: Option<&TierRow>) -> Option<String> {
+    let Some(want) = want else {
+        return Some(format!("catalog.yaml has no `tiers: {tier}:` row"));
+    };
+    // Tier 7 is never a Tavern's tier: no shop of its own, no upgrade from it.
+    let tavern = (tier <= 6).then(|| (seaglass::shop_capacity(tier), base_upgrade_cost(tier)));
+    let got = (
+        base_copies_for_tier(tier),
+        tavern.map(|t| t.0),
+        tavern.map(|t| t.1),
+    );
+    let expected = (want.copies, want.shop_capacity, want.upgrade_cost);
+    (got != expected).then(|| {
+        format!(
+            "tier {tier}: (copies, shop_capacity, upgrade_cost) is {got:?}, expected {expected:?}"
+        )
+    })
+}
+
 /// Check the catalogs, spell lists and card ids against `catalog.yaml`.
 fn check_catalog(path: &Path) -> Result<(), Failed> {
     let text =
@@ -171,6 +204,15 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
         seaglass::tier5_catalog,
         seaglass::tier6_catalog,
         seaglass::tier7_catalog,
+    ];
+    let solo: [fn() -> Vec<CardTemplate>; 7] = [
+        cards::solo_tier_1_catalog,
+        cards::solo_tier_2_catalog,
+        cards::solo_tier_3_catalog,
+        cards::solo_tier_4_catalog,
+        cards::solo_tier_5_catalog,
+        cards::solo_tier_6_catalog,
+        cards::solo_tier_7_catalog,
     ];
     let spell_tiers: [fn() -> Vec<Unit>; 7] = [
         spells::tier1_spells,
@@ -198,6 +240,11 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
             &template_names(&by_name),
             &minions,
         ));
+        check(list_diff(
+            &format!("solo_tier_{tier}_catalog()"),
+            &template_names(&solo[i]()),
+            &minions,
+        ));
         let [lo, hi] = want.minion_ids.get(&tier).copied().unwrap_or_default();
         for card in &cards {
             if card.tavern_tier != tier {
@@ -214,6 +261,7 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
             }
         }
         all_minions.extend(minions);
+        check(tier_row_diff(tier, want.tiers.get(&tier)));
 
         let tier_spell_names = want.spells.get(&tier).cloned().unwrap_or_default();
         check(list_diff(

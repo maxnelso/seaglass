@@ -120,6 +120,8 @@ A step is a name (`refresh`) or a single-key mapping (`buy: 0`).
 | `deal_hero_damage: <n>` | `TavernState::deal_hero_damage`. |
 | `apply_global_unit_auras: {<zone>: <index>}` | `TavernState::apply_global_unit_auras` on one card. |
 | `sync_all_auras` | `TavernState::sync_all_auras`. |
+| `take_from_pool: <card(s)>` | `CardPool::take_copy` for each card (it must be in the Tavern's catalog). |
+| `play_blood_gems: {<zone>: <index>, count: <n>}` | `Unit::play_blood_gems` on one card, with the Tavern's auras. |
 | `fight: {board, tier, auras, hand, seed}` | The Tavern's combat against that opponent (`resolve_combat_against`: start/end-of-combat effects, damage, persistence). `tier` defaults to 1, `seed` to the scenario seed. |
 | `simulate: {...}` | A standalone battle, as `combat:` (§2.1). In a Tavern, `board_a: tavern` (or `hand_*`, `auras_*`) copies the Tavern's board (hand, auras). |
 | `expect: <matcher>` | Check the state (§5). |
@@ -300,8 +302,11 @@ invalid. These tests show as `[known_bug]`, and the run ends with a ledger of th
 
 The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
 
-- `minions`: each tier's catalog, in order (`tierN_catalog()`, `catalog_for("tierN")`),
-  every minion's `tavern_tier`, `full_catalog()`; `minion_ids`: each tier's card id range;
+- `minions`: each tier's catalog, in order (`tierN_catalog()`, `solo_tier_N_catalog()`,
+  `catalog_for("tierN")`), every minion's `tavern_tier`, `full_catalog()`; `minion_ids`: each
+  tier's card id range;
+- `tiers`: each tier's pool copies per minion (`base_copies_for_tier`), shop capacity
+  (`shop_capacity`) and upgrade cost (`base_upgrade_cost`; Tier 7 has neither);
 - `spells`: each tier's Tavern spells (`spells::tierN_spells()`, `spells_up_to_tier`);
   `not_in_pool`: the Tavern spells the shop never offers;
 - `token_minions`, `token_spells`, `deities`;
