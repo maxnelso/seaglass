@@ -3,10 +3,10 @@ scenarios:
   - name: rally_casts_mighty_dragonbreath
     description: >-
       Mighty Dragonbreath gives +3/+2, plus +3/+2 for a Dragon and +3/+2 for a Divine Shield
-      minion: the 2/2 Divine Shield Dragon ally gets +9/+6.
+      minion: Bronze Warden (2/1 Dragon, Divine Shield) gets +9/+6.
     seed: 604
     combat:
-      board_a: [Crimson Vindicator, {card: "2/2 dragon divine_shield", name: DragonAlly}]
+      board_a: [Crimson Vindicator, Bronze Warden]
       board_b: ["1/1"]
     expect:
-      survivors_a: {any: {name: DragonAlly, attack: 11, health: 8}}
+      survivors_a: {any: "Bronze Warden 11/7"}

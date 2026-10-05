@@ -2,13 +2,13 @@ card: Stitched Salvager
 scenarios:
   - name: destroys_its_left_neighbour_and_resummons_an_exact_copy
     description: >-
-      Start of Combat: the Salvager destroys BigNeighbor (a 25/30 golden Divine Shield) and stores
-      it. The 16/4 Salvager trades with the 10/16 and dies; its Deathrattle resummons the exact
-      25/30 golden BigNeighbor.
+      Start of Combat: the Salvager destroys golden Annoy-o-Module (4/8 Divine Shield, Taunt) and
+      stores it. The 16/4 Salvager trades with the 4/16 and dies; its Deathrattle resummons the
+      exact golden 4/8 Divine Shield, Taunt Annoy-o-Module.
     seed: 710
     combat:
-      board_a: [{card: "25/30 divine_shield golden", name: BigNeighbor}, Stitched Salvager]
-      board_b: ["10/16", "1/1"]
+      board_a: ["golden Annoy-o-Module 4/8", Stitched Salvager]
+      board_b: ["4/16"]
     expect:
       outcome: a_win
-      survivors_a: [{name: BigNeighbor, attack: 25, max_health: 30, is_golden: true}]
+      survivors_a: ["golden Annoy-o-Module 4/8 divine_shield taunt"]

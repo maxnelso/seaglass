@@ -2,9 +2,9 @@ card: Eonar's Favor
 scenarios:
   - name: tavern_minions_of_the_targets_type_get_3_3
     tavern:
-      board: ["2/2 beast"]
-      shop: ["3/3 beast", "3/3 mech"]
+      board: [Flittering Bat]   # 1/4 Beast
+      shop: [Wolf Pup, Lullabot]   # 3/6 Beast, 2/2 Mech
     steps:
-      - add_to_hand: Eonar's Favor
-      - play: {hand: Eonar's Favor, pos: 0}
-    expect: {shop: ["6/6 beast", "3/3 mech"]}
+      - add_to_hand: "Eonar's Favor"
+      - play: {hand: "Eonar's Favor", pos: 0}
+    expect: {shop: ["Wolf Pup 6/9", "Lullabot 2/2"]}

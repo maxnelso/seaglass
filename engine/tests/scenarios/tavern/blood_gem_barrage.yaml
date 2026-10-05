@@ -4,9 +4,8 @@ scenarios:
     seed: 831
     tavern:
       gold: 1   # the Refresh
-      auras: {blood_gem_bonus_atk: 1}   # Blood Gems give +2/+1
+      hand: [Blood Gem Barrage]
     steps:
-      - add_to_hand: Blood Gem Barrage
       - play: Blood Gem Barrage
       - expect: {auras: {refresh_blood_gems: 2}}
       - refresh
@@ -14,4 +13,4 @@ scenarios:
       shop:
         where: {is_spell: false}
         count: ">= 1"
-        all: {blood_gems_played: 2, attack: "@base_attack + 4", health: "@base_health + 2"}
+        all: {blood_gems_played: 2, attack: "@base_attack + 2", health: "@base_health + 2"}

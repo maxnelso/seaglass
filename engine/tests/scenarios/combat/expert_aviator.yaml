@@ -5,5 +5,7 @@ scenarios:
     combat:
       board_a: [Expert Aviator]   # 3/5
       board_b: ["4/6"]
-      hand_a: [{card: "8/8 murloc", name: HandMurloc}]
-    expect: {outcome: a_win, survivors_a: {any: {name: HandMurloc}}}
+      hand_a: [Tad, Shoalfin Mystic]   # 2/2 and 5/5 Murlocs
+    expect:
+      outcome: a_win
+      survivors_a: [Shoalfin Mystic]

@@ -2,10 +2,10 @@ card: Snarky Shark
 scenarios:
   - name: selling_it_makes_the_left_most_beast_attack_a_fishbait
     description: >-
-      Selling it refreshes the Tavern with a 0/2 Fishbait; the 5/5 Beast attacks and kills it,
-      and gains +5/+5.
+      Selling it refreshes the Tavern with a 0/2 Fishbait; Wolf Pup (3/6 Beast) attacks and
+      kills it, and gains +5/+5.
     seed: 454
-    tavern: {board: ["5/5 beast", Snarky Shark]}
+    tavern: {board: [Wolf Pup, Snarky Shark]}
     steps:
       - sell: Snarky Shark
-    expect: {board: ["10/10"]}
+    expect: {board: ["Wolf Pup 8/11"]}

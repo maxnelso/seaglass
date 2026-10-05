@@ -2,8 +2,10 @@ card: Menagerie Tableware
 scenarios:
   - name: gives_3_3_plus_3_3_per_minion_type
     seed: 865
-    tavern: {board: ["2/2 beast", "2/2 beast", "3/3 dragon"]}
+    tavern:
+      board: [Flittering Bat, Flittering Bat, Glim Guardian]   # 1/4 Beasts and 1/4 Dragon
+      hand: [Menagerie Tableware]
     steps:
-      - add_to_hand: Menagerie Tableware
-      - play: {hand: Menagerie Tableware, pos: 0}   # an untargeted spell is played at 0
-    expect: {board: ["11/11", "11/11", "12/12"]}   # 2 types (Beast, Dragon): +3/+3 three times
+      - play: {hand: Menagerie Tableware, pos: 0}
+    expect:
+      board: ["Flittering Bat 10/13", "Flittering Bat 10/13", "Glim Guardian 10/13"]   # 2 types: +9/+9

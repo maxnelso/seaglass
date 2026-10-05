@@ -2,7 +2,7 @@ card: Dark Paradox
 scenarios:
   - name: rally_gets_a_minion_of_your_most_common_type
     seed: 414
-    tavern: {board: [Dark Paradox, "2/2 beast", "2/2 beast"]}
+    tavern: {board: [Dark Paradox, Flittering Bat, Flittering Bat]}
     steps:
       - fight: {board: ["0/1"]}
     expect: {hand: ["beast"]}

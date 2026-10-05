@@ -3,10 +3,10 @@ scenarios:
   - name: activate_steals_the_highest_attack_tavern_minion
     tavern:
       gold: 2   # Activate (2)
-      shop: [{card: "1/1", name: Small}, {card: "9/4", name: Big}]
+      shop: [Cord Puller, Southsea Busker]   # 1/1 and 3/1
       board: [Decoy Conjurer]
     steps:
       - activate: Decoy Conjurer
     expect:
-      hand: [{name: Big}]
-      shop: [{name: Small}]
+      hand: [Southsea Busker]
+      shop: [Cord Puller]

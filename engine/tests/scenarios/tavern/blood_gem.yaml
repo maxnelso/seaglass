@@ -2,9 +2,11 @@ card: Blood Gem
 scenarios:
   - name: gives_1_1_plus_the_blood_gem_bonus
     tavern:
-      auras: {blood_gem_bonus_atk: 2, blood_gem_bonus_hp: 1}
-      board: ["2/2"]
+      board: [Lullabot]   # 2/2
+      hand: [Sanguine Champion]   # Battlecry: Blood Gems give an extra +2/+1 this game
     steps:
+      - play: Sanguine Champion
       - add_to_hand: Blood Gem
       - play: {hand: Blood Gem, pos: 0}
-    expect: {board: [{stats: "5/4", blood_gems_played: 1}]}   # +1/+1 and the +2/+1 bonus
+    expect:
+      board: {0: {card: Lullabot, stats: "5/4", blood_gems_played: 1}}

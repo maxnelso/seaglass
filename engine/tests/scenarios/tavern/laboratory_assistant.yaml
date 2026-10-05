@@ -15,11 +15,8 @@ scenarios:
 
   - name: fodder_is_absorbed_by_friendly_demons_or_offered_in_shop
     seeds: "1..=5"
-    tavern: {gold: 10}
+    tavern: {hand: [Laboratory Assistant]}
     steps:
-      - start_turn
-      - set: {gold: 10}
-      - add_to_hand: Laboratory Assistant
       - play: Laboratory Assistant
       - expect:
           auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 3}}]}
@@ -32,7 +29,7 @@ scenarios:
           board:
             0: {attack: "> $atk_before", health: "> $hp_before"}
       # With no friendly Demon on board, the Fodder appears in the shop on the next start_turn roll.
-      - clear: board
+      - sell: Laboratory Assistant
       - start_turn
     expect:
       auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}

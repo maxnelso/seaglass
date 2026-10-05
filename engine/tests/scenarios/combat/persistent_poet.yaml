@@ -2,13 +2,13 @@ card: Persistent Poet
 scenarios:
   - name: adjacent_dragons_keep_stats_gained_in_combat
     description: >-
-      Electric Synthesizer gives the other Dragons +1/+1 at the start of combat; the 2/2 Dragon
-      next to Persistent Poet keeps it after the combat.
+      Electric Synthesizer gives the other Dragons +1/+1 at the start of combat; Glim Guardian
+      (1/4 Dragon) next to Persistent Poet keeps it after the combat.
     seed: 445
-    tavern: {board: [Electric Synthesizer, Persistent Poet, "2/2 dragon"]}
+    tavern: {board: [Electric Synthesizer, Persistent Poet, Glim Guardian]}
     steps:
       - fight: {board: ["1/1"]}
-    expect: {board: [Electric Synthesizer, Persistent Poet, "3/3"]}
+    expect: {board: [Electric Synthesizer, Persistent Poet, "Glim Guardian 2/5"]}
 
   - name: tarecgosa_adjacent_to_persistent_poet_does_not_double_count_combat_gains
     seed: 445

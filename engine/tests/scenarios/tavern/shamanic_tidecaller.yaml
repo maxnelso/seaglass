@@ -3,9 +3,9 @@ scenarios:
   - name: spell_on_a_murloc_gives_murlocs_in_hand_and_board_3_3
     tavern:
       board: [Shamanic Tidecaller]   # a 5/7 Murloc
-      hand: [Tavern Dish Banana, "3/3 murloc"]   # Banana: +2/+2
+      hand: [Tavern Dish Banana, Flighty Scout]   # Flighty Scout: 3/3 Murloc
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}
     expect:
       board: ["Shamanic Tidecaller 10/12"]   # 5/7 + 2/2 (Banana) + 3/3
-      hand: ["6/6"]
+      hand: ["Flighty Scout 6/6"]

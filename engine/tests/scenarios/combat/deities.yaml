@@ -3,13 +3,8 @@ scenarios:
   - name: cthun_awakens_after_four_aberrations_die
     seed: 7
     combat:
-      board_a:
-        - "3/2 card:zoatroid"
-        - "3/2 card:zoatroid"
-        - "3/2 card:zoatroid"
-        - "3/2 card:zoatroid"
-        - "2/5 tier:1"
-      board_b: ["4/22 taunt tier:1"]
+      board_a: [Zoatroid, Zoatroid, Zoatroid, Zoatroid, Prodigious Tusker]
+      board_b: ["4/22 taunt"]
       auras_a: {deity: {kind: cthun, attack: 6, health: 6}}
     expect:
       outcome: a_win
@@ -17,12 +12,8 @@ scenarios:
   - name: yshaarj_awakens_and_resummons_first_two_aberrations
     seed: 7
     combat:
-      board_a:
-        - "5/3 card:zoatroid"
-        - "4/3 card:joyous"
-        - "3/2 card:zoatroid"
-        - "3/2 card:zoatroid"
-      board_b: ["10/22 taunt tier:1"]
+      board_a: ["Zoatroid +2/+1", Joyous, Zoatroid, Zoatroid]
+      board_b: ["10/22 taunt"]
       auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
     expect:
       outcome: a_win
@@ -32,7 +23,7 @@ scenarios:
   - name: cthun_awakening_is_logged_after_four_aberrations_die
     seed: 7
     combat:
-      board_a: ["3/2 card:zoatroid", "3/2 card:zoatroid", "3/2 card:zoatroid", "3/2 card:zoatroid", "2/2"]
+      board_a: [Zoatroid, Zoatroid, Zoatroid, Zoatroid, Lullabot]
       board_b: ["6/30 taunt"]
       auras_a: {deity: {kind: cthun, attack: 5, health: 5}}
     expect:
@@ -41,7 +32,7 @@ scenarios:
   - name: yshaarj_awakening_is_logged_after_four_aberrations_die
     seed: 7
     combat:
-      board_a: ["5/3 card:zoatroid", "4/3 card:joyous", "3/2 card:zoatroid", "3/2 card:zoatroid"]
+      board_a: ["Zoatroid +2/+1", Joyous, Zoatroid, Zoatroid]
       board_b: ["10/22 taunt"]
       auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
     expect:

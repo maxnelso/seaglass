@@ -2,8 +2,8 @@ topic: Batch simulation statistics
 scenarios:
   - name: batch_rollout_bounds
     combat:
-      board_a: ["3/3 card:scarlet_survivor", "1/4 card:flittering_bat"]
-      board_b: ["2/2 card:aureate_laureate", "3/1 card:southsea_busker"]
+      board_a: ["Scarlet Survivor +1/+2", Flittering Bat]
+      board_b: [Aureate Laureate, Southsea Busker]
     batch: {base_seed: 42, n: 200}
     expect:
       battles: 200
@@ -15,8 +15,8 @@ scenarios:
   # runs twice, and the runner checks that both distributions are identical.
   - name: batch_is_deterministic_and_counts_every_battle
     combat:
-      board_a: ["1/1 card:harmless_bonehead", "1/4 card:flittering_bat"]
-      board_b: ["1/1 card:cord_puller", "2/1 card:scarlet_survivor"]
+      board_a: [Harmless Bonehead, Flittering Bat]
+      board_b: [Cord Puller, Scarlet Survivor]
     batch: {base_seed: 12345, n: 200}
     expect:
       battles: 200

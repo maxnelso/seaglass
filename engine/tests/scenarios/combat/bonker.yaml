@@ -3,7 +3,7 @@ scenarios:
   - name: rally_plays_a_blood_gem_on_the_other_minions_twice_with_windfury
     seed: 406
     combat:
-      board_a: [Bonker, {card: "1/10", name: Ally}]   # Bonker: 2/7 Windfury
+      board_a: [Bonker, Bubble Gunner]   # Bonker: 2/7 Windfury; Bubble Gunner: 2/3
       board_b: ["0/4"]
     expect:
-      survivors_a: {any: {name: Ally, stats: "3/12"}}   # two Rally triggers: +2/+2
+      survivors_a: {any: "Bubble Gunner 4/5"}   # two Rally triggers: +2/+2

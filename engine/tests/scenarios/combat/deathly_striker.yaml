@@ -3,16 +3,16 @@ scenarios:
   - name: avenge_4_gets_a_random_undead
     seed: 606
     combat:
-      board_a: ["1/1 taunt", "1/1 taunt", "1/1 taunt", "1/1 taunt", Deathly Striker]
+      board_a: [Risen Rider, Risen Rider, Deathly Striker]   # 2 Reborn Taunts = 4 friendly deaths
       board_b: ["2/20"]
-    expect: {hand_a: [undead]}   # 4 friendly deaths: one random Undead
+    expect: {hand_a: [undead]}
 
   - name: deathrattle_summons_an_undead_from_hand_for_this_combat
     seed: 606
     combat:
-      board_a: [Deathly Striker]
-      board_b: ["15/10"]
-      hand_a: [{card: "20/20 undead", name: HandUndead}]
+      board_a: [Deathly Striker]   # 8/4
+      board_b: ["8/8"]
+      hand_a: [Eternal Summoner]   # 8/1 Reborn Undead
     expect:
       outcome: a_win
-      survivors_a: {any: {name: HandUndead}}
+      survivors_a: {any: Eternal Summoner}

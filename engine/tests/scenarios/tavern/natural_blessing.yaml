@@ -2,11 +2,11 @@ card: Natural Blessing
 scenarios:
   - name: buffs_the_targets_type_on_the_board_and_in_the_tavern
     tavern:
-      board: ["1/1 elemental", "2/2 elemental"]
-      shop: ["3/3 elemental"]
+      board: [Crackling Cyclone, Dune Dweller]   # 2/1 and 3/3 Elementals
+      shop: [Sellemental]   # 3/3 Elemental
+      hand: [Natural Blessing]
     steps:
-      - add_to_hand: Natural Blessing
       - play: {hand: Natural Blessing, pos: 0}
     expect:
-      board: ["3/2", "4/3"]
-      shop: ["5/4"]
+      board: ["Crackling Cyclone 4/2", "Dune Dweller 5/4"]
+      shop: ["Sellemental 5/4"]

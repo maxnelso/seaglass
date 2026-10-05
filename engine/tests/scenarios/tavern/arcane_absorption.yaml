@@ -2,8 +2,8 @@ card: Arcane Absorption
 scenarios:
   - name: gives_an_elemental_half_the_stats_of_the_highest_health_tavern_minion
     seed: 958
-    tavern: {board: ["2/2 elemental"], shop: ["6/8 elemental"]}
+    tavern: {board: [Dune Dweller], shop: [Stone Age Slab]}   # 3/3 and 10/10 Elementals
     steps:
       - add_to_hand: Arcane Absorption
       - play: {hand: Arcane Absorption, pos: 0}
-    expect: {board: ["5/6"]}   # +3/+4
+    expect: {board: ["Dune Dweller 8/8"]}   # +5/+5

@@ -2,8 +2,7 @@ card: Misplaced Tea Set
 scenarios:
   - name: gives_a_minion_of_each_type_4_4
     seed: 840
-    tavern: {board: ["1/1 beast", "1/1 mech"]}
+    tavern: {board: [Flittering Bat, Cord Puller], hand: [Misplaced Tea Set]}   # 1/4 Beast, 1/1 Mech
     steps:
-      - add_to_hand: Misplaced Tea Set
-      - play: {hand: Misplaced Tea Set, pos: 0}   # an untargeted spell is played at 0
-    expect: {board: ["5/5", "5/5"]}
+      - play: {hand: Misplaced Tea Set, pos: 0}
+    expect: {board: ["Flittering Bat 5/8", "Cord Puller 5/5"]}

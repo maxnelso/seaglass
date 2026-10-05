@@ -2,7 +2,7 @@ card: Relentless Deflector
 scenarios:
   - name: tavern_deaths_do_not_trigger_avenge
     tavern:
-      board: [Relentless Deflector, "1/1 undead", "1/1 undead", "1/1 undead"]
+      board: [Relentless Deflector, Eternal Knight, Eternal Knight, Eternal Knight]
       hand: [Butchering, Butchering, Butchering]
     steps:
       - play: {hand: Butchering, pos: 1}

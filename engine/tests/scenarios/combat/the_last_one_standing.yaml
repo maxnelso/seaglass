@@ -2,9 +2,9 @@ card: The Last One Standing
 scenarios:
   - name: rally_gives_a_minion_of_each_type_15_15_permanently
     seed: 712
-    tavern: {board: [The Last One Standing, "2/2 beast"]}   # 15/15 All
+    tavern: {board: [The Last One Standing, Flittering Bat]}   # 15/15 All, 1/4 Beast
     steps:
       - fight: {board: ["1/1"]}
     expect:
       combat: {outcome: a_win}
-      board: ["The Last One Standing 30/30", "17/17 beast"]   # kept in the Tavern
+      board: ["The Last One Standing 30/30", "Flittering Bat 16/19"]   # kept in the Tavern

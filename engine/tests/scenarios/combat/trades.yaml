@@ -3,21 +3,21 @@ scenarios:
   - name: vanilla_3_3_beats_2_2
     seed: 1
     combat:
-      board_a: ["3/3 tier:1"]
-      board_b: ["2/2 tier:1"]
+      board_a: [Flighty Scout]   # 3/3
+      board_b: [Lullabot]   # 2/2
     expect:
       outcome: a_win
-      survivors_a: ["3/1 -taunt -divine_shield -windfury -reborn"]
+      survivors_a: ["Flighty Scout 3/1"]
       survivors_b: []
       hero_damage: 2
 
   - name: crackling_cyclone_vs_risen_rider
     seed: 2
     combat:
-      board_a: ["2/1 card:crackling_cyclone", "2/2 card:lullabot"]
-      board_b: ["2/1 card:risen_rider"]
+      board_a: [Crackling Cyclone, Lullabot]
+      board_b: [Risen Rider]
     expect:
       outcome: a_win
-      survivors_a: ["2/2 -taunt -divine_shield -windfury -reborn"]
+      survivors_a: ["Lullabot 2/2 -taunt -divine_shield -windfury -reborn"]
       survivors_b: []
       hero_damage: 2

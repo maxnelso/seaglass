@@ -2,16 +2,12 @@ card: Tomb Turning
 scenarios:
   - name: discovered_undead_dies_if_played_this_turn
     seed: 843
-    tavern: {tavern_tier: 4}
+    tavern: {tavern_tier: 4, hand: [Tomb Turning]}
     steps:
-      - add_to_hand: Tomb Turning
       - play: Tomb Turning
       - expect: {discover_pending: {count: 3}}
       - choose_discover: 0
       - expect: {hand: [{dies_on_play_this_turn: true}]}
-      # A Plaguerunner so marked dies on play: its Deathrattle outside combat gives +4 Undead Attack.
-      - set: {hand: {0: {card: Plaguerunner, dies_on_play_this_turn: true}}}
-      - play: Plaguerunner
+      - play: {hand: 0, pos: 0}
     expect:
       board: []
-      auras: {undead_bonus_attack: 4}

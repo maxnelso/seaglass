@@ -1,10 +1,12 @@
 card: Falling Sky Golem
 scenarios:
   - name: has_4_2_for_each_deathrattle_triggered_this_game
-    tavern: {auras: {deathrattles_triggered: 3}, board: [Falling Sky Golem]}   # a 4/2
-    steps:
-      - apply_global_unit_auras: {board: 0}
-    expect: {board: ["Falling Sky Golem 16/8"]}   # 4/2 + 3 x 4/2
+    seed: 610
+    combat:
+      board_a: ["Cord Puller taunt", Falling Sky Golem]   # Cord Puller Deathrattle -> Golem 4/2 + 4/2 = 8/4
+      board_b: ["2/2"]
+    expect:
+      survivors_a: {any: "Falling Sky Golem 8/4"}
 
   - name: emits_death_aura_stat_buff_and_attack_declared_precedes_rally_in_combat
     seed: 7

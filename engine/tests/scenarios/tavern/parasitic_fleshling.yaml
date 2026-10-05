@@ -1,7 +1,10 @@
 card: Parasitic Fleshling
 scenarios:
   - name: end_of_turn_buffs_the_left_most_minion_improved_by_discards
-    tavern: {auras: {cards_discarded: 3}, board: [Parasitic Fleshling]}   # a 4/6
+    tavern:
+      board: [Parasitic Fleshling, Brain Rotter]   # Parasitic Fleshling: 4/6
+      hand: [Blood Gem]
     steps:
-      - end_turn   # +(2 + 3)/+(2 + 3) to the left-most minion: itself
-    expect: {board: ["Parasitic Fleshling 9/11"]}
+      - activate: {pos: Brain Rotter, target: 0}   # 1 card discarded -> +(2 + 1)/+(2 + 1)
+      - end_turn
+    expect: {board: ["Parasitic Fleshling 7/9", Brain Rotter]}

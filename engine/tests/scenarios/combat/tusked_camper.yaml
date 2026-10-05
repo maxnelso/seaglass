@@ -3,7 +3,6 @@ scenarios:
   - name: rally_plays_a_blood_gem_on_itself
     seed: 117
     combat:
-      board_a: [Tusked Camper]   # 2/3; the Blood Gem is +2/+2 with the bonus
-      board_b: ["3/4"]
-      auras_a: {blood_gem_bonus_atk: 1, blood_gem_bonus_hp: 1}
-    expect: {outcome: a_win, survivors_a: {0: "Tusked Camper 4/2"}}
+      board_a: [Tusked Camper]   # 2/3 -> 3/4 on Rally before striking
+      board_b: ["3/3"]
+    expect: {outcome: a_win, survivors_a: ["Tusked Camper 3/1"]}

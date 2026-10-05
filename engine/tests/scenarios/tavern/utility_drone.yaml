@@ -1,7 +1,11 @@
 card: Utility Drone
 scenarios:
   - name: end_of_turn_gives_4_5_for_each_magnetization
-    tavern: {board: [Utility Drone, {card: "3/3 mech", magnetizations_count: 2}]}
+    tavern:
+      board: [Utility Drone, Cord Puller]   # Cord Puller: 1/1
+      hand: [Lullabot, Lullabot]   # 2/3 Magnetic Mechs
     steps:
+      - play: {hand: Lullabot, pos: 1}   # Magnetizes onto Cord Puller -> 3/4
+      - play: {hand: Lullabot, pos: 1}   # Magnetizes onto Cord Puller -> 5/7 (2 Magnetizations)
       - end_turn
-    expect: {board: [Utility Drone, "11/13"]}   # 3/3 + 2 x 4/5
+    expect: {board: [Utility Drone, "Cord Puller 13/17"]}   # 5/7 + 2 x 4/5

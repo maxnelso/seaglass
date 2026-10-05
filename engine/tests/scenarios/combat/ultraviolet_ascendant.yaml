@@ -6,6 +6,6 @@ scenarios:
     steps:
       - play: Dune Dweller
       - expect: {board: {0: {card: Ultraviolet Ascendant, stacks: 1}}}   # +3/+3 -> +6/+6
-      - simulate: {board_a: tavern, board_b: ["1/1"]}
+      - fight: {board: ["1/1"]}
     expect:
       combat: {survivors_a: {any: "Dune Dweller 9/9"}}   # 3/3 + 6/6

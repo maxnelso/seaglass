@@ -2,16 +2,19 @@ card: Risen Rider
 scenarios:
   - name: reborn_drops_external_buffs_but_keeps_the_undead_aura
     description: >-
-      Buffed to 7/2 (8/2 with the +1 Undead Attack aura), it returns from Reborn as a base 2/1
-      plus the aura, not 7/1.
+      Buffed by Tavern Dish Banana (+2/+2) and Nerubian Deathswarmer (+1 Undead Attack aura) to
+      5/3, Risen Rider returns from Reborn as a base 2/1 plus the +1 aura (3/1), not 5/1.
     seed: 119
-    tavern: {auras: {undead_bonus_attack: 1}}
+    tavern:
+      board: [Risen Rider]
+      hand: [Nerubian Deathswarmer, Tavern Dish Banana]
     steps:
-      - push_board: "Risen Rider +5/+1"
-      - apply_global_unit_auras: {board: 0}
-      - expect: {board: [{taunt: true, reborn: true, attack: 8}]}
-      - simulate: {board_a: tavern, auras_a: tavern, board_b: ["5/8"]}
+      - play: {hand: Nerubian Deathswarmer, pos: 1}
+      - play: {hand: Tavern Dish Banana, pos: 0}
+      - sell: Nerubian Deathswarmer
+      - expect: {board: ["Risen Rider 5/3 taunt reborn"]}
+      - fight: {board: ["5/5"]}
     expect:
       combat:
         outcome: a_win
-        survivors_a: [{reborn: false, attack: 3, health: 1}]
+        survivors_a: ["Risen Rider 3/1 taunt -reborn"]

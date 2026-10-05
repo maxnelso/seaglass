@@ -3,8 +3,8 @@ scenarios:
   - name: rally_gives_another_friendly_murloc_venomous
     seed: 503
     combat:
-      board_a: [Bile Spitter, {card: "5/5 murloc", name: Buddy}]   # Bile Spitter: 1/10 Venomous
+      board_a: [Bile Spitter, Tad]   # Bile Spitter: 1/10 Venomous; Tad: 2/2 Murloc
       board_b: ["1/100"]
     expect:
       outcome: a_win
-      survivors_a: {any: {name: Buddy, venomous: true}}
+      survivors_a: {any: "Tad venomous"}

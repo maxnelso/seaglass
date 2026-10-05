@@ -1,8 +1,7 @@
 card: Mighty Dragonbreath
 scenarios:
   - name: buffs_again_for_dragons_and_again_for_divine_shield
-    tavern: {board: ["2/2 dragon divine_shield"]}
+    tavern: {board: [Bronze Warden], hand: [Mighty Dragonbreath]}   # 2/1 Dragon, Divine Shield
     steps:
-      - add_to_hand: Mighty Dragonbreath
-      - play: {hand: Mighty Dragonbreath, pos: 0}   # an untargeted spell is played at 0
-    expect: {board: ["11/8"]}   # +3/+2, again for the Dragon, again for Divine Shield: +9/+6
+      - play: {hand: Mighty Dragonbreath, pos: 0}
+    expect: {board: ["Bronze Warden 11/7"]}   # +3/+2, again for the Dragon, again for Divine Shield: +9/+6

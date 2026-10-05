@@ -2,12 +2,11 @@ card: Highkeeper Ra
 scenarios:
   - name: battlecry_rally_and_deathrattle_each_get_a_tier_6_minion
     seed: 704
+    tavern: {hand: [Highkeeper Ra]}
     steps:
-      - add_to_hand: Highkeeper Ra
       - play: Highkeeper Ra
       - expect: {hand: [{tavern_tier: 6}]}
-      - clear: hand
       - fight: {board: ["30/30"]}   # Rally when it attacks, Deathrattle when it dies
     expect:
       combat: {outcome: b_win}
-      hand: [{tavern_tier: 6}, {tavern_tier: 6}]
+      hand: [{tavern_tier: 6}, {tavern_tier: 6}, {tavern_tier: 6}]

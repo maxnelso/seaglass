@@ -2,10 +2,9 @@ card: Greedy Conniver
 scenarios:
   - name: only_a_golden_one_discovers_when_sold
     seed: 318
-    tavern: {board: [Greedy Conniver]}
+    tavern: {board: [Greedy Conniver, golden Greedy Conniver]}
     steps:
       - sell: Greedy Conniver
       - expect: {discover_pending: null}
-      - push_board: golden Greedy Conniver
       - sell: golden Greedy Conniver
     expect: {discover_pending: {not: null}}   # a Tier 7 minion

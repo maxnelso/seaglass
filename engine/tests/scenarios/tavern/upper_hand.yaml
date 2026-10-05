@@ -2,9 +2,9 @@ card: Upper Hand
 scenarios:
   - name: sets_an_enemy_minions_health_to_1_next_combat
     seed: 857
+    tavern: {board: [Lullabot], hand: [Upper Hand]}
     steps:
-      - add_to_hand: Upper Hand
-      - play: Upper Hand
+      - play: {hand: Upper Hand, pos: 0}
       - expect: {auras: {effect_stacks: {Upper Hand: 1}}}
-      - simulate: {board_a: ["2/2"], board_b: ["1/50"], auras_a: tavern}
+      - fight: {board: ["1/50"]}
     expect: {combat: {outcome: a_win}}

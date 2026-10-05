@@ -2,7 +2,7 @@ card: Sewer Escapee
 scenarios:
   - name: activate_gives_another_murloc_7_7
     seed: 544
-    tavern: {gold: 1, board: [Sewer Escapee, "2/2 murloc"]}   # Activate (1)
+    tavern: {gold: 1, board: [Sewer Escapee, Tad]}   # Activate (1); Tad: 2/2 Murloc
     steps:
       - activate: {pos: Sewer Escapee, target: 1}
-    expect: {board: {1: "9/9"}}
+    expect: {board: {1: "Tad 9/9"}}

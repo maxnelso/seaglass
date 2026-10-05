@@ -2,11 +2,11 @@ card: Boon of Beetles
 scenarios:
   - name: summons_2_taunt_beetles_in_combat_when_there_is_room
     seed: 832
+    tavern: {hand: [Boon of Beetles]}
     steps:
-      - add_to_hand: Boon of Beetles
       - play: Boon of Beetles
       - expect: {auras: {effect_stacks: {Boon of Beetles: 2}}}
-      - simulate: {board_a: [], auras_a: tavern, board_b: ["1/1"]}
+      - fight: {board: ["1/1"]}
     expect:
       combat:
         outcome: a_win
