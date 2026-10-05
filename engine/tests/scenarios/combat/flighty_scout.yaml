@@ -4,3 +4,12 @@ scenarios:
     seed: 113
     combat: {board_a: ["1/1"], board_b: ["2/3"], hand_a: [Flighty Scout]}
     expect: {outcome: a_win, survivors_a: {any: Flighty Scout}}
+  - name: start_of_combat_summon_triggers_combat_summon_modifiers
+    seed: 114
+    combat:
+      board_a: [Stalwart Kodo]
+      board_b: ["1/1"]
+      hand_a: [Flighty Scout]
+    expect:
+      survivors_a:
+        any: {name: Flighty Scout, attack: 19, max_health: 35}

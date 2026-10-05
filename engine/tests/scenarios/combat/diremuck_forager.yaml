@@ -7,3 +7,15 @@ scenarios:
       board_b: ["1/1"]
       hand_a: ["2/2 murloc", {card: "9/9 murloc", name: BigMurloc}]
     expect: {outcome: a_win, survivors_a: {any: {name: BigMurloc}}}
+  - name: start_of_combat_summon_triggers_combat_summon_modifiers
+    seed: 312
+    combat:
+      board_a: [Stalwart Kodo, Diremuck Forager]
+      board_b: ["1/1"]
+      hand_a: [{card: "2/3 all", name: AllMurloc}]
+      auras_a:
+        effects:
+          - {card: "Goldrinn, the Great Wolf", stacks: 3}
+    expect:
+      survivors_a:
+        any: {name: AllMurloc, attack: 21, max_health: 38}

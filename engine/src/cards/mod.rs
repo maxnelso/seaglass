@@ -1301,12 +1301,7 @@ fn summon_copies_from_hand(ctx: &mut BoardCtx<'_>) {
             let mut copy = ctx.hand[hand_idx].clone();
             copy.id = *ctx.next_id;
             *ctx.next_id += 1;
-            sync_unit_auras(&mut copy, ctx.auras);
-            if copy.tribe.matches(Tribe::Beast) && *ctx.beast_bonus_atk != 0 {
-                copy.add_stats(*ctx.beast_bonus_atk, 0);
-            }
-            copy.sync_max_stats();
-            check_stat_thresholds(&mut copy);
+            apply_combat_summon_modifiers(ctx.board, ctx.auras, *ctx.beast_bonus_atk, &mut copy);
             let reason = template(copy.card_id).map_or("Start of Combat", |t| t.name.as_str());
             ctx.events.push(Event::UnitSummoned {
                 side: ctx.side,

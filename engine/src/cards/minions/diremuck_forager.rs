@@ -64,12 +64,7 @@ pub fn on_start_of_combat(
             let mut copy = murloc.clone();
             copy.id = *next_id;
             *next_id += 1;
-            cards::sync_unit_auras(&mut copy, auras);
-            if copy.tribe.matches(Tribe::Beast) && combat_beast_bonus_atk != 0 {
-                copy.add_stats(combat_beast_bonus_atk, 0);
-            }
-            copy.sync_max_stats();
-            cards::check_stat_thresholds(&mut copy);
+            cards::apply_combat_summon_modifiers(board, auras, combat_beast_bonus_atk, &mut copy);
             events.push(Event::UnitSummoned {
                 side,
                 source: source_id,
