@@ -7,6 +7,6 @@ scenarios:
     seed: 604
     combat:
       board_a: [Crimson Vindicator, Bronze Warden]
-      board_b: ["1/1"]
+      board_b: [Patient Scout]
     expect:
       survivors_a: {any: "Bronze Warden 11/7"}

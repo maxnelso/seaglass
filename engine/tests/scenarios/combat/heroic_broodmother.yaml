@@ -5,5 +5,5 @@ scenarios:
       The 7/7 attacks immediately at Start of Combat; Rally grants Divine Shield before the
       damage, so it takes no damage and kills the 3/5.
     seed: 614
-    combat: {board_a: [Heroic Broodmother], board_b: ["3/5"]}
+    combat: {board_a: [Heroic Broodmother], board_b: [Hired Mount]}
     expect: {outcome: a_win, survivors_a: ["Heroic Broodmother 7/7"]}

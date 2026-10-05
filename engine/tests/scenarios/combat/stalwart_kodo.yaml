@@ -7,7 +7,7 @@ scenarios:
     seed: 709
     combat:
       board_a: [Harmless Bonehead, Risen Rider, Stalwart Kodo]
-      board_b: ["3/2", "3/2"]
+      board_b: [Zoatroid, Zoatroid]
     expect:
       outcome: a_win
       survivors_a: {any: {card: Skeleton, attack: 17, max_health: 33}}

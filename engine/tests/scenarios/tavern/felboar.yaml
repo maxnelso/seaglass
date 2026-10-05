@@ -3,11 +3,11 @@ scenarios:
   - name: after_3_spells_consumes_a_tavern_minion
     tavern:
       board: [Felboar]   # 2/6
-      shop: ["5/6"]
+      shop: [Firelands Fugitive]   # 5/7
       hand: [Blood Gem, Blood Gem, Blood Gem]
     steps:
       - repeat: 3
         steps: [{play: {hand: Blood Gem, pos: 0}}]
     expect:
       shop: []
-      board: ["Felboar 10/15"]   # 2/6 + 3 Blood Gems (+3/+3) + the consumed 5/6
+      board: ["Felboar 10/16"]   # 2/6 + 3 Blood Gems (+3/+3) + the consumed 5/7

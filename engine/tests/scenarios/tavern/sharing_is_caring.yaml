@@ -8,8 +8,8 @@ scenarios:
     steps:
       - play: {hand: Sharing is Caring, pos: 0}
       - expect: {auras: {effect_stacks: {Sharing is Caring: 1}}}
-      - fight: {board: ["15/15", "1/1"]}
+      - fight: {board: [Tyrael, Patient Scout]}
     expect:
       combat:
         outcome: a_win
-        survivors_a: {0: "Bubble Gunner 17/2"}   # 2/3 + 15/15, then traded with 15/15 and 1/1
+        survivors_a: {0: "Bubble Gunner 12/2"}   # 2/3 + 10/10, then traded with 10/10 and 1/1

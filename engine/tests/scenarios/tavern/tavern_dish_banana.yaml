@@ -1,8 +1,8 @@
 card: Tavern Dish Banana
 scenarios:
   - name: gives_a_minion_2_2
-    tavern: {board: ["2/2"]}
+    tavern: {board: [Iron Groundskeeper]}
     steps:
       - add_to_hand: Tavern Dish Banana
       - play: {hand: Tavern Dish Banana, pos: 0}
-    expect: {board: ["4/4"]}
+    expect: {board: ["Iron Groundskeeper 4/4"]}

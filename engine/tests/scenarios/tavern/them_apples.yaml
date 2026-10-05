@@ -1,8 +1,8 @@
 card: Them Apples
 scenarios:
   - name: gives_the_minions_in_the_tavern_1_2
-    tavern: {shop: ["2/2"]}
+    tavern: {shop: [Iron Groundskeeper]}
     steps:
       - add_to_hand: Them Apples
       - play: Them Apples
-    expect: {shop: ["3/4"]}
+    expect: {shop: ["Iron Groundskeeper 3/4"]}

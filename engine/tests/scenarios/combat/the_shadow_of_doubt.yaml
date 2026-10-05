@@ -4,7 +4,7 @@ scenarios:
     seed: 623
     combat:
       board_a: [Glim Guardian, Deathstrider, Imp-lusionist, The Shadow of Doubt]
-      board_b: ["0/10"]
+      board_b: [Cataclysmic Harbinger]
     expect:
       hand_a: [Methodical Madness]
       auras_a: {deity: {attack: 5, health: 6}}

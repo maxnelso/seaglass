@@ -3,16 +3,16 @@ scenarios:
   - name: has_4_2_for_each_deathrattle_triggered_this_game
     seed: 610
     combat:
-      board_a: ["Cord Puller taunt", Falling Sky Golem]   # Cord Puller Deathrattle -> Golem 4/2 + 4/2 = 8/4
-      board_b: ["2/2"]
+      board_a: [Rescue Bot, Falling Sky Golem]   # Rescue Bot Deathrattle -> Golem 4/2 + 4/2 = 8/4
+      board_b: [Iron Groundskeeper]
     expect:
       survivors_a: {any: "Falling Sky Golem 8/4"}
 
   - name: emits_death_aura_stat_buff_and_attack_declared_precedes_rally_in_combat
     seed: 7
     combat:
-      board_a: [Glim Guardian, Cord Puller, "Falling Sky Golem 8/8"]
-      board_b: ["5/20 taunt"]
+      board_a: [Glim Guardian, Buzzing Vermin, Falling Sky Golem]
+      board_b: [Stalwart Kodo]
     expect:
       events:
         all_of:

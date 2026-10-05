@@ -2,5 +2,5 @@ card: Flittering Bat
 scenarios:
   - name: deathrattle_bat_finishes_off_the_target
     seed: 104
-    combat: {board_a: [Flittering Bat], board_b: ["1/2"]}
+    combat: {board_a: [Flittering Bat], board_b: [Vicious Mindslasher]}
     expect: {outcome: a_win, survivors_a: {count: ">= 1"}}

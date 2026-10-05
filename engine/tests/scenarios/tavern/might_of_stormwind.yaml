@@ -2,8 +2,8 @@ card: Might of Stormwind
 scenarios:
   - name: gives_up_to_4_random_friendly_minions_1_2
     seed: 812
-    tavern: {board: ["1/1", "1/1"]}
+    tavern: {board: [Patient Scout, Patient Scout]}
     steps:
       - add_to_hand: Might of Stormwind
       - play: {hand: Might of Stormwind, pos: 0}   # an untargeted spell is played at 0
-    expect: {board: ["2/3", "2/3"]}
+    expect: {board: ["Patient Scout 2/3", "Patient Scout 2/3"]}

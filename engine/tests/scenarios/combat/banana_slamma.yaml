@@ -4,5 +4,5 @@ scenarios:
     seed: 403
     combat:
       board_a: [Buzzing Vermin, Banana Slamma]   # Vermin's Deathrattle summons a 2/2 Beetle
-      board_b: ["1/1"]
+      board_b: [Patient Scout]
     expect: {outcome: a_win, survivors_a: {any: "Beetle 4/2"}}

@@ -6,5 +6,5 @@ scenarios:
       - add_to_hand: Leyline Surfacer
       - play: Leyline Surfacer
       - expect: {hand: [Arcane Absorption]}
-      - fight: {board: ["10/10"]}   # it dies
+      - fight: {board: [Tyrael]}   # it dies
     expect: {hand: [Arcane Absorption, Arcane Absorption]}

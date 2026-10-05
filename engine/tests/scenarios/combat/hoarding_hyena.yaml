@@ -2,5 +2,5 @@ card: Hoarding Hyena
 scenarios:
   - name: rally_summons_a_tasty_lobster
     seed: 429
-    combat: {board_a: [Hoarding Hyena], board_b: ["1/1"]}
+    combat: {board_a: [Hoarding Hyena], board_b: [Patient Scout]}
     expect: {outcome: a_win, survivors_a: {any: Tasty Lobster}}

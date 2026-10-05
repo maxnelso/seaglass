@@ -7,5 +7,5 @@ scenarios:
     seed: 607
     combat:
       board_a: [Heroic Broodmother, Harmless Bonehead, Deathstrider]
-      board_b: ["1/7"]
+      board_b: [Titus Rivendare]
     expect: {survivors_a: {any: Skeleton}}

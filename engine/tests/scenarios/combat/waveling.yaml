@@ -4,7 +4,7 @@ scenarios:
     seed: 341
     tavern: {gold: 1, board: [Waveling]}   # 5/1: it dies in the fight
     steps:
-      - fight: {board: ["5/5"]}
+      - fight: {board: [En-Djinn Blazer]}
       - expect: {auras: {refresh_random_buffs: [[4, 4]]}}
       - refresh
     expect:

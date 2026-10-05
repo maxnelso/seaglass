@@ -2,7 +2,9 @@ card: Imp-lusionist
 scenarios:
   - name: deathrattle_gets_a_methodical_madness
     seed: 434
-    tavern: {board: [Imp-lusionist]}
-    steps:
-      - fight: {board: ["10/10"]}
-    expect: {hand: [Methodical Madness]}
+    combat:
+      board_a: [Imp-lusionist]
+      board_b: [Greedy Conniver]
+    expect:
+      outcome: b_win
+      hand_a: [Methodical Madness]

@@ -3,6 +3,6 @@ scenarios:
   - name: deathrattles_trigger_an_extra_time
     seed: 551
     combat:
-      board_a: [Harmless Bonehead taunt, Titus Rivendare]
-      board_b: ["5/2"]
+      board_a: [Harmless Bonehead, Titus Rivendare]
+      board_b: [Razorfen Geomancer]
     expect: {survivors_a: {where: Skeleton, count: 4}}   # 2 Skeletons x 2

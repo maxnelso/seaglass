@@ -2,7 +2,7 @@ card: Saloon's Finest
 scenarios:
   - name: replaces_the_tavern_with_tavern_spells
     seed: 855
-    tavern: {tavern_tier: 5, shop: ["1/1"]}
+    tavern: {tavern_tier: 5, shop: [Patient Scout]}
     steps:
       - add_to_hand: Saloon's Finest
       - play: Saloon's Finest

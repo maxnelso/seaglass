@@ -2,5 +2,5 @@ card: Sin'dorei Straight Shot
 scenarios:
   - name: rally_removes_reborn_and_taunt_from_the_target
     seed: 451
-    combat: {board_a: [Sin'dorei Straight Shot], board_b: ["2/3 taunt reborn"]}
+    combat: {board_a: [Sin'dorei Straight Shot], board_b: [Risen Rider]}
     expect: {outcome: a_win, survivors_b: []}

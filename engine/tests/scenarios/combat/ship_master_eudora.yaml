@@ -2,7 +2,7 @@ card: Ship Master Eudora
 scenarios:
   - name: deathrattle_buff_is_permanent_on_golden_minions
     seed: 547
-    tavern: {board: [Ship Master Eudora taunt, Aureate Laureate]}   # Laureate: a Golden 2/2
+    tavern: {board: [Ship Master Eudora, Aureate Laureate]}   # Laureate: a Golden 2/2
     steps:
-      - fight: {board: ["10/5"]}
+      - fight: {board: [Proud Privateer]}
     expect: {board: {1: "Aureate Laureate 8/8"}}   # kept the +6/+6

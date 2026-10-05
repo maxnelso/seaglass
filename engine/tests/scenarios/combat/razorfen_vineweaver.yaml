@@ -4,7 +4,7 @@ scenarios:
     seed: 540
     tavern: {board: [Razorfen Vineweaver]}   # 4/4
     steps:
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect:
       combat: {outcome: a_win}
       board: [{card: Razorfen Vineweaver, stats: "8/8", blood_gems_played: 4}]   # kept +4/+4

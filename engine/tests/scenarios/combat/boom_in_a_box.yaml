@@ -2,5 +2,5 @@ card: Boom-in-a-Box
 scenarios:
   - name: start_of_combat_deals_3_damage_to_all_other_minions
     seed: 407
-    combat: {board_a: [Boom-in-a-Box], board_b: ["10/3", "10/3"]}   # Boom-in-a-Box: 5/10 Taunt
+    combat: {board_a: [Boom-in-a-Box], board_b: [Fire Baller, Fire Baller]}   # Boom-in-a-Box: 5/10 Taunt
     expect: {outcome: a_win, survivors_a: ["Boom-in-a-Box 5/10"]}

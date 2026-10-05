@@ -4,7 +4,7 @@ scenarios:
     seed: 311
     combat:
       board_a: [Diremuck Forager]
-      board_b: ["1/1"]
+      board_b: [Patient Scout]
       hand_a: [Tad, Shoalfin Mystic]   # 2/2 and 5/5 Murlocs
     expect:
       outcome: a_win
@@ -13,7 +13,7 @@ scenarios:
     seed: 312
     combat:
       board_a: [Stalwart Kodo, Diremuck Forager]
-      board_b: ["1/1"]
+      board_b: [Patient Scout]
       hand_a: [Tad]   # 2/2 Murloc + Stalwart Kodo's 16/32 = 18/34
     expect:
       survivors_a:

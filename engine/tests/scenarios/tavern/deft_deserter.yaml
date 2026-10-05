@@ -2,8 +2,8 @@ card: Deft Deserter
 scenarios:
   - name: activate_gives_tavern_minions_8_8_and_a_random_keyword
     seed: 509
-    tavern: {gold: 1, board: [Deft Deserter], shop: ["2/2"]}
+    tavern: {gold: 1, board: [Deft Deserter], shop: [Iron Groundskeeper]}
     steps:
       - activate: Deft Deserter   # costs 1 Gold
     expect:
-      shop: [{stats: "10/10", keywords: {any: {any_of: [taunt, divine_shield, windfury]}}}]
+      shop: [{card: Iron Groundskeeper, stats: "10/10", keywords: {any: {any_of: [taunt, divine_shield, windfury]}}}]

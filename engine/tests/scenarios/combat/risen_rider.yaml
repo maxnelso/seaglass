@@ -2,19 +2,16 @@ card: Risen Rider
 scenarios:
   - name: reborn_drops_external_buffs_but_keeps_the_undead_aura
     description: >-
-      Buffed by Tavern Dish Banana (+2/+2) and Nerubian Deathswarmer (+1 Undead Attack aura) to
-      5/3, Risen Rider returns from Reborn as a base 2/1 plus the +1 aura (3/1), not 5/1.
+      Deathstrider triggers Plaguerunner (+2 Undead Attack aura) at Start of Combat and Wolf Pup's
+      Rally gives Risen Rider +4/+1 (bringing it to 8/2). When Risen Rider dies and Reborns, it
+      returns as a base 2/1 plus the +2 Undead aura (4/1), dropping the +4/+1 Wolf Pup buff.
     seed: 119
-    tavern:
-      board: [Risen Rider]
-      hand: [Nerubian Deathswarmer, Tavern Dish Banana]
-    steps:
-      - play: {hand: Nerubian Deathswarmer, pos: 1}
-      - play: {hand: Tavern Dish Banana, pos: 0}
-      - sell: Nerubian Deathswarmer
-      - expect: {board: ["Risen Rider 5/3 taunt reborn"]}
-      - fight: {board: ["5/5"]}
+    combat:
+      board_a: [Wolf Pup, Plaguerunner, Deathstrider, Risen Rider]
+      board_b: [Greedy Conniver]
     expect:
-      combat:
-        outcome: a_win
-        survivors_a: ["Risen Rider 3/1 taunt -reborn"]
+      outcome: a_win
+      survivors_a:
+        - "Plaguerunner 10/3"
+        - "Deathstrider 14/12"
+        - "Risen Rider 4/1 taunt -reborn"

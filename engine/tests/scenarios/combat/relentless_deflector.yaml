@@ -5,5 +5,5 @@ scenarios:
     combat:
       # Harmless Bonehead: 1/1, Deathrattle: two 1/1 Skeletons (3 friendly deaths in all).
       board_a: [Harmless Bonehead, Relentless Deflector]
-      board_b: ["2/10"]
+      board_b: [Roaring Recruiter]
     expect: {outcome: a_win}

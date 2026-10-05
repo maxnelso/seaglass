@@ -2,7 +2,7 @@ card: Sewer Lord
 scenarios:
   - name: deathrattle_summons_sewer_rats_that_summon_half_shells
     seed: 545
-    combat: {board_a: [Sewer Lord], board_b: ["6/20"]}   # 4/6
+    combat: {board_a: [Sewer Lord], board_b: [Cataclysmic Harbinger]}   # 4/6
     expect:
       events:
         contains:

@@ -1,7 +1,7 @@
 card: Surfing Sylvar
 scenarios:
   - name: end_of_turn_gives_adjacent_minions_attack_once_more_per_golden_minion
-    tavern: {board: ["2/2 golden", Surfing Sylvar, "2/2 golden"]}
+    tavern: {board: [golden Patient Scout, Surfing Sylvar, golden Patient Scout]}
     steps:
       - end_turn
-    expect: {board: ["5/2", Surfing Sylvar, "5/2"]}   # +1 Attack, repeated for the 2 Golden minions
+    expect: {board: ["golden Patient Scout 4/1", Surfing Sylvar, "golden Patient Scout 4/1"]}   # +1 Attack, repeated for the 2 Golden minions

@@ -4,6 +4,6 @@ scenarios:
     seed: 313
     combat:
       board_a: [Drifting Sacrifice]   # 2/1 Reborn
-      board_b: ["2/5"]
+      board_b: [Gunpowder Courier]
       auras_a: {deity: {kind: cthun}}
     expect: {auras_a: {deity: {attack: 5, health: 3}}}   # dies twice: 1/1 + 2 x (+2/+1)

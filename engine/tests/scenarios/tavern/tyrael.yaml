@@ -1,7 +1,7 @@
 card: Tyrael
 scenarios:
   - name: activate_sets_another_minions_stats_to_50_50
-    tavern: {gold: 10, board: [Tyrael, "1/1"]}   # Activate (1)
+    tavern: {gold: 10, board: [Tyrael, Patient Scout]}   # Activate (1)
     steps:
       - activate: {pos: Tyrael, target: 1}
-    expect: {board: [Tyrael, "50/50"]}
+    expect: {board: [Tyrael, "Patient Scout 50/50"]}

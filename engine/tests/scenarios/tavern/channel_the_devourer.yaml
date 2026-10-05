@@ -2,10 +2,10 @@ card: Channel the Devourer
 scenarios:
   - name: sells_a_minion_and_gives_its_stats_to_another
     seed: 848
-    tavern: {board: ["6/8", "2/2"]}
+    tavern: {board: [Eredar Escapist, Iron Groundskeeper]}
     steps:
       - add_to_hand: Channel the Devourer
       - play: {hand: Channel the Devourer, pos: 0}
     expect:
       gold: 1   # from the sale
-      board: ["8/10"]
+      board: ["Iron Groundskeeper 8/10"]

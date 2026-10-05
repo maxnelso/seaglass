@@ -1,9 +1,9 @@
 card: Alliance Flag
 scenarios:
   - name: choose_one_gives_a_minion_3_1
-    tavern: {board: ["2/2"]}
+    tavern: {board: [Iron Groundskeeper]}
     steps:
       - add_to_hand: Alliance Flag
       - play: {hand: Alliance Flag, pos: 0}
       - choose_discover: 0   # +3/+1 (option 1 is +1/+3)
-    expect: {board: ["5/3"]}
+    expect: {board: ["Iron Groundskeeper 5/3"]}

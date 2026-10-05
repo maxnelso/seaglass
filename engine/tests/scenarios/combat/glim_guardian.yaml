@@ -2,5 +2,5 @@ card: Glim Guardian
 scenarios:
   - name: rally_gives_it_2_attack_and_it_one_shots_the_dummy
     seed: 106
-    combat: {board_a: [Glim Guardian], board_b: ["1/3"]}
+    combat: {board_a: [Glim Guardian], board_b: [Wandering Willbreaker]}
     expect: {outcome: a_win, survivors_a: {0: "Glim Guardian 3/3"}}

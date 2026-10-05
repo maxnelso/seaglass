@@ -1,8 +1,8 @@
 card: Selfish Bounty
 scenarios:
   - name: gives_your_left_most_minion_6_6
-    tavern: {board: ["2/2", "2/2"]}
+    tavern: {board: [Iron Groundskeeper, Tad]}
     steps:
       - add_to_hand: Selfish Bounty
       - play: {hand: Selfish Bounty, pos: 0}   # an untargeted spell is played at 0
-    expect: {board: ["8/8", "2/2"]}
+    expect: {board: ["Iron Groundskeeper 8/8", "Tad 2/2"]}

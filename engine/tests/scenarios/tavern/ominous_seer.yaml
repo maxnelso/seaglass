@@ -1,12 +1,13 @@
 card: Ominous Seer
 scenarios:
   - name: battlecry_discounts_the_next_spell_by_1
-    tavern: {gold: 10}
+    tavern:
+      gold: 10
+      hand: [Ominous Seer]
+      shop: [Recruit a Trainee]
     steps:
-      - add_to_hand: Ominous Seer
       - play: Ominous Seer
       - expect: {auras: {next_spell_discount: 1}}
-      - push_shop: Recruit a Trainee   # costs 2
       - buy: Recruit a Trainee
     expect:
       gold: 9

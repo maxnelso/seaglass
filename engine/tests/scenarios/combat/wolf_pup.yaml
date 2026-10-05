@@ -2,5 +2,5 @@ card: Wolf Pup
 scenarios:
   - name: rally_gives_your_other_minions_4_1
     seed: 343
-    combat: {board_a: [Wolf Pup, "1/1"], board_b: ["1/1"]}
-    expect: {outcome: a_win, survivors_a: {1: "5/2"}}
+    combat: {board_a: [Wolf Pup, Patient Scout], board_b: [Patient Scout]}
+    expect: {outcome: a_win, survivors_a: {1: "Patient Scout 5/2"}}

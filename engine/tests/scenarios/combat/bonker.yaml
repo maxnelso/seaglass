@@ -4,6 +4,6 @@ scenarios:
     seed: 406
     combat:
       board_a: [Bonker, Bubble Gunner]   # Bonker: 2/7 Windfury; Bubble Gunner: 2/3
-      board_b: ["0/4"]
+      board_b: [Fearless Foodie]
     expect:
       survivors_a: {any: "Bubble Gunner 4/5"}   # two Rally triggers: +2/+2

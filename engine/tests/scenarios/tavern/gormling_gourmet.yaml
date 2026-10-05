@@ -6,5 +6,5 @@ scenarios:
       - add_to_hand: Gormling Gourmet
       - play: Gormling Gourmet
       - expect: {hand: [Seafood Stew]}
-      - fight: {board: ["10/10"]}
+      - fight: {board: [Tyrael]}
     expect: {hand: [Seafood Stew, Seafood Stew]}

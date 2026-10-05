@@ -7,12 +7,12 @@ scenarios:
     seed: 445
     tavern: {board: [Electric Synthesizer, Persistent Poet, Glim Guardian]}
     steps:
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect: {board: [Electric Synthesizer, Persistent Poet, "Glim Guardian 2/5"]}
 
   - name: tarecgosa_adjacent_to_persistent_poet_does_not_double_count_combat_gains
     seed: 445
     tavern: {board: [Electric Synthesizer, Persistent Poet, Tarecgosa]}
     steps:
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect: {board: [Electric Synthesizer, Persistent Poet, "Tarecgosa 5/5"]}

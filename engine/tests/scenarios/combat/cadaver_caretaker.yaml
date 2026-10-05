@@ -4,5 +4,5 @@ scenarios:
     description: >-
       It deals 3 to the 3/4 and dies; of its three 1/1 Skeletons, the first finishes off the 3/1.
     seed: 308
-    combat: {board_a: [Cadaver Caretaker], board_b: ["3/4"]}
+    combat: {board_a: [Cadaver Caretaker], board_b: [Decoy Conjurer]}
     expect: {outcome: a_win, survivors_a: {count: 2}}

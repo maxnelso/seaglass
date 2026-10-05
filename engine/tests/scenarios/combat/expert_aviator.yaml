@@ -4,7 +4,7 @@ scenarios:
     seed: 210
     combat:
       board_a: [Expert Aviator]   # 3/5
-      board_b: ["4/6"]
+      board_b: [Parasitic Fleshling]
       hand_a: [Tad, Shoalfin Mystic]   # 2/2 and 5/5 Murlocs
     expect:
       outcome: a_win

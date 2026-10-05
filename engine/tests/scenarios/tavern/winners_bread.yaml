@@ -6,6 +6,6 @@ scenarios:
     steps:
       - play: {hand: "Winner's Bread", pos: 0}
       - expect: {board: [{card: Lullabot, stats: "4/5", winners_bread_stacks: 1}]}
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
       - start_turn   # plays 1 Blood Gem on it
     expect: {board: ["Lullabot 5/6"]}

@@ -1,8 +1,8 @@
 card: Fortify
 scenarios:
   - name: gives_a_minion_3_health_and_taunt
-    tavern: {board: ["2/2"]}
+    tavern: {board: [Iron Groundskeeper]}
     steps:
       - add_to_hand: Fortify
       - play: {hand: Fortify, pos: 0}
-    expect: {board: ["2/5 taunt"]}
+    expect: {board: ["Iron Groundskeeper 2/5 taunt"]}

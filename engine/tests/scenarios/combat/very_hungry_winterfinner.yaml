@@ -2,5 +2,5 @@ card: Very Hungry Winterfinner
 scenarios:
   - name: taking_damage_gives_a_minion_in_hand_2_1
     seed: 233
-    combat: {board_a: [Very Hungry Winterfinner], board_b: ["1/2"], hand_a: ["2/2"]}   # a 2/6 Taunt
-    expect: {outcome: a_win, hand_a: ["4/3"]}
+    combat: {board_a: [Very Hungry Winterfinner], board_b: [Vicious Mindslasher], hand_a: [Iron Groundskeeper]}   # a 2/6 Taunt
+    expect: {outcome: a_win, hand_a: ["Iron Groundskeeper 4/3"]}

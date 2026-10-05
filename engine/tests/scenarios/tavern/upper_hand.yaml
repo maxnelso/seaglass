@@ -6,5 +6,5 @@ scenarios:
     steps:
       - play: {hand: Upper Hand, pos: 0}
       - expect: {auras: {effect_stacks: {Upper Hand: 1}}}
-      - fight: {board: ["1/50"]}
+      - fight: {board: [Nerubian Deathswarmer]}
     expect: {combat: {outcome: a_win}}

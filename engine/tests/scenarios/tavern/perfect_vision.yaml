@@ -1,8 +1,8 @@
 card: Perfect Vision
 scenarios:
   - name: sets_a_minions_stats_to_20_20
-    tavern: {board: ["1/1"]}
+    tavern: {board: [Patient Scout]}
     steps:
       - add_to_hand: Perfect Vision
       - play: {hand: Perfect Vision, pos: 0}
-    expect: {board: ["20/20"]}
+    expect: {board: ["Patient Scout 20/20"]}

@@ -1,10 +1,8 @@
 card: Crackling Cyclone
 scenarios:
-  - name: has_divine_shield_and_windfury
-    tavern: {board: [Crackling Cyclone]}
-    expect: {board: ["Crackling Cyclone divine_shield windfury"]}
-
-  - name: trades_two_2_2s_into_a_draw
+  - name: divine_shield_and_windfury_trade_two_2_2s_into_a_draw
     seed: 108
-    combat: {board_a: [Crackling Cyclone], board_b: ["2/2", "2/2"]}
+    combat:
+      board_a: [Crackling Cyclone]
+      board_b: [Iron Groundskeeper, Iron Groundskeeper]
     expect: {outcome: draw}

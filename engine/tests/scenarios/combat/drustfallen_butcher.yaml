@@ -3,6 +3,6 @@ scenarios:
   - name: avenge_4_gets_a_butchering
     seed: 513
     combat:
-      board_a: ["1/1 taunt", "1/1 taunt", "1/1 taunt", "1/1 taunt", Drustfallen Butcher]
-      board_b: ["2/20"]
+      board_a: [Risen Rider, Risen Rider, Drustfallen Butcher]
+      board_b: ["Kalecgos, Arcane Aspect"]
     expect: {hand_a: [Butchering]}

@@ -4,7 +4,7 @@ scenarios:
     seed: 103
     combat:
       board_a: [Buzzing Vermin]
-      board_b: ["2/1"]
+      board_b: [Razorfen Geomancer]
     expect:
       outcome: a_win
       survivors_a: ["Beetle 2/2"]

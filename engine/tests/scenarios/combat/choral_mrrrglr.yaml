@@ -4,8 +4,8 @@ scenarios:
     seed: 603
     combat:
       board_a: [Choral Mrrrglr]   # 6/6
-      board_b: ["1/1"]
-      hand_a: ["10/12", "5/8"]
+      board_b: [Patient Scout]
+      hand_a: [Tyrael, Polarizing Beatboxer]
     expect:
       # 6/6 + 15/20 = 21/26 (21/25 after taking 1 damage)
       survivors_a: [{card: Choral Mrrrglr, attack: 21, max_health: 26}]

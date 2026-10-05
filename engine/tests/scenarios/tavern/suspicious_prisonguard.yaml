@@ -1,9 +1,9 @@
 card: Suspicious Prisonguard
 scenarios:
   - name: activate_spends_1_gold_to_give_a_minion_3_3
-    tavern: {gold: 10, board: ["2/2", Suspicious Prisonguard]}
+    tavern: {gold: 10, board: [Iron Groundskeeper, Suspicious Prisonguard]}
     steps:
       - activate: {pos: Suspicious Prisonguard, target: 0}
     expect:
       gold: 9
-      board: {0: "5/5"}
+      board: {0: "Iron Groundskeeper 5/5"}

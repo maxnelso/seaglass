@@ -2,7 +2,7 @@ topic: Batch simulation statistics
 scenarios:
   - name: batch_rollout_bounds
     combat:
-      board_a: ["Scarlet Survivor +1/+2", Flittering Bat]
+      board_a: [Sly Infiltrator, Flittering Bat]
       board_b: [Aureate Laureate, Southsea Busker]
     batch: {base_seed: 42, n: 200}
     expect:

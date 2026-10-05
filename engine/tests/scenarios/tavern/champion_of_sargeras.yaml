@@ -6,7 +6,7 @@ scenarios:
       - add_to_hand: Champion of Sargeras
       - play: Champion of Sargeras
       - expect: {auras: {tavern_all_atk: 8, tavern_all_hp: 8}}
-      - fight: {board: ["30/30"]}   # it dies: the Deathrattle fires in combat
+      - fight: {board: [Stalwart Kodo]}   # it dies: the Deathrattle fires in combat
     expect:
       combat: {outcome: b_win}
       auras: {tavern_all_atk: 16, tavern_all_hp: 16}

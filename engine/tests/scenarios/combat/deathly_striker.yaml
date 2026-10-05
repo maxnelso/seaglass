@@ -3,15 +3,15 @@ scenarios:
   - name: avenge_4_gets_a_random_undead
     seed: 606
     combat:
-      board_a: [Risen Rider, Risen Rider, Deathly Striker]   # 2 Reborn Taunts = 4 friendly deaths
-      board_b: ["2/20"]
+      board_a: [Risen Rider, Risen Rider, Risen Rider, Deathly Striker]
+      board_b: ["Kalecgos, Arcane Aspect"]
     expect: {hand_a: [undead]}
 
   - name: deathrattle_summons_an_undead_from_hand_for_this_combat
     seed: 606
     combat:
       board_a: [Deathly Striker]   # 8/4
-      board_b: ["8/8"]
+      board_b: [Proud Privateer]
       hand_a: [Eternal Summoner]   # 8/1 Reborn Undead
     expect:
       outcome: a_win

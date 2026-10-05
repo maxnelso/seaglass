@@ -1,7 +1,7 @@
 card: Soulkeeping Jailer
 scenarios:
   - name: activate_makes_demons_consume_a_tavern_minion_for_its_stats
-    tavern: {gold: 10, board: [Soulkeeping Jailer], shop: ["4/6"]}   # a 3/5 Demon; the only minion in the Tavern
+    tavern: {gold: 10, board: [Soulkeeping Jailer], shop: [Parasitic Fleshling]}   # a 3/5 Demon; Parasitic Fleshling is 4/6
     steps:
       - activate: Soulkeeping Jailer
     expect:

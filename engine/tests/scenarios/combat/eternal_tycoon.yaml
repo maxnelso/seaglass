@@ -3,6 +3,6 @@ scenarios:
   - name: avenge_5_summons_an_eternal_knight
     seed: 517
     combat:
-      board_a: ["1/1 taunt", "1/1 taunt", "1/1 taunt", "1/1 taunt", "1/1 taunt", Eternal Tycoon]
-      board_b: ["2/10"]
+      board_a: [Risen Rider, Risen Rider, Risen Rider, Risen Rider, Eternal Tycoon]
+      board_b: [Stalwart Kodo]
     expect: {events: {any: {type: unit_summoned, reason: Eternal Tycoon}}}

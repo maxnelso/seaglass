@@ -2,5 +2,5 @@ card: Faceless Converter
 scenarios:
   - name: deathrattle_gives_the_deity_2_1
     seed: 518
-    combat: {board_a: [Faceless Converter], board_b: ["10/10"]}
+    combat: {board_a: [Faceless Converter], board_b: [Tyrael]}
     expect: {auras_a: {deity: {attack: 3, health: 2}}}   # from the base 1/1

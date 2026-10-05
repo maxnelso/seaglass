@@ -2,5 +2,5 @@ card: Mummifier
 scenarios:
   - name: deathrattle_gives_another_undead_reborn
     seed: 325
-    combat: {board_a: [Mummifier, Eternal Knight], board_b: ["5/5"]}   # Eternal Knight: a 4/2 Undead
+    combat: {board_a: [Mummifier, Eternal Knight], board_b: [En-Djinn Blazer]}   # Eternal Knight: a 4/2 Undead
     expect: {outcome: a_win, survivors_a: {0: "Eternal Knight reborn"}}

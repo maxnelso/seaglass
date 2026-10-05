@@ -2,7 +2,7 @@ card: Underrot Spawn
 scenarios:
   - name: deathrattle_summons_a_taunt_tentacle_and_gives_your_minions_1_attack
     seed: 232
-    combat: {board_a: [Underrot Spawn, "2/5"], board_b: ["3/2"]}
+    combat: {board_a: [Underrot Spawn, Gunpowder Courier], board_b: [Zoatroid]}
     expect:
       outcome: a_win
-      survivors_a: ["Aberrant Tentacle 1/2 taunt", "3/5"]   # the 0/2 Tentacle and the 2/5, +1 Attack each
+      survivors_a: ["Aberrant Tentacle 1/2 taunt", "Gunpowder Courier 3/5"]   # the 0/2 Tentacle and the 2/5, +1 Attack each

@@ -6,7 +6,7 @@ scenarios:
     steps:
       - play: Highkeeper Ra
       - expect: {hand: [{tavern_tier: 6}]}
-      - fight: {board: ["30/30"]}   # Rally when it attacks, Deathrattle when it dies
+      - fight: {board: [Stalwart Kodo]}   # Rally when it attacks, Deathrattle when it dies
     expect:
       combat: {outcome: b_win}
       hand: [{tavern_tier: 6}, {tavern_tier: 6}, {tavern_tier: 6}]

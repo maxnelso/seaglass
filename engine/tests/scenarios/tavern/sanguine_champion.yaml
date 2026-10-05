@@ -6,6 +6,6 @@ scenarios:
     steps:
       - play: Sanguine Champion
       - expect: {auras: {blood_gem_bonus_atk: 2, blood_gem_bonus_hp: 1}}
-      - fight: {board: ["20/20"]}
+      - fight: {board: [Stalwart Kodo]}
     expect:
       auras: {blood_gem_bonus_atk: 4, blood_gem_bonus_hp: 2}

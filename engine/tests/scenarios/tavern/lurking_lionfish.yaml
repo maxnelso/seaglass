@@ -1,7 +1,7 @@
 card: Lurking Lionfish
 scenarios:
   - name: activate_turns_a_tavern_card_into_fishbait_its_beast_eats_for_5_5
-    tavern: {gold: 2, shop: ["2/2"], board: [Lurking Lionfish]}   # a 3/4 Beast; Activate (2)
+    tavern: {gold: 2, shop: [Iron Groundskeeper], board: [Lurking Lionfish]}   # a 3/4 Beast; Activate (2)
     steps:
       - activate: {pos: Lurking Lionfish, target: 0}
     expect: {board: ["Lurking Lionfish 8/9"]}

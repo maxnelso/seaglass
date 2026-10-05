@@ -2,5 +2,5 @@ card: Roadboar
 scenarios:
   - name: rally_gets_a_blood_gem
     seed: 224
-    combat: {board_a: [Roadboar], board_b: ["0/1"]}
+    combat: {board_a: [Roadboar], board_b: [Wandering Willbreaker]}
     expect: {outcome: a_win, hand_a: [Blood Gem]}

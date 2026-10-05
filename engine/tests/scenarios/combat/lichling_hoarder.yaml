@@ -5,5 +5,5 @@ scenarios:
     seed: 530
     combat:
       board_a: [Risen Rider, Harmless Bonehead, Lichling Hoarder]
-      board_b: ["3/20"]
+      board_b: [Cataclysmic Harbinger]
     expect: {hand_a: {count: ">= 1"}}

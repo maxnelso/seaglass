@@ -6,7 +6,7 @@ scenarios:
       - add_to_hand: Forest Rover
       - play: Forest Rover
       - expect: {auras: {counters: {Beetle: [2, 1]}}}
-      - fight: {board: ["3/1"]}
+      - fight: {board: [Southsea Busker]}
     expect:
       combat:
         outcome: a_win

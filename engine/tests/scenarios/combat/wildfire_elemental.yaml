@@ -4,5 +4,5 @@ scenarios:
     seed: 342
     combat:
       board_a: [golden Wildfire Elemental]   # the golden flag only: still 6/3
-      board_b: ["1/4", "1/2 taunt", "1/4"]
+      board_b: [Nerubian Deathswarmer, Aberrant Tentacle, Nerubian Deathswarmer]
     expect: {outcome: a_win}

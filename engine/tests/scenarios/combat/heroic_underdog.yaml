@@ -6,6 +6,6 @@ scenarios:
       Attack before damage: it kills it in one hit and survives at 10/1.
     seed: 428
     combat:
-      board_a: [Heroic Underdog, "0/1"]
-      board_b: ["9/8"]
+      board_a: [Heroic Underdog, Patient Scout]
+      board_b: [Captain Sanders]
     expect: {outcome: a_win, survivors_a: {0: "Heroic Underdog 10/1"}}

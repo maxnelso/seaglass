@@ -4,7 +4,7 @@ scenarios:
     seed: 617
     combat:
       board_a: [Nadina the Red, Glim Guardian, Glim Guardian]
-      board_b: ["10/4"]
+      board_b: [Proud Privateer]
     expect:
       outcome: a_win
       survivors_a: {all: {any_of: [{divine_shield: true}, {health: 4}]}}

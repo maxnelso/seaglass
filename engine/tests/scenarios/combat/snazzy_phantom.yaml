@@ -5,6 +5,6 @@ scenarios:
       Risen Rider (2 Attack, Reborn) is Reborn: Snazzy Phantom, the right-most Undead, gets
       +2/+2 (6/8 -> 8/10).
     seed: 622
-    combat: {board_a: [Risen Rider, Snazzy Phantom], board_b: ["2/4"]}
+    combat: {board_a: [Risen Rider, Snazzy Phantom], board_b: [Fearless Foodie]}
     expect:
       survivors_a: {any: {card: Snazzy Phantom, attack: 8, max_health: 10}}

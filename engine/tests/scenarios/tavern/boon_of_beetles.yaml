@@ -6,7 +6,7 @@ scenarios:
     steps:
       - play: Boon of Beetles
       - expect: {auras: {effect_stacks: {Boon of Beetles: 2}}}
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect:
       combat:
         outcome: a_win

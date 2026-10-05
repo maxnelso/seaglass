@@ -1,7 +1,7 @@
 card: Geomagus Roogug
 scenarios:
   - name: a_blood_gem_played_on_it_plays_one_on_another_minion
-    tavern: {board: [Geomagus Roogug, "2/2"], hand: [Blood Gem]}   # Roogug: 4/6
+    tavern: {board: [Geomagus Roogug, Iron Groundskeeper], hand: [Blood Gem]}   # Roogug: 4/6
     steps:
       - play: {hand: Blood Gem, pos: 0}
-    expect: {board: ["Geomagus Roogug 5/7", "3/3"]}
+    expect: {board: ["Geomagus Roogug 5/7", "Iron Groundskeeper 3/3"]}

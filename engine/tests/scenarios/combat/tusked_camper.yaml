@@ -4,5 +4,5 @@ scenarios:
     seed: 117
     combat:
       board_a: [Tusked Camper]   # 2/3 -> 3/4 on Rally before striking
-      board_b: ["3/3"]
+      board_b: [Suspicious Prisonguard]
     expect: {outcome: a_win, survivors_a: ["Tusked Camper 3/1"]}

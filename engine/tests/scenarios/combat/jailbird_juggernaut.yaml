@@ -6,7 +6,7 @@ scenarios:
       a 6/15 Blood Golem that attacks the 10/6 first and kills it, so the Juggernaut's own strike
       is aborted and it takes no damage.
     seed: 705
-    combat: {board_a: [Jailbird Juggernaut, "0/1"], board_b: ["10/6"]}
+    combat: {board_a: [Jailbird Juggernaut, Patient Scout], board_b: [Living Azerite]}
     expect:
       outcome: a_win
-      survivors_a: ["Jailbird Juggernaut 6/15", "Blood Golem 6/5", "0/1"]
+      survivors_a: ["Jailbird Juggernaut 6/15", "Blood Golem 6/7", Patient Scout]

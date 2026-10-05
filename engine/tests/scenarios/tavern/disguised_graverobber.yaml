@@ -2,11 +2,13 @@ card: Disguised Graverobber
 scenarios:
   - name: battlecry_destroys_a_buffed_undead_for_a_plain_copy
     tavern:
-      board: ["Eternal Knight +5/+5 taunt"]
-      hand: [Disguised Graverobber]
+      board: [Eternal Knight]
+      hand: [Fortify, Disguised Graverobber]
     steps:
       - take_from_pool: Eternal Knight   # the copy on the board
       - expect: {pool: {Eternal Knight: 14}}
+      - play: {hand: Fortify, pos: 0}
+      - expect: {board: ["Eternal Knight 4/5 taunt"]}
       - play: {hand: Disguised Graverobber, pos: 0}   # destroys the Knight
     expect:
       auras: {counters: {Eternal Knight: {0: 1}}}   # Eternal Knights that died
@@ -25,8 +27,10 @@ scenarios:
 
   - name: battlecry_on_a_golden_token_returns_a_plain_token
     tavern:
-      board: ["golden Helping Hand 4/2 -reborn taunt"]
-      hand: [Disguised Graverobber]
+      board: ["Helping Hand golden"]
+      hand: [Fortify, Disguised Graverobber]
     steps:
+      - play: {hand: Fortify, pos: 0}
+      - expect: {board: ["Helping Hand 2/4 golden reborn taunt"]}
       - play: {hand: Disguised Graverobber, pos: 0}
     expect: {hand: ["Helping Hand 2/1 -golden reborn -taunt"]}

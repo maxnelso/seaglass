@@ -2,13 +2,13 @@ card: Flighty Scout
 scenarios:
   - name: start_of_combat_summons_it_from_hand
     seed: 113
-    combat: {board_a: ["1/1"], board_b: ["2/3"], hand_a: [Flighty Scout]}
+    combat: {board_a: [Patient Scout], board_b: [Joyous], hand_a: [Flighty Scout]}
     expect: {outcome: a_win, survivors_a: {any: Flighty Scout}}
   - name: start_of_combat_summon_triggers_combat_summon_modifiers
     seed: 114
     combat:
       board_a: [Stalwart Kodo]
-      board_b: ["1/1"]
+      board_b: [Patient Scout]
       hand_a: [Flighty Scout]
     expect:
       survivors_a:

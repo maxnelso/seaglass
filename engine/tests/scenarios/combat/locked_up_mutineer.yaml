@@ -4,7 +4,7 @@ scenarios:
     seed: 322
     tavern: {board: [Locked-up Mutineer]}   # 6/3: it dies in each fight
     steps:
-      - fight: {board: ["5/5"]}
+      - fight: {board: [En-Djinn Blazer]}
       - expect: {hand: [{card: Lockbox, lockbox_turns_left: 5}]}
-      - fight: {board: ["5/5"]}
+      - fight: {board: [En-Djinn Blazer]}
     expect: {hand: [{card: Lockbox, lockbox_turns_left: 4}]}

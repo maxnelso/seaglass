@@ -6,8 +6,8 @@ scenarios:
       7 damage to it and to the adjacent 0/7, killing both before combat damage.
     seed: 706
     combat:
-      board_a: [Obsidian Ravager, "0/1", "0/1"]
-      board_b: ["0/7", "10/7 taunt"]
+      board_a: [Obsidian Ravager, Patient Scout, Patient Scout]
+      board_b: [Hot-Air Surveyor, Insatiable Ur'zul]
     expect:
       outcome: a_win
-      survivors_a: ["Obsidian Ravager 7/7", "0/1", "0/1"]
+      survivors_a: ["Obsidian Ravager 7/7", Patient Scout, Patient Scout]

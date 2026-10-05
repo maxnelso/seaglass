@@ -6,7 +6,7 @@ scenarios:
     steps:
       - play: {hand: Overconfidence, pos: 0}
       - expect: {auras: {effect_stacks: {Overconfidence: 1}}}
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect:
       combat: {outcome: a_win}
       bonus_gold_next_turn: 3

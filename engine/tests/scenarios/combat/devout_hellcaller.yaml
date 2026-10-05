@@ -4,5 +4,5 @@ scenarios:
     seed: 310
     tavern: {board: [Ominous Seer, Devout Hellcaller]}   # Ominous Seer: a 2/1 Demon
     steps:
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect: {board: [Ominous Seer, "Devout Hellcaller 6/6"]}

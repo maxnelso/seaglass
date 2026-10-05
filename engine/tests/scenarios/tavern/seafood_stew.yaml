@@ -1,8 +1,8 @@
 card: Seafood Stew
 scenarios:
   - name: gives_1_1_plus_1_1_per_bonus_keyword_among_your_minions
-    tavern: {board: ["2/2 taunt divine_shield windfury"]}
+    tavern: {board: [Crackling Cyclone, Annoy-o-Module]}
     steps:
       - add_to_hand: Seafood Stew
       - play: {hand: Seafood Stew, pos: 0}
-    expect: {board: ["6/6"]}   # 1 + 3 keywords = +4/+4
+    expect: {board: ["Crackling Cyclone 6/5", Annoy-o-Module]}   # 1 + 3 keywords = +4/+4

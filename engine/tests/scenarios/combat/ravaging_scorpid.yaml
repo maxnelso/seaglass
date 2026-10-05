@@ -2,7 +2,7 @@ card: Ravaging Scorpid
 scenarios:
   - name: attacking_buffs_beetles_and_deathrattle_summons_a_beetle
     seed: 618
-    combat: {board_a: [Ravaging Scorpid], board_b: ["10/6"]}   # a 6/7 Beast
+    combat: {board_a: [Ravaging Scorpid], board_b: [Living Azerite]}   # a 6/7 Beast
     expect:
       auras_a: {counters: {Beetle: [4, 4]}}
       survivors_a: ["Beetle 6/6"]   # 2/2 + the 4/4 bonus

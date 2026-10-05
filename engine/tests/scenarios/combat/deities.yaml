@@ -4,7 +4,7 @@ scenarios:
     seed: 7
     combat:
       board_a: [Zoatroid, Zoatroid, Zoatroid, Zoatroid, Prodigious Tusker]
-      board_b: ["4/22 taunt"]
+      board_b: [Boom-in-a-Box, Cataclysmic Harbinger]
       auras_a: {deity: {kind: cthun, attack: 6, health: 6}}
     expect:
       outcome: a_win
@@ -12,8 +12,8 @@ scenarios:
   - name: yshaarj_awakens_and_resummons_first_two_aberrations
     seed: 7
     combat:
-      board_a: ["Zoatroid +2/+1", Joyous, Zoatroid, Zoatroid]
-      board_b: ["10/22 taunt"]
+      board_a: [Mysterious K'Thir, Joyous, Zoatroid, Zoatroid]
+      board_b: [Sha of Fear, Cataclysmic Harbinger]
       auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
     expect:
       outcome: a_win
@@ -24,7 +24,7 @@ scenarios:
     seed: 7
     combat:
       board_a: [Zoatroid, Zoatroid, Zoatroid, Zoatroid, Lullabot]
-      board_b: ["6/30 taunt"]
+      board_b: [Stalwart Kodo]
       auras_a: {deity: {kind: cthun, attack: 5, health: 5}}
     expect:
       events: {any: {type: deity_awakened, side: a, deity: cthun}}
@@ -32,8 +32,8 @@ scenarios:
   - name: yshaarj_awakening_is_logged_after_four_aberrations_die
     seed: 7
     combat:
-      board_a: ["Zoatroid +2/+1", Joyous, Zoatroid, Zoatroid]
-      board_b: ["10/22 taunt"]
+      board_a: [Mysterious K'Thir, Joyous, Zoatroid, Zoatroid]
+      board_b: [Sha of Fear, Cataclysmic Harbinger]
       auras_a: {deity: {kind: yshaarj, attack: 4, health: 4}}
     expect:
       outcome: a_win

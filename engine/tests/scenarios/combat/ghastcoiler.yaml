@@ -2,5 +2,5 @@ card: Ghastcoiler
 scenarios:
   - name: deathrattle_summons_2_deathrattle_minions
     seed: 523
-    combat: {board_a: [Ghastcoiler], board_b: ["10/5"]}   # 7/7
+    combat: {board_a: [Ghastcoiler], board_b: [Tyrael]}   # 7/7
     expect: {events: {where: {type: unit_summoned, side: a, reason: Deathrattle}, count: ">= 2"}}

@@ -2,7 +2,7 @@ card: De-volition-ist
 scenarios:
   - name: after_attacking_deals_its_attack_to_the_highest_health_enemy
     seed: 508
-    combat: {board_a: [De-volition-ist], board_b: ["1/5 taunt", "1/10"]}   # 4/8
+    combat: {board_a: [De-volition-ist], board_b: [Very Hungry Winterfinner, Titus Rivendare]}   # 4/8
     expect:
       outcome: a_win
       events:

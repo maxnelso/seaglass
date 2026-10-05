@@ -2,9 +2,10 @@ card: Bigwig Bandit
 scenarios:
   - name: rally_gets_a_random_bounty
     seed: 404
-    tavern: {board: [Bigwig Bandit]}
-    steps:
-      - fight: {board: ["0/4"]}
+    combat:
+      board_a: [Bigwig Bandit]
+      board_b: [Fruit Vendor]
     expect:
-      hand:
+      outcome: draw
+      hand_a:
         - any_of: [Friendly Bounty, Healthy Bounty, Hostile Bounty, Selfish Bounty, Wealthy Bounty]

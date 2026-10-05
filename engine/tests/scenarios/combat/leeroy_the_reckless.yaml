@@ -5,5 +5,5 @@ scenarios:
       Leeroy pops the Divine Shield or is killed by the 50/500, then its Deathrattle destroys the
       50/500 anyway.
     seed: 529
-    combat: {board_a: [Leeroy the Reckless], board_b: ["50/500 divine_shield"]}
+    combat: {board_a: [Leeroy the Reckless], board_b: [Holy Vanguard]}
     expect: {outcome: draw, survivors_b: []}

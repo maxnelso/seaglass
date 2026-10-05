@@ -2,5 +2,5 @@ card: Costume Enthusiast
 scenarios:
   - name: start_of_combat_gains_the_highest_attack_in_hand
     seed: 507
-    combat: {board_a: [Costume Enthusiast], board_b: ["1/1"], hand_a: ["12/4"]}   # 4/5 Divine Shield
-    expect: {survivors_a: ["Costume Enthusiast 16/5"]}
+    combat: {board_a: [Costume Enthusiast], board_b: [Patient Scout], hand_a: [Tyrael]}   # 4/5 Divine Shield
+    expect: {survivors_a: ["Costume Enthusiast 14/5"]}

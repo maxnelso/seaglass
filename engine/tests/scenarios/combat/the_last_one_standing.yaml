@@ -4,7 +4,7 @@ scenarios:
     seed: 712
     tavern: {board: [The Last One Standing, Flittering Bat]}   # 15/15 All, 1/4 Beast
     steps:
-      - fight: {board: ["1/1"]}
+      - fight: {board: [Patient Scout]}
     expect:
       combat: {outcome: a_win}
       board: ["The Last One Standing 30/30", "Flittering Bat 16/19"]   # kept in the Tavern

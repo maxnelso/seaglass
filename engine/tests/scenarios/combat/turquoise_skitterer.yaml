@@ -2,7 +2,7 @@ card: Turquoise Skitterer
 scenarios:
   - name: deathrattle_gives_beetles_5_5_and_summons_one
     seed: 552
-    combat: {board_a: [Turquoise Skitterer], board_b: ["10/2"]}
+    combat: {board_a: [Turquoise Skitterer], board_b: [En-Djinn Blazer]}
     expect:
       auras_a: {counters: {Beetle: [5, 5]}}
       survivors_a: ["Beetle 7/7"]   # 2/2 + the 5/5 bonus

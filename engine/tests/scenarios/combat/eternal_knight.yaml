@@ -3,8 +3,8 @@ scenarios:
   - name: has_4_2_for_each_dead_knight_and_its_own_death_counts
     seed: 209
     combat:
-      board_a: ["Eternal Knight taunt", Eternal Knight]   # first dies (4/2), second becomes 8/4
-      board_b: ["2/6"]
+      board_a: [Eternal Knight, Eternal Knight]   # first dies (4/2), second becomes 8/4
+      board_b: [Very Hungry Winterfinner]
     expect:
       outcome: a_win
       survivors_a: ["Eternal Knight 8/2"]
