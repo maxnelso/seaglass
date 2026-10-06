@@ -63,8 +63,7 @@ impl PyUnit {
 
     #[staticmethod]
     fn from_spec(spec: &str) -> PyResult<Self> {
-        let unit =
-            rust_parse_unit(spec, &Defaults::default()).map_err(PyValueError::new_err)?;
+        let unit = rust_parse_unit(spec, &Defaults::default()).map_err(PyValueError::new_err)?;
         Ok(Self { inner: unit })
     }
 
@@ -156,6 +155,21 @@ impl PyUnit {
     #[getter]
     fn activated_this_turn(&self) -> bool {
         self.inner.activated_this_turn
+    }
+
+    #[getter]
+    fn spell_cost(&self) -> u32 {
+        self.inner.spell_cost
+    }
+
+    #[getter]
+    fn costs_health(&self) -> bool {
+        self.inner.costs_health
+    }
+
+    #[getter]
+    fn unplayable(&self) -> bool {
+        self.inner.unplayable || self.inner.lockbox_turns_left > 0 || self.inner.locked_turns > 0
     }
 
     fn __repr__(&self) -> String {
@@ -388,6 +402,28 @@ impl PyTavernAction {
         }
     }
 
+    #[getter]
+    fn args(&self) -> (Option<usize>, Option<usize>) {
+        match self.inner {
+            TavernAction::Buy { shop_index } => (Some(shop_index), None),
+            TavernAction::Play {
+                hand_index,
+                board_pos,
+            } => (Some(hand_index), Some(board_pos)),
+            TavernAction::Sell { board_pos } => (Some(board_pos), None),
+            TavernAction::Reposition { from_pos, to_pos } => (Some(from_pos), Some(to_pos)),
+            TavernAction::Activate {
+                board_pos,
+                target_pos,
+            } => (Some(board_pos), target_pos),
+            TavernAction::ChooseDiscover { option_index } => (Some(option_index), None),
+            TavernAction::Refresh
+            | TavernAction::UpgradeTavern
+            | TavernAction::ToggleFreeze
+            | TavernAction::EndTurn => (None, None),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }
@@ -402,6 +438,8 @@ pub struct PyTavernObservation {
     #[pyo3(get)]
     pub health: i32,
     #[pyo3(get)]
+    pub armor: i32,
+    #[pyo3(get)]
     pub tavern_tier: u32,
     #[pyo3(get)]
     pub max_gold: u32,
@@ -409,6 +447,8 @@ pub struct PyTavernObservation {
     pub gold: u32,
     #[pyo3(get)]
     pub bonus_gold_next_turn: u32,
+    #[pyo3(get)]
+    pub free_refreshes: u32,
     #[pyo3(get)]
     pub upgrade_cost: u32,
     #[pyo3(get)]
@@ -434,10 +474,12 @@ impl From<&TavernState> for PyTavernObservation {
         Self {
             turn: s.turn,
             health: s.health,
+            armor: s.armor,
             tavern_tier: s.tavern_tier,
             max_gold: s.max_gold,
             gold: s.gold,
             bonus_gold_next_turn: s.bonus_gold_next_turn,
+            free_refreshes: s.auras.free_refreshes,
             upgrade_cost: s.upgrade_cost,
             is_frozen: s.is_frozen,
             board: s
@@ -458,12 +500,10 @@ impl From<&TavernState> for PyTavernObservation {
                 .cloned()
                 .map(|inner| PyUnit { inner })
                 .collect(),
-            discover_pending: s.discover_pending.as_ref().map(|opts| {
-                opts.iter()
-                    .cloned()
-                    .map(|inner| PyUnit { inner })
-                    .collect()
-            }),
+            discover_pending: s
+                .discover_pending
+                .as_ref()
+                .map(|opts| opts.iter().cloned().map(|inner| PyUnit { inner }).collect()),
             deity: deity_kind_str(s.auras.deity.kind).to_string(),
             deity_attack: s.auras.deity.attack,
             deity_health: s.auras.deity.health,
@@ -483,12 +523,19 @@ pub struct PyTavernGame {
 #[pymethods]
 impl PyTavernGame {
     #[new]
-    #[pyo3(signature = (seed=0, catalog="tier1", deity=None))]
-    fn new(seed: u64, catalog: &str, deity: Option<&str>) -> PyResult<Self> {
+    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5))]
+    fn new(
+        seed: u64,
+        catalog: &str,
+        deity: Option<&str>,
+        shop_spells: bool,
+        armor: i32,
+    ) -> PyResult<Self> {
         let templates = cards::catalog_for(catalog).map_err(PyValueError::new_err)?;
         let pool = CardPool::new(templates);
         let rng = Rng::new(seed);
-        let mut state = TavernState::new();
+        let mut state = TavernState::new().with_shop_spells(shop_spells);
+        state.armor = armor;
         state.auras.deity.kind = parse_deity_kind(deity)?;
         Ok(Self { state, pool, rng })
     }
@@ -528,6 +575,110 @@ impl PyTavernGame {
         self.state
             .step(action.inner, &mut self.pool, &mut self.rng)
             .map_err(PyValueError::new_err)
+    }
+
+    #[pyo3(signature = (opponent_board, opponent_tier=1, seed=None))]
+    fn resolve_combat_against(
+        &mut self,
+        opponent_board: Vec<PyUnit>,
+        opponent_tier: u32,
+        seed: Option<u64>,
+    ) -> PyBattleResult {
+        let units_b: Vec<Unit> = opponent_board.into_iter().map(|u| u.inner).collect();
+        let combat_seed = seed.unwrap_or_else(|| self.rng.next_u64());
+        let res = self.state.resolve_combat_against(
+            &units_b,
+            opponent_tier,
+            &crate::model::PlayerAuras::default(),
+            &[],
+            combat_seed,
+        );
+        let outcome = match res.outcome {
+            BattleOutcome::AWin => "a_win",
+            BattleOutcome::BWin => "b_win",
+            BattleOutcome::Draw => "draw",
+        }
+        .to_string();
+        PyBattleResult {
+            outcome,
+            survivors_a: res
+                .survivors_a
+                .into_iter()
+                .map(|inner| PyUnit { inner })
+                .collect(),
+            survivors_b: res
+                .survivors_b
+                .into_iter()
+                .map(|inner| PyUnit { inner })
+                .collect(),
+            hero_damage: res.hero_damage,
+        }
+    }
+
+    #[pyo3(signature = (other, seed=None))]
+    fn resolve_combat_with(
+        &mut self,
+        other: &mut PyTavernGame,
+        seed: Option<u64>,
+    ) -> PyBattleResult {
+        let combat_seed = seed.unwrap_or_else(|| self.rng.next_u64());
+        let res = TavernState::resolve_combat_pair(&mut self.state, &mut other.state, combat_seed);
+        let outcome = match res.outcome {
+            BattleOutcome::AWin => "a_win",
+            BattleOutcome::BWin => "b_win",
+            BattleOutcome::Draw => "draw",
+        }
+        .to_string();
+        PyBattleResult {
+            outcome,
+            survivors_a: res
+                .survivors_a
+                .into_iter()
+                .map(|inner| PyUnit { inner })
+                .collect(),
+            survivors_b: res
+                .survivors_b
+                .into_iter()
+                .map(|inner| PyUnit { inner })
+                .collect(),
+            hero_damage: res.hero_damage,
+        }
+    }
+
+    #[pyo3(signature = (opponent_board, opponent_tier=1, n=32, base_seed=None))]
+    fn equity_against(
+        &self,
+        opponent_board: Vec<PyUnit>,
+        opponent_tier: u32,
+        n: u32,
+        base_seed: Option<u64>,
+    ) -> PyResult<PyDistribution> {
+        if n == 0 {
+            return Err(PyValueError::new_err("equity_against requires n > 0"));
+        }
+        let units_b: Vec<Unit> = opponent_board.into_iter().map(|u| u.inner).collect();
+        let state = GameState {
+            hero_tier_a: self.state.tavern_tier,
+            hero_tier_b: opponent_tier,
+            auras_a: self.state.auras.clone(),
+            auras_b: crate::model::PlayerAuras::default(),
+            hand_a: self.state.hand.clone(),
+            hand_b: Vec::new(),
+        };
+        let seed = base_seed.unwrap_or(self.state.turn as u64 * 10_007 + 1);
+        let dist = rust_simulate_batch(&self.state.board, &units_b, &state, seed, n);
+        Ok(PyDistribution {
+            battles: dist.battles,
+            a_wins: dist.a_wins,
+            b_wins: dist.b_wins,
+            draws: dist.draws,
+            a_win_rate: dist.a_win_rate,
+            b_win_rate: dist.b_win_rate,
+            draw_rate: dist.draw_rate,
+            damage_min: dist.damage.min,
+            damage_max: dist.damage.max,
+            damage_mean: dist.damage.mean,
+        })
     }
 
     #[pyo3(signature = (deity=None))]
@@ -636,13 +787,25 @@ fn simulate_batch(
 }
 
 #[pyfunction]
-#[pyo3(signature = (name="tier1"))]
+#[pyo3(signature = (name="full"))]
 fn catalog(name: &str) -> PyResult<Vec<PyCardTemplate>> {
     let templates = cards::catalog_for(name).map_err(PyValueError::new_err)?;
     Ok(templates
         .into_iter()
         .map(|inner| PyCardTemplate { inner })
         .collect())
+}
+
+#[pyfunction]
+fn all_card_ids() -> Vec<u32> {
+    let mut ids: Vec<u32> = crate::scenario::card_index()
+        .cards()
+        .iter()
+        .map(|c| c.card_id)
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    ids
 }
 
 #[pyfunction]
@@ -663,6 +826,7 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simulate, m)?)?;
     m.add_function(wrap_pyfunction!(simulate_batch, m)?)?;
     m.add_function(wrap_pyfunction!(catalog, m)?)?;
+    m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
     Ok(())
 }

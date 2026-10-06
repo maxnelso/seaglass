@@ -1,0 +1,81 @@
+"""Observation encoding with dynamic card-ID vocabulary (`nn.Embedding` + numeric slot features)."""
+
+from __future__ import annotations
+
+import math
+import numpy as np
+import seaglass
+
+from .actions import MAX_BOARD, MAX_DISCOVER, MAX_HAND, MAX_SHOP
+
+# Index 0 is reserved for empty slots / unknown cards.
+_ALL_IDS = seaglass.all_card_ids()
+CARD_ID_TO_IDX: dict[int, int] = {cid: i + 1 for i, cid in enumerate(_ALL_IDS)}
+VOCAB_SIZE: int = len(_ALL_IDS) + 1
+
+NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER  # 7 + 10 + 7 + 4 = 28
+PLAYER_DIM: int = 9
+SLOT_NUM_DIM: int = 12
+
+
+def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
+    """Fill `out_num` (length `SLOT_NUM_DIM`) for unit `u` and return its vocab index."""
+    out_num[0] = 1.0  # present flag
+    out_num[1] = math.log1p(max(0, u.attack)) / 5.0
+    out_num[2] = math.log1p(max(0, u.health)) / 5.0
+    out_num[3] = u.tavern_tier / 7.0
+    out_num[4] = 1.0 if u.is_spell else 0.0
+    out_num[5] = 1.0 if u.is_golden else 0.0
+    out_num[6] = 1.0 if u.taunt else 0.0
+    out_num[7] = 1.0 if u.divine_shield else 0.0
+    out_num[8] = 1.0 if u.windfury else 0.0
+    out_num[9] = 1.0 if u.reborn else 0.0
+    out_num[10] = 1.0 if u.venomous else 0.0
+    out_num[11] = 1.0 if u.magnetic else 0.0
+    return CARD_ID_TO_IDX.get(u.card_id, 0)
+
+
+def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Encode a `TavernObservation` into `(player_vec, slot_card_ids, slot_num_feats)`.
+
+    Returns:
+      - `player_vec`: float32 array of shape `(PLAYER_DIM,)`
+      - `slot_card_ids`: int64 array of shape `(NUM_SLOTS,)` (indices in `0..VOCAB_SIZE`)
+      - `slot_num_feats`: float32 array of shape `(NUM_SLOTS, SLOT_NUM_DIM)`
+    """
+    player_vec = np.array(
+        [
+            obs.turn / 20.0,
+            obs.health / 30.0,
+            obs.armor / 10.0,
+            obs.tavern_tier / 6.0,
+            obs.gold / 10.0,
+            obs.max_gold / 10.0,
+            obs.upgrade_cost / 10.0,
+            obs.free_refreshes / 5.0,
+            1.0 if obs.discover_pending is not None else 0.0,
+        ],
+        dtype=np.float32,
+    )
+
+    slot_card_ids = np.zeros(NUM_SLOTS, dtype=np.int64)
+    slot_num_feats = np.zeros((NUM_SLOTS, SLOT_NUM_DIM), dtype=np.float32)
+
+    offset = 0
+    for i, u in enumerate(obs.board[:MAX_BOARD]):
+        slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
+
+    offset += MAX_BOARD
+    for i, u in enumerate(obs.hand[:MAX_HAND]):
+        slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
+
+    offset += MAX_HAND
+    for i, u in enumerate(obs.shop[:MAX_SHOP]):
+        slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
+
+    offset += MAX_SHOP
+    if obs.discover_pending is not None:
+        for i, u in enumerate(obs.discover_pending[:MAX_DISCOVER]):
+            slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
+
+    return player_vec, slot_card_ids, slot_num_feats
