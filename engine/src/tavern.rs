@@ -1442,7 +1442,9 @@ impl TavernState {
             }
             TavernAction::Refresh => {
                 if self.auras.free_refreshes > 0 {
+                    // Still a Health Refresh if a charge is left: it uses the charge, for 0 Health.
                     self.auras.free_refreshes -= 1;
+                    cards::use_charge(&mut self.board, CardFlags::HEALTH_REFRESHES);
                 } else if self.has_health_refresh() {
                     cards::use_charge(&mut self.board, CardFlags::HEALTH_REFRESHES);
                     self.deal_hero_damage(1);

@@ -42,7 +42,8 @@ impl CardFlags {
     pub const REWINDS_HERO_DAMAGE: CardFlags = CardFlags(1 << 5);
     /// A Choose-One option card (as opposed to a Discover-style option such as a Hero Power).
     pub const CHOOSE_ONE_OPTION: CardFlags = CardFlags(1 << 6);
-    /// While this has `charges` left, a Refresh costs 1 Health instead of Gold, using a charge.
+    /// While this has `charges` left, each Refresh uses a charge and costs Health instead of Gold:
+    /// 1 Health, or 0 if the Refresh is free (`free_refreshes`).
     pub const HEALTH_REFRESHES: CardFlags = CardFlags(1 << 7);
     /// While this has `charges` left, a Choose One has both effects combined, using a charge.
     pub const COMBINES_CHOOSE_ONE: CardFlags = CardFlags(1 << 8);

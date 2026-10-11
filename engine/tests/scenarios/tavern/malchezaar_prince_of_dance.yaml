@@ -10,3 +10,45 @@ scenarios:
     expect:
       health: 29
       board: [{card: "Malchezaar, Prince of Dance", charges: 1}]
+
+  - name: two_malchezaars_stack_for_4_health_refreshes
+    seed: 323
+    steps:
+      - add_to_hand: ["Malchezaar, Prince of Dance", "Malchezaar, Prince of Dance"]
+      - play: "Malchezaar, Prince of Dance"
+      - play: "Malchezaar, Prince of Dance"
+      - repeat: 4   # with 0 Gold: the left one's 2 charges, then the right one's
+        steps: [refresh]
+      - expect_illegal: refresh   # no Gold and no charges left
+    expect:
+      health: 26
+      board:
+        - {card: "Malchezaar, Prince of Dance", charges: 0}
+        - {card: "Malchezaar, Prince of Dance", charges: 0}
+
+  - name: refreshing_anomaly_free_refreshes_cost_0_health_but_use_charges
+    seed: 323
+    steps:
+      - add_to_hand: ["Malchezaar, Prince of Dance", "Malchezaar, Prince of Dance"]
+      - play: "Malchezaar, Prince of Dance"
+      - play: "Malchezaar, Prince of Dance"
+      - add_to_hand: Refreshing Anomaly
+      - play: Refreshing Anomaly   # Battlecry: 2 free Refreshes
+      - repeat: 2   # free: 0 Health, but each still uses a charge
+        steps: [refresh]
+      - expect:
+          health: 30
+          auras: {free_refreshes: 0}
+          board:
+            - {card: "Malchezaar, Prince of Dance", charges: 0}
+            - {card: "Malchezaar, Prince of Dance", charges: 2}
+            - Refreshing Anomaly
+      - repeat: 2   # the last 2 charges: 1 Health each
+        steps: [refresh]
+      - expect_illegal: refresh   # no free Refreshes, charges or Gold left
+    expect:
+      health: 28
+      board:
+        - {card: "Malchezaar, Prince of Dance", charges: 0}
+        - {card: "Malchezaar, Prince of Dance", charges: 0}
+        - Refreshing Anomaly
