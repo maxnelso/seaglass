@@ -1210,6 +1210,9 @@ fn resolve_deaths(
     side_state.board.retain(|u| u.health > 0);
     let mut cursor: usize = 0;
     let mut killed_opp = false;
+    // Dead units with Reborn and their slots (after their Deathrattle summons), resummoned once
+    // all of this side's deaths have resolved (docs/combat.md §5.3.1 step 9).
+    let mut reborns: Vec<(Unit, usize)> = Vec::new();
 
     for unit in old_board {
         if unit.health > 0 {
@@ -1252,51 +1255,27 @@ fn resolve_deaths(
             }
         }
 
-        // 2. Reborn resummon
         if unit.reborn {
-            let mut ctx = side_state.ctx(side, next_id, rng, events);
-            ctx.cursor = cursor;
-            cards::reborn(&mut ctx, &unit);
-            cursor = ctx.cursor;
+            reborns.push((unit, cursor));
         }
     }
 
-    // 3. Check Deity Awakening (4 friendly Aberration deaths in combat, Patch 36.6.3).
-    if !side_state.deity_awakened
-        && side_state.auras.deity.kind != DeityKind::None
-        && side_state.aberration_deaths >= cards::DEITY_SACRIFICE_REQUIREMENT
-        && side_state.board.len() < MAX_BOARD_SIZE
-    {
-        side_state.deity_awakened = true;
-        let deity_kind = side_state.auras.deity.kind;
-        let mut deity_unit = cards::instantiate_deity(&side_state.auras.deity);
-        deity_unit.id = *next_id;
-        *next_id += 1;
-        cards::apply_combat_summon_modifiers(
-            &mut side_state.board,
-            &side_state.auras,
-            side_state.combat_beast_bonus_atk,
-            &mut deity_unit,
-        );
-        let deity_id = deity_unit.id;
-        let deity_name = deity_unit.name.clone();
-        let deity_idx = side_state.board.len();
-        side_state.board.push(deity_unit);
+    // 2. Deity Awakening, after all of this side's deaths and before any Reborn.
+    awaken_deity_if_due(side, side_state, next_id, rng, events);
 
-        events.push(Event::DeityAwakened {
-            side,
-            deity: deity_kind,
-            unit: deity_id,
-            name: deity_name,
-        });
-
-        cards::on_awaken(&mut side_state.ctx(side, next_id, rng, events), deity_idx);
+    // 3. Reborn resummons, left to right; each slot shifts by the units inserted before it.
+    let mut inserted = 0;
+    for (unit, slot) in reborns {
+        let mut ctx = side_state.ctx(side, next_id, rng, events);
+        ctx.cursor = slot + inserted;
+        cards::reborn(&mut ctx, &unit);
+        inserted = ctx.cursor - slot;
     }
 
-    // 3b. Effects that fill open board slots after deaths (e.g. `Boon of Beetles`).
+    // 4. Effects that fill open board slots after deaths (e.g. `Boon of Beetles`).
     cards::after_combat_deaths(&mut side_state.ctx(side, next_id, rng, events));
 
-    // 4. Synchronize dynamic friendly-death and persistent auras.
+    // 5. Synchronize dynamic friendly-death and persistent auras.
     let before_aura = cards::stat_snapshot(&side_state.board);
     cards::sync_combat_auras(
         &mut side_state.board,
@@ -1313,4 +1292,47 @@ fn resolve_deaths(
         opp_side.ptr = preserve_defender_ptr(&opp_side.board, opp_side.ptr);
         resolve_deaths(side.other(), opp_side, side_state, next_id, rng, events);
     }
+}
+
+/// Awaken the side's Deity at the right end of its board once 4 friendly Aberrations have died
+/// this combat (Patch 36.6.3) and there is room; called after a round of deaths resolves, before
+/// its Reborns (`docs/combat.md` §5.3.1 step 9).
+fn awaken_deity_if_due(
+    side: Side,
+    side_state: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    if side_state.deity_awakened
+        || side_state.auras.deity.kind == DeityKind::None
+        || side_state.aberration_deaths < cards::DEITY_SACRIFICE_REQUIREMENT
+        || side_state.board.len() >= MAX_BOARD_SIZE
+    {
+        return;
+    }
+    side_state.deity_awakened = true;
+    let deity_kind = side_state.auras.deity.kind;
+    let mut deity_unit = cards::instantiate_deity(&side_state.auras.deity);
+    deity_unit.id = *next_id;
+    *next_id += 1;
+    cards::apply_combat_summon_modifiers(
+        &mut side_state.board,
+        &side_state.auras,
+        side_state.combat_beast_bonus_atk,
+        &mut deity_unit,
+    );
+    let deity_id = deity_unit.id;
+    let deity_name = deity_unit.name.clone();
+    let deity_idx = side_state.board.len();
+    side_state.board.push(deity_unit);
+
+    events.push(Event::DeityAwakened {
+        side,
+        deity: deity_kind,
+        unit: deity_id,
+        name: deity_name,
+    });
+
+    cards::on_awaken(&mut side_state.ctx(side, next_id, rng, events), deity_idx);
 }

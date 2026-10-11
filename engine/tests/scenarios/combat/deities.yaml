@@ -38,3 +38,17 @@ scenarios:
     expect:
       outcome: a_win
       events: {any: {type: deity_awakened, side: a, deity: yshaarj}}
+
+  # Boom-in-a-Box's Start of Combat kills Drifting Sacrifice and the three Zoatroids at once:
+  # all four deaths resolve, then C'Thun awakens, then Drifting Sacrifice is Reborn.
+  - name: reborns_from_the_same_deaths_wait_for_the_deity
+    seed: 7
+    combat:
+      board_a: [Drifting Sacrifice, Zoatroid, Zoatroid, Zoatroid]
+      board_b: [Boom-in-a-Box]
+      auras_a: {deity: {kind: cthun, attack: 5, health: 5}}
+    expect:
+      events:
+        sequence:
+          - {type: deity_awakened, side: a, deity: cthun}
+          - {type: unit_summoned, side: a, reason: Reborn, name: Drifting Sacrifice}

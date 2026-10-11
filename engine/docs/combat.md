@@ -14,7 +14,7 @@ The combat loop is **card-agnostic**: it knows only about units, keywords, and g
 - **Taunt** — Must be targeted before non-Taunt minions.
 - **Divine Shield** — Absorbs the first instance of damage $> 0$, then pops.
 - **Windfury** — A unit selected to attack strikes a **second time**, immediately, if it is still alive after the first strike and the enemy board is non-empty. Windfury is read **once**, before the first strike (§5.3), so Windfury granted mid-turn does not add a strike.
-- **Reborn** — On death, resummons a base (or Golden-base) copy of the unit at the dying unit's slot with `health = 1` and `reborn = false` (plus any "wherever this is" / combat summon auras), respecting the 7-unit board cap. Resolved **after** that same unit's Deathrattle. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield or stat buff that was merely granted to the dying instance is not carried over (§5.3.1 step 9).
+- **Reborn** — On death, resummons a base (or Golden-base) copy of the unit at the dying unit's slot with `health = 1` and `reborn = false` (plus any "wherever this is" / combat summon auras), respecting the 7-unit board cap. Resolved **after** all of that side's Deathrattles from the same deaths, and after the Deity if those deaths awaken it. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield or stat buff that was merely granted to the dying instance is not carried over (§5.3.1 step 9).
 
 ### Trigger Phases
 
@@ -23,7 +23,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 1. **Start of Combat (§5.1 step 6)** — Resolved once before the first attack turn, Side A first, then Side B, in left-to-right board order. Used for pre-battle board/tribal buffs (`Electric Synthesizer`), combat-long tribal attack auras (`Humming Bird`), and hand summons (`Flighty Scout`).
 2. **On-Attack / Rally (§5.3.1 step 2)** — Fires when an attacker declares a strike, **before target selection and before any damage**. May buff the attacker (`Glim Guardian`, `Tusked Camper`), summon a unit adjacent to the attacker (`Flittering Bat`, `Expert Aviator` from hand), generate a hand card (`Roadboar`), or trigger friendly "whenever another friendly minion attacks" observers (`Prodigious Tusker`) on the attacking board in left-to-right order.
 3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
-4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** that unit's Reborn. May summon token(s) at the dying unit's slot (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
+4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** any Reborn from the same deaths. May summon token(s) at the dying unit's slot (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
 5. **Stat-Threshold Observers** — Checked immediately whenever a unit's stats increase during combat (e.g., `Scarlet Survivor` gaining Divine Shield at 6 Attack).
 6. **Combat-to-Tavern Persistence** — `Tarecgosa` permanently retains Bonus Keywords and (`double` if Golden) stats gained during combat; hand buffs (`Very Hungry Winterfinner`), generated hand cards (`Roadboar`), and game-long counters such as `Eternal Knight` deaths (card-keyed `PlayerAuras::card_counters`) persist back to `TavernState`.
 
@@ -139,9 +139,10 @@ One *turn* is one or two *strikes* by a single attacker:
    - Each call emits `DamageDealt` if the unit lost health, `DivineShieldPopped` if its Divine Shield absorbed the hit, or **nothing** if the amount was $\le 0$.
 7. **Emit a `Death`** for every unit now at $\le 0$ health, ordered **defending side first (left $\to$ right), then attacking side (left $\to$ right)**.
 8. **Re-anchor both pointers** per §5.4 while the dead are still on their boards.
-9. **Resolve deaths**, **defending side first, then attacking side**. For one side: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its **Deathrattle** first, then its **Reborn**, inserting each summon at the dead unit's position:
-   - Summons respect the 7-unit board cap.
-   - **Reborn** instantiates a base (or Golden-base) copy of the unit with `health = 1`, `reborn = false`, printed keywords restored, and global/combat summon auras applied.
+9. **Resolve deaths**, **defending side first, then attacking side**. For one side, in three passes (summons respect the 7-unit board cap):
+   1. **Deaths**: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its friendly-death triggers (Avenge) and its **Deathrattle**, inserting summons at the dead unit's position.
+   2. **Deity**: once the side has had 4 friendly Aberration deaths this combat (`DEITY_SACRIFICE_REQUIREMENT`), its Deity awakens: it is summoned at the right end of the board (if there is room; otherwise after a later round of deaths), `DeityAwakened` is emitted, and its awaken effect resolves (`C'Thun`).
+   3. **Reborn**, left $\to$ right: each dead unit with Reborn is resummoned at its position (after its Deathrattle summons) as a base (or Golden-base) copy with `health = 1`, `reborn = false`, printed keywords restored, and global/combat summon auras applied.
 
 ### 5.4 Pointer Advance
 

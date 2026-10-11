@@ -21,3 +21,16 @@ scenarios:
       survivors_a: ["Lullabot 2/2 -taunt -divine_shield -windfury -reborn"]
       survivors_b: []
       hero_damage: 2
+
+  # Boom-in-a-Box's Start of Combat kills both at once: the Bonehead's Deathrattle resolves
+  # before Drifting Sacrifice (to its left) is Reborn.
+  - name: reborn_waits_for_deathrattles_from_the_same_deaths
+    seed: 1
+    combat:
+      board_a: [Drifting Sacrifice, Harmless Bonehead]
+      board_b: [Boom-in-a-Box]
+    expect:
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, reason: Deathrattle, name: Skeleton}
+          - {type: unit_summoned, side: a, reason: Reborn, name: Drifting Sacrifice}
