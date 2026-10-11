@@ -187,6 +187,7 @@ When a minion at `board[board_pos]` is sold:
   - Permanent hand spells apply their stat/keyword buffs permanently.
   - Temporary Spellcraft spells record their applied stats and newly granted keywords in the target's `temp_*` fields so they revert at the next `start_turn`—unless the target minion has an active "first Spellcraft each turn is permanent" effect, in which case the buff is applied permanently and latches that flag for the rest of the turn.
 - **Stat-Threshold Check**: Any stat increase in the Tavern Phase immediately runs the target's stat-threshold observers.
+- **Repeated Casts**: A spell that targets a friendly minion is cast `TargetedSpellCasts` times (`Balinda Stonehearth`) and a Bounty spell `BountyCasts` times; other spells are cast once. Every cast counts as a spell cast: each one runs the `spell_cast` observers (Tavern spells: `Charging Czarina`, `Sha of Fear`, ...), the spell's effect, the `after_targeted_spell` observers (targeted spells: `Glambot`, `Twilight Tidehunter`, ...), then the `after_spell_cast` observers (`Felboar`).
 
 ### 7.5 End-of-Turn Triggers (`EndTurn`)
 When `EndTurn` is executed:

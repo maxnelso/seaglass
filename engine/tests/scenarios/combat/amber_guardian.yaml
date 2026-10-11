@@ -6,3 +6,23 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: {0: "Glim Guardian 5/6"}   # +2/+2 at Start of Combat, +2 Attack on Rally
+
+  # Persistent Poet (a 2/3 Dragon) already has Divine Shield, so Glim Guardian (1/4) is picked on
+  # every seed.
+  - name: prefers_dragons_without_divine_shield
+    seeds: "1..=10"
+    combat: {board_a: [Amber Guardian, Persistent Poet, Glim Guardian], board_b: [Patient Scout]}
+    expect:
+      events:
+        where: {type: stat_buff, reason: Amber Guardian}
+        count: 1
+        all: {attack: 3, health: 6}   # Glim Guardian + 2/2
+
+  - name: falls_back_to_a_dragon_with_divine_shield
+    seed: 303
+    combat: {board_a: [Amber Guardian, Persistent Poet], board_b: [Patient Scout]}
+    expect:
+      events:
+        where: {type: stat_buff, reason: Amber Guardian}
+        count: 1
+        all: {attack: 4, health: 5}   # Persistent Poet + 2/2

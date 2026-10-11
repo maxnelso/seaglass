@@ -10,3 +10,16 @@ scenarios:
       - refresh
     expect:
       shop: {any: {attack: ">= @base_attack + 9", health: ">= @base_health + 9"}}
+
+  - name: spell_power_increases_the_buff
+    seed: 836
+    tavern: {gold: 1}   # the Refresh
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Easterly Winds
+      - play: {hand: Easterly Winds, pos: 0}   # untargeted
+      - expect: {auras: {refresh_random_buffs: [[10, 11]]}}
+      - refresh
+    expect:
+      shop: {any: {attack: ">= @base_attack + 10", health: ">= @base_health + 11"}}

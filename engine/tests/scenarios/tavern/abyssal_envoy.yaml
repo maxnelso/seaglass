@@ -6,3 +6,16 @@ scenarios:
     steps:
       - activate: {pos: Abyssal Envoy, target: 0}   # discards the Blood Gem
     expect: {hand: [{is_spell: true, card: {not: Blood Gem}}]}
+
+  - name: cannot_discard_a_locked_card
+    seed: 301
+    tavern: {tavern_tier: 3, board: [Abyssal Envoy]}
+    steps:
+      - add_to_hand: Search Through Time
+      - play: {hand: Search Through Time, pos: 0}   # untargeted
+      - choose_discover: 0   # locked until next turn
+      - expect: {hand: [{locked_turns: 1}]}
+      - expect_illegal: {activate: {pos: Abyssal Envoy, target: 0}}
+      - start_turn   # unlocks it
+      - expect_legal: {activate: {pos: Abyssal Envoy, target: 0}}
+    expect: {hand: [{locked_turns: 0}]}

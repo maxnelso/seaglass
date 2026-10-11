@@ -5,3 +5,112 @@ scenarios:
     steps:
       - play: {hand: Fortify, pos: 1}
     expect: {board: [Balinda Stonehearth, "Iron Groundskeeper 2/8 taunt"]}   # cast twice: +0/+6
+
+  - name: untargeted_spells_cast_once
+    tavern: {board: [Balinda Stonehearth], hand: [Leaf Through the Pages]}   # get 2 free Refreshes
+    steps:
+      - play: {hand: Leaf Through the Pages, pos: 0}   # untargeted
+    expect: {auras: {free_refreshes: 2}}
+
+  # Every cast counts as a spell cast (docs/tavern.md §7.4), so the spell-cast observers below
+  # trigger twice. Tavern Dish Banana (+2/+2) is a targeted Tavern spell: +4/+4 with Balinda.
+
+  - name: felboar_counts_both_casts_of_a_targeted_spell
+    tavern:
+      board: [Balinda Stonehearth, Felboar]   # Felboar: 2/6, consumes a Tavern minion after 3 spells
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Blood Gem, Blood Gem]
+    steps:
+      - repeat: 2
+        steps: [{play: {hand: Blood Gem, pos: 1}}]   # on Felboar
+    expect:
+      shop: []
+      board:
+        - Balinda Stonehearth
+        - {card: Felboar, attack: 11, health: 17, counter: 1}   # 4 casts (+4/+4), the 5/7 after the 3rd
+
+  - name: charging_czarina_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Charging Czarina], hand: [Tavern Dish Banana]}   # Czarina: 4/1 Divine Shield
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
+    expect: {board: ["Balinda Stonehearth 10/10", "Charging Czarina 12/1"]}   # +4 Attack per cast
+
+  - name: forsaken_weaver_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Forsaken Weaver], hand: [Tavern Dish Banana]}   # a 3/8 Undead
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
+    expect:
+      auras: {undead_bonus_attack: 6}   # +3 per cast
+      board: ["Balinda Stonehearth 10/10", "Forsaken Weaver 9/8"]
+
+  - name: living_azerite_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Living Azerite], hand: [Tavern Dish Banana]}
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
+    expect: {auras: {tavern_elemental_atk: 8, tavern_elemental_hp: 6}}   # +4/+3 per cast
+
+  - name: sha_of_fear_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Sha of Fear], hand: [Tavern Dish Banana]}   # 10/13; the deity starts 1/1
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
+    expect:
+      board: ["Balinda Stonehearth 16/16", "Sha of Fear 16/19"]   # +3/+3 per cast
+      auras: {deity: {attack: 7, health: 7}}
+
+  - name: timecapn_hooktail_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, "Timecap'n Hooktail"], hand: [Tavern Dish Banana]}   # Hooktail: 1/4
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
+    expect: {board: ["Balinda Stonehearth 12/10", "Timecap'n Hooktail 3/4"]}   # +1 Attack per cast
+
+  - name: vicious_mindslasher_triggers_on_both_casts
+    tavern:
+      auras: {deity: {kind: cthun}}
+      board: [Balinda Stonehearth, Vicious Mindslasher]   # 1/2
+      hand: [Tavern Dish Banana]
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
+    expect:
+      board: ["Balinda Stonehearth 10/10", "Vicious Mindslasher 3/6"]   # +1/+2 per cast
+      auras: {deity: {attack: 3, health: 5}}
+
+  - name: devilish_distractor_triggers_on_both_casts
+    tavern:
+      board: [Balinda Stonehearth, Devilish Distractor]   # 4/7
+      shop: [Iron Groundskeeper]
+      hand: [Tavern Dish Banana]
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 1}   # on the Distractor
+    expect:
+      board: [Balinda Stonehearth, "Devilish Distractor 8/11"]
+      auras: {tavern_all_atk: 2, tavern_all_hp: 4}   # +1/+2 per cast
+      shop: ["Iron Groundskeeper 4/6"]
+
+  - name: gatekeeper_amalgam_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Gatekeeper Amalgam, Flittering Bat], hand: [Fortify]}   # a 6/6 All, a 1/4 Beast
+    steps:
+      - play: {hand: Fortify, pos: 1}   # on the Amalgam: a Misplaced Tea Set per cast
+    expect:   # each Tea Set: +4/+4 on the Amalgam (Aberration) and the Bat (Beast)
+      board: ["Balinda Stonehearth 6/6", "Gatekeeper Amalgam 14/20 taunt", "Flittering Bat 9/12"]
+
+  - name: glambot_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Glambot], hand: [Tavern Dish Banana]}   # a 4/4 Mech
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 1}   # on Glambot
+    expect: {board: [Balinda Stonehearth, "Glambot 16/16"]}   # +2/+2 and a 4/4 Satellite per cast
+
+  - name: shamanic_tidecaller_triggers_on_both_casts
+    tavern:
+      board: [Balinda Stonehearth, Shamanic Tidecaller]   # a 5/7 Murloc
+      hand: [Tavern Dish Banana, Flighty Scout]   # Flighty Scout: 3/3 Murloc
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 1}   # on the Tidecaller
+    expect:
+      board: [Balinda Stonehearth, "Shamanic Tidecaller 15/17"]   # +2/+2 and +3/+3 per cast
+      hand: ["Flighty Scout 9/9"]
+
+  - name: twilight_tidehunter_triggers_on_both_casts
+    tavern: {board: [Balinda Stonehearth, Twilight Tidehunter], hand: [Iron Groundskeeper, Tavern Dish Banana]}
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 1}   # on the Tidehunter
+    expect: {hand: ["Iron Groundskeeper 18/18"]}   # +8/+8 per cast

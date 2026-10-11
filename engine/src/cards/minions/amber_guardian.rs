@@ -1,5 +1,6 @@
 //! `Amber Guardian` (`BG24_500`) — Tier 3 Dragon (`3/2`).
 //! **Taunt**. **Start of Combat:** Give another (`two other` if Golden) friendly Dragon(s) `+2/+2` and **Divine Shield**.
+//! Dragons without Divine Shield are picked before Dragons that already have it.
 
 use crate::cards::CardTemplate;
 use crate::events::Event;
@@ -35,12 +36,23 @@ pub fn on_start_of_combat(
     let count = if is_golden { 2 } else { 1 };
     let n = candidates.len().min(count);
     for _ in 0..n {
-        let pick = if candidates.len() == 1 {
-            0
+        // Dragons without Divine Shield first.
+        let unshielded: Vec<usize> = candidates
+            .iter()
+            .copied()
+            .filter(|&i| !board[i].divine_shield)
+            .collect();
+        let pickable = if unshielded.is_empty() {
+            candidates.clone()
         } else {
-            rng.below(candidates.len())
+            unshielded
         };
-        let idx = candidates.remove(pick);
+        let idx = if pickable.len() == 1 {
+            pickable[0]
+        } else {
+            pickable[rng.below(pickable.len())]
+        };
+        candidates.retain(|&i| i != idx);
         let u = &mut board[idx];
         u.add_stats(2, 2);
         u.apply_keyword(Keyword::DivineShield, true);

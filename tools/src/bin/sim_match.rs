@@ -477,7 +477,7 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             after.spell_bonus_hp
         ));
     }
-    let volumizers = minions::blue_volumizer::volumizer_bonus;
+    let volumizers = cards::volumizers::volumizer_bonus;
     let (vol_before, vol_after) = (volumizers(before), volumizers(after));
     if vol_before != vol_after {
         diffs.push(format!(
@@ -555,7 +555,7 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             fodder(after)
         ));
     }
-    let ballers = minions::fire_baller::baller_bonus;
+    let ballers = cards::ballers::baller_bonus;
     if ballers(before) != ballers(after) {
         diffs.push(format!(
             "baller_bonus: +{} -> +{}",

@@ -659,11 +659,11 @@ fn buff_random_friendly(
     }
 }
 
-/// Resolve the effect of casting `card` from `hand` at `board_pos` (0 if it is untargeted): the
-/// `spell_cast` observers if it is a Tavern spell, then its `cast` hook once per cast (a spell
-/// without one adds its stats to the target), then the after-cast observers. A
-/// [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times, and a targeted one
-/// [`Passive::TargetedSpellCasts`] times.
+/// Resolve the effect of casting `card` from `hand` at `board_pos` (0 if it is untargeted). Each
+/// cast runs the `spell_cast` observers if it is a Tavern spell, then its `cast` hook (a spell
+/// without one adds its stats to the target), then the after-targeted-spell observers, then the
+/// after-cast observers. A [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times,
+/// and a targeted one [`Passive::TargetedSpellCasts`] times (`docs/tavern.md` §7.4).
 pub fn cast_spell(
     state: &mut TavernState,
     card: Unit,
@@ -673,9 +673,9 @@ pub fn cast_spell(
 ) {
     let card_hooks = hooks(card.card_id);
     let targeted = card_hooks.spell_target != SpellTarget::None;
-    if is_tavern_spell(card.card_id) {
+    let tavern_spell = is_tavern_spell(card.card_id);
+    if tavern_spell {
         state.auras.last_tavern_spell_cast = Some(card.card_id);
-        crate::cards::on_cast_tavern_spell(state, pool, rng);
     }
 
     let mut casts = if card_hooks.has(CardFlags::BOUNTY) {
@@ -687,7 +687,11 @@ pub fn cast_spell(
         casts *= board_passive(&state.board, Passive::TargetedSpellCasts);
     }
 
+    // Every cast counts as a spell cast.
     for _ in 0..casts {
+        if tavern_spell {
+            crate::cards::on_cast_tavern_spell(state, pool, rng);
+        }
         state.combine_choose_one = card.combine_choose_one;
         if let Some(cast) = card_hooks.cast {
             cast(state, &card, board_pos, pool, rng);
@@ -695,13 +699,11 @@ pub fn cast_spell(
             state.board[board_pos].add_stats(card.attack, card.health);
         }
         state.combine_choose_one = false;
+        if targeted && board_pos < state.board.len() {
+            crate::cards::after_cast_targeted_spell(state, board_pos, pool, rng);
+        }
+        crate::cards::after_cast_any_spell(state, pool, rng);
     }
-
-    if targeted && board_pos < state.board.len() {
-        crate::cards::after_cast_targeted_spell(state, board_pos, pool, rng);
-    }
-
-    crate::cards::after_cast_any_spell(state, pool, rng);
 }
 
 /// Record `stacks` of `spell`'s player effect, lasting `duration` (it acts through the spell's

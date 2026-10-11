@@ -1,11 +1,13 @@
 //! Card templates, catalogs, and generic per-card hook dispatch.
 //!
 //! Card definitions are organized by folder (`src/cards/minions/`, `src/cards/spells/`,
-//! `src/cards/deities.rs`, `src/cards/tokens.rs`). Each card declares
-//! its behaviour as a [`CardHooks`] table (see [`hooks`](mod@hooks)); the dispatch functions
-//! in this module look hooks up by `CardId` through the [registry](fn@hooks) and never name a
-//! specific card.
+//! `src/cards/deities.rs`, `src/cards/tokens.rs`), with state and helpers shared by a family of
+//! cards in their own module (`src/cards/ballers.rs`, `src/cards/volumizers.rs`). Each card
+//! declares its behaviour as a [`CardHooks`] table (see [`hooks`](mod@hooks)); the dispatch
+//! functions in this module look hooks up by `CardId` through the [registry](fn@hooks) and never
+//! name a specific card.
 
+pub mod ballers;
 pub mod deities;
 mod effects;
 pub mod hooks;
@@ -13,6 +15,7 @@ pub mod minions;
 mod registry;
 pub mod spells;
 pub mod tokens;
+pub mod volumizers;
 
 pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
 pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
