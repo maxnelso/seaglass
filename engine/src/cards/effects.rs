@@ -3,7 +3,7 @@
 //!
 //! Most are [`PlayerEffect`]s, which act through their card's `player_*` hooks; the entry points
 //! here invoke those hooks in the order the effects were recorded. The rest are generic auras
-//! (Tavern buffs on `Refresh`, the Undead Attack bonus).
+//! (Tavern buffs on `Refresh`, the Undead stat bonus).
 //!
 //! The dispatch functions in the parent module call the phase entry points here; the Tavern
 //! and Combat engines never name these effects.
@@ -14,11 +14,11 @@ use crate::model::{CombatResult, PlayerAuras, PlayerEffect, Side, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
 
-/// Stats the player-wide "wherever this is" auras give `unit` (the Undead Attack bonus from
-/// `Nerubian Deathswarmer`).
+/// Stats the player-wide "wherever this is" auras give `unit` (the Undead bonus from
+/// `Nerubian Deathswarmer` and `Butchering`).
 pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
     if unit.tribe.matches(Tribe::Undead) {
-        (auras.undead_bonus_attack, 0)
+        (auras.undead_bonus_attack, auras.undead_bonus_health)
     } else {
         (0, 0)
     }

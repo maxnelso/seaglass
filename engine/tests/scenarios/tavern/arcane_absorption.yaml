@@ -7,3 +7,13 @@ scenarios:
       - add_to_hand: Arcane Absorption
       - play: {hand: Arcane Absorption, pos: 0}
     expect: {board: ["Dune Dweller 8/8"]}   # +5/+5
+
+  - name: the_copied_stats_get_no_spell_power
+    seed: 958
+    tavern: {board: [Dune Dweller], shop: [Stone Age Slab]}   # 3/3 and 10/10 Elementals
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Arcane Absorption
+      - play: {hand: Arcane Absorption, pos: 0}
+    expect: {board: ["Dune Dweller 8/8", "Humon'gozz 5/5"]}   # exactly +5/+5

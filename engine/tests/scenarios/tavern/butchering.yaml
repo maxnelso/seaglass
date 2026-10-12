@@ -8,3 +8,19 @@ scenarios:
     expect:
       auras: {undead_bonus_attack: 8}
       board: ["Skeleton 9/1", "Skeleton 9/1"]   # its Deathrattle's 1/1 Skeletons, +8 Attack
+
+  - name: spell_power_adds_its_health_to_the_undead_bonus
+    description: >-
+      With Humon'gozz (+1/+2) the Undead bonus is +9/+2, the extra Health included, for the rest
+      of the game.
+    tavern: {board: [Harmless Bonehead]}
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Butchering
+      - play: {hand: Butchering, pos: 0}
+      - expect: {board: ["Skeleton 10/3", "Skeleton 10/3", "Humon'gozz 5/5"]}   # 1/1 Skeletons +9/+2
+      - add_to_hand: Harmless Bonehead   # a later Undead gets it too
+    expect:
+      auras: {undead_bonus_attack: 9, undead_bonus_health: 2}
+      hand: ["Harmless Bonehead 10/3"]

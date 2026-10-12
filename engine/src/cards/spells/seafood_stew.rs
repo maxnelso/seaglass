@@ -1,6 +1,7 @@
 //! `Seafood Stew` — Tier 3 Tavern spell (`2` Gold).
 //!
-//! Give a minion +1/+1, plus +1/+1 per bonus keyword among your minions.
+//! Give a minion +1/+1, plus +1/+1 per bonus keyword among your minions. Spell power adds to each
+//! +1/+1, so it is multiplied by `1 +` the keyword count too.
 
 use super::targeted;
 use crate::cards::CardHooks;

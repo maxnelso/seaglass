@@ -9,3 +9,15 @@ scenarios:
     expect:
       gold: 1   # from the sale
       board: ["Iron Groundskeeper 8/10"]
+
+  - name: the_copied_stats_get_no_spell_power
+    seed: 848
+    tavern: {board: [Eredar Escapist]}   # 6/8
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Channel the Devourer
+      - play: {hand: Channel the Devourer, pos: 0}   # sells the Escapist
+    expect:
+      gold: 1   # from the sale
+      board: ["Humon'gozz 11/13"]   # 5/5 + exactly the Escapist's 6/8

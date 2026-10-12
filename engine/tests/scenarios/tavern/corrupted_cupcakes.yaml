@@ -11,3 +11,17 @@ scenarios:
     expect:
       shop: []
       board: ["Ominous Seer 9/9"]
+
+  - name: the_consumed_stats_get_no_spell_power
+    seed: 851
+    tavern:
+      board: [Ominous Seer]   # 2/1 Demon
+      shop: [Bubble Gunner, Lullabot, Flighty Scout]   # 2/3, 2/2, 3/3
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Corrupted Cupcakes
+      - play: {hand: Corrupted Cupcakes, pos: 0}
+    expect:
+      shop: []
+      board: ["Ominous Seer 9/9", "Humon'gozz 5/5"]   # exactly +7/+8

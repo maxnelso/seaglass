@@ -440,6 +440,12 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.undead_bonus_attack, after.undead_bonus_attack
         ));
     }
+    if before.undead_bonus_health != after.undead_bonus_health {
+        diffs.push(format!(
+            "undead_bonus_health: +{} -> +{}",
+            before.undead_bonus_health, after.undead_bonus_health
+        ));
+    }
     let ek = |a: &PlayerAuras| a.counter(minions::eternal_knight::ID);
     if ek(before) != ek(after) {
         diffs.push(format!(

@@ -1,6 +1,7 @@
 //! `Methodical Madness` — Tier 4 Tavern spell (`3` Gold).
 //!
-//! A minion consumes 2 random minions in the Tavern, gaining their stats and bonus keywords.
+//! A minion consumes 2 random minions in the Tavern, gaining their stats and bonus keywords (the
+//! stats as they are: spell power does not add to them).
 
 use super::targeted;
 use crate::cards::CardHooks;

@@ -1,6 +1,7 @@
 //! `Corrupted Cupcakes` — Tier 5 Tavern spell (`4` Gold).
 //!
-//! A friendly Demon consumes 3 random minions in the Tavern, gaining their stats.
+//! A friendly Demon consumes 3 random minions in the Tavern, gaining their stats (as they are:
+//! spell power does not add to them).
 
 use super::targeted_tribe;
 use crate::cards::CardHooks;

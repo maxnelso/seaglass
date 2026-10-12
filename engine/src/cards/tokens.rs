@@ -129,14 +129,15 @@ pub fn make_microbot(is_golden: bool) -> Unit {
 pub fn make_skeleton(is_golden: bool, auras: &PlayerAuras) -> Unit {
     let base = if is_golden { 2 } else { 1 };
     let atk = base + auras.undead_bonus_attack;
-    let mut u = Unit::new("Skeleton", atk, base)
+    let hp = base + auras.undead_bonus_health;
+    let mut u = Unit::new("Skeleton", atk, hp)
         .with_card_id(TOKEN_SKELETON)
         .with_tavern_tier(1)
         .with_tribe(Tribe::Undead)
         .with_golden(is_golden);
     u.base_attack = base;
     u.base_health = base;
-    u.aura_applied = (auras.undead_bonus_attack, 0);
+    u.aura_applied = (auras.undead_bonus_attack, auras.undead_bonus_health);
     u
 }
 
@@ -144,7 +145,8 @@ pub fn make_skeleton(is_golden: bool, auras: &PlayerAuras) -> Unit {
 pub fn make_helping_hand(is_golden: bool, auras: &PlayerAuras) -> Unit {
     let (base_atk, base_hp) = if is_golden { (4, 2) } else { (2, 1) };
     let atk = base_atk + auras.undead_bonus_attack;
-    let mut u = Unit::new("Helping Hand", atk, base_hp)
+    let hp = base_hp + auras.undead_bonus_health;
+    let mut u = Unit::new("Helping Hand", atk, hp)
         .with_card_id(TOKEN_HELPING_HAND)
         .with_tavern_tier(1)
         .with_tribe(Tribe::Undead)
@@ -152,7 +154,7 @@ pub fn make_helping_hand(is_golden: bool, auras: &PlayerAuras) -> Unit {
         .with_golden(is_golden);
     u.base_attack = base_atk;
     u.base_health = base_hp;
-    u.aura_applied = (auras.undead_bonus_attack, 0);
+    u.aura_applied = (auras.undead_bonus_attack, auras.undead_bonus_health);
     u
 }
 
