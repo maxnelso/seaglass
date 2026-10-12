@@ -193,11 +193,11 @@ fn print_player_snapshot(label: &str, state: &TavernState, pool: &CardPool) {
         state.bonus_gold_next_turn
     );
     println!(
-        "  │   Deity: {} ({}/{}) | Spells Cast: {} | Spell Buff: {:+}/{:+} | Blood Gem: +{}/+{} | Undead +{} ATK (EK died: {})",
+        "  │   Deity: {} ({}/{}) | Tavern Spells Cast: {} | Spell Buff: {:+}/{:+} | Blood Gem: +{}/+{} | Undead +{} ATK (EK died: {})",
         format_deity_kind(state.auras.deity.kind),
         state.auras.deity.attack,
         state.auras.deity.health,
-        state.auras.spells_played,
+        state.auras.tavern_spells_cast,
         state.auras.spell_bonus_atk,
         state.auras.spell_bonus_hp,
         1 + state.auras.blood_gem_bonus_atk,
@@ -521,10 +521,10 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
             before.free_refreshes, after.free_refreshes
         ));
     }
-    if before.spells_played != after.spells_played {
+    if before.tavern_spells_cast != after.tavern_spells_cast {
         diffs.push(format!(
-            "spells_played: {} -> {}",
-            before.spells_played, after.spells_played
+            "tavern_spells_cast: {} -> {}",
+            before.tavern_spells_cast, after.tavern_spells_cast
         ));
     }
     if before.cards_discarded != after.cards_discarded {

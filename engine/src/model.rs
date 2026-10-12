@@ -241,8 +241,9 @@ pub struct PlayerAuras {
     pub free_refreshes: u32,
     /// Permanent bonus to maximum Gold (`Strike Oil`).
     pub base_max_gold_bonus: u32,
-    /// Total spells cast this game.
-    pub spells_played: u32,
+    /// Tavern spells cast this game (`Faceless Converter`): every cast of a spell for which
+    /// [`crate::cards::spells::is_tavern_spell`] holds, so not Blood Gems (`docs/tavern.md` §7.4).
+    pub tavern_spells_cast: u32,
     /// Cost reduction on the next Tavern spell bought (`Ominous Seer`).
     pub next_spell_discount: i32,
     /// Per-tribe Tavern shop buffs (`Eonar's Favor`).

@@ -14,4 +14,4 @@ scenarios:
     tavern: {board: [Brain Rotter], hand: [Energizing Chamber]}
     steps:
       - activate: {pos: Brain Rotter, target: 0}   # discard it: cast twice
-    expect: {auras: {spells_played: 2}}
+    expect: {auras: {tavern_spells_cast: 2}}

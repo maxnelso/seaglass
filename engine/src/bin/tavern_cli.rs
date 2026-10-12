@@ -1497,14 +1497,14 @@ fn print_tavern(state: &TavernState, pool: &CardPool) {
         frozen_tag
     );
     println!(
-        " Deity: {} ({}/{})  |  Elem Aura: +{}/+{}  |  Spell Disc: -{}g  |  Spells Cast: {}",
+        " Deity: {} ({}/{})  |  Elem Aura: +{}/+{}  |  Spell Disc: -{}g  |  Tavern Spells Cast: {}",
         deity_name,
         state.auras.deity.attack,
         state.auras.deity.health,
         state.auras.tavern_elemental_atk,
         state.auras.tavern_elemental_hp,
         state.auras.next_spell_discount,
-        state.auras.spells_played,
+        state.auras.tavern_spells_cast,
     );
     println!("================================================================================");
 

@@ -14,4 +14,4 @@ scenarios:
       - add_to_hand: Veteran Brigand
       - play: Veteran Brigand
       - choose_discover: 1   # Brigand's Barrage: cast Blood Gem Barrage 3 times
-    expect: {auras: {refresh_blood_gems: 6, spells_played: 3}}   # 2 Blood Gems per cast; each cast counts
+    expect: {auras: {refresh_blood_gems: 6, tavern_spells_cast: 3}}   # 2 Blood Gems per cast; each cast counts

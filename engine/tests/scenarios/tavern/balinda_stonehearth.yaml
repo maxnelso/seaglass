@@ -120,12 +120,12 @@ scenarios:
     tavern: {board: [Balinda Stonehearth], shop: [Lullabot], hand: [Tavern Dish Banana, Tavern Dish Banana]}   # Lullabot: 2/2
     steps:
       - play: {hand: Tavern Dish Banana, shop: 0}   # +2/+2 once
-      - expect: {shop: ["Lullabot 4/4"], auras: {spells_played: 1}}
+      - expect: {shop: ["Lullabot 4/4"], auras: {tavern_spells_cast: 1}}
       - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda: cast twice
     expect:
       shop: ["Lullabot 4/4"]
       board: ["Balinda Stonehearth 10/10"]
-      auras: {spells_played: 3}
+      auras: {tavern_spells_cast: 3}
 
   # The casts follow their target; once it is gone, the remaining casts fizzle: they do nothing
   # and trigger nothing.
@@ -137,7 +137,7 @@ scenarios:
     expect:
       # The second cast doesn't destroy the Skeleton that took the Bonehead's place.
       board: [Balinda Stonehearth, "Skeleton 9/1", "Skeleton 9/1", {card: Felboar, counter: 1}]
-      auras: {undead_bonus_attack: 8, spells_played: 1}   # one cast: +8 Attack, Felboar counts 1 spell
+      auras: {undead_bonus_attack: 8, tavern_spells_cast: 1}   # one cast: +8 Attack, Felboar counts 1 spell
 
   - name: a_sold_target_fizzles_the_remaining_casts
     seed: 848
@@ -147,7 +147,7 @@ scenarios:
     expect:
       gold: 1   # one sale: the Vermin that slid into the Bat's slot isn't sold
       board: {count: 2, 0: Balinda Stonehearth, 1: {card: Buzzing Vermin}, sum: {health: 11}}   # 6 + 1 + 4
-      auras: {spells_played: 1}
+      auras: {tavern_spells_cast: 1}
 
   - name: a_transformed_target_fizzles_the_remaining_casts
     seed: 823
@@ -156,7 +156,7 @@ scenarios:
       - play: {hand: Robust Evolution, pos: 1}
     expect:
       board: [Balinda Stonehearth, "1/4 t2"]   # transformed once, not again into a Tier 3
-      auras: {spells_played: 1}
+      auras: {tavern_spells_cast: 1}
 
   - name: the_casts_follow_their_target_when_it_moves
     tavern:
@@ -170,7 +170,7 @@ scenarios:
     expect:
       board: [Balinda Stonehearth, Buzzing Vermin]
       hand: ["golden Flittering Bat 2/8", "Flittering Bat 1/4"]
-      auras: {spells_played: 2}
+      auras: {tavern_spells_cast: 2}
 
   # A Choose One spell is chosen once; the chosen option applies once per cast.
 
@@ -183,7 +183,7 @@ scenarios:
     expect:
       discover_pending: null
       board: [Balinda Stonehearth, "Iron Groundskeeper 8/4"]   # +3/+1 per cast
-      auras: {spells_played: 2}
+      auras: {tavern_spells_cast: 2}
 
   - name: a_combined_choose_one_spell_stays_combined_for_all_casts
     tavern:
@@ -210,7 +210,7 @@ scenarios:
     tavern: {board: [Balinda Stonehearth, Faceless Converter], hand: [Tavern Dish Banana]}   # Converter: 5/5
     steps:
       - play: {hand: Tavern Dish Banana, pos: 1}
-      - expect: {auras: {spells_played: 2}, board: [Balinda Stonehearth, "Faceless Converter 9/9"]}
+      - expect: {auras: {tavern_spells_cast: 2}, board: [Balinda Stonehearth, "Faceless Converter 9/9"]}
       - fight: {board: [Stalwart Kodo]}   # a 16/32: the Converter dies
     # Its Deathrattle gives the 1/1 Deity +2/+1, improved by 2 spells: +6/+3.
     expect: {auras: {deity: {attack: 7, health: 4}}}

@@ -14,4 +14,4 @@ scenarios:
     steps:
       - repeat: 7   # 7 Refreshes: 7 Gold spent, one Easterly Winds
         steps: [refresh]
-    expect: {auras: {spells_played: 1}}
+    expect: {auras: {tavern_spells_cast: 1}}

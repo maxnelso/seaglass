@@ -14,7 +14,7 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
-    let mult = (1 + ctx.auras.spells_played as i32) * (if dying.is_golden { 2 } else { 1 });
+    let mult = (1 + ctx.auras.tavern_spells_cast as i32) * (if dying.is_golden { 2 } else { 1 });
     let d_atk = 2 * mult;
     let d_hp = mult;
     ctx.auras.deity.attack += d_atk;

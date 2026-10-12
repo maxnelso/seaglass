@@ -15,7 +15,7 @@ scenarios:
     expect:
       shop: ["Flittering Bat 1/4", "Lullabot 4/4"]   # Lullabot: 2/2 +2/+2
       board: ["Iron Groundskeeper 2/2"]
-      auras: {spells_played: 1}
+      auras: {tavern_spells_cast: 1}
 
   - name: cant_target_a_spell_in_the_tavern
     tavern: {shop: [Lullabot, Fortify], hand: [Tavern Dish Banana]}

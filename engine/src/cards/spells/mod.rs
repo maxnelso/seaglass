@@ -773,8 +773,8 @@ pub fn cast_spell(
 }
 
 /// Resolve the effect of casting `card` from `hand` on `target` (ignored if it is untargeted;
-/// `docs/tavern.md` §7.4). Each cast counts as a spell cast (`spells_played`) and runs the
-/// `spell_cast` observers if it is a Tavern spell, then its `cast_at` / `cast` hook (a spell
+/// `docs/tavern.md` §7.4). If it is a Tavern spell, each cast counts toward `tavern_spells_cast`
+/// and runs the `spell_cast` observers; then every cast runs its `cast_at` / `cast` hook (a spell
 /// without one adds its stats to the target), then the after-targeted-spell observers if its
 /// target is still there (on the board or in the Tavern), then the after-cast observers. A
 /// [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times, and one cast on a friendly
@@ -821,8 +821,8 @@ pub fn cast_spell_on(
         if targeted && find_cast_target(state, target).is_none() {
             break; // the target is gone: this cast and the rest fizzle
         }
-        state.auras.spells_played += 1;
         if tavern_spell {
+            state.auras.tavern_spells_cast += 1;
             crate::cards::on_cast_tavern_spell(state, pool, rng);
         }
         let slot = if targeted {

@@ -20,4 +20,4 @@ scenarios:
     tavern: {board: [Lullabot], hand: [{card: Magicfin Apprentice, taught_spell_id: 804}]}   # 804: Fortify
     steps:
       - play: {hand: Magicfin Apprentice, pos: 0}   # Battlecry: cast Fortify
-    expect: {auras: {spells_played: 1}}
+    expect: {auras: {tavern_spells_cast: 1}}

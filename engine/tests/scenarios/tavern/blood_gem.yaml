@@ -18,3 +18,13 @@ scenarios:
     expect:
       shop: [{card: Flittering Bat, stats: "2/5", blood_gems_played: 1}]
       board: ["Lullabot 2/2"]
+
+  - name: isnt_a_tavern_spell
+    tavern:
+      board: [Vicious Mindslasher]   # 1/2; whenever you cast a Tavern spell, +1/+2
+      hand: [Blood Gem, Tavern Dish Banana]
+    steps:
+      - play: {hand: Blood Gem, pos: 0}   # only the Blood Gem's +1/+1
+      - expect: {board: ["Vicious Mindslasher 2/3"], auras: {tavern_spells_cast: 0}}   # Faceless Converter's count
+      - play: {hand: Tavern Dish Banana, pos: 0}   # +2/+2, and +1/+2
+    expect: {board: ["Vicious Mindslasher 5/7"], auras: {tavern_spells_cast: 1}}
