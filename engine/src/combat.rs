@@ -801,8 +801,9 @@ fn perform_one_strike(
     let target_venomous = def_side.board[def_pos].venomous;
     let def_pre_hp = def_side.board[def_pos].health;
 
-    // 4. Simultaneous damage (target first, then attacker).
-    let (atk_consumed_venom, def_took_damage) = apply_damage(
+    // 4. Simultaneous damage (target first, then attacker). A Venomous attacker destroys every
+    //    minion its attack damages (cleave included); its Venomous is used up afterwards.
+    let (mut atk_consumed_venom, def_took_damage) = apply_damage(
         &mut def_side.board,
         def_pos,
         attacker_attack,
@@ -810,9 +811,6 @@ fn perform_one_strike(
         attacker_venomous,
         events,
     );
-    if atk_consumed_venom {
-        atk_side.board[atk_pos].venomous = false;
-    }
     if def_took_damage {
         cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
         cards::on_damage_dealt(
@@ -852,14 +850,15 @@ fn perform_one_strike(
             adj_positions.push(def_pos + 1);
         }
         for n_pos in adj_positions {
-            let (_, n_took_damage) = apply_damage(
+            let (n_consumed_venom, n_took_damage) = apply_damage(
                 &mut def_side.board,
                 n_pos,
                 attacker_attack,
                 attacker_id,
-                false,
+                attacker_venomous,
                 events,
             );
+            atk_consumed_venom |= n_consumed_venom;
             if n_took_damage {
                 cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
                 cards::on_damage_dealt(
@@ -869,6 +868,9 @@ fn perform_one_strike(
                 );
             }
         }
+    }
+    if atk_consumed_venom {
+        atk_side.board[atk_pos].venomous = false;
     }
 
     // 4b. Excess attack damage to adjacent enemies (e.g., `Wildfire Elemental`).

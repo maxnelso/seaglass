@@ -6,3 +6,49 @@ scenarios:
       board_a: [Blade Collector]   # 3/2, also damages the enemies next to its target
       board_b: [Wandering Willbreaker, Amber Guardian, Wandering Willbreaker]
     expect: {outcome: draw, survivors_b: []}
+
+  # Unit ids: A's Blade Collector 0, Patient Scouts 1-3; B's Tyrael 4, Insatiable Ur'zul 5
+  # (4/6 Taunt), Tyrael 6.
+  - name: venomous_destroys_the_target_and_both_neighbours
+    description: >-
+      Side A (4 minions) attacks first. The Venomous Blade Collector must attack the Taunt
+      Ur'zul; its attack damages Ur'zul and both Tyraels (3 each), so all three are destroyed.
+      The 3/2 dies to Ur'zul's 4 Attack and the Patient Scouts win.
+    seed: 405
+    combat:
+      board_a: [Blade Collector venomous, Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Tyrael, Insatiable Ur'zul, Tyrael]
+    expect:
+      outcome: a_win
+      survivors_a: [Patient Scout, Patient Scout, Patient Scout]
+      events:
+        where: {type: venomous_triggered}
+        count: 3
+        0: {attacker: 0, target: 5}
+        1: {attacker: 0, target: 4}
+        2: {attacker: 0, target: 6}
+
+  # Unit ids: A's Blade Collector 0 (6/5), Patient Scouts 1-3; B's Tyrael 4, Annoy-o-Module 5
+  # (2/4 Taunt, Divine Shield), Tyrael 6.
+  - name: venomous_destroys_the_neighbours_when_a_shield_absorbs_the_target_hit
+    description: >-
+      Side A (4 minions) attacks first. Annoy-o-Module's Divine Shield absorbs the hit, but the
+      attack also damages both Tyraels (6 each), so Venomous destroys them and is used up: the
+      Blade Collector destroys nothing more with it for the rest of the combat.
+    seed: 405
+    combat:
+      board_a: ["Blade Collector +3/+3 venomous", Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Tyrael, Annoy-o-Module, Tyrael]
+    expect:
+      outcome: a_win
+      survivors_a: ["Blade Collector 6/1 -venomous", Patient Scout]
+      events:
+        all_of:
+          - sequence:
+              - {type: attack_declared, side: a, attacker: 0, target: 5}
+              - {type: divine_shield_popped, unit: 5}
+              - {type: venomous_triggered, attacker: 0, target: 4}
+              - {type: venomous_triggered, attacker: 0, target: 6}
+              - {type: death, unit: 4}
+              - {type: death, unit: 6}
+          - {where: {type: venomous_triggered}, count: 2}
