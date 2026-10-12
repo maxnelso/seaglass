@@ -14,7 +14,7 @@ The combat loop is **card-agnostic**: it knows only about units, keywords, and g
 - **Taunt** — Must be targeted before non-Taunt minions.
 - **Divine Shield** — Absorbs the first instance of damage $> 0$, then pops.
 - **Windfury** — A unit selected to attack strikes a **second time**, immediately, if it is still alive after the first strike and the enemy board is non-empty. Windfury is read **once**, before the first strike (§5.3), so Windfury granted mid-turn does not add a strike.
-- **Reborn** — On death, resummons a base (or Golden-base) copy of the unit at the dying unit's slot with `health = 1` and `reborn = false` (plus any "wherever this is" / combat summon auras), respecting the 7-unit board cap. Resolved **after** all of that side's Deathrattles from the same deaths, and after the Deity if those deaths awaken it. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield or stat buff that was merely granted to the dying instance is not carried over (§5.3.1 step 9).
+- **Reborn** — On death, resummons a base (or Golden-base) copy of the unit at the dying unit's slot with `health = 1` and `reborn = false` (plus any "wherever this is" / combat summon auras), respecting the 7-unit board cap. Resolved **after** all of that side's Deathrattles from the same deaths, and after the Deity if those deaths awaken it. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield or stat buff that was merely granted to the dying instance is not carried over (§5.3.1 step 9). The copy takes the dying unit's place in its side's attack order (§5.4).
 
 ### Trigger Phases
 
@@ -23,7 +23,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 1. **Start of Combat (§5.1 step 6)** — Resolved once before the first attack turn, Side A first, then Side B, in left-to-right board order. Used for pre-battle board/tribal buffs (`Electric Synthesizer`), combat-long tribal attack auras (`Humming Bird`), and hand summons (`Flighty Scout`).
 2. **On-Attack / Rally (§5.3.1 step 2)** — Fires when an attacker declares a strike, **before target selection and before any damage**. May buff the attacker (`Glim Guardian`, `Tusked Camper`), summon a unit adjacent to the attacker (`Flittering Bat`, `Expert Aviator` from hand), generate a hand card (`Roadboar`), or trigger friendly "whenever another friendly minion attacks" observers (`Prodigious Tusker`) on the attacking board in left-to-right order.
 3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
-4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** any Reborn from the same deaths. May summon token(s) at the dying unit's slot (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
+4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** any Reborn from the same deaths. May summon token(s) at the dying unit's slot, which take its place in the attack order (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
 5. **Stat-Threshold Observers** — Checked immediately whenever a unit's stats increase during combat (e.g., `Scarlet Survivor` gaining Divine Shield at 6 Attack).
 6. **Combat-to-Tavern Persistence** — `Tarecgosa` permanently retains Bonus Keywords and (`double` if Golden) stats gained during combat; hand buffs (`Very Hungry Winterfinner`), generated hand cards (`Roadboar`), and game-long counters such as `Eternal Knight` deaths (card-keyed `PlayerAuras::card_counters`) persist back to `TavernState`.
 
@@ -52,7 +52,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 ## 3. Rules Summary
 
 1. **First attacker** — The side with more minions attacks first; on an equal count it is a coin flip (RNG).
-2. **Attack order** — Sides strictly alternate turns. Each side attacks with its minions left $\to$ right via a persistent pointer that wraps to the leftmost after the rightmost. Units that cannot attack (`attack == 0`) are skipped.
+2. **Attack order** — Sides strictly alternate turns. Each side attacks with its minions left $\to$ right via a persistent pointer that wraps to the leftmost after the rightmost. Minions summoned into a dead minion's slot (its Deathrattle summons, its Reborn copy) take its place in that order (§5.4). Units that cannot attack (`attack == 0`) are skipped.
 3. **Target** — A uniformly random living enemy minion, unless the enemy controls living Taunt minions, in which case a uniformly random living **Taunt** minion.
 4. **Damage** — Attacker and target deal their attack to each other **simultaneously**. Divine Shield absorbs the first instance of damage $> 0$ and pops instead of losing health. Any unit at $\le 0$ health dies.
 5. **End** — Combat ends when at least one side has no minions. Both empty at once $\to$ draw; otherwise the non-empty side wins. Combat also ends in a draw if neither side can attack (§5.2).
@@ -140,27 +140,38 @@ One *turn* is one or two *strikes* by a single attacker:
    - Each call emits `DamageDealt` if the unit lost health, `DivineShieldPopped` if its Divine Shield absorbed the hit, or **nothing** if the amount was $\le 0$.
    - Then the attacker's "after this attacks" effects (excess damage to the target's neighbours, `Wildfire Elemental`; bonus damage to the highest-Health enemy, `De-volition-ist`). They fire even if the attacker died in the exchange.
 7. **Emit a `Death`** for every unit now at $\le 0$ health, ordered **defending side first (left $\to$ right), then attacking side (left $\to$ right)**.
-8. **Re-anchor both pointers** per §5.4 while the dead are still on their boards.
-9. **Resolve deaths**, **defending side first, then attacking side**. For one side, in three passes (summons respect the 7-unit board cap):
+8. **Set the attacking side's pointer** per §5.4 while the dead are still on the board (the defending side's pointer stays on its unit).
+9. **Resolve deaths**, **defending side first, then attacking side**. For one side, in three passes (summons respect the 7-unit board cap), then a pointer update:
    1. **Deaths**: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its friendly-death triggers (Avenge), then its **Deathrattle**, inserting summons at the dead unit's position.
    2. **Deity**: once the side has had 4 friendly Aberration deaths this combat (`DEITY_SACRIFICE_REQUIREMENT`), its Deity awakens: it is summoned at the right end of the board (if there is room; otherwise after a later round of deaths), `DeityAwakened` is emitted, and its awaken effect resolves (`C'Thun`).
    3. **Reborn**, left $\to$ right: each dead unit with Reborn is resummoned at its position (after its Deathrattle summons) as a base (or Golden-base) copy with `health = 1`, `reborn = false`, printed keywords restored, and global/combat summon auras applied.
+   4. **Pointer**: if the side's pointer is on a unit that died, re-anchor it per §5.4.
 
 ### 5.4 Pointer Advance
 
-Both pointers are re-anchored by **unit identity** after damage (§5.3.1 step 6) and before death resolution (§5.3.1 step 9):
+Each side's pointer names, by **unit identity**, the unit it attacks with next (§5.3 step 1 scans right from it, wrapping, to the first unit that can attack).
 
-- **Attacking side**: Take its units in cyclic order starting immediately after the attacker (`attacker + 1, ..., end, 0, ..., attacker`). The new pointer is the **first unit in that order that is still alive**.
-- **Defending side**: Keeps the **same unit** if it is still alive; otherwise moves to the **first still-living unit at or after its position** (cyclically).
+- **Attacking side**: after a strike's damage (§5.3.1 step 8), its pointer moves to the unit **immediately to the right of the attacker** (wrapping to the leftmost after the rightmost), dead or alive; if the attacker itself died, the pointer stays on the attacker. Immediate attacks (Start of Combat, `Eternal Tycoon`'s Knight) and summons that attack the target first (`Jailbird Juggernaut`'s Golem) don't move it.
+- **Defending side**: its pointer stays on the **same unit**.
+
+Whenever a side's deaths resolve (§5.3.1 step 9), a pointer on a unit that died is re-anchored:
+
+1. to the **left-most unit summoned into its slot** (its Deathrattle summons, then its Reborn copy), if any is on the board: they take its place in the attack order;
+2. otherwise to the next unit of the board as it was before those deaths (left $\to$ right), applying the same rule if that unit died too;
+3. past the rightmost unit, it wraps to the board's leftmost unit.
+
+Units summoned elsewhere (an Avenge summon beside its source, a Deity or Beetles at the right end) don't take a dead unit's place; they attack when the order reaches them.
 
 Example for the attacking side:
 - `[X, Y, Z]`, `X` attacks and nobody dies $\to$ next is `Y`.
 - `[X, Y, Z]`, `X` attacks and `X` dies $\to$ board `[Y, Z]`, next is `Y`.
+- `[X, Y, Z]`, `X` (`Harmless Bonehead`) attacks and dies $\to$ board `[S1, S2, Y, Z]`, next is its left Skeleton `S1`, then `S2`, then `Y`.
 - `[X, Y, Z]`, `Z` attacks and nobody dies $\to$ wraps, next is `X`.
 
 Example for the defending side (pointer on `Y`):
 - `[X, Y, Z]`, `X` (left of `Y`) dies while defending $\to$ board `[Y, Z]`, pointer remains `Y`.
 - `[X, Y, Z]`, `Y` dies while defending $\to$ board `[X, Z]`, pointer advances to `Z`.
+- `[X, Y, Z]`, `Y` dies while defending and is Reborn as `Y'` $\to$ board `[X, Y', Z]`, pointer moves to `Y'`.
 
 ### 5.5 `apply_damage(unit, amount)`
 

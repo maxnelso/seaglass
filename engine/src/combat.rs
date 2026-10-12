@@ -1,5 +1,7 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
+use std::ops::Range;
+
 use serde::Serialize;
 
 use crate::cards::{self, BoardCtx, Passive, SocAction};
@@ -388,7 +390,6 @@ fn resolve_start_of_combat_destroys(
         own_side.board[src_pos]
             .stitched_stored
             .extend(stored_copies);
-        own_side.ptr = preserve_defender_ptr(&own_side.board, own_side.ptr);
         resolve_deaths(side, own_side, opp_side, next_id, rng, events);
         resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
     }
@@ -697,8 +698,6 @@ fn perform_one_strike(
                 events.push(Event::Death { unit: u.id });
             }
         }
-        atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
-        def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
         resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
         resolve_deaths(side, atk_side, def_side, next_id, rng, events);
         resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
@@ -724,7 +723,7 @@ fn perform_one_strike(
         .position(|u| u.id == target_id && u.health > 0)
     else {
         if advance_ptr {
-            atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
+            atk_side.ptr = unit_after(&atk_side.board, atk_pos);
         }
         return;
     };
@@ -903,13 +902,16 @@ fn perform_one_strike(
         }
     }
 
-    // 6. Re-anchor both pointers while dead units are still in place.
+    // 6. Point the attacking side at the unit right of the attacker, or at the attacker if it
+    //    died, while dead units are still in place; deaths re-anchor pointers on dead units so
+    //    that the units summoned into their slots take their place (docs/combat.md §5.4).
     if advance_ptr {
-        atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
-    } else {
-        atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
+        atk_side.ptr = if atk_side.board[atk_pos].health > 0 {
+            unit_after(&atk_side.board, atk_pos)
+        } else {
+            Some(attacker_id)
+        };
     }
-    def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
 
     // 7. Resolve deaths (defending side first, then attacking side).
     resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
@@ -1018,9 +1020,6 @@ fn perform_forced_target_strike(
             events.push(Event::Death { unit: u.id });
         }
     }
-
-    atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
-    def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
 
     resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
     resolve_deaths(side, atk_side, def_side, next_id, rng, events);
@@ -1160,36 +1159,44 @@ fn apply_damage(
     }
 }
 
-fn advance_attacker_ptr(board: &[Unit], attacker_idx: usize) -> Option<UnitId> {
-    let n = board.len();
-    if n == 0 {
+/// The unit immediately to the right of `board[idx]`, wrapping to the leftmost.
+fn unit_after(board: &[Unit], idx: usize) -> Option<UnitId> {
+    if board.is_empty() {
         return None;
     }
-    for offset in 1..=n {
-        let idx = (attacker_idx + offset) % n;
-        if board[idx].health > 0 {
-            return Some(board[idx].id);
-        }
-    }
-    None
+    Some(board[(idx + 1) % board.len()].id)
 }
 
-fn preserve_defender_ptr(board: &[Unit], current_ptr: Option<UnitId>) -> Option<UnitId> {
-    let n = board.len();
-    if n == 0 {
-        return None;
-    }
-    let start_idx = current_ptr
-        .and_then(|id| board.iter().position(|u| u.id == id))
-        .unwrap_or(0);
-
-    for offset in 0..n {
-        let idx = (start_idx + offset) % n;
-        if board[idx].health > 0 {
-            return Some(board[idx].id);
+/// Re-anchor a side's next-attacker pointer after a round of its deaths resolved
+/// (`docs/combat.md` §5.4). A pointer on a unit that died moves to the left-most unit summoned
+/// into that unit's slot (`slot_summons`: the ids each dead unit's Deathrattle and Reborn
+/// summoned), otherwise on to the next unit of `old_ids` (the board before the deaths), and
+/// past the rightmost wraps to the leftmost unit.
+fn reanchor_ptr(
+    ptr: Option<UnitId>,
+    old_ids: &[UnitId],
+    slot_summons: &[(UnitId, Range<UnitId>)],
+    board: &[Unit],
+) -> Option<UnitId> {
+    let leftmost = board.first()?.id;
+    let on_board = |id: UnitId| board.iter().any(|u| u.id == id);
+    let Some(start) = ptr.and_then(|p| old_ids.iter().position(|&id| id == p)) else {
+        return Some(ptr.filter(|&p| on_board(p)).unwrap_or(leftmost));
+    };
+    for &id in &old_ids[start..] {
+        if on_board(id) {
+            return Some(id);
+        }
+        let summoned = board.iter().find(|u| {
+            slot_summons
+                .iter()
+                .any(|(dead, ids)| *dead == id && ids.contains(&u.id))
+        });
+        if let Some(u) = summoned {
+            return Some(u.id);
         }
     }
-    None
+    Some(leftmost)
 }
 
 fn resolve_deaths(
@@ -1213,6 +1220,10 @@ fn resolve_deaths(
     // Dead units with Reborn and their slots (after their Deathrattle summons), resummoned once
     // all of this side's deaths have resolved (docs/combat.md §5.3.1 step 9).
     let mut reborns: Vec<(Unit, usize)> = Vec::new();
+    // The board before these deaths, and the ids of the units each dead unit's Deathrattle and
+    // Reborn summoned into its slot, to re-anchor the pointer (docs/combat.md §5.4).
+    let old_ids: Vec<UnitId> = old_board.iter().map(|u| u.id).collect();
+    let mut slot_summons: Vec<(UnitId, Range<UnitId>)> = Vec::new();
 
     for unit in old_board {
         if unit.health > 0 {
@@ -1236,6 +1247,7 @@ fn resolve_deaths(
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
         let dr_repeats = 1 + cards::board_passive(&side_state.board, Passive::ExtraDeathrattles);
         let mut enemy_destroys = Vec::new();
+        let first_summon = *next_id;
         for _ in 0..dr_repeats {
             let mut dr_ctx = side_state.ctx(side, next_id, rng, events);
             dr_ctx.cursor = cursor;
@@ -1243,6 +1255,7 @@ fn resolve_deaths(
             cursor = dr_ctx.cursor;
             enemy_destroys.append(&mut dr_ctx.enemy_destroys);
         }
+        slot_summons.push((unit.id, first_summon..*next_id));
         for target_id in enemy_destroys {
             if let Some(target) = opp_side
                 .board
@@ -1266,10 +1279,12 @@ fn resolve_deaths(
     // 3. Reborn resummons, left to right; each slot shifts by the units inserted before it.
     let mut inserted = 0;
     for (unit, slot) in reborns {
+        let first_summon = *next_id;
         let mut ctx = side_state.ctx(side, next_id, rng, events);
         ctx.cursor = slot + inserted;
         cards::reborn(&mut ctx, &unit);
         inserted = ctx.cursor - slot;
+        slot_summons.push((unit.id, first_summon..*next_id));
     }
 
     // 4. Effects that fill open board slots after deaths (e.g. `Boon of Beetles`).
@@ -1284,12 +1299,10 @@ fn resolve_deaths(
     );
     cards::push_stat_changes(side, &side_state.board, &before_aura, "Death Aura", events);
 
-    if side_state.ptr.is_none() && !side_state.board.is_empty() {
-        side_state.ptr = Some(side_state.board[0].id);
-    }
+    // 6. Re-anchor the pointer if its unit died.
+    side_state.ptr = reanchor_ptr(side_state.ptr, &old_ids, &slot_summons, &side_state.board);
 
     if killed_opp {
-        opp_side.ptr = preserve_defender_ptr(&opp_side.board, opp_side.ptr);
         resolve_deaths(side.other(), opp_side, side_state, next_id, rng, events);
     }
 }
