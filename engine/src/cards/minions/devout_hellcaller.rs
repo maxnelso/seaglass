@@ -1,5 +1,8 @@
 //! `Devout Hellcaller` (`BG33_155`) — Tier 3 Demon (`4/4`).
 //! After another friendly Demon deals damage, gain `+2/+2` (`+4/+4` if Golden) permanently.
+//!
+//! In combat the gain is kept after the combat; in the Tavern (a Demon attacking a `Fishbait`,
+//! `docs/tavern.md` §7.7) it is permanent anyway.
 
 use crate::cards::{BoardCtx, CardTemplate};
 use crate::model::{CardId, Tribe, UnitId};
@@ -22,9 +25,12 @@ pub fn after_friendly_damage_dealt(
     if !source_tribe.matches(Tribe::Demon) {
         return;
     }
+    let in_combat = ctx.in_combat;
     let unit = &mut ctx.board[self_idx];
     let delta = 2 * unit.golden_mult();
-    unit.perm_atk_gained += delta;
-    unit.perm_hp_gained += delta;
+    if in_combat {
+        unit.perm_atk_gained += delta;
+        unit.perm_hp_gained += delta;
+    }
     ctx.buff_unit(self_idx, delta, delta, NAME);
 }

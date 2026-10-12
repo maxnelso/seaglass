@@ -5,3 +5,79 @@ scenarios:
     steps:
       - activate: {pos: Lurking Lionfish, target: 0}
     expect: {board: ["Lurking Lionfish 8/9"]}
+
+  - name: its_beasts_attack_triggers_the_attack_observers
+    description: >-
+      The left-most Beast attacks the Fishbait as in combat: before the damage, Cage Gnawer gives
+      your Beasts +2/+1, Prodigious Tusker plays a Blood Gem on the attacker and Ravaging Scorpid
+      gives your Beetles +4/+4 this game.
+    tavern:
+      gold: 2
+      shop: [Iron Groundskeeper]
+      board: [Lurking Lionfish, Cage Gnawer, Prodigious Tusker, Ravaging Scorpid]   # Lionfish: a 3/4 Beast
+    steps:
+      - activate: {pos: Lurking Lionfish, target: 0}
+    expect:
+      shop: []
+      auras: {counters: {Beetle: [4, 4]}}
+      board:
+        - "Lurking Lionfish 11/11"   # 3/4 +2/+1 (Gnawer) +1/+1 (Blood Gem) +5/+5 (Fishbait)
+        - "Cage Gnawer 4/8"
+        - "Prodigious Tusker 2/5"
+        - "Ravaging Scorpid 8/8"   # a Beast: +2/+1
+
+  - name: a_rally_beast_attacks_after_its_rally_and_deathstrider
+    description: >-
+      Flittering Bat, the left-most Beast, attacks: its Rally summons a 1/1 Beast, then Deathstrider
+      triggers Harmless Bonehead's Deathrattle, whose Skeletons push the Bat to the right. The Bat
+      still attacks and gets the +5/+5.
+    tavern:
+      gold: 2
+      shop: [Iron Groundskeeper]
+      board: [Harmless Bonehead, Flittering Bat, Lurking Lionfish, Deathstrider]
+    steps:
+      - activate: {pos: Lurking Lionfish, target: 0}
+    expect:
+      shop: []
+      board:
+        - Harmless Bonehead
+        - "Skeleton 1/1"
+        - "Skeleton 1/1"
+        - "Flittering Bat 6/9"   # 1/4 +5/+5
+        - "1/1 beast"
+        - Lurking Lionfish
+        - Deathstrider
+
+  - name: treasure_parrot_counts_the_damage_of_its_attack
+    description: >-
+      Treasure Parrot attacks the 0/1 Fishbait with its whole 5 Attack (overkill counts): 31 + 5 =
+      36 damage dealt, so it gets a Golden Touch.
+    tavern:
+      gold: 2
+      shop: [Iron Groundskeeper]
+      board: [{card: Treasure Parrot, counter: 31}, Lurking Lionfish]   # a 5/5 Beast/Pirate
+    steps:
+      - activate: {pos: Lurking Lionfish, target: 0}
+    expect:
+      hand: [Golden Touch]
+      board: [{card: Treasure Parrot, stats: 10/10, counter: 36}, Lurking Lionfish]
+
+  - name: an_all_type_attacker_triggers_roaring_recruiter_and_devout_hellcaller
+    description: >-
+      Gatekeeper Amalgam (All) is the left-most Beast, and a Dragon and a Demon too: Roaring
+      Recruiter gives it +3/+1 before it attacks, and Devout Hellcaller gains +2/+2 when it deals
+      damage. The Hellcaller's gain is just permanent: the combat after it doesn't add it again.
+    tavern:
+      gold: 2
+      shop: [Iron Groundskeeper]
+      board: [Gatekeeper Amalgam, Roaring Recruiter, Devout Hellcaller, Lurking Lionfish]   # Amalgam: 6/6
+    steps:
+      - activate: {pos: Lurking Lionfish, target: 0}
+      - expect:
+          board:
+            - "Gatekeeper Amalgam 14/12"   # 6/6 +3/+1 +5/+5
+            - "Roaring Recruiter 2/8"
+            - "Devout Hellcaller 6/6"   # 4/4 +2/+2
+            - Lurking Lionfish
+      - fight: {board: []}   # an empty board: nobody deals damage
+    expect: {board: {2: "Devout Hellcaller 6/6"}}

@@ -1,5 +1,8 @@
 //! `Wolf Pup` (`BG36_207`) — Tier 3 Beast (`3/6`).
 //! **Rally:** Give your other minions `+4/+1` (`+8/+2` if Golden).
+//!
+//! Triggered in the Tavern (`Sky-hatch Runaway`, an attack on a `Fishbait`), it buffs your other
+//! minions on the board (`docs/tavern.md` §7.7).
 
 use crate::cards::CardTemplate;
 use crate::events::Event;

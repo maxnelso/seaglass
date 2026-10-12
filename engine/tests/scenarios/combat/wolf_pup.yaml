@@ -4,3 +4,10 @@ scenarios:
     seed: 343
     combat: {board_a: [Wolf Pup, Patient Scout], board_b: [Patient Scout]}
     expect: {outcome: a_win, survivors_a: {1: "Patient Scout 5/2"}}
+
+  - name: its_rally_triggered_in_the_tavern_buffs_the_other_minions
+    description: Sky-hatch Runaway triggers its Rally in the Tavern, so the other minions get +4/+1.
+    tavern: {gold: 1, board: [Sky-hatch Runaway, Wolf Pup]}   # Runaway: 4/7, Activate (1)
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect: {board: ["Sky-hatch Runaway 8/8", "Wolf Pup 3/6"]}

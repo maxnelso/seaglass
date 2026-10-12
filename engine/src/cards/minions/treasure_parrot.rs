@@ -1,5 +1,8 @@
 //! `Treasure Parrot` (`BG36_763`) — Tier 3 Beast/Pirate (`5/5`).
 //! Once this deals 35 damage, get a (`two` if Golden) `Golden Touch`(es).
+//!
+//! A hit that a Divine Shield absorbs deals no damage; one that kills counts its whole Attack,
+//! overkill included. Its attacks on a `Fishbait` in the Tavern count too (`docs/tavern.md` §7.7).
 
 use crate::cards::{tokens, BoardCtx, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

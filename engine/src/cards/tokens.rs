@@ -1,7 +1,7 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
 use crate::cards::hooks::CardEventFn;
-use crate::cards::{minions, spells, BoardCtx, CardFlags, CardHooks};
+use crate::cards::{self, minions, spells, BoardCtx, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -279,6 +279,29 @@ pub fn make_fishbait(is_golden: bool) -> Unit {
         .with_golden(is_golden);
     u.cant_gain_stats = true;
     u
+}
+
+/// Your left-most Beast attacks the `Fishbait` at `state.shop[shop_idx]` (`Lurking Lionfish`,
+/// `Snarky Shark`), as a regular attack ([`cards::tavern_attack`], `docs/tavern.md` §7.7). One it
+/// kills gives it `+5/+5` (`+10/+10` if Golden) and leaves the Tavern; one it doesn't kill stays
+/// there, damaged.
+pub fn left_most_beast_attacks_fishbait(state: &mut TavernState, shop_idx: usize, rng: &mut Rng) {
+    let Some(beast_pos) = state
+        .board
+        .iter()
+        .position(|u| u.tribe.matches(Tribe::Beast))
+    else {
+        return;
+    };
+    let attack = cards::tavern_attack(state, beast_pos, shop_idx, rng);
+    let Some(bait_idx) = attack.target.filter(|&t| state.shop[t].health <= 0) else {
+        return;
+    };
+    let bait = state.shop.remove(bait_idx);
+    if let Some(killer) = attack.attacker {
+        let buff = if bait.is_golden { 10 } else { 5 };
+        state.board[killer].add_stats(buff, buff);
+    }
 }
 
 /// `Blood Gem` (`+1/+1` targeted spell card, scaled by `blood_gem_bonus_atk / hp` when cast).

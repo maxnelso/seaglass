@@ -1554,8 +1554,117 @@ pub fn on_rally(
     rallied
 }
 
-/// Trigger a friendly minion's `Rally` effect on `state.board[target_pos]` during the Tavern Phase (`Sky-hatch Runaway`).
+/// First id given to the minions on the board while a Tavern Rally or attack resolves (see
+/// [`with_distinct_board_ids`]): far above the ids of minions summoned in the Tavern, and below
+/// the ids that mark the target of a spell or a Battlecry being resolved.
+const TAVERN_BOARD_IDS: UnitId = 1 << 30;
+
+/// Id that marks the target of a Tavern attack while it resolves (see [`tavern_attack`]).
+const TAVERN_ATTACK_TARGET_ID: UnitId = TAVERN_BOARD_IDS - 1;
+
+/// First id given to the minions summoned while a Tavern Rally or attack resolves.
+const TAVERN_SUMMON_IDS: UnitId = 10_000;
+
+/// Run `f` with distinct ids on the minions of `state.board` (from [`TAVERN_BOARD_IDS`] on), so
+/// that the hooks that tell minions apart by id (`Wolf Pup`'s "your other minions", "another
+/// friendly minion attacks") work in the Tavern as in combat, then give the minions their own ids
+/// back, wherever they went. A minion whose id marks a target keeps it.
+fn with_distinct_board_ids<R>(state: &mut TavernState, f: impl FnOnce(&mut TavernState) -> R) -> R {
+    let saved: Vec<Option<UnitId>> = state
+        .board
+        .iter_mut()
+        .enumerate()
+        .map(|(i, unit)| {
+            (unit.id < TAVERN_BOARD_IDS)
+                .then(|| std::mem::replace(&mut unit.id, TAVERN_BOARD_IDS + i as UnitId))
+        })
+        .collect();
+    let out = f(state);
+    let units = state
+        .board
+        .iter_mut()
+        .chain(&mut state.hand)
+        .chain(&mut state.shop);
+    for unit in units {
+        let slot = unit.id.checked_sub(TAVERN_BOARD_IDS);
+        if let Some(Some(id)) = slot.and_then(|i| saved.get(i as usize)) {
+            unit.id = *id;
+        }
+    }
+    out
+}
+
+/// Run `f` on a [`BoardCtx`] over the Tavern's board, hand and auras (`in_combat = false`;
+/// summons take ids from `next_id`), then bring the Tavern up to date: the minions in the Tavern
+/// get any change of the auras that buff them, hand cards that became ready resolve, and minions
+/// added to the hand can triple.
+fn with_tavern_ctx<R>(
+    state: &mut TavernState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    f: impl FnOnce(&mut BoardCtx<'_>) -> R,
+) -> R {
+    let old_tavern_all = (state.auras.tavern_all_atk, state.auras.tavern_all_hp);
+    let reserved_slots = usize::from(state.play_slot.is_some());
+    let mut hand_summoned = vec![false; state.hand.len()];
+    let mut hand_given_by = vec![None; state.hand.len()];
+    let mut beast_bonus_atk = 0;
+    let mut pending_attacks = Vec::new();
+    let mut events = Vec::new();
+    let out = f(&mut BoardCtx {
+        side: Side::A,
+        in_combat: false,
+        board: &mut state.board,
+        start_board: &[],
+        cursor: 0,
+        reserved_slots,
+        auras: &mut state.auras,
+        hand: &mut state.hand,
+        hand_summoned: &mut hand_summoned,
+        hand_given_by: &mut hand_given_by,
+        dead_aberrations: &[],
+        beast_bonus_atk: &mut beast_bonus_atk,
+        hero_tier: state.tavern_tier,
+        pending_attacks: &mut pending_attacks,
+        destroys: Vec::new(),
+        next_id,
+        rng: &mut *rng,
+        events: &mut events,
+    });
+    let d_atk = state.auras.tavern_all_atk - old_tavern_all.0;
+    let d_hp = state.auras.tavern_all_hp - old_tavern_all.1;
+    if d_atk != 0 || d_hp != 0 {
+        for shop_unit in state.shop.iter_mut().filter(|u| !u.is_spell) {
+            shop_unit.add_stats(d_atk, d_hp);
+        }
+    }
+    resolve_ready_hand_cards(state, rng);
+    let hand_cids: Vec<CardId> = state
+        .hand
+        .iter()
+        .filter(|u| !u.is_spell)
+        .map(|u| u.card_id)
+        .collect();
+    for cid in hand_cids {
+        state.check_and_resolve_triple(cid);
+    }
+    out
+}
+
+/// Trigger a friendly minion's `Rally` effect on `state.board[target_pos]` during the Tavern Phase
+/// (`Sky-hatch Runaway`; `docs/tavern.md` §7.7).
 pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mut Rng) {
+    with_distinct_board_ids(state, |state| {
+        let mut next_id = TAVERN_SUMMON_IDS;
+        tavern_rally(state, target_pos, &mut next_id, rng);
+    });
+    state.sync_all_auras();
+}
+
+/// The Rally of `state.board[target_pos]` in the Tavern, its board minions having distinct ids:
+/// its own Rally (summons to its right, cards to the hand), then, for a Rally minion, the
+/// `after_friendly_rally` observers. Summons take ids from `next_id`.
+fn tavern_rally(state: &mut TavernState, target_pos: usize, next_id: &mut UnitId, rng: &mut Rng) {
     if target_pos >= state.board.len() {
         return;
     }
@@ -1583,6 +1692,8 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
     for mut token in summons {
         if state.board.len() < MAX_BOARD_SIZE {
             state.apply_global_unit_auras(&mut token);
+            token.id = *next_id;
+            *next_id += 1;
             let cid = token.card_id;
             state.board.insert(insert_pos, token);
             on_tavern_summon(&mut state.board, insert_pos);
@@ -1590,55 +1701,78 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             state.check_and_resolve_triple(cid);
         }
     }
-    if is_rally && target_pos < state.board.len() {
-        let old_tavern_all = (state.auras.tavern_all_atk, state.auras.tavern_all_hp);
-        let mut hand_summoned2 = vec![false; state.hand.len()];
-        let mut hand_given_by = vec![None; state.hand.len()];
-        let mut beast_bonus_atk = 0;
-        let mut pending_attacks = Vec::new();
-        let mut next_id = 10_000;
-        let mut ctx = BoardCtx {
-            side: Side::A,
-            in_combat: false,
-            board: &mut state.board,
-            start_board: &[],
-            cursor: 0,
-            reserved_slots: 0,
-            auras: &mut state.auras,
-            hand: &mut state.hand,
-            hand_summoned: &mut hand_summoned2,
-            hand_given_by: &mut hand_given_by,
-            dead_aberrations: &[],
-            beast_bonus_atk: &mut beast_bonus_atk,
-            hero_tier: state.tavern_tier,
-            pending_attacks: &mut pending_attacks,
-            destroys: Vec::new(),
-            next_id: &mut next_id,
-            rng,
-            events: &mut events,
+    if is_rally {
+        with_tavern_ctx(state, next_id, rng, after_friendly_rally);
+    }
+}
+
+/// Where the attacker and the target of a [`tavern_attack`] are once it resolved (`None`: gone).
+#[derive(Clone, Copy, Debug)]
+pub struct TavernAttack {
+    /// The attacker's board slot.
+    pub attacker: Option<usize>,
+    /// The target's slot in the Tavern (`shop`), dead or alive.
+    pub target: Option<usize>,
+}
+
+/// The friendly minion `state.board[attacker_pos]` attacks the minion `state.shop[target_idx]`
+/// (a `Fishbait`), as a regular attack (`docs/tavern.md` §7.7): its Rally and the
+/// `after_friendly_rally` observers, the `friendly_attack` observers, then its Attack as damage
+/// to the target, unless a Divine Shield absorbs it, counted in full by the damage-dealt hooks
+/// (`Treasure Parrot`). The attacker and the target are followed by identity. The target stays in
+/// the Tavern, dead or alive: what its death does is up to the caller.
+pub fn tavern_attack(
+    state: &mut TavernState,
+    attacker_pos: usize,
+    target_idx: usize,
+    rng: &mut Rng,
+) -> TavernAttack {
+    if attacker_pos >= state.board.len() || target_idx >= state.shop.len() {
+        return TavernAttack {
+            attacker: None,
+            target: None,
         };
-        after_friendly_rally(&mut ctx);
-        let d_atk = state.auras.tavern_all_atk - old_tavern_all.0;
-        let d_hp = state.auras.tavern_all_hp - old_tavern_all.1;
-        if d_atk != 0 || d_hp != 0 {
-            for shop_unit in state.shop.iter_mut() {
-                if !shop_unit.is_spell {
-                    shop_unit.add_stats(d_atk, d_hp);
-                }
+    }
+    let target_own_id = std::mem::replace(&mut state.shop[target_idx].id, TAVERN_ATTACK_TARGET_ID);
+    let attack = with_distinct_board_ids(state, |state| {
+        let attacker_id = state.board[attacker_pos].id;
+        let mut next_id = TAVERN_SUMMON_IDS;
+        tavern_rally(state, attacker_pos, &mut next_id, rng);
+        if state.board.iter().any(|u| u.id == attacker_id) {
+            with_tavern_ctx(state, &mut next_id, rng, |ctx| {
+                on_friendly_attack(ctx, attacker_id)
+            });
+        }
+        let attacker = state.board.iter().position(|u| u.id == attacker_id);
+        let target = state
+            .shop
+            .iter()
+            .position(|u| u.id == TAVERN_ATTACK_TARGET_ID);
+        if let (Some(a), Some(t)) = (attacker, target) {
+            let damage = state.board[a].attack;
+            let target = &mut state.shop[t];
+            if damage > 0 && target.divine_shield {
+                target.divine_shield = false;
+            } else if damage > 0 {
+                target.health -= damage;
+                with_tavern_ctx(state, &mut next_id, rng, |ctx| {
+                    on_damage_dealt(ctx, attacker_id, damage)
+                });
             }
         }
-        resolve_ready_hand_cards(state, rng);
-        let hand_cids: Vec<CardId> = state
-            .hand
-            .iter()
-            .filter(|u| !u.is_spell)
-            .map(|u| u.card_id)
-            .collect();
-        for cid in hand_cids {
-            state.check_and_resolve_triple(cid);
+        TavernAttack {
+            attacker: state.board.iter().position(|u| u.id == attacker_id),
+            target: state
+                .shop
+                .iter()
+                .position(|u| u.id == TAVERN_ATTACK_TARGET_ID),
         }
+    });
+    if let Some(t) = attack.target {
+        state.shop[t].id = target_own_id;
     }
     state.sync_all_auras();
+    attack
 }
 
 /// Notify friendly units after a friendly Rally minion attacked (`after_friendly_rally` hooks,

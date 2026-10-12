@@ -2,10 +2,23 @@ card: Snarky Shark
 scenarios:
   - name: selling_it_makes_the_left_most_beast_attack_a_fishbait
     description: >-
-      Selling it refreshes the Tavern with a 0/2 Fishbait; Wolf Pup (3/6 Beast) attacks and
+      Selling it refreshes the Tavern with a 0/1 Fishbait; Wolf Pup (3/6 Beast) attacks and
       kills it, and gains +5/+5.
     seed: 454
     tavern: {board: [Wolf Pup, Snarky Shark]}
     steps:
       - sell: Snarky Shark
     expect: {board: ["Wolf Pup 8/11"]}
+
+  - name: the_beasts_attack_triggers_its_rally_and_cage_gnawer
+    description: >-
+      Wolf Pup attacks the Fishbait as in combat: before the damage, its Rally gives your other
+      minions +4/+1 and Cage Gnawer gives your Beasts +2/+1.
+    seed: 454
+    tavern: {board: [Wolf Pup, Cage Gnawer, Snarky Shark]}   # 3/6 and 2/7 Beasts
+    steps:
+      - sell: Snarky Shark
+    expect:
+      board:
+        - "Wolf Pup 10/12"   # +2/+1 (Gnawer) +5/+5 (Fishbait)
+        - "Cage Gnawer 8/9"   # +4/+1 (Rally) +2/+1

@@ -1,7 +1,11 @@
 //! `Lurking Lionfish` (`BG36_201`) — Tier 2 Beast (`3/4`).
 //! **Activate (2):** Choose a card in the Tavern. Replace it with a (`Golden` if Golden) `Fishbait` for your left-most Beast to attack.
+//!
+//! The Beast's attack is a regular attack (`docs/tavern.md` §7.7): its Rally and the attack
+//! observers trigger, and its damage counts (`Treasure Parrot`). A Fishbait it kills gives it
+//! +5/+5 (+10/+10 if Golden); one it doesn't kill stays in the Tavern.
 
-use crate::cards::{self, tokens, ActivateTargetKind, CardTemplate};
+use crate::cards::{tokens, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -38,25 +42,5 @@ pub fn on_activate(
     if !old.is_spell {
         pool.return_unit(&old);
     }
-
-    // Left-most Beast on `state.board` immediately attacks the Fishbait.
-    let Some(beast_pos) = state
-        .board
-        .iter()
-        .position(|u| u.tribe.matches(Tribe::Beast))
-    else {
-        return;
-    };
-
-    cards::trigger_tavern_rally(state, beast_pos, rng);
-
-    let beast_atk = state.board[beast_pos].attack;
-    if beast_atk > 0 {
-        state.shop[shop_idx].health -= beast_atk;
-    }
-    if state.shop[shop_idx].health <= 0 {
-        let bait = state.shop.remove(shop_idx);
-        let buff = if bait.is_golden { 10 } else { 5 };
-        state.board[beast_pos].add_stats(buff, buff);
-    }
+    tokens::left_most_beast_attacks_fishbait(state, shop_idx, rng);
 }
