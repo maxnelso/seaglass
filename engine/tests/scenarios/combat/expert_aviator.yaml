@@ -9,3 +9,23 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: [Shoalfin Mystic]
+
+  # Tad (2/2) and Bubble Gunner (2/3) tie for the highest Attack: the Rally picks one at random.
+  - name: picks_randomly_among_murlocs_tied_for_highest_attack
+    description: This seed summons Bubble Gunner, the right-most of the two.
+    seed: 1
+    combat:
+      board_a: [Expert Aviator]
+      board_b: [Parasitic Fleshling]
+      hand_a: [Tad, Bubble Gunner]
+    expect:
+      events: {where: {type: unit_summoned, side: a}, 0: {name: Bubble Gunner}}
+
+  - name: a_tie_can_also_go_to_the_left_most_murloc
+    seed: 2
+    combat:
+      board_a: [Expert Aviator]
+      board_b: [Parasitic Fleshling]
+      hand_a: [Tad, Bubble Gunner]
+    expect:
+      events: {where: {type: unit_summoned, side: a}, 0: {name: Tad}}
