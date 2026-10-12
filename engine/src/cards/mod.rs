@@ -1702,11 +1702,17 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
     notify_board(ctx, |h| h.friendly_death, |c, idx, f| f(c, idx, dying));
 }
 
-/// Resolve a dying minion's `Deathrattle` hook (once; callers apply repeat multipliers).
+/// Resolve a dying minion's `Deathrattle` hook (once; callers apply repeat multipliers). Each
+/// trigger counts as a Deathrattle triggered, and the "wherever this is" auras are re-synchronized
+/// right after it (logged as `Death Aura`), so the bonuses that count them (`Falling Sky Golem`)
+/// apply at once, even when no minion dies (`Deathstrider`; `docs/combat.md` §1).
 pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
     if let Some(deathrattle) = hooks(dying.card_id).deathrattle {
         ctx.auras.deathrattles_triggered += 1;
         deathrattle(dying, ctx);
+        let before = stat_snapshot(ctx.board);
+        sync_combat_auras(ctx.board, ctx.hand, ctx.auras);
+        push_stat_changes(ctx.side, ctx.board, &before, "Death Aura", ctx.events);
     }
 }
 

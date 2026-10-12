@@ -1,6 +1,9 @@
 //! `Falling Sky Golem` (`BG35_342`) — Tier 6 Mech (`4/2`, Divine Shield).
 //!
 //! Divine Shield. Has `+4/+2` (`+8/+4` if Golden) for each Deathrattle you've triggered this game (wherever this is).
+//!
+//! Every trigger counts (each extra one from `Titus Rivendare`, and those `Deathstrider` triggers),
+//! and the bonus applies as soon as the Deathrattle triggers (`docs/combat.md` §1).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};

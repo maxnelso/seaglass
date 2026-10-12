@@ -37,3 +37,33 @@ scenarios:
     expect:
       auras_a: {deathrattles_triggered: 2}
       events: {where: {type: damage_dealt, from: 3}, 0: {unit: 4, amount: 12}}
+
+  # Unit ids: A's Glim Guardian 0, Falling Sky Golem 1, Sewer Lord 2, Deathstrider 3; B's Nerubian
+  # Deathswarmers 4, 5. A has more minions and attacks first, with Glim Guardian (a Rally minion):
+  # Deathstrider triggers Sewer Lord's Deathrattle (two Sewer Rats). No friendly minion dies in
+  # this combat (the 1/4 Deathswarmers deal 1 damage).
+  - name: a_deathrattle_triggered_by_deathstrider_counts_at_once
+    description: >-
+      The Golem has +4/+2 as soon as Deathstrider triggers the Deathrattle (4/2 -> 8/4): it deals
+      8 damage when a Deathswarmer attacks it and 8 when it attacks, and ends at 8/3.
+    seed: 1
+    combat:
+      board_a: [Glim Guardian, Falling Sky Golem, Sewer Lord, Deathstrider]
+      board_b: [Nerubian Deathswarmer, Nerubian Deathswarmer]
+    expect:
+      outcome: a_win
+      auras_a: {deathrattles_triggered: 1}
+      events: {where: {type: damage_dealt, from: 1}, count: 2, all: {amount: 8}}
+      survivors_a: {1: {card: Falling Sky Golem, attack: 8, max_health: 4}}
+
+  # Buzzing Vermin attacks first and trades with Razorfen Geomancer (2/1); with Titus Rivendare
+  # its Deathrattle triggers twice, and each trigger counts: 4/2 + 2 x 4/2 = 12/6.
+  - name: each_extra_titus_trigger_counts
+    seed: 610
+    combat:
+      board_a: [Buzzing Vermin, Titus Rivendare, Falling Sky Golem]
+      board_b: [Razorfen Geomancer]
+    expect:
+      outcome: a_win
+      auras_a: {deathrattles_triggered: 2}
+      survivors_a: {-1: "Falling Sky Golem 12/6"}
