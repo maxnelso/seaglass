@@ -1,6 +1,6 @@
 //! `Perfect Vision` — Tier 6 Tavern spell (`2` Gold).
 //!
-//! Set a minion's stats to 20/20.
+//! Set a minion's stats to 20/20. Spell power adds to them (`21/22` with `Humon'gozz`).
 
 use super::targeted;
 use crate::cards::CardHooks;

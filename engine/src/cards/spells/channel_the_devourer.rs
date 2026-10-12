@@ -1,6 +1,7 @@
 //! `Channel the Devourer` — Tier 5 Tavern spell (`4` Gold).
 //!
-//! Sell a minion and give its stats to another random friendly minion.
+//! Sell a minion and give its stats to another random friendly minion. The stats are copied as
+//! they are: spell power (`spell_bonus_atk` / `spell_bonus_hp`) does not add to them.
 
 use super::targeted;
 use crate::cards::CardHooks;
@@ -33,8 +34,7 @@ pub fn cast(
             } else {
                 rng.below(state.board.len())
             };
-            let (atk, hp) = state.auras.spell_stat_buff(sold_atk, sold_hp);
-            state.board[pick].add_stats(atk, hp);
+            state.board[pick].add_stats(sold_atk, sold_hp);
         }
     }
 }

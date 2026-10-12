@@ -8,3 +8,15 @@ scenarios:
     expect:
       combat: {outcome: a_win}
       board: ["The Last One Standing 30/30", "Flittering Bat 16/19"]   # kept in the Tavern
+
+  - name: rally_buffs_the_best_assignment_of_minions_to_types
+    description: >-
+      As for Misplaced Tea Set, the most minions get it: the Last One Standing (All), the Parrot
+      as the Pirate and the Bat as the Beast.
+    seeds: "1..10"
+    tavern: {board: [The Last One Standing, Treasure Parrot, Flittering Bat]}   # 15/15, 5/5, 1/4
+    steps:
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat: {outcome: a_win}
+      board: ["The Last One Standing 30/30", "Treasure Parrot 20/20", "Flittering Bat 16/19"]

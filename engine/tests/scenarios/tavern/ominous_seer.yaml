@@ -12,3 +12,32 @@ scenarios:
     expect:
       gold: 9
       auras: {next_spell_discount: 0}
+
+  - name: the_discount_also_reduces_a_health_cost
+    tavern: {gold: 10, hand: [Ominous Seer], shop: [Hasty Excavation]}   # costs 3 Health
+    steps:
+      - play: Ominous Seer
+      - buy: Hasty Excavation
+    expect:
+      health: 28   # 2 Health
+      gold: 10
+      auras: {next_spell_discount: 0}   # used up
+
+  - name: a_discounted_health_cost_can_be_paid_with_less_health
+    tavern: {health: 3, hand: [Ominous Seer], shop: [Hasty Excavation]}
+    steps:
+      - expect_illegal: {buy: Hasty Excavation}   # 3 Health would leave the hero at 0
+      - play: Ominous Seer
+      - buy: Hasty Excavation
+    expect: {health: 1}
+
+  - name: the_discount_carries_over_to_the_next_turn
+    tavern: {hand: [Ominous Seer], shop: [Recruit a Trainee]}   # a 2-Gold spell
+    steps:
+      - play: Ominous Seer
+      - toggle_freeze   # keep Recruit a Trainee
+      - end_turn
+      - start_turn   # Turn 1: 3 Gold
+      - expect: {auras: {next_spell_discount: 1}}
+      - buy: Recruit a Trainee
+    expect: {gold: 2, auras: {next_spell_discount: 0}}

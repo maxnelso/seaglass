@@ -6,3 +6,12 @@ scenarios:
       - add_to_hand: Perfect Vision
       - play: {hand: Perfect Vision, pos: 0}
     expect: {board: ["Patient Scout 20/20"]}
+
+  - name: spell_power_adds_to_the_20_20
+    tavern: {board: [Patient Scout]}
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Perfect Vision
+      - play: {hand: Perfect Vision, pos: 0}
+    expect: {board: ["Patient Scout 21/22", "Humon'gozz 5/5"]}

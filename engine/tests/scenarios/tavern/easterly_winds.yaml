@@ -23,3 +23,17 @@ scenarios:
       - refresh
     expect:
       shop: {any: {attack: ">= @base_attack + 10", health: ">= @base_health + 11"}}
+
+  - name: spell_power_is_fixed_when_cast
+    description: Selling Humon'gozz after casting Easterly Winds keeps the +10/+11 it was cast with.
+    seed: 836
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - add_to_hand: Easterly Winds
+      - play: {hand: Easterly Winds, pos: 0}   # untargeted
+      - sell: Humon'gozz   # +1 Gold: the Refresh
+      - expect: {auras: {spell_bonus_atk: 0, spell_bonus_hp: 0, refresh_random_buffs: [[10, 11]]}}
+      - refresh
+    expect:
+      shop: {any: {attack: "@base_attack + 10", health: "@base_health + 11"}}

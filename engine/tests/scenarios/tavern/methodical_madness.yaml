@@ -11,3 +11,17 @@ scenarios:
     expect:
       shop: []
       board: ["Ominous Seer 6/4 taunt reborn divine_shield"]
+
+  - name: the_consumed_stats_get_no_spell_power
+    seed: 838
+    tavern:
+      board: [Ominous Seer]   # 2/1 Demon
+      shop: [Risen Rider, Aureate Laureate]   # 2/1 Taunt Reborn, 2/2 Divine Shield
+      hand: [Methodical Madness]
+    steps:
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - play: {hand: Methodical Madness, pos: 0}
+    expect:
+      shop: []
+      board: ["Ominous Seer 6/4 taunt reborn divine_shield", "Humon'gozz 5/5"]   # exactly +4/+3

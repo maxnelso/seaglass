@@ -7,3 +7,88 @@ scenarios:
       - add_to_hand: Saloon's Finest
       - play: Saloon's Finest
     expect: {shop: {count: ">= 1", all: {is_spell: true}}}
+
+  - name: one_spell_for_each_card_in_the_tavern
+    description: A Tier 5 Tavern of 5 minions and a spell becomes 6 spells, not a 5-card shop.
+    seed: 855
+    tavern: {include_shop_spells: true, tavern_tier: 5}
+    steps:
+      - start_turn
+      - expect: {shop: {count: 6}}   # 5 minions and a spell
+      - add_to_hand: Saloon's Finest
+      - play: Saloon's Finest
+    expect: {is_frozen: false, shop: {count: 6, all: {is_spell: true}}}
+
+  - name: slots_bought_before_it_stay_empty
+    description: After buying 2 of the 5 minions, the 3 cards left become 3 spells.
+    seed: 855
+    tavern: {tavern_tier: 5, turn: 9}   # Turn 10: 10 Gold
+    steps:
+      - start_turn   # 5 minions (no shop spell)
+      - buy: 0
+      - buy: 0
+      - add_to_hand: Saloon's Finest
+      - play: Saloon's Finest
+    expect: {shop: {count: 3, all: {is_spell: true}}}
+
+  - name: frozen_with_nothing_bought_the_same_spells_stay
+    seed: 855
+    tavern: {include_shop_spells: true, tavern_tier: 5}
+    steps:
+      - start_turn
+      - add_to_hand: Saloon's Finest
+      - play: Saloon's Finest
+      - toggle_freeze
+      - expect: {shop: {count: 6, all: {is_spell: true}}}
+      - expect: {shop: {capture: spells}}
+      - end_turn
+      - start_turn
+    expect: {shop: {same_as: spells}}   # no minions added
+
+  - name: frozen_each_bought_slot_refills_with_a_minion
+    description: >-
+      Buying 2 of the 6 spells and freezing keeps the other 4; the 2 bought slots refill with
+      minions (no new spell: the kept spells fill the spell slot).
+    seed: 855
+    tavern: {include_shop_spells: true, tavern_tier: 5, turn: 9}   # Turn 10: 10 Gold
+    steps:
+      - start_turn
+      - add_to_hand: Saloon's Finest
+      - play: Saloon's Finest
+      - buy: 0
+      - buy: 0
+      - toggle_freeze
+      - expect: {shop: {count: 4, all: {is_spell: true}}}
+      - end_turn
+      - start_turn
+    expect:
+      shop:
+        all_of:
+          - {count: 6}
+          - {where: {is_spell: true}, count: 4}
+          - {where: {is_spell: false}, count: 2, all: {tavern_tier: "<= 5"}}
+
+  - name: frozen_with_every_spell_bought_the_spell_slot_refills_with_a_spell
+    description: >-
+      With no spell left in the frozen Tavern, it refills like any frozen Tavern: the spell slot
+      with a spell, the other slots with minions.
+    seed: 855
+    tavern: {include_shop_spells: true, tavern_tier: 5, turn: 9, bonus_gold_next_turn: 10}   # 20 Gold
+    steps:
+      - start_turn   # 5 minions and a spell
+      - buy: {is_spell: false}
+      - buy: {is_spell: false}
+      - add_to_hand: Saloon's Finest
+      - play: Saloon's Finest   # 4 spells
+      - repeat: 4
+        steps:
+          - buy: 0
+      - toggle_freeze
+      - end_turn
+      - start_turn
+    expect:
+      shop:
+        all_of:
+          - {count: 6}
+          - {where: {is_spell: true}, count: 1}
+          - {where: {is_spell: false}, count: 5}

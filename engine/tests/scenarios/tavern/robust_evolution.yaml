@@ -9,3 +9,20 @@ scenarios:
       - play: {hand: Tavern Dish Banana, pos: 0}
       - play: {hand: Robust Evolution, pos: 0}
     expect: {board: ["3/6 t2"]}
+
+  - name: a_golden_minion_becomes_a_non_golden_one
+    seed: 823
+    tavern: {board: ["golden Glim Guardian 2/8"], hand: [Robust Evolution]}
+    steps:
+      - play: {hand: Robust Evolution, pos: 0}
+    expect: {board: ["2/8 t2 -golden"]}   # keeps the golden stats
+
+  - name: a_tier_6_minion_becomes_another_tier_6_minion
+    seed: 823
+    tavern:
+      board: [Eredar Escapist]   # 6/8, Tier 6
+      hand: [Tavern Dish Banana, Robust Evolution]
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 0}
+      - play: {hand: Robust Evolution, pos: 0}
+    expect: {board: [{all_of: ["8/10 t6", {not: Eredar Escapist}]}]}

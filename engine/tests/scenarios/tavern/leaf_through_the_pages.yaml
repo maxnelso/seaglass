@@ -5,3 +5,14 @@ scenarios:
       - add_to_hand: Leaf Through the Pages
       - play: Leaf Through the Pages
     expect: {auras: {free_refreshes: 2}}
+
+  - name: unused_free_refreshes_carry_over_to_the_next_turn
+    steps:
+      - add_to_hand: Leaf Through the Pages
+      - play: Leaf Through the Pages
+      - refresh   # free: 1 left
+      - end_turn
+      - start_turn   # Turn 1: 3 Gold
+      - expect: {auras: {free_refreshes: 1}}
+      - refresh   # still free
+    expect: {gold: 3, auras: {free_refreshes: 0}}

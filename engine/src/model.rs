@@ -229,6 +229,8 @@ pub struct PlayerAuras {
     pub tavern_turn_hp: i32,
     /// Bonus Attack applied to friendly Undead (`Nerubian Deathswarmer`).
     pub undead_bonus_attack: i32,
+    /// Bonus Health applied to friendly Undead (`Butchering`'s Health spell power).
+    pub undead_bonus_health: i32,
     /// Bonus Attack/Health added to Blood Gems (`Gem Day` / `Crater Miner` / `Fearless Foodie`).
     pub blood_gem_bonus_atk: i32,
     pub blood_gem_bonus_hp: i32,

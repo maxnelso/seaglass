@@ -9,3 +9,11 @@ scenarios:
       - play: {hand: Menagerie Tableware, pos: 0}
     expect:
       board: ["Flittering Bat 10/13", "Flittering Bat 10/13", "Glim Guardian 10/13"]   # 2 types: +9/+9
+
+  - name: a_dual_type_minion_counts_as_the_type_nobody_else_has
+    description: The Parrot counts as the Pirate and the Bat as the Beast, so 2 types.
+    seeds: "1..20"
+    tavern: {board: [Treasure Parrot, Flittering Bat], hand: [Menagerie Tableware]}   # 5/5, 1/4
+    steps:
+      - play: {hand: Menagerie Tableware, pos: 0}
+    expect: {board: ["Treasure Parrot 14/14", "Flittering Bat 10/13"]}   # 2 types: +9/+9

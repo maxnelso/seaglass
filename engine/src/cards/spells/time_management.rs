@@ -1,6 +1,7 @@
 //! `Time Management` — Tier 3 Tavern spell (`4` Gold).
 //!
-//! Choose One - give your minions +2/+2 now; or twice next turn.
+//! Choose One - give your minions +2/+2 now; or twice next turn. Only minions on the board get it
+//! (as with `Shiny Ring`), and Do It Later reads spell power when it pays off.
 
 use super::{record_effect, spell, SPELL_TIME_MANAGEMENT};
 use crate::cards::tokens::{make_choice_option, CHOICE_TIME_MGMT_LATER, CHOICE_TIME_MGMT_NOW};
@@ -25,8 +26,8 @@ pub fn cast(state: &mut TavernState, _: &Unit, _: usize, pool: &mut CardPool, rn
     state.resolve_choose_one(opt0, opt1, pool, rng);
 }
 
-/// `Time Management` (Do It Later): at the start of next turn, give your minions (board and
-/// hand) +2/+2 per stack.
+/// `Time Management` (Do It Later): at the start of next turn, give your minions on the board
+/// +2/+2 per stack (with the spell power you have then).
 fn turn_start(state: &mut TavernState, effect: &mut PlayerEffect) {
     let stacks = std::mem::take(&mut effect.stacks);
     let (atk, hp) = state.auras.spell_stat_buff(2, 2);
@@ -34,24 +35,14 @@ fn turn_start(state: &mut TavernState, effect: &mut PlayerEffect) {
         for b in &mut state.board {
             b.add_stats(atk, hp);
         }
-        for h in &mut state.hand {
-            if !h.is_spell {
-                h.add_stats(atk, hp);
-            }
-        }
     }
 }
 
-/// `Time Management` (Hurry Up): give your minions (board and hand) +2/+2 now.
+/// `Time Management` (Hurry Up): give your minions on the board +2/+2 now.
 pub fn choose_now(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
     let (atk, hp) = state.auras.spell_stat_buff(2, 2);
     for b in &mut state.board {
         b.add_stats(atk, hp);
-    }
-    for h in &mut state.hand {
-        if !h.is_spell {
-            h.add_stats(atk, hp);
-        }
     }
 }
 

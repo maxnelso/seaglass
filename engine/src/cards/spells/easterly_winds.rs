@@ -1,6 +1,7 @@
 //! `Easterly Winds` — Tier 4 Tavern spell (`1` Gold).
 //!
-//! After each Refresh this game, give a random minion in the Tavern +9/+9.
+//! After each Refresh this game, give a random minion in the Tavern +9/+9. Spell power counts as
+//! it is when this is cast (losing it later does not shrink the buff).
 
 use super::spell;
 use crate::cards::CardHooks;

@@ -1,0 +1,53 @@
+topic: "Frozen shop: the next turn keeps every card and refills the free slots"
+scenarios:
+  - name: a_bought_minion_slot_refills_with_a_minion
+    seed: 31
+    tavern: {include_shop_spells: true, turn: 9}   # Turn 10: 10 Gold
+    steps:
+      - start_turn   # Tier 1: 3 minions and a spell
+      - buy: 0
+      - toggle_freeze
+      - expect: {shop: {0: {capture: m1}, 1: {capture: m2}, 2: {capture: spell}}}
+      - end_turn
+      - start_turn
+    expect:
+      shop:
+        count: 4   # 3 minion slots and the spell slot
+        0: {same_as: m1}
+        1: {same_as: m2}
+        2: {same_as: spell}
+        3: {is_spell: false}   # the bought slot
+
+  - name: a_bought_spell_slot_refills_with_a_spell
+    seed: 31
+    tavern: {include_shop_spells: true, turn: 9}
+    steps:
+      - start_turn
+      - buy: {is_spell: true}
+      - toggle_freeze
+      - expect: {shop: {0: {capture: m0}, 1: {capture: m1}, 2: {capture: m2}}}
+      - end_turn
+      - start_turn
+    expect:
+      shop:
+        count: 4
+        0: {same_as: m0}
+        1: {same_as: m1}
+        2: {same_as: m2}
+        3: {is_spell: true}   # the bought slot
+
+  - name: upgrading_while_frozen_fills_the_new_minion_slot
+    seed: 31
+    tavern: {include_shop_spells: true, turn: 9, tavern_tier: 3, upgrade_cost: 8}
+    steps:
+      - start_turn   # 4 minions and a spell; the upgrade now costs 7
+      - upgrade_tavern
+      - toggle_freeze
+      - end_turn
+      - start_turn
+    expect:
+      tavern_tier: 4
+      shop:
+        all_of:
+          - {count: 6}   # Tier 4: 5 minion slots and the spell slot
+          - {where: {is_spell: true}, count: 1}

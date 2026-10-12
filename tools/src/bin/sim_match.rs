@@ -224,7 +224,7 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
             if let Some(c) = state.shop.get(shop_index) {
                 let cost_str = if c.is_spell {
                     if c.costs_health {
-                        format!("{} HP", c.spell_cost)
+                        format!("{} HP", state.effective_spell_buy_cost(c))
                     } else {
                         format!("{}g", state.effective_spell_buy_cost(c))
                     }
@@ -438,6 +438,12 @@ fn diff_auras(before: &PlayerAuras, after: &PlayerAuras) -> Vec<String> {
         diffs.push(format!(
             "undead_bonus_attack: +{} -> +{}",
             before.undead_bonus_attack, after.undead_bonus_attack
+        ));
+    }
+    if before.undead_bonus_health != after.undead_bonus_health {
+        diffs.push(format!(
+            "undead_bonus_health: +{} -> +{}",
+            before.undead_bonus_health, after.undead_bonus_health
         ));
     }
     let ek = |a: &PlayerAuras| a.counter(minions::eternal_knight::ID);

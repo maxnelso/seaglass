@@ -1,6 +1,7 @@
 //! `Butchering` — Tier 5 Tavern spell (`3` Gold).
 //!
-//! Destroy a friendly Undead; your Undead have +8 Attack for the rest of the game.
+//! Destroy a friendly Undead; your Undead have +8 Attack for the rest of the game. Spell power
+//! adds to the bonus, its Health included (`+9/+2` with `Humon'gozz`).
 
 use super::targeted_tribe;
 use crate::cards::CardHooks;
@@ -13,7 +14,8 @@ pub fn hooks() -> CardHooks {
     targeted_tribe(Tribe::Undead, cast)
 }
 
-/// `Butchering`: destroy a friendly Undead; your Undead have +8 Attack for the rest of the game.
+/// `Butchering`: destroy a friendly Undead; your Undead have +8 Attack (plus spell power, Health
+/// included) for the rest of the game.
 pub fn cast(
     state: &mut TavernState,
     _: &Unit,
@@ -23,8 +25,9 @@ pub fn cast(
 ) {
     if board_pos < state.board.len() && state.board[board_pos].tribe.matches(Tribe::Undead) {
         state.destroy_board_unit(board_pos, pool, rng);
-        let (atk, _hp) = state.auras.spell_stat_buff(8, 0);
+        let (atk, hp) = state.auras.spell_stat_buff(8, 0);
         state.auras.undead_bonus_attack += atk;
+        state.auras.undead_bonus_health += hp;
         state.sync_all_auras();
     }
 }

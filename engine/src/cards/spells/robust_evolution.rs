@@ -1,6 +1,8 @@
 //! `Robust Evolution` — Tier 3 Tavern spell (`1` Gold).
 //!
-//! Transform a minion into a random minion of the next Tier, keeping its stats.
+//! Transform a minion into a random minion of the next Tier, keeping its stats. The new minion is
+//! never Golden (a Golden target keeps its doubled stats), and a Tier 6 target becomes a random
+//! Tier 6 minion.
 
 use super::targeted;
 use crate::cards::CardHooks;

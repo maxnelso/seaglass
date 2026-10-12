@@ -11,3 +11,26 @@ scenarios:
       combat:
         outcome: a_win
         survivors_a: ["Beetle taunt", "Beetle taunt"]
+
+  - name: beetles_with_no_room_wait_for_a_later_combat
+    description: >-
+      With 6 minions only one Beetle fits and nothing friendly dies, so the other Beetle carries
+      over and is summoned in the next combat.
+    seed: 832
+    tavern:
+      board: [Eredar Escapist, Treasure Parrot, Humon'gozz, Iron Groundskeeper, Glim Guardian, Dune Dweller]
+      hand: [Boon of Beetles]
+    steps:
+      - play: {hand: Boon of Beetles, pos: 0}   # untargeted
+      - fight: {board: [Patient Scout]}   # a 1/1: no friendly minion dies
+      - expect:
+          combat:
+            outcome: a_win
+            survivors_a: {all_of: [{count: 7}, {where: "Beetle taunt", count: 1}]}
+          auras: {effect_stacks: {Boon of Beetles: 1}}
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat:
+        outcome: a_win
+        survivors_a: {all_of: [{count: 7}, {where: "Beetle taunt", count: 1}]}
+      auras: {effect_stacks: {Boon of Beetles: 0}}
