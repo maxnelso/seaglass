@@ -1,6 +1,8 @@
 //! `Imposing Percussionist` (`BG26_525`) — Tier 4 Demon (`4/4`).
 //!
 //! Battlecry: Discover a (`2` if Golden) Demon(s). Deal damage to your hero equal to its Tier.
+//!
+//! It never Discovers an `Imposing Percussionist` (Golden or not).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
@@ -18,7 +20,8 @@ pub fn template() -> CardTemplate {
 pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     let count = if unit.is_golden { 2 } else { 1 };
     for _ in 0..count {
-        let mut opts = pool.draw_discover_by_tribe(Tribe::Demon, state.tavern_tier, 3, rng);
+        let mut opts =
+            pool.draw_discover_by_tribe_except(Tribe::Demon, Some(ID), state.tavern_tier, 3, rng);
         for opt in &mut opts {
             state.apply_global_unit_auras(opt);
             opt.discover_deals_tier_damage = true;

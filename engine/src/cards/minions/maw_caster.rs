@@ -1,6 +1,8 @@
 //! `Maw Caster` (`BG32_340`) — Tier 4 Undead (`4/5`).
 //!
 //! Battlecry: Destroy a friendly Undead to Discover an (`2` if Golden) Undead.
+//!
+//! It never Discovers a `Maw Caster` (Golden or not).
 
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
@@ -39,7 +41,13 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
         state.destroy_board_unit(idx, pool, rng);
         let count = if unit.is_golden { 2 } else { 1 };
         for _ in 0..count {
-            let mut opts = pool.draw_discover_by_tribe(Tribe::Undead, state.tavern_tier, 3, rng);
+            let mut opts = pool.draw_discover_by_tribe_except(
+                Tribe::Undead,
+                Some(ID),
+                state.tavern_tier,
+                3,
+                rng,
+            );
             for opt in &mut opts {
                 state.apply_global_unit_auras(opt);
             }

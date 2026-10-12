@@ -5,7 +5,8 @@
 //!
 //! The Deathrattle summons exactly the Undead this minion's Avenge gave you this combat (all of
 //! them if it triggered more than once; nothing if it never did), not other Undead in hand. Each
-//! is summoned once: an extra trigger (`Titus Rivendare`) summons nothing more.
+//! is summoned once: an extra trigger (`Titus Rivendare`) summons nothing more. Its Avenge never
+//! gets a `Deathly Striker` (Golden or not).
 
 use crate::cards::{self, BoardCtx, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit, UnitId};
@@ -28,13 +29,13 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, self_idx: usize, _dying: &Unit)
     on_avenge(ctx, self_id, is_golden);
 }
 
-/// Get a (`2` if Golden) random Undead of the hero's Tavern Tier or lower, recorded as given by
-/// the Striker `self_id` for its Deathrattle.
+/// Get a (`2` if Golden) random Undead other than a Deathly Striker, of the hero's Tavern Tier or
+/// lower, recorded as given by the Striker `self_id` for its Deathrattle.
 pub fn on_avenge(ctx: &mut BoardCtx<'_>, self_id: UnitId, is_golden: bool) {
     let max_tier = ctx.hero_tier.max(1);
     let candidates: Vec<&CardTemplate> = cards::all_templates()
         .iter()
-        .filter(|t| t.tribe.matches(Tribe::Undead) && t.tavern_tier <= max_tier)
+        .filter(|t| t.tribe.matches(Tribe::Undead) && t.tavern_tier <= max_tier && t.card_id != ID)
         .collect();
     if candidates.is_empty() {
         return;

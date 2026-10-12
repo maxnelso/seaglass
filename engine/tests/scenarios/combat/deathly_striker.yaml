@@ -58,3 +58,11 @@ scenarios:
       auras_a: {deathrattles_triggered: 2}
       hand_a: {count: 1}
       events: {where: {type: unit_summoned, source: 0}, count: 1}
+
+  - name: never_gets_a_deathly_striker
+    seeds: "1..101"
+    combat:
+      board_a: [Risen Rider, Risen Rider, Risen Rider, golden Deathly Striker]
+      board_b: ["Kalecgos, Arcane Aspect"]
+      hero_tier_a: 6   # the Undead it can get go up to Tier 6, its own Tier
+    expect: {hand_a: {count: ">= 2", none: {card: Deathly Striker}}}

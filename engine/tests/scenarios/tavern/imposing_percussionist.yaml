@@ -11,3 +11,13 @@ scenarios:
     expect:
       health: "30 - $tier"
       hand: [demon]
+
+  - name: never_discovers_an_imposing_percussionist
+    seeds: "1..41"
+    tavern: {tavern_tier: 4}
+    steps:
+      - add_to_hand: golden Imposing Percussionist
+      - play: golden Imposing Percussionist   # 2 Discovers, then its Triple Reward
+    expect:
+      discover_pending: {count: 3, none: {card: Imposing Percussionist}}
+      discover_queue: {count: 2, all: {none: {card: Imposing Percussionist}}}
