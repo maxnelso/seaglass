@@ -49,6 +49,8 @@ def _fmt_action(act, obs) -> str:
         return f"Buy({a0}) -> {_fmt_unit(obs.shop[a0])}"
     if kind == "play" and a0 is not None and a0 < len(obs.hand):
         return f"Play(hand={a0}, pos={a1}) -> {_fmt_unit(obs.hand[a0])}"
+    if kind == "play_on_shop" and a0 is not None and a0 < len(obs.hand):
+        return f"PlayOnShop(hand={a0}, shop={a1}) -> {_fmt_unit(obs.hand[a0])}"
     if kind == "sell" and a0 is not None and a0 < len(obs.board):
         return f"Sell({a0}) -> {_fmt_unit(obs.board[a0])}"
     if kind == "activate" and a0 is not None and a0 < len(obs.board):

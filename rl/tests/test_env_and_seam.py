@@ -32,6 +32,23 @@ def test_action_mask_matches_engine_legality() -> None:
         assert bool(is_valid) == game.is_legal(act)
 
 
+def test_action_mask_includes_spells_cast_on_the_tavern() -> None:
+    # With an empty board, a bought spell that targets "a minion" can only be cast in the Tavern.
+    for seed in range(100):
+        game = seaglass.TavernGame(seed=seed, catalog="full", deity="cthun")
+        game.start_turn()
+        for i, card in enumerate(game.observe().shop):
+            if card.is_spell and game.is_legal(seaglass.TavernAction.buy(i)):
+                game.step(seaglass.TavernAction.buy(i))
+                break
+        mask = action_mask(game, allow_reposition=True, allow_freeze=True)
+        for idx, is_valid in enumerate(mask):
+            assert bool(is_valid) == game.is_legal(action_from_index(idx))
+        if any(action_from_index(idx).kind == "play_on_shop" for idx in np.flatnonzero(mask)):
+            return
+    raise AssertionError("no seed offered a spell that can be cast on a minion in the Tavern")
+
+
 def test_encode_observation_shapes_and_vocab() -> None:
     assert VOCAB_SIZE > 300
     game = seaglass.TavernGame(seed=11, catalog="full")

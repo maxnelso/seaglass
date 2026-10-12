@@ -56,6 +56,12 @@ def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, 
     for opt_idx in range(MAX_DISCOVER):
         register(seaglass.TavernAction.choose_discover(opt_idx))
 
+    # 8. Cast a spell from hand on a minion in the Tavern: hand_index in 0..10, shop_index in 0..7
+    #    (last, so the indices above are unchanged)
+    for h_idx in range(MAX_HAND):
+        for s_idx in range(MAX_SHOP):
+            register(seaglass.TavernAction.play_on_shop(h_idx, s_idx))
+
     return actions, lookup
 
 
