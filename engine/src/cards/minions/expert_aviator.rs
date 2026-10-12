@@ -6,6 +6,9 @@
 //! from hand again this combat (by this or `Diremuck Forager`, `docs/combat.md` §2), so each
 //! summon takes the highest-Attack Murloc that isn't locked. With no room on the board, nothing
 //! is summoned, so nothing is locked.
+//!
+//! Outside combat (its Rally triggered in the Tavern by `Sky-hatch Runaway`) it does nothing:
+//! nothing is summoned or locked, and the hand is unchanged.
 
 use crate::cards::CardTemplate;
 use crate::combat::MAX_BOARD_SIZE;
@@ -19,6 +22,9 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 5, 2)
         .with_tribe(Tribe::Murloc)
         .on_rally(|c| {
+            if !c.in_combat {
+                return Vec::new();
+            }
             let room = MAX_BOARD_SIZE.saturating_sub(c.board.len());
             on_rally(
                 &c.board[c.attacker_pos],

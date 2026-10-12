@@ -90,3 +90,18 @@ scenarios:
               - {type: death, unit: 0}
               - {type: unit_summoned, side: a, name: Shoalfin Mystic, reason: Diremuck Forager}
           - {where: {type: unit_summoned, side: a}, count: 1}
+
+  - name: its_rally_does_nothing_outside_combat
+    description: >-
+      Sky-hatch Runaway triggers its Rally during the Tavern turn: nothing is summoned and the hand
+      is unchanged.
+    tavern:
+      gold: 10   # Sky-hatch Runaway's Activate costs 1
+      board: [Sky-hatch Runaway, Expert Aviator]
+      hand: [Shoalfin Mystic]   # a Murloc
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect:
+      gold: 9
+      board: [Sky-hatch Runaway, Expert Aviator]
+      hand: [Shoalfin Mystic]
