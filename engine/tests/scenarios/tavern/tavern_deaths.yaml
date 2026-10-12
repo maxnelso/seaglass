@@ -1,0 +1,69 @@
+topic: Minions destroyed in the Tavern trigger their Deathrattles and Reborn
+scenarios:
+  - name: plaguerunner_destroyed_in_the_tavern_gives_undead_4_attack
+    description: >-
+      Disguised Graverobber destroys Plaguerunner: its Deathrattle, triggered outside combat, gives
+      your Undead +4 Attack wherever they are (the plain copy in hand included).
+    tavern: {board: [Plaguerunner, Risen Rider]}   # Risen Rider: a 2/1 Undead
+    steps:
+      - add_to_hand: Disguised Graverobber
+      - play: {hand: Disguised Graverobber, pos: 0}   # destroys Plaguerunner
+    expect:
+      auras: {undead_bonus_attack: 4}
+      board: [Disguised Graverobber, "Risen Rider 6/1"]
+      hand: ["Plaguerunner 8/2"]   # a plain 4/2, +4 Attack
+
+  - name: titus_rivendare_doubles_a_deathrattle_in_the_tavern
+    description: >-
+      Butchering destroys Harmless Bonehead: with Titus Rivendare its Deathrattle triggers twice,
+      for 4 Skeletons (1/1, +8 Attack from Butchering).
+    tavern: {board: [Titus Rivendare, Harmless Bonehead]}
+    steps:
+      - add_to_hand: Butchering
+      - play: {hand: Butchering, pos: 1}
+    expect:
+      auras: {deathrattles_triggered: 2}
+      board: [Titus Rivendare, "Skeleton 9/1", "Skeleton 9/1", "Skeleton 9/1", "Skeleton 9/1"]
+
+  - name: falling_sky_golem_counts_a_deathrattle_triggered_in_the_tavern
+    description: >-
+      Maw Caster destroys Harmless Bonehead: its Deathrattle counts for Falling Sky Golem (4/2 +4/+2).
+    seed: 441
+    tavern: {tavern_tier: 4, board: [Harmless Bonehead, Falling Sky Golem]}
+    steps:
+      - add_to_hand: Maw Caster
+      - play: {hand: Maw Caster, pos: 0}   # destroys Harmless Bonehead
+    expect:
+      auras: {deathrattles_triggered: 1}
+      board: [Maw Caster, Skeleton, Skeleton, "Falling Sky Golem 8/4"]
+      discover_pending: {count: 3, all: undead}
+
+  - name: a_reborn_in_the_tavern_triggers_barrier_banshee
+    description: >-
+      Dead Bellringer gives Harmless Bonehead Reborn and destroys it: it is Reborn, so Barrier
+      Banshee gains Divine Shield and +8/+8.
+    tavern: {gold: 1, board: [Dead Bellringer, Harmless Bonehead, Barrier Banshee]}   # Banshee: 8/8
+    steps:
+      - activate: {pos: Dead Bellringer, target: 1}
+    expect:
+      board:
+        - "Dead Bellringer 7/10"
+        - Skeleton
+        - Skeleton
+        - "Harmless Bonehead 1/1 -reborn"
+        - "Barrier Banshee 16/16 divine_shield"
+
+  - name: a_reborn_in_the_tavern_triggers_snazzy_phantom
+    description: >-
+      Dead Bellringer gives Harmless Bonehead Reborn and destroys it: the Reborn copy has 1 Attack,
+      so Snazzy Phantom, the right-most Undead, gets +1/+1.
+    tavern: {gold: 1, board: [Dead Bellringer, Harmless Bonehead, Snazzy Phantom]}   # Phantom: 6/8
+    steps:
+      - activate: {pos: Dead Bellringer, target: 1}
+    expect:
+      board:
+        - "Dead Bellringer 7/10"
+        - Skeleton
+        - Skeleton
+        - "Harmless Bonehead 1/1 -reborn"
+        - "Snazzy Phantom 7/9"

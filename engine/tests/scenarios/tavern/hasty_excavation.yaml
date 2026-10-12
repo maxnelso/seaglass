@@ -7,3 +7,31 @@ scenarios:
       - expect: {health: 27, gold: 10}
       - play: Hasty Excavation
     expect: {gold: 11}
+
+  - name: soul_rewinder_rewinds_its_health_cost_even_at_3_health
+    description: >-
+      Its 3 Health are hero damage: Soul Rewinder rewinds them and gains +2 Health. Since the
+      damage is rewound, it can be bought even at 3 Health.
+    tavern: {health: 3, board: [Soul Rewinder], shop: [Hasty Excavation]}   # Rewinder: 4/2
+    steps:
+      - buy: Hasty Excavation
+    expect:
+      health: 3
+      hand: [Hasty Excavation]
+      board: ["Soul Rewinder 4/4"]
+
+  - name: its_health_cost_triggers_tichondrius_and_counts_for_eredar_escapist
+    description: >-
+      Its 3 Health are one 3-damage hit: Tichondrius gives the Demons +4/+4 once, and Eredar
+      Escapist counts 3 of its 4 damage.
+    tavern: {board: [Tichondrius, Eredar Escapist], shop: [Hasty Excavation]}   # 4/4 and 6/8 Demons
+    steps:
+      - buy: Hasty Excavation
+      - expect:
+          health: 27
+          hand: [Hasty Excavation]
+          board: ["Tichondrius 8/8", "Eredar Escapist 10/12"]
+      - deal_hero_damage: 1   # the 4th damage
+    expect:
+      health: 26
+      hand: [Hasty Excavation, Corrupted Cupcakes]

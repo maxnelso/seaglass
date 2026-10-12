@@ -7,3 +7,16 @@ scenarios:
       - repeat: 6   # 6 Refreshes: 6 Gold spent
         steps: [refresh]
     expect: {hand: [Lockbox]}
+
+  - name: gold_spent_before_it_is_on_the_board_does_not_count
+    description: The 3 Gold that bought it don't count; it takes 6 more once it is on the board.
+    seed: 515
+    tavern: {gold: 10, shop: [Enterprising Escapee]}
+    steps:
+      - buy: Enterprising Escapee   # 3 Gold
+      - play: Enterprising Escapee
+      - repeat: 5   # 5 Gold
+        steps: [refresh]
+      - expect: {gold: 2, hand: []}
+      - refresh   # the 6th Gold since it was played
+    expect: {gold: 1, hand: [Lockbox]}

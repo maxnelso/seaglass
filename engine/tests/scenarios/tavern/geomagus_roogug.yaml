@@ -5,3 +5,16 @@ scenarios:
     steps:
       - play: {hand: Blood Gem, pos: 0}
     expect: {board: ["Geomagus Roogug 5/7", "Iron Groundskeeper 3/3"]}
+
+  - name: hot_air_surveyors_extra_cast_triggers_it_again
+    description: >-
+      A Blood Gem cast twice (Hot-Air Surveyor) is 2 Blood Gems played on it: 2 triggers, each
+      playing a Blood Gem on the Surveyor, its only other minion. Those aren't played from the
+      hand, so they aren't cast again.
+    tavern: {board: [Geomagus Roogug, Hot-Air Surveyor], hand: [Blood Gem]}   # 4/6 and 3/7
+    steps:
+      - play: {hand: Blood Gem, pos: 0}
+    expect:
+      board:
+        - {card: Geomagus Roogug, stats: 6/8, blood_gems_played: 2}
+        - {card: Hot-Air Surveyor, stats: 5/9, blood_gems_played: 2}

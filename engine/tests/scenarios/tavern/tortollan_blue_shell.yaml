@@ -5,3 +5,13 @@ scenarios:
     steps:
       - sell: Tortollan Blue Shell
     expect: {gold: 7}   # 2 + 5 instead of 2 + 1
+
+  - name: sells_for_1_gold_after_a_tied_combat
+    description: A tie is not a loss, even if the combat before it was lost.
+    seed: 457
+    tavern: {gold: 2, last_combat_lost: true, board: [Tortollan Blue Shell]}
+    steps:
+      - fight: {board: [Tortollan Blue Shell]}   # two 3/6s hit each other twice: both die
+      - expect: {combat: {outcome: draw}, last_combat_lost: false}
+      - sell: Tortollan Blue Shell
+    expect: {gold: 3}   # 2 + 1

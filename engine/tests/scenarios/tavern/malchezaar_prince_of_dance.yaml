@@ -52,3 +52,36 @@ scenarios:
         - {card: "Malchezaar, Prince of Dance", charges: 0}
         - {card: "Malchezaar, Prince of Dance", charges: 0}
         - Refreshing Anomaly
+
+  - name: soul_rewinder_rewinds_a_health_refresh_even_at_1_health
+    description: >-
+      A Health Refresh deals 1 damage to the hero: Soul Rewinder rewinds it and gains +2 Health.
+      Since the damage is rewound, the Refresh can be paid even at 1 Health.
+    seed: 323
+    tavern: {health: 1, board: [Soul Rewinder, "Malchezaar, Prince of Dance"]}   # Rewinder: 4/2
+    steps:
+      - refresh   # with 0 Gold
+    expect:
+      health: 1
+      board: ["Soul Rewinder 4/4", {card: "Malchezaar, Prince of Dance", charges: 1}]
+
+  - name: health_refreshes_trigger_tichondrius_and_count_for_eredar_escapist
+    description: >-
+      Each Health Refresh is 1 hero damage: Tichondrius gives the Demons +4/+4 each time, and the
+      4th completes Eredar Escapist's 4 damage.
+    seed: 323
+    tavern:
+      board: [Tichondrius, Eredar Escapist, "Malchezaar, Prince of Dance", "Malchezaar, Prince of Dance"]
+    steps:
+      - repeat: 3   # with 0 Gold: 3 Health
+        steps: [refresh]
+      - expect: {health: 27, hand: []}
+      - refresh   # the 4th damage
+    expect:
+      health: 26
+      hand: [Corrupted Cupcakes]
+      board:   # all Demons: +4/+4 x 4
+        - "Tichondrius 20/20"
+        - "Eredar Escapist 22/24"
+        - "Malchezaar, Prince of Dance 20/19"
+        - "Malchezaar, Prince of Dance 20/19"

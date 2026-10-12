@@ -13,3 +13,25 @@ scenarios:
       - add_to_hand: Lovesick Balladist
       - play: Lovesick Balladist
     expect: {board: ["Lovesick Balladist 3/4"]}
+
+  - name: only_gold_spent_improves_it
+    description: >-
+      Recruit a Trainee costs 2 - 1 = 1 Gold (Ominous Seer), while Hasty Excavation and
+      Malchezaar's Health Refreshes cost Health: the Battlecry gives +2 +1 = +3 Health.
+    seed: 439
+    tavern:
+      gold: 10
+      board: [Southsea Busker, "Malchezaar, Prince of Dance"]   # Busker: a 3/1 Pirate
+      hand: [Ominous Seer, Lovesick Balladist]
+      shop: [Recruit a Trainee, Hasty Excavation]
+    steps:
+      - play: Ominous Seer
+      - buy: Recruit a Trainee   # 1 Gold
+      - buy: Hasty Excavation   # 3 Health
+      - repeat: 2   # Malchezaar's Health Refreshes
+        steps: [refresh]
+      - play: Lovesick Balladist
+    expect:
+      health: 25
+      gold_spent_this_turn: 1
+      board: {0: "Southsea Busker 3/4"}

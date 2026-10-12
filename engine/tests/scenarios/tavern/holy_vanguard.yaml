@@ -9,3 +9,15 @@ scenarios:
     expect:
       health: 15
       board: ["Holy Vanguard 40/40"]
+
+  - name: armor_is_not_health
+    description: At 16 Health, Armor doesn't count toward the bonus; it comes at 15 Health.
+    tavern: {health: 16, armor: 5, board: [Holy Vanguard]}
+    steps:
+      - deal_hero_damage: 1   # absorbed by the Armor
+      - expect: {health: 16, armor: 4, board: ["Holy Vanguard 10/10"]}
+      - deal_hero_damage: 5   # 4 Armor, then 1 Health
+    expect:
+      health: 15
+      armor: 0
+      board: ["Holy Vanguard 40/40"]

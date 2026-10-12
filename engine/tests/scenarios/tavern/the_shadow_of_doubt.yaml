@@ -15,3 +15,25 @@ scenarios:
     expect:
       hand: [Methodical Madness]
       auras: {deity: {attack: 5, health: 6}}
+
+  - name: razorfen_geomancers_2_blood_gems_trigger_it_twice
+    tavern: {board: [The Shadow of Doubt], hand: [Razorfen Geomancer]}
+    steps:
+      - play: Razorfen Geomancer
+    expect:
+      hand: [Blood Gem, Blood Gem]
+      auras: {deity: {attack: 9, health: 11}}   # 1/1 + 4/5 twice
+
+  - name: a_card_that_doesnt_fit_in_the_hand_doesnt_trigger_it
+    description: >-
+      With 10 cards in hand, playing Razorfen Geomancer leaves room for one of its 2 Blood Gems:
+      one trigger.
+    tavern:
+      board: [The Shadow of Doubt]
+      hand: [Razorfen Geomancer, Tavern Coin, Tavern Coin, Tavern Coin, Tavern Coin, Tavern Coin,
+             Tavern Coin, Tavern Coin, Tavern Coin, Tavern Coin]
+    steps:
+      - play: Razorfen Geomancer
+    expect:
+      hand: {all_of: [{count: 10}, {where: Blood Gem, count: 1}]}
+      auras: {deity: {attack: 5, health: 6}}   # 1/1 + 4/5 once

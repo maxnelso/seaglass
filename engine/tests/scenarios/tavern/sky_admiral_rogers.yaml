@@ -7,3 +7,20 @@ scenarios:
       - repeat: 9
         steps: [refresh]   # 1 Gold each
     expect: {hand: [{is_spell: true}]}
+
+  - name: free_refreshes_spend_no_gold
+    description: >-
+      Leaf Through the Pages costs 1 Gold but its 2 free Refreshes cost none: the Bounty comes with
+      the 8th paid Refresh (1 + 8 = 9 Gold).
+    seed: 621
+    tavern: {gold: 9, board: [Sky Admiral Rogers], shop: [Leaf Through the Pages]}
+    steps:
+      - buy: Leaf Through the Pages   # 1 Gold
+      - play: {hand: Leaf Through the Pages, pos: 0}
+      - repeat: 2   # free
+        steps: [refresh]
+      - repeat: 7   # 1 + 7 = 8 Gold
+        steps: [refresh]
+      - expect: {gold: 1, hand: []}
+      - refresh   # the 9th Gold
+    expect: {gold: 0, hand: [{is_spell: true}]}   # a Bounty

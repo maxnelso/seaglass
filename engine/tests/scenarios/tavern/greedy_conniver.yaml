@@ -8,3 +8,24 @@ scenarios:
       - expect: {discover_pending: null}
       - sell: golden Greedy Conniver
     expect: {discover_pending: {not: null}}   # a Tier 7 minion
+
+  - name: made_golden_by_eyes_of_the_earth_mother_it_discovers_when_sold
+    seed: 318
+    tavern: {board: [Greedy Conniver]}   # Tier 3
+    steps:
+      - add_to_hand: Eyes of the Earth Mother
+      - play: {hand: Eyes of the Earth Mother, pos: 0}
+      - sell: {is_golden: true}
+    expect: {discover_pending: {count: 3, all: {tavern_tier: 7}}}
+
+  - name: made_golden_by_golden_touch_it_discovers_when_sold
+    seed: 318
+    tavern: {gold: 3, shop: [Greedy Conniver]}
+    steps:
+      - add_to_hand: Golden Touch
+      - play: Golden Touch   # the only minion in the Tavern
+      - buy: 0
+      - play: {is_golden: true}
+      - choose_discover: 0   # its Triple Reward
+      - sell: {is_golden: true}
+    expect: {discover_pending: {count: 3, all: {tavern_tier: 7}}}

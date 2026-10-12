@@ -5,3 +5,14 @@ scenarios:
     steps:
       - deal_hero_damage: 1
     expect: {board: ["Tichondrius 8/8"]}
+
+  - name: triggers_on_damage_that_soul_rewinder_rewinds
+    description: >-
+      Both trigger after the hero takes damage: Soul Rewinder rewinds it and gains +2 Health, and
+      Tichondrius gives the Demons +4/+4.
+    tavern: {board: [Tichondrius, Soul Rewinder]}   # 4/4 and 4/2 Demons
+    steps:
+      - deal_hero_damage: 1
+    expect:
+      health: 30
+      board: ["Tichondrius 8/8", "Soul Rewinder 8/8"]   # Rewinder: 4/2 +4/+4 +0/+2

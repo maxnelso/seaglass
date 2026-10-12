@@ -7,3 +7,13 @@ scenarios:
     expect:
       health: 30
       board: ["Soul Rewinder 4/4"]
+
+  - name: rewinds_wrath_weavers_damage_at_1_health
+    description: The 1 damage is rewound, so Wrath Weaver doesn't take the hero from 1 Health to 0.
+    tavern: {health: 1, board: [Wrath Weaver, Soul Rewinder]}   # 1/3 and 4/2
+    steps:
+      - add_to_hand: Ominous Seer   # a Demon
+      - play: Ominous Seer
+    expect:
+      health: 1
+      board: ["Wrath Weaver 3/5", "Soul Rewinder 4/4", Ominous Seer]
