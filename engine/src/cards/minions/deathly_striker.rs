@@ -2,9 +2,12 @@
 //!
 //! Avenge (4): Get a (`2` if Golden) random Undead.
 //! Deathrattle: Summon it (`them` if Golden) from your hand for this combat only.
+//!
+//! The Deathrattle summons exactly the Undead this minion's Avenge gave you this combat (all of
+//! them if it triggered more than once; nothing if it never did), not other Undead in hand.
 
 use crate::cards::{self, BoardCtx, CardTemplate, DeathrattleContext};
-use crate::model::{CardId, Tribe, Unit};
+use crate::model::{CardId, Tribe, Unit, UnitId};
 
 pub const ID: CardId = 606;
 
@@ -20,12 +23,13 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, self_idx: usize, _dying: &Unit)
     if !ctx.in_combat || !ctx.board[self_idx].avenge(4) {
         return;
     }
-    let is_golden = ctx.board[self_idx].is_golden;
-    on_avenge(ctx, is_golden);
+    let (self_id, is_golden) = (ctx.board[self_idx].id, ctx.board[self_idx].is_golden);
+    on_avenge(ctx, self_id, is_golden);
 }
 
-/// Get a (`2` if Golden) random Undead of the hero's Tavern Tier or lower.
-pub fn on_avenge(ctx: &mut BoardCtx<'_>, is_golden: bool) {
+/// Get a (`2` if Golden) random Undead of the hero's Tavern Tier or lower, recorded as given by
+/// the Striker `self_id` for its Deathrattle.
+pub fn on_avenge(ctx: &mut BoardCtx<'_>, self_id: UnitId, is_golden: bool) {
     let max_tier = ctx.hero_tier.max(1);
     let candidates: Vec<&CardTemplate> = cards::all_templates()
         .iter()
@@ -40,24 +44,20 @@ pub fn on_avenge(ctx: &mut BoardCtx<'_>, is_golden: bool) {
             break;
         }
         let pick = ctx.rng.below(candidates.len());
-        ctx.add_to_hand(candidates[pick].instantiate());
+        ctx.add_to_hand_from(self_id, candidates[pick].instantiate());
     }
 }
 
+/// Summon, from hand for this combat only, every Undead this Striker's Avenge gave this combat.
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
-    let count = if dying.is_golden { 2 } else { 1 };
-    for _ in 0..count {
-        let Some(hand_idx) = (0..ctx.hand.len()).find(|&i| {
-            !ctx.hand[i].is_spell
-                && ctx.hand[i].tribe.matches(Tribe::Undead)
-                && !ctx.hand_summoned.get(i).copied().unwrap_or(false)
-        }) else {
-            break;
-        };
-        if hand_idx < ctx.hand_summoned.len() {
-            ctx.hand_summoned[hand_idx] = true;
+    for hand_idx in 0..ctx.hand.len() {
+        let given = ctx.hand_given_by.get(hand_idx) == Some(&Some(dying.id));
+        if !given || ctx.hand_summoned.get(hand_idx).copied().unwrap_or(true) {
+            continue;
         }
         let summoned = ctx.hand[hand_idx].clone();
-        ctx.summon(dying.id, summoned);
+        if ctx.summon_as(dying.id, summoned, "Deathrattle").is_some() {
+            ctx.hand_summoned[hand_idx] = true;
+        }
     }
 }
