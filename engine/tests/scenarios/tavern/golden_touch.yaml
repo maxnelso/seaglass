@@ -20,3 +20,20 @@ scenarios:
     expect:
       board: ["golden Risen Rider 4/2"]
       discover_pending: {count: 3, all: {tavern_tier: 2}}   # the Triple Reward: Tavern Tier + 1
+
+  - name: selling_the_golden_returns_one_copy_to_the_pool
+    description: >-
+      Golden Touch made a single copy Golden, so selling it puts back 1 copy, not the 3 a tripled
+      Golden puts back. It still gave a Triple Reward.
+    seed: 956
+    tavern: {gold: 3, shop: [Risen Rider]}
+    steps:
+      - take_from_pool: [Risen Rider, Risen Rider, Risen Rider]   # room under the pool's cap
+      - add_to_hand: Golden Touch
+      - play: Golden Touch
+      - buy: 0
+      - play: {is_golden: true}
+      - choose_discover: 0   # the Triple Reward
+      - expect: {pool: {Risen Rider: {capture: before}}}
+      - sell: {is_golden: true}
+    expect: {pool: {Risen Rider: "$before + 1"}}

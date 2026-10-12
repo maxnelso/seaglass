@@ -326,13 +326,13 @@ impl CardPool {
         }
     }
 
-    /// Return a unit's copy back to the shared card pool (3 copies for a Golden, unless it is
-    /// `intrinsic_golden`).
+    /// Return a unit's copy back to the shared card pool (3 copies for a Golden formed by a Triple;
+    /// 1 for one an effect made Golden, `golden_from_effect`, or that is `intrinsic_golden`).
     pub fn return_unit(&mut self, unit: &Unit) {
         if unit.is_spell {
             return;
         }
-        let copies = if unit.is_golden && !unit.intrinsic_golden {
+        let copies = if unit.is_golden && !unit.intrinsic_golden && !unit.golden_from_effect {
             3
         } else {
             1

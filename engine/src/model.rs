@@ -389,6 +389,10 @@ pub struct Unit {
     /// for the card pool): it is intrinsically Golden (`Aureate Laureate`) or the card that made
     /// it says so (`Silent Deliverer`). Other Goldens made by effects are regular Goldens.
     pub intrinsic_golden: bool,
+    /// True if an effect made this Golden from a single copy (`Golden Touch`, `Captain Sanders`,
+    /// ...; see [`Self::make_golden`]) rather than a Triple: it still gives a Triple Reward, but
+    /// counts as a single copy for the card pool (`docs/tavern.md` §2).
+    pub golden_from_effect: bool,
     /// True if this unit is an awakened Deity (`C'Thun` or `Y'Shaarj`).
     pub is_deity: bool,
     /// True if this card is a spell in shop/hand rather than a minion.
@@ -490,6 +494,7 @@ impl Unit {
             magnetic: false,
             is_golden: false,
             intrinsic_golden: false,
+            golden_from_effect: false,
             is_deity: false,
             is_spell: false,
             spell_cost: 0,
@@ -628,7 +633,8 @@ impl Unit {
 
     /// Convert this plain minion into a Golden version (`Golden Touch`, `Elite Navigator`).
     /// Like a tripled Golden, it gives a Triple Reward when played (unless the caller sets
-    /// [`Self::intrinsic_golden`]). Aura bonuses that scale with Golden are re-applied by the
+    /// [`Self::intrinsic_golden`]), but it counts as a single copy for the card pool
+    /// ([`Self::golden_from_effect`]). Aura bonuses that scale with Golden are re-applied by the
     /// next aura sync ([`crate::cards::sync_unit_auras`]).
     pub fn make_golden(&mut self) {
         if self.is_golden {
@@ -640,6 +646,7 @@ impl Unit {
         self.base_health *= 2;
         self.add_stats(add_atk, add_hp);
         self.is_golden = true;
+        self.golden_from_effect = true;
         if !self.name.starts_with("Golden ") {
             self.name = format!("Golden {}", self.name);
         }

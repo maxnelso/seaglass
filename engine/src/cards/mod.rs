@@ -746,6 +746,7 @@ pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
         if dying.is_golden {
             u.make_golden();
             u.intrinsic_golden = dying.intrinsic_golden;
+            u.golden_from_effect = dying.golden_from_effect;
         }
         u
     } else {
@@ -755,6 +756,7 @@ pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
             .with_tribe(dying.tribe)
             .with_golden(dying.is_golden);
         u.intrinsic_golden = dying.intrinsic_golden;
+        u.golden_from_effect = dying.golden_from_effect;
         u.taunt = dying.taunt;
         u.divine_shield = dying.inherent_divine_shield;
         u.inherent_divine_shield = dying.inherent_divine_shield;

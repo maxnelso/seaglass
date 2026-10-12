@@ -47,7 +47,7 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
 3. **Returning to Pool (`return_unit(unit)`)**:
    - **Shop Refresh / Unfrozen Turn Start**: Every minion currently in `shop` returns its copies to the pool (`1` copy, or as a sold Golden below) *before* drawing the new shop.
    - **Selling a Non-Golden Minion**: Returns **`1` copy** of its `card_id` to the pool (capped at the tier's base copy limit).
-   - **Selling a Golden Minion**: Returns **`3` copies** of its `card_id` to the pool, whether it was formed by a Triple or made Golden by an effect (`Golden Touch`), unless it doesn't give a Triple Reward (`intrinsic_golden`, §5.2), in which case it returns `1` copy.
+   - **Selling a Golden Minion**: Returns **`3` copies** of its `card_id` to the pool if it was formed by a Triple. A Golden that an effect made from a single copy (`Golden Touch`, `Captain Sanders`, a `Lockbox`, ...; `golden_from_effect`) or that is always Golden (`Aureate Laureate`, `intrinsic_golden`) returns `1` copy, even though the former still gives a Triple Reward (§5.2).
    - **Unchosen Discover Options**: When 1 of the offered Discover options is chosen, the unchosen options return `1` copy each to the pool.
    - Generated tokens (minions not in the purchasable catalog) do not add copies to `CardPool` when sold.
 
