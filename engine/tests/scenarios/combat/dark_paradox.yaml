@@ -8,3 +8,10 @@ scenarios:
     expect:
       outcome: a_win
       hand_a: ["beast"]
+
+  - name: never_gets_a_dark_paradox
+    seeds: "1..101"
+    combat:
+      board_a: [golden Dark Paradox, Flittering Bat, Flittering Bat]   # Rally: get 2 random Beasts (or All)
+      board_b: [Patient Scout]
+    expect: {hand_a: {count: 2, none: {card: Dark Paradox}}}

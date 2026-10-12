@@ -16,3 +16,12 @@ scenarios:
       - expect: {max_gold: 11, gold: 4}
       - start_turn
     expect: {turn: 10, max_gold: 11, gold: 11}   # 10, +1
+
+  - name: ensnare_the_target_never_gets_a_snare_trapper
+    seeds: "1..41"
+    tavern: {tavern_tier: 4}
+    steps:
+      - add_to_hand: golden Snare Trapper
+      - play: golden Snare Trapper
+      - choose_discover: 0   # Ensnare the Target: get 2 random Quilboar
+    expect: {hand: {count: 2, none: {card: Snare Trapper}}}

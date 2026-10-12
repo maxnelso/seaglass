@@ -6,3 +6,10 @@ scenarios:
     steps:
       - sell: Tad
     expect: {hand: [{all_of: [murloc, {not: Tad}]}]}
+
+  - name: never_gets_a_tad
+    seeds: "1..41"
+    tavern: {tavern_tier: 2, board: [golden Tad]}
+    steps:
+      - sell: golden Tad   # get 2 other random Murlocs
+    expect: {hand: {count: 2, none: {card: Tad}}}

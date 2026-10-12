@@ -4,3 +4,12 @@ scenarios:
     seed: 523
     combat: {board_a: [Ghastcoiler], board_b: [Tyrael]}   # 7/7
     expect: {events: {where: {type: unit_summoned, side: a, reason: Deathrattle}, count: ">= 2"}}
+
+  - name: never_summons_a_ghastcoiler
+    seeds: "1..101"
+    combat: {board_a: [golden Ghastcoiler], board_b: [Tyrael]}   # Deathrattle: summon 4 random Deathrattle minions
+    expect:
+      events:
+        where: {type: unit_summoned, source: 0}   # the Ghastcoiler
+        count: 4
+        none: {name: Ghastcoiler}

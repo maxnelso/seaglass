@@ -8,3 +8,10 @@ scenarios:
     expect:
       outcome: a_win
       hand_a: ["beast"]
+
+  - name: never_gets_a_headhunter_gryphon
+    seeds: "1..101"
+    combat:
+      board_a: [golden Headhunter Gryphon]   # 3/5, Rally: get 2 random Beasts
+      board_b: ["Kalecgos, Arcane Aspect"]   # 4/12: the Gryphon attacks at least once
+    expect: {hand_a: {count: ">= 2", none: {card: Headhunter Gryphon}}}

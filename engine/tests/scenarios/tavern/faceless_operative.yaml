@@ -44,3 +44,10 @@ scenarios:
       auras: {cards_discarded: 1}
       hand: []
       board: ["Brain Rotter 7/8", "Mindbender Ghur'sha 3/9"]
+
+  - name: never_gets_a_faceless_operative
+    seeds: "1..41"
+    tavern: {tavern_tier: 4, board: [golden Faceless Operative]}
+    steps:
+      - sell: golden Faceless Operative   # get 4 random Aberrations (3 copies of one triple)
+    expect: {hand: {count: ">= 2", none: {card: Faceless Operative}}}

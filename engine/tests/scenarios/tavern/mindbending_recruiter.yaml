@@ -6,3 +6,10 @@ scenarios:
     steps:
       - activate: {pos: Mindbending Recruiter, target: 0}   # discards Patient Scout
     expect: {hand: [aberration]}
+
+  - name: never_gets_a_mindbending_recruiter
+    seeds: "1..41"
+    tavern: {tavern_tier: 4, board: [golden Mindbending Recruiter], hand: [Patient Scout]}
+    steps:
+      - activate: {pos: 0, target: 0}   # discard Patient Scout to get 2 random Aberrations
+    expect: {hand: {count: 2, none: {card: Mindbending Recruiter}}}
