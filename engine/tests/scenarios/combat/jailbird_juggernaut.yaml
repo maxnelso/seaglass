@@ -10,3 +10,21 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: ["Jailbird Juggernaut 6/15", "Blood Golem 6/7", Patient Scout]
+
+  - name: the_golems_attack_triggers_friendly_attack_observers
+    description: >-
+      Side A (3 minions) attacks first. The Juggernaut's attack and then its Golem's attack each
+      trigger Prodigious Tusker (a Blood Gem on the attacker: both become 7/16) and Ravaging
+      Scorpid (Beetles +4/+4, twice). The 7/16 Golem kills the 8/6 and takes 8.
+    seed: 705
+    combat:
+      board_a: [Jailbird Juggernaut, Prodigious Tusker, Ravaging Scorpid]
+      board_b: [Living Azerite]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - "Jailbird Juggernaut 7/16"   # 6/15 + a Blood Gem (after its Rally copied 6/15)
+        - "Blood Golem 7/8"   # 6/15 + a Blood Gem, then 8 damage
+        - Prodigious Tusker
+        - Ravaging Scorpid
+      auras_a: {counters: {Beetle: [8, 8]}}   # +4/+4 for each of the two attacks

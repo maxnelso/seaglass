@@ -6,3 +6,24 @@ scenarios:
       board_a: [Risen Rider, Risen Rider, Risen Rider, Risen Rider, Eternal Tycoon]
       board_b: [Stalwart Kodo]
     expect: {events: {any: {type: unit_summoned, reason: Eternal Tycoon}}}
+
+  # Unit ids: A's Eternal Tycoon 0, Prodigious Tusker 1, Southsea Buskers 2-6; B's
+  # Boom-in-a-Box 7; the Eternal Knight 8.
+  - name: the_knights_immediate_attack_triggers_attack_observers
+    description: >-
+      Boom-in-a-Box's Start of Combat kills the five Buskers: Avenge (5) summons an Eternal
+      Knight, which attacks immediately. That is a real attack: Prodigious Tusker plays a Blood
+      Gem on it before the damage, so the 4/2 Knight hits for 5.
+    seed: 1
+    combat:
+      board_a:
+        [Eternal Tycoon, Prodigious Tusker, Southsea Busker, Southsea Busker, Southsea Busker,
+         Southsea Busker, Southsea Busker]
+      board_b: [Boom-in-a-Box]
+    expect:
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, unit: 8, name: Eternal Knight}
+          - {type: attack_declared, side: a, attacker: 8, target: 7}
+          - {type: stat_buff, unit: 8, reason: ProdigiousTusker, attack: 5, health: 3}
+          - {type: damage_dealt, unit: 7, amount: 5, from: 8}

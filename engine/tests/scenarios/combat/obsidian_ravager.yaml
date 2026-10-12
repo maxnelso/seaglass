@@ -11,3 +11,23 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: ["Obsidian Ravager 7/7", Patient Scout, Patient Scout]
+
+  # Unit ids: A's Obsidian Ravager 0, Patient Scout 1; B's Annoy-o-Module 2 (2/4 Taunt, Divine
+  # Shield).
+  - name: rally_damage_pops_divine_shield_so_the_attack_lands
+    description: >-
+      Side A (2 minions) attacks first. The Rally's 7 damage pops the target's Divine Shield,
+      then the attack itself deals 7 and kills it; the Ravager takes 2 (7/5).
+    seed: 706
+    combat:
+      board_a: [Obsidian Ravager, Patient Scout]
+      board_b: [Annoy-o-Module]
+    expect:
+      outcome: a_win
+      survivors_a: ["Obsidian Ravager 7/5", Patient Scout]
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 2}
+          - {type: divine_shield_popped, unit: 2}
+          - {type: damage_dealt, unit: 2, amount: 7, from: 0}
+          - {type: death, unit: 2}

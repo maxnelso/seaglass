@@ -8,3 +8,17 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: ["Wolf Pup 5/6", "Cage Gnawer 8/9"]
+
+  - name: a_windfury_beast_triggers_it_on_each_attack
+    description: >-
+      Side A (2 minions) attacks first. The Windfury Lurking Lionfish (a 3/4 Beast) attacks
+      twice, so your Beasts get +2/+1 twice. Titus Rivendare (1/7) dies to the second hit.
+    seed: 411
+    combat:
+      board_a: [Lurking Lionfish windfury, Cage Gnawer]
+      board_b: [Titus Rivendare]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - "Lurking Lionfish 7/4"   # 3/4 +2/+1 +2/+1, minus 1 damage per attack
+        - "Cage Gnawer 6/9"   # 2/7 +2/+1 +2/+1

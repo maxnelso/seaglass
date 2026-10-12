@@ -4,3 +4,13 @@ scenarios:
     seed: 507
     combat: {board_a: [Costume Enthusiast], board_b: [Patient Scout], hand_a: [Tyrael]}   # 4/5 Divine Shield
     expect: {survivors_a: ["Costume Enthusiast 14/5"]}
+
+  - name: ignores_spells_in_hand
+    description: >-
+      The hand holds only spells (a Blood Gem is a 1/1 spell): no minion in hand, so no Attack
+      is gained. Patient Scout's 1 damage pops the Divine Shield.
+    seed: 507
+    combat: {board_a: [Costume Enthusiast], board_b: [Patient Scout], hand_a: [Blood Gem, Tavern Dish Banana]}
+    expect:
+      survivors_a: ["Costume Enthusiast 4/5 -divine_shield"]   # 5/5 if it counted the Blood Gem
+      events: {none: {type: stat_buff}}

@@ -9,3 +9,16 @@ scenarios:
     expect:
       # 6/6 + 15/20 = 21/26 (21/25 after taking 1 damage)
       survivors_a: [{card: Choral Mrrrglr, attack: 21, max_health: 26}]
+
+  - name: ignores_spells_in_hand
+    description: >-
+      Only the minions in hand count: Tad's 2/2, not the Blood Gem (a 1/1 spell) or Tavern
+      Dish Banana.
+    seed: 603
+    combat:
+      board_a: [Choral Mrrrglr]
+      board_b: [Patient Scout]
+      hand_a: [Tad, Blood Gem, Tavern Dish Banana]
+    expect:
+      # 6/6 + 2/2 = 8/8 (8/7 after taking 1 damage); with the Blood Gem it would be 9/9
+      survivors_a: [{card: Choral Mrrrglr, attack: 8, max_health: 8}]

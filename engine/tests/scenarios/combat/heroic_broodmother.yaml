@@ -7,3 +7,25 @@ scenarios:
     seed: 614
     combat: {board_a: [Heroic Broodmother], board_b: [Hired Mount]}
     expect: {outcome: a_win, survivors_a: ["Heroic Broodmother 7/7"]}
+
+  # Unit ids: A's Roaring Recruiter 0, Prodigious Tusker 1, Ravaging Scorpid 2, Heroic
+  # Broodmother 3; B's Patient Scout 4. The Broodmother is right-most, so the only attack (the
+  # 1/1 dies to it) is its Start of Combat attack, not A's first regular attack.
+  - name: start_of_combat_attack_triggers_rally_and_attack_observers
+    description: >-
+      The immediate attack is a real attack: Rally gives the Broodmother Divine Shield, Roaring
+      Recruiter gives it +3/+1, Prodigious Tusker plays a Blood Gem on it (+1/+1) and Ravaging
+      Scorpid gives Beetles +4/+4, all before the damage.
+    seed: 1
+    combat:
+      board_a: [Roaring Recruiter, Prodigious Tusker, Ravaging Scorpid, Heroic Broodmother]
+      board_b: [Patient Scout]
+    expect:
+      outcome: a_win
+      events: {where: {type: attack_declared}, count: 1, 0: {side: a, attacker: 3, target: 4}}
+      survivors_a:
+        - Roaring Recruiter
+        - Prodigious Tusker
+        - Ravaging Scorpid
+        - "Heroic Broodmother 11/9 -divine_shield"   # 7/7 +3/+1 +1/+1; the shield took the 1 damage
+      auras_a: {counters: {Beetle: [4, 4]}}

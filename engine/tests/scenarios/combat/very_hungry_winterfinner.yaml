@@ -4,3 +4,16 @@ scenarios:
     seed: 233
     combat: {board_a: [Very Hungry Winterfinner], board_b: [Vicious Mindslasher], hand_a: [Iron Groundskeeper]}   # a 2/6 Taunt
     expect: {outcome: a_win, hand_a: ["Iron Groundskeeper 4/3"]}
+
+  - name: buffs_only_minions_in_hand
+    description: >-
+      The Winterfinner takes damage once; the random minion in hand is always Iron
+      Groundskeeper, never one of the spells.
+    seeds: "1..=8"
+    combat:
+      board_a: [Very Hungry Winterfinner]
+      board_b: [Vicious Mindslasher]
+      hand_a: [Tavern Dish Banana, Blood Gem, Iron Groundskeeper, Pointy Arrow]
+    expect:
+      outcome: a_win
+      hand_a: ["Tavern Dish Banana 0/0", "Blood Gem 1/1", "Iron Groundskeeper 4/3", "Pointy Arrow 0/0"]

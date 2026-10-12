@@ -4,3 +4,36 @@ scenarios:
     seed: 451
     combat: {board_a: [Sin'dorei Straight Shot], board_b: [Risen Rider]}
     expect: {outcome: a_win, survivors_b: []}
+
+  # The scenario above passes even without the Rally (the Windfury strike kills the Reborn copy
+  # too); here the Straight Shot attacks first, so the Rider's fate is decided by the Rally.
+  - name: rally_stops_the_risen_rider_coming_back
+    description: >-
+      Side A (2 minions) attacks first. The Rally removes the Rider's Reborn before the damage:
+      it dies for good, so there is no Reborn copy and no Windfury strike. The Rider's 2 damage
+      only popped the Divine Shield (with a Reborn copy, the second strike would take 2 more).
+    seed: 451
+    combat:
+      board_a: [Sin'dorei Straight Shot, Patient Scout]
+      board_b: [Risen Rider]
+    expect:
+      outcome: a_win
+      survivors_a: ["Sin'dorei Straight Shot 3/4 -divine_shield", Patient Scout]
+      events: {none: {type: unit_summoned}}
+
+  # Unit ids: A's Sin'dorei Straight Shot 0, Patient Scouts 1, 2; B's Risen Rider 3, Wandering
+  # Willbreaker 4.
+  - name: rally_removes_taunt_so_the_windfury_strike_can_hit_another_minion
+    description: >-
+      The first strike must hit the Taunt Rider, whose Divine Shield absorbs it; the Rally
+      removed its Taunt, so the Windfury strike picks among both enemies (this seed: the
+      Willbreaker).
+    seed: 1
+    combat:
+      board_a: [Sin'dorei Straight Shot, Patient Scout, Patient Scout]
+      board_b: ["Risen Rider divine_shield", Wandering Willbreaker]
+    expect:
+      events:
+        where: {type: attack_declared, side: a}
+        0: {attacker: 0, target: 3}
+        1: {attacker: 0, target: 4}

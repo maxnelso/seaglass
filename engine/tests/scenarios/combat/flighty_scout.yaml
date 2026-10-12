@@ -13,3 +13,19 @@ scenarios:
     expect:
       survivors_a:
         any: {name: Flighty Scout, attack: 19, max_health: 35}
+
+  # Unit ids: A's Patient Scout 0; B's Boom-in-a-Box 1; the Flighty Scout copy 2.
+  - name: its_copy_is_summoned_before_minion_start_of_combat_effects
+    description: >-
+      Hand copies are summoned with the player's own Start of Combat effects, before any
+      minion's trigger (docs/combat.md §5.1.1): whichever side goes first, Boom-in-a-Box's 3
+      damage hits the 3/3 copy and kills it.
+    seeds: "1..=4"   # the Start of Combat coin flip: B goes first at seeds 1 and 3, A at 2 and 4
+    combat: {board_a: [Patient Scout], board_b: [Boom-in-a-Box], hand_a: [Flighty Scout]}
+    expect:
+      outcome: b_win
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, unit: 2, name: Flighty Scout}
+          - {type: damage_dealt, unit: 2, amount: 3, from: 1}
+          - {type: death, unit: 2}

@@ -6,3 +6,46 @@ scenarios:
       board_a: [golden Wildfire Elemental]   # the golden flag only: still 6/3
       board_b: [Nerubian Deathswarmer, Aberrant Tentacle, Nerubian Deathswarmer]
     expect: {outcome: a_win}
+
+  # Unit ids: A's Wildfire Elemental 0, Patient Scouts 1-3; B's Wandering Willbreaker 4,
+  # Annoy-o-Module 5 (2/4 Taunt, Divine Shield), Wandering Willbreaker 6.
+  - name: no_excess_damage_when_divine_shield_absorbs_the_hit
+    description: >-
+      Side A (4 minions) attacks first; the Wildfire Elemental must attack the Taunt
+      Annoy-o-Module. Its Divine Shield absorbs the hit: nothing is killed, so no excess damage.
+      Later the Wildfire attacks it again (2 Health left) and kills it: 6 - 2 = 4 excess damage
+      kills a Willbreaker.
+    seed: 1
+    combat:
+      board_a: [Wildfire Elemental, Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Wandering Willbreaker, Annoy-o-Module, Wandering Willbreaker]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: attack_declared, side: a, attacker: 0, target: 5}
+              - {type: divine_shield_popped, unit: 5}
+          # All the damage the Wildfire deals: none on the first attack.
+          - where: {type: damage_dealt, from: 0}
+            count: 2
+            0: {unit: 5, amount: 6}
+            1: {unit: 4, amount: 4}
+
+  # Unit ids: A's Wildfire Elemental 0, Patient Scouts 1, 2; B's Rescue Bot 3, Cord Puller 4.
+  - name: a_neighbours_divine_shield_absorbs_the_excess_damage
+    description: >-
+      Side A (3 minions) attacks first. The 6/3 kills the Taunt Rescue Bot (2/1): the 5 excess
+      damage goes to its only neighbour, Cord Puller, whose Divine Shield absorbs it all.
+    seed: 342
+    combat:
+      board_a: [Wildfire Elemental, Patient Scout, Patient Scout]
+      board_b: [Rescue Bot, Cord Puller]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: attack_declared, side: a, attacker: 0, target: 3}
+              - {type: damage_dealt, unit: 3, amount: 6, from: 0}
+              - {type: divine_shield_popped, unit: 4}
+              - {type: death, unit: 3}
+          - {none: {type: damage_dealt, unit: 4, amount: 5}}

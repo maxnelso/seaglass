@@ -8,3 +8,20 @@ scenarios:
     expect:
       hand_a: [Methodical Madness]
       auras_a: {deity: {attack: 5, health: 6}}
+
+  - name: no_card_and_no_buff_once_the_hand_is_full
+    description: >-
+      Side A (3 minions) attacks first. With 9 cards in hand, Roadboar's Blood Gem is the 10th
+      (+4/+5); Bigwig Bandit attacks next, but its Bounty doesn't fit, so no card and no buff.
+    seed: 623
+    combat:
+      board_a: [Roadboar, Bigwig Bandit, The Shadow of Doubt]
+      board_b: [Titus Rivendare]
+      hand_a:
+        [Tad, Tad, Tad, Tad, Tad, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana,
+         Tavern Dish Banana]
+    expect:
+      outcome: a_win
+      events: {where: {type: attack_declared, side: a}, 0: {attacker: 0}, 1: {attacker: 1}}
+      hand_a: {count: 10, -1: Blood Gem}
+      auras_a: {deity: {attack: 5, health: 6}}   # 1/1 + 4/5 once
