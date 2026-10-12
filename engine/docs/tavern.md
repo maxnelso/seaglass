@@ -101,14 +101,15 @@ At the beginning of Turn `t`:
 3. **Decay Upgrade Cost**:
    - If `turn > 1` and `tavern_tier < 6`: `upgrade_cost = upgrade_cost.saturating_sub(1)`.
 4. **Populate Bob's Shop**:
-   - Let `cap = shop_capacity(tavern_tier)`.
+   - Let `cap = shop_capacity(tavern_tier)`. The shop has `cap` slots, plus a spell slot when it offers Tavern spells (`include_shop_spells`).
    - **If `is_frozen == true`**:
-     - Keep all minions currently in `shop` in their existing order.
-     - Draw up to `cap - shop.len()` new minions from `CardPool` (`tier <= tavern_tier`) and append them to `shop`.
+     - Keep every card currently in `shop` (minions and spells) in its existing order: each one fills a slot, whatever it is.
+     - If the shop offers spells and no spell is left in it, the spell slot is free.
+     - Fill the other free slots (`cap + 1 - shop.len()` with shop spells, `cap - shop.len()` without, less a free spell slot) with new minions from `CardPool` (`tier <= tavern_tier`), appended to `shop`; then append a random Tavern spell (`tier <= tavern_tier`) for a free spell slot. So in a Tavern of spells (`Saloon's Finest`), each slot bought from refills with a minion, and the spell slot refills with a spell only once no spell is left.
      - Set `is_frozen = false`.
    - **If `is_frozen == false`**:
      - Return all minions currently in `shop` to `CardPool`.
-     - Draw `cap` new minions from `CardPool` (`tier <= tavern_tier`).
+     - Draw `cap` new minions from `CardPool` (`tier <= tavern_tier`), then a random Tavern spell if the shop offers spells.
 5. **Generate Start-of-Turn Spellcrafts**:
    - For each Spellcraft-producing minion on `board` (left $\to$ right), generate its Spellcraft spell into `hand` (or `pending_spellcrafts` if `hand.len() == 10`).
 

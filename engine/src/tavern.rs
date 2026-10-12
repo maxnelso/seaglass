@@ -794,15 +794,18 @@ impl TavernState {
         let cap = shop_capacity(self.tavern_tier);
         if self.is_frozen {
             self.is_frozen = false;
-            let minion_count = self.shop.iter().filter(|u| !u.is_spell).count();
-            let needed = cap.saturating_sub(minion_count);
+            // Every kept card fills a slot (`cap`, plus the spell slot); the spell slot refills
+            // with a spell only if no spell is left, the other free slots with minions.
+            let slots = cap + usize::from(self.include_shop_spells);
+            let new_spell = self.include_shop_spells && !self.shop.iter().any(|u| u.is_spell);
+            let needed = slots.saturating_sub(self.shop.len() + usize::from(new_spell));
             for _ in 0..needed {
                 if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
                     self.apply_shop_auras(&mut drawn);
                     self.shop.push(drawn);
                 }
             }
-            if self.include_shop_spells && !self.shop.iter().any(|u| u.is_spell) {
+            if new_spell {
                 self.shop
                     .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
             }
