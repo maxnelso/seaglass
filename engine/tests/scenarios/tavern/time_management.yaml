@@ -10,3 +10,39 @@ scenarios:
       - expect: {auras: {effect_stacks: {Time Management: 2}}}
       - start_turn
     expect: {board: ["Iron Groundskeeper 6/6"]}
+
+  - name: do_it_later_reads_spell_power_when_it_pays_off
+    description: Humon'gozz played after choosing Do It Later still adds its +1/+2 to both payoffs.
+    seed: 828
+    tavern: {board: [Iron Groundskeeper]}
+    steps:
+      - add_to_hand: Time Management
+      - play: {hand: Time Management, pos: 0}
+      - choose_discover: 1   # Do It Later
+      - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
+      - play: Humon'gozz
+      - start_turn
+    expect: {board: ["Iron Groundskeeper 8/10", "Humon'gozz 11/13"]}   # +3/+4 twice
+
+  - name: hurry_up_buffs_only_minions_on_the_board
+    seed: 828
+    tavern: {board: [Iron Groundskeeper], hand: [Flittering Bat]}
+    steps:
+      - add_to_hand: Time Management
+      - play: {hand: Time Management, pos: 0}
+      - choose_discover: 0   # Hurry Up: +2/+2 now
+    expect:
+      board: ["Iron Groundskeeper 4/4"]
+      hand: ["Flittering Bat 1/4"]   # not in hand
+
+  - name: do_it_later_buffs_only_minions_on_the_board
+    seed: 828
+    tavern: {board: [Iron Groundskeeper], hand: [Flittering Bat]}
+    steps:
+      - add_to_hand: Time Management
+      - play: {hand: Time Management, pos: 0}
+      - choose_discover: 1   # Do It Later
+      - start_turn
+    expect:
+      board: ["Iron Groundskeeper 6/6"]   # +2/+2 twice
+      hand: ["Flittering Bat 1/4"]   # not in hand
