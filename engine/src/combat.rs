@@ -97,6 +97,7 @@ impl SideCombatState {
             board: &mut self.board,
             start_board: &self.start_board,
             cursor: 0,
+            reserved_slots: 0,
             auras: &mut self.auras,
             hand: &mut self.hand,
             hand_summoned: &mut self.hand_summoned,

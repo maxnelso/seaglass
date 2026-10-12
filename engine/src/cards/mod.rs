@@ -69,6 +69,9 @@ pub struct BoardCtx<'a> {
     pub start_board: &'a [Unit],
     /// Board slot where the next summon is inserted.
     pub cursor: usize,
+    /// Board slots held for minions that aren't on the board yet (in the Tavern, the minion being
+    /// played while its Battlecry resolves): summons leave them free.
+    pub reserved_slots: usize,
     pub auras: &'a mut PlayerAuras,
     pub hand: &'a mut Vec<Unit>,
     pub hand_summoned: &'a mut Vec<bool>,
@@ -94,7 +97,7 @@ pub type DeathrattleContext<'a> = BoardCtx<'a>;
 
 impl<'a> BoardCtx<'a> {
     /// Summon `token` at the current board position (`self.cursor`) if the board has space
-    /// (`< MAX_BOARD_SIZE`), applying all active summon modifiers.
+    /// (`< MAX_BOARD_SIZE`, counting the `reserved_slots`), applying all active summon modifiers.
     pub fn summon(&mut self, source_id: UnitId, token: Unit) {
         self.summon_as(source_id, token, "Deathrattle");
     }
@@ -107,7 +110,7 @@ impl<'a> BoardCtx<'a> {
         mut token: Unit,
         reason: &'static str,
     ) -> Option<usize> {
-        if self.board.len() >= MAX_BOARD_SIZE {
+        if self.board.len() + self.reserved_slots >= MAX_BOARD_SIZE {
             return None;
         }
         token.id = *self.next_id;
@@ -1600,6 +1603,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             board: &mut state.board,
             start_board: &[],
             cursor: 0,
+            reserved_slots: 0,
             auras: &mut state.auras,
             hand: &mut state.hand,
             hand_summoned: &mut hand_summoned2,

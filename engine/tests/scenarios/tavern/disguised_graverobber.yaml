@@ -34,3 +34,12 @@ scenarios:
       - expect: {board: ["Helping Hand 2/4 golden reborn taunt"]}
       - play: {hand: Disguised Graverobber, pos: 0}
     expect: {hand: ["Helping Hand 2/1 -golden reborn -taunt"]}
+
+  - name: played_right_of_the_bonehead_it_destroys_it_stays_right_of_the_skeletons
+    tavern: {board: [Harmless Bonehead]}   # Deathrattle: summon two 1/1 Skeletons
+    steps:
+      - add_to_hand: Disguised Graverobber
+      - play: {hand: Disguised Graverobber, pos: 1}   # destroys the Bonehead to its left
+    expect:
+      board: [Skeleton, Skeleton, Disguised Graverobber]   # the Skeletons take the Bonehead's place
+      hand: [Harmless Bonehead]

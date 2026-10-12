@@ -9,3 +9,41 @@ scenarios:
       - expect: {discover_pending: {not: null}}
       - choose_discover: 0
     expect: {hand: [undead]}
+
+  # The played minion takes its place between its neighbours before its Battlecry resolves: the
+  # Skeletons take the destroyed Bonehead's place and Maw Caster stays on its side.
+  - name: played_right_of_the_bonehead_it_destroys_it_stays_right_of_the_skeletons
+    seed: 441
+    tavern: {tavern_tier: 4, board: [Harmless Bonehead]}   # Deathrattle: summon two 1/1 Skeletons
+    steps:
+      - add_to_hand: Maw Caster
+      - play: {hand: Maw Caster, pos: 1}   # destroys the Bonehead to its left
+    expect: {board: [Skeleton, Skeleton, Maw Caster]}
+
+  - name: played_left_of_the_bonehead_it_destroys_it_stays_left_of_the_skeletons
+    seed: 441
+    tavern: {tavern_tier: 4, board: [Harmless Bonehead]}
+    steps:
+      - add_to_hand: Maw Caster
+      - play: {hand: Maw Caster, pos: 0}   # destroys the Bonehead to its right
+    expect: {board: [Maw Caster, Skeleton, Skeleton]}
+
+  - name: the_skeletons_leave_room_for_it_on_a_full_board
+    seed: 441
+    tavern:
+      tavern_tier: 4
+      board: [Harmless Bonehead, Lullabot, Lullabot, Lullabot, Lullabot, Lullabot]
+    steps:
+      - add_to_hand: Maw Caster
+      - play: {hand: Maw Caster, pos: 1}   # 6 minions and Maw Caster: room for 1 Skeleton
+    expect: {board: [Skeleton, Maw Caster, Lullabot, Lullabot, Lullabot, Lullabot, Lullabot]}
+
+  - name: gets_the_undead_attack_from_a_plaguerunner_it_destroys
+    seed: 441
+    tavern: {tavern_tier: 4, board: [Plaguerunner]}   # Deathrattle outside combat: your Undead have +4 Attack
+    steps:
+      - add_to_hand: Maw Caster
+      - play: {hand: Maw Caster, pos: 1}
+    expect:
+      auras: {undead_bonus_attack: 4}
+      board: ["Maw Caster 8/5"]   # 4/5 + 4 Attack

@@ -50,7 +50,7 @@ scenarios:
       - play: {hand: Maw Caster, pos: 2}   # targets the Undead to its left: the Knight at 1
     expect:
       auras: {counters: {Eternal Knight: {0: 1}}}   # 1 Knight died
-      board: [Brann Bronzebeard, "Eternal Knight 8/4", Maw Caster]
+      board: [Brann Bronzebeard, Maw Caster, "Eternal Knight 8/4"]   # it stays left of the other Knight
       discover_pending: {count: 3, all: undead}
       discover_queue: []   # 1 Discover
 

@@ -421,6 +421,10 @@ pub struct TavernState {
     pub combine_choose_one: bool,
     pub defer_combined_choose_one: bool,
     pub pending_combined_choices: Vec<(Unit, Unit)>,
+    /// While a played minion's Battlecry resolves (before it joins the board), the board slot it
+    /// will take: kept between the same neighbours when the Battlecry destroys a minion
+    /// (`docs/tavern.md` §7.1).
+    pub play_slot: Option<usize>,
     pub next_willbreaker_group: u32,
     pub last_combat_won: bool,
     pub last_combat_lost: bool,
@@ -459,6 +463,7 @@ impl TavernState {
             combine_choose_one: false,
             defer_combined_choose_one: false,
             pending_combined_choices: Vec::new(),
+            play_slot: None,
             next_willbreaker_group: 1,
             last_combat_won: false,
             last_combat_lost: false,
@@ -542,8 +547,28 @@ impl TavernState {
         }
     }
 
+    /// Remove the board minions `remove` picks (left to right), keeping `play_slot` between the
+    /// same neighbours.
+    fn remove_board_minions(&mut self, mut remove: impl FnMut(&Unit) -> bool) {
+        let slot = self.play_slot;
+        let (mut idx, mut removed_before_slot) = (0, 0);
+        self.board.retain(|u| {
+            let removed = remove(u);
+            if removed && slot.is_some_and(|s| idx < s) {
+                removed_before_slot += 1;
+            }
+            idx += 1;
+            !removed
+        });
+        if let Some(slot) = &mut self.play_slot {
+            *slot -= removed_before_slot;
+        }
+    }
+
     /// Destroy `self.board[board_pos]` during the Tavern Phase (`Disguised Graverobber`, `Maw Caster`, `Dead Bellringer`, `Tomb Turning`),
-    /// resolving its Deathrattle (with `in_combat = false`) and Reborn resummon.
+    /// resolving its Deathrattle (with `in_combat = false`) and Reborn resummon. While a minion is
+    /// being played (`play_slot`), the summons leave room for it, and those in the destroyed
+    /// minion's place are on its side of the played minion.
     pub fn destroy_board_unit(&mut self, board_pos: usize, pool: &mut CardPool, rng: &mut Rng) {
         if board_pos >= self.board.len() {
             return;
@@ -564,6 +589,7 @@ impl TavernState {
             board: &mut self.board,
             start_board: &[],
             cursor: board_pos,
+            reserved_slots: usize::from(self.play_slot.is_some()),
             auras: &mut self.auras,
             hand: &mut self.hand,
             hand_summoned: &mut hand_summoned,
@@ -583,6 +609,12 @@ impl TavernState {
             cards::on_deathrattle(&dying, &mut dr_ctx);
         }
         let reborn = dying.reborn && cards::reborn(&mut dr_ctx, &dying);
+        let summoned_in_place = dr_ctx.cursor.saturating_sub(board_pos);
+        if let Some(slot) = &mut self.play_slot {
+            if board_pos < *slot {
+                *slot = *slot - 1 + summoned_in_place;
+            }
+        }
 
         let d_tavern_atk = self.auras.tavern_all_atk - old_tavern_all.0;
         let d_tavern_hp = self.auras.tavern_all_hp - old_tavern_all.1;
@@ -708,10 +740,17 @@ impl TavernState {
             cards::on_first_play_or_magnetize(self, &mut card);
             self.combine_choose_one = card.combine_choose_one;
             self.defer_combined_choose_one = true;
+            self.play_slot = Some(board_pos.min(self.board.len()));
             cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
+            let insert_idx = self
+                .play_slot
+                .take()
+                .unwrap_or(board_pos)
+                .min(self.board.len());
             self.defer_combined_choose_one = false;
             self.combine_choose_one = false;
-            let insert_idx = board_pos.min(self.board.len());
+            // The Battlecry may have changed the auras (a Deathrattle it triggered).
+            self.apply_global_unit_auras(&mut card);
             self.board.insert(insert_idx, card);
             self.flush_combined_choices(pool, rng);
             let played = Played {
@@ -1743,13 +1782,12 @@ impl TavernState {
         };
 
         let mut copies = Vec::with_capacity(3);
-        self.board.retain(|u| {
-            if copies.len() < 3 && is_eligible(u) && u.card_id == target_cid {
+        self.remove_board_minions(|u| {
+            let take = copies.len() < 3 && is_eligible(u) && u.card_id == target_cid;
+            if take {
                 copies.push(u.clone());
-                false
-            } else {
-                true
             }
+            take
         });
         self.hand.retain(|u| {
             if copies.len() < 3 && is_eligible(u) && u.card_id == target_cid {
@@ -1760,13 +1798,12 @@ impl TavernState {
             }
         });
         if use_wildcard && copies.len() < 3 {
-            self.board.retain(|u| {
-                if copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id) {
+            self.remove_board_minions(|u| {
+                let take = copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id);
+                if take {
                     copies.push(u.clone());
-                    false
-                } else {
-                    true
                 }
+                take
             });
             self.hand.retain(|u| {
                 if copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id) {
