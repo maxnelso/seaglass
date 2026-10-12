@@ -5,3 +5,16 @@ scenarios:
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}   # on the Tidehunter
     expect: {hand: ["Iron Groundskeeper 10/10"]}
+
+  - name: a_blood_gem_a_card_plays_on_it_doesnt_trigger_it
+    description: >-
+      Brigand's Share plays 3 Blood Gems on each of your minions, the Tidehunter included: they
+      aren't spells you cast on it, so the Groundskeeper in hand gets nothing.
+    tavern: {board: [Twilight Tidehunter], hand: [Iron Groundskeeper]}   # a 4/6 Murloc; a 2/2
+    steps:
+      - add_to_hand: Veteran Brigand   # an 8/8 Quilboar
+      - play: Veteran Brigand
+      - choose_discover: 0   # Brigand's Share
+    expect:
+      board: ["Twilight Tidehunter 7/9", "Veteran Brigand 11/11"]   # +3/+3
+      hand: ["Iron Groundskeeper 2/2"]

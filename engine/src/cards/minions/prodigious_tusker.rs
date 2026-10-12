@@ -1,9 +1,8 @@
 //! `Prodigious Tusker` (`BG33_430`) — Tier 2 Quilboar (`2/5`).
 //! Whenever another friendly minion attacks, this plays a (`2` if Golden) **Blood Gem(s)** on it.
 //!
-//! When your minion attacks a `Fishbait` in the Tavern, each Blood Gem it plays counts as a spell
-//! cast on that minion (`Felboar`, `Glambot`, ...; `docs/tavern.md` §7.4). In combat, they count
-//! for nothing.
+//! The Blood Gems it plays, in combat or when your minion attacks a `Fishbait` in the Tavern,
+//! aren't spells you cast (`Felboar`, `Glambot`, ... ignore them; `docs/tavern.md` §7.4).
 
 use crate::cards::{BoardCtx, CardTemplate};
 use crate::events::Event;
@@ -27,7 +26,7 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, self_idx: usize, attacker_id: 
         return;
     };
     let (pre_atk, pre_hp) = (attacker.attack, attacker.health);
-    attacker.play_blood_gems_by_minion(gems, ctx.auras);
+    attacker.play_blood_gems(gems, ctx.auras);
     if attacker.attack != pre_atk || attacker.health != pre_hp {
         ctx.events.push(Event::StatBuff {
             side: ctx.side,

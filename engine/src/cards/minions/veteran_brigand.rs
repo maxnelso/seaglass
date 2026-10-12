@@ -2,8 +2,9 @@
 //!
 //! Choose One - This plays 3 (`6` if Golden) Blood Gems on all your minions; or cast `Blood Gem Barrage` 3 (`6` if Golden) times.
 //!
-//! Each Blood Gem Brigand's Share plays counts as a spell cast on that minion (`Felboar`,
-//! `Glambot`, ...; `docs/tavern.md` §7.4).
+//! Brigand's Share plays its Blood Gems: they aren't spells you cast (`Felboar`, `Glambot`, ...
+//! ignore them). Brigand's Barrage casts its `Blood Gem Barrage`s: each is a spell you cast
+//! (`docs/tavern.md` §7.4).
 
 use crate::cards::tokens::{make_choice_option, CHOICE_BRIGAND_BARRAGE, CHOICE_BRIGAND_GEMS};
 use crate::cards::{resolve_pending_effects, spells, CardTemplate};
@@ -40,7 +41,7 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
 pub fn choose_gems(state: &mut TavernState, chosen: &Unit, _: &mut CardPool, rng: &mut Rng) {
     let gems = 3 * chosen.golden_mult() as u32;
     for b in &mut state.board {
-        b.play_blood_gems_by_minion(gems, &state.auras);
+        b.play_blood_gems(gems, &state.auras);
     }
     resolve_pending_effects(&mut state.board, &state.auras, rng);
 }

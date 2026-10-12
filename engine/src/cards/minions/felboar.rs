@@ -2,10 +2,11 @@
 //!
 //! After you cast 3 spells, consume a minion in the Tavern to gain (`double` if Golden) its stats.
 //!
-//! Every cast counts, and so does every Blood Gem one of your minions plays in the Tavern
-//! (`Geomagus Roogug`, `Turbo Hogrider`, `Veteran Brigand`, a Tavern Rally of `Bonker`, ...): one
-//! spell per Blood Gem (`docs/tavern.md` §7.4). The Blood Gems a spell plays (`Gem Confiscation`,
-//! `Blood Gem Barrage`, `Winner's Bread`) add nothing to its own cast; nothing counts in combat.
+//! Every cast counts, whoever casts the spell (`Gatekeeper Amalgam`'s `Misplaced Tea Set`, the
+//! `Victorious Geomant` Blood Gems that don't fit, ...). A Blood Gem that a card plays isn't a
+//! spell you cast, so it doesn't count (`Turbo Hogrider`, a Tavern Rally of `Bonker`, `Geomagus
+//! Roogug`, ...), and a spell that plays Blood Gems counts once (`Gem Confiscation`, `Blood Gem
+//! Barrage`, `Winner's Bread`; `docs/tavern.md` §7.4). Nothing counts in combat.
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};

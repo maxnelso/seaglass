@@ -2,7 +2,7 @@
 //!
 //! After you play a Choose One card, this plays 2 (`4` if Golden) Blood Gems on all your Quilboar.
 //!
-//! Each Blood Gem it plays counts as a spell cast on that minion (`Felboar`, `Glambot`, ...;
+//! The Blood Gems it plays aren't spells you cast (`Felboar`, `Glambot`, ... ignore them;
 //! `docs/tavern.md` §7.4).
 
 use crate::cards::{self, CardTemplate};
@@ -27,7 +27,7 @@ pub fn after_friendly_choose_one(
     let gems = 2 * state.board[self_idx].golden_mult() as u32;
     for u in &mut state.board {
         if u.tribe.matches(Tribe::Quilboar) {
-            u.play_blood_gems_by_minion(gems, &state.auras);
+            u.play_blood_gems(gems, &state.auras);
         }
     }
     cards::resolve_pending_effects(&mut state.board, &state.auras, rng);

@@ -2,8 +2,8 @@
 //!
 //! Whenever you cast a spell on this, give minions in the Tavern `+1/+2` (`+2/+4` if Golden) this game.
 //!
-//! A Blood Gem one of your minions plays on it in the Tavern Phase counts as a spell cast on it
-//! (`Geomagus Roogug`, `Bonker`, ...); one a spell plays doesn't (`docs/tavern.md` §7.4).
+//! A Blood Gem that a card plays on it (`Geomagus Roogug`, `Bonker`, ...) isn't a spell you cast on
+//! it (`docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};

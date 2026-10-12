@@ -13,10 +13,10 @@ scenarios:
       - play: {hand: Tavern Dish Banana, shop: 1}   # not a Mech: only the +2/+2
     expect: {board: ["Glambot 4/4"], shop: ["Lullabot 8/8", "Bubble Gunner 4/5"]}
 
-  # A Blood Gem one of your minions plays on a Mech counts as a spell cast on it (docs/tavern.md
-  # §7.4): one Satellite per Blood Gem.
+  # A Blood Gem that a card plays on a Mech isn't a spell you cast on it (docs/tavern.md §7.4): no
+  # Satellite.
 
-  - name: a_blood_gem_geomagus_roogug_plays_on_a_mech_magnetizes_a_satellite_to_it
+  - name: a_blood_gem_geomagus_roogug_plays_on_a_mech_magnetizes_no_satellite
     seed: 6   # Roogug's Blood Gem goes to the Lullabot (its first rng.below(2) draw is 0)
     tavern: {board: [Geomagus Roogug, Lullabot, Glambot], hand: [Blood Gem]}   # Lullabot: a 2/2 Mech
     steps:
@@ -24,14 +24,14 @@ scenarios:
     expect:
       board:
         - "Geomagus Roogug 5/7"
-        - {card: Lullabot, stats: 7/7, blood_gems_played: 1}   # +1/+1 and a 4/4 Satellite
+        - {card: Lullabot, stats: 3/3, blood_gems_played: 1}   # only the +1/+1
         - "Glambot 4/4"
 
-  - name: brigands_share_magnetizes_a_satellite_per_blood_gem_to_each_mech
+  - name: brigands_share_magnetizes_no_satellite
     tavern: {board: [Glambot, Lullabot]}   # 4/4 and 2/2 Mechs
     steps:
       - add_to_hand: Veteran Brigand   # an 8/8 Quilboar
       - play: Veteran Brigand
       - choose_discover: 0   # Brigand's Share: 3 Blood Gems on each of your minions
     expect:
-      board: ["Glambot 19/19", "Lullabot 17/17", "Veteran Brigand 11/11"]   # +3/+3; 3 Satellites per Mech
+      board: ["Glambot 7/7", "Lullabot 5/5", "Veteran Brigand 11/11"]   # only the +3/+3

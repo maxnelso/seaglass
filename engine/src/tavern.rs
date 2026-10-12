@@ -1051,7 +1051,6 @@ impl TavernState {
             }
             cards::after_shop_refresh(self, rng);
         }
-        cards::count_played_blood_gems(self, pool, rng);
         self.sync_all_auras();
     }
 

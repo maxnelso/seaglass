@@ -8,3 +8,17 @@ scenarios:
       board: ["Devilish Distractor 6/9"]
       auras: {tavern_all_atk: 1, tavern_all_hp: 2}
       shop: ["Iron Groundskeeper 3/4"]
+
+  - name: a_blood_gem_a_card_plays_on_it_doesnt_trigger_it
+    description: >-
+      Brigand's Share plays 3 Blood Gems on each of your minions, the Distractor included: they
+      aren't spells you cast on it, so the Tavern gets nothing.
+    tavern: {board: [Devilish Distractor], shop: [Iron Groundskeeper]}   # 4/7
+    steps:
+      - add_to_hand: Veteran Brigand   # an 8/8 Quilboar
+      - play: Veteran Brigand
+      - choose_discover: 0   # Brigand's Share
+    expect:
+      board: ["Devilish Distractor 7/10", "Veteran Brigand 11/11"]   # +3/+3
+      auras: {tavern_all_atk: 0, tavern_all_hp: 0}
+      shop: ["Iron Groundskeeper 2/2"]

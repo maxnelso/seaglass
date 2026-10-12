@@ -810,8 +810,7 @@ pub fn cast_spell_by_effect(
 /// §7.4), cast by `source`. If it is a Tavern spell, each cast counts toward `tavern_spells_cast`
 /// and runs the `spell_cast` observers; then every cast runs its `cast_at` / `cast` hook (a spell
 /// without one adds its stats to the target), then the after-targeted-spell observers if its
-/// target is still there (on the board or in the Tavern), then the after-cast observers, then
-/// the Blood Gems minions played meanwhile count ([`crate::cards::count_played_blood_gems`]). A
+/// target is still there (on the board or in the Tavern), then the after-cast observers. A
 /// spell cast on a friendly minion is cast [`Passive::TargetedSpellCasts`] times, and a
 /// [`CardFlags::BLOOD_GEM`] played from your hand [`Passive::ExtraHandBloodGemCasts`] more times;
 /// these extra casts add up (both: `1 + 1 + 1 = 3` casts), and a [`CardFlags::BOUNTY`] spell's
@@ -893,7 +892,6 @@ pub fn cast_spell_from(
             }
         }
         crate::cards::after_cast_any_spell(state, pool, rng);
-        crate::cards::count_played_blood_gems(state, pool, rng);
     }
 
     if let Some(id) = target_id {

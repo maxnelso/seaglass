@@ -35,3 +35,19 @@ scenarios:
     steps:
       - play: {hand: Blood Gem, pos: 0}
     expect: {board: ["Geomagus Roogug 6/8", "Hot-Air Surveyor 4/8", "Iron Groundskeeper 3/3"]}
+
+  - name: a_blood_gem_a_card_plays_on_it_triggers_it_too
+    description: >-
+      Gem Confiscation plays 3 Blood Gems on it: 3 triggers, each playing a Blood Gem on Felboar, its
+      only other minion. Felboar counts Gem Confiscation, not the Blood Gems Roogug plays.
+    tavern:
+      board: [Geomagus Roogug, Felboar]   # 4/6; 2/6
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Gem Confiscation]
+    steps:
+      - play: {hand: Gem Confiscation, pos: 0}   # on Roogug
+    expect:
+      shop: [Firelands Fugitive]
+      board:
+        - {card: Geomagus Roogug, stats: 7/9, blood_gems_played: 3}
+        - {card: Felboar, stats: 5/9, counter: 1, blood_gems_played: 3}

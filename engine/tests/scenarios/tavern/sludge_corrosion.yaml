@@ -12,3 +12,19 @@ scenarios:
     steps:
       - activate: {pos: Brain Rotter, target: 0}   # discard it: cast twice
     expect: {auras: {tavern_spells_cast: 2}}
+
+  - name: felboar_and_sha_of_fear_count_both_casts
+    description: >-
+      Discarding it casts it twice, and each cast is a spell you cast: Felboar's counter goes up by
+      2 and Sha of Fear triggers twice.
+    tavern:
+      board: [Brain Rotter, Felboar, Sha of Fear]   # 3/4; 2/6; 10/13; the Deity starts 1/1
+      hand: [Sludge Corrosion]
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}   # discard it: cast twice
+    expect:
+      board:   # +3/+3 (Sha of Fear) and +1/+1 per cast
+        - "Brain Rotter 11/12"
+        - {card: Felboar, stats: 10/14, counter: 2}
+        - "Sha of Fear 18/21"
+      auras: {deity: {attack: 9, health: 9}}   # 1/1, +3/+3 per cast and Brain Rotter's +2/+2
