@@ -1,6 +1,9 @@
 //! `Wandering Willbreaker` (`BG36_100`) — Tier 2 Aberration (`1/3`).
 //! When you sell this, get 2 (`4` if Golden) random Tavern spells.
 //! After you cast 1 (`2` if Golden) of them, discard the other(s).
+//!
+//! The others are discarded once the cast has resolved (`docs/tavern.md` §6, card groups): they
+//! still take their hand slots while it resolves.
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

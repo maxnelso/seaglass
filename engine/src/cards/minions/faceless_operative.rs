@@ -2,6 +2,9 @@
 //!
 //! When you sell this, get 2 (`4` if Golden) random Aberrations.
 //! When you play one (`two` if Golden), discard the other(s).
+//!
+//! The others are discarded once the play has resolved (`docs/tavern.md` §6, card groups), so the
+//! played minion sees it (a `Mindbender Ghur'sha` played from the pair triggers).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};

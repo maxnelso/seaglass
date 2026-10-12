@@ -642,31 +642,104 @@ impl TavernState {
         Some(discarded)
     }
 
-    /// Remove the card at `hand[hand_idx]` to play it (`Play`, `PlayOnShop`). Cards of a
-    /// `Wandering Willbreaker` / `Faceless Operative` group count the play down, and the rest of
-    /// the group is discarded once it is used up.
-    fn take_card_to_play(&mut self, hand_idx: usize, pool: &mut CardPool, rng: &mut Rng) -> Unit {
+    /// Remove the card at `hand[hand_idx]` to play it (`Play`, `PlayOnShop`). A card of a
+    /// `Wandering Willbreaker` / `Faceless Operative` group counts the play down for the rest of
+    /// its group, which [`discard_used_group`](Self::discard_used_group) discards once the play
+    /// has resolved (`docs/tavern.md` §6, card groups).
+    fn take_card_to_play(&mut self, hand_idx: usize) -> Unit {
         let card = self.hand.remove(hand_idx);
-        if card.willbreaker_group != 0 {
-            let grp = card.willbreaker_group;
+        let grp = card.willbreaker_group;
+        if grp != 0 {
             for h in &mut self.hand {
                 if h.willbreaker_group == grp && h.willbreaker_remaining > 0 {
                     h.willbreaker_remaining -= 1;
                 }
             }
-            let mut expired_indices: Vec<usize> = self
-                .hand
-                .iter()
-                .enumerate()
-                .filter(|(_, h)| h.willbreaker_group == grp && h.willbreaker_remaining == 0)
-                .map(|(i, _)| i)
-                .collect();
-            expired_indices.reverse();
-            for exp_idx in expired_indices {
-                self.discard_hand_card(exp_idx, pool, rng);
-            }
         }
         card
+    }
+
+    /// Once the play of a card of the group `grp` has resolved, discard the rest of the group if
+    /// it is used up (right to left; nothing for `grp == 0`, a card of no group).
+    fn discard_used_group(&mut self, grp: u32, pool: &mut CardPool, rng: &mut Rng) {
+        if grp == 0 {
+            return;
+        }
+        while let Some(idx) = self.hand.iter().rposition(|h| {
+            h.willbreaker_group == grp && h.willbreaker_remaining == 0 && h.locked_turns == 0
+        }) {
+            self.discard_hand_card(idx, pool, rng);
+        }
+    }
+
+    /// Play the minion `card` (taken from the hand) at `board_pos` (`docs/tavern.md` §7.1):
+    /// Magnetize it onto `board[board_pos]` if it can, else resolve its Battlecry and insert it,
+    /// then run the play observers; a Golden that gives one offers its Triple Reward.
+    fn play_minion(
+        &mut self,
+        mut card: Unit,
+        board_pos: usize,
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) {
+        let played_card_id = card.card_id;
+        let played_tribe = card.tribe;
+        let was_golden_minion = card.is_golden;
+        let gives_triple_reward = card.is_golden && !card.intrinsic_golden;
+        let should_die_on_play = card.dies_on_play_this_turn;
+
+        if played_tribe.matches(Tribe::Elemental) {
+            self.elementals_played_this_turn += 1;
+        }
+
+        if was_golden_minion {
+            self.auras.golden_minions_played += 1;
+            self.sync_all_auras();
+        }
+
+        // Check for Magnetic fusion onto the compatible minion immediately to the right (`board[board_pos]`).
+        if card.magnetic
+            && board_pos < self.board.len()
+            && self.board[board_pos].tribe.matches(card.tribe)
+        {
+            cards::magnetize_from_hand(self, &mut card, board_pos, pool, rng);
+            pool.return_unit(&card);
+        } else {
+            cards::on_first_play_or_magnetize(self, &mut card);
+            self.combine_choose_one = card.combine_choose_one;
+            self.defer_combined_choose_one = true;
+            cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
+            self.defer_combined_choose_one = false;
+            self.combine_choose_one = false;
+            let insert_idx = board_pos.min(self.board.len());
+            self.board.insert(insert_idx, card);
+            self.flush_combined_choices(pool, rng);
+            let played = Played {
+                card_id: played_card_id,
+                tribe: played_tribe,
+                board_pos: insert_idx,
+                magnetized: false,
+                from_hand: true,
+            };
+            cards::after_play_minion(self, &played, pool, rng);
+            if should_die_on_play
+                && insert_idx < self.board.len()
+                && self.board[insert_idx].dies_on_play_this_turn
+            {
+                self.destroy_board_unit(insert_idx, pool, rng);
+            }
+        }
+
+        if gives_triple_reward {
+            let reward_tier = std::cmp::min(6, self.tavern_tier + 1);
+            let mut opts = pool.draw_discover_options(reward_tier, 3, rng);
+            for opt in &mut opts {
+                self.apply_global_unit_auras(opt);
+            }
+            if !opts.is_empty() {
+                self.push_discover(opts);
+            }
+        }
     }
 
     /// Resolve a Choose-One prompt (`opt0` vs `opt1`).
@@ -1459,79 +1532,25 @@ impl TavernState {
                 hand_index,
                 board_pos,
             } => {
-                let mut card = self.take_card_to_play(hand_index, pool, rng);
+                let card = self.take_card_to_play(hand_index);
+                let group = card.willbreaker_group;
                 if card.is_spell {
                     cards::spells::cast_spell(self, card, board_pos, pool, rng);
-                    return Ok(false);
-                }
-
-                let played_card_id = card.card_id;
-                let played_tribe = card.tribe;
-                let was_golden_minion = card.is_golden;
-                let gives_triple_reward = card.is_golden && !card.intrinsic_golden;
-                let should_die_on_play = card.dies_on_play_this_turn;
-
-                if played_tribe.matches(Tribe::Elemental) {
-                    self.elementals_played_this_turn += 1;
-                }
-
-                if was_golden_minion {
-                    self.auras.golden_minions_played += 1;
-                    self.sync_all_auras();
-                }
-
-                // Check for Magnetic fusion onto the compatible minion immediately to the right (`board[board_pos]`).
-                if card.magnetic
-                    && board_pos < self.board.len()
-                    && self.board[board_pos].tribe.matches(card.tribe)
-                {
-                    cards::magnetize_from_hand(self, &mut card, board_pos, pool, rng);
-                    pool.return_unit(&card);
                 } else {
-                    cards::on_first_play_or_magnetize(self, &mut card);
-                    self.combine_choose_one = card.combine_choose_one;
-                    self.defer_combined_choose_one = true;
-                    cards::on_play_battlecry(self, &mut card, board_pos, pool, rng);
-                    self.defer_combined_choose_one = false;
-                    self.combine_choose_one = false;
-                    let insert_idx = board_pos.min(self.board.len());
-                    self.board.insert(insert_idx, card);
-                    self.flush_combined_choices(pool, rng);
-                    let played = Played {
-                        card_id: played_card_id,
-                        tribe: played_tribe,
-                        board_pos: insert_idx,
-                        magnetized: false,
-                        from_hand: true,
-                    };
-                    cards::after_play_minion(self, &played, pool, rng);
-                    if should_die_on_play
-                        && insert_idx < self.board.len()
-                        && self.board[insert_idx].dies_on_play_this_turn
-                    {
-                        self.destroy_board_unit(insert_idx, pool, rng);
-                    }
+                    self.play_minion(card, board_pos, pool, rng);
                 }
-
-                if gives_triple_reward {
-                    let reward_tier = std::cmp::min(6, self.tavern_tier + 1);
-                    let mut opts = pool.draw_discover_options(reward_tier, 3, rng);
-                    for opt in &mut opts {
-                        self.apply_global_unit_auras(opt);
-                    }
-                    if !opts.is_empty() {
-                        self.push_discover(opts);
-                    }
-                }
+                self.discard_used_group(group, pool, rng);
                 Ok(false)
             }
             TavernAction::PlayOnShop {
                 hand_index,
                 shop_index,
             } => {
-                let card = self.take_card_to_play(hand_index, pool, rng);
+                let card = self.take_card_to_play(hand_index);
+                let group = card.willbreaker_group;
                 let target = MinionSlot::Shop(shop_index);
                 cards::spells::cast_spell_on(self, card, target, pool, rng);
+                self.discard_used_group(group, pool, rng);
                 Ok(false)
             }
             TavernAction::Sell { board_pos } => {

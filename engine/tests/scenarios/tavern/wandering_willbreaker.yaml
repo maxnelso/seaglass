@@ -31,3 +31,43 @@ scenarios:
       auras: {cards_discarded: 1, deity: {attack: 7, health: 6}}   # 1/1 + 4/4 + 2/1
       hand: []
       board: ["Cutthroat K'Thir 8/8", "Harbinger Aph'lass 3/6"]
+
+  - name: the_other_spell_is_discarded_after_the_cast_resolves
+    description: >-
+      Channel the Devourer sells Lullabot and gives its 2/2 to Mindbender Ghur'sha before Tavern
+      Coin is discarded, so Ghur'sha's +4/+4 has no other minion to buff.
+    tavern:
+      board: [Mindbender Ghur'sha, Lullabot]   # 3/9; 2/2
+      hand:
+        - {card: Channel the Devourer, willbreaker_group: 1, willbreaker_remaining: 1}
+        - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
+    steps:
+      - play: {hand: Channel the Devourer, pos: 1}   # on Lullabot
+    expect:
+      auras: {cards_discarded: 1}
+      hand: []
+      board: ["Mindbender Ghur'sha 5/11"]   # 3/9 + 2/2
+
+  - name: the_other_spell_takes_its_hand_slot_until_the_cast_resolves
+    description: >-
+      With 10 cards in hand, Cloning Conch's Murloc takes the slot the Conch left and its copy
+      doesn't fit; only then is Tavern Coin discarded.
+    tavern:
+      hand:
+        - {card: Cloning Conch, willbreaker_group: 1, willbreaker_remaining: 1}
+        - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
+        - Armor Stash
+        - Armor Stash
+        - Armor Stash
+        - Armor Stash
+        - Armor Stash
+        - Armor Stash
+        - Armor Stash
+        - Armor Stash
+    steps:
+      - play: {hand: Cloning Conch, pos: 0}   # get a random Murloc and a copy of it
+    expect:
+      hand:
+        all_of:
+          - {count: 9}   # 8 Armor Stashes and the Murloc
+          - {where: murloc, count: 1}

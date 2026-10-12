@@ -161,6 +161,8 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 
 **Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.
 
+**Card groups** (the spells of a `Wandering Willbreaker`, the Aberrations of a `Faceless Operative`: `willbreaker_group`): playing one of the cards counts the play down for the rest of its group (`willbreaker_remaining`), and once that play has resolved (the spell cast, or the minion played with its Battlecry and the observers of its play), the rest of a used-up group is discarded. So the discarded cards still take their hand slots while the spell is cast, and the played minion sees them discarded (a `Mindbender Ghur'sha` played from a `Faceless Operative` pair triggers).
+
 ---
 
 ## 7. General Tavern Trigger Hooks & Subsystems

@@ -28,3 +28,19 @@ scenarios:
       auras: {cards_discarded: 1}
       hand: []
       board: ["Parasitic Fleshling 7/9", Brain Rotter]   # 4/6 + (2 + 1)/(2 + 1)
+
+  - name: the_played_minion_sees_the_other_being_discarded
+    description: >-
+      The hand is what selling a Faceless Operative that got Mindbender Ghur'sha and Cutthroat
+      K'Thir leaves. The other card is discarded once Ghur'sha's play has resolved.
+    tavern:
+      board: [Brain Rotter]   # 3/4
+      hand:
+        - {card: Mindbender Ghur'sha, willbreaker_group: 1, willbreaker_remaining: 1}
+        - {card: Cutthroat K'Thir, willbreaker_group: 1, willbreaker_remaining: 1}
+    steps:
+      - play: Mindbender Ghur'sha   # Cutthroat K'Thir is discarded: +4/+4 to Ghur'sha's other minions
+    expect:
+      auras: {cards_discarded: 1}
+      hand: []
+      board: ["Brain Rotter 7/8", "Mindbender Ghur'sha 3/9"]
