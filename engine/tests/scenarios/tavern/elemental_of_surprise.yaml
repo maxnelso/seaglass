@@ -7,3 +7,11 @@ scenarios:
     expect:
       board: []
       hand: ["golden Dune Dweller divine_shield"]
+
+  - name: two_of_them_triple_with_one_other_elemental
+    tavern: {gold: 10, board: [Elemental of Surprise, Dune Dweller], shop: [Elemental of Surprise]}
+    steps:
+      - buy: Elemental of Surprise
+    expect:
+      board: []
+      hand: ["golden Dune Dweller 6/6 divine_shield"]   # 2 x 3/3

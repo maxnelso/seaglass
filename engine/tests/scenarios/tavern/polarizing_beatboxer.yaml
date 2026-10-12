@@ -9,3 +9,23 @@ scenarios:
       board:
         - {card: Polarizing Beatboxer, stats: 7/12, magnetizations_count: 1, eot_health_bonus: 1}
         - "Cord Puller 3/3"
+
+  - name: copies_each_extra_drone_duplicator_magnetization
+    tavern: {gold: 10, board: [Polarizing Beatboxer, Drone Duplicator], hand: [Lullabot]}   # 5/10; 5/2
+    steps:
+      - activate: Drone Duplicator   # the next Magnetization to it happens an extra time
+      - play: {hand: Lullabot, pos: 1}   # 2/2 Magnetic: twice onto the Duplicator
+    expect:
+      board:
+        - {card: Polarizing Beatboxer, stats: 9/14, magnetizations_count: 2, eot_health_bonus: 2}   # a copy of each
+        - {card: Drone Duplicator, stats: 9/6, magnetizations_count: 2, eot_health_bonus: 2}
+
+  - name: its_copy_also_gets_mechagnome_interpreters_buff
+    tavern: {board: [Polarizing Beatboxer, Mechagnome Interpreter, Cord Puller], hand: [Lullabot]}   # 5/10; 3/1; 1/1
+    steps:
+      - play: {hand: Lullabot, pos: 2}   # onto Cord Puller
+    expect:
+      board:
+        - "Polarizing Beatboxer 10/13"   # 5/10 + Lullabot 2/2 + 3/1
+        - Mechagnome Interpreter
+        - "Cord Puller 6/4"   # 1/1 + Lullabot 2/2 + 3/1

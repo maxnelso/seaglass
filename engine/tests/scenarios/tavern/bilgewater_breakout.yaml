@@ -8,3 +8,9 @@ scenarios:
       - add_to_hand: Bilgewater Breakout
       - play: Bilgewater Breakout   # the Lockbox opens 1 turn sooner (5 -> 4)
     expect: {hand: [{card: Lockbox, lockbox_turns_left: 4}]}
+
+  - name: brann_gets_one_lockbox_that_opens_a_turn_sooner
+    tavern: {board: [Brann Bronzebeard], hand: [Bilgewater Breakout]}
+    steps:
+      - play: Bilgewater Breakout   # the repeat finds the Lockbox the first trigger got
+    expect: {hand: [{card: Lockbox, lockbox_turns_left: 4}]}   # 5, then 1 turn sooner

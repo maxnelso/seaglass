@@ -6,3 +6,22 @@ scenarios:
       - activate: Living Prison
       - buy: Ravaging Scorpid
     expect: {board: ["Living Prison 10/12"]}
+
+  # Stone Age Slab and Living Prison see the same buy in board order (left to right).
+  - name: a_stone_age_slab_to_its_left_buffs_the_bought_minion_first
+    tavern: {gold: 10, board: [Stone Age Slab, Living Prison], shop: [Cord Puller]}   # Prison: 4/5; Cord Puller: 1/1
+    steps:
+      - activate: Living Prison
+      - buy: Cord Puller   # the Slab: (1/1 + 20/20) x 2; then the Prison gains its stats
+    expect:
+      hand: ["Cord Puller 42/42"]
+      board: [Stone Age Slab, "Living Prison 46/47"]   # 4/5 + 42/42
+
+  - name: a_stone_age_slab_to_its_right_buffs_the_bought_minion_after
+    tavern: {gold: 10, board: [Living Prison, Stone Age Slab], shop: [Cord Puller]}
+    steps:
+      - activate: Living Prison
+      - buy: Cord Puller   # the Prison gains the 1/1; then the Slab buffs it
+    expect:
+      hand: ["Cord Puller 42/42"]
+      board: ["Living Prison 5/6", Stone Age Slab]   # 4/5 + 1/1
