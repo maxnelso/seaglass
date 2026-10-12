@@ -8,3 +8,27 @@ scenarios:
     expect:
       health: 29
       board: {0: "Wrath Weaver 3/5"}
+
+  - name: golden_deals_1_damage_to_your_hero_twice
+    description: >-
+      Golden, it triggers twice: two separate 1-damage hits, so Ashen Corruptor rewinds (and
+      buffs the Tavern) twice.
+    tavern:
+      board: ["golden Wrath Weaver 2/6", Ashen Corruptor]
+      shop: [Iron Groundskeeper]   # 2/2
+    steps:
+      - add_to_hand: Ominous Seer   # a Demon
+      - play: Ominous Seer
+    expect:
+      health: 30   # both hits rewound
+      auras: {tavern_turn_atk: 4, tavern_turn_hp: 4}   # +2/+2 per hit
+      shop: ["Iron Groundskeeper 6/6"]
+      board: {0: "Wrath Weaver 6/10"}   # +2/+2 twice
+
+  - name: playing_a_demon_at_1_health_takes_the_hero_to_0
+    description: Tavern self-damage can kill the hero (a hero at 0 Health has lost).
+    tavern: {health: 1, board: [Wrath Weaver]}
+    steps:
+      - add_to_hand: Ominous Seer   # a Demon
+      - play: Ominous Seer
+    expect: {health: 0}

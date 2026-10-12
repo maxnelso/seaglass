@@ -1,5 +1,6 @@
 //! `Fire Baller` (`BG31_816`) — Tier 2 Elemental (`4/3`).
 //! When you sell this, give your minions `+1` (`+2` if Golden) Attack. Improve your future Ballers.
+//! (The Baller improvements add to the Attack, doubled too if Golden.)
 
 use crate::cards::{ballers, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

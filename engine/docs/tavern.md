@@ -59,8 +59,8 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
 - `turn: u32` — Current turn number (`0` before game start; `1` on first Tavern turn).
 - `health: i32` — Hero health (starts at `30`).
 - `tavern_tier: u32` — Current Tavern Tier in `1..=6` (starts at `1`).
-- `max_gold: u32` — Base gold cap for the turn: `min(10, 2 + turn)` (`Turn 1 = 3g`, `Turn 2 = 4g`, ..., `Turn 8+ = 10g`).
-- `gold: u32` — Current spendable gold (`0..=10`).
+- `max_gold: u32` — Gold cap for the turn: `min(10, 2 + turn) + auras.base_max_gold_bonus` (`Turn 1 = 3g`, `Turn 2 = 4g`, ..., `Turn 8+ = 10g`, plus the permanent bonus). "Increase your maximum Gold by `N`" (`Strike Oil`, `Snare Trapper`) adds `N` to both `max_gold` and `base_max_gold_bonus` but gives no Gold right away; `max_gold` can exceed `10`.
+- `gold: u32` — Current spendable gold (it can exceed `10`).
 - `bonus_gold_next_turn: u32` — Extra gold queued for next turn's `start_turn`.
 - `upgrade_cost: u32` — Current gold cost to upgrade to `tavern_tier + 1` (`0` when `tavern_tier == 6`).
 - `is_frozen: bool` — Whether Bob's shop is frozen for the next `start_turn`.
@@ -95,8 +95,8 @@ At the beginning of Turn `t`:
    - Revert temporary buffs (`temp_attack`, `temp_health`, `temp_divine_shield`, `temp_taunt`, `temp_windfury`) on every minion on `board`, clamping `health >= 1`, and reset per-turn card flags. A Divine Shield "until next turn" (`temp_divine_shield`) also expires on minions in `hand`.
 2. **Increment Turn & Refill Gold**:
    - `turn += 1`
-   - `max_gold = min(10, 2 + turn)`
-   - `gold = min(10, max_gold + bonus_gold_next_turn)`
+   - `max_gold = min(10, 2 + turn) + auras.base_max_gold_bonus`
+   - `gold = max_gold + bonus_gold_next_turn`
    - `bonus_gold_next_turn = 0`
 3. **Decay Upgrade Cost**:
    - If `turn > 1` and `tavern_tier < 6`: `upgrade_cost = upgrade_cost.saturating_sub(1)`.
@@ -116,7 +116,7 @@ At the beginning of Turn `t`:
 
 ## 5. Triples & Golden Minion Resolution
 
-Whenever a minion is added to `hand` (via `Buy`, `ChooseDiscover`, or card generation), the engine checks whether the player owns **3 non-golden copies** of the same `card_id` across `board` and `hand`.
+Whenever a minion is added to `hand` (via `Buy`, `ChooseDiscover`, or card generation), the engine checks whether the player owns **3 non-golden copies** of the same `card_id` across `board` and `hand`. Buying still needs a free hand slot (§6), even for the copy that would complete a triple.
 
 ### 5.1 Triple Combination (`check_and_resolve_triple`)
 If 3 non-golden copies exist:
@@ -177,7 +177,8 @@ When a minion is played from `hand` to `board[board_pos]`:
 ### 7.2 Hero Self-Damage Interception
 When a Tavern trigger would deal damage to the friendly hero:
 - If the board contains any friendly damage-prevention observer, the hero takes `0` damage and each such observer applies its on-prevent buff instead.
-- Otherwise, `state.health` is reduced by the damage amount.
+- Otherwise, `state.health` is reduced by the damage amount. Triggered self-damage can kill: at `1` Health, `Wrath Weaver`'s 1 damage takes the hero to `0` (the hero dies). Only Health costs (Health Refreshes, Health-cost spells) must leave the hero above `0` to be payable.
+- Each damage instance is resolved on its own: an effect that deals `1` damage twice (Golden `Wrath Weaver`) triggers the hero-damage observers (`Ashen Corruptor`, `Tichondrius`, ...) twice.
 
 ### 7.3 On-Sell Triggers
 When a minion at `board[board_pos]` is sold:

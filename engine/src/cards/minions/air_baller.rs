@@ -1,7 +1,7 @@
 //! `Air Baller` (`BG36_181`) — Tier 4 Elemental (`6/6`).
 //!
 //! When you sell this, give your minions `+2/+2` (`+4/+4` if Golden) plus the Baller
-//! improvements. Improve your future Ballers (by 1, or 2 if Golden).
+//! improvements (doubled too if Golden). Improve your future Ballers (by 1, or 2 if Golden).
 
 use crate::cards::{ballers, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

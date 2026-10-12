@@ -8,3 +8,16 @@ scenarios:
     expect:
       auras: {undead_bonus_attack: 1}
       board: ["Risen Rider 3/1", "Nerubian Deathswarmer 2/4"]
+
+  - name: undead_in_the_tavern_have_the_bonus_and_a_consumer_keeps_it
+    tavern:
+      board: [Flaming Enforcer]   # 4/5: at the end of turn, consumes the highest-Health Tavern minion
+      shop: [Iron Groundskeeper, Lichling Hoarder]   # Lichling Hoarder: a 6/9 Undead
+      hand: [Nerubian Deathswarmer]
+    steps:
+      - play: Nerubian Deathswarmer
+      - expect: {shop: ["Iron Groundskeeper 2/2", "Lichling Hoarder 7/9"]}
+      - end_turn
+    expect:
+      shop: ["Iron Groundskeeper 2/2"]
+      board: {0: "Flaming Enforcer 11/14"}   # + Lichling Hoarder's 7/9

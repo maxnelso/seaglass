@@ -7,3 +7,13 @@ scenarios:
     expect:
       board: ["Iron Groundskeeper 3/2"]
       auras: {counters: {Fire Baller: {0: 1}}}   # the counter all Ballers share
+
+  - name: golden_doubles_the_baller_improvements_too
+    tavern:
+      board: [Iron Groundskeeper, "golden Fire Baller 8/6"]
+      auras: {counters: {Fire Baller: 2}}   # Ballers improved by 2
+    steps:
+      - sell: Fire Baller
+    expect:
+      board: ["Iron Groundskeeper 8/2"]   # (1 + 2) x 2 = +6 Attack
+      auras: {counters: {Fire Baller: {0: 4}}}   # improved by 2 more (Golden)

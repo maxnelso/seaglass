@@ -1,5 +1,7 @@
 //! `Nerubian Deathswarmer` (`BG25_011`) — Tier 2 Undead (`1/4`).
 //! **Battlecry:** Your Undead have `+1` (`+2` if Golden) Attack this game *(wherever they are)*.
+//! That includes Undead in Bob's Tavern: a minion that consumes one (`Flaming Enforcer`) gains
+//! its Attack with the bonus.
 
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

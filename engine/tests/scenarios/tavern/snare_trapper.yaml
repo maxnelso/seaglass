@@ -6,3 +6,13 @@ scenarios:
       - play: Snare Trapper
       - choose_discover: 1   # Collect the Bounty (+1 Max Gold)
     expect: {auras: {base_max_gold_bonus: 1}}
+
+  - name: collect_the_bounty_gives_no_gold_now_and_max_gold_can_exceed_10
+    tavern: {turn: 9, max_gold: 10, gold: 4}
+    steps:
+      - add_to_hand: Snare Trapper
+      - play: Snare Trapper
+      - choose_discover: 1   # Collect the Bounty (+1 Max Gold)
+      - expect: {max_gold: 11, gold: 4}
+      - start_turn
+    expect: {turn: 10, max_gold: 11, gold: 11}   # 10, +1

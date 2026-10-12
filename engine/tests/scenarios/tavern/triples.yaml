@@ -1,0 +1,18 @@
+topic: Triples and Golden minions
+scenarios:
+  - name: a_full_hand_cannot_buy_the_copy_that_would_complete_a_triple
+    description: Buying needs a free hand slot, even if the bought copy would triple at once.
+    tavern:
+      gold: 10
+      board: [Risen Rider]
+      hand: [Risen Rider, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem, Blood Gem, Blood Gem]   # 10 cards
+      shop: [Risen Rider]
+    steps:
+      - expect_illegal: {buy: 0}
+      - expect_error: {buy: 0}
+    expect:
+      gold: 10
+      board: [Risen Rider]
+      hand: {count: 10, 0: Risen Rider}
+      shop: [Risen Rider]
