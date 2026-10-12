@@ -33,6 +33,6 @@ pub fn after_friendly_magnetize(
     };
     let extra = 1 + cards::extra_magnetizations(&mut state.board[self_idx]);
     for _ in 0..base * extra {
-        cards::apply_magnetization(state, card, self_idx, pool, rng);
+        cards::apply_magnetization(state, card, self_idx, false, pool, rng);
     }
 }

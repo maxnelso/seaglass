@@ -915,11 +915,13 @@ pub fn extra_magnetizations(unit: &mut Unit) -> u32 {
 }
 
 /// Magnetize `card` onto `state.board[target_pos]` once: the target gains its stats, keywords,
-/// and carried state, then `after_friendly_play` observers see the Magnetization.
+/// and carried state, then `after_friendly_play` observers see the Magnetization (as a play if
+/// `from_hand`, see [`Played::from_hand`]).
 pub fn apply_magnetization(
     state: &mut TavernState,
     card: &Unit,
     target_pos: usize,
+    from_hand: bool,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
@@ -938,13 +940,15 @@ pub fn apply_magnetization(
         tribe: card.tribe,
         board_pos: target_pos,
         magnetized: true,
+        from_hand,
     };
     after_play_minion(state, &played, pool, rng);
 }
 
-/// Magnetize `card` (from outside the board) onto `state.board[target_pos]`: its first
-/// play-or-Magnetize trigger, then one application per Magnetization queued on the target, each
-/// followed by the `after_friendly_magnetize` observers.
+/// A card effect Magnetizes `card` (from outside the board) onto `state.board[target_pos]`
+/// (`Glambot` and `Spark Snapper` Satellites): its first play-or-Magnetize trigger, then one
+/// application per Magnetization queued on the target, each followed by the
+/// `after_friendly_magnetize` observers.
 pub fn magnetize(
     state: &mut TavernState,
     card: &mut Unit,
@@ -952,11 +956,35 @@ pub fn magnetize(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
+    magnetize_card(state, card, target_pos, false, pool, rng);
+}
+
+/// The player plays the Magnetic `card` from hand onto `state.board[target_pos]`: as
+/// [`magnetize`], but its first application is a play ([`Played::from_hand`]).
+pub fn magnetize_from_hand(
+    state: &mut TavernState,
+    card: &mut Unit,
+    target_pos: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    magnetize_card(state, card, target_pos, true, pool, rng);
+}
+
+fn magnetize_card(
+    state: &mut TavernState,
+    card: &mut Unit,
+    target_pos: usize,
+    from_hand: bool,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     on_first_play_or_magnetize(state, card);
     let card: &Unit = card;
     let repeats = 1 + extra_magnetizations(&mut state.board[target_pos]);
-    for _ in 0..repeats {
-        apply_magnetization(state, card, target_pos, pool, rng);
+    for i in 0..repeats {
+        // The extra Magnetizations (`Drone Duplicator`) are not plays.
+        apply_magnetization(state, card, target_pos, from_hand && i == 0, pool, rng);
         notify_tavern(
             state,
             |h| h.after_friendly_magnetize,

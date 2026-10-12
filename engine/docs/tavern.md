@@ -170,6 +170,7 @@ When a minion is played from `hand` to `board[board_pos]`:
    - If the played minion has a Spellcraft ability, it generates its Spellcraft spell immediately.
    - Board-wide or tribal buffs from the played minion apply to other matching friendly minions.
    - Friendly board observers ("whenever/after you play a minion of tribe X") fire in left-to-right board order.
+3. **Magnetize**: playing a Magnetic minion onto a friendly minion of its type (`board_pos` is that minion) is a play that Magnetizes it there instead of inserting it. Each Magnetization (the target gains the card's stats, keywords and carried state) is seen by the "after you play" observers (`Played::magnetized`), then by the `after_friendly_magnetize` observers (`Polarizing Beatboxer`). A Magnetization by a card effect (a `Spark Snapper` or `Glambot` Satellite) is seen by both but is not a play (`Played::from_hand`), and neither are the extra Magnetizations of `Drone Duplicator` or the copies `Polarizing Beatboxer` Magnetizes to itself (which the `after_friendly_magnetize` observers don't see).
 
 ### 7.2 Hero Self-Damage Interception
 When a Tavern trigger would deal damage to the friendly hero:

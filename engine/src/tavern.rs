@@ -1379,7 +1379,7 @@ impl TavernState {
                     && board_pos < self.board.len()
                     && self.board[board_pos].tribe.matches(card.tribe)
                 {
-                    cards::magnetize(self, &mut card, board_pos, pool, rng);
+                    cards::magnetize_from_hand(self, &mut card, board_pos, pool, rng);
                     pool.return_unit(&card);
                 } else {
                     cards::on_first_play_or_magnetize(self, &mut card);
@@ -1396,6 +1396,7 @@ impl TavernState {
                         tribe: played_tribe,
                         board_pos: insert_idx,
                         magnetized: false,
+                        from_hand: true,
                     };
                     cards::after_play_minion(self, &played, pool, rng);
                     if should_die_on_play

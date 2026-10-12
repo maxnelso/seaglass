@@ -115,7 +115,8 @@ pub enum SocAction {
     Attack { times: u32 },
 }
 
-/// A minion played from hand, as seen by `after_friendly_play` observers.
+/// A minion played from hand (or a card Magnetized onto a friendly minion), as seen by
+/// `after_friendly_play` observers.
 #[derive(Clone, Copy, Debug)]
 pub struct Played {
     pub card_id: CardId,
@@ -123,6 +124,10 @@ pub struct Played {
     /// Board index of the played minion (or of the minion it was Magnetized onto).
     pub board_pos: usize,
     pub magnetized: bool,
+    /// `false` if this is not a play but a card effect: a Magnetization by a card (`Spark
+    /// Snapper` and `Glambot` Satellites, `Polarizing Beatboxer` copies) or an extra one (`Drone
+    /// Duplicator`).
+    pub from_hand: bool,
 }
 
 /// What a spell is cast on (see [`CardHooks::spell_target`]).

@@ -8,3 +8,49 @@ scenarios:
       - expect: {board: {1: "Cord Puller 3/4"}}   # a 2/3 Satellite
       - play: Lullabot   # to the end of the board: not Magnetized
     expect: {board: {2: "Lullabot 6/8"}}   # an improved 4/6 Satellite
+
+  - name: magnetizing_a_mech_onto_another_mech_also_triggers_it
+    tavern: {board: [Spark Snapper, Cord Puller], hand: [Lullabot]}   # a 1/1 Mech; a 2/2 Magnetic Mech
+    steps:
+      - play: {hand: Lullabot, pos: 1}   # Magnetized onto Cord Puller
+    expect:
+      board:
+        - {card: Spark Snapper, stacks: 1}
+        - {card: Cord Puller, stats: 5/6, magnetizations_count: 2}   # + Lullabot 2/2 + a 2/3 Satellite
+
+  - name: the_satellite_counts_as_a_magnetize_for_mechagnome_interpreter
+    tavern: {board: [Mechagnome Interpreter, Spark Snapper], hand: [Cord Puller]}
+    steps:
+      - play: Cord Puller
+    expect:
+      board: {2: "Cord Puller 9/6"}   # 1/1, +3/+1 (played), +2/3 Satellite, +3/+1 (Magnetized)
+
+  - name: the_satellite_counts_as_a_magnetize_for_polarizing_beatboxer
+    tavern: {board: [Polarizing Beatboxer, Spark Snapper], hand: [Cord Puller]}   # a 5/10 Mech
+    steps:
+      - play: Cord Puller
+    expect:
+      board:
+        - {card: Polarizing Beatboxer, stats: 7/13, magnetizations_count: 1}   # the Satellite also Magnetizes to it
+        - Spark Snapper
+        - "Cord Puller 3/4"   # 1/1 + a 2/3 Satellite
+
+  - name: a_polarizing_beatboxer_copy_of_the_magnetized_mech_is_not_a_play
+    tavern: {board: [Polarizing Beatboxer, Spark Snapper, Cord Puller], hand: [Lullabot]}
+    steps:
+      - play: {hand: Lullabot, pos: 2}   # Magnetized onto Cord Puller: 1 Satellite, not 2
+    expect:
+      board:
+        - {card: Polarizing Beatboxer, stats: 9/15, magnetizations_count: 2}   # + Satellite 2/3 + Lullabot 2/2
+        - {card: Spark Snapper, stacks: 1}
+        - {card: Cord Puller, stats: 5/6, magnetizations_count: 2}   # + Lullabot 2/2 + Satellite 2/3
+
+  - name: a_drone_duplicator_extra_magnetization_is_not_a_play
+    tavern: {gold: 10, board: [Spark Snapper, Drone Duplicator], hand: [Lullabot]}   # Duplicator: 5/2
+    steps:
+      - activate: Drone Duplicator   # the next Magnetization to it happens an extra time
+      - play: {hand: Lullabot, pos: 1}
+    expect:
+      board:
+        - {card: Spark Snapper, stacks: 1}   # 1 Satellite, not 2
+        - {card: Drone Duplicator, stats: 11/9, magnetizations_count: 3}   # + Lullabot 2/2 twice + Satellite 2/3
