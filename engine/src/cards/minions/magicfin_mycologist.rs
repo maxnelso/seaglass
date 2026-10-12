@@ -1,8 +1,13 @@
 //! `Magicfin Mycologist` (`BG33_891`) — Tier 6 Murloc (`4/8`).
 //!
 //! Once per turn (`Twice` if Golden), after you buy a Tavern spell, get a `1/1` Murloc and teach it that spell.
+//!
+//! The Murloc, a `Magicfin Apprentice`, has "Battlecry: Cast the taught spell". A spell cast on a
+//! minion makes it a targeted Battlecry (`docs/tavern.md` §7.1): the target is chosen with the
+//! play position among the friendly minions the spell can target (none: nothing is cast), and a
+//! repeat (`Brann Bronzebeard`) keeps it, doing nothing once it is gone or transformed.
 
-use crate::cards::{spells, tokens, CardTemplate};
+use crate::cards::{self, spells, tokens, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -42,19 +47,35 @@ pub fn after_buy(
 pub fn on_apprentice_battlecry(
     state: &mut TavernState,
     unit: &Unit,
-    board_pos: usize,
+    _: usize,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    let Some(spell_id) = unit.taught_spell_id else {
+    let Some(spell) = unit.taught_spell_id.and_then(spells::spell_by_id) else {
         return;
     };
-    if let Some(spell) = spells::spell_by_id(spell_id) {
-        let target = if spells::spell_requires_board_target(spell_id) && !state.board.is_empty() {
-            board_pos.min(state.board.len() - 1)
-        } else {
-            0
-        };
+    if !spells::spell_requires_board_target(spell.card_id) {
+        spells::cast_spell(state, spell, 0, pool, rng);
+    } else if let Some(target) = cards::battlecry_target_pos(&state.board) {
         spells::cast_spell(state, spell, target, pool, rng);
+    }
+}
+
+/// The target of the Apprentice's Battlecry if its spell is cast on a minion: a friendly minion
+/// the spell can target ([`spells::can_target`]) at `board_pos` (where the Apprentice is played),
+/// else the one to its left, else the first one (`None`: no valid target, or an untargeted spell).
+pub fn pick_apprentice_target(state: &TavernState, unit: &Unit, board_pos: usize) -> Option<usize> {
+    let spell_id = unit.taught_spell_id?;
+    if !spells::spell_requires_board_target(spell_id) {
+        return None;
+    }
+    let valid = |u: &Unit| spells::can_target(spell_id, u);
+    let valid_at = |pos: usize| state.board.get(pos).is_some_and(valid);
+    if valid_at(board_pos) {
+        Some(board_pos)
+    } else if board_pos > 0 && valid_at(board_pos - 1) {
+        Some(board_pos - 1)
+    } else {
+        state.board.iter().position(valid)
     }
 }

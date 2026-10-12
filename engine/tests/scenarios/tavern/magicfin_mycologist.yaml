@@ -27,3 +27,37 @@ scenarios:
     steps:
       - play: Magicfin Apprentice   # Battlecry: cast Leaf Through the Pages (get 2 free Refreshes), twice
     expect: {auras: {free_refreshes: 4, tavern_spells_cast: 2}}   # 2 x 2 Refreshes; each cast counts
+
+  - name: the_apprentice_casts_its_spell_on_a_target_the_spell_allows
+    description: >-
+      The target is chosen with the play position among the minions the taught spell can target:
+      Butchering needs an Undead, so it goes to the Eternal Knight to the left, not to Lullabot.
+    tavern:
+      board: [Eternal Knight, Lullabot]   # a 4/2 Undead; a 2/2 Mech
+      hand: [{card: Magicfin Apprentice, taught_spell_id: 847}]   # 847: Butchering
+    steps:
+      - play: {hand: Magicfin Apprentice, pos: 1}   # Battlecry: destroy a friendly Undead; Undead +8 Attack
+    expect:
+      auras: {undead_bonus_attack: 8, tavern_spells_cast: 1}
+      board: [Magicfin Apprentice, Lullabot]
+
+  - name: a_brann_repeat_keeps_the_target_and_fizzles_once_it_is_transformed
+    seed: 823
+    tavern:
+      board: [Brann Bronzebeard, Glim Guardian]   # Glim Guardian: a 1/4 Tier 1
+      hand: [{card: Magicfin Apprentice, taught_spell_id: 823}]   # 823: Robust Evolution
+    steps:
+      - play: Magicfin Apprentice   # Robust Evolution on Glim Guardian; the repeat's target is gone
+    expect:
+      auras: {tavern_spells_cast: 1}
+      board: [Brann Bronzebeard, "1/4 t2", Magicfin Apprentice]   # transformed once, not into a Tier 3
+
+  - name: the_apprentice_casts_nothing_without_a_target_its_spell_allows
+    tavern:
+      board: [Lullabot]   # not an Undead
+      hand: [{card: Magicfin Apprentice, taught_spell_id: 847}]   # 847: Butchering
+    steps:
+      - play: Magicfin Apprentice
+    expect:
+      auras: {tavern_spells_cast: 0}
+      board: [Lullabot, Magicfin Apprentice]

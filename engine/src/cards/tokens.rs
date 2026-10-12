@@ -508,6 +508,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             TOKEN_MAGICFIN_APPRENTICE,
             CardHooks::EMPTY
                 .with_flags(CardFlags::NO_TRIPLE)
+                .on_battlecry_target(minions::magicfin_mycologist::pick_apprentice_target)
                 .on_battlecry(|state, unit, board_pos, pool, rng| {
                     minions::magicfin_mycologist::on_apprentice_battlecry(
                         state, unit, board_pos, pool, rng,
