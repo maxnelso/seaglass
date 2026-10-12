@@ -7,3 +7,13 @@ scenarios:
     expect:
       auras: {golden_minions_played: 1}
       board: ["Maritime Extortionist 14/14", Aureate Laureate]
+
+  - name: a_golden_minion_from_silent_deliverer_counts
+    seed: 620
+    tavern: {board: [Maritime Extortionist], hand: [Silent Deliverer]}   # 7/7
+    steps:
+      - play: Silent Deliverer   # Battlecry: get a random Golden Tier 4 minion (no Triple Reward)
+      - play: {is_golden: true}
+    expect:
+      auras: {golden_minions_played: 1}
+      board: {0: "Maritime Extortionist 14/14"}   # 7/7 + 7/7

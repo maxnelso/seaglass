@@ -8,3 +8,35 @@ scenarios:
       auras: {cards_discarded: 2}
       hand: []
       board: ["Mysterious K'Thir 21/21"]   # 7/7 + 2 x 7/7
+
+  - name: drakkari_enchanter_makes_it_discard_3_more_tavern_spells
+    tavern:
+      board: [Mysterious K'Thir, Drakkari Enchanter]
+      hand: [Armor Stash, Tavern Dish Banana, Tavern Coin, Leaf Through the Pages, Hasty Excavation, Fortify, Armor Stash]
+    steps:
+      - end_turn   # it triggers twice: 3 Tavern spells each time
+    expect:
+      auras: {cards_discarded: 6}
+      hand: [Armor Stash]
+      board: {0: "Mysterious K'Thir 49/49"}   # 7/7 + 6 x 7/7
+
+  - name: each_discarded_spell_triggers_discard_effects
+    tavern:
+      board: [Mysterious K'Thir, Cutthroat K'Thir]   # 7/7; 4/4: +4/+4 to itself and the Deity per card discarded
+      hand: [Sludge Corrosion, Armor Stash]   # Sludge Corrosion: give your minions +1/+1; cast twice if discarded
+    steps:
+      - end_turn
+    expect:
+      auras: {cards_discarded: 2, tavern_spells_cast: 2, deity: {attack: 9, health: 9}}   # 1/1 + 2 x 4/4
+      hand: []
+      # 7/7 + 2 x 1/1 (Sludge) + 2 x 7/7; 4/4 + 2 x 4/4 + 2 x 1/1
+      board: ["Mysterious K'Thir 23/23", "Cutthroat K'Thir 14/14"]
+
+  - name: skips_blood_gems
+    tavern: {board: [Mysterious K'Thir], hand: [Blood Gem, Armor Stash, Blood Gem]}
+    steps:
+      - end_turn   # Blood Gems aren't Tavern spells: only Armor Stash is discarded
+    expect:
+      auras: {cards_discarded: 1}
+      hand: [Blood Gem, Blood Gem]
+      board: ["Mysterious K'Thir 14/14"]   # 7/7 + 7/7

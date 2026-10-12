@@ -10,3 +10,16 @@ scenarios:
       - choose_discover: 0
     expect:
       board: {any: "Southsea Busker 5/3"}
+
+  - name: aureate_laureate_counts_as_a_golden_minion_played
+    seed: 615
+    tavern:
+      board: ["Hooktusk, Master Marauder", Southsea Busker]   # Southsea Busker: 3/1 Pirate
+      hand: [Aureate Laureate, golden Cord Puller]
+    steps:
+      - play: Aureate Laureate   # always Golden, without a Triple Reward
+      - play: golden Cord Puller   # its Triple Reward Discover
+      - choose_discover: 0
+    expect:
+      auras: {golden_minions_played: 2}
+      board: {1: "Southsea Busker 6/4"}   # 3/1 + (1 + 2)/(1 + 2)

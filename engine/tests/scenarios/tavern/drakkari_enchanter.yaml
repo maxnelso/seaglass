@@ -5,3 +5,9 @@ scenarios:
     steps:
       - end_turn
     expect: {board: [Drakkari Enchanter, "Lullabot 2/4"]}
+
+  - name: doubles_young_murk_eye_whose_battlecries_brann_doubles
+    tavern: {board: [Razorfen Geomancer, Young Murk-Eye, Brann Bronzebeard, Drakkari Enchanter]}   # Geomancer: Battlecry: get 2 Blood Gems
+    steps:
+      - end_turn   # Young Murk-Eye triggers twice, each time triggering the Geomancer's Battlecry twice
+    expect: {hand: {count: 8, all: Blood Gem}}   # 2 Blood Gems x 2 (Brann) x 2 (Drakkari)

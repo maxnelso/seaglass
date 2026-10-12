@@ -21,3 +21,9 @@ scenarios:
     steps:
       - play: {hand: Magicfin Apprentice, pos: 0}   # Battlecry: cast Fortify
     expect: {auras: {tavern_spells_cast: 1}}
+
+  - name: brann_doubles_the_apprentices_cast
+    tavern: {board: [Brann Bronzebeard], hand: [{card: Magicfin Apprentice, taught_spell_id: 811}]}   # 811: Leaf Through the Pages
+    steps:
+      - play: Magicfin Apprentice   # Battlecry: cast Leaf Through the Pages (get 2 free Refreshes), twice
+    expect: {auras: {free_refreshes: 4, tavern_spells_cast: 2}}   # 2 x 2 Refreshes; each cast counts

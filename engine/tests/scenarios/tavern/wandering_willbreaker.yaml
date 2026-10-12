@@ -17,3 +17,17 @@ scenarios:
       - if: {discover_pending: {not: null}}
         then: [{choose_discover: 0}]
     expect: {hand: {none: {willbreaker_group: "> 0"}}}
+
+  - name: discarding_the_other_spell_triggers_discard_effects
+    description: The hand is what selling a Wandering Willbreaker that got Armor Stash and Tavern Coin leaves.
+    tavern:
+      board: [Cutthroat K'Thir, "Harbinger Aph'lass"]   # +4/+4 to itself and the Deity; +2/+1 to the Deity
+      hand:
+        - {card: Armor Stash, willbreaker_group: 1, willbreaker_remaining: 1}
+        - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
+    steps:
+      - play: {hand: Armor Stash, pos: 0}   # Tavern Coin is discarded
+    expect:
+      auras: {cards_discarded: 1, deity: {attack: 7, health: 6}}   # 1/1 + 4/4 + 2/1
+      hand: []
+      board: ["Cutthroat K'Thir 8/8", "Harbinger Aph'lass 3/6"]

@@ -13,3 +13,18 @@ scenarios:
     expect:
       hand: []
       auras: {cards_discarded: 1}
+
+  - name: discarding_the_other_aberration_counts_for_parasitic_fleshling
+    description: The hand is what selling a Faceless Operative that got Brain Rotter and Wandering Willbreaker leaves.
+    tavern:
+      board: [Parasitic Fleshling]   # 4/6: end of turn, +2/+2 to the left-most minion, improved by each discard
+      hand:
+        - {card: Brain Rotter, willbreaker_group: 1, willbreaker_remaining: 1}
+        - {card: Wandering Willbreaker, willbreaker_group: 1, willbreaker_remaining: 1}
+    steps:
+      - play: Brain Rotter   # Wandering Willbreaker is discarded
+      - end_turn
+    expect:
+      auras: {cards_discarded: 1}
+      hand: []
+      board: ["Parasitic Fleshling 7/9", Brain Rotter]   # 4/6 + (2 + 1)/(2 + 1)

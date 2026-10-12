@@ -6,3 +6,17 @@ scenarios:
       - add_to_hand: Cord Puller   # a 1/1 Mech
       - play: Cord Puller
     expect: {board: {1: "Cord Puller 4/2"}}
+
+  - name: buffs_a_volumizer_magnetized_by_resourceful_robot
+    description: >-
+      The Robot's end-of-turn Volumizer is a Magnetization by a card effect, like Spark Snapper's
+      Satellite: the Robot gains its stats and +3/+1. The Volumizer is random; its copy in hand has
+      the same stats.
+    seeds: [1, 2, 3]   # a Red, a Green and a Blue Volumizer
+    tavern: {board: [Resourceful Robot, Mechagnome Interpreter]}   # Robot: 4/8
+    steps:
+      - end_turn
+      - expect: {hand: {count: 1, 0: {attack: {capture: vol_atk}, health: {capture: vol_hp}}}}
+    expect:
+      board:
+        0: {card: Resourceful Robot, magnetizations_count: 1, attack: "$vol_atk + 7", health: "$vol_hp + 9"}   # 4/8 + the Volumizer + 3/1
