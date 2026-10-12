@@ -41,7 +41,7 @@ The engine contains **only game rules and simulation**. All reinforcement learni
 - **Spellcraft & Persistent Auras**: Turn-temporary and permanent (`Lava Lurker`) Spellcraft buffs, full-hand pending queue (`pending_spellcrafts`), and game-long scaling counters (`PlayerAuras`).
 
 ### Combat Phase (`docs/combat.md`)
-- **Core Loop**: First-attacker determination (minion count, then coin flip), alternating turns with identity-tracked attack pointers, Taunt-aware target selection, simultaneous damage, and hero damage (`hero_tier + sum(survivor_tiers)`).
+- **Core Loop**: First-attacker determination (minion count after Start of Combat, then coin flip), alternating turns with identity-tracked attack pointers, Taunt-aware target selection, simultaneous damage, and hero damage (`hero_tier + sum(survivor_tiers)`).
 - **Keywords & Triggers**:
   - Keywords: `Taunt`, `Divine Shield` (inherent vs. granted), `Windfury`, `Reborn`, `Magnetic`.
   - Triggers: `Start of Combat`, `Rally` (on-attack), `Deathrattle`, and card-specific latches (e.g., `Scarlet Survivor`).

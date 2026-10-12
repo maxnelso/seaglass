@@ -1,12 +1,14 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`).
 
+use std::cmp::Ordering;
+use std::collections::VecDeque;
+use std::ops::Range;
+
 use serde::Serialize;
 
 use crate::cards::{self, BoardCtx, Passive, SocAction};
 use crate::events::Event;
-use crate::model::{
-    BattleOutcome, CardId, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit, UnitId,
-};
+use crate::model::{BattleOutcome, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
 use crate::rng::Rng;
 
 /// Maximum number of units a board can hold at once.
@@ -128,6 +130,13 @@ impl SideCombatState {
     fn can_attack(&self) -> bool {
         self.board.iter().any(|u| u.attack > 0)
     }
+
+    /// `true` if this side has a Start-of-Combat effect: a minion's, a player effect's or a hand
+    /// card's (`docs/combat.md` §5.1.1).
+    fn has_start_of_combat(&self) -> bool {
+        self.board.iter().any(cards::has_start_of_combat)
+            || cards::has_player_start_of_combat(&self.hand, &self.auras)
+    }
 }
 
 /// Resolve one deterministic battle from `(board_a, board_b, state, seed)`.
@@ -163,19 +172,10 @@ pub fn resolve_battle(
 
     let mut rng = Rng::new(seed);
 
-    let first_attacker = if units_a.len() > units_b.len() {
-        Side::A
-    } else if units_b.len() > units_a.len() {
-        Side::B
-    } else if rng.below(2) == 0 {
-        Side::A
-    } else {
-        Side::B
-    };
-
+    // `first_attacker` is decided after Start of Combat (docs/combat.md §5.1 step 6).
     let mut events = vec![Event::BattleStart {
         seed,
-        first_attacker,
+        first_attacker: Side::A,
     }];
 
     let mut side_a = SideCombatState::new(
@@ -191,61 +191,19 @@ pub fn resolve_battle(
         state.hand_b.clone(),
     );
 
-    // Start of Combat triggers: Side A first, then Side B, left-to-right.
-    resolve_start_of_combat_effects(Side::A, &mut side_a, &mut side_b, &mut rng, &mut events);
-    cards::on_start_of_combat(&mut side_a.ctx(Side::A, &mut next_id, &mut rng, &mut events));
-    resolve_start_of_combat_destroys(
-        Side::A,
+    resolve_start_of_combat(
         &mut side_a,
         &mut side_b,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
-    resolve_start_of_combat_effects(Side::B, &mut side_b, &mut side_a, &mut rng, &mut events);
-    cards::on_start_of_combat(&mut side_b.ctx(Side::B, &mut next_id, &mut rng, &mut events));
-    resolve_start_of_combat_destroys(
-        Side::B,
-        &mut side_b,
-        &mut side_a,
         &mut next_id,
         &mut rng,
         &mut events,
     );
 
-    resolve_start_of_combat_aoe(
-        Side::A,
-        &mut side_a,
-        &mut side_b,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
-    resolve_start_of_combat_aoe(
-        Side::B,
-        &mut side_b,
-        &mut side_a,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
-
-    resolve_start_of_combat_attacks(
-        Side::A,
-        &mut side_a,
-        &mut side_b,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
-    resolve_start_of_combat_attacks(
-        Side::B,
-        &mut side_b,
-        &mut side_a,
-        &mut next_id,
-        &mut rng,
-        &mut events,
-    );
+    let first_attacker = side_with_more_minions(side_a.board.len(), side_b.board.len(), &mut rng);
+    events[0] = Event::BattleStart {
+        seed,
+        first_attacker,
+    };
 
     let mut current = first_attacker;
     let mut stalled_draw = false;
@@ -313,6 +271,158 @@ pub fn resolve_battle(
     }
 }
 
+/// The side with more minions, or a coin flip on a tie (`docs/combat.md` §4.1, §4.4).
+fn side_with_more_minions(len_a: usize, len_b: usize, rng: &mut Rng) -> Side {
+    match len_a.cmp(&len_b) {
+        Ordering::Greater => Side::A,
+        Ordering::Less => Side::B,
+        Ordering::Equal if rng.below(2) == 0 => Side::A,
+        Ordering::Equal => Side::B,
+    }
+}
+
+/// `(own, opponent)`: the combat state of `side` and of the other side.
+fn sides_mut<'s>(
+    side: Side,
+    side_a: &'s mut SideCombatState,
+    side_b: &'s mut SideCombatState,
+) -> (&'s mut SideCombatState, &'s mut SideCombatState) {
+    match side {
+        Side::A => (side_a, side_b),
+        Side::B => (side_b, side_a),
+    }
+}
+
+/// Resolve every Start-of-Combat effect (`docs/combat.md` §5.1.1): each player's own effects
+/// and Start-of-Combat summons, then the minions' triggers, one minion per side in turn.
+fn resolve_start_of_combat(
+    side_a: &mut SideCombatState,
+    side_b: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    // The side with more minions goes first; on a tie the order only needs a coin flip if both
+    // sides have something to resolve.
+    let (len_a, len_b) = (side_a.board.len(), side_b.board.len());
+    let first = if len_a == len_b && !(side_a.has_start_of_combat() && side_b.has_start_of_combat())
+    {
+        Side::A
+    } else {
+        side_with_more_minions(len_a, len_b, rng)
+    };
+
+    for side in [first, first.other()] {
+        let (own_side, opp_side) = sides_mut(side, side_a, side_b);
+        resolve_start_of_combat_effects(side, own_side, opp_side, rng, events);
+        cards::start_of_combat_summons(&mut own_side.ctx(side, next_id, rng, events));
+        resolve_effect_deaths(side, own_side, opp_side, next_id, rng, events);
+    }
+
+    let mut queues = [
+        start_of_combat_minions(&side_a.board),
+        start_of_combat_minions(&side_b.board),
+    ];
+    let mut turn = first;
+    while let Some((side, src_id)) = next_start_of_combat_minion(turn, &mut queues, side_a, side_b)
+    {
+        let (own_side, opp_side) = sides_mut(side, side_a, side_b);
+        resolve_minion_start_of_combat(side, src_id, own_side, opp_side, next_id, rng, events);
+        turn = side.other();
+    }
+}
+
+/// The minions on `board` with a Start-of-Combat trigger, left to right.
+fn start_of_combat_minions(board: &[Unit]) -> VecDeque<UnitId> {
+    board
+        .iter()
+        .filter(|u| cards::has_start_of_combat(u))
+        .map(|u| u.id)
+        .collect()
+}
+
+/// The next minion to resolve its Start-of-Combat trigger: the next minion listed in `queues`
+/// (A's, B's) for `turn` that is still alive, else the other side's (which then continues).
+fn next_start_of_combat_minion(
+    turn: Side,
+    queues: &mut [VecDeque<UnitId>; 2],
+    side_a: &SideCombatState,
+    side_b: &SideCombatState,
+) -> Option<(Side, UnitId)> {
+    for side in [turn, turn.other()] {
+        let (queue, board) = match side {
+            Side::A => (&mut queues[0], &side_a.board),
+            Side::B => (&mut queues[1], &side_b.board),
+        };
+        while let Some(id) = queue.pop_front() {
+            if board.iter().any(|u| u.id == id && u.health > 0) {
+                return Some((side, id));
+            }
+        }
+    }
+    None
+}
+
+/// Resolve the Start-of-Combat trigger of `side`'s minion `src_id` (`docs/combat.md` §5.1.1
+/// step 3): its `start_of_combat` hook, then its [`SocAction`], resolving deaths after each.
+fn resolve_minion_start_of_combat(
+    side: Side,
+    src_id: UnitId,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    cards::on_minion_start_of_combat(&mut own_side.ctx(side, next_id, rng, events), src_id);
+    resolve_effect_deaths(side, own_side, opp_side, next_id, rng, events);
+    let action = own_side
+        .board
+        .iter()
+        .find(|u| u.id == src_id && u.health > 0)
+        .and_then(cards::start_of_combat_action);
+    match action {
+        Some(SocAction::DestroyNeighbors { both_sides }) => resolve_start_of_combat_destroys(
+            side, src_id, both_sides, own_side, opp_side, next_id, rng, events,
+        ),
+        Some(SocAction::DamageAll { amount, waves }) => resolve_start_of_combat_aoe(
+            side, src_id, amount, waves, own_side, opp_side, next_id, rng, events,
+        ),
+        Some(SocAction::Attack { times }) => resolve_start_of_combat_attacks(
+            side, src_id, times, own_side, opp_side, next_id, rng, events,
+        ),
+        None => {}
+    }
+}
+
+/// Emit and resolve the deaths an effect of `side` caused (a Start-of-Combat effect or a Rally),
+/// the other side's first, then any queued immediate attacks (`docs/combat.md` §5.1.1 step 4).
+fn resolve_effect_deaths(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    if !opp_side
+        .board
+        .iter()
+        .chain(&own_side.board)
+        .any(|u| u.health <= 0)
+    {
+        return;
+    }
+    for u in opp_side.board.iter().chain(&own_side.board) {
+        if u.health <= 0 {
+            events.push(Event::Death { unit: u.id });
+        }
+    }
+    resolve_deaths(side.other(), opp_side, own_side, next_id, rng, events);
+    resolve_deaths(side, own_side, opp_side, next_id, rng, events);
+    resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
+}
+
 /// Resolve the player's own Start-of-Combat effects (recorded in the Tavern, e.g. by spells),
 /// before any minion's Start-of-Combat trigger.
 fn resolve_start_of_combat_effects(
@@ -332,182 +442,144 @@ fn resolve_start_of_combat_effects(
     );
 }
 
-/// Living units on `board` whose Start-of-Combat action is selected by `pick`, left to right,
-/// evaluated now: `(unit_id, card_id, picked)`.
-fn soc_action_sources<T>(
-    board: &[Unit],
-    pick: impl Fn(SocAction) -> Option<T>,
-) -> Vec<(UnitId, CardId, T)> {
-    board
-        .iter()
-        .filter(|u| u.health > 0)
-        .filter_map(|u| pick(cards::start_of_combat_action(u)?).map(|t| (u.id, u.card_id, t)))
-        .collect()
-}
-
-/// Resolve Start-of-Combat friendly neighbor destroys ([`SocAction::DestroyNeighbors`]).
+/// Resolve `src_id`'s Start-of-Combat friendly neighbor destroys
+/// ([`SocAction::DestroyNeighbors`]).
+#[allow(clippy::too_many_arguments)]
 fn resolve_start_of_combat_destroys(
     side: Side,
+    src_id: UnitId,
+    both_sides: bool,
     own_side: &mut SideCombatState,
     opp_side: &mut SideCombatState,
     next_id: &mut UnitId,
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let sources = soc_action_sources(&own_side.board, |action| match action {
-        SocAction::DestroyNeighbors { both_sides } => Some(both_sides),
-        _ => None,
-    });
-    for (src_id, src_card, both_sides) in sources {
-        let Some(src_pos) = own_side
-            .board
-            .iter()
-            .position(|u| u.id == src_id && u.health > 0)
-        else {
-            continue;
-        };
-        let mut victim_positions = Vec::new();
-        if src_pos > 0
-            && own_side.board[src_pos - 1].health > 0
-            && own_side.board[src_pos - 1].card_id != src_card
-        {
-            victim_positions.push(src_pos - 1);
-        }
-        if both_sides
-            && src_pos + 1 < own_side.board.len()
-            && own_side.board[src_pos + 1].health > 0
-            && own_side.board[src_pos + 1].card_id != src_card
-        {
-            victim_positions.push(src_pos + 1);
-        }
-        if victim_positions.is_empty() {
-            continue;
-        }
-        let mut stored_copies = Vec::new();
-        for &v_pos in &victim_positions {
-            let mut copy = own_side.board[v_pos].clone();
-            copy.health = copy.max_health.max(copy.health);
-            stored_copies.push(copy);
-            own_side.board[v_pos].health = 0;
-            events.push(Event::Death {
-                unit: own_side.board[v_pos].id,
-            });
-        }
-        own_side.board[src_pos]
-            .stitched_stored
-            .extend(stored_copies);
-        own_side.ptr = preserve_defender_ptr(&own_side.board, own_side.ptr);
-        resolve_deaths(side, own_side, opp_side, next_id, rng, events);
-        resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
+    let Some(src_pos) = own_side
+        .board
+        .iter()
+        .position(|u| u.id == src_id && u.health > 0)
+    else {
+        return;
+    };
+    let src_card = own_side.board[src_pos].card_id;
+    let mut victim_positions = Vec::new();
+    if src_pos > 0
+        && own_side.board[src_pos - 1].health > 0
+        && own_side.board[src_pos - 1].card_id != src_card
+    {
+        victim_positions.push(src_pos - 1);
     }
+    if both_sides
+        && src_pos + 1 < own_side.board.len()
+        && own_side.board[src_pos + 1].health > 0
+        && own_side.board[src_pos + 1].card_id != src_card
+    {
+        victim_positions.push(src_pos + 1);
+    }
+    if victim_positions.is_empty() {
+        return;
+    }
+    let mut stored_copies = Vec::new();
+    for &v_pos in &victim_positions {
+        let mut copy = own_side.board[v_pos].clone();
+        copy.health = copy.max_health.max(copy.health);
+        stored_copies.push(copy);
+        own_side.board[v_pos].health = 0;
+        events.push(Event::Death {
+            unit: own_side.board[v_pos].id,
+        });
+    }
+    own_side.board[src_pos]
+        .stitched_stored
+        .extend(stored_copies);
+    resolve_deaths(side, own_side, opp_side, next_id, rng, events);
+    resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
 }
 
-/// Resolve Start-of-Combat board-wide AoE damage ([`SocAction::DamageAll`]).
+/// Resolve `src_id`'s Start-of-Combat board-wide damage ([`SocAction::DamageAll`]), resolving
+/// the deaths of each wave before the next.
+#[allow(clippy::too_many_arguments)]
 fn resolve_start_of_combat_aoe(
     side: Side,
+    src_id: UnitId,
+    amount: i32,
+    waves: u32,
     own_side: &mut SideCombatState,
     opp_side: &mut SideCombatState,
     next_id: &mut UnitId,
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let sources = soc_action_sources(&own_side.board, |action| match action {
-        SocAction::DamageAll { amount, waves } => Some((amount, waves)),
-        _ => None,
-    });
-    for (src_id, _, (amount, waves)) in sources {
-        if !own_side
+    for _ in 0..waves {
+        let own_ids: Vec<UnitId> = own_side
             .board
             .iter()
-            .any(|u| u.id == src_id && u.health > 0)
-        {
-            continue;
+            .filter(|u| u.id != src_id && u.health > 0)
+            .map(|u| u.id)
+            .collect();
+        for tid in own_ids {
+            if let Some(pos) = own_side.board.iter().position(|u| u.id == tid) {
+                let (_, took) =
+                    apply_damage(&mut own_side.board, pos, amount, src_id, false, events);
+                if took {
+                    cards::on_damage_taken(&own_side.board[pos], &mut own_side.hand, rng);
+                    cards::on_damage_dealt(
+                        &mut own_side.ctx(side, next_id, rng, events),
+                        src_id,
+                        amount,
+                    );
+                }
+            }
         }
-        for _ in 0..waves {
-            let own_ids: Vec<UnitId> = own_side
-                .board
-                .iter()
-                .filter(|u| u.id != src_id && u.health > 0)
-                .map(|u| u.id)
-                .collect();
-            for tid in own_ids {
-                if let Some(pos) = own_side.board.iter().position(|u| u.id == tid) {
-                    let (_, took) =
-                        apply_damage(&mut own_side.board, pos, amount, src_id, false, events);
-                    if took {
-                        cards::on_damage_taken(&own_side.board[pos], &mut own_side.hand, rng);
-                        cards::on_damage_dealt(
-                            &mut own_side.ctx(side, next_id, rng, events),
-                            src_id,
-                            amount,
-                        );
-                    }
+        let opp_ids: Vec<UnitId> = opp_side
+            .board
+            .iter()
+            .filter(|u| u.health > 0)
+            .map(|u| u.id)
+            .collect();
+        for tid in opp_ids {
+            if let Some(pos) = opp_side.board.iter().position(|u| u.id == tid) {
+                let (_, took) =
+                    apply_damage(&mut opp_side.board, pos, amount, src_id, false, events);
+                if took {
+                    cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
+                    cards::on_damage_dealt(
+                        &mut own_side.ctx(side, next_id, rng, events),
+                        src_id,
+                        amount,
+                    );
                 }
             }
-            let opp_ids: Vec<UnitId> = opp_side
-                .board
-                .iter()
-                .filter(|u| u.health > 0)
-                .map(|u| u.id)
-                .collect();
-            for tid in opp_ids {
-                if let Some(pos) = opp_side.board.iter().position(|u| u.id == tid) {
-                    let (_, took) =
-                        apply_damage(&mut opp_side.board, pos, amount, src_id, false, events);
-                    if took {
-                        cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
-                        cards::on_damage_dealt(
-                            &mut own_side.ctx(side, next_id, rng, events),
-                            src_id,
-                            amount,
-                        );
-                    }
-                }
-            }
-            for u in &opp_side.board {
-                if u.health <= 0 {
-                    events.push(Event::Death { unit: u.id });
-                }
-            }
-            for u in &own_side.board {
-                if u.health <= 0 {
-                    events.push(Event::Death { unit: u.id });
-                }
-            }
-            resolve_deaths(side.other(), opp_side, own_side, next_id, rng, events);
-            resolve_deaths(side, own_side, opp_side, next_id, rng, events);
-            resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
         }
+        resolve_effect_deaths(side, own_side, opp_side, next_id, rng, events);
     }
 }
 
-/// Resolve Start-of-Combat immediate attacks ([`SocAction::Attack`]).
+/// Resolve `src_id`'s Start-of-Combat immediate attacks ([`SocAction::Attack`]).
+#[allow(clippy::too_many_arguments)]
 fn resolve_start_of_combat_attacks(
     side: Side,
+    src_id: UnitId,
+    strikes: u32,
     own_side: &mut SideCombatState,
     opp_side: &mut SideCombatState,
     next_id: &mut UnitId,
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let sources = soc_action_sources(&own_side.board, |action| match action {
-        SocAction::Attack { times } => Some(times),
-        _ => None,
-    });
-    for (src_id, _, strikes) in sources {
-        for _ in 0..strikes {
-            if opp_side.is_empty()
-                || !own_side
-                    .board
-                    .iter()
-                    .any(|u| u.id == src_id && u.health > 0 && u.attack > 0)
-            {
-                break;
-            }
-            perform_one_strike(
-                side, src_id, own_side, opp_side, false, next_id, rng, events,
-            );
+    for _ in 0..strikes {
+        if opp_side.is_empty()
+            || !own_side
+                .board
+                .iter()
+                .any(|u| u.id == src_id && u.health > 0 && u.attack > 0)
+        {
+            break;
         }
+        perform_one_strike(
+            side, src_id, own_side, opp_side, false, next_id, rng, events,
+        );
     }
 }
 
@@ -694,24 +766,7 @@ fn perform_one_strike(
     cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
 
     // 2c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
-    if def_side.board.iter().any(|u| u.health <= 0) || atk_side.board.iter().any(|u| u.health <= 0)
-    {
-        for u in &def_side.board {
-            if u.health <= 0 {
-                events.push(Event::Death { unit: u.id });
-            }
-        }
-        for u in &atk_side.board {
-            if u.health <= 0 {
-                events.push(Event::Death { unit: u.id });
-            }
-        }
-        atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
-        def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
-        resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
-        resolve_deaths(side, atk_side, def_side, next_id, rng, events);
-        resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
-    }
+    resolve_effect_deaths(side, atk_side, def_side, next_id, rng, events);
 
     // 2d. Rally summons that attack the target first (e.g. `Jailbird Juggernaut`'s Golem).
     if let Some(striker_id) = forced_striker {
@@ -733,7 +788,7 @@ fn perform_one_strike(
         .position(|u| u.id == target_id && u.health > 0)
     else {
         if advance_ptr {
-            atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
+            atk_side.ptr = unit_after(&atk_side.board, atk_pos);
         }
         return;
     };
@@ -912,13 +967,16 @@ fn perform_one_strike(
         }
     }
 
-    // 6. Re-anchor both pointers while dead units are still in place.
+    // 6. Point the attacking side at the unit right of the attacker, or at the attacker if it
+    //    died, while dead units are still in place; deaths re-anchor pointers on dead units so
+    //    that the units summoned into their slots take their place (docs/combat.md §5.4).
     if advance_ptr {
-        atk_side.ptr = advance_attacker_ptr(&atk_side.board, atk_pos);
-    } else {
-        atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
+        atk_side.ptr = if atk_side.board[atk_pos].health > 0 {
+            unit_after(&atk_side.board, atk_pos)
+        } else {
+            Some(attacker_id)
+        };
     }
-    def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
 
     // 7. Resolve deaths (defending side first, then attacking side).
     resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
@@ -1027,9 +1085,6 @@ fn perform_forced_target_strike(
             events.push(Event::Death { unit: u.id });
         }
     }
-
-    atk_side.ptr = preserve_defender_ptr(&atk_side.board, atk_side.ptr);
-    def_side.ptr = preserve_defender_ptr(&def_side.board, def_side.ptr);
 
     resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
     resolve_deaths(side, atk_side, def_side, next_id, rng, events);
@@ -1169,36 +1224,44 @@ fn apply_damage(
     }
 }
 
-fn advance_attacker_ptr(board: &[Unit], attacker_idx: usize) -> Option<UnitId> {
-    let n = board.len();
-    if n == 0 {
+/// The unit immediately to the right of `board[idx]`, wrapping to the leftmost.
+fn unit_after(board: &[Unit], idx: usize) -> Option<UnitId> {
+    if board.is_empty() {
         return None;
     }
-    for offset in 1..=n {
-        let idx = (attacker_idx + offset) % n;
-        if board[idx].health > 0 {
-            return Some(board[idx].id);
-        }
-    }
-    None
+    Some(board[(idx + 1) % board.len()].id)
 }
 
-fn preserve_defender_ptr(board: &[Unit], current_ptr: Option<UnitId>) -> Option<UnitId> {
-    let n = board.len();
-    if n == 0 {
-        return None;
-    }
-    let start_idx = current_ptr
-        .and_then(|id| board.iter().position(|u| u.id == id))
-        .unwrap_or(0);
-
-    for offset in 0..n {
-        let idx = (start_idx + offset) % n;
-        if board[idx].health > 0 {
-            return Some(board[idx].id);
+/// Re-anchor a side's next-attacker pointer after a round of its deaths resolved
+/// (`docs/combat.md` §5.4). A pointer on a unit that died moves to the left-most unit summoned
+/// into that unit's slot (`slot_summons`: the ids each dead unit's Deathrattle and Reborn
+/// summoned), otherwise on to the next unit of `old_ids` (the board before the deaths), and
+/// past the rightmost wraps to the leftmost unit.
+fn reanchor_ptr(
+    ptr: Option<UnitId>,
+    old_ids: &[UnitId],
+    slot_summons: &[(UnitId, Range<UnitId>)],
+    board: &[Unit],
+) -> Option<UnitId> {
+    let leftmost = board.first()?.id;
+    let on_board = |id: UnitId| board.iter().any(|u| u.id == id);
+    let Some(start) = ptr.and_then(|p| old_ids.iter().position(|&id| id == p)) else {
+        return Some(ptr.filter(|&p| on_board(p)).unwrap_or(leftmost));
+    };
+    for &id in &old_ids[start..] {
+        if on_board(id) {
+            return Some(id);
+        }
+        let summoned = board.iter().find(|u| {
+            slot_summons
+                .iter()
+                .any(|(dead, ids)| *dead == id && ids.contains(&u.id))
+        });
+        if let Some(u) = summoned {
+            return Some(u.id);
         }
     }
-    None
+    Some(leftmost)
 }
 
 fn resolve_deaths(
@@ -1224,6 +1287,10 @@ fn resolve_deaths(
     // Dead units with Reborn and their slots (after their Deathrattle summons), resummoned once
     // all of this side's deaths have resolved (docs/combat.md §5.3.1 step 9).
     let mut reborns: Vec<(Unit, usize)> = Vec::new();
+    // The board before these deaths, and the ids of the units each dead unit's Deathrattle and
+    // Reborn summoned into its slot, to re-anchor the pointer (docs/combat.md §5.4).
+    let old_ids: Vec<UnitId> = old_board.iter().map(|u| u.id).collect();
+    let mut slot_summons: Vec<(UnitId, Range<UnitId>)> = Vec::new();
 
     for unit in old_board {
         if unit.health > 0 {
@@ -1247,6 +1314,7 @@ fn resolve_deaths(
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
         let dr_repeats = 1 + cards::board_passive(&side_state.board, Passive::ExtraDeathrattles);
         let mut destroys = Vec::new();
+        let first_summon = *next_id;
         for _ in 0..dr_repeats {
             let mut dr_ctx = side_state.ctx(side, next_id, rng, events);
             dr_ctx.cursor = cursor;
@@ -1254,6 +1322,7 @@ fn resolve_deaths(
             cursor = dr_ctx.cursor;
             destroys.append(&mut dr_ctx.destroys);
         }
+        slot_summons.push((unit.id, first_summon..*next_id));
         for target_id in destroys {
             let is_target = |u: &&mut Unit| u.id == target_id && u.health > 0;
             if let Some(target) = opp_side.board.iter_mut().find(is_target) {
@@ -1278,10 +1347,12 @@ fn resolve_deaths(
     // 3. Reborn resummons, left to right; each slot shifts by the units inserted before it.
     let mut inserted = 0;
     for (unit, slot) in reborns {
+        let first_summon = *next_id;
         let mut ctx = side_state.ctx(side, next_id, rng, events);
         ctx.cursor = slot + inserted;
         cards::reborn(&mut ctx, &unit);
         inserted = ctx.cursor - slot;
+        slot_summons.push((unit.id, first_summon..*next_id));
     }
 
     // 4. Effects that fill open board slots after deaths (e.g. `Boon of Beetles`).
@@ -1296,16 +1367,13 @@ fn resolve_deaths(
     );
     cards::push_stat_changes(side, &side_state.board, &before_aura, "Death Aura", events);
 
-    if side_state.ptr.is_none() && !side_state.board.is_empty() {
-        side_state.ptr = Some(side_state.board[0].id);
-    }
+    // 6. Re-anchor the pointer if its unit died.
+    side_state.ptr = reanchor_ptr(side_state.ptr, &old_ids, &slot_summons, &side_state.board);
 
     if killed_own {
-        side_state.ptr = preserve_defender_ptr(&side_state.board, side_state.ptr);
         resolve_deaths(side, side_state, opp_side, next_id, rng, events);
     }
     if killed_opp {
-        opp_side.ptr = preserve_defender_ptr(&opp_side.board, opp_side.ptr);
         resolve_deaths(side.other(), opp_side, side_state, next_id, rng, events);
     }
 }

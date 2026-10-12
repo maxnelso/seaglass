@@ -117,6 +117,15 @@ pub fn combat_space(ctx: &mut BoardCtx<'_>) {
     );
 }
 
+/// `true` if one of the player's effects acts at Start of Combat (a `player_start_of_combat` or
+/// `player_combat_space` hook).
+pub fn has_start_of_combat(auras: &PlayerAuras) -> bool {
+    auras.effects.iter().any(|effect| {
+        let card = hooks(effect.card_id);
+        card.player_start_of_combat.is_some() || card.player_combat_space.is_some()
+    })
+}
+
 /// A friendly minion is being summoned in combat: the player's effects' `player_combat_summon`
 /// hooks.
 pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {

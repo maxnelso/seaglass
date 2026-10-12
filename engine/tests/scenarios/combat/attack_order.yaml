@@ -1,0 +1,97 @@
+topic: Attack order after deaths and the first attacker
+scenarios:
+  # Unit ids: A's Harmless Bonehead 0, Annoy-o-Module 1; B's Titus Rivendares 2, 3; the
+  # Skeletons 4 (left) and 5 (right). B's 1-Attack minions can only hit the Taunt
+  # Annoy-o-Module, which outlasts their first three attacks (Divine Shield, then 4 Health);
+  # each Skeleton dies when it attacks.
+  - name: deathrattle_tokens_take_the_dead_attackers_place_in_the_attack_order
+    description: >-
+      Harmless Bonehead attacks and dies. Its Skeletons attack next for A, the left one first,
+      then the right one, then Annoy-o-Module (the minion that was to the Bonehead's right).
+    seed: 1
+    combat:
+      board_a: [Harmless Bonehead, Annoy-o-Module]
+      board_b: [Titus Rivendare, Titus Rivendare]
+    expect:
+      events:
+        where: {type: attack_declared, side: a}
+        0: {attacker: 0}
+        1: {attacker: 4}
+        2: {attacker: 5}
+        3: {attacker: 1}
+
+  # Unit ids: A's Drifting Sacrifice 0, Annoy-o-Module 1; B's Titus Rivendare 2; the Reborn
+  # copy 3. Titus can only hit the Taunt Annoy-o-Module.
+  - name: a_reborn_copy_takes_the_dead_attackers_place_in_the_attack_order
+    description: >-
+      Drifting Sacrifice attacks and dies; its Reborn copy attacks next for A, before
+      Annoy-o-Module.
+    seed: 1
+    combat:
+      board_a: [Drifting Sacrifice, Annoy-o-Module]
+      board_b: [Titus Rivendare]
+    expect:
+      events:
+        where: {type: attack_declared, side: a}
+        0: {attacker: 0}
+        1: {attacker: 3}
+
+  # Unit ids: A's Glim Guardians 0-2; B's Buzzing Vermin 3, Wrath Weaver 4; the Beetle 5.
+  # A has more minions and attacks first; the first Glim Guardian (3/4 after its Rally) must
+  # attack the Taunt Vermin, B's next attacker.
+  - name: tokens_take_the_dead_defenders_place_in_its_sides_attack_order
+    description: >-
+      A kills Buzzing Vermin, the minion B would attack with next; the Beetle its Deathrattle
+      summons attacks first for B, before Wrath Weaver.
+    seed: 1
+    combat:
+      board_a: [Glim Guardian, Glim Guardian, Glim Guardian]
+      board_b: [Buzzing Vermin, Wrath Weaver]
+    expect:
+      events:
+        where: {type: attack_declared}
+        0: {side: a, target: 3}
+        1: {side: b, attacker: 5}
+
+  # Unit ids: A's Glim Guardians 0-2; B's Risen Rider 3, Wrath Weaver 4; the Reborn copy 5.
+  - name: a_reborn_copy_takes_the_dead_defenders_place_in_its_sides_attack_order
+    description: >-
+      A kills the Taunt Risen Rider, the minion B would attack with next; its Reborn copy
+      attacks first for B, before Wrath Weaver.
+    seed: 1
+    combat:
+      board_a: [Glim Guardian, Glim Guardian, Glim Guardian]
+      board_b: [Risen Rider, Wrath Weaver]
+    expect:
+      events:
+        where: {type: attack_declared}
+        0: {side: a, target: 3}
+        1: {side: b, attacker: 5}
+
+  # Before Start of Combat B has more minions (3 v 2). Boom-in-a-Box's 3 damage kills Wrath
+  # Weaver (1/3) and Patient Scout (1/1) and pops Annoy-o-Module's Divine Shield, leaving A
+  # with more minions (2 v 1).
+  - name: the_side_with_more_minions_after_start_of_combat_attacks_first
+    seed: 1
+    combat:
+      board_a: [Boom-in-a-Box, Annoy-o-Module]
+      board_b: [Wrath Weaver, Patient Scout, Titus Rivendare]
+    expect:
+      events:
+        all_of:
+          - {0: {type: battle_start, first_attacker: a}}
+          - {where: {type: attack_declared}, 0: {side: a}}
+
+  # Before Start of Combat B has more minions (2 v 1); A's two Flighty Scouts in hand each
+  # summon a copy, leaving A with more minions (3 v 2).
+  - name: start_of_combat_summons_count_for_the_first_attacker
+    seed: 1
+    combat:
+      board_a: [Wrath Weaver]
+      hand_a: [Flighty Scout, Flighty Scout]
+      board_b: [Wrath Weaver, Wrath Weaver]
+    expect:
+      events:
+        all_of:
+          - {0: {type: battle_start, first_attacker: a}}
+          - {where: {type: attack_declared}, 0: {side: a}}
