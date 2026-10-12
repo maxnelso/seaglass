@@ -6,3 +6,22 @@ scenarios:
     expect:
       auras_a: {counters: {Beetle: [4, 4]}}
       survivors_a: ["Beetle 6/6"]   # 2/2 + the 4/4 bonus
+
+  - name: attacking_also_buffs_beetles_already_on_the_board
+    description: >-
+      Boon of Beetles summons two 2/2 Taunt Beetles at Start of Combat. Side A (more minions)
+      attacks first with Ravaging Scorpid: the Beetles already on the board get the +4/+4 too, not
+      only future ones. The Scorpid then kills the 3/1 Southsea Busker.
+    seed: 619
+    combat:
+      board_a: [Ravaging Scorpid, Southsea Busker]
+      board_b: [Southsea Busker]
+      auras_a: {effects: [{card: Boon of Beetles, stacks: 2}]}
+    expect:
+      outcome: a_win
+      auras_a: {counters: {Beetle: [4, 4]}}
+      survivors_a:
+        - "Ravaging Scorpid 6/4"   # 6/7 - 3
+        - Southsea Busker
+        - "Beetle 6/6 taunt"   # 2/2 + 4/4
+        - "Beetle 6/6 taunt"
