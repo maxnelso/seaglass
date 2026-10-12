@@ -688,6 +688,7 @@ fn perform_one_strike(
         &mut atk_side.board,
         initial_atk_pos,
         Some((&mut def_side.board, initial_def_pos)),
+        &mut def_side.hand,
         &mut atk_side.auras,
         &atk_side.hand,
         &mut atk_side.hand_summoned,

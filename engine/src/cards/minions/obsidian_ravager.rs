@@ -2,6 +2,10 @@
 //!
 //! Rally: Deal damage equal to this minion's Attack to the target and an adjacent minion
 //! (to the target and its neighbors if Golden).
+//!
+//! The adjacent minion is picked at random among the target's living neighbours. The damage
+//! triggers the damaged minions' "whenever this takes damage" effects (`Very Hungry
+//! Winterfinner`), each hit right after it lands.
 
 use crate::cards::{self, CardTemplate};
 use crate::events::Event;
@@ -19,6 +23,7 @@ pub fn template() -> CardTemplate {
                     &c.board[c.attacker_pos],
                     def_board,
                     *def_pos,
+                    c.def_hand,
                     c.rng,
                     c.events,
                 );
@@ -27,10 +32,12 @@ pub fn template() -> CardTemplate {
         })
 }
 
+/// `def_hand` is the defending player's hand (for the damaged minions' damage-taken effects).
 pub fn on_rally(
     attacker: &Unit,
     def_board: &mut [Unit],
     def_pos: usize,
+    def_hand: &mut [Unit],
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
@@ -76,6 +83,7 @@ pub fn on_rally(
             if target.health <= 0 {
                 target.killed_by = Some(attacker.id);
             }
+            cards::on_damage_taken(&def_board[idx], def_hand, rng);
         }
     }
 }

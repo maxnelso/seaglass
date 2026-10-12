@@ -211,6 +211,9 @@ pub struct RallyCtx<'a> {
     pub is_golden: bool,
     /// The defending board and the attack target's index (combat only).
     pub def_target: Option<(&'a mut [Unit], usize)>,
+    /// The defending player's hand (empty in the Tavern), for the "whenever this takes damage"
+    /// effects of the enemy minions a Rally damages (`on_damage_taken`).
+    pub def_hand: &'a mut [Unit],
     pub auras: &'a mut PlayerAuras,
     pub hand: &'a [Unit],
     pub hand_summoned: &'a mut [bool],
@@ -1501,7 +1504,8 @@ pub fn on_awaken(ctx: &mut BoardCtx<'_>, idx: usize) {
 }
 
 /// Resolve a minion's On-Attack (`Rally`) hook. `def_target` is the defending board and the
-/// attack target's index (`None` when the Rally is triggered in the Tavern).
+/// attack target's index (`None` when the Rally is triggered in the Tavern), and `def_hand` the
+/// defending player's hand (empty in the Tavern).
 /// Returns the token(s) to summon immediately to the attacker's right, and whether they attack
 /// the target first ([`RallyCtx::summons_attack_target`]).
 #[allow(clippy::too_many_arguments)]
@@ -1510,6 +1514,7 @@ pub fn on_rally(
     board: &mut [Unit],
     attacker_pos: usize,
     def_target: Option<(&mut [Unit], usize)>,
+    def_hand: &mut [Unit],
     auras: &mut PlayerAuras,
     hand: &[Unit],
     hand_summoned: &mut [bool],
@@ -1528,6 +1533,7 @@ pub fn on_rally(
                 board: &mut *board,
                 attacker_pos,
                 def_target,
+                def_hand,
                 auras: &mut *auras,
                 hand,
                 hand_summoned,
@@ -1559,6 +1565,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
         &mut state.board,
         target_pos,
         None,
+        &mut [],
         &mut state.auras,
         &state.hand,
         &mut hand_summoned,

@@ -31,3 +31,16 @@ scenarios:
           - {type: divine_shield_popped, unit: 2}
           - {type: damage_dealt, unit: 2, amount: 7, from: 0}
           - {type: death, unit: 2}
+
+  - name: rally_damage_triggers_whenever_this_takes_damage
+    description: >-
+      Side A (2 minions) attacks first. The Rally deals 7 to the 2/14 Very Hungry Winterfinner,
+      then the attack deals 7 more: it takes damage twice, so Tad in B's hand gets +2/+1 twice.
+    seed: 706
+    combat:
+      board_a: [Obsidian Ravager, Patient Scout]
+      board_b: ["Very Hungry Winterfinner 2/14"]
+      hand_b: [Tad]
+    expect:
+      outcome: a_win
+      hand_b: ["Tad 6/4"]   # 2/2 + 2 x (+2/+1)
