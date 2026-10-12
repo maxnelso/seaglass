@@ -1,7 +1,9 @@
 topic: Deities awaken after 4 friendly Aberration deaths
 scenarios:
+  # Boom-in-a-Box's Start of Combat kills the four Zoatroids and C'Thun awakens, leaving 2 v 2:
+  # the first attacker is a coin flip, A at this seed.
   - name: cthun_awakens_after_four_aberrations_die
-    seed: 7
+    seed: 8
     combat:
       board_a: [Zoatroid, Zoatroid, Zoatroid, Zoatroid, Prodigious Tusker]
       board_b: [Boom-in-a-Box, Cataclysmic Harbinger]

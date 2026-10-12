@@ -1,0 +1,191 @@
+topic: Start of Combat order
+scenarios:
+  # Unit ids: A's Hopebringer 0, Boom-in-a-Box 1; B's Titus Rivendare 2.
+  - name: start_of_combat_effects_resolve_left_to_right
+    description: >-
+      Hopebringer (left) gives A's minions +4/+3 first (Hopebringer 4/3 -> 8/6), then
+      Boom-in-a-Box deals 3 damage to all other minions (Hopebringer -> 8/3).
+    seed: 1
+    combat:
+      board_a: [Hopebringer, Boom-in-a-Box]
+      board_b: [Titus Rivendare]
+    expect:
+      events:
+        sequence:
+          - {type: stat_buff, side: a, unit: 0, reason: Hopebringer, attack: 8, health: 6}
+          - {type: damage_dealt, unit: 0, amount: 3, from: 1}
+
+  # Unit ids: A's Boom-in-a-Box 0, Hopebringer 1; B's Titus Rivendare 2.
+  - name: a_minion_killed_by_an_earlier_start_of_combat_effect_does_not_trigger
+    description: >-
+      Boom-in-a-Box (left) deals 3 damage first and kills the 4/3 Hopebringer before its
+      Start of Combat buff.
+    seed: 1
+    combat:
+      board_a: [Boom-in-a-Box, Hopebringer]
+      board_b: [Titus Rivendare]
+    expect:
+      events:
+        all_of:
+          - {none: {type: stat_buff, reason: Hopebringer}}
+          - {sequence: [{type: death, unit: 1}, {type: attack_declared}]}
+
+  # Unit ids: A's Boom-in-a-Box 0, Harmless Bonehead 1, Runic Arcanist 2; B's Titus
+  # Rivendare 3; the Skeletons 4, 5.
+  - name: deaths_from_a_start_of_combat_effect_resolve_before_the_next_effect
+    description: >-
+      Boom-in-a-Box kills Harmless Bonehead; its Skeletons are summoned right away, before
+      Runic Arcanist's two Shiny Rings (+1/+1 each), so they become 3/3.
+    seed: 1
+    combat:
+      board_a: [Boom-in-a-Box, Harmless Bonehead, Runic Arcanist]
+      board_b: [Titus Rivendare]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: unit_summoned, side: a, unit: 4, name: Skeleton}
+              - {type: stat_buff, side: a, unit: 4, reason: Shiny Ring, attack: 2, health: 2}
+              - {type: stat_buff, side: a, unit: 4, reason: Shiny Ring, attack: 3, health: 3}
+          - {none: {type: damage_dealt, unit: 4, from: 0}}
+
+  # Unit ids: A's Heroic Broodmother 0, Hopebringer 1; B's Mindbender Ghur'sha 2.
+  - name: an_attack_immediately_effect_resolves_in_board_order
+    description: >-
+      Heroic Broodmother (left) attacks immediately as a 7/7, before Hopebringer's buff; its
+      Rally's Divine Shield is popped in that attack, which improves Hopebringer first, so the
+      buff is +8/+6 (Broodmother 15/13).
+    seed: 1
+    combat:
+      board_a: [Heroic Broodmother, Hopebringer]
+      board_b: [Mindbender Ghur'sha]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 2}
+          - {type: damage_dealt, unit: 2, amount: 7, from: 0}
+          - {type: divine_shield_popped, unit: 0}
+          - {type: stat_buff, side: a, unit: 0, reason: Hopebringer, attack: 15, health: 13}
+
+  # Unit ids: A's Annoy-o-Module 0, Stitched Salvager 1, Hopebringer 2; B's Titus Rivendare 3.
+  - name: a_destroy_effect_resolves_in_board_order
+    description: >-
+      Stitched Salvager destroys Annoy-o-Module (to its left) before Hopebringer (to its right)
+      gives A's minions +4/+3, so Annoy-o-Module is not buffed.
+    seed: 1
+    combat:
+      board_a: [Annoy-o-Module, Stitched Salvager, Hopebringer]
+      board_b: [Titus Rivendare]
+    expect:
+      events:
+        all_of:
+          - {none: {type: stat_buff, unit: 0}}
+          - sequence:
+              - {type: death, unit: 0}
+              - {type: stat_buff, side: a, unit: 1, reason: Hopebringer}
+
+  # Unit ids: A's Runic Arcanist 0, Hopebringer 1, Humming Bird 2; B's Hopebringer 3, Wrath
+  # Weaver 4. A has more minions (3 v 2), so A's left-most Start of Combat minion goes first.
+  - name: start_of_combat_alternates_between_the_sides
+    description: >-
+      One Start of Combat minion per side in turn: A's Runic Arcanist, B's Hopebringer, A's
+      Hopebringer; B has no more, so A continues with Humming Bird.
+    seed: 1
+    combat:
+      board_a: [Runic Arcanist, Hopebringer, Humming Bird]
+      board_b: [Hopebringer, Wrath Weaver]
+    expect:
+      events:
+        where: {type: stat_buff}
+        sequence:
+          - {side: a, unit: 0, reason: Shiny Ring}
+          - {side: b, unit: 3, reason: Hopebringer}
+          - {side: a, unit: 1, reason: Hopebringer}
+          - {side: a, unit: 2, reason: StartOfCombat}
+
+  # Unit ids: A's Boom-in-a-Box 0, Annoy-o-Module 1; B's Hopebringer 2.
+  - name: the_side_with_more_minions_goes_first_in_start_of_combat
+    description: >-
+      A has more minions (2 v 1), so Boom-in-a-Box goes first and kills B's 4/3 Hopebringer
+      before its buff.
+    seed: 1
+    combat:
+      board_a: [Boom-in-a-Box, Annoy-o-Module]
+      board_b: [Hopebringer]
+    expect:
+      outcome: a_win
+      events: {none: {type: stat_buff, reason: Hopebringer}}
+
+  # Unit ids: A's Boom-in-a-Box 0; B's Hopebringer 1, Annoy-o-Module 2.
+  - name: the_other_side_goes_first_in_start_of_combat_with_more_minions
+    description: >-
+      B has more minions (2 v 1), so Hopebringer gives B's minions +4/+3 first (8/6) and
+      survives Boom-in-a-Box's 3 damage (8/3).
+    seed: 1
+    combat:
+      board_a: [Boom-in-a-Box]
+      board_b: [Hopebringer, Annoy-o-Module]
+    expect:
+      events:
+        sequence:
+          - {type: stat_buff, side: b, unit: 1, reason: Hopebringer, attack: 8, health: 6}
+          - {type: damage_dealt, unit: 1, amount: 3, from: 0}
+
+  # Unit ids: A's Boom-in-a-Box 0; B's Hopebringer 1. Equal minion counts (1 v 1) with a Start
+  # of Combat effect on each side: a coin flip decides which side goes first.
+  - name: a_coin_flip_decides_the_start_of_combat_order_on_equal_counts
+    description: >-
+      A wins the coin flip at this seed: Boom-in-a-Box kills Hopebringer before its buff.
+    seed: 2
+    combat:
+      board_a: [Boom-in-a-Box]
+      board_b: [Hopebringer]
+    expect:
+      outcome: a_win
+      events: {none: {type: stat_buff, reason: Hopebringer}}
+
+  - name: the_start_of_combat_coin_flip_can_favour_either_side
+    description: >-
+      B wins the coin flip at this seed: Hopebringer buffs itself (8/6) before Boom-in-a-Box's
+      3 damage (8/3).
+    seed: 1
+    combat:
+      board_a: [Boom-in-a-Box]
+      board_b: [Hopebringer]
+    expect:
+      events:
+        sequence:
+          - {type: stat_buff, side: b, unit: 1, reason: Hopebringer, attack: 8, health: 6}
+          - {type: damage_dealt, unit: 1, amount: 3, from: 0}
+
+  # Unit ids: A's Hopebringer 0, Annoy-o-Module 1; B's Titus Rivendare 2.
+  - name: player_effects_resolve_before_minion_effects
+    description: >-
+      A has more minions (2 v 1) and goes first, but B's Upper Hand (a player effect) still
+      resolves before A's Hopebringer: the minion it sets to 1 Health then gets +4/+3, ending
+      at 4 Health (Hopebringer 8/4, or Annoy-o-Module 6/4).
+    seed: 1
+    combat:
+      board_a: [Hopebringer, Annoy-o-Module]
+      board_b: [Titus Rivendare]
+      auras_b: {effects: [{card: Upper Hand, duration: Turn}]}
+    expect:
+      events: {any: {type: stat_buff, side: a, reason: Hopebringer, health: 4}}
+
+  # Unit ids: A's Wrath Weaver 0; B's Titus Rivendare 1, Wrath Weaver 2.
+  - name: player_effects_resolve_for_the_side_with_more_minions_first
+    description: >-
+      B has more minions (2 v 1): its Brood of Nozdormu doubles Titus Rivendare's Attack
+      (1/7 -> 2/7) before A's Sharing is Caring gives A's left-most minion the stats of the
+      nearest enemy minion, Titus (Wrath Weaver 1/3 -> 3/10).
+    seed: 1
+    combat:
+      board_a: [Wrath Weaver]
+      board_b: [Titus Rivendare, Wrath Weaver]
+      auras_a: {effects: [{card: Sharing is Caring, duration: Turn}]}
+      auras_b: {effects: [{card: Brood of Nozdormu, duration: Turn}]}
+    expect:
+      events:
+        sequence:
+          - {type: stat_buff, side: b, unit: 1, reason: Brood of Nozdormu, attack: 2}
+          - {type: stat_buff, side: a, unit: 0, reason: Sharing is Caring, atk_delta: 2, hp_delta: 7}

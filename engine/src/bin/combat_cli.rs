@@ -315,7 +315,7 @@ fn main() {
                 first_attacker,
             } => {
                 println!(
-                    "  [Start]  Seed {seed} | Side {first_attacker:?} attacks first ({} vs {} minions)",
+                    "  [Start]  Seed {seed} | Side {first_attacker:?} attacks first ({} vs {} minions before Start of Combat)",
                     board_a.len(),
                     board_b.len()
                 );

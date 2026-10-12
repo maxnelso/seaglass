@@ -1333,24 +1333,40 @@ pub fn on_player_start_of_combat(
     effects::start_of_combat(side, board, auras, enemy_board, rng, events);
 }
 
-/// Resolve Start-of-Combat triggers for one side: copies summoned from hand
-/// (`combat_copies_from_hand`), player effects that fill open board slots
-/// (`player_combat_space`), then each living minion's `start_of_combat` hook, left to right.
-pub fn on_start_of_combat(ctx: &mut BoardCtx<'_>) {
+/// Summon what Start of Combat adds before any minion triggers (`docs/combat.md` §5.1.1
+/// step 2): the copies hand cards summon (`combat_copies_from_hand`), then the player effects
+/// that fill open board slots (`player_combat_space`).
+pub fn start_of_combat_summons(ctx: &mut BoardCtx<'_>) {
     summon_copies_from_hand(ctx);
     effects::combat_space(ctx);
-    let sources: Vec<(UnitId, CardId, bool)> = ctx
+}
+
+/// `true` if `unit` has a Start-of-Combat trigger: a `start_of_combat` hook or a
+/// `start_of_combat_action`.
+pub fn has_start_of_combat(unit: &Unit) -> bool {
+    let card = hooks(unit.card_id);
+    card.start_of_combat.is_some() || card.start_of_combat_action.is_some()
+}
+
+/// `true` if the player has a Start-of-Combat effect of their own: a player effect that acts at
+/// Start of Combat (`player_start_of_combat`, `player_combat_space`) or a hand card that
+/// summons copies (`combat_copies_from_hand`).
+pub fn has_player_start_of_combat(hand: &[Unit], auras: &PlayerAuras) -> bool {
+    effects::has_start_of_combat(auras) || hand.iter().any(|card| combat_copies_from_hand(card) > 0)
+}
+
+/// Resolve the `start_of_combat` hook of the friendly minion `id`, if it is alive and has one.
+pub fn on_minion_start_of_combat(ctx: &mut BoardCtx<'_>, id: UnitId) {
+    let Some((card_id, is_golden)) = ctx
         .board
         .iter()
-        .map(|u| (u.id, u.card_id, u.is_golden))
-        .collect();
-    for (id, card_id, is_golden) in sources {
-        if !ctx.board.iter().any(|u| u.id == id && u.health > 0) {
-            continue;
-        }
-        if let Some(start_of_combat) = hooks(card_id).start_of_combat {
-            start_of_combat(ctx, id, is_golden);
-        }
+        .find(|u| u.id == id && u.health > 0)
+        .map(|u| (u.card_id, u.is_golden))
+    else {
+        return;
+    };
+    if let Some(start_of_combat) = hooks(card_id).start_of_combat {
+        start_of_combat(ctx, id, is_golden);
     }
 }
 

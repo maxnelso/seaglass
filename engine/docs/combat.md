@@ -20,7 +20,7 @@ The combat loop is **card-agnostic**: it knows only about units, keywords, and g
 
 All trigger effects double in magnitude (or repeat) when the source unit is Golden (`is_golden == true`).
 
-1. **Start of Combat (§5.1 step 6)** — Resolved once before the first attack turn, Side A first, then Side B, in left-to-right board order. Used for pre-battle board/tribal buffs (`Electric Synthesizer`), combat-long tribal attack auras (`Humming Bird`), and hand summons (`Flighty Scout`).
+1. **Start of Combat (§5.1.1)** — Resolved once before the first attack turn: the players' own effects first, then the minions' triggers, alternating between the sides and left to right within each side. Used for pre-battle board/tribal buffs (`Electric Synthesizer`), combat-long tribal attack auras (`Humming Bird`), board-wide damage (`Boom-in-a-Box`), immediate attacks (`Heroic Broodmother`), and hand summons (`Flighty Scout`).
 2. **On-Attack / Rally (§5.3.1 step 2)** — Fires when an attacker declares a strike, **before target selection and before any damage**. May buff the attacker (`Glim Guardian`, `Tusked Camper`), summon a unit adjacent to the attacker (`Flittering Bat`, `Expert Aviator` from hand), generate a hand card (`Roadboar`), or trigger friendly "whenever another friendly minion attacks" observers (`Prodigious Tusker`) on the attacking board in left-to-right order.
 3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
 4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** any Reborn from the same deaths. May summon token(s) at the dying unit's slot, which take its place in the attack order (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`).
@@ -51,7 +51,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 
 ## 3. Rules Summary
 
-1. **First attacker** — The side with more minions attacks first; on an equal count it is a coin flip (RNG).
+1. **First attacker** — The side with more minions **after Start of Combat** attacks first; on an equal count it is a coin flip (RNG).
 2. **Attack order** — Sides strictly alternate turns. Each side attacks with its minions left $\to$ right via a persistent pointer that wraps to the leftmost after the rightmost. Minions summoned into a dead minion's slot (its Deathrattle summons, its Reborn copy) take its place in that order (§5.4). Units that cannot attack (`attack == 0`) are skipped.
 3. **Target** — A uniformly random living enemy minion, unless the enemy controls living Taunt minions, in which case a uniformly random living **Taunt** minion.
 4. **Damage** — Attacker and target deal their attack to each other **simultaneously**. Divine Shield absorbs the first instance of damage $> 0$ and pops instead of losing health. Any unit at $\le 0$ health dies.
@@ -64,9 +64,10 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 
 All randomness flows through one seeded PRNG (`SplitMix64`). A battle is a pure function of `(board_a, board_b, state, seed)`, including its event log. Reproducibility depends on the **exact draw order and mapping** below:
 
-1. **First-attacker coin flip** — Consumed **once, at setup, only when both boards have the same minion count.** Draw `v = rng.below(2)`; `v == 0` $\to$ **A** attacks first, `v == 1` $\to$ **B**. If the counts differ, **no draw is made**.
+1. **First-attacker coin flip** — Consumed **once, after Start of Combat (§5.1 step 6), only when both boards then have the same minion count.** Draw `v = rng.below(2)`; `v == 0` $\to$ **A** attacks first, `v == 1` $\to$ **B**. If the counts differ, **no draw is made**.
 2. **Target selection** — Consumed **per strike, only when the candidate set has more than one unit.** Draw `idx = rng.below(k)` where `k` is the number of candidates; the candidate list is ordered by board position (left $\to$ right), and `target = candidates[idx]`. If there is exactly one candidate, **no draw is made**.
 3. **Random-target triggers (e.g., random friendly/enemy buff or damage)** — Consumed **only when the eligible living candidate set has $k > 1$ units.** Draw `idx = rng.below(k)` over the candidates ordered left $\to$ right on the board (during death resolution, the already-rebuilt prefix left $\to$ right followed by living units in the unprocessed tail left $\to$ right). With $0$ or $1$ candidates, **no draw is made**.
+4. **Start of Combat order coin flip** — Consumed **once, at setup before any Start of Combat effect (§5.1.1 step 1), only when both boards have the same minion count and both sides have a Start of Combat effect.** Draw `v = rng.below(2)`; `v == 0` $\to$ **A** goes first, `v == 1` $\to$ **B**. Otherwise **no draw is made**.
 
 Deterministic triggers (positional buffs, board-wide buffs, token summons, Reborn) resolve by board order and consume no RNG.
 
@@ -81,15 +82,25 @@ Deterministic triggers (positional buffs, board-wide buffs, token summons, Rebor
 1. **Assign IDs.** Units receive `UnitId`s in board order: Side A takes `0 .. len(A) - 1`, Side B continues from `len(A)`. The counter for tokens summoned later in the battle starts at `len(A) + len(B)`.
 2. Initialize the PRNG from `seed`.
 3. Set each side's **next-attacker pointer** to its leftmost unit. The pointer is tracked by **unit identity**, not by raw index, so it survives board shifts (§5.4); an empty side has no pointer.
-4. **First attacker**, decided from the board sizes **before** any Start of Combat effect:
+4. Emit `BattleStart` (its `first_attacker` is the side decided in step 6).
+5. **Start of Combat** (§5.1.1).
+6. **First attacker**, decided from the board sizes **after** all Start of Combat effects (counting the minions they summoned and killed):
    - `len(A) > len(B)` $\to$ A first.
    - `len(B) > len(A)` $\to$ B first.
    - Equal $\to$ coin flip per §4.1.
-5. Emit `BattleStart`.
-6. **Apply Start of Combat triggers** (§1): Side A first, then Side B, in left-to-right board order.
 7. Set `current = first_attacker`.
 
-(If a board starts empty, no attack loop runs; jump straight to outcome §5.6.)
+(If a board is empty after Start of Combat, no attack loop runs; jump straight to outcome §5.6.)
+
+#### 5.1.1 Start of Combat
+
+1. **Order.** The side with more minions at the start of combat (before any Start of Combat effect) goes first. On an equal count it is a coin flip per §4.4 if both sides have a Start of Combat effect (a minion's, a player effect's, or a hand card's); otherwise the order cannot matter, no draw is made, and A goes first.
+2. **Player effects**, for the first side, then the other: the player's own effects (the `player_start_of_combat` hooks of `PlayerAuras::effects`, e.g. `Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`) in the order they were recorded; then the copies that hand cards summon (`Flighty Scout`), at the right end of the board; then the player effects that fill open board slots (`Boon of Beetles`).
+3. **Minion triggers.** The minions on each board with a Start of Combat effect (a `start_of_combat` hook or a `SocAction`) are listed now, left to right. They trigger alternately, one per side: the first side's left-most, then the other side's left-most, then the first side's next, and so on; once one side has none left, the other continues in order. A listed minion that is no longer on its board when its turn comes (it died) does not trigger; minions summoned during Start of Combat (including Reborn copies) are not listed. A minion's trigger resolves its `start_of_combat` hook (buffs, summons), then its `SocAction`:
+   - `DestroyNeighbors` (`Stitched Salvager`): destroy the friendly minion(s) beside it;
+   - `DamageAll` (`Boom-in-a-Box`): deal damage to all other minions, once per wave;
+   - `Attack` (`Heroic Broodmother`): attack immediately (a strike per §5.3.1 that does not advance its side's pointer, §5.4), once per attack.
+4. **Deaths** caused by an effect resolve right after it, before the next effect: after each hook, destroy, wave of damage and immediate strike, the dead are emitted and resolved per §5.3.1 steps 7 and 9 (the other side first), followed by any queued immediate attacks. So the tokens a first wave of damage summons are hit by the second wave.
 
 ### 5.2 Turn Loop
 
@@ -199,7 +210,7 @@ else:
 
 Every single-battle simulation produces an ordered, structured event log:
 
-- `BattleStart { seed, first_attacker }`
+- `BattleStart { seed, first_attacker }` — always the first event; `first_attacker` is the side decided after Start of Combat (§5.1 step 6).
 - `AttackDeclared { side, attacker, target }`
 - `DamageDealt { unit, amount, from }`
 - `DivineShieldPopped { unit }`

@@ -102,8 +102,8 @@ impl Passive {
     }
 }
 
-/// A Start-of-Combat effect resolved by the engine in a dedicated phase after all
-/// ordinary Start-of-Combat triggers (see [`CardHooks::start_of_combat_action`]).
+/// A Start-of-Combat effect resolved by the engine in the minion's Start-of-Combat turn, right
+/// after its `start_of_combat` hook (see [`CardHooks::start_of_combat_action`]).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SocAction {
     /// Destroy the friendly minion to the left (and to the right if `both_sides`), skipping
