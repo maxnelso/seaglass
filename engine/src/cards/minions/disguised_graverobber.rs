@@ -12,22 +12,14 @@ pub const NAME: &str = "Disguised Graverobber";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 4, 4, 3)
         .with_tribe(Tribe::None)
-        .on_battlecry(|state, unit, board_pos, pool, rng| {
-            on_battlecry(state, unit, board_pos, pool, rng)
-        })
+        .on_battlecry_target(pick_target)
+        .on_battlecry(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
-pub fn on_battlecry(
-    state: &mut TavernState,
-    unit: &Unit,
-    board_pos: usize,
-    pool: &mut CardPool,
-    rng: &mut Rng,
-) {
+/// The Battlecry's target.
+pub fn pick_target(state: &TavernState, _: &Unit, board_pos: usize) -> Option<usize> {
     // Prefer the minion at `board_pos` (the slot index specified by `Play`), otherwise the nearest friendly Undead.
-    let target_idx = if board_pos < state.board.len()
-        && state.board[board_pos].tribe.matches(Tribe::Undead)
-    {
+    if board_pos < state.board.len() && state.board[board_pos].tribe.matches(Tribe::Undead) {
         Some(board_pos)
     } else if board_pos > 0
         && board_pos - 1 < state.board.len()
@@ -39,9 +31,11 @@ pub fn on_battlecry(
             .board
             .iter()
             .position(|u| u.tribe.matches(Tribe::Undead))
-    };
+    }
+}
 
-    let Some(t_idx) = target_idx else {
+pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    let Some(t_idx) = cards::battlecry_target_pos(&state.board) else {
         return;
     };
     let destroyed = state.board[t_idx].clone();

@@ -1,6 +1,9 @@
 //! `Brann Bronzebeard` (`BG_LOE_077`) — Tier 5 Neutral (`2/4`).
 //!
 //! Your Battlecries trigger twice (`three times` if Golden).
+//!
+//! Battlecries triggered by other cards (`Young Murk-Eye`, `Kelp Keeper`) too. A Battlecry with a
+//! target has the same target every time: once it is gone, the repeats do nothing.
 
 use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};

@@ -816,8 +816,7 @@ pub fn reborn(ctx: &mut BoardCtx<'_>, dying: &Unit) -> bool {
 }
 
 /// Apply on-play Battlecry / Choose-One when `unit` is played from `hand` onto `board` at
-/// `board_pos`. Battlecries repeat per [`Passive::BattlecryTriggers`], each followed by the
-/// `after_friendly_battlecry` observers.
+/// `board_pos` (for the Battlecry, see [`trigger_battlecry`]).
 pub fn on_play_battlecry(
     state: &mut TavernState,
     unit: &mut Unit,
@@ -826,16 +825,8 @@ pub fn on_play_battlecry(
     rng: &mut Rng,
 ) {
     let card = hooks(unit.card_id);
-    if let Some(battlecry) = card.battlecry {
-        let repeats = board_passive(&state.board, Passive::BattlecryTriggers);
-        for _ in 0..repeats {
-            battlecry(state, unit, board_pos, pool, rng);
-            notify_tavern(
-                state,
-                |h| h.after_friendly_battlecry,
-                |s, idx, f| f(s, idx, Some(&mut *unit)),
-            );
-        }
+    if card.battlecry.is_some() {
+        trigger_battlecry(state, unit, board_pos, true, pool, rng);
     } else if let Some(choose_one) = card.choose_one {
         choose_one(state, unit, board_pos, pool, rng);
     }
@@ -848,25 +839,17 @@ pub fn trigger_board_battlecry(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    let Some(battlecry) = state
+    let Some(mut unit) = state
         .board
         .get(board_pos)
-        .and_then(|u| hooks(u.card_id).battlecry)
+        .filter(|u| hooks(u.card_id).battlecry.is_some())
+        .cloned()
     else {
         return;
     };
-    let repeats = board_passive(&state.board, Passive::BattlecryTriggers);
-    let mut unit = state.board[board_pos].clone();
     let old_atk = unit.attack;
     let old_hp = unit.health;
-    for _ in 0..repeats {
-        battlecry(state, &mut unit, board_pos, pool, rng);
-        notify_tavern(
-            state,
-            |h| h.after_friendly_battlecry,
-            |s, idx, f| f(s, idx, None),
-        );
-    }
+    trigger_battlecry(state, &mut unit, board_pos, false, pool, rng);
     if board_pos < state.board.len() && state.board[board_pos].card_id == unit.card_id {
         let d_atk = unit.attack - old_atk;
         let d_hp = unit.health - old_hp;
@@ -879,6 +862,62 @@ pub fn trigger_board_battlecry(
         state.board[board_pos].reborn |= unit.reborn;
         state.board[board_pos].venomous |= unit.venomous;
         state.board[board_pos].stealth |= unit.stealth;
+    }
+}
+
+/// Marks the target of the Battlecry being resolved (see [`CardHooks::battlecry_target`]): the
+/// target's `id` (otherwise unused in the Tavern) while the Battlecry's triggers resolve, so that
+/// it is found again however the board changes.
+const BATTLECRY_TARGET_ID: UnitId = UnitId::MAX;
+
+/// Board index of the target of the Battlecry being resolved (see
+/// [`CardHooks::battlecry_target`]), if it is still on the board.
+pub fn battlecry_target_pos(board: &[Unit]) -> Option<usize> {
+    board.iter().position(|u| u.id == BATTLECRY_TARGET_ID)
+}
+
+/// Resolve `unit`'s Battlecry: it triggers [`Passive::BattlecryTriggers`] times, each trigger
+/// followed by the `after_friendly_battlecry` observers (which also see `unit` if it is being
+/// `played`, i.e. not on the board yet). A Battlecry with a target (its card's
+/// `battlecry_target`) keeps the one picked before the first trigger: the triggers after it has
+/// left the board do nothing.
+fn trigger_battlecry(
+    state: &mut TavernState,
+    unit: &mut Unit,
+    board_pos: usize,
+    played: bool,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let card = hooks(unit.card_id);
+    let Some(battlecry) = card.battlecry else {
+        return;
+    };
+    let repeats = board_passive(&state.board, Passive::BattlecryTriggers);
+    let target = card
+        .battlecry_target
+        .and_then(|pick| pick(state, unit, board_pos))
+        .filter(|&pos| pos < state.board.len());
+    let target_id =
+        target.map(|pos| std::mem::replace(&mut state.board[pos].id, BATTLECRY_TARGET_ID));
+    for _ in 0..repeats {
+        if target_id.is_some() && battlecry_target_pos(&state.board).is_none() {
+            break;
+        }
+        battlecry(state, unit, board_pos, pool, rng);
+        notify_tavern(
+            state,
+            |h| h.after_friendly_battlecry,
+            |s, idx, f| f(s, idx, played.then_some(&mut *unit)),
+        );
+    }
+    if let Some(id) = target_id {
+        // Unmark the target (and any copy of it that went to the hand).
+        for u in state.board.iter_mut().chain(state.hand.iter_mut()) {
+            if u.id == BATTLECRY_TARGET_ID {
+                u.id = id;
+            }
+        }
     }
 }
 

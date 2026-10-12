@@ -1,7 +1,7 @@
 //! `Mind Muck` (`BG23_357`) — Tier 2 Demon (`3/2`).
 //! **Battlecry:** Choose a friendly Demon. It consumes a minion in the Tavern to gain its (`double its` if Golden) stats.
 
-use crate::cards::CardTemplate;
+use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -12,18 +12,25 @@ pub const NAME: &str = "Mind Muck";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 3, 2, 2)
         .with_tribe(Tribe::Demon)
+        .on_battlecry_target(|state, _, _| {
+            state
+                .board
+                .iter()
+                .position(|u| u.tribe.matches(Tribe::Demon))
+        })
         .on_battlecry(|state, unit, _, pool, rng| on_battlecry(state, unit, pool, rng))
 }
 
+/// The target Demon (the first friendly one) consumes a minion in the Tavern.
 pub fn on_battlecry(
     state: &mut TavernState,
     unit: &Unit,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if !state.board.iter().any(|u| u.tribe.matches(Tribe::Demon)) {
+    let Some(demon) = cards::battlecry_target_pos(&state.board) else {
         return;
-    }
+    };
     let shop_minions: Vec<usize> = state
         .shop
         .iter()
@@ -46,11 +53,5 @@ pub fn on_battlecry(
     let gain_atk = consumed.attack * mult;
     let gain_hp = consumed.health * mult;
 
-    if let Some(demon) = state
-        .board
-        .iter_mut()
-        .find(|u| u.tribe.matches(Tribe::Demon))
-    {
-        demon.add_stats(gain_atk, gain_hp);
-    }
+    state.board[demon].add_stats(gain_atk, gain_hp);
 }

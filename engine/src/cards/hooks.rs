@@ -238,6 +238,11 @@ card_hooks! {
     // ---- Own card text: Tavern ------------------------------------------------------
     /// Battlecry (repeated by [`Passive::BattlecryTriggers`]).
     battlecry(on_battlecry): PlayFn,
+    /// The friendly minion this card's Battlecry targets: `(state, played_unit, board_pos)` → its
+    /// board index (`None`: no valid target). Picked before the first trigger: every trigger has
+    /// that target ([`battlecry_target_pos`](super::battlecry_target_pos)), and the triggers after
+    /// it has left the board do nothing.
+    battlecry_target(on_battlecry_target): fn(&TavernState, &Unit, usize) -> Option<usize>,
     /// Choose One (presents or applies the option cards).
     choose_one(on_choose_one): PlayFn,
     /// First time this is played or Magnetized: `(state, card)`.

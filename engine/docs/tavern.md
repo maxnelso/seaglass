@@ -166,6 +166,8 @@ All card-specific Tavern abilities plug into one of the following hooks (with ma
 ### 7.1 On-Play (Battlecries & Board Observers)
 When a minion is played from `hand` to `board[board_pos]`:
 1. **Pre-insertion Battlecries & Global Aura Application**: Grants economy bonuses (`bonus_gold_next_turn`), generates hand spells/tokens (if `hand.len() < 10`), updates persistent `PlayerAuras`, and applies existing tribal/summon auras to the newly played minion.
+   - A Battlecry triggers `Passive::BattlecryTriggers` times (`Brann Bronzebeard`), each trigger followed by the `after_friendly_battlecry` observers; so do Battlecries triggered by other cards (`Young Murk-Eye`, `Kelp Keeper`).
+   - A Battlecry that targets a friendly minion (`battlecry_target`: `Disguised Graverobber`, `Maw Caster`, `Captain Sanders`, `Lovesick Balladist`, `Mind Muck`) picks its target once, from `board_pos`: every trigger has that same target, and the triggers after it has left the board (destroyed: its Reborn copy is a new minion) do nothing.
 2. **Post-insertion Board Triggers**:
    - If the played minion has a Spellcraft ability, it generates its Spellcraft spell immediately.
    - Board-wide or tribal buffs from the played minion apply to other matching friendly minions.
