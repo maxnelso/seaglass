@@ -5,3 +5,18 @@ scenarios:
     seed: 502
     combat: {board_a: [Risen Rider, Barrier Banshee], board_b: [Fearless Foodie]}
     expect: {survivors_a: {any: "Barrier Banshee 16/16 divine_shield"}}
+
+  # Boom-in-a-Box's Start of Combat kills both Risen Riders at once (the Banshee: 8/8 -> 8/5);
+  # each Reborn gives +8/+8: 8/5 + 16/16 = 24/21.
+  - name: two_minions_reborn_at_once_trigger_it_twice
+    seed: 502
+    combat:
+      board_a: [Risen Rider, Risen Rider, Barrier Banshee]
+      board_b: [Boom-in-a-Box]
+    expect:
+      events:
+        all_of:
+          - {where: {type: unit_summoned, reason: Reborn}, count: 2}
+          - where: {type: stat_buff, reason: Barrier Banshee}
+            count: 2
+            -1: {attack: 24, health: 21}

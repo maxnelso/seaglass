@@ -23,3 +23,17 @@ scenarios:
             0: {type: attack_declared}
             any: {type: stat_buff, reason: Rally}
           - any: {type: stat_buff, reason: Death Aura}
+
+  # Unit ids: A's Glim Guardian 0, Buzzing Vermin 1, Deathstrider 2, Falling Sky Golem 3; B's
+  # Stalwart Kodo 4. A has more minions and attacks first, with Glim Guardian (a Rally minion).
+  - name: deathrattles_triggered_by_deathstrider_count
+    description: >-
+      Deathstrider triggers Buzzing Vermin's Deathrattle when Glim Guardian attacks (1); the
+      Vermin then dies to the Kodo (2). The Golem's first hit, on the Kodo, is 4 + 2 x 4 = 12.
+    seed: 1
+    combat:
+      board_a: [Glim Guardian, Buzzing Vermin, Deathstrider, Falling Sky Golem]
+      board_b: [Stalwart Kodo]
+    expect:
+      auras_a: {deathrattles_triggered: 2}
+      events: {where: {type: damage_dealt, from: 3}, 0: {unit: 4, amount: 12}}

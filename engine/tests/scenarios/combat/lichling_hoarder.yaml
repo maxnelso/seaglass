@@ -34,3 +34,33 @@ scenarios:
       board_a: [Harmless Bonehead, Southsea Busker, Razorfen Geomancer, Lichling Hoarder]
       board_b: [Boom-in-a-Box]
     expect: {hand_a: ["Harmless Bonehead 1/1"]}
+
+  # Unit ids: A's Harmless Bonehead 0, Southsea Busker 1, Razorfen Geomancer 2, Patient Scout 3,
+  # Lichling Hoarder 4; B's Boom-in-a-Box 5; the Skeletons 6, 7. Boom-in-a-Box's Start of Combat
+  # kills units 0-3 at once (the Hoarder: 6/9 -> 6/6): deaths 1-4, so Avenge (3) triggers on the
+  # third with 1 death left over. The Skeletons die before the Hoarder: deaths 5-6, 1 + 2 = 3.
+  - name: deaths_beyond_the_avenge_count_carry_over
+    description: >-
+      Four deaths at once trigger Avenge (3) once and count one towards the next; two more
+      deaths trigger it again (two copies).
+    seed: 530
+    combat:
+      board_a: [Harmless Bonehead, Southsea Busker, Razorfen Geomancer, Patient Scout, Lichling Hoarder]
+      board_b: [Boom-in-a-Box]
+    expect:
+      events: {where: {type: death}, sequence: [{unit: 6}, {unit: 7}, {unit: 4}]}
+      hand_a: {count: 2}
+
+  # Two enemy Boom-in-a-Boxes (one Golden) deal 3 damage three times at Start of Combat: the
+  # third blast kills the three Proud Privateers (8/8) and Lichling Hoarder (6/9) at once.
+  - name: does_not_trigger_when_it_dies_in_the_same_blast
+    description: >-
+      Three friendly minions die at the same time as the Hoarder (to its left, resolved first):
+      it is dead too, so its Avenge (3) does not trigger.
+    seed: 530
+    combat:
+      board_a: [Proud Privateer, Proud Privateer, Proud Privateer, Lichling Hoarder]
+      board_b: ["golden Boom-in-a-Box 10/20", Boom-in-a-Box]
+    expect:
+      outcome: b_win
+      hand_a: []

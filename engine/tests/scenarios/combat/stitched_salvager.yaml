@@ -12,3 +12,20 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: ["golden Annoy-o-Module 2/4 divine_shield taunt"]
+
+  # Titus Rivendare is right of the Salvager, so it is not destroyed. The stored Annoy-o-Module
+  # is 2/4 + 3/3 = 5/7; the Deathrattle triggers 1 + 1 (Titus) = 2 times: two copies.
+  - name: with_titus_rivendare_summons_two_exact_copies
+    description: >-
+      The Salvager destroys a buffed Annoy-o-Module (5/7 Divine Shield, Taunt) and trades with
+      Tyrael; with Titus Rivendare its Deathrattle triggers twice: two exact copies.
+    seed: 710
+    combat:
+      board_a: ["Annoy-o-Module +3/+3", Stitched Salvager, Titus Rivendare]
+      board_b: [Tyrael]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - "Annoy-o-Module 5/7 divine_shield taunt"
+        - "Annoy-o-Module 5/7 divine_shield taunt"
+        - Titus Rivendare

@@ -8,3 +8,18 @@ scenarios:
     combat: {board_a: [Risen Rider, Snazzy Phantom], board_b: [Fearless Foodie]}
     expect:
       survivors_a: {any: {card: Snazzy Phantom, attack: 8, max_health: 10}}
+
+  # Unit ids: A's Snazzy Phantom 0, Risen Rider 1; B's Boom-in-a-Box 2; the Reborn Rider 3.
+  - name: the_reborn_minion_gets_the_stats_if_it_is_the_right_most_undead
+    description: >-
+      Boom-in-a-Box's Start of Combat kills Risen Rider; its Reborn copy is the right-most Undead,
+      so it gets its own 2 Attack as stats: 2/1 + 2/2 = 4/3.
+    seed: 622
+    combat:
+      board_a: [Snazzy Phantom, Risen Rider]
+      board_b: [Boom-in-a-Box]
+    expect:
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, unit: 3, name: Risen Rider, reason: Reborn}
+          - {type: stat_buff, side: a, unit: 3, reason: Snazzy Phantom, attack: 4, health: 3}

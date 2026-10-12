@@ -9,3 +9,16 @@ scenarios:
       outcome: a_win
       survivors_a: ["Eternal Knight 8/2"]
       auras_a: {counters: {Eternal Knight: {0: 1}}}
+
+  # Unit ids: A's Mummifier 0, Eternal Knight 1; B's Tyrael 2; the Reborn Knight 3.
+  - name: a_reborn_knight_counts_its_own_death
+    description: >-
+      Mummifier dies first and gives the Knight Reborn. The Knight dies and is Reborn with 1
+      Health, plus +4/+2 for the one Knight that died (itself): 4/1 + 4/2 = 8/3.
+    seed: 209
+    combat:
+      board_a: [Mummifier, Eternal Knight]
+      board_b: [Tyrael]
+    expect:
+      events:
+        any: {type: unit_summoned, unit: 3, name: Eternal Knight, reason: Reborn, attack: 8, health: 3}

@@ -11,3 +11,15 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: {any: {card: Skeleton, attack: 17, max_health: 33}}
+
+  - name: a_reborn_copy_is_a_summon
+    description: >-
+      Risen Rider attacks first and dies; its Reborn copy (2/1) gets the Kodo's maximum stats:
+      2/1 + 16/32 = 18/33.
+    seed: 709
+    combat:
+      board_a: [Risen Rider, Stalwart Kodo]
+      board_b: [Stalwart Kodo]
+    expect:
+      events:
+        any: {type: unit_summoned, side: a, name: Risen Rider, reason: Reborn, attack: 18, health: 33}

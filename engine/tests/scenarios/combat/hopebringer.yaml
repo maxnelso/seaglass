@@ -7,3 +7,20 @@ scenarios:
     seed: 526
     combat: {board_a: [Annoy-o-Module, Hopebringer], board_b: [Patient Scout]}
     expect: {survivors_a: {any: {card: Hopebringer, stats: "8/6", stacks: 1}}}
+
+  # Unit ids: A's Boom-in-a-Box 0, Annoy-o-Module 1, Hopebringer 2; B's Tyrael 3.
+  - name: shields_popped_before_its_start_of_combat_improve_it_at_once
+    description: >-
+      Boom-in-a-Box (left of Hopebringer) goes first and pops two friendly Divine Shields
+      (Annoy-o-Module's and Hopebringer's own): Hopebringer improves twice before its own Start
+      of Combat, which gives +4/+3 x 3 = +12/+9 (Hopebringer 4/3 -> 16/12).
+    seed: 526
+    combat:
+      board_a: [Boom-in-a-Box, Annoy-o-Module, "Hopebringer divine_shield"]
+      board_b: [Tyrael]
+    expect:
+      events:
+        where: {type: stat_buff, reason: Hopebringer}
+        count: 3
+        all: {atk_delta: 12, hp_delta: 9}
+        2: {unit: 2, attack: 16, health: 12}

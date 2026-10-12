@@ -8,3 +8,15 @@ scenarios:
     expect:
       auras_a: {effect_stacks: {"Goldrinn, the Great Wolf": 7}}
       survivors_a: {any: "Buzzing Vermin 8/8"}
+
+  - name: beasts_summoned_after_the_deathrattle_also_have_7_7
+    description: >-
+      Goldrinn dies first (Buzzing Vermin: 1/1 -> 8/8); the Vermin then trades with Tyrael, and
+      the Beetle its Deathrattle summons has the +7/+7 too: 2/2 + 7/7 = 9/9.
+    seed: 524
+    combat:
+      board_a: ["Goldrinn, the Great Wolf", Buzzing Vermin]
+      board_b: [Tyrael]
+    expect:
+      outcome: a_win
+      survivors_a: ["Beetle 9/9"]
