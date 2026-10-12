@@ -1015,11 +1015,16 @@ pub fn on_start_turn(unit: &mut Unit) {
     if let Some(turn_start_unit) = hooks(unit.card_id).turn_start_unit {
         turn_start_unit(unit);
     }
+    expire_temp_divine_shield(unit);
+    init_unit_turn_charges(unit);
+}
+
+/// End `unit`'s Divine Shield if it only had it until this turn (`temp_divine_shield`).
+fn expire_temp_divine_shield(unit: &mut Unit) {
     if unit.temp_divine_shield {
         unit.divine_shield = false;
         unit.temp_divine_shield = false;
     }
-    init_unit_turn_charges(unit);
 }
 
 /// Apply board-wide Start-of-Turn triggers (after Gold is refreshed): Magnetized Gold bonuses,
@@ -1125,9 +1130,10 @@ pub fn after_shop_refresh(state: &mut TavernState, rng: &mut Rng) {
     effects::after_shop_refresh(state, rng);
 }
 
-/// Start-of-turn upkeep of the hand card at `state.hand[hand_idx]` (its `turn_start_in_hand`
-/// hook).
+/// Start-of-turn upkeep of the hand card at `state.hand[hand_idx]`: expiry of a temporary Divine
+/// Shield, then its `turn_start_in_hand` hook.
 pub fn on_turn_start_in_hand(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
+    expire_temp_divine_shield(&mut state.hand[hand_idx]);
     if let Some(turn_start_in_hand) = hooks(state.hand[hand_idx].card_id).turn_start_in_hand {
         turn_start_in_hand(state, hand_idx, rng);
     }

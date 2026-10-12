@@ -1669,6 +1669,11 @@ impl TavernState {
         golden.base_health = 2 * base_hp;
         golden.taunt = copies.iter().any(|u| u.taunt);
         golden.divine_shield = copies.iter().any(|u| u.divine_shield);
+        // A Divine Shield the copies only have until next turn stays temporary.
+        golden.temp_divine_shield = golden.divine_shield
+            && copies
+                .iter()
+                .all(|u| !u.divine_shield || u.temp_divine_shield);
         golden.inherent_divine_shield = copies.iter().any(|u| u.inherent_divine_shield);
         golden.windfury = copies.iter().any(|u| u.windfury);
         golden.reborn = copies.iter().any(|u| u.reborn);

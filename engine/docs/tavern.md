@@ -92,7 +92,7 @@ At the beginning of Turn `t`:
 
 1. **Expire Previous Turn's Temporary Buffs & Spellcrafts**:
    - Discard all uncast temporary Spellcraft cards from `hand` and clear `pending_spellcrafts`.
-   - Revert temporary buffs (`temp_attack`, `temp_health`, `temp_divine_shield`, `temp_taunt`, `temp_windfury`) on every minion on `board`, clamping `health >= 1`, and reset per-turn card flags.
+   - Revert temporary buffs (`temp_attack`, `temp_health`, `temp_divine_shield`, `temp_taunt`, `temp_windfury`) on every minion on `board`, clamping `health >= 1`, and reset per-turn card flags. A Divine Shield "until next turn" (`temp_divine_shield`) also expires on minions in `hand`.
 2. **Increment Turn & Refill Gold**:
    - `turn += 1`
    - `max_gold = min(10, 2 + turn)`
@@ -125,7 +125,7 @@ If 3 non-golden copies exist:
 3. Sum all buffs accumulated across the 3 copies:
    $$\text{golden\_atk} = 2 \cdot \text{base\_atk} + \sum_{i=1}^{3} (\text{copy}_i.\text{attack} - \text{base\_atk})$$
    $$\text{golden\_hp} = 2 \cdot \text{base\_hp} + \sum_{i=1}^{3} (\text{copy}_i.\text{health} - \text{base\_hp})$$
-4. Union boolean keywords (`taunt`, `divine_shield`, `inherent_divine_shield`, `windfury`, `reborn`, `magnetic`) across the 3 copies, preserve triggers and tribe, and set `is_golden = true`.
+4. Union boolean keywords (`taunt`, `divine_shield`, `inherent_divine_shield`, `windfury`, `reborn`, `magnetic`) across the 3 copies, preserve triggers and tribe, and set `is_golden = true`. A Divine Shield that the copies only have until next turn (`temp_divine_shield`, `Ichoron the Protector`) stays temporary on the Golden: it expires at the start of the next turn, even in `hand`.
 5. Append the Golden minion to `hand` and drain `pending_spellcrafts` if space opened.
 
 ### 5.2 Playing a Golden Minion (Triple Reward Discover)

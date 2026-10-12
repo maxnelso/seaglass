@@ -11,3 +11,25 @@ scenarios:
             - {card: Dune Dweller, divine_shield: true, temp_divine_shield: true}
       - start_turn   # the shield expires
     expect: {board: [Ichoron the Protector, "Dune Dweller -divine_shield"]}
+
+  - name: a_golden_tripled_from_a_shielded_copy_keeps_the_shield_until_next_turn
+    description: The Golden keeps the copy's temporary Divine Shield, which also expires in hand.
+    seed: 433
+    tavern: {board: [Ichoron the Protector], hand: [Dune Dweller]}
+    steps:
+      - play: Dune Dweller   # Divine Shield until next turn
+      - add_to_hand: [Dune Dweller, Dune Dweller]   # the triple
+      - expect:
+          board: [Ichoron the Protector]
+          hand: [{card: Dune Dweller, is_golden: true, divine_shield: true, temp_divine_shield: true}]
+      - start_turn
+    expect: {hand: ["golden Dune Dweller -divine_shield"]}
+
+  - name: a_golden_tripled_from_a_permanently_shielded_copy_keeps_the_shield
+    seed: 433
+    tavern: {board: [golden Ichoron the Protector], hand: [Dune Dweller]}
+    steps:
+      - play: Dune Dweller   # Divine Shield permanently (Golden Ichoron)
+      - add_to_hand: [Dune Dweller, Dune Dweller]   # the triple
+      - start_turn
+    expect: {hand: [{card: Dune Dweller, is_golden: true, divine_shield: true, temp_divine_shield: false}]}
