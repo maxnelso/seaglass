@@ -2,7 +2,7 @@
 //!
 //! Minions in the Tavern of a friendly minion's type have +3/+3 for the rest of the game.
 
-use super::targeted;
+use super::targeted_typed;
 use crate::cards::CardHooks;
 use crate::model::{Tribe, Unit};
 use crate::rng::Rng;
@@ -10,7 +10,7 @@ use crate::tavern::{CardPool, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_typed(cast)
 }
 
 /// `Eonar's Favor`: minions in the Tavern of a friendly minion's type have +3/+3 for the rest of

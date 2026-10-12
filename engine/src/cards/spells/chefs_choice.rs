@@ -2,7 +2,7 @@
 //!
 //! Get a different random minion of a friendly minion's type.
 
-use super::targeted;
+use super::targeted_typed;
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
@@ -10,7 +10,7 @@ use crate::tavern::{CardPool, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_typed(cast)
 }
 
 /// `Chef's Choice`: get a different random minion of a friendly minion's type.

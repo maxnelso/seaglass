@@ -8,3 +8,17 @@ scenarios:
       - add_to_hand: "Eonar's Favor"
       - play: {hand: "Eonar's Favor", pos: 0}
     expect: {shop: ["Wolf Pup 6/9", "Lullabot 2/2"]}
+
+  - name: cant_target_a_minion_without_a_type
+    tavern: {board: [Iron Groundskeeper], shop: [Wolf Pup], hand: ["Eonar's Favor"]}   # Iron Groundskeeper: no type
+    steps:
+      - expect_illegal: {play: {hand: "Eonar's Favor", pos: 0}}
+
+  - name: an_all_type_target_buffs_every_type_in_the_tavern
+    tavern:
+      board: [Dark Paradox]   # an All
+      shop: [Wolf Pup, Lullabot, Iron Groundskeeper]   # Beast 3/6, Mech 2/2, no type 2/2
+      hand: ["Eonar's Favor"]
+    steps:
+      - play: {hand: "Eonar's Favor", pos: 0}
+    expect: {shop: ["Wolf Pup 6/9", "Lullabot 5/5", "Iron Groundskeeper 2/2"]}

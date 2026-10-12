@@ -552,6 +552,7 @@ pub fn spell_requires_board_target(card_id: CardId) -> bool {
 pub fn can_target(spell_id: CardId, unit: &Unit) -> bool {
     match hooks(spell_id).spell_target {
         SpellTarget::FriendlyTribe(tribe) => unit.tribe.matches(tribe),
+        SpellTarget::FriendlyTyped => unit.tribe != Tribe::None,
         SpellTarget::None | SpellTarget::Friendly => true,
     }
 }
@@ -725,6 +726,12 @@ pub(crate) fn targeted(cast: CastFn) -> CardHooks {
 /// Hooks of a spell cast with `cast` on a friendly minion of `tribe`.
 pub(crate) fn targeted_tribe(tribe: Tribe, cast: CastFn) -> CardHooks {
     spell(cast).with_spell_target(SpellTarget::FriendlyTribe(tribe))
+}
+
+/// Hooks of a spell cast with `cast` on a friendly minion with a minion type (it uses the
+/// target's type).
+pub(crate) fn targeted_typed(cast: CastFn) -> CardHooks {
+    spell(cast).with_spell_target(SpellTarget::FriendlyTyped)
 }
 
 /// Behaviour tables for all spells, Tavern and token, from their modules (registered in the card

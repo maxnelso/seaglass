@@ -7,3 +7,16 @@ scenarios:
       - play: {hand: Lost Staff of Hamuul, pos: 0}
     expect:
       shop: {count: ">= 1", all: {any_of: [{is_spell: true}, dragon]}}   # every minion is a Dragon
+
+  - name: cant_target_a_minion_without_a_type
+    tavern: {tavern_tier: 6, board: [Iron Groundskeeper], hand: [Lost Staff of Hamuul]}   # Iron Groundskeeper: no type
+    steps:
+      - expect_illegal: {play: {hand: Lost Staff of Hamuul, pos: 0}}
+
+  - name: a_two_type_target_refreshes_with_both_types
+    seed: 862
+    tavern: {tavern_tier: 6, board: [Treasure Parrot], hand: [Lost Staff of Hamuul]}   # a Beast/Pirate
+    steps:
+      - play: {hand: Lost Staff of Hamuul, pos: 0}
+    expect:
+      shop: {count: 6, all: {any_of: [beast, pirate]}}

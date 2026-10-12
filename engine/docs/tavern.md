@@ -147,7 +147,7 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 | :--- | :--- | :--- |
 | `Buy { shop_index }` | `gold >= 3`, `shop_index < shop.len()`, `hand.len() < 10` | `gold -= 3`; move `shop[shop_index]` to `hand`; check for Triple. |
 | `Play { hand_index, board_pos }` (Minion) | `hand_index < hand.len()`, card is a minion, `board.len() < 7`, `board_pos <= board.len()` | Remove from `hand`, apply on-play Battlecries/auras, insert at `board[board_pos]`, run post-play triggers, trigger Discover if tripled Golden, drain pending Spellcrafts. |
-| `Play { hand_index, board_pos }` (Targeted Spell) | `hand_index < hand.len()`, card is a targeted spell, `board_pos < board.len()` | Remove spell from `hand`, apply spell effect to `board[board_pos]`, increment `spells_played`, drain pending Spellcrafts. |
+| `Play { hand_index, board_pos }` (Targeted Spell) | `hand_index < hand.len()`, card is a targeted spell, `board_pos < board.len()`, `board[board_pos]` is a valid target (§7.4: e.g. an Undead for `Butchering`, a minion with a type for `Chef's Choice`) | Remove spell from `hand`, apply spell effect to `board[board_pos]`, increment `spells_played`, drain pending Spellcrafts. |
 | `Play { hand_index, board_pos: 0 }` (Untargeted Spell) | `hand_index < hand.len()`, card is an untargeted spell (e.g. gold coin) | Remove spell from `hand`, apply player/board effect, increment `spells_played`, drain pending Spellcrafts. |
 | `Sell { board_pos }` | `board_pos < board.len()` | Remove `board[board_pos]`, return copies to `CardPool`, `gold = min(10, gold + 1)`, run on-sell triggers. |
 | `Reposition { from_pos, to_pos }` | `from_pos < board.len()`, `to_pos < board.len()`, `from_pos != to_pos` | Move `board[from_pos]` to `board[to_pos]`. Costs `0` gold. |
@@ -187,6 +187,7 @@ When a minion at `board[board_pos]` is sold:
   - Permanent hand spells apply their stat/keyword buffs permanently.
   - Temporary Spellcraft spells record their applied stats and newly granted keywords in the target's `temp_*` fields so they revert at the next `start_turn`—unless the target minion has an active "first Spellcraft each turn is permanent" effect, in which case the buff is applied permanently and latches that flag for the rest of the turn.
 - **Stat-Threshold Check**: Any stat increase in the Tavern Phase immediately runs the target's stat-threshold observers.
+- **Targets**: A targeted spell is cast on a friendly minion: any one (`SpellTarget::Friendly`), one of a type (`FriendlyTribe`: `Butchering` needs an Undead), or one with a minion type if the spell uses its target's type (`FriendlyTyped`: `Chef's Choice`, `Eonar's Favor`, `Lost Staff of Hamuul`, `Natural Blessing`; a two-type minion has both types, an All minion every type).
 - **Repeated Casts**: A spell that targets a friendly minion is cast `TargetedSpellCasts` times (`Balinda Stonehearth`) and a Bounty spell `BountyCasts` times; other spells are cast once. Every cast counts as a spell cast: each one runs the `spell_cast` observers (Tavern spells: `Charging Czarina`, `Sha of Fear`, ...), the spell's effect, the `after_targeted_spell` observers (targeted spells: `Glambot`, `Twilight Tidehunter`, ...), then the `after_spell_cast` observers (`Felboar`).
 
 ### 7.5 End-of-Turn Triggers (`EndTurn`)

@@ -10,3 +10,31 @@ scenarios:
     expect:
       board: ["Crackling Cyclone 4/2", "Dune Dweller 5/4"]
       shop: ["Sellemental 5/4"]
+
+  - name: cant_target_a_minion_without_a_type
+    tavern: {board: [Iron Groundskeeper, Flittering Bat], hand: [Natural Blessing]}   # Iron Groundskeeper: no type
+    steps:
+      - expect_illegal: {play: {hand: Natural Blessing, pos: 0}}
+      - expect_legal: {play: {hand: Natural Blessing, pos: 1}}
+
+  - name: a_two_type_target_buffs_both_types
+    tavern:
+      board: [Treasure Parrot, Flittering Bat, Southsea Busker, Glim Guardian]   # Beast/Pirate 5/5, Beast 1/4, Pirate 3/1, Dragon 1/4
+      shop: [Buzzing Vermin, Southsea Busker, Lullabot]   # Beast 1/1, Pirate 3/1, Mech 2/2
+      hand: [Natural Blessing]
+    steps:
+      - play: {hand: Natural Blessing, pos: 0}
+    expect:   # +2/+1 to Beasts and Pirates
+      board: ["Treasure Parrot 7/6", "Flittering Bat 3/5", "Southsea Busker 5/2", "Glim Guardian 1/4"]
+      shop: ["Buzzing Vermin 3/2", "Southsea Busker 5/2", "Lullabot 2/2"]
+
+  - name: an_all_type_target_buffs_every_type
+    tavern:
+      board: [Dark Paradox, Flittering Bat, Iron Groundskeeper]   # All 2/6, Beast 1/4, no type 2/2
+      shop: [Lullabot]   # Mech 2/2
+      hand: [Natural Blessing]
+    steps:
+      - play: {hand: Natural Blessing, pos: 0}
+    expect:   # +2/+1 to every minion with a type
+      board: ["Dark Paradox 4/7", "Flittering Bat 3/5", "Iron Groundskeeper 2/2"]
+      shop: ["Lullabot 4/3"]

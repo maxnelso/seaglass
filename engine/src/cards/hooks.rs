@@ -134,6 +134,8 @@ pub enum SpellTarget {
     Friendly,
     /// A friendly minion of the given type.
     FriendlyTribe(Tribe),
+    /// A friendly minion with a minion type (the spell uses its target's type).
+    FriendlyTyped,
 }
 
 // --- Hook signatures --------------------------------------------------------------------
