@@ -173,8 +173,9 @@ pub type PlayedFn = fn(&mut TavernState, usize, &Played, &mut CardPool, &mut Rng
 pub type BattlecryObserverFn = fn(&mut TavernState, usize, Option<&mut Unit>);
 /// After a card is Magnetized: `(state, self_idx, magnetized_card, target_pos, pool, rng)`.
 pub type MagnetizeObserverFn = fn(&mut TavernState, usize, &Unit, usize, &mut CardPool, &mut Rng);
-/// After a targeted spell is cast: `(state, self_idx, target_pos, pool, rng)`.
-pub type TargetedSpellFn = fn(&mut TavernState, usize, usize, &mut CardPool, &mut Rng);
+/// After a targeted spell is cast: `(state, self_idx, target, pool, rng)`; `target` is on the board
+/// or in the Tavern.
+pub type TargetedSpellFn = fn(&mut TavernState, usize, MinionSlot, &mut CardPool, &mut Rng);
 /// Another friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.
 pub type DamageDealtObserverFn = fn(&mut BoardCtx<'_>, usize, UnitId, Tribe);
 /// A friendly minion is being summoned: `(self, summoned, in_combat)`.
@@ -328,7 +329,8 @@ card_hooks! {
     spell_cast(on_spell_cast): TavernFn,
     /// After any spell is cast.
     after_spell_cast(on_after_spell_cast): TavernFn,
-    /// After a targeted spell is cast: `(state, self_idx, target_pos, pool, rng)`.
+    /// After a targeted spell is cast on a minion on the board or in the Tavern:
+    /// `(state, self_idx, target, pool, rng)`.
     after_targeted_spell(on_after_targeted_spell): TargetedSpellFn,
     /// Gold was spent: `(state, self_idx, amount, pool, rng)`.
     gold_spent(on_gold_spent): fn(&mut TavernState, usize, u32, &mut CardPool, &mut Rng),

@@ -775,11 +775,11 @@ pub fn cast_spell(
 /// Resolve the effect of casting `card` from `hand` on `target` (ignored if it is untargeted;
 /// `docs/tavern.md` §7.4). Each cast counts as a spell cast (`spells_played`) and runs the
 /// `spell_cast` observers if it is a Tavern spell, then its `cast_at` / `cast` hook (a spell
-/// without one adds its stats to the target), then the after-targeted-spell observers if it is
-/// cast on a friendly minion, then the after-cast observers. A [`CardFlags::BOUNTY`] spell is cast
-/// [`Passive::BountyCasts`] times, and one cast on a friendly minion
-/// [`Passive::TargetedSpellCasts`] times. The casts follow their target wherever it moves; once it
-/// is gone (destroyed, sold, transformed, ...), the remaining casts fizzle: they do nothing.
+/// without one adds its stats to the target), then the after-targeted-spell observers if its
+/// target is still there (on the board or in the Tavern), then the after-cast observers. A
+/// [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times, and one cast on a friendly
+/// minion [`Passive::TargetedSpellCasts`] times. The casts follow their target wherever it moves;
+/// once it is gone (destroyed, sold, transformed, ...), the remaining casts fizzle: they do nothing.
 pub fn cast_spell_on(
     state: &mut TavernState,
     card: Unit,
@@ -844,9 +844,9 @@ pub fn cast_spell_on(
         }
         state.repeating_cast = outer_repeating;
         state.combine_choose_one = false;
-        if targeted && on_board {
-            if let Some(MinionSlot::Board(pos)) = find_cast_target(state, target) {
-                crate::cards::after_cast_targeted_spell(state, pos, pool, rng);
+        if targeted {
+            if let Some(slot) = find_cast_target(state, target) {
+                crate::cards::after_cast_targeted_spell(state, slot, pool, rng);
             }
         }
         crate::cards::after_cast_any_spell(state, pool, rng);

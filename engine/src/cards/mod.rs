@@ -29,7 +29,7 @@ use crate::model::{
     CardId, CombatResult, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId, BONUS_KEYWORDS,
 };
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Target domain required by a minion's `Activate` ability (`docs/tavern.md` §5.3).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -985,7 +985,20 @@ pub fn apply_magnetization(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    let target = &mut state.board[target_pos];
+    merge_magnetization(&mut state.board[target_pos], card);
+    let played = Played {
+        card_id: card.card_id,
+        tribe: card.tribe,
+        board_pos: target_pos,
+        magnetized: true,
+        from_hand,
+    };
+    after_play_minion(state, &played, pool, rng);
+}
+
+/// `target` gains the Magnetized `card`'s stats, keywords and carried state (no observers: also
+/// used for a minion in the Tavern, `Glambot`).
+pub fn merge_magnetization(target: &mut Unit, card: &Unit) {
     target.add_stats(card.attack, card.health);
     target.taunt |= card.taunt;
     target.divine_shield |= card.divine_shield;
@@ -995,14 +1008,6 @@ pub fn apply_magnetization(
     target.venomous |= card.venomous;
     target.stealth |= card.stealth;
     on_magnetize_transfer(card, target);
-    let played = Played {
-        card_id: card.card_id,
-        tribe: card.tribe,
-        board_pos: target_pos,
-        magnetized: true,
-        from_hand,
-    };
-    after_play_minion(state, &played, pool, rng);
 }
 
 /// A card effect Magnetizes `card` (from outside the board) onto `state.board[target_pos]`
@@ -1151,11 +1156,11 @@ pub fn on_cast_tavern_spell(state: &mut TavernState, pool: &mut CardPool, rng: &
     notify_tavern(state, |h| h.spell_cast, |s, idx, f| f(s, idx, pool, rng));
 }
 
-/// Apply `after_targeted_spell` observers (left to right) after a spell targeted
-/// `state.board[target_pos]`.
+/// Apply `after_targeted_spell` observers (left to right) after a spell targeted the minion at
+/// `target` (on the board or in the Tavern).
 pub fn after_cast_targeted_spell(
     state: &mut TavernState,
-    target_pos: usize,
+    target: MinionSlot,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
@@ -1163,8 +1168,8 @@ pub fn after_cast_targeted_spell(
         state,
         |h| h.after_targeted_spell,
         |s, idx, f| {
-            if target_pos < s.board.len() {
-                f(s, idx, target_pos, pool, rng);
+            if s.minion(target).is_some() {
+                f(s, idx, target, pool, rng);
             }
         },
     );

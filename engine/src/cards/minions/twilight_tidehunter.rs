@@ -5,7 +5,7 @@
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 458;
 
@@ -18,11 +18,11 @@ pub fn template() -> CardTemplate {
 pub fn after_targeted_spell(
     state: &mut TavernState,
     self_idx: usize,
-    target_pos: usize,
+    target: MinionSlot,
     _: &mut CardPool,
     _: &mut Rng,
 ) {
-    if self_idx != target_pos {
+    if target != MinionSlot::Board(self_idx) {
         return;
     }
     let buff = 8 * state.board[self_idx].golden_mult();

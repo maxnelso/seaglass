@@ -5,7 +5,7 @@
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 612;
 
@@ -18,11 +18,11 @@ pub fn template() -> CardTemplate {
 pub fn after_targeted_spell(
     state: &mut TavernState,
     self_idx: usize,
-    target_pos: usize,
+    target: MinionSlot,
     _: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if self_idx != target_pos {
+    if target != MinionSlot::Board(self_idx) {
         return;
     }
     let count = if state.board[self_idx].is_golden {
