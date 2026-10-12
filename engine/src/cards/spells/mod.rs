@@ -811,11 +811,11 @@ pub fn cast_spell_by_effect(
 /// and runs the `spell_cast` observers; then every cast runs its `cast_at` / `cast` hook (a spell
 /// without one adds its stats to the target), then the after-targeted-spell observers if its
 /// target is still there (on the board or in the Tavern), then the after-cast observers. A
-/// [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times, one cast on a friendly
-/// minion [`Passive::TargetedSpellCasts`] times, and a [`CardFlags::BLOOD_GEM`] played from your
-/// hand `1 +` [`Passive::ExtraHandBloodGemCasts`] times; these multiply. The casts follow their
-/// target wherever it moves; once it is gone (destroyed, sold, transformed, ...), the remaining
-/// casts fizzle: they do nothing.
+/// spell cast on a friendly minion is cast [`Passive::TargetedSpellCasts`] times, and a
+/// [`CardFlags::BLOOD_GEM`] played from your hand [`Passive::ExtraHandBloodGemCasts`] more times;
+/// these extra casts add up (both: `1 + 1 + 1 = 3` casts), and a [`CardFlags::BOUNTY`] spell's
+/// [`Passive::BountyCasts`] multiply them. The casts follow their target wherever it moves; once
+/// it is gone (destroyed, sold, transformed, ...), the remaining casts fizzle: they do nothing.
 pub fn cast_spell_from(
     state: &mut TavernState,
     card: Unit,
@@ -844,18 +844,20 @@ pub fn cast_spell_from(
         state.auras.last_tavern_spell_cast = Some(card.card_id);
     }
 
-    let mut casts = if card_hooks.has(CardFlags::BOUNTY) {
+    let mut extra_casts = 0;
+    let on_board = matches!(target, MinionSlot::Board(_));
+    if targeted && on_board {
+        extra_casts += board_passive(&state.board, Passive::TargetedSpellCasts) - 1;
+    }
+    if source == CastSource::Hand && card_hooks.has(CardFlags::BLOOD_GEM) {
+        extra_casts += board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
+    }
+    let bounty_casts = if card_hooks.has(CardFlags::BOUNTY) {
         board_passive(&state.board, Passive::BountyCasts)
     } else {
         1
     };
-    let on_board = matches!(target, MinionSlot::Board(_));
-    if targeted && on_board {
-        casts *= board_passive(&state.board, Passive::TargetedSpellCasts);
-    }
-    if source == CastSource::Hand && card_hooks.has(CardFlags::BLOOD_GEM) {
-        casts *= 1 + board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
-    }
+    let casts = bounty_casts * (1 + extra_casts);
 
     for cast in 0..casts {
         if targeted && find_cast_target(state, target).is_none() {

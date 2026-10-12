@@ -1,6 +1,9 @@
 //! `Balinda Stonehearth` (`BG35_883`) — Tier 6 Neutral (`6/6`).
 //!
 //! Your spells that target friendly minions cast twice (`three times` if Golden).
+//!
+//! With `Hot-Air Surveyor` the extra casts add up: a Blood Gem from your hand is cast 1 + 1 + 1 = 3
+//! times (`docs/tavern.md` §7.4).
 
 use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};
