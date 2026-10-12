@@ -18,3 +18,20 @@ scenarios:
       board:
         - {card: Geomagus Roogug, stats: 6/8, blood_gems_played: 2}
         - {card: Hot-Air Surveyor, stats: 5/9, blood_gems_played: 2}
+
+  - name: never_plays_its_blood_gem_on_another_roogug
+    description: Its only other minion is another Geomagus Roogug, so its Blood Gem goes nowhere.
+    tavern: {board: [Geomagus Roogug, Geomagus Roogug], hand: [Blood Gem]}   # 4/6 each
+    steps:
+      - play: {hand: Blood Gem, pos: 0}
+    expect: {board: ["Geomagus Roogug 5/7", "Geomagus Roogug 4/6"]}
+
+  - name: each_trigger_picks_its_own_random_minion
+    description: >-
+      A Blood Gem cast twice on it (Hot-Air Surveyor) triggers it twice, and each trigger plays its
+      Blood Gem on a random other minion: with this seed, one goes to each.
+    seed: 6   # its first two rng.below(2) draws are 0 then 1
+    tavern: {board: [Geomagus Roogug, Hot-Air Surveyor, Iron Groundskeeper], hand: [Blood Gem]}
+    steps:
+      - play: {hand: Blood Gem, pos: 0}
+    expect: {board: ["Geomagus Roogug 6/8", "Hot-Air Surveyor 4/8", "Iron Groundskeeper 3/3"]}

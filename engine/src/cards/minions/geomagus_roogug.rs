@@ -1,6 +1,10 @@
 //! `Geomagus Roogug` (`BG28_583`) — Tier 4 Quilboar (`4/6`, Divine Shield).
 //!
 //! Divine Shield. Whenever a Blood Gem is played on this, this plays a (`2` if Golden) Blood Gem(s) on a different friendly minion.
+//!
+//! Each Blood Gem played on it is a trigger of its own, picking its own random minion (a Golden
+//! one plays both of a trigger's Blood Gems on that minion). It never plays them on another
+//! `Geomagus Roogug`: with no other minion, nothing happens (so two Roogugs don't loop).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};
@@ -16,32 +20,25 @@ pub fn template() -> CardTemplate {
         .on_resolve_pending(resolve_procs)
 }
 
+/// Queue one trigger per Blood Gem played on this.
 pub fn on_blood_gems_played(unit: &mut Unit, count: u32) {
-    let mult = if unit.is_golden { 2 } else { 1 };
-    unit.pending += count * mult;
+    unit.pending += count;
 }
 
-/// Play this unit's queued Blood Gem procs on a different random friendly minion (preferring
-/// non-Roogug minions). Procs never chain: the recipient's own queue is left untouched.
+/// Resolve this unit's queued triggers, one at a time: each plays a (`2` if Golden) Blood Gem(s)
+/// on its own random friendly minion other than a `Geomagus Roogug` (nothing if there is none).
 pub fn resolve_procs(board: &mut [Unit], self_idx: usize, auras: &PlayerAuras, rng: &mut Rng) {
-    let gem_count = std::mem::take(&mut board[self_idx].pending);
-    if gem_count == 0 || board.len() <= 1 {
-        return;
+    let triggers = std::mem::take(&mut board[self_idx].pending);
+    let gems = if board[self_idx].is_golden { 2 } else { 1 };
+    for _ in 0..triggers {
+        let candidates: Vec<usize> = (0..board.len())
+            .filter(|&i| board[i].card_id != ID && board[i].health > 0)
+            .collect();
+        let pick = match candidates.len() {
+            0 => return,
+            1 => candidates[0],
+            n => candidates[rng.below(n)],
+        };
+        board[pick].play_blood_gems(gems, auras);
     }
-    let candidates: Vec<usize> = (0..board.len())
-        .filter(|&i| i != self_idx && board[i].card_id != ID)
-        .collect();
-    let pool: Vec<usize> = if candidates.is_empty() {
-        (0..board.len()).filter(|&i| i != self_idx).collect()
-    } else {
-        candidates
-    };
-    let pick = if pool.len() == 1 {
-        pool[0]
-    } else {
-        pool[rng.below(pool.len())]
-    };
-    let queued = board[pick].pending;
-    board[pick].play_blood_gems(gem_count, auras);
-    board[pick].pending = queued;
 }
