@@ -1,5 +1,8 @@
 //! `Mummifier` (`BG28_309`) — Tier 3 Undead (`5/2`).
 //! **Deathrattle:** Give a (`2` if Golden) different friendly Undead **Reborn**.
+//!
+//! Each pick (and each extra trigger from `Titus Rivendare`) is a random other friendly Undead that
+//! doesn't have Reborn yet, so never the same one twice; with none left, it does nothing.
 
 use crate::cards::{CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Keyword, Tribe, Unit};

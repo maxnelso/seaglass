@@ -23,3 +23,22 @@ scenarios:
     expect:
       events:
         any: {type: unit_summoned, side: a, name: Risen Rider, reason: Reborn, attack: 18, health: 33}
+
+  # Unit ids: A's Risen Rider 0, Cadaver Caretaker 1, Stalwart Kodo 2; B's Stalwart Kodos 3, 4.
+  # Risen Rider dies first: its Reborn copy uses one of the three triggers. Cadaver Caretaker then
+  # dies and summons three Skeletons, left to right: the first two get 1/1 + 16/32 = 17/33.
+  - name: with_fewer_triggers_left_the_left_most_summons_get_them
+    description: >-
+      Two triggers left for three Skeletons summoned at once: the two left-most get the Kodo's
+      stats, the right-most stays 1/1.
+    seed: 1
+    combat:
+      board_a: [Risen Rider, Cadaver Caretaker, Stalwart Kodo]
+      board_b: [Stalwart Kodo, Stalwart Kodo]
+    expect:
+      events:
+        where: {type: unit_summoned, source: 1}
+        count: 3
+        0: {name: Skeleton, attack: 17, health: 33}
+        1: {name: Skeleton, attack: 17, health: 33}
+        2: {name: Skeleton, attack: 1, health: 1}

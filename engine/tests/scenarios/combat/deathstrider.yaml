@@ -9,3 +9,23 @@ scenarios:
       board_a: [Heroic Broodmother, Harmless Bonehead, Deathstrider]
       board_b: [Titus Rivendare]
     expect: {survivors_a: {any: Skeleton}}
+
+  # Unit ids: A's Glim Guardian 0, Buzzing Vermin 1, Deathstrider 2, Titus Rivendare 3; B's
+  # Stalwart Kodo 4. A has more minions and attacks first, with Glim Guardian (a Rally minion).
+  - name: titus_rivendare_adds_an_extra_trigger_to_the_deathrattle_it_triggers
+    description: >-
+      Deathstrider triggers Buzzing Vermin's Deathrattle before Glim Guardian's damage, twice with
+      Titus (2 Beetles); the Vermin later dies to the Kodo (2 more): 2 + 2 = 4 Beetles.
+    seed: 607
+    combat:
+      board_a: [Glim Guardian, Buzzing Vermin, Deathstrider, Titus Rivendare]
+      board_b: [Stalwart Kodo]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: attack_declared, side: a, attacker: 0}
+              - {type: unit_summoned, side: a, source: 1, name: Beetle}
+              - {type: unit_summoned, side: a, source: 1, name: Beetle}
+              - {type: damage_dealt, from: 0}
+          - {where: {type: unit_summoned, source: 1}, count: 4}

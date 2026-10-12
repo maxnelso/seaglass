@@ -2,6 +2,9 @@
 //!
 //! After you summon a minion in combat, give it this minion's maximum stats (double if Golden).
 //! (`3` times per combat.)
+//!
+//! With fewer triggers left than minions summoned at once (`Cadaver Caretaker`'s Skeletons), the
+//! first summoned, the left-most, get it.
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};

@@ -26,3 +26,14 @@ scenarios:
         where: {type: stat_buff, reason: Amber Guardian}
         count: 1
         all: {attack: 4, health: 5}   # Persistent Poet + 2/2
+
+  # Golden Amber Guardian (6/4) gives two other Dragons +2/+2 and Divine Shield, but Glim Guardian
+  # (1/4) is the only other Dragon: it is buffed once, 1/4 + 2/2 = 3/6.
+  - name: golden_never_picks_the_same_dragon_twice
+    seed: 303
+    combat: {board_a: ["golden Amber Guardian 6/4", Glim Guardian], board_b: [Patient Scout]}
+    expect:
+      events:
+        where: {type: stat_buff, reason: Amber Guardian}
+        count: 1
+        all: {attack: 3, health: 6}

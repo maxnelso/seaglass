@@ -8,3 +8,27 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: {all: {any_of: [{divine_shield: true}, {health: 4}]}}
+
+  # Nadina attacks first and trades with Proud Privateer: each of the 3 picks is a random Dragon
+  # without Divine Shield, so exactly 3 of the 4 Glim Guardians get one.
+  - name: gives_divine_shield_to_3_different_dragons
+    seeds: "1..=10"
+    combat:
+      board_a: [Nadina the Red, Glim Guardian, Glim Guardian, Glim Guardian, Glim Guardian]
+      board_b: [Proud Privateer]
+    expect:
+      outcome: a_win
+      survivors_a:
+        all_of:
+          - {count: 4}
+          - {where: {divine_shield: true}, count: 3}
+
+  # Persistent Poet already has Divine Shield, so the three Glim Guardians get one on every seed.
+  - name: dragons_that_have_divine_shield_are_not_picked
+    seeds: "1..=10"
+    combat:
+      board_a: [Nadina the Red, Persistent Poet, Glim Guardian, Glim Guardian, Glim Guardian]
+      board_b: [Proud Privateer]
+    expect:
+      outcome: a_win
+      survivors_a: {count: 4, all: {divine_shield: true}}

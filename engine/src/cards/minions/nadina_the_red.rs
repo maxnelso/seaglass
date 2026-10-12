@@ -1,6 +1,9 @@
 //! `Nadina the Red` (`BGS_040`) — Tier 6 Neutral (`8/4`).
 //!
 //! Deathrattle: Give 3 (`6` if Golden) friendly Dragons Divine Shield.
+//!
+//! Each is a random friendly Dragon without Divine Shield; with fewer such Dragons, the rest is
+//! wasted.
 
 use crate::cards::{CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Keyword, Tribe, Unit};

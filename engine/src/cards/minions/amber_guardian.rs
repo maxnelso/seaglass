@@ -1,6 +1,7 @@
 //! `Amber Guardian` (`BG24_500`) — Tier 3 Dragon (`3/2`).
 //! **Taunt**. **Start of Combat:** Give another (`two other` if Golden) friendly Dragon(s) `+2/+2` and **Divine Shield**.
-//! Dragons without Divine Shield are picked before Dragons that already have it.
+//! Dragons without Divine Shield are picked before Dragons that already have it. If Golden, the two
+//! are different Dragons: with only one other Dragon, it gets the buff once.
 
 use crate::cards::CardTemplate;
 use crate::events::Event;

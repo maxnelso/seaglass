@@ -1,6 +1,8 @@
 //! `Deathstrider` (`BG36_208`) — Tier 6 Beast (`10/11`).
 //!
 //! After a friendly Rally minion attacks, trigger your left-most Deathrattle (`twice` if Golden).
+//!
+//! `Titus Rivendare` adds its extra trigger(s) to each Deathrattle this triggers.
 
 use crate::cards::{self, BoardCtx, CardTemplate, Passive};
 use crate::model::{CardId, Tribe};

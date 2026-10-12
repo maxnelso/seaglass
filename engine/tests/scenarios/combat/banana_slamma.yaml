@@ -6,3 +6,37 @@ scenarios:
       board_a: [Buzzing Vermin, Banana Slamma]   # Vermin's Deathrattle summons a 2/2 Beetle
       board_b: [Patient Scout]
     expect: {outcome: a_win, survivors_a: {any: "Beetle 4/2"}}
+
+  # Buzzing Vermin attacks first and trades with Razorfen Geomancer (2/1). Summon effects resolve
+  # left to right: Banana Slamma doubles the 2/2 Beetle, then Lurking Leviathan gives +3 Attack.
+  - name: doubles_before_lurking_leviathan_to_its_right
+    seed: 403
+    combat:
+      board_a: [Buzzing Vermin, Banana Slamma, Lurking Leviathan]
+      board_b: [Razorfen Geomancer]
+    expect: {outcome: a_win, survivors_a: {0: "Beetle 7/2"}}   # 2 x 2 + 3
+
+  - name: doubles_after_lurking_leviathan_to_its_left
+    seed: 403
+    combat:
+      board_a: [Buzzing Vermin, Lurking Leviathan, Banana Slamma]
+      board_b: [Razorfen Geomancer]
+    expect: {outcome: a_win, survivors_a: {0: "Beetle 10/2"}}   # (2 + 3) x 2
+
+  # Humming Bird's Start of Combat gives Beasts +1 Attack for the combat (the Vermin: 2/1). The
+  # Vermin trades with Razorfen Geomancer; its Beetle is summoned with the +1, then doubled.
+  - name: doubles_humming_birds_attack_bonus_too
+    seed: 403
+    combat:
+      board_a: [Buzzing Vermin, Humming Bird, Banana Slamma]
+      board_b: [Razorfen Geomancer]
+    expect: {outcome: a_win, survivors_a: {0: "Beetle 6/2"}}   # (2 + 1) x 2
+
+  # Goldrinn dies first (Beasts have +7/+7 until next turn); the Vermin (8/8) then trades with
+  # Tyrael, and its Beetle is summoned with the +7/+7, then doubled.
+  - name: doubles_goldrinns_bonus_too
+    seed: 403
+    combat:
+      board_a: ["Goldrinn, the Great Wolf", Buzzing Vermin, Banana Slamma]
+      board_b: [Tyrael]
+    expect: {outcome: a_win, survivors_a: {0: "Beetle 18/9"}}   # (2 + 7) x 2 / 2 + 7

@@ -6,3 +6,23 @@ scenarios:
     steps:
       - fight: {board: [Proud Privateer]}
     expect: {board: {1: "Aureate Laureate 8/8"}}   # kept the +6/+6
+
+  # Eudora trades with Proud Privateer: her Deathrattle gives the Golden Tarecgosa (8/8) +6/+6.
+  # Tarecgosa keeps double the stats it gained in combat, 8/8 + 2 x 6/6 = 20/20, and Eudora's own
+  # +6/+6 is not kept on top of that (not 26/26).
+  - name: a_golden_tarecgosa_keeps_only_the_larger_gain
+    seed: 547
+    tavern: {board: [Ship Master Eudora, "golden Tarecgosa 8/8"]}
+    steps:
+      - fight: {board: [Proud Privateer]}
+    expect: {board: {1: "Tarecgosa 20/20"}}
+
+  # Same fight: next to a Golden Persistent Poet, the Golden Glim Guardian (2/8) keeps double its
+  # combat gains, 2/8 + 2 x 6/6 = 14/20, not that plus Eudora's +6/+6 (20/26). The Golden Poet
+  # (4/6) keeps Eudora's +6/+6 (10/12).
+  - name: a_golden_dragon_next_to_a_golden_persistent_poet_keeps_only_the_larger_gain
+    seed: 547
+    tavern: {board: [Ship Master Eudora, "golden Glim Guardian 2/8", "golden Persistent Poet 4/6"]}
+    steps:
+      - fight: {board: [Proud Privateer]}
+    expect: {board: {1: "Glim Guardian 14/20", 2: "Persistent Poet 10/12"}}

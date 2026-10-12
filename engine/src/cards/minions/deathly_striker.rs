@@ -4,7 +4,8 @@
 //! Deathrattle: Summon it (`them` if Golden) from your hand for this combat only.
 //!
 //! The Deathrattle summons exactly the Undead this minion's Avenge gave you this combat (all of
-//! them if it triggered more than once; nothing if it never did), not other Undead in hand.
+//! them if it triggered more than once; nothing if it never did), not other Undead in hand. Each
+//! is summoned once: an extra trigger (`Titus Rivendare`) summons nothing more.
 
 use crate::cards::{self, BoardCtx, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit, UnitId};

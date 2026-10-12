@@ -4,3 +4,17 @@ scenarios:
     seed: 325
     combat: {board_a: [Mummifier, Eternal Knight], board_b: [En-Djinn Blazer]}   # Eternal Knight: a 4/2 Undead
     expect: {outcome: a_win, survivors_a: {0: "Eternal Knight reborn"}}
+
+  # Mummifier attacks first and trades with Southsea Busker (3/1); with Titus Rivendare its
+  # Deathrattle triggers twice, and each trigger picks an Undead that has no Reborn yet.
+  - name: with_titus_rivendare_gives_reborn_to_two_different_undead
+    description: >-
+      The two triggers never pick the same Undead: Eternal Knight and Harmless Bonehead both get
+      Reborn on every seed.
+    seeds: "1..=20"
+    combat:
+      board_a: [Mummifier, Eternal Knight, Harmless Bonehead, Titus Rivendare]
+      board_b: [Southsea Busker]
+    expect:
+      outcome: a_win
+      survivors_a: ["Eternal Knight reborn", "Harmless Bonehead reborn", "Titus Rivendare -reborn"]
