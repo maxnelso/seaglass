@@ -1,6 +1,8 @@
 //! `Eredar Escapist` (`BG36_733`) — Tier 6 Demon (`6/8`).
 //!
 //! After your hero takes 4 damage, get a copy (`two` copies if Golden) of `Corrupted Cupcakes`.
+//!
+//! Damage that `Soul Rewinder` or `Ashen Corruptor` rewinds counts: the hero took it first.
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};

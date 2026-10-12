@@ -6,3 +6,16 @@ scenarios:
       board_a: ["golden Goldrinn, the Great Wolf", golden Titus Rivendare, Treasure Parrot]
       board_b: [Tyrael]
     expect: {outcome: a_win, hand_a: [Golden Touch]}
+
+  - name: a_hit_on_divine_shield_counts_nothing_and_overkill_counts_the_whole_attack
+    description: >-
+      Side A (2 minions) attacks first: the Parrot's hit pops the Geomancer's Divine Shield (0
+      damage). The Geomancer (2/1) attacks the Parrot and dies to its 5 Attack: 5 damage dealt, not
+      1 (overkill counts) and not 10 (the shield hit doesn't).
+    seed: 2
+    combat:
+      board_a: [Treasure Parrot, Iron Groundskeeper]   # Parrot: 5/5
+      board_b: ["Razorfen Geomancer divine_shield"]
+    expect:
+      outcome: a_win
+      survivors_a: {0: {card: Treasure Parrot, stats: 5/1, counter: 5}}

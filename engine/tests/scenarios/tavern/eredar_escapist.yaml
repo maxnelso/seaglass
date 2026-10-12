@@ -5,3 +5,15 @@ scenarios:
     steps:
       - deal_hero_damage: 4
     expect: {hand: [Corrupted Cupcakes]}
+
+  - name: counts_damage_that_soul_rewinder_rewinds
+    tavern: {board: [Eredar Escapist, Soul Rewinder]}
+    steps:
+      - deal_hero_damage: 4   # rewound, but taken first
+    expect: {health: 30, hand: [Corrupted Cupcakes]}
+
+  - name: counts_damage_that_ashen_corruptor_rewinds
+    tavern: {board: [Ashen Corruptor, Eredar Escapist]}
+    steps:
+      - deal_hero_damage: 4   # rewound, but taken first
+    expect: {health: 30, hand: [Corrupted Cupcakes]}
