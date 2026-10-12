@@ -3,8 +3,8 @@ scenarios:
   - name: rally_golem_attacks_first_and_kills_the_target
     description: >-
       With more minions, side A attacks first. When the 6/15 Juggernaut attacks, its Rally summons
-      a 6/15 Blood Golem that attacks the 10/6 first and kills it, so the Juggernaut's own strike
-      is aborted and it takes no damage.
+      a 6/15 Blood Golem that attacks Living Azerite (8/6) first and kills it, so the Juggernaut's
+      own strike is aborted and it takes no damage.
     seed: 705
     combat: {board_a: [Jailbird Juggernaut, Patient Scout], board_b: [Living Azerite]}
     expect:

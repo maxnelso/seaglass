@@ -1,12 +1,5 @@
 card: Sin'dorei Straight Shot
 scenarios:
-  - name: rally_removes_reborn_and_taunt_from_the_target
-    seed: 451
-    combat: {board_a: [Sin'dorei Straight Shot], board_b: [Risen Rider]}
-    expect: {outcome: a_win, survivors_b: []}
-
-  # The scenario above passes even without the Rally (the Windfury strike kills the Reborn copy
-  # too); here the Straight Shot attacks first, so the Rider's fate is decided by the Rally.
   - name: rally_stops_the_risen_rider_coming_back
     description: >-
       Side A (2 minions) attacks first. The Rally removes the Rider's Reborn before the damage:
