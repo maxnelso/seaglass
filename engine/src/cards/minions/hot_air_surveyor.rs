@@ -1,6 +1,11 @@
 //! `Hot-Air Surveyor` (`BG30_121`) — Tier 4 Quilboar (`3/7`).
 //!
 //! Blood Gems played from your hand cast an extra time (`2` extra times if Golden).
+//!
+//! Each extra cast is a cast of its own (`docs/tavern.md` §7.4): `Felboar` counts it, and the
+//! "whenever you cast a spell on" minions (`Glambot`, ...) and `Geomagus Roogug` trigger on it. With
+//! `Balinda Stonehearth` the casts multiply (2 × 2 = 4). Blood Gems a card casts or plays
+//! (`Victorious Geomant`, `Geomagus Roogug`) aren't played from your hand: no extra cast.
 
 use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Tribe, Unit};

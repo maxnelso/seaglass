@@ -755,10 +755,20 @@ fn buff_random_friendly(
 }
 
 /// Unit id that marks the target of the spell being cast while its casts resolve, so that each
-/// cast finds it wherever it moved (see [`cast_spell_on`]; no targeted spell is cast while another
+/// cast finds it wherever it moved (see [`cast_spell_from`]; no targeted spell is cast while another
 /// one's casts resolve). Minions in the Tavern have no other use for their ids (combat assigns its
 /// own).
 const CAST_TARGET_ID: UnitId = UnitId::MAX;
+
+/// Who casts a spell (`docs/tavern.md` §7.4).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CastSource {
+    /// You, playing it from your hand.
+    Hand,
+    /// A card: one of your minions (`Gatekeeper Amalgam`, `Victorious Geomant`, ...) or a spell
+    /// that casts itself. It counts as you casting it, but it isn't played from your hand.
+    Effect,
+}
 
 /// Resolve the effect of casting `card` from `hand` at `board_pos` (0 if it is untargeted): see
 /// [`cast_spell_on`].
@@ -773,17 +783,44 @@ pub fn cast_spell(
 }
 
 /// Resolve the effect of casting `card` from `hand` on `target` (ignored if it is untargeted;
-/// `docs/tavern.md` §7.4). If it is a Tavern spell, each cast counts toward `tavern_spells_cast`
-/// and runs the `spell_cast` observers; then every cast runs its `cast_at` / `cast` hook (a spell
-/// without one adds its stats to the target), then the after-targeted-spell observers if its
-/// target is still there (on the board or in the Tavern), then the after-cast observers. A
-/// [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times, and one cast on a friendly
-/// minion [`Passive::TargetedSpellCasts`] times. The casts follow their target wherever it moves;
-/// once it is gone (destroyed, sold, transformed, ...), the remaining casts fizzle: they do nothing.
+/// `docs/tavern.md` §7.4): see [`cast_spell_from`].
 pub fn cast_spell_on(
     state: &mut TavernState,
     card: Unit,
     target: MinionSlot,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    cast_spell_from(state, card, target, CastSource::Hand, pool, rng);
+}
+
+/// Resolve the effect of a card casting `card` on `target` (ignored if it is untargeted): the
+/// same cast as one from your hand ([`cast_spell_from`]), but not played from your hand.
+pub fn cast_spell_by_effect(
+    state: &mut TavernState,
+    card: Unit,
+    target: MinionSlot,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    cast_spell_from(state, card, target, CastSource::Effect, pool, rng);
+}
+
+/// Resolve the effect of casting `card` on `target` (ignored if it is untargeted; `docs/tavern.md`
+/// §7.4), cast by `source`. If it is a Tavern spell, each cast counts toward `tavern_spells_cast`
+/// and runs the `spell_cast` observers; then every cast runs its `cast_at` / `cast` hook (a spell
+/// without one adds its stats to the target), then the after-targeted-spell observers if its
+/// target is still there (on the board or in the Tavern), then the after-cast observers. A
+/// [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times, one cast on a friendly
+/// minion [`Passive::TargetedSpellCasts`] times, and a [`CardFlags::BLOOD_GEM`] played from your
+/// hand `1 +` [`Passive::ExtraHandBloodGemCasts`] times; these multiply. The casts follow their
+/// target wherever it moves; once it is gone (destroyed, sold, transformed, ...), the remaining
+/// casts fizzle: they do nothing.
+pub fn cast_spell_from(
+    state: &mut TavernState,
+    card: Unit,
+    target: MinionSlot,
+    source: CastSource,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
@@ -815,6 +852,9 @@ pub fn cast_spell_on(
     let on_board = matches!(target, MinionSlot::Board(_));
     if targeted && on_board {
         casts *= board_passive(&state.board, Passive::TargetedSpellCasts);
+    }
+    if source == CastSource::Hand && card_hooks.has(CardFlags::BLOOD_GEM) {
+        casts *= 1 + board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
     }
 
     for cast in 0..casts {

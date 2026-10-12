@@ -9,3 +9,19 @@ scenarios:
     steps:
       - play: {hand: Fortify, pos: 0}
     expect: {board: {1: "Flittering Bat 5/8"}}
+
+  - name: its_misplaced_tea_set_is_a_tavern_spell_you_cast
+    description: >-
+      Fortify on it casts Misplaced Tea Set, which counts as a Tavern spell you cast: Vicious
+      Mindslasher triggers for both spells, and the Tea Set is the last Tavern spell you cast, so
+      Cataclysmic Harbinger gets a copy of it at the end of the turn.
+    tavern:
+      board: [Gatekeeper Amalgam, Vicious Mindslasher, Cataclysmic Harbinger]   # Mindslasher: 1/2
+      hand: [Fortify]
+    steps:
+      - play: {hand: Fortify, pos: 0}
+      - expect:
+          auras: {tavern_spells_cast: 2}
+          board: {1: "Vicious Mindslasher 7/10"}   # +1/+2 per spell and the Tea Set's +4/+4
+      - end_turn
+    expect: {hand: [Misplaced Tea Set]}

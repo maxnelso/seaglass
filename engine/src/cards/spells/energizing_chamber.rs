@@ -2,11 +2,11 @@
 //!
 //! Give your Deity +7/+7.
 
-use super::{cast_spell, spell, spell_by_id, SPELL_ENERGIZING_CHAMBER};
+use super::{cast_spell_by_effect, spell, spell_by_id, SPELL_ENERGIZING_CHAMBER};
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
@@ -24,7 +24,7 @@ pub fn cast(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, _: &m
 fn discarded(state: &mut TavernState, _: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(chamber) = spell_by_id(SPELL_ENERGIZING_CHAMBER) {
         for _ in 0..2 {
-            cast_spell(state, chamber.clone(), 0, pool, rng);
+            cast_spell_by_effect(state, chamber.clone(), MinionSlot::Board(0), pool, rng);
         }
     }
 }

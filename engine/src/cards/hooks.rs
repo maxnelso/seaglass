@@ -53,6 +53,9 @@ impl CardFlags {
     pub const NOT_IN_POOL: CardFlags = CardFlags(1 << 10);
     /// A spell card that is not a Tavern spell (casting it doesn't count as casting one).
     pub const NOT_TAVERN_SPELL: CardFlags = CardFlags(1 << 11);
+    /// A Blood Gem: played from your hand, it is cast [`Passive::ExtraHandBloodGemCasts`] more
+    /// times, each a cast of its own.
+    pub const BLOOD_GEM: CardFlags = CardFlags(1 << 12);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -85,7 +88,7 @@ pub enum Passive {
     TargetedSpellCasts,
     /// Extra Deathrattle triggers (summed across living minions).
     ExtraDeathrattles,
-    /// Extra casts of Blood Gems played from hand (summed across the board).
+    /// Extra casts of Blood Gems played from hand, each a cast of its own (summed across the board).
     ExtraHandBloodGemCasts,
 }
 

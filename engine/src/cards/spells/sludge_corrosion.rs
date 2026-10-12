@@ -2,12 +2,12 @@
 //!
 //! Give your minions +1/+1. If you discard this, cast it twice.
 
-use super::{cast_spell, shiny_ring, spell};
+use super::{cast_spell_by_effect, shiny_ring, spell};
 use crate::cards::tokens::make_sludge_corrosion;
 use crate::cards::{CardFlags, CardHooks};
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
@@ -19,6 +19,12 @@ pub fn hooks() -> CardHooks {
 /// Discarded: cast it twice.
 fn discarded(state: &mut TavernState, _: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     for _ in 0..2 {
-        cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
+        cast_spell_by_effect(
+            state,
+            make_sludge_corrosion(),
+            MinionSlot::Board(0),
+            pool,
+            rng,
+        );
     }
 }

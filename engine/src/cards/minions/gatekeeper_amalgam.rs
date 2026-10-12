@@ -1,6 +1,10 @@
 //! `Gatekeeper Amalgam` (`BG36_640`) — Tier 6 All (`6/6`).
 //!
 //! Whenever you cast a spell on this, it casts `Misplaced Tea Set` (`twice` if Golden).
+//!
+//! Its `Misplaced Tea Set` counts as a Tavern spell you cast (`docs/tavern.md` §7.4): it counts
+//! toward `tavern_spells_cast`, triggers the spell-cast observers (`Felboar`, the "whenever you cast
+//! a Tavern spell" minions) and becomes the last Tavern spell you cast (`Cataclysmic Harbinger`).
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
@@ -19,7 +23,7 @@ pub fn after_targeted_spell(
     state: &mut TavernState,
     self_idx: usize,
     target: MinionSlot,
-    _: &mut CardPool,
+    pool: &mut CardPool,
     rng: &mut Rng,
 ) {
     if target != MinionSlot::Board(self_idx) {
@@ -31,6 +35,8 @@ pub fn after_targeted_spell(
         1
     };
     for _ in 0..count {
-        spells::apply_misplaced_tea_set(state, rng);
+        let tea_set = spells::spell_by_id(spells::SPELL_MISPLACED_TEA_SET)
+            .expect("SPELL_MISPLACED_TEA_SET exists");
+        spells::cast_spell_by_effect(state, tea_set, MinionSlot::Board(0), pool, rng);
     }
 }

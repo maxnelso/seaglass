@@ -6,7 +6,7 @@ use crate::cards::tokens::{make_choice_option, CHOICE_BRIGAND_BARRAGE, CHOICE_BR
 use crate::cards::{resolve_pending_effects, spells, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 630;
 
@@ -47,6 +47,6 @@ pub fn choose_barrage(state: &mut TavernState, chosen: &Unit, pool: &mut CardPoo
     for _ in 0..3 * chosen.golden_mult() {
         let spell = spells::spell_by_id(spells::SPELL_BLOOD_GEM_BARRAGE)
             .expect("SPELL_BLOOD_GEM_BARRAGE exists");
-        spells::cast_spell(state, spell, 0, pool, rng);
+        spells::cast_spell_by_effect(state, spell, MinionSlot::Board(0), pool, rng);
     }
 }

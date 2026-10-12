@@ -1,11 +1,16 @@
 //! `Victorious Geomant` (`BG36_370`) — Tier 6 Quilboar (`10/10`).
 //!
 //! Activate (2): Get 6 (`12` if Golden) Blood Gems. Cast any that don't fit on your left-most minion.
+//!
+//! The Blood Gems that don't fit are cast one at a time, each on the left-most minion at that
+//! moment: each is a spell you cast (`Felboar` counts it, `Geomagus Roogug` triggers on it), but
+//! not one played from your hand, so `Hot-Air Surveyor` doesn't cast it again (`docs/tavern.md`
+//! §7.4).
 
-use crate::cards::{self, tokens, CardTemplate};
+use crate::cards::{spells, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 631;
 pub const ACTIVATE_COST: u32 = 2;
@@ -14,10 +19,10 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Victorious Geomant", 10, 10, 6)
         .with_tribe(Tribe::Quilboar)
         .with_activate_cost(ACTIVATE_COST)
-        .on_activate(|state, source_pos, _, _, rng| on_activate(state, source_pos, rng))
+        .on_activate(|state, source_pos, _, pool, rng| on_activate(state, source_pos, pool, rng))
 }
 
-pub fn on_activate(state: &mut TavernState, source_pos: usize, rng: &mut Rng) {
+pub fn on_activate(state: &mut TavernState, source_pos: usize, pool: &mut CardPool, rng: &mut Rng) {
     if source_pos >= state.board.len() {
         return;
     }
@@ -34,8 +39,11 @@ pub fn on_activate(state: &mut TavernState, source_pos: usize, rng: &mut Rng) {
             overflow += 1;
         }
     }
-    if overflow > 0 && !state.board.is_empty() {
-        state.board[0].play_blood_gems(overflow, &state.auras);
-        cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
+    for _ in 0..overflow {
+        if state.board.is_empty() {
+            break;
+        }
+        let gem = tokens::make_blood_gem();
+        spells::cast_spell_by_effect(state, gem, MinionSlot::Board(0), pool, rng);
     }
 }

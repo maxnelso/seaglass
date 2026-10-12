@@ -5,7 +5,7 @@
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 501;
 
@@ -29,6 +29,6 @@ pub fn on_gold_spent(
     for _ in 0..casts {
         let spell = spells::spell_by_name("Easterly Winds")
             .expect("Easterly Winds must exist in spell catalog");
-        spells::cast_spell(state, spell, 0, pool, rng);
+        spells::cast_spell_by_effect(state, spell, MinionSlot::Board(0), pool, rng);
     }
 }

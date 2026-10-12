@@ -2,7 +2,7 @@ card: Victorious Geomant
 scenarios:
   - name: activate_gets_6_blood_gems_and_casts_the_ones_that_dont_fit
     description: >-
-      With 8 cards in hand only 2 of the 6 Blood Gems fit; the other 4 are played on the
+      With 8 cards in hand only 2 of the 6 Blood Gems fit; the other 4 are cast on the
       left-most minion (+4/+4).
     tavern:
       gold: 10
@@ -13,3 +13,24 @@ scenarios:
     expect:
       hand: {count: 10}
       board: ["Victorious Geomant 14/14"]
+
+  - name: the_blood_gems_that_dont_fit_are_spells_you_cast
+    description: >-
+      With 9 cards in hand, 1 Blood Gem fits and 5 are cast on the left-most minion: 5 spells cast,
+      so Felboar consumes a Tavern minion after the 3rd. They aren't played from the hand, so
+      Hot-Air Surveyor doesn't cast them again.
+    tavern:
+      gold: 2
+      board: [Victorious Geomant, Felboar, Hot-Air Surveyor]   # 10/10, Felboar: 2/6
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Tavern Coin, Tavern Coin, Tavern Coin, Tavern Coin, Tavern Coin, Tavern Coin,
+             Tavern Coin, Tavern Coin, Tavern Coin]
+    steps:
+      - activate: Victorious Geomant
+    expect:
+      hand: {count: 10}
+      shop: []
+      board:
+        - "Victorious Geomant 15/15"   # 5 Blood Gems
+        - {card: Felboar, stats: 7/13, counter: 2}   # 2/6 +5/+7
+        - Hot-Air Surveyor

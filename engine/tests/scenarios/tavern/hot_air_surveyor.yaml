@@ -6,3 +6,41 @@ scenarios:
       - play: {hand: Blood Gem, pos: 0}   # on the Surveyor
     expect:
       board: [{card: Hot-Air Surveyor, stats: 5/9, blood_gems_played: 2}]   # cast twice
+
+  - name: each_extra_cast_is_its_own_cast
+    description: >-
+      Each Blood Gem from hand is cast twice, and each cast counts: Felboar consumes a Tavern minion
+      after the 3rd of the 4 casts.
+    tavern:
+      board: [Felboar, Hot-Air Surveyor]   # Felboar: 2/6
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Blood Gem, Blood Gem]
+    steps:
+      - repeat: 2
+        steps: [{play: {hand: Blood Gem, pos: 0}}]   # on Felboar
+    expect:
+      shop: []
+      board: [{card: Felboar, stats: 11/17, counter: 1}, Hot-Air Surveyor]   # 2/6 +4/+4 +5/+7
+
+  - name: glambot_triggers_on_each_cast
+    tavern: {board: [Glambot, Hot-Air Surveyor], hand: [Blood Gem]}   # Glambot: a 4/4 Mech
+    steps:
+      - play: {hand: Blood Gem, pos: 0}   # on Glambot
+    expect: {board: ["Glambot 14/14", Hot-Air Surveyor]}   # +1/+1 and a 4/4 Satellite per cast
+
+  - name: with_balinda_a_blood_gem_is_cast_4_times
+    description: >-
+      Balinda casts it twice and the Surveyor each of those twice: 4 casts, all counted (Felboar
+      consumes a Tavern minion after the 3rd).
+    tavern:
+      board: [Balinda Stonehearth, Hot-Air Surveyor, Felboar]   # Surveyor: 3/7, Felboar: 2/6
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Blood Gem]
+    steps:
+      - play: {hand: Blood Gem, pos: 1}   # on the Surveyor
+    expect:
+      shop: []
+      board:
+        - Balinda Stonehearth
+        - {card: Hot-Air Surveyor, stats: 7/11, blood_gems_played: 4}
+        - {card: Felboar, stats: 7/13, counter: 1}   # 2/6 +5/+7
