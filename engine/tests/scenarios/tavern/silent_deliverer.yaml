@@ -6,3 +6,13 @@ scenarios:
       - add_to_hand: Silent Deliverer
       - play: Silent Deliverer
     expect: {hand: [{tavern_tier: 4, is_golden: true}]}
+
+  - name: the_golden_minion_gives_no_triple_reward
+    seed: 620
+    steps:
+      - add_to_hand: Silent Deliverer
+      - play: Silent Deliverer
+      - play: 0   # the Golden Tier 4 minion
+    expect:
+      board: [Silent Deliverer, {tavern_tier: 4, is_golden: true}]
+      discover_pending: null

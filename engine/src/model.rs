@@ -383,7 +383,9 @@ pub struct Unit {
     pub stealth: bool,
     pub magnetic: bool,
     pub is_golden: bool,
-    /// True if this card is intrinsically Golden in the shop (`Aureate Laureate`).
+    /// True if this Golden doesn't give a Triple Reward when played (and counts as a single copy
+    /// for the card pool): it is intrinsically Golden (`Aureate Laureate`) or the card that made
+    /// it says so (`Silent Deliverer`). Other Goldens made by effects are regular Goldens.
     pub intrinsic_golden: bool,
     /// True if this unit is an awakened Deity (`C'Thun` or `Y'Shaarj`).
     pub is_deity: bool,
@@ -623,8 +625,9 @@ impl Unit {
     }
 
     /// Convert this plain minion into a Golden version (`Golden Touch`, `Elite Navigator`).
-    /// Aura bonuses that scale with Golden are re-applied by the next aura sync
-    /// ([`crate::cards::sync_unit_auras`]).
+    /// Like a tripled Golden, it gives a Triple Reward when played (unless the caller sets
+    /// [`Self::intrinsic_golden`]). Aura bonuses that scale with Golden are re-applied by the
+    /// next aura sync ([`crate::cards::sync_unit_auras`]).
     pub fn make_golden(&mut self) {
         if self.is_golden {
             return;
@@ -635,7 +638,6 @@ impl Unit {
         self.base_health *= 2;
         self.add_stats(add_atk, add_hp);
         self.is_golden = true;
-        self.intrinsic_golden = true;
         if !self.name.starts_with("Golden ") {
             self.name = format!("Golden {}", self.name);
         }

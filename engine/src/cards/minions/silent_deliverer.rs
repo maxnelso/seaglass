@@ -25,6 +25,7 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, rng: &mut Rng) {
         let pick = rng.below(catalog.len());
         let mut golden = catalog[pick].instantiate();
         golden.make_golden();
+        golden.intrinsic_golden = true; // it doesn't give a Triple Reward
         state.add_to_hand(golden);
     }
 }

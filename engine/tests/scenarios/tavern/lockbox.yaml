@@ -6,3 +6,13 @@ scenarios:
       - add_to_hand: {card: Lockbox, lockbox_turns_left: 1}
       - start_turn
     expect: {hand: [{is_spell: false, is_golden: true}]}
+
+  - name: the_golden_minion_gives_a_triple_reward_when_played
+    seed: 952
+    steps:
+      - add_to_hand: {card: Lockbox, lockbox_turns_left: 1}
+      - start_turn
+      - play: 0
+    expect:
+      board: [{is_golden: true}]
+      discover_pending: {count: 3, all: {tavern_tier: 2}}   # the Triple Reward: Tavern Tier + 1

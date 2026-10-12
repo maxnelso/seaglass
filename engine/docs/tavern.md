@@ -45,9 +45,9 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
 2. **Discover Draw (`draw_discover_options(exact_tier, count, rng)`)**:
    - Draws up to `count` (`3`) **distinct `card_id`s** of exact tier `exact_tier`, weighted by remaining copies, decrementing each drawn card's remaining count by `1`.
 3. **Returning to Pool (`return_unit(unit)`)**:
-   - **Shop Refresh / Unfrozen Turn Start**: Every minion currently in `shop` returns `1` copy to the pool *before* drawing the new shop.
+   - **Shop Refresh / Unfrozen Turn Start**: Every minion currently in `shop` returns its copies to the pool (`1` copy, or as a sold Golden below) *before* drawing the new shop.
    - **Selling a Non-Golden Minion**: Returns **`1` copy** of its `card_id` to the pool (capped at the tier's base copy limit).
-   - **Selling a Golden Minion**: Returns **`3` copies** of its `card_id` to the pool (unless the card template is marked intrinsically Golden, in which case it returns `1` copy).
+   - **Selling a Golden Minion**: Returns **`3` copies** of its `card_id` to the pool, whether it was formed by a Triple or made Golden by an effect (`Golden Touch`), unless it doesn't give a Triple Reward (`intrinsic_golden`, §5.2), in which case it returns `1` copy.
    - **Unchosen Discover Options**: When 1 of the offered Discover options is chosen, the unchosen options return `1` copy each to the pool.
    - Generated tokens (minions not in the purchasable catalog) do not add copies to `CardPool` when sold.
 
@@ -131,7 +131,7 @@ If 3 non-golden copies exist:
 ### 5.2 Playing a Golden Minion (Triple Reward Discover)
 When a Golden minion is played from `hand` to `board`:
 1. The Golden minion is inserted at `board[board_pos]`, running its on-play Battlecries and board triggers (doubled for Golden).
-2. If the minion was formed by a Triple (not an intrinsically Golden template):
+2. Unless the Golden doesn't give a Triple Reward (`intrinsic_golden`: only cards whose text says so, `Aureate Laureate` and the Golden minions `Silent Deliverer` gives), whether it was formed by a Triple or made Golden by an effect (`Golden Touch`, a `Lockbox`):
    - Let `reward_tier = min(6, tavern_tier + 1)`.
    - Draw up to 3 distinct `card_id`s of exact tier `reward_tier` from `CardPool`. If non-empty, set `discover_pending = Some(options)`.
 3. While `discover_pending.is_some()`, only `ChooseDiscover { option_index }` (`0..options.len()`) is legal.

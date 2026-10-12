@@ -7,3 +7,16 @@ scenarios:
       - add_to_hand: Golden Touch
       - play: Golden Touch
     expect: {shop: ["golden Fetid Corroder 6/6"]}
+
+  - name: the_golden_gives_a_triple_reward_when_played
+    description: A Golden made by an effect is a regular Golden (unlike Aureate Laureate's).
+    seed: 956
+    tavern: {gold: 3, shop: [Risen Rider]}
+    steps:
+      - add_to_hand: Golden Touch
+      - play: Golden Touch
+      - buy: 0
+      - play: {is_golden: true}
+    expect:
+      board: ["golden Risen Rider 4/2"]
+      discover_pending: {count: 3, all: {tavern_tier: 2}}   # the Triple Reward: Tavern Tier + 1

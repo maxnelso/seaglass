@@ -326,7 +326,8 @@ impl CardPool {
         }
     }
 
-    /// Return a unit's copy (or 3 copies if tripled Golden) back to the shared card pool.
+    /// Return a unit's copy back to the shared card pool (3 copies for a Golden, unless it is
+    /// `intrinsic_golden`).
     pub fn return_unit(&mut self, unit: &Unit) {
         if unit.is_spell {
             return;
@@ -1361,7 +1362,7 @@ impl TavernState {
                 let played_card_id = card.card_id;
                 let played_tribe = card.tribe;
                 let was_golden_minion = card.is_golden;
-                let was_tripled_golden = card.is_golden && !card.intrinsic_golden;
+                let gives_triple_reward = card.is_golden && !card.intrinsic_golden;
                 let should_die_on_play = card.dies_on_play_this_turn;
 
                 if played_tribe.matches(Tribe::Elemental) {
@@ -1405,7 +1406,7 @@ impl TavernState {
                     }
                 }
 
-                if was_tripled_golden {
+                if gives_triple_reward {
                     let reward_tier = std::cmp::min(6, self.tavern_tier + 1);
                     let mut opts = pool.draw_discover_options(reward_tier, 3, rng);
                     for opt in &mut opts {
