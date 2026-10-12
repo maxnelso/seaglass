@@ -4,7 +4,7 @@ use crate::cards::hooks::CardEventFn;
 use crate::cards::{self, minions, spells, BoardCtx, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -285,7 +285,12 @@ pub fn make_fishbait(is_golden: bool) -> Unit {
 /// `Snarky Shark`), as a regular attack ([`cards::tavern_attack`], `docs/tavern.md` §7.7). One it
 /// kills gives it `+5/+5` (`+10/+10` if Golden) and leaves the Tavern; one it doesn't kill stays
 /// there, damaged.
-pub fn left_most_beast_attacks_fishbait(state: &mut TavernState, shop_idx: usize, rng: &mut Rng) {
+pub fn left_most_beast_attacks_fishbait(
+    state: &mut TavernState,
+    shop_idx: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     let Some(beast_pos) = state
         .board
         .iter()
@@ -293,7 +298,7 @@ pub fn left_most_beast_attacks_fishbait(state: &mut TavernState, shop_idx: usize
     else {
         return;
     };
-    let attack = cards::tavern_attack(state, beast_pos, shop_idx, rng);
+    let attack = cards::tavern_attack(state, beast_pos, shop_idx, pool, rng);
     let Some(bait_idx) = attack.target.filter(|&t| state.shop[t].health <= 0) else {
         return;
     };

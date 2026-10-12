@@ -244,6 +244,9 @@ pub struct RallyCtx<'a> {
     pub hand_summoned: &'a mut [bool],
     /// Cards to add to hand once the Rally resolves.
     pub generated_hand: &'a mut Vec<Unit>,
+    /// Spells the Rally casts when it is triggered in the Tavern (`Crimson Vindicator`): cast once
+    /// it resolves, as spells your minion casts there (`docs/tavern.md` §7.7). Unused in combat.
+    pub tavern_casts: &'a mut Vec<CardId>,
     /// Set by the hook if the returned summons should strike the attack target first.
     pub summons_attack_target: bool,
     pub rng: &'a mut Rng,
@@ -1593,6 +1596,7 @@ pub fn on_rally(
     hand: &mut [Unit],
     hand_summoned: &mut [bool],
     generated_hand: &mut Vec<Unit>,
+    tavern_casts: &mut Vec<CardId>,
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) -> (Vec<Unit>, bool) {
@@ -1612,6 +1616,7 @@ pub fn on_rally(
                 hand,
                 hand_summoned,
                 generated_hand,
+                tavern_casts,
                 summons_attack_target: false,
                 rng: &mut *rng,
                 events,
@@ -1724,23 +1729,36 @@ fn with_tavern_ctx<R>(
 
 /// Trigger a friendly minion's `Rally` effect on `state.board[target_pos]` during the Tavern Phase
 /// (`Sky-hatch Runaway`; `docs/tavern.md` §7.7).
-pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mut Rng) {
+pub fn trigger_tavern_rally(
+    state: &mut TavernState,
+    target_pos: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     with_distinct_board_ids(state, |state| {
         let mut next_id = TAVERN_SUMMON_IDS;
-        tavern_rally(state, target_pos, &mut next_id, rng);
+        tavern_rally(state, target_pos, &mut next_id, pool, rng);
     });
     state.sync_all_auras();
 }
 
 /// The Rally of `state.board[target_pos]` in the Tavern, its board minions having distinct ids:
-/// its own Rally (summons to its right, cards to the hand), then, for a Rally minion, the
-/// `after_friendly_rally` observers. Summons take ids from `next_id`.
-fn tavern_rally(state: &mut TavernState, target_pos: usize, next_id: &mut UnitId, rng: &mut Rng) {
+/// its own Rally (summons to its right, cards to the hand, then the spells it casts, as spells your
+/// minion casts), then, for a Rally minion, the `after_friendly_rally` observers. Summons take ids
+/// from `next_id`.
+fn tavern_rally(
+    state: &mut TavernState,
+    target_pos: usize,
+    next_id: &mut UnitId,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     if target_pos >= state.board.len() {
         return;
     }
     let is_rally = is_rally_minion(state.board[target_pos].card_id);
     let mut generated_hand = Vec::new();
+    let mut tavern_casts = Vec::new();
     let mut hand_summoned = vec![false; state.hand.len()];
     let mut events = Vec::new();
     let (summons, _) = on_rally(
@@ -1753,6 +1771,7 @@ fn tavern_rally(state: &mut TavernState, target_pos: usize, next_id: &mut UnitId
         &mut state.hand,
         &mut hand_summoned,
         &mut generated_hand,
+        &mut tavern_casts,
         rng,
         &mut events,
     );
@@ -1770,6 +1789,11 @@ fn tavern_rally(state: &mut TavernState, target_pos: usize, next_id: &mut UnitId
             on_tavern_summon(&mut state.board, insert_pos);
             insert_pos += 1;
             state.check_and_resolve_triple(cid);
+        }
+    }
+    for spell in tavern_casts.into_iter().filter_map(spells::spell_by_id) {
+        if !state.board.is_empty() {
+            spells::cast_spell_by_effect(state, spell, MinionSlot::Board(0), pool, rng);
         }
     }
     if is_rally {
@@ -1796,6 +1820,7 @@ pub fn tavern_attack(
     state: &mut TavernState,
     attacker_pos: usize,
     target_idx: usize,
+    pool: &mut CardPool,
     rng: &mut Rng,
 ) -> TavernAttack {
     if attacker_pos >= state.board.len() || target_idx >= state.shop.len() {
@@ -1808,7 +1833,7 @@ pub fn tavern_attack(
     let attack = with_distinct_board_ids(state, |state| {
         let attacker_id = state.board[attacker_pos].id;
         let mut next_id = TAVERN_SUMMON_IDS;
-        tavern_rally(state, attacker_pos, &mut next_id, rng);
+        tavern_rally(state, attacker_pos, &mut next_id, pool, rng);
         if state.board.iter().any(|u| u.id == attacker_id) {
             with_tavern_ctx(state, &mut next_id, rng, |ctx| {
                 on_friendly_attack(ctx, attacker_id)

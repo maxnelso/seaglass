@@ -23,5 +23,5 @@ pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &
     state.refresh_shop_free(pool, rng);
     state.shop.push(tokens::make_fishbait(sold.is_golden));
     let bait_idx = state.shop.len() - 1;
-    tokens::left_most_beast_attacks_fishbait(state, bait_idx, rng);
+    tokens::left_most_beast_attacks_fishbait(state, bait_idx, pool, rng);
 }

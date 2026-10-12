@@ -694,6 +694,7 @@ fn perform_one_strike(
         &mut atk_side.hand,
         &mut atk_side.hand_summoned,
         &mut generated_hand,
+        &mut Vec::new(), // spells cast by a Rally in the Tavern only
         rng,
         events,
     );

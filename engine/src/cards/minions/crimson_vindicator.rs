@@ -8,8 +8,10 @@
 //! Each cast in combat counts as you casting a Tavern spell (`docs/combat.md` §2): it counts for
 //! `Faceless Converter`, and your "whenever you cast a Tavern spell" minions react before it takes
 //! effect; it doesn't become the last Tavern spell you cast (`Cataclysmic Harbinger`), and
-//! `Felboar` doesn't count it.
+//! `Felboar` doesn't count it. Its Rally triggered in the Tavern (`Sky-hatch Runaway`) casts
+//! `Mighty Dragonbreath` like any spell your minion casts there (`docs/tavern.md` §7.4, §7.7).
 
+use crate::cards::spells::SPELL_MIGHTY_DRAGONBREATH;
 use crate::cards::{self, CardTemplate, CombatCastCtx, RallyCtx};
 use crate::model::{CardId, Keyword, Tribe, Unit};
 
@@ -24,15 +26,15 @@ pub fn template() -> CardTemplate {
 
 pub fn on_rally(ctx: &mut RallyCtx<'_>) -> Vec<Unit> {
     let casts = if ctx.is_golden { 2 } else { 1 };
-    let in_combat = ctx.in_combat;
+    if !ctx.in_combat {
+        // Triggered in the Tavern (`Sky-hatch Runaway`): cast there once the Rally resolves.
+        ctx.tavern_casts
+            .extend(std::iter::repeat_n(SPELL_MIGHTY_DRAGONBREATH, casts));
+        return Vec::new();
+    }
     let mut cast = ctx.cast_ctx();
     for _ in 0..casts {
-        if in_combat {
-            cards::cast_tavern_spell_in_combat(&mut cast, mighty_dragonbreath);
-        } else {
-            // A Rally triggered in the Tavern (`Sky-hatch Runaway`) only gives the stats.
-            mighty_dragonbreath(&mut cast);
-        }
+        cards::cast_tavern_spell_in_combat(&mut cast, mighty_dragonbreath);
     }
     Vec::new()
 }

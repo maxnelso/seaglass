@@ -120,3 +120,18 @@ scenarios:
           auras: {tavern_spells_cast: 3, last_tavern_spell_cast: {same_as: armor_stash}}
       - end_turn
     expect: {hand: [Armor Stash]}
+
+  - name: its_rally_in_the_tavern_is_a_mighty_dragonbreath_you_cast
+    description: >-
+      Sky-hatch Runaway triggers its Rally in the Tavern: Mighty Dragonbreath is cast like any
+      spell your minion casts in the Tavern. Felboar counts it, it counts as a Tavern spell cast,
+      and it becomes the last Tavern spell you cast.
+    tavern: {gold: 1, board: [Sky-hatch Runaway, Crimson Vindicator, Felboar]}
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect:
+      auras: {tavern_spells_cast: 1, last_tavern_spell_cast: 839}   # Mighty Dragonbreath
+      board:
+        - "Sky-hatch Runaway 10/11"   # 4/7 + 3/2 twice (a Dragon)
+        - "Crimson Vindicator 17/15"   # 8/9 + 3/2 three times (a Dragon with Divine Shield)
+        - {card: Felboar, stats: 5/8, counter: 1}   # 2/6 + 3/2
