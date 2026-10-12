@@ -4,3 +4,21 @@ scenarios:
     seed: 104
     combat: {board_a: [Flittering Bat], board_b: [Vicious Mindslasher]}
     expect: {outcome: a_win, survivors_a: {count: ">= 1"}}
+
+  - name: its_rally_in_the_tavern_summons_a_bat_that_stays
+    description: Sky-hatch Runaway triggers its Rally in the Tavern; the 1/1 joins the board and stays.
+    tavern: {gold: 1, board: [Sky-hatch Runaway, Flittering Bat]}
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+      - start_turn
+    expect: {board: [Sky-hatch Runaway, Flittering Bat, "Bat 1/1"]}
+
+  - name: its_rally_in_the_tavern_summons_nothing_on_a_full_board
+    tavern:
+      gold: 1
+      board: [Sky-hatch Runaway, Flittering Bat, Dune Dweller, Joyous, Scarlet Survivor, Suspicious Prisonguard, Wrath Weaver]
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect:
+      gold: 0
+      board: [Sky-hatch Runaway, Flittering Bat, Dune Dweller, Joyous, Scarlet Survivor, Suspicious Prisonguard, Wrath Weaver]

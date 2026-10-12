@@ -4,3 +4,21 @@ scenarios:
     seed: 429
     combat: {board_a: [Hoarding Hyena], board_b: [Patient Scout]}
     expect: {outcome: a_win, survivors_a: {any: Tasty Lobster}}
+
+  - name: its_rally_in_the_tavern_summons_a_tasty_lobster_that_stays
+    description: Sky-hatch Runaway triggers its Rally in the Tavern; the Lobster joins the board and stays.
+    tavern: {gold: 1, board: [Sky-hatch Runaway, Hoarding Hyena]}
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+      - start_turn
+    expect: {board: [Sky-hatch Runaway, Hoarding Hyena, "Tasty Lobster 2/1"]}
+
+  - name: its_rally_in_the_tavern_summons_nothing_on_a_full_board
+    tavern:
+      gold: 1
+      board: [Sky-hatch Runaway, Hoarding Hyena, Dune Dweller, Joyous, Scarlet Survivor, Suspicious Prisonguard, Wrath Weaver]
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect:
+      gold: 0
+      board: [Sky-hatch Runaway, Hoarding Hyena, Dune Dweller, Joyous, Scarlet Survivor, Suspicious Prisonguard, Wrath Weaver]

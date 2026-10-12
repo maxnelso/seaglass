@@ -6,3 +6,51 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: ["Joyous 3/1", Prodigious Tusker]   # the 2/3 got +1/+1 before hitting the 3/3
+
+  # Unit ids: A's Glambot 0, Prodigious Tusker 1; B's Kalecgos 2. A has more minions and attacks
+  # first, with Glambot.
+  - name: its_blood_gem_on_a_mech_gives_no_glambot_satellite
+    description: >-
+      The Tusker plays the Blood Gem, not you, so Glambot ("whenever you cast a spell on a Mech")
+      doesn't react: Glambot hits as a 5/5 (4/4 and the Blood Gem), not with a 4/4 Satellite.
+    seed: 222
+    combat: {board_a: [Glambot, Prodigious Tusker], board_b: ["Kalecgos, Arcane Aspect"]}
+    expect:
+      events: {where: {type: damage_dealt, from: 0}, count: 2, all: {amount: 5}}
+
+  # Unit ids: A's Shamanic Tidecaller 0, Twilight Tidehunter 1, Prodigious Tusker 2; B's Kalecgos
+  # 3. Both Murlocs attack and get the Tusker's Blood Gem.
+  - name: its_blood_gems_dont_trigger_tidecaller_or_tidehunter
+    description: >-
+      The Tusker plays the Blood Gems, not you: Tad in hand gets neither Shamanic Tidecaller's
+      +3/+3 nor Twilight Tidehunter's +8/+8.
+    seed: 222
+    combat:
+      board_a: [Shamanic Tidecaller, Twilight Tidehunter, Prodigious Tusker]
+      board_b: ["Kalecgos, Arcane Aspect"]
+      hand_a: [Tad]
+    expect:
+      events:
+        where: {type: damage_dealt, unit: 3}
+        count: 3
+        0: {from: 0, amount: 6}   # the Tidecaller attacks: 5 + its Blood Gem
+        2: {from: 1, amount: 5}   # the Tidehunter attacks: 4 + its Blood Gem
+      hand_a: ["Tad 2/2"]
+
+  # Unit ids: A's Gatekeeper Amalgam 0, Devilish Distractor 1, Prodigious Tusker 2; B's Kalecgos 3.
+  # Both attack and get the Tusker's Blood Gem.
+  - name: its_blood_gems_dont_trigger_gatekeeper_amalgam_or_devilish_distractor
+    description: >-
+      The Tusker plays the Blood Gems, not you: the Amalgam casts no Misplaced Tea Set (no +4/+4:
+      it hits for 7, the Distractor for 5) and the Distractor gives the Tavern nothing.
+    seed: 222
+    combat:
+      board_a: [Gatekeeper Amalgam, Devilish Distractor, Prodigious Tusker]
+      board_b: ["Kalecgos, Arcane Aspect"]
+    expect:
+      events:
+        where: {type: damage_dealt, unit: 3}
+        count: 3
+        0: {from: 0, amount: 7}   # 6 + its Blood Gem
+        2: {from: 1, amount: 5}   # 4 + its Blood Gem
+      auras_a: {tavern_all_atk: 0, tavern_all_hp: 0}
