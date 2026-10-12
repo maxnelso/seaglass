@@ -4,3 +4,23 @@ scenarios:
     seed: 407
     combat: {board_a: [Boom-in-a-Box], board_b: [Fire Baller, Fire Baller]}   # Boom-in-a-Box: 5/10 Taunt
     expect: {outcome: a_win, survivors_a: ["Boom-in-a-Box 5/10"]}
+
+  # Unit ids: A's golden Boom-in-a-Box 0; B's Harmless Bonehead 1, Lurking Leviathan 2; the
+  # Skeletons 3, 4.
+  - name: golden_resolves_deaths_between_its_two_blasts
+    description: >-
+      The first blast kills Harmless Bonehead; its Deathrattle summons the Skeletons before
+      the second blast, which kills them (Lurking Leviathan takes both: 3/9 -> 3/3).
+    seed: 407
+    combat:
+      board_a: ["golden Boom-in-a-Box 10/20"]
+      board_b: [Harmless Bonehead, Lurking Leviathan]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: death, unit: 1}
+              - {type: unit_summoned, side: b, unit: 3, name: Skeleton}
+              - {type: damage_dealt, unit: 3, amount: 3, from: 0}
+              - {type: death, unit: 3}
+          - {where: {type: damage_dealt, unit: 2, amount: 3, from: 0}, count: 2}

@@ -123,7 +123,8 @@ One *turn* is one or two *strikes* by a single attacker:
 1. **Locate the attacker** by identity. If it is no longer on its board the strike is a silent no-op (reachable only on a Windfury second strike).
 2. **Fire On-Attack (Rally) triggers** (§1), *before targeting and before any damage*:
    - Resolve the attacker's own Rally effect (stat buffs, adjacent summons respecting the 7-unit cap, etc.).
-   - If the attacker triggered a Rally, resolve any friendly "whenever a Rally triggers" observers on the attacking board in left-to-right order.
+   - If the attacker triggered a Rally, resolve any friendly "after a friendly Rally minion attacks" observers (`Deathstrider`) on the attacking board in left-to-right order.
+   - Then resolve the friendly "whenever / after a friendly minion attacks" observers (`Ravaging Scorpid`, `Cage Gnawer`, `Prodigious Tusker`), left to right. These also resolve before the damage exchange, so an attacker they buff hits with the buff.
 3. **Re-locate the attacker** (an on-attack summon may have shifted board indices) and capture `attacker_attack`, its Attack **after** on-attack triggers.
 4. **Choose the target** on the defending side:
    - `taunts = living defenders with the taunt keyword`
@@ -137,10 +138,11 @@ One *turn* is one or two *strikes* by a single attacker:
    - `apply_damage(target, attacker_attack)`
    - `apply_damage(attacker, target_attack)`
    - Each call emits `DamageDealt` if the unit lost health, `DivineShieldPopped` if its Divine Shield absorbed the hit, or **nothing** if the amount was $\le 0$.
+   - Then the attacker's "after this attacks" effects (excess damage to the target's neighbours, `Wildfire Elemental`; bonus damage to the highest-Health enemy, `De-volition-ist`). They fire even if the attacker died in the exchange.
 7. **Emit a `Death`** for every unit now at $\le 0$ health, ordered **defending side first (left $\to$ right), then attacking side (left $\to$ right)**.
 8. **Re-anchor both pointers** per §5.4 while the dead are still on their boards.
 9. **Resolve deaths**, **defending side first, then attacking side**. For one side, in three passes (summons respect the 7-unit board cap):
-   1. **Deaths**: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its friendly-death triggers (Avenge) and its **Deathrattle**, inserting summons at the dead unit's position.
+   1. **Deaths**: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its friendly-death triggers (Avenge), then its **Deathrattle**, inserting summons at the dead unit's position.
    2. **Deity**: once the side has had 4 friendly Aberration deaths this combat (`DEITY_SACRIFICE_REQUIREMENT`), its Deity awakens: it is summoned at the right end of the board (if there is room; otherwise after a later round of deaths), `DeityAwakened` is emitted, and its awaken effect resolves (`C'Thun`).
    3. **Reborn**, left $\to$ right: each dead unit with Reborn is resummoned at its position (after its Deathrattle summons) as a base (or Golden-base) copy with `health = 1`, `reborn = false`, printed keywords restored, and global/combat summon auras applied.
 

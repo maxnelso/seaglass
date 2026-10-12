@@ -1,0 +1,94 @@
+topic: When attack and death triggers resolve
+scenarios:
+  # Unit ids: A's Wolf Pup 0, Goldrinn 1, Deathstrider 2; B's Stalwart Kodo 3. A has more
+  # minions and attacks first, with Wolf Pup.
+  - name: after_a_friendly_rally_minion_attacks_triggers_resolve_before_the_damage
+    description: >-
+      Wolf Pup (a Rally minion) attacks; Deathstrider triggers Goldrinn's Deathrattle (your
+      Beasts have +7/+7) before the damage exchange, so the 3/6 Wolf Pup hits for 10.
+    seed: 1
+    combat:
+      board_a: [Wolf Pup, "Goldrinn, the Great Wolf", Deathstrider]
+      board_b: [Stalwart Kodo]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 3}
+          - {type: stat_buff, side: a, unit: 0, reason: "Goldrinn, the Great Wolf", attack: 10, health: 13}
+          - {type: damage_dealt, unit: 3, amount: 10, from: 0}
+
+  # Unit ids: A's Buzzing Vermin 0, Ravaging Scorpid 1; B's Wrath Weaver 2. A has more minions
+  # and attacks first, with the 1/1 Vermin.
+  - name: after_a_friendly_minion_attacks_triggers_resolve_before_its_deaths
+    description: >-
+      Buzzing Vermin attacks and dies. Ravaging Scorpid's "after a friendly minion attacks"
+      (Beetles +4/+4) resolved when the attack was declared, so the Beetle the Vermin's
+      Deathrattle summons is already 6/6.
+    seed: 1
+    combat:
+      board_a: [Buzzing Vermin, Ravaging Scorpid]
+      board_b: [Wrath Weaver]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0}
+          - {type: death, unit: 0}
+          - {type: unit_summoned, side: a, source: 0, name: Beetle, attack: 6, health: 6}
+
+  # Unit ids: A's De-volition-ist 0, Wrath Weaver 1; B's Tyrael 2. A has more minions and
+  # attacks first, with De-volition-ist (4/8) into the 10/10.
+  - name: an_after_attack_effect_fires_even_if_the_attacker_died
+    description: >-
+      De-volition-ist dies in the exchange (8 Health, takes 10); its after-attack damage still
+      hits the highest-Health enemy, Tyrael (10/6 -> 10/2).
+    seed: 1
+    combat:
+      board_a: [De-volition-ist, Wrath Weaver]
+      board_b: [Tyrael]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 2}
+          - {type: damage_dealt, unit: 2, amount: 4, from: 0}
+          - {type: damage_dealt, unit: 0, amount: 10, from: 2}
+          - {type: damage_dealt, unit: 2, amount: 4, from: 0}
+          - {type: death, unit: 0}
+
+  # Unit ids: A's Wildfire Elemental 0, Wrath Weavers 1, 2; B's Gormling Gourmet 3, Wrath
+  # Weaver 4. A has more minions and attacks first, with Wildfire Elemental (6/3) into the
+  # Taunt Gourmet (4/3).
+  - name: excess_damage_is_dealt_even_if_the_attacker_died
+    description: >-
+      Wildfire Elemental kills Gormling Gourmet and dies to its 4 Attack; the 3 excess damage
+      (6 - 3) still hits Gourmet's only neighbour.
+    seed: 1
+    combat:
+      board_a: [Wildfire Elemental, Wrath Weaver, Wrath Weaver]
+      board_b: [Gormling Gourmet, Wrath Weaver]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 3}
+          - {type: damage_dealt, unit: 0, amount: 4, from: 3}
+          - {type: damage_dealt, unit: 4, amount: 3, from: 0}
+          - {type: death, unit: 0}
+
+  # Unit ids: A's Eternal Tycoon 0, Southsea Buskers 1-4, Harmless Bonehead 5; B's
+  # Boom-in-a-Box 6.
+  - name: avenge_resolves_before_the_dying_minions_deathrattle
+    description: >-
+      Boom-in-a-Box's Start of Combat kills the five minions right of Eternal Tycoon at once.
+      On the fifth death, Harmless Bonehead's, Avenge (5) summons an Eternal Knight before the
+      Bonehead's Deathrattle summons its Skeletons.
+    seed: 1
+    combat:
+      board_a:
+        [Eternal Tycoon, Southsea Busker, Southsea Busker, Southsea Busker, Southsea Busker,
+         Harmless Bonehead]
+      board_b: [Boom-in-a-Box]
+    expect:
+      events:
+        sequence:
+          - {type: death, unit: 5}
+          - {type: unit_summoned, side: a, source: 0, name: Eternal Knight}
+          - {type: unit_summoned, side: a, source: 5, name: Skeleton}
