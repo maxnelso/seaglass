@@ -1,10 +1,13 @@
 //! `Diremuck Forager` (`BG27_556`) — Tier 3 Murloc (`4/5`).
 //! **Start of Combat:** When you have space, summon the highest-Attack (`two highest-Attack` if Golden) Murloc(s) from your hand for this combat only.
 //!
-//! Each summon takes the highest-Attack Murloc in hand not summoned yet this combat, picked at
-//! random among those tied for it (none left: nothing). With room at Start of Combat it goes to
-//! the right of this; otherwise it waits and happens at the right end of the board as soon as a
-//! slot opens later in the combat, one per open slot, even if this has died by then.
+//! A Murloc summoned from hand is locked until the start of the next turn: it can't be summoned
+//! from hand again this combat (by this or `Expert Aviator`, `docs/combat.md` §2); a `Flighty
+//! Scout`'s own Start of Combat copy doesn't lock it. Each summon takes the highest-Attack Murloc
+//! in hand that isn't locked, picked at random among those tied for it (none left: nothing).
+//! With room at Start of Combat it goes to the right of this; otherwise it waits and happens at
+//! the right end of the board as soon as a slot opens later in the combat, one per open slot,
+//! even if this has died by then.
 
 use crate::cards::{BoardCtx, CardTemplate};
 use crate::combat::MAX_BOARD_SIZE;

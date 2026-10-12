@@ -29,3 +29,64 @@ scenarios:
       hand_a: [Tad, Bubble Gunner]
     expect:
       events: {where: {type: unit_summoned, side: a}, 0: {name: Tad}}
+
+  # Unit ids: A's Expert Aviator 0, Diremuck Forager 1; B's Tyrael 2; then Shoalfin Mystic 3,
+  # Tad 4.
+  - name: takes_the_next_highest_murloc_after_diremuck_summoned_one
+    description: >-
+      Diremuck Forager summons Shoalfin Mystic (4 Attack) at Start of Combat, which locks that
+      hand card for this combat, so the Aviator's Rally summons the next-highest Murloc, Tad.
+    seed: 210
+    combat:
+      board_a: [Expert Aviator, Diremuck Forager]
+      board_b: [Tyrael]
+      hand_a: [Shoalfin Mystic, Tad]
+    expect:
+      events:
+        where: {type: unit_summoned, side: a}
+        count: 2
+        0: {name: Shoalfin Mystic, reason: Diremuck Forager}
+        1: {name: Tad, reason: Rally}
+      hand_a: [Shoalfin Mystic, Tad]
+
+  # Unit ids: A's Expert Aviator 0, Diremuck Forager 1; B's Tyrael 2; the Flighty Scouts 3 (its
+  # own copy) and 4 (Diremuck's).
+  - name: flighty_scouts_own_copy_does_not_lock_it_but_diremucks_summon_does
+    description: >-
+      Flighty Scout's own Start of Combat copy doesn't lock the card, so Diremuck Forager
+      summons it too; that does lock it, and with no other Murloc in hand the Aviator's Rally
+      summons nothing.
+    seed: 210
+    combat:
+      board_a: [Expert Aviator, Diremuck Forager]
+      board_b: [Tyrael]
+      hand_a: [Flighty Scout]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: unit_summoned, side: a, unit: 3, name: Flighty Scout, reason: Flighty Scout}
+              - {type: unit_summoned, side: a, unit: 4, name: Flighty Scout, reason: Diremuck Forager}
+              - {type: attack_declared, side: a, attacker: 0}
+          - {where: {type: unit_summoned, side: a}, count: 2}
+
+  # Unit ids: A's Expert Aviator 0, Diremuck Forager 1, Southsea Buskers 2-6; B's Tyrael 7.
+  - name: a_rally_summon_with_no_room_does_not_lock_the_murloc
+    description: >-
+      The board is full: Diremuck Forager's summon waits for a slot, and the Aviator's Rally has
+      no room, so nothing is summoned and Shoalfin Mystic stays unlocked. The Aviator dies
+      attacking Tyrael, and Diremuck Forager's waiting summon takes Shoalfin Mystic.
+    seed: 210
+    combat:
+      board_a:
+        [Expert Aviator, Diremuck Forager, Southsea Busker, Southsea Busker, Southsea Busker,
+         Southsea Busker, Southsea Busker]
+      board_b: [Tyrael]
+      hand_a: [Shoalfin Mystic]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: death, unit: 0}
+              - {type: unit_summoned, side: a, name: Shoalfin Mystic, reason: Diremuck Forager}
+          - {where: {type: unit_summoned, side: a}, count: 1}
