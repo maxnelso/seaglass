@@ -50,7 +50,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 - **Can attack** — A living unit with `attack > 0`. (`attack == 0` $\to$ cannot attack.)
 - **A side can attack** — It has at least one unit that can attack.
 - **Spell power in combat** — A Tavern spell cast in combat (`Runic Arcanist`'s Shiny Rings, `Crimson Vindicator`'s Mighty Dragonbreath) gives its stats plus the player's spell power: the permanent "this game" bonuses (`PlayerAuras::spell_bonus_atk` / `spell_bonus_hp` less the board auras last synced in the Tavern, `board_spell_bonus_applied`) plus the spell auras of the friendly units alive when it is cast (`Humon'gozz`, `Enchanted Sentinel`, Magnetized ones included). An aura minion that has died no longer counts, and a board counts its own aura minions even in a standalone battle.
-- **Summoned from hand** — `Diremuck Forager`, `Expert Aviator` and `Deathly Striker` summon copies of cards in the hand for this combat only. A hand card summoned that way is locked until the start of the next turn: no effect can summon it from hand again this combat. `Flighty Scout`'s own Start of Combat copy doesn't lock it.
+- **Summoned from hand** — `Diremuck Forager`, `Expert Aviator` and `Deathly Striker` summon copies of cards in the hand for this combat only. A hand card summoned that way is locked until the start of the next turn: no effect can summon it from hand again this combat. A summon that finds no room on the board doesn't happen and locks nothing, and `Flighty Scout`'s own Start of Combat copy doesn't lock it.
 
 ---
 
