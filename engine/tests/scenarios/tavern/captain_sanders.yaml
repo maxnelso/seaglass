@@ -6,3 +6,10 @@ scenarios:
       - add_to_hand: Captain Sanders
       - play: Captain Sanders
     expect: {board: ["golden Cord Puller 2/2", Captain Sanders]}
+
+  - name: golden_makes_one_minion_golden_like_the_regular_one
+    tavern: {board: [Cord Puller, Lullabot]}   # 1/1 and 2/2 Mechs
+    steps:
+      - add_to_hand: golden Captain Sanders
+      - play: {hand: golden Captain Sanders, pos: 0}   # targets Cord Puller
+    expect: {board: [golden Captain Sanders, "golden Cord Puller 2/2", "Lullabot 2/2 -golden"]}

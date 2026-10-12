@@ -735,6 +735,15 @@ fn choose_play_position(state: &TavernState, card: &Unit, rng: &mut Rng) -> usiz
                 return pos;
             }
         }
+        minions::elite_navigator::ID => {
+            if let Some(pos) = state
+                .board
+                .iter()
+                .position(|u| u.tribe.matches(Tribe::Pirate) && !u.is_golden && u.tavern_tier <= 4)
+            {
+                return pos;
+            }
+        }
         _ => {}
     }
 

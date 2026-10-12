@@ -69,3 +69,11 @@ scenarios:
       - play: Lovesick Balladist   # Give a Pirate +2 Health (no Gold spent), twice
     expect:
       board: [Brann Bronzebeard, "Southsea Busker 3/5", "Southsea Busker 3/1", Lovesick Balladist]
+
+  - name: a_repeated_golden_captain_sanders_battlecry_does_nothing
+    tavern: {board: [Cord Puller, Lullabot, Brann Bronzebeard]}   # 1/1 and 2/2 Mechs
+    steps:
+      - add_to_hand: golden Captain Sanders
+      - play: {hand: golden Captain Sanders, pos: 0}   # targets Cord Puller; the repeat finds it Golden
+    expect:
+      board: [golden Captain Sanders, "golden Cord Puller 2/2", "Lullabot 2/2 -golden", "Brann Bronzebeard -golden"]

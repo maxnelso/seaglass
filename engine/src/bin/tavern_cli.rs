@@ -733,8 +733,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (drakkari_enchanter::ID, true) => "Your end of turn effects trigger three times.",
         (drustfallen_butcher::ID, false) => "Avenge (4): Get a Butchering.",
         (drustfallen_butcher::ID, true) => "Avenge (4): Get 2 Butcherings.",
-        (elite_navigator::ID, false) => "Battlecry: Make a Tier 4 or lower Pirate Golden.",
-        (elite_navigator::ID, true) => "Battlecry: Make 2 Tier 4 or lower Pirates Golden.",
+        (elite_navigator::ID, _) => "Battlecry: Make a Tier 4 or lower Pirate Golden.",
         (enterprising_escapee::ID, false) => {
             "After you spend 6 Gold, get a Lockbox (or accelerate yours by 1 turn)."
         }
@@ -1107,11 +1106,8 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "End of Turn: Adjacent minions trigger their Battlecries twice."
         }
         // Tier 7 Minions
-        (captain_sanders::ID, false) => {
+        (captain_sanders::ID, _) => {
             "Battlecry: Make a friendly minion from Tier 6 or below Golden."
-        }
-        (captain_sanders::ID, true) => {
-            "Battlecry: Make 2 friendly minions from Tier 6 or below Golden."
         }
         (champion_of_sargeras::ID, false) => {
             "Battlecry & Deathrattle: Give minions in the Tavern +8/+8 this game."

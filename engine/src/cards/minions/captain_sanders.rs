@@ -1,7 +1,8 @@
 //! `Captain Sanders` (`BG25_034`) — Tier 7 Pirate (`9/9`).
 //!
-//! Battlecry: Make a friendly minion from Tier 6 or below Golden
-//! (two friendly minions from Tier 6 or below if Golden).
+//! Battlecry: Make a friendly minion from Tier 6 or below Golden.
+//!
+//! A Golden Captain Sanders does nothing different: it makes one minion Golden too.
 
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
@@ -13,7 +14,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Captain Sanders", 9, 9, 7)
         .with_tribe(Tribe::Pirate)
         .on_battlecry_target(|state, _, board_pos| pick_target(state, board_pos))
-        .on_battlecry(|state, unit, board_pos, _, _| on_battlecry(state, unit, board_pos))
+        .on_battlecry(|state, _, _, _, _| on_battlecry(state))
 }
 
 fn is_eligible(u: &Unit) -> bool {
@@ -35,19 +36,14 @@ fn pick_target(state: &TavernState, board_pos: usize) -> Option<usize> {
     }
 }
 
-/// Make the target Golden (and, if Golden, the next eligible pick). Nothing if the target is
-/// already Golden (a repeated trigger, see `Brann Bronzebeard`).
-pub fn on_battlecry(state: &mut TavernState, unit: &Unit, board_pos: usize) {
+/// Make the target Golden. Nothing if the target is already Golden (a repeated trigger, see
+/// `Brann Bronzebeard`).
+pub fn on_battlecry(state: &mut TavernState) {
     let Some(target) =
         cards::battlecry_target_pos(&state.board).filter(|&t| is_eligible(&state.board[t]))
     else {
         return;
     };
     state.board[target].make_golden();
-    if unit.is_golden {
-        if let Some(second) = pick_target(state, board_pos) {
-            state.board[second].make_golden();
-        }
-    }
     state.sync_all_auras();
 }
