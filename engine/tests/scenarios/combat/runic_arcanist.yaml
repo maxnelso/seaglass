@@ -4,3 +4,24 @@ scenarios:
     seed: 449
     combat: {board_a: [Runic Arcanist], board_b: [Gunpowder Courier]}   # 2/4 -> 4/6 after two +1/+1 Shiny Rings
     expect: {outcome: a_win, survivors_a: ["Runic Arcanist 4/2"]}
+
+  - name: spell_power_counts_permanent_bonuses_and_living_aura_minions_only
+    description: >-
+      A permanent +1 Attack spell bonus, plus Enchanted Sentinel's +1/+1 aura (played, so the
+      Tavern's spell power is +2/+1). B has more minions, so its Golden Boom-in-a-Box goes first
+      at Start of Combat: its two blasts kill the Sentinel. The Golden Arcanist's four Shiny
+      Rings then give +1/+1 plus the permanent +1/+0 only: +2/+1 each (4/2 -> 12/6).
+    seed: 449
+    tavern: {board: ["golden Runic Arcanist 4/8"], hand: [Enchanted Sentinel], auras: {spell_bonus_atk: 1}}
+    steps:
+      - play: 0
+      - expect: {auras: {spell_bonus_atk: 2, spell_bonus_hp: 1}}
+      - fight: {board: ["golden Boom-in-a-Box", Patient Scout, Patient Scout]}
+    expect:
+      combat:
+        events:
+          all_of:
+            - sequence:
+                - {type: death, unit: 1}   # the Sentinel
+                - {type: stat_buff, unit: 0, reason: Shiny Ring}
+            - {where: {type: stat_buff, reason: Shiny Ring}, count: 4, all: {atk_delta: 2, hp_delta: 1}}

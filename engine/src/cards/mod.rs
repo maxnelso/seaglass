@@ -739,6 +739,25 @@ pub fn sync_board_spell_auras(board: &[Unit], auras: &mut PlayerAuras) {
     auras.board_spell_bonus_applied = (total_atk, total_hp);
 }
 
+/// The stats a spell giving `+atk/+hp` gives when cast with `board` as the friendly board (spells
+/// cast in combat, `docs/combat.md` §2): the permanent spell power (`auras.spell_bonus_*` less
+/// the board auras last synced into it) plus the spell auras of the living minions on `board`.
+pub fn spell_stat_buff_on_board(
+    board: &[Unit],
+    auras: &PlayerAuras,
+    atk: i32,
+    hp: i32,
+) -> (i32, i32) {
+    let (synced_atk, synced_hp) = auras.board_spell_bonus_applied;
+    let (board_atk, board_hp) = board
+        .iter()
+        .filter(|u| u.health > 0)
+        .fold((0, 0), |(a, h), u| {
+            (a + u.spell_atk_aura, h + u.spell_hp_aura)
+        });
+    auras.spell_stat_buff(atk + board_atk - synced_atk, hp + board_hp - synced_hp)
+}
+
 /// Construct the Reborn resummon copy of `dying` (base or Golden-base copy with `health = 1`, `reborn = false`,
 /// printed keywords restored, and global auras applied).
 pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {

@@ -10,3 +10,35 @@ scenarios:
       board_b: [Patient Scout]
     expect:
       survivors_a: {any: "Bronze Warden 11/7"}
+
+  - name: a_living_humongozz_on_the_board_adds_its_spell_power
+    description: >-
+      A standalone combat board counts its own aura minions: Humon'gozz makes each Mighty
+      Dragonbreath stack +4/+4 (3/2 + 1/2). The Vindicator (a Divine Shield Dragon) gets it three
+      times, Humon'gozz (Divine Shield) twice.
+    seed: 604
+    combat:
+      board_a: [Crimson Vindicator, Humon'gozz]
+      board_b: [Patient Scout]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - "Crimson Vindicator 20/21 -divine_shield"   # 8/9 + 12/12; the 1/1 popped its shield
+        - "Humon'gozz 13/13"   # 5/5 + 8/8
+
+  - name: a_magnetized_enchanted_sentinel_adds_its_spell_power
+    description: >-
+      Enchanted Sentinel Magnetized to Annoy-o-Module (5/9) gives +1/+1, so each Mighty
+      Dragonbreath stack is +4/+3: three for the Vindicator, two for Annoy-o-Module (Divine
+      Shield).
+    seed: 604
+    tavern: {board: [Crimson Vindicator, Annoy-o-Module], hand: [Enchanted Sentinel]}
+    steps:
+      - play: {hand: 0, pos: 1}
+      - expect: {board: [Crimson Vindicator, "Annoy-o-Module 5/9"]}
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat:
+        survivors_a:
+          - "Crimson Vindicator 20/18 -divine_shield"   # 8/9 + 12/9
+          - "Annoy-o-Module 13/15"   # 5/9 + 8/6

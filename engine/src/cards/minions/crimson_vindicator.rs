@@ -1,8 +1,11 @@
 //! `Crimson Vindicator` (`BG36_241`) — Tier 6 Dragon (`8/9`, Divine Shield).
 //!
 //! Divine Shield. Rally: Cast `Mighty Dragonbreath` (`twice` if Golden).
+//!
+//! Each cast gets your spell power: the permanent bonuses plus the spell auras of the friendly
+//! minions alive when it is cast (`docs/combat.md` §2).
 
-use crate::cards::CardTemplate;
+use crate::cards::{self, CardTemplate};
 use crate::events::Event;
 use crate::model::{CardId, Keyword, PlayerAuras, Side, Tribe, Unit};
 
@@ -26,8 +29,8 @@ pub fn on_rally(
     events: &mut Vec<Event>,
 ) {
     let repeats = if is_golden { 2 } else { 1 };
-    let (atk, hp) = auras.spell_stat_buff(3, 2);
     for _ in 0..repeats {
+        let (atk, hp) = cards::spell_stat_buff_on_board(board, auras, 3, 2);
         for u in board.iter_mut() {
             if u.health <= 0 {
                 continue;

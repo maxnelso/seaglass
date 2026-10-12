@@ -1,8 +1,11 @@
 //! `Runic Arcanist` (`BG36_245`) — Tier 4 Dragon (`2/4`).
 //!
 //! Start of Combat: Cast Shiny Ring twice (`4` times if Golden).
+//!
+//! Each Shiny Ring gets your spell power: the permanent bonuses plus the spell auras of the
+//! friendly minions alive when it is cast (`docs/combat.md` §2).
 
-use crate::cards::CardTemplate;
+use crate::cards::{self, CardTemplate};
 use crate::events::Event;
 use crate::model::{CardId, PlayerAuras, Side, Tribe, Unit};
 
@@ -24,8 +27,8 @@ pub fn on_start_of_combat(
     events: &mut Vec<Event>,
 ) {
     let casts = if is_golden { 4 } else { 2 };
-    let (atk, hp) = auras.spell_stat_buff(1, 1);
     for _ in 0..casts {
+        let (atk, hp) = cards::spell_stat_buff_on_board(board, auras, 1, 1);
         for u in board.iter_mut() {
             u.add_stats(atk, hp);
             events.push(Event::StatBuff {

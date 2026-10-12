@@ -1,6 +1,8 @@
 //! `Humon'gozz` (`BG32_341`) — Tier 4 Neutral (`5/5`, Divine Shield).
 //!
 //! Divine Shield. Your Tavern spells give an extra `+1/+2` (`+2/+4` if Golden).
+//!
+//! For spells cast in combat, it counts only while it is alive (`docs/combat.md` §2).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Keyword};
