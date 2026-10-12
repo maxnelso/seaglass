@@ -3,9 +3,9 @@
 //! Activate (2): Get 6 (`12` if Golden) Blood Gems. Cast any that don't fit on your left-most minion.
 //!
 //! The Blood Gems that don't fit are cast one at a time, each on the left-most minion at that
-//! moment: each is a spell you cast (`Felboar` counts it, `Geomagus Roogug` triggers on it), but
-//! not one played from your hand, so `Hot-Air Surveyor` doesn't cast it again (`docs/tavern.md`
-//! §7.4).
+//! moment: each is a spell you cast (`Felboar` counts it, `Geomagus Roogug` triggers on it,
+//! `Balinda Stonehearth` casts it twice), but not one played from your hand, so `Hot-Air Surveyor`
+//! doesn't cast it again (`docs/tavern.md` §7.4).
 
 use crate::cards::{spells, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};

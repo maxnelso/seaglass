@@ -2,8 +2,9 @@
 //!
 //! Your spells that target friendly minions cast twice (`three times` if Golden).
 //!
-//! With `Hot-Air Surveyor` the extra casts add up: a Blood Gem from your hand is cast 1 + 1 + 1 = 3
-//! times (`docs/tavern.md` §7.4).
+//! Whoever casts the spell: a spell your minion casts on a friendly minion too (`Victorious
+//! Geomant`'s Blood Gems, a `Magicfin Apprentice`'s spell). With `Hot-Air Surveyor` the extra
+//! casts add up: a Blood Gem from your hand is cast 1 + 1 + 1 = 3 times (`docs/tavern.md` §7.4).
 
 use crate::cards::{CardTemplate, Passive};
 use crate::model::{CardId, Unit};
