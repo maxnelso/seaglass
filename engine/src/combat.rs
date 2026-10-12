@@ -658,6 +658,7 @@ fn perform_one_strike(
     let Some(initial_atk_pos) = atk_side.board.iter().position(|u| u.id == attacker_id) else {
         return;
     };
+    break_stealth_if_all_hidden(&mut def_side.board);
     let Some(initial_def_pos) = choose_target(&def_side.board, rng) else {
         return;
     };
@@ -1146,12 +1147,18 @@ fn resolve_pending_immediate_attacks(
     }
 }
 
-fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
-    if defenders.is_empty() {
-        return None;
+/// If every defender has Stealth, they all lose it, so that they can be attacked
+/// (`docs/combat.md` §5.3.1 step 2).
+fn break_stealth_if_all_hidden(defenders: &mut [Unit]) {
+    if defenders.iter().all(|u| u.stealth) {
+        for u in defenders.iter_mut() {
+            u.stealth = false;
+        }
     }
+}
 
-    // Stealthed minions cannot be targeted unless all defenders are Stealthed.
+fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
+    // Stealthed minions cannot be attacked (an all-Stealth side has already lost it).
     let visible: Vec<usize> = defenders
         .iter()
         .enumerate()
@@ -1159,25 +1166,18 @@ fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
         .map(|(i, _)| i)
         .collect();
 
-    let pool: Vec<usize> = if visible.is_empty() {
-        (0..defenders.len()).collect()
-    } else {
-        visible
-    };
-
-    let taunts: Vec<usize> = pool
+    let taunts: Vec<usize> = visible
         .iter()
         .copied()
         .filter(|&i| defenders[i].taunt)
         .collect();
 
-    let candidates = if !taunts.is_empty() { taunts } else { pool };
+    let candidates = if !taunts.is_empty() { taunts } else { visible };
 
-    if candidates.len() == 1 {
-        Some(candidates[0])
-    } else {
-        let pick = rng.below(candidates.len());
-        Some(candidates[pick])
+    match candidates.len() {
+        0 => None,
+        1 => Some(candidates[0]),
+        n => Some(candidates[rng.below(n)]),
     }
 }
 

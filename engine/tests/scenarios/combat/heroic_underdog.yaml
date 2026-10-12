@@ -9,3 +9,16 @@ scenarios:
       board_a: [Heroic Underdog, Patient Scout]
       board_b: [Captain Sanders]
     expect: {outcome: a_win, survivors_a: {0: "Heroic Underdog 10/1"}}
+
+  # Unit ids: A's Patient Scout 0; B's Heroic Underdog 1.
+  - name: a_side_with_only_stealth_minions_loses_stealth_and_is_attacked
+    description: >-
+      A wins the first-attacker coin flip at this seed. Every minion on B's side has Stealth, so
+      they lose it and are attacked normally: the 1/1 hits the Underdog (1/10 -> 1/9) and dies,
+      and the combat ends before the Underdog ever attacks.
+    seed: 2
+    combat: {board_a: [Patient Scout], board_b: [Heroic Underdog]}
+    expect:
+      outcome: b_win
+      events: {where: {type: attack_declared}, count: 1, 0: {side: a, attacker: 0, target: 1}}
+      survivors_b: ["Heroic Underdog 1/9 -stealth"]
