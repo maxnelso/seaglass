@@ -3,8 +3,8 @@
 //! Battlecry: Make a friendly Pirate from Tier 4 or below Golden.
 //!
 //! A targeted Battlecry (`docs/tavern.md` §7.1): the target is chosen with the play position, like
-//! `Captain Sanders`, so a repeat (`Brann Bronzebeard`) finds it Golden and does nothing. For now a
-//! Golden Elite Navigator does the same (one Pirate).
+//! `Captain Sanders`, so a repeat (`Brann Bronzebeard`) finds it Golden and does nothing. A Golden
+//! Elite Navigator does the same (one Pirate).
 
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

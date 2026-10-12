@@ -4,7 +4,8 @@
 //!
 //! Playing a Mech by Magnetizing it onto another Mech counts (the Satellite then goes to that
 //! Mech). The Satellite is a Magnetization (`Mechagnome Interpreter`, `Polarizing Beatboxer` see
-//! it) but not a play.
+//! it) but not a play. Nor is another card's Magnetization (a `Glambot` Satellite): it neither
+//! triggers nor improves this.
 
 use crate::cards::{self, tokens, CardTemplate, Played};
 use crate::model::{CardId, Tribe};

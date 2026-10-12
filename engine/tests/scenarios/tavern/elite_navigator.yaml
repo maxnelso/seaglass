@@ -27,7 +27,7 @@ scenarios:
       board: [Brann Bronzebeard, Elite Navigator, "golden Southsea Busker 6/2", "Bilgewater Breakout 3/2 -golden"]
 
   - name: golden_makes_one_pirate_golden
-    description: For now a Golden Elite Navigator does the same as the regular one.
+    description: A Golden Elite Navigator does the same as the regular one.
     tavern: {board: [Southsea Busker, Bilgewater Breakout]}
     steps:
       - add_to_hand: golden Elite Navigator

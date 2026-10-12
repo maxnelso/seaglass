@@ -5,3 +5,9 @@ scenarios:
     steps:
       - activate: {pos: Sky-hatch Runaway, target: 1}
     expect: {board: [Sky-hatch Runaway, "Glim Guardian 3/4"]}
+
+  - name: it_can_only_target_another_friendly_minion
+    tavern: {gold: 10, board: [Sky-hatch Runaway, Glim Guardian]}
+    steps:
+      - expect_illegal: {activate: {pos: Sky-hatch Runaway, target: 0}}   # itself
+      - expect_legal: {activate: {pos: Sky-hatch Runaway, target: 1}}   # Glim Guardian

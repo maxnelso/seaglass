@@ -54,3 +54,14 @@ scenarios:
       board:
         - {card: Spark Snapper, stacks: 1}   # 1 Satellite, not 2
         - {card: Drone Duplicator, stats: 11/9, magnetizations_count: 3}   # + Lullabot 2/2 twice + Satellite 2/3
+
+  - name: a_glambot_satellite_neither_triggers_nor_improves_it
+    tavern:
+      board: [Glambot, Spark Snapper, Lullabot]   # a 4/4, a 6/8 and a 2/2 Mech
+      hand: [Tavern Dish Banana, Lullabot]
+    steps:
+      - play: {hand: Tavern Dish Banana, pos: 2}   # +2/+2 on Lullabot, and Glambot Magnetizes a 4/4 Satellite to it
+      - expect: {board: [Glambot, {card: Spark Snapper, stacks: 0}, "Lullabot 8/8"]}   # no 2/3 Satellite
+      - play: {hand: Lullabot, pos: 3}   # a Mech played to the end of the board
+    expect:
+      board: [Glambot, {card: Spark Snapper, stacks: 1}, "Lullabot 8/8", "Lullabot 4/5"]   # its first 2/3 Satellite

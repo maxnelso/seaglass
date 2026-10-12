@@ -1,6 +1,9 @@
 //! `Sky-hatch Runaway` (`BG36_243`) — Tier 4 Dragon (`4/7`).
 //!
 //! Activate (1): Trigger a friendly minion's Rally (`twice` if Golden).
+//!
+//! The target is another minion of your warband with a Rally: never this, never a minion in the
+//! Tavern.
 
 use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
