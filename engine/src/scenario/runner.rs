@@ -175,6 +175,10 @@ fn tavern_action(
             hand_index: position(&state.hand, hand, "hand", captures)?,
             board_pos: pos.unwrap_or(state.board.len()),
         },
+        Action::PlayOnShop { hand, shop } => TavernAction::PlayOnShop {
+            hand_index: position(&state.hand, hand, "hand", captures)?,
+            shop_index: position(&state.shop, shop, "shop", captures)?,
+        },
         Action::Reposition { from, to } => TavernAction::Reposition {
             from_pos: position(&state.board, from, "board", captures)?,
             to_pos: *to,

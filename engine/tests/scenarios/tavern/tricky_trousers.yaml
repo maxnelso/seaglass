@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Tricky Trousers
       - play: {hand: Tricky Trousers, pos: 0}
     expect: {board: ["Iron Groundskeeper 3/4 taunt"]}
+
+  - name: gives_a_minion_in_the_tavern_1_2_and_toggles_its_taunt
+    tavern: {shop: [Lullabot], hand: [Tricky Trousers]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: Tricky Trousers, shop: 0}
+    expect: {shop: ["Lullabot 3/4 taunt"]}

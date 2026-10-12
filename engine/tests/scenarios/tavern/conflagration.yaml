@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Conflagration
       - play: {hand: Conflagration, pos: 0}
     expect: {board: ["Iron Groundskeeper 6/6"]}
+
+  - name: gives_a_minion_in_the_tavern_4_4
+    tavern: {shop: [Lullabot], hand: [Conflagration]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: Conflagration, shop: 0}
+    expect: {shop: ["Lullabot 6/6"]}

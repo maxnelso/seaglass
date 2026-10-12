@@ -5,3 +5,11 @@ scenarios:
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}
     expect: {board: ["Glambot 10/10"]}   # +2/+2 and the 4/4 Satellite
+
+  - name: a_spell_on_a_mech_in_the_tavern_doesnt_trigger_it
+    tavern: {board: [Glambot], shop: [Lullabot], hand: [Tavern Dish Banana, Tavern Dish Banana]}   # Lullabot: a 2/2 Mech
+    steps:
+      - play: {hand: Tavern Dish Banana, shop: 0}   # +2/+2, no Satellite
+      - expect: {board: ["Glambot 4/4"], shop: ["Lullabot 4/4"]}
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on Glambot: +2/+2 and a 4/4 Satellite
+    expect: {board: ["Glambot 10/10"], shop: ["Lullabot 4/4"]}

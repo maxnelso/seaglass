@@ -1553,6 +1553,7 @@ fn print_help() {
   b <shop_idx>            Buy shop[shop_idx] for 3 Gold
   p <hand_idx> [pos]      Play hand[hand_idx] to board[pos] (default: rightmost slot, or 0 for spells)
                           (Tip: playing a Magnetic Mech at pos < board.len() where board[pos] is a Mech fuses it!)
+  ps <hand_idx> <shop_idx> Cast the spell hand[hand_idx] on the minion shop[shop_idx] ("a minion" spells)
   s <board_pos>           Sell board[board_pos] for +1 Gold
   m <from> <to>           Reposition board[from] to board[to]
   a <board_pos> [target]  Activate ability on board[board_pos] (with optional target board slot)
@@ -1762,6 +1763,21 @@ fn parse_action_cmd(
             Ok(TavernAction::Play {
                 hand_index,
                 board_pos,
+            })
+        }
+        "ps" | "playshop" => {
+            if args.len() < 2 {
+                return Err("Usage: ps <hand_idx> <shop_idx>".to_string());
+            }
+            let hand_index = args[0]
+                .parse::<usize>()
+                .map_err(|_| "Invalid hand_idx".to_string())?;
+            let shop_index = args[1]
+                .parse::<usize>()
+                .map_err(|_| "Invalid shop_idx".to_string())?;
+            Ok(TavernAction::PlayOnShop {
+                hand_index,
+                shop_index,
             })
         }
         "s" | "sell" => args

@@ -20,7 +20,7 @@
 use crate::cards::{ActivateTargetKind, BoardCtx, CombatSides, RallyCtx};
 use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Static yes/no properties of a card that the engine implements generically.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
@@ -139,6 +139,10 @@ pub enum SpellTarget {
     Friendly,
     /// A friendly minion of the given type.
     FriendlyTribe(Tribe),
+    /// A friendly minion with a minion type (the spell uses its target's type).
+    FriendlyTyped,
+    /// Any minion ("a minion"): a friendly one or one in the Tavern (cast with `cast_at`).
+    Minion,
 }
 
 // --- Hook signatures --------------------------------------------------------------------
@@ -177,6 +181,8 @@ pub type DamageDealtObserverFn = fn(&mut BoardCtx<'_>, usize, UnitId, Tribe);
 pub type SummonFn = fn(&mut Unit, &mut Unit, bool);
 /// Spell cast: `(state, spell, target_pos, pool, rng)`.
 pub type CastFn = fn(&mut TavernState, &Unit, usize, &mut CardPool, &mut Rng);
+/// Spell cast on a friendly minion or one in the Tavern: `(state, spell, target, pool, rng)`.
+pub type CastAtFn = fn(&mut TavernState, &Unit, MinionSlot, &mut CardPool, &mut Rng);
 /// Player effect in the Tavern: `(state, effect)`.
 pub type EffectFn = fn(&mut TavernState, &mut PlayerEffect);
 /// Player effect after a shop Refresh: `(state, effect, rng)`.
@@ -294,6 +300,9 @@ card_hooks! {
     /// This spell is cast on `target_pos` (0 if untargeted; see `spell_target`), once per cast. A
     /// spell without one adds its stats to the target.
     cast(on_cast): CastFn,
+    /// This spell is cast on `target`, a friendly minion or one in the Tavern, once per cast
+    /// (instead of `cast`; [`SpellTarget::Minion`] spells).
+    cast_at(on_cast_at): CastAtFn,
 
     // ---- Observers: Tavern (fire for each friendly board unit, left to right) ----------
     /// Start of turn (after Gold is refreshed).

@@ -10,3 +10,11 @@ scenarios:
       - play: {hand: Blood Gem, pos: 0}
     expect:
       board: {0: {card: Lullabot, stats: "5/4", blood_gems_played: 1}}
+
+  - name: can_be_played_on_a_minion_in_the_tavern
+    tavern: {board: [Lullabot], shop: [Flittering Bat], hand: [Blood Gem]}   # Flittering Bat: 1/4
+    steps:
+      - play: {hand: Blood Gem, shop: 0}
+    expect:
+      shop: [{card: Flittering Bat, stats: "2/5", blood_gems_played: 1}]
+      board: ["Lullabot 2/2"]

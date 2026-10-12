@@ -9,3 +9,17 @@ scenarios:
     expect:
       board: ["Shamanic Tidecaller 10/12"]   # 5/7 + 2/2 (Banana) + 3/3
       hand: ["Flighty Scout 6/6"]
+
+  - name: a_spell_on_a_murloc_in_the_tavern_doesnt_trigger_it
+    tavern:
+      board: [Shamanic Tidecaller]   # a 5/7 Murloc
+      shop: [Bubble Gunner]   # a 2/3 Murloc
+      hand: [Tavern Dish Banana, Tavern Dish Banana, Flighty Scout]
+    steps:
+      - play: {hand: Tavern Dish Banana, shop: 0}   # only the Banana's +2/+2
+      - expect: {board: ["Shamanic Tidecaller 5/7"], shop: ["Bubble Gunner 4/5"], hand: {-1: "Flighty Scout 3/3"}}
+      - play: {hand: Tavern Dish Banana, pos: 0}   # on the Tidecaller: +2/+2, and +3/+3 to your Murlocs
+    expect:
+      board: ["Shamanic Tidecaller 10/12"]
+      shop: ["Bubble Gunner 4/5"]   # not one of your Murlocs
+      hand: ["Flighty Scout 6/6"]

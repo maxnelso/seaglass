@@ -2,33 +2,44 @@
 //!
 //! Play 3 Blood Gems on a minion and steal all Blood Gems from its neighbors.
 
-use super::targeted;
+use super::targeted_minion;
 use crate::cards::{CardFlags, CardHooks};
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast).with_flags(CardFlags::NOT_IN_POOL)
+    targeted_minion(cast).with_flags(CardFlags::NOT_IN_POOL)
 }
 
-/// `Gem Confiscation`: play 3 Blood Gems on a minion and steal its neighbors' Blood Gems.
-pub fn cast(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, rng: &mut Rng) {
-    if board_pos < state.board.len() {
-        state.board[board_pos].play_blood_gems(3, &state.auras);
+/// `Gem Confiscation`: play 3 Blood Gems on a minion and steal its neighbors' Blood Gems (its
+/// neighbors on the board, or in the Tavern for a minion there).
+pub fn cast(
+    state: &mut TavernState,
+    _: &Unit,
+    target: MinionSlot,
+    _: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let (zone, board_pos) = match target {
+        MinionSlot::Board(pos) => (&mut state.board, pos),
+        MinionSlot::Shop(idx) => (&mut state.shop, idx),
+    };
+    if board_pos < zone.len() {
+        zone[board_pos].play_blood_gems(3, &state.auras);
         let mut neighbor_indices = Vec::new();
         if board_pos > 0 {
             neighbor_indices.push(board_pos - 1);
         }
-        if board_pos + 1 < state.board.len() {
+        if board_pos + 1 < zone.len() {
             neighbor_indices.push(board_pos + 1);
         }
         let mut total_stolen_gems = 0u32;
         let mut total_stolen_atk = 0i32;
         let mut total_stolen_hp = 0i32;
         for n_idx in neighbor_indices {
-            let neighbor = &mut state.board[n_idx];
+            let neighbor = &mut zone[n_idx];
             if neighbor.blood_gems_played > 0 {
                 let (s_atk, s_hp) = neighbor.blood_gem_stats_applied;
                 total_stolen_gems += neighbor.blood_gems_played;
@@ -41,7 +52,7 @@ pub fn cast(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPoo
             }
         }
         if total_stolen_gems > 0 {
-            let target = &mut state.board[board_pos];
+            let target = &mut zone[board_pos];
             target.blood_gems_played += total_stolen_gems;
             target.blood_gem_stats_applied.0 += total_stolen_atk;
             target.blood_gem_stats_applied.1 += total_stolen_hp;

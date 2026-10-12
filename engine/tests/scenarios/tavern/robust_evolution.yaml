@@ -26,3 +26,10 @@ scenarios:
       - play: {hand: Tavern Dish Banana, pos: 0}
       - play: {hand: Robust Evolution, pos: 0}
     expect: {board: [{all_of: ["8/10 t6", {not: Eredar Escapist}]}]}
+
+  - name: transforms_a_minion_in_the_tavern
+    seed: 823
+    tavern: {shop: [Glim Guardian, Lullabot], hand: [Robust Evolution]}   # Glim Guardian: a 1/4 Tier 1
+    steps:
+      - play: {hand: Robust Evolution, shop: Glim Guardian}
+    expect: {shop: ["1/4 t2", "Lullabot 2/2"]}

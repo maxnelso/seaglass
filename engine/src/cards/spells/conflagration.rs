@@ -2,22 +2,22 @@
 //!
 //! Give a minion +4/+4, improved by each Elemental played this turn.
 
-use super::targeted;
+use super::targeted_minion;
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_minion(cast)
 }
 
 /// `Conflagration`: give a minion +4/+4, plus +1/+1 per Elemental played this turn.
-pub fn cast(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, _: &mut Rng) {
-    if board_pos < state.board.len() {
-        let base = 4 + state.elementals_played_this_turn as i32;
-        let (atk, hp) = state.auras.spell_stat_buff(base, base);
-        state.board[board_pos].add_stats(atk, hp);
+pub fn cast(state: &mut TavernState, _: &Unit, target: MinionSlot, _: &mut CardPool, _: &mut Rng) {
+    let base = 4 + state.elementals_played_this_turn as i32;
+    let (atk, hp) = state.auras.spell_stat_buff(base, base);
+    if let Some(target) = state.minion_mut(target) {
+        target.add_stats(atk, hp);
     }
 }

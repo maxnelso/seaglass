@@ -15,3 +15,9 @@ scenarios:
       - add_to_hand: Perfect Vision
       - play: {hand: Perfect Vision, pos: 0}
     expect: {board: ["Patient Scout 21/22", "Humon'gozz 5/5"]}
+
+  - name: sets_the_stats_of_a_minion_in_the_tavern_to_20_20
+    tavern: {shop: [Lullabot], hand: [Perfect Vision]}
+    steps:
+      - play: {hand: Perfect Vision, shop: 0}
+    expect: {shop: ["Lullabot 20/20"]}

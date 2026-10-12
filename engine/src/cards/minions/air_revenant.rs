@@ -27,7 +27,6 @@ pub fn on_gold_spent(
     let casts = revenant.counter / 7 * revenant.golden_mult();
     revenant.counter %= 7;
     for _ in 0..casts {
-        state.auras.spells_played += 1;
         let spell = spells::spell_by_name("Easterly Winds")
             .expect("Easterly Winds must exist in spell catalog");
         spells::cast_spell(state, spell, 0, pool, rng);

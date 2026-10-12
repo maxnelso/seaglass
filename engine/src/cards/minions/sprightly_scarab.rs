@@ -6,7 +6,7 @@ use crate::cards::tokens::{make_choice_option, CHOICE_SCARAB_REBORN, CHOICE_SCAR
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 332;
 pub const NAME: &str = "Sprightly Scarab";
@@ -47,7 +47,7 @@ pub fn on_battlecry(
     } else {
         return;
     };
-    state.pending_choice_target = Some(target_after_insert);
+    state.pending_choice_target = Some(MinionSlot::Board(target_after_insert));
     let g = unit.is_golden;
     let opt0 = make_choice_option(CHOICE_SCARAB_REBORN, "Sprightly Sprucing", g);
     let opt1 = make_choice_option(CHOICE_SCARAB_WINDFURY, "Sprightly Support", g);

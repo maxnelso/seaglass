@@ -107,6 +107,7 @@ A step is a name (`refresh`) or a single-key mapping (`buy: 0`).
 | `buy: <shop index>` | `TavernAction::Buy`. |
 | `sell: <board index>` | `TavernAction::Sell`. |
 | `play: <hand index>` or `play: {hand: <index>, pos: <p>}` | `TavernAction::Play` (`pos` defaults to the end of the board). |
+| `play: {hand: <index>, shop: <index>}` | `TavernAction::PlayOnShop`: cast the spell on a minion in the shop. |
 | `reposition: {from: <board index>, to: <p>}` | `TavernAction::Reposition`. |
 | `activate: <board index>` or `activate: {pos: <index>, target: <p>}` | `TavernAction::Activate`. |
 | `refresh`, `upgrade_tavern`, `toggle_freeze`, `end_turn` | The `TavernAction`s. |

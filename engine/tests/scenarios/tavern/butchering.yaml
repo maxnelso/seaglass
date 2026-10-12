@@ -24,3 +24,8 @@ scenarios:
     expect:
       auras: {undead_bonus_attack: 9, undead_bonus_health: 2}
       hand: ["Harmless Bonehead 10/3"]
+
+  - name: cant_target_an_undead_in_the_tavern
+    tavern: {board: [Harmless Bonehead], shop: [Risen Rider], hand: [Butchering]}   # "a friendly Undead"
+    steps:
+      - expect_illegal: {play: {hand: Butchering, shop: 0}}

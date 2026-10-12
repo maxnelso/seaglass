@@ -3,26 +3,26 @@
 //! Give a minion +1/+1, plus +1/+1 per bonus keyword among your minions. Spell power adds to each
 //! +1/+1, so it is multiplied by `1 +` the keyword count too.
 
-use super::targeted;
+use super::targeted_minion;
 use crate::cards::CardHooks;
 use crate::model::{Unit, BONUS_KEYWORDS};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_minion(cast)
 }
 
 /// `Seafood Stew`: give a minion +1/+1, plus +1/+1 per bonus keyword among your minions.
-pub fn cast(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, _: &mut Rng) {
-    if board_pos < state.board.len() {
-        let kw_count = BONUS_KEYWORDS
-            .iter()
-            .filter(|&&kw| state.board.iter().any(|u| u.has_keyword(kw)))
-            .count();
-        let repeats = (1 + kw_count) as i32;
-        let (atk, hp) = state.auras.spell_stat_buff(1, 1);
-        state.board[board_pos].add_stats(atk * repeats, hp * repeats);
+pub fn cast(state: &mut TavernState, _: &Unit, target: MinionSlot, _: &mut CardPool, _: &mut Rng) {
+    let kw_count = BONUS_KEYWORDS
+        .iter()
+        .filter(|&&kw| state.board.iter().any(|u| u.has_keyword(kw)))
+        .count();
+    let repeats = (1 + kw_count) as i32;
+    let (atk, hp) = state.auras.spell_stat_buff(1, 1);
+    if let Some(target) = state.minion_mut(target) {
+        target.add_stats(atk * repeats, hp * repeats);
     }
 }

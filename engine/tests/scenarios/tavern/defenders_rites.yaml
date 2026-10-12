@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Defender's Rites
       - play: {hand: Defender's Rites, pos: 0}
     expect: {board: ["Iron Groundskeeper 9/9 taunt"]}
+
+  - name: gives_a_minion_in_the_tavern_7_7_and_taunt
+    tavern: {shop: [Lullabot], hand: ["Defender's Rites"]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: "Defender's Rites", shop: 0}
+    expect: {shop: ["Lullabot 9/9 taunt"]}

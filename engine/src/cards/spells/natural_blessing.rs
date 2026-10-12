@@ -2,7 +2,7 @@
 //!
 //! Give minions of a friendly minion's type +2/+1, on your board and in the Tavern.
 
-use super::targeted;
+use super::targeted_typed;
 use crate::cards::CardHooks;
 use crate::model::{Tribe, Unit};
 use crate::rng::Rng;
@@ -10,7 +10,7 @@ use crate::tavern::{CardPool, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_typed(cast)
 }
 
 /// `Natural Blessing`: give minions of a friendly minion's type +2/+1, on your board and in the

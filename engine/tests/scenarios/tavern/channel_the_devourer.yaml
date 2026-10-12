@@ -21,3 +21,8 @@ scenarios:
     expect:
       gold: 1   # from the sale
       board: ["Humon'gozz 11/13"]   # 5/5 + exactly the Escapist's 6/8
+
+  - name: cant_sell_a_minion_in_the_tavern
+    tavern: {board: [Lullabot, Iron Groundskeeper], shop: [Glim Guardian], hand: [Channel the Devourer]}
+    steps:
+      - expect_illegal: {play: {hand: Channel the Devourer, shop: 0}}   # only your minions can be sold

@@ -6,3 +6,8 @@ scenarios:
       - add_to_hand: Eyes of the Earth Mother
       - play: {hand: Eyes of the Earth Mother, pos: 0}
     expect: {board: ["golden Conveyor Construct 10/4"]}
+
+  - name: cant_target_a_minion_in_the_tavern
+    tavern: {board: [Lullabot], shop: [Conveyor Construct], hand: [Eyes of the Earth Mother]}   # "a friendly minion"
+    steps:
+      - expect_illegal: {play: {hand: Eyes of the Earth Mother, shop: 0}}

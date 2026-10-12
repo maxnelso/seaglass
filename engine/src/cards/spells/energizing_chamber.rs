@@ -24,7 +24,6 @@ pub fn cast(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, _: &m
 fn discarded(state: &mut TavernState, _: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(chamber) = spell_by_id(SPELL_ENERGIZING_CHAMBER) {
         for _ in 0..2 {
-            state.auras.spells_played += 1;
             cast_spell(state, chamber.clone(), 0, pool, rng);
         }
     }

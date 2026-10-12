@@ -327,6 +327,16 @@ impl PyTavernAction {
     }
 
     #[staticmethod]
+    fn play_on_shop(hand_index: usize, shop_index: usize) -> Self {
+        Self {
+            inner: TavernAction::PlayOnShop {
+                hand_index,
+                shop_index,
+            },
+        }
+    }
+
+    #[staticmethod]
     fn sell(board_pos: usize) -> Self {
         Self {
             inner: TavernAction::Sell { board_pos },
@@ -391,6 +401,7 @@ impl PyTavernAction {
         match self.inner {
             TavernAction::Buy { .. } => "buy",
             TavernAction::Play { .. } => "play",
+            TavernAction::PlayOnShop { .. } => "play_on_shop",
             TavernAction::Sell { .. } => "sell",
             TavernAction::Reposition { .. } => "reposition",
             TavernAction::Activate { .. } => "activate",
@@ -410,6 +421,10 @@ impl PyTavernAction {
                 hand_index,
                 board_pos,
             } => (Some(hand_index), Some(board_pos)),
+            TavernAction::PlayOnShop {
+                hand_index,
+                shop_index,
+            } => (Some(hand_index), Some(shop_index)),
             TavernAction::Sell { board_pos } => (Some(board_pos), None),
             TavernAction::Reposition { from_pos, to_pos } => (Some(from_pos), Some(to_pos)),
             TavernAction::Activate {
