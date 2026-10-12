@@ -25,3 +25,17 @@ scenarios:
         - Southsea Busker
         - "Beetle 6/6 taunt"   # 2/2 + 4/4
         - "Beetle 6/6 taunt"
+
+  # Unit ids: A's Buzzing Vermin 0, Ravaging Scorpid 1; B's Kalecgos 2; the Vermin's Beetle 3.
+  # A has more minions and attacks first, with the Vermin.
+  - name: an_attacking_beetle_hits_with_the_bonus_from_its_own_attack
+    description: >-
+      The Vermin attacks (future Beetles +4/+4) and dies; its Beetle is summoned 6/6 in its slot
+      and attacks next for A. The Scorpid's trigger for that attack resolves before the damage,
+      so the Beetle hits for 10 (2/2 + 4/4 + 4/4), not 6.
+    seeds: "1..=4"   # Kalecgos (4/12) attacks the Beetle or the Scorpid; either way the Beetle lives
+    combat:
+      board_a: [Buzzing Vermin, Ravaging Scorpid]
+      board_b: ["Kalecgos, Arcane Aspect"]
+    expect:
+      events: {any: {type: damage_dealt, from: 3, amount: 10}}
