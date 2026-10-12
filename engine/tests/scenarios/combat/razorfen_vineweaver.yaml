@@ -8,3 +8,14 @@ scenarios:
     expect:
       combat: {outcome: a_win}
       board: [{card: Razorfen Vineweaver, stats: "8/8", blood_gems_played: 4}]   # kept +4/+4
+
+  - name: its_rally_in_the_tavern_isnt_kept_a_second_time_after_combat
+    description: >-
+      Sky-hatch Runaway triggers its Rally in the Tavern: its 4 Blood Gems are permanent there, so
+      the next combat doesn't add them again.
+    tavern: {gold: 1, board: [Sky-hatch Runaway, Razorfen Vineweaver]}   # Vineweaver: 4/4
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+      - expect: {board: {1: {card: Razorfen Vineweaver, stats: 8/8, blood_gems_played: 4}}}
+      - fight: {board: []}   # an empty board: no attack, no Rally
+    expect: {board: {1: {card: Razorfen Vineweaver, stats: 8/8, blood_gems_played: 4}}}

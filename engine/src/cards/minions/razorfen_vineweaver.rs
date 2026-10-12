@@ -1,6 +1,9 @@
 //! `Razorfen Vineweaver` (`BG33_883`) — Tier 5 Quilboar (`4/4`).
 //!
 //! Rally: This plays 4 (`8` if Golden) permanent Blood Gems on itself.
+//!
+//! Triggered in the Tavern (`Sky-hatch Runaway`), the Blood Gems are permanent anyway: they aren't
+//! kept a second time after the next combat.
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, PlayerAuras, Tribe, Unit};
@@ -11,7 +14,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Razorfen Vineweaver", 4, 4, 5)
         .with_tribe(Tribe::Quilboar)
         .on_rally(|c| {
-            on_rally(&mut c.board[c.attacker_pos], c.auras, true);
+            on_rally(&mut c.board[c.attacker_pos], c.auras, c.in_combat);
             Vec::new()
         })
 }
