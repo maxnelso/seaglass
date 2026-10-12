@@ -885,8 +885,9 @@ pub fn trigger_board_battlecry(
 
 /// Marks the target of the Battlecry being resolved (see [`CardHooks::battlecry_target`]): the
 /// target's `id` (otherwise unused in the Tavern) while the Battlecry's triggers resolve, so that
-/// it is found again however the board changes.
-const BATTLECRY_TARGET_ID: UnitId = UnitId::MAX;
+/// it is found again however the board changes. Distinct from the spell-cast target marker
+/// (`UnitId::MAX`), since a Battlecry may cast a targeted spell.
+const BATTLECRY_TARGET_ID: UnitId = UnitId::MAX - 1;
 
 /// Board index of the target of the Battlecry being resolved (see
 /// [`CardHooks::battlecry_target`]), if it is still on the board.
