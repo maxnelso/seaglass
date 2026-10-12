@@ -1,6 +1,8 @@
 //! `Primalfin Lookout` (`BGS_020`) — Tier 5 Murloc (`3/2`).
 //!
 //! Battlecry: If you control another Murloc, Discover a (`2` if Golden) Murloc(s).
+//!
+//! It never Discovers a `Primalfin Lookout` (Golden or not).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
@@ -22,7 +24,7 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
     let count = if unit.is_golden { 2 } else { 1 };
     for _ in 0..count {
         let mut opts =
-            pool.draw_discover_by_tribe(Tribe::Murloc, state.tavern_tier, 3, rng);
+            pool.draw_discover_by_tribe_except(Tribe::Murloc, Some(ID), state.tavern_tier, 3, rng);
         for opt in &mut opts {
             state.apply_global_unit_auras(opt);
         }

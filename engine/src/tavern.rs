@@ -225,8 +225,21 @@ impl CardPool {
         count: usize,
         rng: &mut Rng,
     ) -> Vec<Unit> {
+        self.draw_discover_by_tribe_except(tribe, None, max_tier, count, rng)
+    }
+
+    /// [`draw_discover_by_tribe`](Self::draw_discover_by_tribe), never offering
+    /// `exclude_card_id` (`Primalfin Lookout` doesn't Discover itself).
+    pub fn draw_discover_by_tribe_except(
+        &mut self,
+        tribe: Tribe,
+        exclude_card_id: Option<CardId>,
+        max_tier: u32,
+        count: usize,
+        rng: &mut Rng,
+    ) -> Vec<Unit> {
         let mut options = Vec::with_capacity(count);
-        let mut chosen_ids = Vec::with_capacity(count);
+        let mut chosen_ids: Vec<CardId> = exclude_card_id.into_iter().collect();
 
         for _ in 0..count {
             let total_copies: u32 = self

@@ -7,3 +7,11 @@ scenarios:
       - add_to_hand: Tavern Tempest
       - play: Tavern Tempest
     expect: {hand: [elemental]}
+
+  - name: never_gets_a_tavern_tempest
+    seeds: "1..41"
+    tavern: {tavern_tier: 4}
+    steps:
+      - add_to_hand: golden Tavern Tempest
+      - play: golden Tavern Tempest   # Battlecry: get 2 random Elementals
+    expect: {hand: {count: 2, all: elemental, none: {card: Tavern Tempest}}}

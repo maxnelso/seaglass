@@ -9,3 +9,19 @@ scenarios:
       - expect: {discover_pending: {not: null}}
       - choose_discover: 0
     expect: {hand: [murloc]}
+
+  - name: never_discovers_a_primalfin_lookout
+    seeds: "1..41"
+    tavern: {tavern_tier: 5, board: [Bubble Gunner], hand: [Primalfin Lookout]}   # Bubble Gunner: a Murloc
+    steps:
+      - play: Primalfin Lookout
+    expect: {discover_pending: {count: 3, none: {card: Primalfin Lookout}}}
+
+  - name: golden_never_discovers_a_primalfin_lookout
+    seeds: "1..41"
+    tavern: {tavern_tier: 5, board: [Bubble Gunner], hand: [golden Primalfin Lookout]}
+    steps:
+      - play: golden Primalfin Lookout   # 2 Discovers, then its Triple Reward
+    expect:
+      discover_pending: {count: 3, none: {card: Primalfin Lookout}}
+      discover_queue: {count: 2, all: {none: {card: Primalfin Lookout}}}
