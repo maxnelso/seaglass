@@ -15,15 +15,17 @@ The combat loop is **card-agnostic**: it knows only about units, keywords, and g
 - **Divine Shield** — Absorbs the first instance of damage $> 0$, then pops.
 - **Windfury** — A unit selected to attack strikes a **second time**, immediately, if it is still alive after the first strike and the enemy board is non-empty. Windfury is read **once**, before the first strike (§5.3), so Windfury granted mid-turn does not add a strike.
 - **Reborn** — On death, resummons a base (or Golden-base) copy of the unit at the dying unit's slot with `health = 1` and `reborn = false` (plus any "wherever this is" / combat summon auras), respecting the 7-unit board cap. Resolved **after** all of that side's Deathrattles from the same deaths, and after the Deity if those deaths awaken it. If the unit has an inherent (printed) Divine Shield (`inherent_divine_shield`), the resummoned copy has its shield restored even if it had already popped; a shield or stat buff that was merely granted to the dying instance is not carried over (§5.3.1 step 9). The copy takes the dying unit's place in its side's attack order (§5.4).
+- **Stealth** — Can't be attacked while it has Stealth; a unit loses Stealth when it attacks. If every unit on the defending side has Stealth when an attack picks its target, they all lose Stealth and are attacked normally (§5.3.1 step 2).
+- **Venomous** — Destroys any unit it damages in an attack, attacking or defending (a hit absorbed by Divine Shield damages nothing). It is used up by an attack that destroys a unit with it, once that attack's damage is dealt: an attack that also damages the units next to its target (`Blade Collector`) destroys every unit it damages (§5.3.1 step 6).
 
 ### Trigger Phases
 
 All trigger effects double in magnitude (or repeat) when the source unit is Golden (`is_golden == true`).
 
 1. **Start of Combat (§5.1.1)** — Resolved once before the first attack turn: the players' own effects first, then the minions' triggers, alternating between the sides and left to right within each side. Used for pre-battle board/tribal buffs (`Electric Synthesizer`), combat-long tribal attack auras (`Humming Bird`), board-wide damage (`Boom-in-a-Box`), immediate attacks (`Heroic Broodmother`), and hand summons (`Flighty Scout`).
-2. **On-Attack / Rally (§5.3.1 step 2)** — Fires when an attacker declares a strike, **before target selection and before any damage**. May buff the attacker (`Glim Guardian`, `Tusked Camper`), summon a unit adjacent to the attacker (`Flittering Bat`, `Expert Aviator` from hand), generate a hand card (`Roadboar`), or trigger friendly "whenever another friendly minion attacks" observers (`Prodigious Tusker`) on the attacking board in left-to-right order.
-3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
-4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** any Reborn from the same deaths. May summon token(s) at the dying unit's slot, which take its place in the attack order (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`). A Deathrattle can also be triggered without a death (`Deathstrider`, §5.3.1 step 2). `Titus Rivendare` adds its extra trigger(s) to every friendly Deathrattle, including those `Deathstrider` triggers. Every trigger, extra ones included, counts as a Deathrattle triggered (`PlayerAuras::deathrattles_triggered`), and the "wherever this is" auras are re-synchronized right after each trigger, so the bonuses that count them (`Falling Sky Golem`) apply at once (a `StatBuff` with reason `Death Aura`), not only once the deaths have resolved.
+2. **On-Attack / Rally (§5.3.1 step 4)** — Fires when an attacker declares a strike, **after its target is chosen and before any damage**, so a Rally can act on "the target" (`Heroic Underdog`, `Sin'dorei Straight Shot`, `Obsidian Ravager`, `Jailbird Juggernaut`). May buff the attacker (`Glim Guardian`, `Tusked Camper`), summon a unit adjacent to the attacker (`Flittering Bat`, `Expert Aviator` from hand), generate a hand card (`Roadboar`), or trigger friendly "whenever another friendly minion attacks" observers (`Prodigious Tusker`) on the attacking board in left-to-right order.
+3. **On-Damage Taken (§5.5)** — Fires whenever a unit loses health (`amount > 0` and not absorbed by Divine Shield), whatever deals the damage (an attack, a Rally such as `Obsidian Ravager`'s, a Start of Combat effect, ...), e.g. `Very Hungry Winterfinner` buffing a random minion in the controlling player's hand.
+4. **Deathrattle (§5.3.1 step 9)** — Fires when a unit dies (`health <= 0`), **before** any Reborn from the same deaths. May summon token(s) at the dying unit's slot, which take its place in the attack order (`Buzzing Vermin`, `Cord Puller`, `Harmless Bonehead`, `Forest Rover`, `Underrot Spawn`), buff friendly unit(s) (`Scarlet Skull`, `Underrot Spawn`), or increment game-long death counters (`Eternal Knight`). A Deathrattle can also be triggered without a death (`Deathstrider`, §5.3.1 step 4). `Titus Rivendare` adds its extra trigger(s) to every friendly Deathrattle, including those `Deathstrider` triggers. Every trigger, extra ones included, counts as a Deathrattle triggered (`PlayerAuras::deathrattles_triggered`), and the "wherever this is" auras are re-synchronized right after each trigger, so the bonuses that count them (`Falling Sky Golem`) apply at once (a `StatBuff` with reason `Death Aura`), not only once the deaths have resolved.
 5. **Stat-Threshold Observers** — Checked immediately whenever a unit's stats increase during combat (e.g., `Scarlet Survivor` gaining Divine Shield at 6 Attack).
 6. **Combat-to-Tavern Persistence** — `Tarecgosa` permanently retains Bonus Keywords and (`double` if Golden) stats gained during combat; hand buffs (`Very Hungry Winterfinner`), generated hand cards (`Roadboar`), and game-long counters such as `Eternal Knight` deaths (card-keyed `PlayerAuras::card_counters`) persist back to `TavernState`.
 
@@ -47,6 +49,8 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 - **Death** — A unit dies the moment its current health is $\le 0$.
 - **Can attack** — A living unit with `attack > 0`. (`attack == 0` $\to$ cannot attack.)
 - **A side can attack** — It has at least one unit that can attack.
+- **Spell power in combat** — A Tavern spell cast in combat (`Runic Arcanist`'s Shiny Rings, `Crimson Vindicator`'s Mighty Dragonbreath) gives its stats plus the player's spell power: the permanent "this game" bonuses (`PlayerAuras::spell_bonus_atk` / `spell_bonus_hp` less the board auras last synced in the Tavern, `board_spell_bonus_applied`) plus the spell auras of the friendly units alive when it is cast (`Humon'gozz`, `Enchanted Sentinel`, Magnetized ones included). An aura minion that has died no longer counts, and a board counts its own aura minions even in a standalone battle.
+- **Summoned from hand** — `Diremuck Forager`, `Expert Aviator` and `Deathly Striker` summon copies of cards in the hand for this combat only. A hand card summoned that way is locked until the start of the next turn: no effect can summon it from hand again this combat. `Flighty Scout`'s own Start of Combat copy doesn't lock it.
 
 ---
 
@@ -54,7 +58,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
 
 1. **First attacker** — The side with more minions **after Start of Combat** attacks first; on an equal count it is a coin flip (RNG).
 2. **Attack order** — Sides strictly alternate turns. Each side attacks with its minions left $\to$ right via a persistent pointer that wraps to the leftmost after the rightmost. Minions summoned into a dead minion's slot (its Deathrattle summons, its Reborn copy) take its place in that order (§5.4). Units that cannot attack (`attack == 0`) are skipped.
-3. **Target** — A uniformly random living enemy minion, unless the enemy controls living Taunt minions, in which case a uniformly random living **Taunt** minion.
+3. **Target** — A uniformly random living enemy minion without Stealth (if they all have Stealth, they lose it first), unless the enemy controls such Taunt minions, in which case a uniformly random one of those **Taunt** minions.
 4. **Damage** — Attacker and target deal their attack to each other **simultaneously**. Divine Shield absorbs the first instance of damage $> 0$ and pops instead of losing health. Any unit at $\le 0$ health dies.
 5. **End** — Combat ends when at least one side has no minions. Both empty at once $\to$ draw; otherwise the non-empty side wins. Combat also ends in a draw if neither side can attack (§5.2).
 6. **Hero damage** — The winner deals `hero_tier + sum(surviving minions' tavern_tier)` to the losing hero. Draw $\to 0$.
@@ -133,23 +137,27 @@ One *turn* is one or two *strikes* by a single attacker:
 #### 5.3.1 One Strike
 
 1. **Locate the attacker** by identity. If it is no longer on its board the strike is a silent no-op (reachable only on a Windfury second strike).
-2. **Fire On-Attack (Rally) triggers** (§1), *before targeting and before any damage*:
-   - Resolve the attacker's own Rally effect (stat buffs, adjacent summons respecting the 7-unit cap, etc.).
-   - If the attacker triggered a Rally, resolve any friendly "after a friendly Rally minion attacks" observers (`Deathstrider`) on the attacking board in left-to-right order.
-   - Then resolve the friendly "whenever / after a friendly minion attacks" observers (`Ravaging Scorpid`, `Cage Gnawer`, `Prodigious Tusker`), left to right. These also resolve before the damage exchange, so an attacker they buff hits with the buff.
-3. **Re-locate the attacker** (an on-attack summon may have shifted board indices) and capture `attacker_attack`, its Attack **after** on-attack triggers.
-4. **Choose the target** on the defending side:
-   - `taunts = living defenders with the taunt keyword`
-   - `candidates = taunts if taunts is non-empty else all living defenders`
+2. **Choose the target** on the defending side, before any on-attack effect (a Rally can act on "the target"):
+   - If every defender has Stealth, they all lose it (§1).
+   - `visible = living defenders without Stealth`
+   - `taunts = visible defenders with the taunt keyword`
+   - `candidates = taunts if taunts is non-empty else visible`
    - If `candidates` is empty: the strike is a silent no-op (no event).
    - If `len(candidates) == 1`: target it (**no RNG draw**).
    - Else: draw per §4.2 over `candidates` ordered left $\to$ right.
-   - Capture `target_attack` here, **before** any damage, so the exchange is simultaneous.
-5. **Emit `AttackDeclared`.**
+3. **Declare the attack**: the attacker loses Stealth, and `AttackDeclared` is emitted.
+4. **Fire On-Attack (Rally) triggers** (§1), *before any damage*:
+   - Resolve the attacker's own Rally effect (stat buffs, adjacent summons respecting the 7-unit cap, effects on the target, etc.).
+   - If the attacker triggered a Rally, resolve any friendly "after a friendly Rally minion attacks" observers (`Deathstrider`) on the attacking board in left-to-right order.
+   - Then resolve the friendly "whenever / after a friendly minion attacks" observers (`Ravaging Scorpid`, `Cage Gnawer`, `Prodigious Tusker`), left to right. These also resolve before the damage exchange, so an attacker they buff hits with the buff.
+   - Then the deaths these effects caused (`Obsidian Ravager`) are emitted and resolved per steps 7 and 9 (the defending side first).
+   - Then a Rally summon that attacks the target first (`Jailbird Juggernaut`'s Golem) strikes it, if both are still alive: it emits its own `AttackDeclared`, triggers the friendly attack observers, and exchanges damage with the target (steps 6, 7 and 9, without the pointer change of step 8).
+5. **Re-locate the attacker and the target** (an on-attack summon may have shifted board indices). If the attacker died, the strike ends; if the target died, the strike ends without any damage (the attacking side's pointer still moves past the attacker, §5.4). Capture `attacker_attack` and `target_attack` here, **after** the on-attack triggers and **before** any damage, so the exchange is simultaneous.
 6. **Deal simultaneous damage**, emitting each result in application order—**target first, then attacker**:
    - `apply_damage(target, attacker_attack)`
    - `apply_damage(attacker, target_attack)`
-   - Each call emits `DamageDealt` if the unit lost health, `DivineShieldPopped` if its Divine Shield absorbed the hit, or **nothing** if the amount was $\le 0$.
+   - If the attacker also damages the units next to its target (`Blade Collector`): `apply_damage(neighbour, attacker_attack)` for the target's left, then right neighbour.
+   - Each call emits `DamageDealt` if the unit lost health, `DivineShieldPopped` if its Divine Shield absorbed the hit, or **nothing** if the amount was $\le 0$. A Venomous attacker destroys every unit these calls damaged (target and neighbours) and its Venomous is used up if it destroyed any; a Venomous target destroys the attacker if it damaged it, and its Venomous is used up likewise.
    - Then the attacker's "after this attacks" effects (excess damage to the target's neighbours, `Wildfire Elemental`; bonus damage to the highest-Health enemy, `De-volition-ist`). They fire even if the attacker died in the exchange.
 7. **Emit a `Death`** for every unit now at $\le 0$ health, ordered **defending side first (left $\to$ right), then attacking side (left $\to$ right)**.
 8. **Set the attacking side's pointer** per §5.4 while the dead are still on the board (the defending side's pointer stays on its unit).
