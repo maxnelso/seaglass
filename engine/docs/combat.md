@@ -140,10 +140,11 @@ One *turn* is one or two *strikes* by a single attacker:
    - Each call emits `DamageDealt` if the unit lost health, `DivineShieldPopped` if its Divine Shield absorbed the hit, or **nothing** if the amount was $\le 0$.
 7. **Emit a `Death`** for every unit now at $\le 0$ health, ordered **defending side first (left $\to$ right), then attacking side (left $\to$ right)**.
 8. **Re-anchor both pointers** per §5.4 while the dead are still on their boards.
-9. **Resolve deaths**, **defending side first, then attacking side**. For one side, in three passes (summons respect the 7-unit board cap):
+9. **Resolve deaths**, **defending side first, then attacking side**. For one side, in four passes (summons respect the 7-unit board cap):
    1. **Deaths**: walk the board left $\to$ right and rebuild it. Living units are copied across unchanged; for each dead unit, resolve its friendly-death triggers (Avenge) and its **Deathrattle**, inserting summons at the dead unit's position. A Deathrattle may destroy a unit on either board (`Leeroy the Reckless` destroys its killer, even a friendly one): it is destroyed at once (a `Death` is emitted), and its death resolves in a further round of death resolution for its side once this one is over.
    2. **Deity**: once the side has had 4 friendly Aberration deaths this combat (`DEITY_SACRIFICE_REQUIREMENT`), its Deity awakens: it is summoned at the right end of the board (if there is room; otherwise after a later round of deaths), `DeityAwakened` is emitted, and its awaken effect resolves (`C'Thun`).
    3. **Reborn**, left $\to$ right: each dead unit with Reborn is resummoned at its position (after its Deathrattle summons) as a base (or Golden-base) copy with `health = 1`, `reborn = false`, printed keywords restored, and global/combat summon auras applied.
+   4. **Open slots**: summons that were waiting for room on the board (`Boon of Beetles`, a `Diremuck Forager` that found the board full at Start of Combat) happen at its right end, one per open slot.
 
 ### 5.4 Pointer Advance
 

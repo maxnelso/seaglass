@@ -18,3 +18,104 @@ scenarios:
     expect:
       survivors_a:
         any: "Tad 18/34"
+
+  - name: picks_randomly_among_murlocs_tied_for_highest_attack
+    description: >-
+      Tad and Bubble Gunner both have 2 Attack, so the summon picks one of them at random: this
+      seed picks Tad, the left-most of the two.
+    seed: 2
+    combat:
+      board_a: [Diremuck Forager, Wrath Weaver]
+      board_b: [Patient Scout]
+      hand_a: [Tad, Bubble Gunner]   # 2/2 and 2/3 Murlocs
+    expect:
+      events: {where: {type: unit_summoned, reason: Diremuck Forager}, count: 1, all: {name: Tad}}
+
+  # A full board at Start of Combat: the summon waits for a slot to open.
+  - name: a_full_board_summons_at_the_right_end_once_a_slot_opens
+    description: >-
+      Southsea Busker (3/1) attacks first and trades with Razorfen Geomancer (2/1): its slot opens
+      and Shoalfin Mystic, the highest-Attack Murloc in hand, is summoned at the right end.
+    seed: 313
+    combat:
+      board_a:
+        - Southsea Busker
+        - Diremuck Forager
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+        - Scarlet Survivor
+      board_b: [Razorfen Geomancer]
+      hand_a: [Tad, Shoalfin Mystic]   # 2/2 and 4/4 Murlocs
+    expect:
+      outcome: a_win
+      survivors_a:
+        - Diremuck Forager
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+        - Scarlet Survivor
+        - Shoalfin Mystic
+      hand_a: [Tad, Shoalfin Mystic]   # summoned for this combat only
+
+  - name: a_waiting_summon_happens_even_after_the_forager_died
+    description: >-
+      Diremuck Forager (4/5) attacks first and trades with Azsharan Cutlassier (6/4): the slot it
+      leaves is filled by its waiting summon.
+    seed: 314
+    combat:
+      board_a:
+        - Diremuck Forager
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+        - Scarlet Survivor
+        - Southsea Busker
+      board_b: [Azsharan Cutlassier]
+      hand_a: [Shoalfin Mystic]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+        - Scarlet Survivor
+        - Southsea Busker
+        - Shoalfin Mystic
+
+  - name: golden_summons_one_murloc_each_time_a_slot_opens
+    description: >-
+      A Golden Forager on a full board waits to summon two Murlocs. Southsea Busker attacks first
+      and trades with a Razorfen Geomancer: its slot gets Shoalfin Mystic (the highest Attack).
+      The other Geomancer must attack Rescue Bot (Taunt) and they trade: that slot gets Tad.
+    seed: 315
+    combat:
+      board_a:
+        - Southsea Busker
+        - golden Diremuck Forager 8/10
+        - Rescue Bot
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+      board_b: [Razorfen Geomancer, Razorfen Geomancer]
+      hand_a: [Tad, Shoalfin Mystic]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - golden Diremuck Forager
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+        - Shoalfin Mystic
+        - Tad
+      events:
+        sequence:
+          - {type: unit_summoned, name: Shoalfin Mystic, reason: Diremuck Forager}
+          - {type: death, unit: 2}   # Rescue Bot
+          - {type: unit_summoned, name: Tad, reason: Diremuck Forager}
