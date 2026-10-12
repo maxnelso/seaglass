@@ -1,6 +1,9 @@
 //! `Blood Gem Barrage` — Tier 4 Tavern spell (`1` Gold).
 //!
 //! After each Refresh this game, play 2 Blood Gems on every minion in the Tavern.
+//!
+//! Only its cast counts as a spell cast, not the Blood Gems it plays (`Felboar`; `docs/tavern.md`
+//! §7.4).
 
 use super::spell;
 use crate::cards::CardHooks;

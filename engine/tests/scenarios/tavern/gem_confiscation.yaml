@@ -24,3 +24,21 @@ scenarios:
       # Lullabot: 3 Gems + the 3 stolen ones.
       shop: ["Flittering Bat 1/4", {card: Lullabot, stats: "8/8", blood_gems_played: 6}, "Buzzing Vermin 1/1"]
       board: [{card: Iron Groundskeeper, stats: "3/3", blood_gems_played: 1}]
+
+  # Its Blood Gems add nothing to its own cast, which counts once (docs/tavern.md §7.4).
+  - name: its_blood_gems_add_nothing_to_its_cast
+    description: >-
+      One spell cast on the Lullabot, not 4: Felboar counts 1 (no Tavern minion consumed) and
+      Glambot magnetizes 1 Satellite to the Mech.
+    tavern:
+      board: [Felboar, Glambot, Lullabot]   # Felboar: 2/6; Glambot: 4/4 Mech; Lullabot: 2/2 Mech
+      shop: [Firelands Fugitive]
+      hand: [Gem Confiscation]
+    steps:
+      - play: {hand: Gem Confiscation, pos: 2}   # on the Lullabot
+    expect:
+      shop: [Firelands Fugitive]
+      board:
+        - {card: Felboar, stats: 2/6, counter: 1}
+        - "Glambot 4/4"
+        - {card: Lullabot, stats: 9/9, blood_gems_played: 3}   # 2/2 +3/+3 and one 4/4 Satellite

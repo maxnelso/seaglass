@@ -1,6 +1,9 @@
 //! `Gem Confiscation` (`BG28_698`) — Tier 4 token spell (`1` Gold).
 //!
 //! Play 3 Blood Gems on a minion and steal all Blood Gems from its neighbors.
+//!
+//! Its Blood Gems add nothing to its own cast, which counts once (`Felboar`; `docs/tavern.md`
+//! §7.4).
 
 use super::targeted_minion;
 use crate::cards::{CardFlags, CardHooks};
@@ -27,7 +30,7 @@ pub fn cast(
         MinionSlot::Shop(idx) => (&mut state.shop, idx),
     };
     if board_pos < zone.len() {
-        zone[board_pos].play_blood_gems_by_spell(3, &state.auras);
+        zone[board_pos].play_blood_gems(3, &state.auras);
         let mut neighbor_indices = Vec::new();
         if board_pos > 0 {
             neighbor_indices.push(board_pos - 1);

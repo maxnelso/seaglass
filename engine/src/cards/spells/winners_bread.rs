@@ -1,6 +1,9 @@
 //! `Winner's Bread` — Tier 2 Tavern spell (`2` Gold).
 //!
 //! Give a minion +2/+3; if you win your next combat, it gets a Blood Gem next turn.
+//!
+//! Only its cast counts as a spell cast, not the Blood Gem it plays next turn (`Felboar`;
+//! `docs/tavern.md` §7.4).
 
 use super::targeted_minion;
 use crate::cards::CardHooks;

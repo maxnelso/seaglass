@@ -253,10 +253,6 @@ pub struct PlayerAuras {
     pub refresh_random_buffs: Vec<(i32, i32)>,
     /// Blood Gems played on every minion in the Tavern after each `Refresh` (`Blood Gem Barrage`).
     pub refresh_blood_gems: u32,
-    /// Played Blood Gems still to count as spells cast whose minion isn't there to count them
-    /// (`crate::cards::count_played_blood_gems`): ones played in combat
-    /// (`crate::cards::COMBAT_PLAYED_BLOOD_GEMS_COUNT`), or on a `Demon Fodder` given to a Demon.
-    pub blood_gems_to_count: u32,
     /// Total cards discarded from hand this game (`Parasitic Fleshling`).
     pub cards_discarded: u32,
     /// Total Golden minions played this game (`Maritime Extortionist`).
@@ -646,16 +642,6 @@ impl Unit {
     pub fn play_blood_gems_by_minion(&mut self, count: u32, auras: &PlayerAuras) {
         self.play_blood_gems(count, auras);
         self.blood_gems_to_count += count;
-    }
-
-    /// Play `count` Blood Gem(s) on this unit for a spell (`Gem Confiscation`, `Blood Gem Barrage`,
-    /// `Winner's Bread`): they count as spells cast only if
-    /// [`crate::cards::SPELL_PLAYED_BLOOD_GEMS_COUNT`] (`docs/tavern.md` §7.4).
-    pub fn play_blood_gems_by_spell(&mut self, count: u32, auras: &PlayerAuras) {
-        self.play_blood_gems(count, auras);
-        if crate::cards::SPELL_PLAYED_BLOOD_GEMS_COUNT {
-            self.blood_gems_to_count += count;
-        }
     }
 
     /// Convert this plain minion into a Golden version (`Golden Touch`, `Elite Navigator`).

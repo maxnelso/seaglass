@@ -4,7 +4,8 @@
 //!
 //! Every cast counts, and so does every Blood Gem one of your minions plays in the Tavern
 //! (`Geomagus Roogug`, `Turbo Hogrider`, `Veteran Brigand`, a Tavern Rally of `Bonker`, ...): one
-//! spell per Blood Gem (`docs/tavern.md` §7.4).
+//! spell per Blood Gem (`docs/tavern.md` §7.4). The Blood Gems a spell plays (`Gem Confiscation`,
+//! `Blood Gem Barrage`, `Winner's Bread`) add nothing to its own cast; nothing counts in combat.
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};

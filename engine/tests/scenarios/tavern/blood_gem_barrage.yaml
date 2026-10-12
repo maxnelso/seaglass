@@ -14,3 +14,19 @@ scenarios:
         where: {is_spell: false}
         count: ">= 1"
         all: {blood_gems_played: 2, attack: "@base_attack + 2", health: "@base_health + 2"}
+
+  - name: only_its_cast_counts_not_the_blood_gems_it_plays
+    description: >-
+      Felboar counts the Barrage, but none of the 6 Blood Gems the Refresh plays: it consumes
+      nothing.
+    seed: 831
+    tavern:
+      gold: 1   # the Refresh
+      board: [Felboar]   # 2/6
+      hand: [Blood Gem Barrage]
+    steps:
+      - play: {hand: Blood Gem Barrage, pos: 0}   # untargeted
+      - refresh
+    expect:
+      board: [{card: Felboar, stats: 2/6, counter: 1}]
+      shop: {count: 3, all: {blood_gems_played: 2}}

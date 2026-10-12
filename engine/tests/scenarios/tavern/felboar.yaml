@@ -116,3 +116,20 @@ scenarios:
         - "Lurking Lionfish 9/10"   # 3/4 +1/+1 +5/+5
         - Prodigious Tusker
         - {card: Felboar, stats: 7/13, counter: 0}   # 2/6 +5/+7
+
+  - name: blood_gems_played_in_combat_count_for_nothing
+    description: >-
+      Felboar doesn't trigger in combat: the Blood Gem the Tusker plays on it there isn't counted,
+      then or at the start of the next turn.
+    seed: 815
+    tavern:
+      board: [Prodigious Tusker, {card: Felboar, counter: 2}, Iron Groundskeeper]
+      shop: [Firelands Fugitive]
+    steps:
+      - fight: {board: [Patient Scout, Patient Scout, Patient Scout, Patient Scout]}
+      - expect:
+          combat: {survivors_a: {1: "Felboar 3/5"}}   # +1/+1 when it attacked
+          shop: [Firelands Fugitive]
+          board: {1: {card: Felboar, stats: 2/6, counter: 2}}
+      - start_turn
+    expect: {board: {1: {card: Felboar, counter: 2}}}

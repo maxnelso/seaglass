@@ -244,7 +244,7 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
         state.apply_shop_auras(&mut fodder);
         let gems = state.auras.refresh_blood_gems;
         if gems > 0 {
-            fodder.play_blood_gems_by_spell(gems, &state.auras);
+            fodder.play_blood_gems(gems, &state.auras);
         }
 
         let demon_indices: Vec<usize> = state
@@ -262,7 +262,6 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
                 demon_indices[rng.below(demon_indices.len())]
             };
             state.board[idx].add_stats(fodder.attack, fodder.health);
-            state.auras.blood_gems_to_count += fodder.blood_gems_to_count;
         } else {
             state.shop.push(fodder);
         }

@@ -1210,43 +1210,21 @@ pub fn after_cast_any_spell(state: &mut TavernState, pool: &mut CardPool, rng: &
     );
 }
 
-// Which played Blood Gems count as spells cast (`docs/tavern.md` §7.4), pending answers. The
-// ones your minions play in the Tavern always count.
-
-/// Blood Gems that spells play count too (`Gem Confiscation`, `Blood Gem Barrage`, `Winner's
-/// Bread`: [`Unit::play_blood_gems_by_spell`]).
-pub const SPELL_PLAYED_BLOOD_GEMS_COUNT: bool = false;
-/// Blood Gems your minions play in combat count too, at the end of the next start of turn
-/// ([`PlayerAuras::blood_gems_to_count`]).
-pub const COMBAT_PLAYED_BLOOD_GEMS_COUNT: bool = false;
 /// A played Blood Gem that counts also runs the `after_targeted_spell` observers ("whenever you
-/// cast a spell on": `Glambot`, `Shamanic Tidecaller`, ...) for the minion it was played on.
+/// cast a spell on": `Glambot`, `Shamanic Tidecaller`, ...) for the minion it was played on
+/// (`docs/tavern.md` §7.4), pending answers.
 pub const PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON: bool = false;
 
-/// Count the played Blood Gems that count as spells cast but weren't counted yet
-/// ([`Unit::play_blood_gems_by_minion`]; `docs/tavern.md` §7.4), one at a time, once the effect
-/// that played them resolved: each runs the `after_spell_cast` observers (`Felboar`), after the
-/// `after_targeted_spell` observers for the minion it was played on if
-/// [`PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON`]. Minions on the board go first, left to right, then the
-/// ones in the Tavern, then the ones no longer there ([`PlayerAuras::blood_gems_to_count`]).
+/// Count the Blood Gems your minions played that weren't counted yet
+/// ([`Unit::play_blood_gems_by_minion`]; `docs/tavern.md` §7.4), once the effect that played them
+/// resolved: one at a time, left to right, each runs the `after_spell_cast` observers (`Felboar`),
+/// after the `after_targeted_spell` observers for the minion it was played on if
+/// [`PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON`].
 pub fn count_played_blood_gems(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    loop {
-        let to_count = |u: &Unit| u.blood_gems_to_count > 0;
-        let slot = match state.board.iter().position(to_count) {
-            Some(pos) => Some(MinionSlot::Board(pos)),
-            None => state.shop.iter().position(to_count).map(MinionSlot::Shop),
-        };
-        if let Some(slot) = slot {
-            if let Some(unit) = state.minion_mut(slot) {
-                unit.blood_gems_to_count -= 1;
-            }
-            if PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON {
-                after_cast_targeted_spell(state, slot, pool, rng);
-            }
-        } else if state.auras.blood_gems_to_count > 0 {
-            state.auras.blood_gems_to_count -= 1;
-        } else {
-            return;
+    while let Some(pos) = state.board.iter().position(|u| u.blood_gems_to_count > 0) {
+        state.board[pos].blood_gems_to_count -= 1;
+        if PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON {
+            after_cast_targeted_spell(state, MinionSlot::Board(pos), pool, rng);
         }
         after_cast_any_spell(state, pool, rng);
     }
@@ -1286,10 +1264,9 @@ pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mu
 }
 
 /// After a shop `Refresh` (including the start-of-turn one): resolve the player's Refresh
-/// effects on the new shop, then count the Blood Gems they played ([`count_played_blood_gems`]).
-pub fn after_shop_refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+/// effects on the new shop.
+pub fn after_shop_refresh(state: &mut TavernState, rng: &mut Rng) {
     effects::after_shop_refresh(state, rng);
-    count_played_blood_gems(state, pool, rng);
 }
 
 /// Start-of-turn upkeep of the hand card at `state.hand[hand_idx]`: expiry of a temporary Divine
