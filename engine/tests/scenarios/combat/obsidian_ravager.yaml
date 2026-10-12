@@ -44,3 +44,29 @@ scenarios:
     expect:
       outcome: a_win
       hand_b: ["Tad 6/4"]   # 2/2 + 2 x (+2/+1)
+
+  # Unit ids: A's Obsidian Ravager 0, Patient Scouts 1-3; B's Wandering Willbreaker 4,
+  # Insatiable Ur'zul 5 (4/6 Taunt), Wandering Willbreaker 6. Side A (4 minions) attacks first
+  # and the Ravager must attack the Taunt Ur'zul; its Rally's second hit goes to one of Ur'zul's
+  # two neighbours, picked at random.
+  - name: rally_hits_a_random_neighbour_here_the_right_one
+    seed: 1
+    combat:
+      board_a: [Obsidian Ravager, Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Wandering Willbreaker, Insatiable Ur'zul, Wandering Willbreaker]
+    expect:
+      events:
+        where: {type: damage_dealt, from: 0}
+        0: {unit: 5, amount: 7}
+        1: {unit: 6, amount: 7}
+
+  - name: rally_hits_a_random_neighbour_here_the_left_one
+    seed: 2
+    combat:
+      board_a: [Obsidian Ravager, Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Wandering Willbreaker, Insatiable Ur'zul, Wandering Willbreaker]
+    expect:
+      events:
+        where: {type: damage_dealt, from: 0}
+        0: {unit: 5, amount: 7}
+        1: {unit: 4, amount: 7}

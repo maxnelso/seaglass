@@ -49,3 +49,23 @@ scenarios:
               - {type: divine_shield_popped, unit: 4}
               - {type: death, unit: 3}
           - {none: {type: damage_dealt, unit: 4, amount: 5}}
+
+  # Unit ids: A's Wildfire Elemental 0, Patient Scouts 1, 2; B's Tyrael 3, Wandering
+  # Willbreaker 4.
+  - name: a_venomous_kill_of_a_higher_health_target_deals_no_excess_damage
+    description: >-
+      Side A (3 minions) attacks first and this seed's target is Tyrael (10/10). Its 6 damage and
+      Venomous destroy it, but 6 Attack against 10 Health leaves no excess, so the Willbreaker
+      next to it isn't hit. The Wildfire dies to the 10 Attack and deals no other damage.
+    seed: 2
+    combat:
+      board_a: [Wildfire Elemental venomous, Patient Scout, Patient Scout]
+      board_b: [Tyrael, Wandering Willbreaker]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: attack_declared, side: a, attacker: 0, target: 3}
+              - {type: venomous_triggered, attacker: 0, target: 3}
+              - {type: death, unit: 3}
+          - {where: {type: damage_dealt, from: 0}, count: 1}   # only its 6 to Tyrael

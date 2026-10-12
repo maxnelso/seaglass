@@ -14,3 +14,31 @@ scenarios:
               - {type: attack_declared, side: a, target: 1}
               - {type: damage_dealt, unit: 2, amount: 4, from: 0}
               - {type: death, unit: 1}
+
+  # Unit ids: A's De-volition-ist 0, Patient Scouts 1-3; B's Rescue Bot 4 (2/1 Taunt), Fruit
+  # Vendors 5, 6 (3/6). Side A (4 minions) attacks first and kills the Taunt Rescue Bot; both
+  # Fruit Vendors then have the highest Health (6), and the 4 damage goes to one at random.
+  - name: a_tie_for_the_highest_health_is_broken_at_random
+    description: This seed picks the right Fruit Vendor.
+    seed: 1
+    combat:
+      board_a: [De-volition-ist, Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Rescue Bot, Fruit Vendor, Fruit Vendor]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 4}
+          - {type: damage_dealt, unit: 6, amount: 4, from: 0}
+          - {type: death, unit: 4}
+
+  - name: a_tie_for_the_highest_health_can_also_go_to_the_left_one
+    seed: 2
+    combat:
+      board_a: [De-volition-ist, Patient Scout, Patient Scout, Patient Scout]
+      board_b: [Rescue Bot, Fruit Vendor, Fruit Vendor]
+    expect:
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 4}
+          - {type: damage_dealt, unit: 5, amount: 4, from: 0}
+          - {type: death, unit: 4}

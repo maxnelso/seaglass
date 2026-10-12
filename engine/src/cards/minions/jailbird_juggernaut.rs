@@ -1,6 +1,9 @@
 //! `Jailbird Juggernaut` (`BG36_333`) — Tier 7 Quilboar (`6/15`).
 //!
 //! Rally: Summon a Golem with this minion's stats (double if Golden) to attack the target first.
+//!
+//! The Golem is a combat summon (summon effects such as `Stalwart Kodo`'s apply) before it
+//! attacks. If it kills the target, this minion's attack ends: it doesn't attack another minion.
 
 use crate::cards::{tokens, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};

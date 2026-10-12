@@ -140,3 +140,24 @@ scenarios:
     expect:
       hand: [Shoalfin Mystic]
       auras: {effects: {where: {card: Diremuck Forager}, count: 0}}
+
+  # Unit ids: A's Diremuck Forager 0; B's Patient Scout 1; the Flighty Scouts 2 (its own copy)
+  # and 3 (Diremuck's).
+  - name: also_summons_a_flighty_scout_that_summoned_its_own_copy
+    description: >-
+      Flighty Scout's own Start of Combat copy comes first (at the right end) and doesn't lock
+      the card in hand, so Diremuck Forager then summons it too as the highest-Attack Murloc,
+      to its right: two Scouts.
+    seed: 311
+    combat:
+      board_a: [Diremuck Forager]
+      board_b: [Patient Scout]
+      hand_a: [Flighty Scout]
+    expect:
+      outcome: a_win
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, unit: 2, name: Flighty Scout, reason: Flighty Scout}
+          - {type: unit_summoned, side: a, unit: 3, name: Flighty Scout, reason: Diremuck Forager}
+      survivors_a: [Diremuck Forager, Flighty Scout, Flighty Scout]
+      hand_a: [Flighty Scout]

@@ -28,3 +28,22 @@ scenarios:
         - Prodigious Tusker
         - Ravaging Scorpid
       auras_a: {counters: {Beetle: [8, 8]}}   # +4/+4 for each of the two attacks
+
+  # Unit ids: A's Jailbird Juggernaut 0, Stalwart Kodo 1; B's Tyrael 2; the Golem 3.
+  - name: stalwart_kodo_buffs_the_golem_before_it_attacks
+    description: >-
+      Side A (2 minions) attacks first. The Golem is summoned with the Juggernaut's 6/15 and
+      Stalwart Kodo gives it its maximum stats (16/32) before it attacks: the 22/47 kills Tyrael
+      (10/10) in one hit, so the Juggernaut's own attack ends and it takes no damage.
+    seed: 705
+    combat:
+      board_a: [Jailbird Juggernaut, Stalwart Kodo]
+      board_b: [Tyrael]
+    expect:
+      outcome: a_win
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, unit: 3, name: Blood Golem, attack: 22, health: 47}
+          - {type: attack_declared, side: a, attacker: 3, target: 2}
+          - {type: damage_dealt, unit: 2, amount: 22, from: 3}
+      survivors_a: ["Jailbird Juggernaut 6/15", "Blood Golem 22/37", Stalwart Kodo]

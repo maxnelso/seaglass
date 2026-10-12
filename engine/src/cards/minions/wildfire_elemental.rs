@@ -1,5 +1,9 @@
 //! `Wildfire Elemental` (`BGS_126`) — Tier 3 Elemental (`6/3`).
 //! After this attacks and kills a minion, deal excess damage to an (`both` if Golden) adjacent enemy(ies).
+//!
+//! The excess is this minion's Attack minus the target's Health before the hit: none when the
+//! target survives (or its Divine Shield absorbs the hit), and none when Venomous destroys a
+//! target with more Health than that Attack.
 
 use crate::cards::{CardFlags, CardTemplate};
 use crate::model::{CardId, Tribe};

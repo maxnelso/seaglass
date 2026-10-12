@@ -1,6 +1,8 @@
 //! `De-volition-ist` (`BG36_102`) — Tier 5 Aberration (`4/8`).
 //!
 //! After this attacks, deal damage equal to (`double` if Golden) this minion's Attack to the highest-Health enemy minion.
+//!
+//! A tie for the highest Health is broken at random.
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
