@@ -7,3 +7,30 @@ scenarios:
       board_a: [Risen Rider, Harmless Bonehead, Lichling Hoarder]
       board_b: [Cataclysmic Harbinger]
     expect: {hand_a: {count: ">= 1"}}
+
+  # Boom-in-a-Box's Start of Combat kills Harmless Bonehead, Southsea Busker and Razorfen
+  # Geomancer at once (Lichling Hoarder: 6/9 -> 6/6). The Bonehead's two Skeletons are summoned
+  # before the third death triggers Avenge (3), and the Skeletons later die too (5 deaths in all:
+  # a single Avenge).
+  - name: copies_only_minions_that_started_in_the_warband
+    description: >-
+      The copy is one of the four minions the warband started the combat with (dead or alive,
+      Lichling Hoarder included), never a Skeleton summoned during it.
+    seeds: "1..=40"
+    combat:
+      board_a: [Harmless Bonehead, Southsea Busker, Razorfen Geomancer, Lichling Hoarder]
+      board_b: [Boom-in-a-Box]
+    expect:
+      hand_a:
+        count: 1
+        all: {any_of: [Harmless Bonehead, Southsea Busker, Razorfen Geomancer, Lichling Hoarder]}
+
+  - name: can_copy_a_starting_minion_that_already_died
+    description: >-
+      Same Start of Combat: this seed's copy is Harmless Bonehead, which died before the Avenge
+      triggered (it is neither on the board nor the minion that just died).
+    seed: 6
+    combat:
+      board_a: [Harmless Bonehead, Southsea Busker, Razorfen Geomancer, Lichling Hoarder]
+      board_b: [Boom-in-a-Box]
+    expect: {hand_a: ["Harmless Bonehead 1/1"]}

@@ -1,7 +1,7 @@
 //! Generated tokens, Choose-One option cards, and hand spell cards.
 
 use crate::cards::hooks::CardEventFn;
-use crate::cards::{minions, spells, CardFlags, CardHooks};
+use crate::cards::{minions, spells, BoardCtx, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::TavernState;
@@ -97,6 +97,17 @@ pub fn beetle_bonus(auras: &PlayerAuras) -> (i32, i32) {
 /// Give future Beetles `+atk/+hp` this game.
 pub fn add_beetle_bonus(auras: &mut PlayerAuras, atk: i32, hp: i32) {
     auras.add_counter_pair(TOKEN_BEETLE, (atk, hp));
+}
+
+/// "Your Beetles have `+atk/+hp` this game": the [`beetle_bonus`] for future Beetles, and the
+/// same buff (logged with `reason`) for the Beetles already on `ctx.board`.
+pub fn improve_beetles(ctx: &mut BoardCtx<'_>, atk: i32, hp: i32, reason: &'static str) {
+    add_beetle_bonus(ctx.auras, atk, hp);
+    for idx in 0..ctx.board.len() {
+        if ctx.board[idx].card_id == TOKEN_BEETLE {
+            ctx.buff_unit(idx, atk, hp, reason);
+        }
+    }
 }
 
 /// `Beetle` (`2/2` Beast, or `4/4` if Golden, plus the [`beetle_bonus`]).

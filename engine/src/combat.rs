@@ -31,11 +31,14 @@ pub struct BattleResult {
 /// Per-side combat state tracked during a single battle.
 struct SideCombatState {
     board: Vec<Unit>,
+    /// The starting warband (`docs/combat.md` §2).
+    start_board: Vec<Unit>,
     ptr: Option<UnitId>,
     hero_tier: u32,
     auras: PlayerAuras,
     hand: Vec<Unit>,
     hand_summoned: Vec<bool>,
+    hand_given_by: Vec<Option<UnitId>>,
     combat_beast_bonus_atk: i32,
     aberration_deaths: u32,
     deity_awakened: bool,
@@ -58,14 +61,17 @@ impl SideCombatState {
             cards::sync_unit_auras(h, &auras);
         }
         let hand_summoned = vec![false; hand.len()];
+        let hand_given_by = vec![None; hand.len()];
         let ptr = board.first().map(|u| u.id);
         Self {
+            start_board: board.clone(),
             board,
             ptr,
             hero_tier,
             auras,
             hand,
             hand_summoned,
+            hand_given_by,
             combat_beast_bonus_atk: 0,
             aberration_deaths: 0,
             deity_awakened: false,
@@ -87,15 +93,17 @@ impl SideCombatState {
             side,
             in_combat: true,
             board: &mut self.board,
+            start_board: &self.start_board,
             cursor: 0,
             auras: &mut self.auras,
             hand: &mut self.hand,
             hand_summoned: &mut self.hand_summoned,
+            hand_given_by: &mut self.hand_given_by,
             dead_aberrations: &self.dead_aberrations,
             beast_bonus_atk: &mut self.combat_beast_bonus_atk,
             hero_tier: self.hero_tier,
             pending_attacks: &mut self.pending_immediate_attacks,
-            enemy_destroys: Vec::new(),
+            destroys: Vec::new(),
             next_id,
             rng,
             events,
@@ -648,6 +656,7 @@ fn perform_one_strike(
             cards::sync_unit_auras(&mut card, &atk_side.auras);
             atk_side.hand.push(card);
             atk_side.hand_summoned.push(false);
+            atk_side.hand_given_by.push(None);
             cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
         }
     }
@@ -1210,6 +1219,8 @@ fn resolve_deaths(
     side_state.board.retain(|u| u.health > 0);
     let mut cursor: usize = 0;
     let mut killed_opp = false;
+    // Living friendly units destroyed by a Deathrattle stay in place until a further round.
+    let mut killed_own = false;
     // Dead units with Reborn and their slots (after their Deathrattle summons), resummoned once
     // all of this side's deaths have resolved (docs/combat.md §5.3.1 step 9).
     let mut reborns: Vec<(Unit, usize)> = Vec::new();
@@ -1235,23 +1246,24 @@ fn resolve_deaths(
 
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
         let dr_repeats = 1 + cards::board_passive(&side_state.board, Passive::ExtraDeathrattles);
-        let mut enemy_destroys = Vec::new();
+        let mut destroys = Vec::new();
         for _ in 0..dr_repeats {
             let mut dr_ctx = side_state.ctx(side, next_id, rng, events);
             dr_ctx.cursor = cursor;
             cards::on_deathrattle(&unit, &mut dr_ctx);
             cursor = dr_ctx.cursor;
-            enemy_destroys.append(&mut dr_ctx.enemy_destroys);
+            destroys.append(&mut dr_ctx.destroys);
         }
-        for target_id in enemy_destroys {
-            if let Some(target) = opp_side
-                .board
-                .iter_mut()
-                .find(|u| u.id == target_id && u.health > 0)
-            {
+        for target_id in destroys {
+            let is_target = |u: &&mut Unit| u.id == target_id && u.health > 0;
+            if let Some(target) = opp_side.board.iter_mut().find(is_target) {
                 target.health = 0;
                 events.push(Event::Death { unit: target.id });
                 killed_opp = true;
+            } else if let Some(target) = side_state.board.iter_mut().find(is_target) {
+                target.health = 0;
+                events.push(Event::Death { unit: target.id });
+                killed_own = true;
             }
         }
 
@@ -1288,6 +1300,10 @@ fn resolve_deaths(
         side_state.ptr = Some(side_state.board[0].id);
     }
 
+    if killed_own {
+        side_state.ptr = preserve_defender_ptr(&side_state.board, side_state.ptr);
+        resolve_deaths(side, side_state, opp_side, next_id, rng, events);
+    }
     if killed_opp {
         opp_side.ptr = preserve_defender_ptr(&opp_side.board, opp_side.ptr);
         resolve_deaths(side.other(), opp_side, side_state, next_id, rng, events);

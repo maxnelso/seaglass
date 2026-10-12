@@ -531,6 +531,7 @@ impl TavernState {
 
         let old_tavern_all = (self.auras.tavern_all_atk, self.auras.tavern_all_hp);
         let mut hand_summoned = vec![false; self.hand.len()];
+        let mut hand_given_by = vec![None; self.hand.len()];
         let mut beast_bonus_atk = 0;
         let mut pending_attacks = Vec::new();
         let mut next_id = 1000u32;
@@ -539,15 +540,17 @@ impl TavernState {
             side: Side::A,
             in_combat: false,
             board: &mut self.board,
+            start_board: &[],
             cursor: board_pos,
             auras: &mut self.auras,
             hand: &mut self.hand,
             hand_summoned: &mut hand_summoned,
+            hand_given_by: &mut hand_given_by,
             dead_aberrations: &[],
             beast_bonus_atk: &mut beast_bonus_atk,
             hero_tier: self.tavern_tier,
             pending_attacks: &mut pending_attacks,
-            enemy_destroys: Vec::new(),
+            destroys: Vec::new(),
             next_id: &mut next_id,
             rng,
             events: &mut events,

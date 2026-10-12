@@ -7,12 +7,36 @@ scenarios:
       board_b: ["Kalecgos, Arcane Aspect"]
     expect: {hand_a: [undead]}
 
-  - name: deathrattle_summons_an_undead_from_hand_for_this_combat
+  - name: deathrattle_summons_nothing_if_its_avenge_never_triggered
+    description: >-
+      The Striker trades with Proud Privateer before its Avenge (4) ever triggered: its Deathrattle
+      summons nothing, even with an Undead in hand.
     seed: 606
     combat:
-      board_a: [Deathly Striker]   # 8/4
-      board_b: [Proud Privateer]
+      board_a: [Deathly Striker]   # 8/8
+      board_b: [Proud Privateer]   # 8/8
       hand_a: [Eternal Summoner]   # 8/1 Reborn Undead
     expect:
-      outcome: a_win
-      survivors_a: {any: Eternal Summoner}
+      outcome: draw
+      survivors_a: []
+      hand_a: [Eternal Summoner]
+
+  # Two Boom-in-a-Boxes each deal 3 damage to all other minions at Start of Combat (the Striker:
+  # 8/8 -> 8/2). The first kills both Harmless Boneheads and Cadaver Caretaker (3 deaths; their
+  # Skeletons fill the board), the second the six Skeletons (deaths 4 to 9): Avenge (4) triggers
+  # twice. The Striker then dies in its first fight with a 5/7 Boom-in-a-Box.
+  - name: deathrattle_summons_every_undead_its_avenge_gave
+    description: >-
+      The Deathrattle summons exactly the two random Undead its Avenge gave, not the Eternal
+      Summoner that was already in hand.
+    seed: 607
+    combat:
+      board_a: [Harmless Bonehead, Harmless Bonehead, Cadaver Caretaker, Deathly Striker]
+      board_b: [Boom-in-a-Box, Boom-in-a-Box]
+      hand_a: [Eternal Summoner]
+    expect:
+      hand_a: {count: 3, 0: Eternal Summoner, 1: undead, 2: undead}
+      events:
+        all_of:
+          - {where: {type: unit_summoned, source: 3}, count: 2}   # the Striker (unit 3)
+          - {none: {type: unit_summoned, name: Eternal Summoner}}

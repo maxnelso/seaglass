@@ -64,19 +64,26 @@ pub struct BoardCtx<'a> {
     pub side: Side,
     pub in_combat: bool,
     pub board: &'a mut Vec<Unit>,
+    /// This side's starting warband: its board as the combat started, before Start of Combat
+    /// (`docs/combat.md` §2; empty outside combat).
+    pub start_board: &'a [Unit],
     /// Board slot where the next summon is inserted.
     pub cursor: usize,
     pub auras: &'a mut PlayerAuras,
     pub hand: &'a mut Vec<Unit>,
     pub hand_summoned: &'a mut Vec<bool>,
+    /// For each card in `hand`, the friendly unit that gave it this combat through
+    /// [`add_to_hand_from`](Self::add_to_hand_from) (`None` for the other cards).
+    pub hand_given_by: &'a mut Vec<Option<UnitId>>,
     pub dead_aberrations: &'a [Unit],
     /// Temporary combat Attack bonus for friendly Beasts.
     pub beast_bonus_atk: &'a mut i32,
     pub hero_tier: u32,
     /// Friendly minions queued to attack immediately.
     pub pending_attacks: &'a mut Vec<UnitId>,
-    /// Enemy minions this effect destroys (resolved by the engine after the hook returns).
-    pub enemy_destroys: Vec<UnitId>,
+    /// Minions (on either board) this effect destroys, resolved by the engine after the hook
+    /// returns.
+    pub destroys: Vec<UnitId>,
     pub next_id: &'a mut UnitId,
     pub rng: &'a mut Rng,
     pub events: &'a mut Vec<Event>,
@@ -167,18 +174,29 @@ impl<'a> BoardCtx<'a> {
     }
 
     /// Add `card` to the player's `hand` if `hand.len() < 10`.
-    pub fn add_to_hand(&mut self, mut card: Unit) {
+    pub fn add_to_hand(&mut self, card: Unit) {
+        self.push_to_hand(card, None);
+    }
+
+    /// [`add_to_hand`](Self::add_to_hand), recording that the friendly unit `giver` gave the
+    /// card (see `hand_given_by`).
+    pub fn add_to_hand_from(&mut self, giver: UnitId, card: Unit) {
+        self.push_to_hand(card, Some(giver));
+    }
+
+    fn push_to_hand(&mut self, mut card: Unit, giver: Option<UnitId>) {
         if self.hand.len() < 10 {
             sync_unit_auras(&mut card, self.auras);
             self.hand.push(card);
             self.hand_summoned.push(false);
+            self.hand_given_by.push(giver);
             on_card_added_to_hand(self.board, self.auras);
         }
     }
 
-    /// Request that the enemy minion `unit` be destroyed once this hook returns.
-    pub fn destroy_enemy(&mut self, unit: UnitId) {
-        self.enemy_destroys.push(unit);
+    /// Request that the minion `unit` (on either board) be destroyed once this hook returns.
+    pub fn destroy(&mut self, unit: UnitId) {
+        self.destroys.push(unit);
     }
 }
 
@@ -1522,6 +1540,7 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
     if is_rally && target_pos < state.board.len() {
         let old_tavern_all = (state.auras.tavern_all_atk, state.auras.tavern_all_hp);
         let mut hand_summoned2 = vec![false; state.hand.len()];
+        let mut hand_given_by = vec![None; state.hand.len()];
         let mut beast_bonus_atk = 0;
         let mut pending_attacks = Vec::new();
         let mut next_id = 10_000;
@@ -1529,15 +1548,17 @@ pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mu
             side: Side::A,
             in_combat: false,
             board: &mut state.board,
+            start_board: &[],
             cursor: 0,
             auras: &mut state.auras,
             hand: &mut state.hand,
             hand_summoned: &mut hand_summoned2,
+            hand_given_by: &mut hand_given_by,
             dead_aberrations: &[],
             beast_bonus_atk: &mut beast_bonus_atk,
             hero_tier: state.tavern_tier,
             pending_attacks: &mut pending_attacks,
-            enemy_destroys: Vec::new(),
+            destroys: Vec::new(),
             next_id: &mut next_id,
             rng,
             events: &mut events,

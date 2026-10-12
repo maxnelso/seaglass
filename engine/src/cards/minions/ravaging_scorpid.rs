@@ -2,6 +2,8 @@
 //!
 //! After a friendly minion attacks, your Beetles have `+4/+4` (`+8/+8` if Golden) this game.
 //! Deathrattle: Summon a (`2` if Golden) `2/2` Beetle.
+//!
+//! The bonus also goes to the Beetles already on the board, not only to future ones.
 
 use crate::cards::{tokens, BoardCtx, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit, UnitId};
@@ -17,7 +19,7 @@ pub fn template() -> CardTemplate {
 
 pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, self_idx: usize, _attacker_id: UnitId) {
     let bonus = 4 * ctx.board[self_idx].golden_mult();
-    tokens::add_beetle_bonus(ctx.auras, bonus, bonus);
+    tokens::improve_beetles(ctx, bonus, bonus, "Ravaging Scorpid");
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {

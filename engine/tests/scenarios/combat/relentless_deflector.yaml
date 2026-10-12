@@ -7,3 +7,26 @@ scenarios:
       board_a: [Harmless Bonehead, Relentless Deflector]
       board_b: [Roaring Recruiter]
     expect: {outcome: a_win}
+
+  # Its own Boom-in-a-Box's Start of Combat kills Harmless Bonehead, Southsea Busker and Razorfen
+  # Geomancer (the Deflector: 5/4 -> 5/1): Avenge (3) gives it Divine Shield, and with it Taunt.
+  - name: loses_taunt_as_soon_as_its_divine_shield_pops
+    description: >-
+      The Deflector attacks first and kills Azsharan Cutlassier (6/1 after the Boom), whose 6
+      damage pops the shield: the Deflector loses Taunt at once, with no friendly death since.
+    seed: 328
+    combat:
+      board_a:
+        - Relentless Deflector
+        - Harmless Bonehead
+        - Southsea Busker
+        - Razorfen Geomancer
+        - Boom-in-a-Box
+      board_b: [Azsharan Cutlassier]
+    expect:
+      outcome: a_win
+      survivors_a:
+        - "Relentless Deflector 5/1 -divine_shield -taunt"
+        - Skeleton
+        - Skeleton
+        - "Boom-in-a-Box 5/10 taunt"

@@ -7,3 +7,16 @@ scenarios:
     seed: 529
     combat: {board_a: [Leeroy the Reckless], board_b: [Holy Vanguard]}
     expect: {outcome: draw, survivors_b: []}
+
+  - name: deathrattle_destroys_a_friendly_killer
+    description: >-
+      Its own Boom-in-a-Box's Start of Combat kills Leeroy (6/2): the Deathrattle destroys the
+      Boom-in-a-Box, which leaves side A empty.
+    seed: 529
+    combat:
+      board_a: [Leeroy the Reckless, Boom-in-a-Box]
+      board_b: ["Kalecgos, Arcane Aspect"]   # 4/12
+    expect:
+      outcome: b_win
+      survivors_a: []
+      survivors_b: ["Kalecgos, Arcane Aspect 4/9"]   # 3 damage from the Boom-in-a-Box

@@ -15,12 +15,7 @@ pub fn template() -> CardTemplate {
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
     let bonus = if dying.is_golden { 10 } else { 5 };
-    tokens::add_beetle_bonus(ctx.auras, bonus, bonus);
-    for idx in 0..ctx.board.len() {
-        if ctx.board[idx].card_id == tokens::TOKEN_BEETLE {
-            ctx.buff_unit(idx, bonus, bonus, "Turquoise Skitterer");
-        }
-    }
+    tokens::improve_beetles(ctx, bonus, bonus, "Turquoise Skitterer");
     let count = if dying.is_golden { 2 } else { 1 };
     for _ in 0..count {
         let beetle = tokens::make_beetle(false, ctx.auras);
