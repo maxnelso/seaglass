@@ -6,3 +6,19 @@ scenarios:
       - add_to_hand: Tavern Dish Banana
       - play: {hand: Tavern Dish Banana, pos: 0}
     expect: {board: ["Iron Groundskeeper 4/4"]}
+
+  # "Give a minion" (not "a friendly minion"): it can target a minion in the Tavern too.
+  - name: gives_a_minion_in_the_tavern_2_2
+    tavern: {board: [Iron Groundskeeper], shop: [Flittering Bat, Lullabot], hand: [Tavern Dish Banana]}
+    steps:
+      - play: {hand: Tavern Dish Banana, shop: Lullabot}
+    expect:
+      shop: ["Flittering Bat 1/4", "Lullabot 4/4"]   # Lullabot: 2/2 +2/+2
+      board: ["Iron Groundskeeper 2/2"]
+      auras: {spells_played: 1}
+
+  - name: cant_target_a_spell_in_the_tavern
+    tavern: {shop: [Lullabot, Fortify], hand: [Tavern Dish Banana]}
+    steps:
+      - expect_illegal: {play: {hand: Tavern Dish Banana, shop: Fortify}}
+      - expect_legal: {play: {hand: Tavern Dish Banana, shop: Lullabot}}

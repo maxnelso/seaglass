@@ -81,12 +81,12 @@ pub mod wealthy_bounty;
 pub mod weapons_forge;
 pub mod winners_bread;
 
-use crate::cards::hooks::{CastFn, SpellTarget};
+use crate::cards::hooks::{CastAtFn, CastFn, SpellTarget};
 use crate::cards::tokens::{self, is_choice_option, SPELL_GEM_DAY};
 use crate::cards::{board_passive, hooks, CardFlags, CardHooks, Passive};
-use crate::model::{CardId, EffectDuration, Tribe, Unit, SINGLE_TRIBES};
+use crate::model::{CardId, EffectDuration, Tribe, Unit, UnitId, SINGLE_TRIBES};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 // Tier 1 Tavern Spells (8)
 pub const SPELL_A_NEW_SPROUT: CardId = 801;
@@ -543,7 +543,8 @@ pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
     }
 }
 
-/// Returns `true` if casting `card_id` from hand requires targeting a friendly minion on `board`.
+/// Returns `true` if casting `card_id` from hand requires a target: a friendly minion on `board`
+/// (or, for a [`SpellTarget::Minion`] spell, a minion in the Tavern; see [`can_target_in_shop`]).
 pub fn spell_requires_board_target(card_id: CardId) -> bool {
     hooks(card_id).spell_target != SpellTarget::None
 }
@@ -553,8 +554,14 @@ pub fn can_target(spell_id: CardId, unit: &Unit) -> bool {
     match hooks(spell_id).spell_target {
         SpellTarget::FriendlyTribe(tribe) => unit.tribe.matches(tribe),
         SpellTarget::FriendlyTyped => unit.tribe != Tribe::None,
-        SpellTarget::None | SpellTarget::Friendly => true,
+        SpellTarget::None | SpellTarget::Friendly | SpellTarget::Minion => true,
     }
+}
+
+/// Check whether `unit`, in the Tavern, is a valid target for spell `spell_id`: a minion, for a
+/// spell that can target any minion ([`SpellTarget::Minion`]).
+pub fn can_target_in_shop(spell_id: CardId, unit: &Unit) -> bool {
+    hooks(spell_id).spell_target == SpellTarget::Minion && !unit.is_spell
 }
 
 /// Select up to one distinct living friendly minion on `board` for each single tribe (`Misplaced Tea Set`, `Veteran Technican`, `The Last One Standing`).
@@ -660,11 +667,14 @@ fn buff_random_friendly(
     }
 }
 
-/// Resolve the effect of casting `card` from `hand` at `board_pos` (0 if it is untargeted). Each
-/// cast runs the `spell_cast` observers if it is a Tavern spell, then its `cast` hook (a spell
-/// without one adds its stats to the target), then the after-targeted-spell observers, then the
-/// after-cast observers. A [`CardFlags::BOUNTY`] spell is cast [`Passive::BountyCasts`] times,
-/// and a targeted one [`Passive::TargetedSpellCasts`] times (`docs/tavern.md` §7.4).
+/// Unit id that marks the target of the spell being cast while its casts resolve, so that each
+/// cast finds it wherever it moved (see [`cast_spell_on`]; no targeted spell is cast while another
+/// one's casts resolve). Minions in the Tavern have no other use for their ids (combat assigns its
+/// own).
+const CAST_TARGET_ID: UnitId = UnitId::MAX;
+
+/// Resolve the effect of casting `card` from `hand` at `board_pos` (0 if it is untargeted): see
+/// [`cast_spell_on`].
 pub fn cast_spell(
     state: &mut TavernState,
     card: Unit,
@@ -672,8 +682,39 @@ pub fn cast_spell(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
+    cast_spell_on(state, card, MinionSlot::Board(board_pos), pool, rng);
+}
+
+/// Resolve the effect of casting `card` from `hand` on `target` (ignored if it is untargeted;
+/// `docs/tavern.md` §7.4). Each cast counts as a spell cast (`spells_played`) and runs the
+/// `spell_cast` observers if it is a Tavern spell, then its `cast_at` / `cast` hook (a spell
+/// without one adds its stats to the target), then the after-targeted-spell observers if it is
+/// cast on a friendly minion, then the after-cast observers. A [`CardFlags::BOUNTY`] spell is cast
+/// [`Passive::BountyCasts`] times, and one cast on a friendly minion
+/// [`Passive::TargetedSpellCasts`] times. The casts follow their target wherever it moves; once it
+/// is gone (destroyed, sold, transformed, ...), the remaining casts fizzle: they do nothing.
+pub fn cast_spell_on(
+    state: &mut TavernState,
+    card: Unit,
+    target: MinionSlot,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     let card_hooks = hooks(card.card_id);
     let targeted = card_hooks.spell_target != SpellTarget::None;
+    let nested = targeted && state.board.iter().chain(&state.shop).any(is_cast_target);
+    debug_assert!(
+        !nested,
+        "a targeted spell is cast while another one's casts resolve"
+    );
+    let target_id = if targeted {
+        match state.minion_mut(target) {
+            Some(unit) => Some(std::mem::replace(&mut unit.id, CAST_TARGET_ID)),
+            None => return, // nothing to cast it on
+        }
+    } else {
+        None
+    };
     let tavern_spell = is_tavern_spell(card.card_id);
     if tavern_spell {
         state.auras.last_tavern_spell_cast = Some(card.card_id);
@@ -684,26 +725,81 @@ pub fn cast_spell(
     } else {
         1
     };
-    if targeted {
+    let on_board = matches!(target, MinionSlot::Board(_));
+    if targeted && on_board {
         casts *= board_passive(&state.board, Passive::TargetedSpellCasts);
     }
 
-    // Every cast counts as a spell cast.
-    for _ in 0..casts {
+    for cast in 0..casts {
+        if targeted && find_cast_target(state, target).is_none() {
+            break; // the target is gone: this cast and the rest fizzle
+        }
+        state.auras.spells_played += 1;
         if tavern_spell {
             crate::cards::on_cast_tavern_spell(state, pool, rng);
         }
+        let slot = if targeted {
+            find_cast_target(state, target)
+        } else {
+            Some(target)
+        };
         state.combine_choose_one = card.combine_choose_one;
-        if let Some(cast) = card_hooks.cast {
-            cast(state, &card, board_pos, pool, rng);
-        } else if board_pos < state.board.len() {
-            state.board[board_pos].add_stats(card.attack, card.health);
+        let outer_repeating = std::mem::replace(&mut state.repeating_cast, cast > 0);
+        if let Some(slot) = slot {
+            if let Some(cast_at) = card_hooks.cast_at {
+                cast_at(state, &card, slot, pool, rng);
+            } else if let Some(cast) = card_hooks.cast {
+                let (MinionSlot::Board(pos) | MinionSlot::Shop(pos)) = slot;
+                cast(state, &card, pos, pool, rng);
+            } else if let Some(unit) = state.minion_mut(slot) {
+                unit.add_stats(card.attack, card.health);
+            }
         }
+        state.repeating_cast = outer_repeating;
         state.combine_choose_one = false;
-        if targeted && board_pos < state.board.len() {
-            crate::cards::after_cast_targeted_spell(state, board_pos, pool, rng);
+        if targeted && on_board {
+            if let Some(MinionSlot::Board(pos)) = find_cast_target(state, target) {
+                crate::cards::after_cast_targeted_spell(state, pos, pool, rng);
+            }
         }
         crate::cards::after_cast_any_spell(state, pool, rng);
+    }
+
+    if let Some(id) = target_id {
+        unmark_cast_target(state, id);
+    }
+}
+
+/// `true` if `unit` is marked as the target of the spell being cast (see [`CAST_TARGET_ID`]).
+fn is_cast_target(unit: &Unit) -> bool {
+    unit.id == CAST_TARGET_ID
+}
+
+/// Where the target of the spell being cast (marked with [`CAST_TARGET_ID`]) now is, in the zone
+/// of `target` (`None` once it is gone).
+fn find_cast_target(state: &TavernState, target: MinionSlot) -> Option<MinionSlot> {
+    let (zone, slot): (&[Unit], fn(usize) -> MinionSlot) = match target {
+        MinionSlot::Board(_) => (&state.board, MinionSlot::Board),
+        MinionSlot::Shop(_) => (&state.shop, MinionSlot::Shop),
+    };
+    zone.iter().position(is_cast_target).map(slot)
+}
+
+/// Give the target of the spell cast (and any copy of it made meanwhile) its own id back.
+fn unmark_cast_target(state: &mut TavernState, id: UnitId) {
+    let prompts = state
+        .discover_pending
+        .iter_mut()
+        .chain(&mut state.discover_queue)
+        .flatten();
+    let units = state
+        .board
+        .iter_mut()
+        .chain(&mut state.hand)
+        .chain(&mut state.shop)
+        .chain(prompts);
+    for unit in units.filter(|u| is_cast_target(u)) {
+        unit.id = id;
     }
 }
 
@@ -732,6 +828,14 @@ pub(crate) fn targeted_tribe(tribe: Tribe, cast: CastFn) -> CardHooks {
 /// target's type).
 pub(crate) fn targeted_typed(cast: CastFn) -> CardHooks {
     spell(cast).with_spell_target(SpellTarget::FriendlyTyped)
+}
+
+/// Hooks of a spell cast with `cast` on any minion ("a minion"): a friendly one or one in the
+/// Tavern.
+pub(crate) fn targeted_minion(cast: CastAtFn) -> CardHooks {
+    CardHooks::EMPTY
+        .on_cast_at(cast)
+        .with_spell_target(SpellTarget::Minion)
 }
 
 /// Behaviour tables for all spells, Tavern and token, from their modules (registered in the card

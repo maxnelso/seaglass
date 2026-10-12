@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Pointy Arrow
       - play: {hand: Pointy Arrow, pos: 0}
     expect: {board: ["Iron Groundskeeper 6/2"]}
+
+  - name: gives_a_minion_in_the_tavern_4_attack
+    tavern: {shop: [Lullabot], hand: [Pointy Arrow]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: Pointy Arrow, shop: 0}
+    expect: {shop: ["Lullabot 6/2"]}

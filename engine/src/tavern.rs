@@ -346,6 +346,13 @@ impl CardPool {
     }
 }
 
+/// A minion's place in the Tavern Phase: `board[i]`, or `shop[i]` (a minion in Bob's Tavern).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum MinionSlot {
+    Board(usize),
+    Shop(usize),
+}
+
 /// Discrete player actions during the Tavern Phase (`docs/tavern.md` §6).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TavernAction {
@@ -355,6 +362,12 @@ pub enum TavernAction {
     Play {
         hand_index: usize,
         board_pos: usize,
+    },
+    /// Cast the spell `hand[hand_index]` on the minion `shop[shop_index]` in the Tavern (a spell
+    /// whose text says "a minion", `docs/tavern.md` §7.4).
+    PlayOnShop {
+        hand_index: usize,
+        shop_index: usize,
     },
     Sell {
         board_pos: usize,
@@ -395,7 +408,14 @@ pub struct TavernState {
     pub shop: Vec<Unit>,
     pub discover_pending: Option<Vec<Unit>>,
     pub discover_queue: Vec<Vec<Unit>>,
-    pub pending_choice_target: Option<usize>,
+    /// The minion targeted by the Choose One being resolved (see `choice_target`).
+    pub pending_choice_target: Option<MinionSlot>,
+    /// Extra times the next chosen Choose-One option applies: a Choose One spell cast several
+    /// times is chosen once (`docs/tavern.md` §7.4).
+    pub pending_choice_repeats: u32,
+    /// While set, the spell being cast repeats its first cast (`spells::cast_spell_on`): a Choose
+    /// One repeats the first cast's choice (see `resolve_choose_one`).
+    pub repeating_cast: bool,
     /// While set, Choose Ones resolve with both effects combined (see `resolve_choose_one`).
     pub combine_choose_one: bool,
     pub defer_combined_choose_one: bool,
@@ -433,6 +453,8 @@ impl TavernState {
             discover_pending: None,
             discover_queue: Vec::new(),
             pending_choice_target: None,
+            pending_choice_repeats: 0,
+            repeating_cast: false,
             combine_choose_one: false,
             defer_combined_choose_one: false,
             pending_combined_choices: Vec::new(),
@@ -616,9 +638,39 @@ impl TavernState {
         Some(discarded)
     }
 
+    /// Remove the card at `hand[hand_idx]` to play it (`Play`, `PlayOnShop`). Cards of a
+    /// `Wandering Willbreaker` / `Faceless Operative` group count the play down, and the rest of
+    /// the group is discarded once it is used up.
+    fn take_card_to_play(&mut self, hand_idx: usize, pool: &mut CardPool, rng: &mut Rng) -> Unit {
+        let card = self.hand.remove(hand_idx);
+        if card.willbreaker_group != 0 {
+            let grp = card.willbreaker_group;
+            for h in &mut self.hand {
+                if h.willbreaker_group == grp && h.willbreaker_remaining > 0 {
+                    h.willbreaker_remaining -= 1;
+                }
+            }
+            let mut expired_indices: Vec<usize> = self
+                .hand
+                .iter()
+                .enumerate()
+                .filter(|(_, h)| h.willbreaker_group == grp && h.willbreaker_remaining == 0)
+                .map(|(i, _)| i)
+                .collect();
+            expired_indices.reverse();
+            for exp_idx in expired_indices {
+                self.discard_hand_card(exp_idx, pool, rng);
+            }
+        }
+        card
+    }
+
     /// Resolve a Choose-One prompt (`opt0` vs `opt1`).
     /// If `combine_choose_one` is active or a friendly minion with [`CardFlags::COMBINES_CHOOSE_ONE`]
     /// has charges left (using one), applies both options immediately.
+    /// In a repeated cast of a spell (`repeating_cast`), the first cast's choice repeats: the
+    /// option chosen from its still-open prompt applies once more (`pending_choice_repeats`), or
+    /// if it had both effects combined, both apply again (`docs/tavern.md` §7.4).
     pub fn resolve_choose_one(
         &mut self,
         opt0: Unit,
@@ -626,6 +678,29 @@ impl TavernState {
         pool: &mut CardPool,
         rng: &mut Rng,
     ) {
+        if self.repeating_cast {
+            let same_choice = |opts: &Vec<Unit>| {
+                opts.len() == 2
+                    && opts[0].card_id == opt0.card_id
+                    && opts[1].card_id == opt1.card_id
+            };
+            if self
+                .discover_pending
+                .iter()
+                .chain(&self.discover_queue)
+                .any(same_choice)
+            {
+                self.pending_choice_repeats += 1;
+            } else {
+                cards::apply_chosen_option(self, &opt0, pool, rng);
+                cards::apply_chosen_option(self, &opt1, pool, rng);
+                if self.discover_pending.is_none() {
+                    self.pending_choice_target = None;
+                }
+            }
+            return;
+        }
+
         let combined = self.combine_choose_one
             || opt0.combine_choose_one
             || cards::use_charge(&mut self.board, CardFlags::COMBINES_CHOOSE_ONE);
@@ -662,8 +737,33 @@ impl TavernState {
     /// The board slot targeted by the Choose One being resolved (`pending_choice_target`), if it
     /// still holds a minion.
     pub fn choice_target(&self) -> Option<usize> {
-        self.pending_choice_target
-            .filter(|&pos| pos < self.board.len())
+        match self.pending_choice_target {
+            Some(MinionSlot::Board(pos)) if pos < self.board.len() => Some(pos),
+            _ => None,
+        }
+    }
+
+    /// The minion targeted by the Choose One being resolved (`pending_choice_target`), on the
+    /// board or in the Tavern.
+    pub fn choice_target_mut(&mut self) -> Option<&mut Unit> {
+        let slot = self.pending_choice_target?;
+        self.minion_mut(slot)
+    }
+
+    /// The minion at `slot`, if there is one (a spell in the shop is not a minion).
+    pub fn minion(&self, slot: MinionSlot) -> Option<&Unit> {
+        match slot {
+            MinionSlot::Board(pos) => self.board.get(pos),
+            MinionSlot::Shop(idx) => self.shop.get(idx).filter(|u| !u.is_spell),
+        }
+    }
+
+    /// The minion at `slot`, mutably (see [`minion`](Self::minion)).
+    pub fn minion_mut(&mut self, slot: MinionSlot) -> Option<&mut Unit> {
+        match slot {
+            MinionSlot::Board(pos) => self.board.get_mut(pos),
+            MinionSlot::Shop(idx) => self.shop.get_mut(idx).filter(|u| !u.is_spell),
+        }
     }
 
     /// Check whether the next `Refresh` can cost Health instead of Gold: a friendly minion with
@@ -1042,6 +1142,22 @@ impl TavernState {
                     self.board.len() < MAX_BOARD_SIZE && board_pos <= self.board.len()
                 }
             }
+            TavernAction::PlayOnShop {
+                hand_index,
+                shop_index,
+            } => {
+                let Some(card) = self.hand.get(hand_index) else {
+                    return false;
+                };
+                if card.unplayable || card.lockbox_turns_left > 0 || card.locked_turns > 0 {
+                    return false;
+                }
+                card.is_spell
+                    && self
+                        .shop
+                        .get(shop_index)
+                        .is_some_and(|unit| cards::spells::can_target_in_shop(card.card_id, unit))
+            }
             TavernAction::Sell { board_pos } => board_pos < self.board.len(),
             TavernAction::Reposition { from_pos, to_pos } => {
                 from_pos < self.board.len() && to_pos < self.board.len() && from_pos != to_pos
@@ -1145,6 +1261,14 @@ impl TavernState {
                             actions.push(TavernAction::Play {
                                 hand_index: h_idx,
                                 board_pos: b_pos,
+                            });
+                        }
+                    }
+                    for (s_idx, unit) in self.shop.iter().enumerate() {
+                        if cards::spells::can_target_in_shop(card.card_id, unit) {
+                            actions.push(TavernAction::PlayOnShop {
+                                hand_index: h_idx,
+                                shop_index: s_idx,
                             });
                         }
                     }
@@ -1330,30 +1454,8 @@ impl TavernState {
                 hand_index,
                 board_pos,
             } => {
-                let mut card = self.hand.remove(hand_index);
-                if card.willbreaker_group != 0 {
-                    let grp = card.willbreaker_group;
-                    for h in &mut self.hand {
-                        if h.willbreaker_group == grp && h.willbreaker_remaining > 0 {
-                            h.willbreaker_remaining -= 1;
-                        }
-                    }
-                    let mut expired_indices: Vec<usize> = self
-                        .hand
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, h)| {
-                            h.willbreaker_group == grp && h.willbreaker_remaining == 0
-                        })
-                        .map(|(i, _)| i)
-                        .collect();
-                    expired_indices.reverse();
-                    for exp_idx in expired_indices {
-                        self.discard_hand_card(exp_idx, pool, rng);
-                    }
-                }
+                let mut card = self.take_card_to_play(hand_index, pool, rng);
                 if card.is_spell {
-                    self.auras.spells_played += 1;
                     cards::spells::cast_spell(self, card, board_pos, pool, rng);
                     return Ok(false);
                 }
@@ -1417,6 +1519,15 @@ impl TavernState {
                 }
                 Ok(false)
             }
+            TavernAction::PlayOnShop {
+                hand_index,
+                shop_index,
+            } => {
+                let card = self.take_card_to_play(hand_index, pool, rng);
+                let target = MinionSlot::Shop(shop_index);
+                cards::spells::cast_spell_on(self, card, target, pool, rng);
+                Ok(false)
+            }
             TavernAction::Sell { board_pos } => {
                 let sold = self.board.remove(board_pos);
                 pool.return_unit(&sold);
@@ -1476,7 +1587,14 @@ impl TavernState {
                 let mut chosen = opts.remove(option_index);
 
                 if cards::is_option_card(chosen.card_id) {
-                    cards::apply_chosen_option(self, &chosen, pool, rng);
+                    // A Choose One spell cast several times was chosen once: once per cast.
+                    let mut repeats = 0;
+                    if cards::hooks(chosen.card_id).has(CardFlags::CHOOSE_ONE_OPTION) {
+                        repeats = std::mem::take(&mut self.pending_choice_repeats);
+                    }
+                    for _ in 0..=repeats {
+                        cards::apply_chosen_option(self, &chosen, pool, rng);
+                    }
                     cards::after_choose_one(self, &chosen, pool, rng);
                     if self.discover_pending.is_none() {
                         self.pending_choice_target = None;

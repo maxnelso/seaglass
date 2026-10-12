@@ -30,6 +30,7 @@ The engine contains **only game rules and simulation**. All reinforcement learni
 - **Core Actions (`TavernAction`)**:
   - `Buy { shop_index }`
   - `Play { hand_index, board_pos }` (places a minion at `board_pos` or casts a targeted/untargeted spell)
+  - `PlayOnShop { hand_index, shop_index }` (casts a spell that says "a minion" on a minion in the shop)
   - `Sell { board_pos }`
   - `Reposition { from_pos, to_pos }`
   - `Refresh`

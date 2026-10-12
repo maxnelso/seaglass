@@ -15,3 +15,9 @@ scenarios:
             - {card: Magicfin Apprentice, taught_spell_id: 859}   # 859: Azerite Empowerment
       - play: Magicfin Apprentice   # Battlecry: cast Azerite Empowerment
     expect: {board: ["Magicfin Mycologist 8/12", Magicfin Apprentice]}
+
+  - name: the_apprentices_cast_counts_as_a_spell_cast
+    tavern: {board: [Lullabot], hand: [{card: Magicfin Apprentice, taught_spell_id: 804}]}   # 804: Fortify
+    steps:
+      - play: {hand: Magicfin Apprentice, pos: 0}   # Battlecry: cast Fortify
+    expect: {auras: {spells_played: 1}}

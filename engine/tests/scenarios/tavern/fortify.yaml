@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Fortify
       - play: {hand: Fortify, pos: 0}
     expect: {board: ["Iron Groundskeeper 2/5 taunt"]}
+
+  - name: gives_a_minion_in_the_tavern_3_health_and_taunt
+    tavern: {shop: [Lullabot], hand: [Fortify]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: Fortify, shop: 0}
+    expect: {shop: ["Lullabot 2/5 taunt"]}

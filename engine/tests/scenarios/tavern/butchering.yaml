@@ -8,3 +8,8 @@ scenarios:
     expect:
       auras: {undead_bonus_attack: 8}
       board: ["Skeleton 9/1", "Skeleton 9/1"]   # its Deathrattle's 1/1 Skeletons, +8 Attack
+
+  - name: cant_target_an_undead_in_the_tavern
+    tavern: {board: [Harmless Bonehead], shop: [Risen Rider], hand: [Butchering]}   # "a friendly Undead"
+    steps:
+      - expect_illegal: {play: {hand: Butchering, shop: 0}}

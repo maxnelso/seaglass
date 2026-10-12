@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Sludge Corrosion
       - activate: {pos: Brain Rotter, target: 0}
     expect: {board: ["Brain Rotter 5/6"]}   # 3/4, +1/+1 twice
+
+  - name: each_cast_counts_as_one_spell_cast
+    tavern: {board: [Brain Rotter], hand: [Sludge Corrosion]}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}   # discard it: cast twice
+    expect: {auras: {spells_played: 2}}

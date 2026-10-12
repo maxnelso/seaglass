@@ -9,3 +9,9 @@ scenarios:
       - expect: {auras: {deity: {attack: 8, health: 8}}}
       - activate: {pos: Brain Rotter, target: 0}
     expect: {auras: {deity: {attack: 24, health: 24}}}   # cast twice (+14/+14), Brain Rotter +2/+2
+
+  - name: each_cast_counts_as_one_spell_cast
+    tavern: {board: [Brain Rotter], hand: [Energizing Chamber]}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}   # discard it: cast twice
+    expect: {auras: {spells_played: 2}}

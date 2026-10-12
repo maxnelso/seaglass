@@ -7,3 +7,11 @@ scenarios:
       - repeat: 7   # 7 Refreshes: 7 Gold spent
         steps: [refresh]
     expect: {auras: {refresh_random_buffs: [[9, 9]]}}   # Easterly Winds: +9/+9 after each Refresh
+
+  - name: its_cast_counts_as_one_spell_cast
+    seed: 501
+    tavern: {gold: 7, board: [Air Revenant]}
+    steps:
+      - repeat: 7   # 7 Refreshes: 7 Gold spent, one Easterly Winds
+        steps: [refresh]
+    expect: {auras: {spells_played: 1}}

@@ -2,23 +2,23 @@
 //!
 //! Give a minion +2/+3; if you win your next combat, it gets a Blood Gem next turn.
 
-use super::targeted;
+use super::targeted_minion;
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_minion(cast)
 }
 
 /// `Winner's Bread`: give a minion +2/+3; if you win your next combat, it gets a Blood Gem next
 /// turn.
-pub fn cast(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, _: &mut Rng) {
-    if board_pos < state.board.len() {
-        let (atk, hp) = state.auras.spell_stat_buff(2, 3);
-        state.board[board_pos].add_stats(atk, hp);
-        state.board[board_pos].winners_bread_stacks += 1;
+pub fn cast(state: &mut TavernState, _: &Unit, target: MinionSlot, _: &mut CardPool, _: &mut Rng) {
+    let (atk, hp) = state.auras.spell_stat_buff(2, 3);
+    if let Some(target) = state.minion_mut(target) {
+        target.add_stats(atk, hp);
+        target.winners_bread_stacks += 1;
     }
 }

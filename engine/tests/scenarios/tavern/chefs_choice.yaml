@@ -8,7 +8,13 @@ scenarios:
       - play: {hand: Chef's Choice, pos: 0}
     expect: {hand: [{all_of: [dragon, {not: Glim Guardian}]}]}
 
-  # "A friendly minion's type": only minions with a type.
+  # "A friendly minion's type": only friendly minions, and only ones with a type.
+  - name: cant_target_a_minion_in_the_tavern
+    tavern: {board: [Glim Guardian], shop: [Lullabot], hand: ["Chef's Choice"]}
+    steps:
+      - expect_illegal: {play: {hand: "Chef's Choice", shop: 0}}
+      - expect_legal: {play: {hand: "Chef's Choice", pos: 0}}
+
   - name: cant_target_a_minion_without_a_type
     tavern: {board: [Iron Groundskeeper, Glim Guardian], hand: ["Chef's Choice"]}   # Iron Groundskeeper: no type
     steps:

@@ -6,3 +6,9 @@ scenarios:
       - add_to_hand: Repair Job
       - play: {hand: Repair Job, pos: 0}
     expect: {board: ["Iron Groundskeeper 6/10"]}
+
+  - name: gives_a_minion_in_the_tavern_4_8
+    tavern: {shop: [Lullabot], hand: [Repair Job]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: Repair Job, shop: 0}
+    expect: {shop: ["Lullabot 6/10"]}

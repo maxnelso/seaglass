@@ -11,3 +11,14 @@ scenarios:
     expect:
       shop: []
       board: ["Ominous Seer 6/4 taunt reborn divine_shield"]
+
+  - name: a_minion_in_the_tavern_consumes_2_other_tavern_minions
+    tavern:
+      board: [Ominous Seer]
+      shop: [Lullabot, Risen Rider, Glim Guardian]   # 2/2; 2/1 Taunt Reborn; 1/4
+      hand: [Methodical Madness]
+    steps:
+      - play: {hand: Methodical Madness, shop: Lullabot}
+    expect:
+      shop: ["Lullabot 5/7 taunt reborn"]   # it doesn't consume itself
+      board: ["Ominous Seer 2/1"]

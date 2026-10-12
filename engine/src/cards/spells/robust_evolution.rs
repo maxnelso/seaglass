@@ -2,27 +2,26 @@
 //!
 //! Transform a minion into a random minion of the next Tier, keeping its stats.
 
-use super::targeted;
+use super::targeted_minion;
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_minion(cast)
 }
 
 /// `Robust Evolution`: transform a minion into a random minion of the next Tier, keeping its stats.
 pub fn cast(
     state: &mut TavernState,
     _: &Unit,
-    board_pos: usize,
+    target: MinionSlot,
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if board_pos < state.board.len() {
-        let old = state.board[board_pos].clone();
+    if let Some(old) = state.minion(target).cloned() {
         let target_tier = (old.tavern_tier + 1).min(6);
         let mut opts = pool.draw_discover_options(target_tier, 1, rng);
         if let Some(mut evolved) = opts.pop() {
@@ -32,7 +31,9 @@ pub fn cast(
             evolved.max_attack = old.attack.max(evolved.base_attack);
             evolved.max_health = old.health.max(evolved.base_health);
             crate::cards::check_stat_thresholds(&mut evolved);
-            state.board[board_pos] = evolved;
+            if let Some(target) = state.minion_mut(target) {
+                *target = evolved;
+            }
             state.sync_all_auras();
         }
     }

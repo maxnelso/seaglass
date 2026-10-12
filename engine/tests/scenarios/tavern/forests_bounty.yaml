@@ -7,3 +7,12 @@ scenarios:
       - play: {hand: Forest's Bounty, pos: 0}
       - choose_discover: 0   # +6/+6 twice (option 1 is +2/+2 to your minions)
     expect: {board: ["Iron Groundskeeper 14/14"]}
+
+  - name: choose_one_gives_a_minion_in_the_tavern_6_6_twice
+    tavern: {board: [Iron Groundskeeper], shop: [Lullabot], hand: ["Forest's Bounty"]}   # Lullabot: 2/2
+    steps:
+      - play: {hand: "Forest's Bounty", shop: 0}
+      - choose_discover: 0   # +6/+6 twice
+    expect:
+      shop: ["Lullabot 14/14"]
+      board: ["Iron Groundskeeper 2/2"]

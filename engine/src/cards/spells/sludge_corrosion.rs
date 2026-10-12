@@ -19,7 +19,6 @@ pub fn hooks() -> CardHooks {
 /// Discarded: cast it twice.
 fn discarded(state: &mut TavernState, _: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     for _ in 0..2 {
-        state.auras.spells_played += 1;
         cast_spell(state, make_sludge_corrosion(), 0, pool, rng);
     }
 }

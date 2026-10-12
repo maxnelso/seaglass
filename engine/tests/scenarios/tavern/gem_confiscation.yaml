@@ -9,3 +9,18 @@ scenarios:
     expect:
       # The left one lost its 2 Gems; the target got 3 Gems + the 2 stolen ones.
       board: ["Suspicious Prisonguard 3/3", {card: Iron Groundskeeper, stats: "7/7", blood_gems_played: 5}]
+
+  - name: on_a_minion_in_the_tavern_steals_its_tavern_neighbors_gems
+    tavern:
+      board: [Iron Groundskeeper]
+      shop: [Flittering Bat, Lullabot, Buzzing Vermin]   # 1/4, 2/2, 1/1
+      hand: [Gem Confiscation]
+    steps:
+      - play_blood_gems: {shop: 0, count: 2}   # Flittering Bat: 3/6 with 2 Gems
+      - play_blood_gems: {shop: 2, count: 1}   # Buzzing Vermin: 2/2 with 1 Gem
+      - play_blood_gems: {board: 0, count: 1}   # not a neighbor: keeps its Gem
+      - play: {hand: Gem Confiscation, shop: Lullabot}
+    expect:
+      # Lullabot: 3 Gems + the 3 stolen ones.
+      shop: ["Flittering Bat 1/4", {card: Lullabot, stats: "8/8", blood_gems_played: 6}, "Buzzing Vermin 1/1"]
+      board: [{card: Iron Groundskeeper, stats: "3/3", blood_gems_played: 1}]

@@ -288,6 +288,24 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
                 format!("Play hand[{hand_index}] -> board[{board_pos}]")
             }
         }
+        TavernAction::PlayOnShop {
+            hand_index,
+            shop_index,
+        } => {
+            let spell_desc = state
+                .hand
+                .get(hand_index)
+                .map(format_unit_inline)
+                .unwrap_or_else(|| format!("hand[{hand_index}]"));
+            let target_desc = state
+                .shop
+                .get(shop_index)
+                .map(format_unit_inline)
+                .unwrap_or_else(|| format!("shop[{shop_index}]"));
+            format!(
+                "Cast Targeted Spell hand[{hand_index}] ({spell_desc}) -> shop[{shop_index}] ({target_desc})"
+            )
+        }
         TavernAction::Sell { board_pos } => {
             if let Some(u) = state.board.get(board_pos) {
                 format!(

@@ -2,22 +2,22 @@
 //!
 //! Give a minion +1/+2 and toggle its Taunt.
 
-use super::targeted;
+use super::targeted_minion;
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
-    targeted(cast)
+    targeted_minion(cast)
 }
 
 /// `Tricky Trousers`: give a minion +1/+2 and toggle its Taunt.
-pub fn cast(state: &mut TavernState, _: &Unit, board_pos: usize, _: &mut CardPool, _: &mut Rng) {
-    if board_pos < state.board.len() {
-        let (atk, hp) = state.auras.spell_stat_buff(1, 2);
-        state.board[board_pos].add_stats(atk, hp);
-        state.board[board_pos].taunt = !state.board[board_pos].taunt;
+pub fn cast(state: &mut TavernState, _: &Unit, target: MinionSlot, _: &mut CardPool, _: &mut Rng) {
+    let (atk, hp) = state.auras.spell_stat_buff(1, 2);
+    if let Some(target) = state.minion_mut(target) {
+        target.add_stats(atk, hp);
+        target.taunt = !target.taunt;
     }
 }

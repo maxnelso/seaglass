@@ -158,6 +158,11 @@ pub(super) enum Action {
         hand: Index,
         pos: Option<usize>,
     },
+    /// Cast the spell `hand` on the minion `shop` in the Tavern.
+    PlayOnShop {
+        hand: Index,
+        shop: Index,
+    },
     Reposition {
         from: Index,
         to: usize,
@@ -655,6 +660,13 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
         "sell" => StepKind::Action(Action::Sell(index(arg)?)),
         "choose_discover" => StepKind::Action(Action::ChooseDiscover(index(arg)?)),
         "play" => StepKind::Action(match arg.as_mapping() {
+            Some(m) if m.contains_key("hand") && m.contains_key("shop") => {
+                only_keys(m, &["hand", "shop"])?;
+                Action::PlayOnShop {
+                    hand: index(&m["hand"])?,
+                    shop: index(&m["shop"])?,
+                }
+            }
             Some(m) if m.contains_key("hand") => {
                 only_keys(m, &["hand", "pos"])?;
                 Action::Play {

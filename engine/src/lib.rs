@@ -30,5 +30,6 @@ pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};
 pub use sim::{simulate, simulate_batch, BattleDistribution, DamageStats};
 pub use tavern::{
-    base_copies_for_tier, base_upgrade_cost, shop_capacity, CardPool, TavernAction, TavernState,
+    base_copies_for_tier, base_upgrade_cost, shop_capacity, CardPool, MinionSlot, TavernAction,
+    TavernState,
 };

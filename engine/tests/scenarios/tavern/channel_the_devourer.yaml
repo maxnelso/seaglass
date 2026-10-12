@@ -9,3 +9,8 @@ scenarios:
     expect:
       gold: 1   # from the sale
       board: ["Iron Groundskeeper 8/10"]
+
+  - name: cant_sell_a_minion_in_the_tavern
+    tavern: {board: [Lullabot, Iron Groundskeeper], shop: [Glim Guardian], hand: [Channel the Devourer]}
+    steps:
+      - expect_illegal: {play: {hand: Channel the Devourer, shop: 0}}   # only your minions can be sold
