@@ -17,7 +17,7 @@ scenarios:
       - play: {hand: Robust Evolution, pos: 0}
     expect: {board: ["2/8 t2 -golden"]}   # keeps the golden stats
 
-  - name: a_tier_6_minion_becomes_another_tier_6_minion
+  - name: a_tier_6_minion_becomes_a_random_tier_6_minion
     seed: 823
     tavern:
       board: [Eredar Escapist]   # 6/8, Tier 6
@@ -25,6 +25,7 @@ scenarios:
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}
       - play: {hand: Robust Evolution, pos: 0}
+    # It could roll Eredar Escapist again; this seed rolls another Tier 6.
     expect: {board: [{all_of: ["8/10 t6", {not: Eredar Escapist}]}]}
 
   - name: transforms_a_minion_in_the_tavern

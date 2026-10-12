@@ -119,3 +119,24 @@ scenarios:
           - {type: unit_summoned, name: Shoalfin Mystic, reason: Diremuck Forager}
           - {type: death, unit: 2}   # Rescue Bot
           - {type: unit_summoned, name: Tad, reason: Diremuck Forager}
+
+  - name: a_summon_still_waiting_when_the_combat_ends_is_lost
+    description: >-
+      The board is full and Patient Scout (1/1) kills nobody, so no slot opens and the summon
+      never happens. It doesn't carry over: the waiting summon ends with the combat.
+    seed: 316
+    tavern:
+      board:
+        - Diremuck Forager
+        - Wrath Weaver
+        - Suspicious Prisonguard
+        - Dune Dweller
+        - Joyous
+        - Scarlet Survivor
+        - Suspicious Prisonguard
+      hand: [Shoalfin Mystic]
+    steps:
+      - fight: {board: [Patient Scout]}
+    expect:
+      hand: [Shoalfin Mystic]
+      auras: {effects: {where: {card: Diremuck Forager}, count: 0}}

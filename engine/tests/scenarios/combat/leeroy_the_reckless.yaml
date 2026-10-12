@@ -20,3 +20,16 @@ scenarios:
       outcome: b_win
       survivors_a: []
       survivors_b: ["Kalecgos, Arcane Aspect 4/9"]   # 3 damage from the Boom-in-a-Box
+
+  - name: being_destroyed_isnt_being_killed
+    description: >-
+      Its own Stitched Salvager's Start of Combat destroys Leeroy. A destroy effect doesn't kill
+      it, so the Deathrattle has no killer to destroy: the Salvager survives and kills the Patient
+      Scout (1/1).
+    seed: 529
+    combat:
+      board_a: [Leeroy the Reckless, Stitched Salvager]   # 16/4
+      board_b: [Patient Scout]
+    expect:
+      outcome: a_win
+      survivors_a: ["Stitched Salvager 16/3"]
