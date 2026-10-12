@@ -171,7 +171,7 @@ fn buff_refreshed_shop(state: &mut TavernState, rng: &mut Rng) {
     if gems > 0 {
         for u in &mut state.shop {
             if !u.is_spell {
-                u.play_blood_gems(gems, &state.auras);
+                u.play_blood_gems_by_spell(gems, &state.auras);
             }
         }
     }

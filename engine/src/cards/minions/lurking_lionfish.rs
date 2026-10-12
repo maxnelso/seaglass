@@ -42,5 +42,5 @@ pub fn on_activate(
     if !old.is_spell {
         pool.return_unit(&old);
     }
-    tokens::left_most_beast_attacks_fishbait(state, shop_idx, rng);
+    tokens::left_most_beast_attacks_fishbait(state, shop_idx, pool, rng);
 }

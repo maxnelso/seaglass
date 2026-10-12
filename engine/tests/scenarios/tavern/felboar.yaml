@@ -11,3 +11,108 @@ scenarios:
     expect:
       shop: []
       board: ["Felboar 10/16"]   # 2/6 + 3 Blood Gems (+3/+3) + the consumed 5/7
+
+  # A Blood Gem one of your minions plays in the Tavern counts as a spell cast, one per Blood Gem
+  # (docs/tavern.md §7.4).
+
+  - name: blood_gems_geomagus_roogug_plays_count
+    description: >-
+      Each Blood Gem cast on Roogug makes it play one on Felboar, its only other minion: 2 casts
+      and 2 played Blood Gems, so Felboar consumes the Tavern minion after the 3rd.
+    tavern:
+      board: [Felboar, Geomagus Roogug]   # 2/6; 4/6
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Blood Gem, Blood Gem]
+    steps:
+      - repeat: 2
+        steps: [{play: {hand: Blood Gem, pos: 1}}]   # on Roogug
+    expect:
+      shop: []
+      board:
+        - {card: Felboar, stats: 9/15, counter: 1}   # 2/6 +2/+2 +5/+7
+        - "Geomagus Roogug 6/8"
+
+  - name: blood_gems_turbo_hogrider_plays_count
+    description: >-
+      Alliance Flag is 1 spell; then the Hogrider plays 2 Blood Gems on each of your 2 Quilboar: 4
+      more.
+    tavern:
+      board: [Felboar, Turbo Hogrider]   # a 2/6 Demon/Quilboar; a 6/8 Quilboar
+      shop: [Firelands Fugitive]   # 5/7
+      hand: [Alliance Flag]
+    steps:
+      - play: {hand: Alliance Flag, pos: 1}   # on the Hogrider
+      - choose_discover: 0   # +3/+1
+    expect:
+      shop: []
+      board:
+        - {card: Felboar, stats: 9/15, counter: 2}   # 2/6 +2/+2 +5/+7
+        - "Turbo Hogrider 11/11"   # 6/8 +3/+1 +2/+2
+
+  - name: blood_gems_veteran_brigand_plays_count_and_arent_repeated
+    description: >-
+      Brigand's Share plays 3 Blood Gems on each of your 3 minions: 9 spells, so Felboar consumes 3
+      Tavern minions. They aren't played from your hand: Hot-Air Surveyor doesn't repeat them.
+    tavern:
+      board: [Felboar, Hot-Air Surveyor]   # 2/6; 3/7
+      shop: [Firelands Fugitive, Firelands Fugitive, Firelands Fugitive]   # 5/7 each
+    steps:
+      - add_to_hand: Veteran Brigand   # 8/8
+      - play: Veteran Brigand
+      - choose_discover: 0   # Brigand's Share
+    expect:
+      shop: []
+      board:
+        - {card: Felboar, stats: 20/30, counter: 0}   # 2/6 +3/+3 + 3 x 5/7
+        - {card: Hot-Air Surveyor, stats: 6/10, blood_gems_played: 3}
+        - "Veteran Brigand 11/11"
+
+  - name: blood_gems_a_tavern_rally_of_bonker_plays_count
+    tavern:
+      gold: 1
+      board: [Sky-hatch Runaway, Bonker, Felboar, Iron Groundskeeper]   # 4/7; 2/7; 2/6; 2/2
+      shop: [Firelands Fugitive]   # 5/7
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}   # Bonker: a Blood Gem on each other minion
+    expect:
+      shop: []
+      board:
+        - "Sky-hatch Runaway 5/8"
+        - "Bonker 2/7"
+        - {card: Felboar, stats: 8/14, counter: 0}   # 2/6 +1/+1 +5/+7
+        - "Iron Groundskeeper 3/3"
+
+  - name: blood_gems_tavern_rallies_of_tusked_camper_and_razorfen_vineweaver_play_count
+    tavern:
+      gold: 2
+      board: [Sky-hatch Runaway, Sky-hatch Runaway, Tusked Camper, Razorfen Vineweaver, Felboar]
+      shop: [Firelands Fugitive]   # 5/7
+    steps:
+      - activate: {pos: 0, target: 2}   # the Camper: a Blood Gem on itself
+      - activate: {pos: 1, target: 3}   # the Vineweaver: 4 Blood Gems on itself
+    expect:
+      shop: []
+      board:
+        - Sky-hatch Runaway
+        - Sky-hatch Runaway
+        - "Tusked Camper 3/4"   # 2/3 +1/+1
+        - "Razorfen Vineweaver 8/8"   # 4/4 +4/+4
+        - {card: Felboar, stats: 7/13, counter: 2}   # 2/6 +5/+7
+
+  - name: blood_gems_prodigious_tusker_plays_on_a_fishbait_attack_count
+    description: >-
+      The Lionfish attacks the Fishbait and the Tusker plays a Blood Gem on it: Felboar's 3rd spell.
+      It is counted once the attack resolved: the dead Fishbait has left the Tavern, so Felboar
+      consumes the Fugitive.
+    tavern:
+      gold: 2
+      board: [Lurking Lionfish, Prodigious Tusker, {card: Felboar, counter: 2}]   # a 3/4 Beast
+      shop: [Iron Groundskeeper, Firelands Fugitive]   # 5/7
+    steps:
+      - activate: {pos: Lurking Lionfish, target: 0}   # the Groundskeeper becomes a Fishbait
+    expect:
+      shop: []
+      board:
+        - "Lurking Lionfish 9/10"   # 3/4 +1/+1 +5/+5
+        - Prodigious Tusker
+        - {card: Felboar, stats: 7/13, counter: 0}   # 2/6 +5/+7

@@ -1,6 +1,10 @@
 //! `Felboar` (`BG28_633`) — Tier 5 Demon / Quilboar (`2/6`).
 //!
 //! After you cast 3 spells, consume a minion in the Tavern to gain (`double` if Golden) its stats.
+//!
+//! Every cast counts, and so does every Blood Gem one of your minions plays in the Tavern
+//! (`Geomagus Roogug`, `Turbo Hogrider`, `Veteran Brigand`, a Tavern Rally of `Bonker`, ...): one
+//! spell per Blood Gem (`docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};

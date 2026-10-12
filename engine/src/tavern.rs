@@ -941,7 +941,7 @@ impl TavernState {
             self.shop
                 .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
         }
-        cards::after_shop_refresh(self, rng);
+        cards::after_shop_refresh(self, pool, rng);
     }
 
     /// Refresh the Tavern with minions of `tribe` (`Lost Staff of Hamuul`).
@@ -961,7 +961,7 @@ impl TavernState {
             self.shop
                 .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
         }
-        cards::after_shop_refresh(self, rng);
+        cards::after_shop_refresh(self, pool, rng);
     }
 
     /// Execute the start-of-turn sequence (`docs/tavern.md` §4).
@@ -990,7 +990,7 @@ impl TavernState {
             if won_last && u.winners_bread_stacks > 0 {
                 let stacks = u.winners_bread_stacks;
                 u.winners_bread_stacks = 0;
-                u.play_blood_gems(stacks, &self.auras);
+                u.play_blood_gems_by_spell(stacks, &self.auras);
             } else {
                 u.winners_bread_stacks = 0;
             }
@@ -1049,8 +1049,9 @@ impl TavernState {
                 self.shop
                     .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
             }
-            cards::after_shop_refresh(self, rng);
+            cards::after_shop_refresh(self, pool, rng);
         }
+        cards::count_played_blood_gems(self, pool, rng);
         self.sync_all_auras();
     }
 
@@ -1090,6 +1091,11 @@ impl TavernState {
         let d_tavern_atk = new_auras.tavern_all_atk - self.auras.tavern_all_atk;
         let d_tavern_hp = new_auras.tavern_all_hp - self.auras.tavern_all_hp;
         self.auras = new_auras;
+        if cards::COMBAT_PLAYED_BLOOD_GEMS_COUNT {
+            let combat_units = survivors.iter().chain(dead_units);
+            self.auras.blood_gems_to_count +=
+                combat_units.map(|u| u.blood_gems_to_count).sum::<u32>();
+        }
         if d_tavern_atk != 0 || d_tavern_hp != 0 {
             for s in &mut self.shop {
                 if !s.is_spell {

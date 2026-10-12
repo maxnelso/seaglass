@@ -1162,7 +1162,7 @@ pub fn on_player_turn_start(state: &mut TavernState) {
 
 /// Apply End-of-Turn triggers when `EndTurn` is taken, repeated per
 /// [`Passive::EndOfTurnTriggers`]: Magnetized Health bonuses, then each minion's `end_of_turn`
-/// hook, left to right.
+/// hook, left to right (then the Blood Gems they played count: [`count_played_blood_gems`]).
 pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     let repeats = board_passive(&state.board, Passive::EndOfTurnTriggers);
     for _ in 0..repeats {
@@ -1173,6 +1173,7 @@ pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) 
         }
         notify_tavern(state, |h| h.end_of_turn, |s, idx, f| f(s, idx, pool, rng));
         resolve_pending_effects(&mut state.board, &state.auras, rng);
+        count_played_blood_gems(state, pool, rng);
     }
 }
 
@@ -1209,6 +1210,48 @@ pub fn after_cast_any_spell(state: &mut TavernState, pool: &mut CardPool, rng: &
     );
 }
 
+// Which played Blood Gems count as spells cast (`docs/tavern.md` §7.4), pending answers. The
+// ones your minions play in the Tavern always count.
+
+/// Blood Gems that spells play count too (`Gem Confiscation`, `Blood Gem Barrage`, `Winner's
+/// Bread`: [`Unit::play_blood_gems_by_spell`]).
+pub const SPELL_PLAYED_BLOOD_GEMS_COUNT: bool = false;
+/// Blood Gems your minions play in combat count too, at the end of the next start of turn
+/// ([`PlayerAuras::blood_gems_to_count`]).
+pub const COMBAT_PLAYED_BLOOD_GEMS_COUNT: bool = false;
+/// A played Blood Gem that counts also runs the `after_targeted_spell` observers ("whenever you
+/// cast a spell on": `Glambot`, `Shamanic Tidecaller`, ...) for the minion it was played on.
+pub const PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON: bool = false;
+
+/// Count the played Blood Gems that count as spells cast but weren't counted yet
+/// ([`Unit::play_blood_gems_by_minion`]; `docs/tavern.md` §7.4), one at a time, once the effect
+/// that played them resolved: each runs the `after_spell_cast` observers (`Felboar`), after the
+/// `after_targeted_spell` observers for the minion it was played on if
+/// [`PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON`]. Minions on the board go first, left to right, then the
+/// ones in the Tavern, then the ones no longer there ([`PlayerAuras::blood_gems_to_count`]).
+pub fn count_played_blood_gems(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    loop {
+        let to_count = |u: &Unit| u.blood_gems_to_count > 0;
+        let slot = match state.board.iter().position(to_count) {
+            Some(pos) => Some(MinionSlot::Board(pos)),
+            None => state.shop.iter().position(to_count).map(MinionSlot::Shop),
+        };
+        if let Some(slot) = slot {
+            if let Some(unit) = state.minion_mut(slot) {
+                unit.blood_gems_to_count -= 1;
+            }
+            if PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON {
+                after_cast_targeted_spell(state, slot, pool, rng);
+            }
+        } else if state.auras.blood_gems_to_count > 0 {
+            state.auras.blood_gems_to_count -= 1;
+        } else {
+            return;
+        }
+        after_cast_any_spell(state, pool, rng);
+    }
+}
+
 /// Apply `gold_spent` observers (left to right) after `amount` Gold is spent.
 pub fn on_gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
     notify_tavern(
@@ -1243,9 +1286,10 @@ pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mu
 }
 
 /// After a shop `Refresh` (including the start-of-turn one): resolve the player's Refresh
-/// effects on the new shop.
-pub fn after_shop_refresh(state: &mut TavernState, rng: &mut Rng) {
+/// effects on the new shop, then count the Blood Gems they played ([`count_played_blood_gems`]).
+pub fn after_shop_refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     effects::after_shop_refresh(state, rng);
+    count_played_blood_gems(state, pool, rng);
 }
 
 /// Start-of-turn upkeep of the hand card at `state.hand[hand_idx]`: expiry of a temporary Divine
@@ -1276,7 +1320,7 @@ pub fn is_option_card(card_id: CardId) -> bool {
 }
 
 /// Apply the option card `chosen`, picked from a Choose-One / Discover-style prompt (its
-/// `choose` hook).
+/// `choose` hook), then count the Blood Gems it played ([`count_played_blood_gems`]).
 pub fn apply_chosen_option(
     state: &mut TavernState,
     chosen: &Unit,
@@ -1285,11 +1329,13 @@ pub fn apply_chosen_option(
 ) {
     if let Some(choose) = hooks(chosen.card_id).choose {
         choose(state, chosen, pool, rng);
+        count_played_blood_gems(state, pool, rng);
     }
 }
 
 /// Apply `after_friendly_choose_one` observers (left to right) after a Choose One resolved with
-/// `option` (Discover-style options without [`CardFlags::CHOOSE_ONE_OPTION`] don't count).
+/// `option` (Discover-style options without [`CardFlags::CHOOSE_ONE_OPTION`] don't count), then
+/// count the Blood Gems they played ([`count_played_blood_gems`]).
 pub fn after_choose_one(
     state: &mut TavernState,
     option: &Unit,
@@ -1302,6 +1348,7 @@ pub fn after_choose_one(
             |h| h.after_friendly_choose_one,
             |s, idx, f| f(s, idx, pool, rng),
         );
+        count_played_blood_gems(state, pool, rng);
     }
 }
 
@@ -1652,12 +1699,19 @@ fn with_tavern_ctx<R>(
 }
 
 /// Trigger a friendly minion's `Rally` effect on `state.board[target_pos]` during the Tavern Phase
-/// (`Sky-hatch Runaway`; `docs/tavern.md` §7.7).
-pub fn trigger_tavern_rally(state: &mut TavernState, target_pos: usize, rng: &mut Rng) {
+/// (`Sky-hatch Runaway`; `docs/tavern.md` §7.7), then count the Blood Gems it played
+/// ([`count_played_blood_gems`]).
+pub fn trigger_tavern_rally(
+    state: &mut TavernState,
+    target_pos: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     with_distinct_board_ids(state, |state| {
         let mut next_id = TAVERN_SUMMON_IDS;
         tavern_rally(state, target_pos, &mut next_id, rng);
     });
+    count_played_blood_gems(state, pool, rng);
     state.sync_all_auras();
 }
 
@@ -1720,7 +1774,8 @@ pub struct TavernAttack {
 /// `after_friendly_rally` observers, the `friendly_attack` observers, then its Attack as damage
 /// to the target, unless a Divine Shield absorbs it, counted in full by the damage-dealt hooks
 /// (`Treasure Parrot`). The attacker and the target are followed by identity. The target stays in
-/// the Tavern, dead or alive: what its death does is up to the caller.
+/// the Tavern, dead or alive: what its death does is up to the caller, which then counts the Blood
+/// Gems played meanwhile ([`count_played_blood_gems`]; `Prodigious Tusker`, a Rally).
 pub fn tavern_attack(
     state: &mut TavernState,
     attacker_pos: usize,

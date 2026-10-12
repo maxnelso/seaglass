@@ -4,7 +4,7 @@ use crate::cards::hooks::CardEventFn;
 use crate::cards::{self, minions, spells, BoardCtx, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -244,7 +244,7 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
         state.apply_shop_auras(&mut fodder);
         let gems = state.auras.refresh_blood_gems;
         if gems > 0 {
-            fodder.play_blood_gems(gems, &state.auras);
+            fodder.play_blood_gems_by_spell(gems, &state.auras);
         }
 
         let demon_indices: Vec<usize> = state
@@ -262,6 +262,7 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
                 demon_indices[rng.below(demon_indices.len())]
             };
             state.board[idx].add_stats(fodder.attack, fodder.health);
+            state.auras.blood_gems_to_count += fodder.blood_gems_to_count;
         } else {
             state.shop.push(fodder);
         }
@@ -284,8 +285,14 @@ pub fn make_fishbait(is_golden: bool) -> Unit {
 /// Your left-most Beast attacks the `Fishbait` at `state.shop[shop_idx]` (`Lurking Lionfish`,
 /// `Snarky Shark`), as a regular attack ([`cards::tavern_attack`], `docs/tavern.md` §7.7). One it
 /// kills gives it `+5/+5` (`+10/+10` if Golden) and leaves the Tavern; one it doesn't kill stays
-/// there, damaged.
-pub fn left_most_beast_attacks_fishbait(state: &mut TavernState, shop_idx: usize, rng: &mut Rng) {
+/// there, damaged. Then the Blood Gems played during the attack count
+/// ([`cards::count_played_blood_gems`]: `Prodigious Tusker`, a Rally).
+pub fn left_most_beast_attacks_fishbait(
+    state: &mut TavernState,
+    shop_idx: usize,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     let Some(beast_pos) = state
         .board
         .iter()
@@ -294,14 +301,14 @@ pub fn left_most_beast_attacks_fishbait(state: &mut TavernState, shop_idx: usize
         return;
     };
     let attack = cards::tavern_attack(state, beast_pos, shop_idx, rng);
-    let Some(bait_idx) = attack.target.filter(|&t| state.shop[t].health <= 0) else {
-        return;
-    };
-    let bait = state.shop.remove(bait_idx);
-    if let Some(killer) = attack.attacker {
-        let buff = if bait.is_golden { 10 } else { 5 };
-        state.board[killer].add_stats(buff, buff);
+    if let Some(bait_idx) = attack.target.filter(|&t| state.shop[t].health <= 0) {
+        let bait = state.shop.remove(bait_idx);
+        if let Some(killer) = attack.attacker {
+            let buff = if bait.is_golden { 10 } else { 5 };
+            state.board[killer].add_stats(buff, buff);
+        }
     }
+    cards::count_played_blood_gems(state, pool, rng);
 }
 
 /// `Blood Gem` (`+1/+1` targeted spell card, scaled by `blood_gem_bonus_atk / hp` when cast).

@@ -27,7 +27,7 @@ pub fn cast(
         MinionSlot::Shop(idx) => (&mut state.shop, idx),
     };
     if board_pos < zone.len() {
-        zone[board_pos].play_blood_gems(3, &state.auras);
+        zone[board_pos].play_blood_gems_by_spell(3, &state.auras);
         let mut neighbor_indices = Vec::new();
         if board_pos > 0 {
             neighbor_indices.push(board_pos - 1);

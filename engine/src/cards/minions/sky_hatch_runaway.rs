@@ -8,7 +8,7 @@
 use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 452;
 pub const ACTIVATE_COST: u32 = 1;
@@ -18,15 +18,14 @@ pub fn template() -> CardTemplate {
         .with_tribe(Tribe::Dragon)
         .with_activate_cost(ACTIVATE_COST)
         .with_activate_target(ActivateTargetKind::BoardRally)
-        .on_activate(|state, source_pos, target_pos, _, rng| {
-            on_activate(state, source_pos, target_pos, rng)
-        })
+        .on_activate(on_activate)
 }
 
 pub fn on_activate(
     state: &mut TavernState,
     source_pos: usize,
     target_pos: Option<usize>,
+    pool: &mut CardPool,
     rng: &mut Rng,
 ) {
     let Some(t_pos) = target_pos else {
@@ -40,6 +39,6 @@ pub fn on_activate(
         if t_pos >= state.board.len() {
             break;
         }
-        cards::trigger_tavern_rally(state, t_pos, rng);
+        cards::trigger_tavern_rally(state, t_pos, pool, rng);
     }
 }
