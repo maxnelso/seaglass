@@ -449,7 +449,7 @@ pub struct Unit {
     /// Total Blood Gems played on this unit and total `(atk, hp)` granted by them (`Gem Confiscation`).
     pub blood_gems_played: u32,
     pub blood_gem_stats_applied: (i32, i32),
-    /// Blood Gems played on this unit that still have to count as spells cast
+    /// Blood Gems played on this unit that still have to count as spells cast on it
     /// ([`Self::play_blood_gems_by_minion`], `crate::cards::count_played_blood_gems`).
     pub blood_gems_to_count: u32,
     /// True if this hand minion dies immediately if played this turn (`Tomb Turning`).
@@ -637,8 +637,8 @@ impl Unit {
     }
 
     /// Play `count` Blood Gem(s) on this unit for one of your minions (`Geomagus Roogug`, `Bonker`,
-    /// ...): they aren't cast, but count as spells cast once the effect that played them resolved
-    /// (`docs/tavern.md` §7.4, `crate::cards::count_played_blood_gems`).
+    /// ...): they aren't cast, but count as spells cast on it once the effect that played them
+    /// resolved (`docs/tavern.md` §7.4, `crate::cards::count_played_blood_gems`).
     pub fn play_blood_gems_by_minion(&mut self, count: u32, auras: &PlayerAuras) {
         self.play_blood_gems(count, auras);
         self.blood_gems_to_count += count;

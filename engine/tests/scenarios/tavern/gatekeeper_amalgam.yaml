@@ -25,3 +25,17 @@ scenarios:
           board: {1: "Vicious Mindslasher 7/10"}   # +1/+2 per spell and the Tea Set's +4/+4
       - end_turn
     expect: {hand: [Misplaced Tea Set]}
+
+  - name: each_blood_gem_your_minion_plays_on_it_casts_a_tea_set
+    description: >-
+      Turbo Hogrider plays 2 Blood Gems on each of your Quilboar, the Amalgam (All) included: 2
+      spells cast on it, so 2 Misplaced Tea Sets (+4/+4 to the Hogrider and to the Amalgam each).
+    tavern:
+      board: [Turbo Hogrider, Gatekeeper Amalgam]   # a 6/8 Quilboar; a 6/6 All
+      hand: [Alliance Flag]
+    steps:
+      - play: {hand: Alliance Flag, pos: 0}   # on the Hogrider
+      - choose_discover: 0   # +3/+1
+    expect:
+      board: ["Turbo Hogrider 19/19", "Gatekeeper Amalgam 16/16"]   # +2/+2 (Blood Gems) +8/+8 (Tea Sets)
+      auras: {tavern_spells_cast: 3}   # Alliance Flag and the 2 Tea Sets

@@ -3,8 +3,8 @@
 //! Rally: This plays 4 (`8` if Golden) permanent Blood Gems on itself.
 //!
 //! Triggered in the Tavern (`Sky-hatch Runaway`), the Blood Gems are permanent anyway: they aren't
-//! kept a second time after the next combat. There, each counts as a spell cast (`Felboar`;
-//! `docs/tavern.md` §7.4).
+//! kept a second time after the next combat. There, each counts as a spell cast on it (`Felboar`,
+//! `Gatekeeper Amalgam`, ...; `docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, PlayerAuras, Tribe, Unit};

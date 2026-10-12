@@ -12,3 +12,26 @@ scenarios:
       - play: {hand: Tavern Dish Banana, shop: 0}   # +2/+2 and the 4/4 Satellite
       - play: {hand: Tavern Dish Banana, shop: 1}   # not a Mech: only the +2/+2
     expect: {board: ["Glambot 4/4"], shop: ["Lullabot 8/8", "Bubble Gunner 4/5"]}
+
+  # A Blood Gem one of your minions plays on a Mech counts as a spell cast on it (docs/tavern.md
+  # §7.4): one Satellite per Blood Gem.
+
+  - name: a_blood_gem_geomagus_roogug_plays_on_a_mech_magnetizes_a_satellite_to_it
+    seed: 6   # Roogug's Blood Gem goes to the Lullabot (its first rng.below(2) draw is 0)
+    tavern: {board: [Geomagus Roogug, Lullabot, Glambot], hand: [Blood Gem]}   # Lullabot: a 2/2 Mech
+    steps:
+      - play: {hand: Blood Gem, pos: 0}   # on Roogug: it plays one on the Lullabot
+    expect:
+      board:
+        - "Geomagus Roogug 5/7"
+        - {card: Lullabot, stats: 7/7, blood_gems_played: 1}   # +1/+1 and a 4/4 Satellite
+        - "Glambot 4/4"
+
+  - name: brigands_share_magnetizes_a_satellite_per_blood_gem_to_each_mech
+    tavern: {board: [Glambot, Lullabot]}   # 4/4 and 2/2 Mechs
+    steps:
+      - add_to_hand: Veteran Brigand   # an 8/8 Quilboar
+      - play: Veteran Brigand
+      - choose_discover: 0   # Brigand's Share: 3 Blood Gems on each of your minions
+    expect:
+      board: ["Glambot 19/19", "Lullabot 17/17", "Veteran Brigand 11/11"]   # +3/+3; 3 Satellites per Mech

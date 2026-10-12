@@ -2,7 +2,8 @@
 //!
 //! After you play a Choose One card, this plays 2 (`4` if Golden) Blood Gems on all your Quilboar.
 //!
-//! Each Blood Gem it plays counts as a spell cast (`Felboar`; `docs/tavern.md` §7.4).
+//! Each Blood Gem it plays counts as a spell cast on that minion (`Felboar`, `Glambot`, ...;
+//! `docs/tavern.md` §7.4).
 
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe};

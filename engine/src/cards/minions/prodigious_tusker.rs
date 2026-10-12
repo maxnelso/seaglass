@@ -2,7 +2,8 @@
 //! Whenever another friendly minion attacks, this plays a (`2` if Golden) **Blood Gem(s)** on it.
 //!
 //! When your minion attacks a `Fishbait` in the Tavern, each Blood Gem it plays counts as a spell
-//! cast (`Felboar`; `docs/tavern.md` §7.4). In combat, they count for nothing.
+//! cast on that minion (`Felboar`, `Glambot`, ...; `docs/tavern.md` §7.4). In combat, they count
+//! for nothing.
 
 use crate::cards::{BoardCtx, CardTemplate};
 use crate::events::Event;

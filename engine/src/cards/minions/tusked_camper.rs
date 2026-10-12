@@ -2,7 +2,7 @@
 //! **Rally:** This plays a **Blood Gem** (`2` if Golden) on itself.
 //!
 //! Triggered in the Tavern (`Sky-hatch Runaway`), each Blood Gem it plays counts as a spell cast
-//! (`Felboar`; `docs/tavern.md` §7.4).
+//! on it (`Felboar`, `Gatekeeper Amalgam`, ...; `docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, PlayerAuras, Tribe, Unit};

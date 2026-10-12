@@ -21,3 +21,17 @@ scenarios:
       board: ["Shamanic Tidecaller 8/10"]   # +3/+3
       shop: ["Bubble Gunner 4/5"]   # only the Banana's +2/+2: not one of your Murlocs
       hand: ["Flighty Scout 6/6"]
+
+  - name: a_blood_gem_your_minion_plays_on_a_murloc_triggers_it
+    description: >-
+      Bonker's Rally, triggered in the Tavern, plays a Blood Gem on each of your other minions: the
+      one on the Tidecaller is a spell cast on a Murloc.
+    tavern:
+      gold: 1
+      board: [Sky-hatch Runaway, Bonker, Shamanic Tidecaller]   # 4/7 Dragon; 2/7 Quilboar; 5/7 Murloc
+      hand: [Flighty Scout]   # a 3/3 Murloc
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}
+    expect:
+      board: ["Sky-hatch Runaway 5/8", "Bonker 2/7", "Shamanic Tidecaller 9/11"]   # +1/+1 and +3/+3
+      hand: ["Flighty Scout 6/6"]

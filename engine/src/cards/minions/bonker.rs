@@ -3,7 +3,7 @@
 //! Windfury. Rally: This plays a (`2` if Golden) Blood Gem(s) on all your other minions.
 //!
 //! Triggered in the Tavern (`Sky-hatch Runaway`), each Blood Gem it plays counts as a spell cast
-//! (`Felboar`; `docs/tavern.md` §7.4).
+//! on that minion (`Felboar`, `Glambot`, ...; `docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::events::Event;

@@ -1,6 +1,9 @@
 //! `Twilight Tidehunter` (`BG36_703`) — Tier 4 Murloc (`4/6`).
 //!
 //! Whenever you cast a spell on this, give the left-most minion in your hand `+8/+8` (`+16/+16` if Golden).
+//!
+//! A Blood Gem one of your minions plays on it in the Tavern Phase counts as a spell cast on it
+//! (`Geomagus Roogug`, `Bonker`, ...); one a spell plays doesn't (`docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};

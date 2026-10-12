@@ -5,7 +5,8 @@
 //! Each Blood Gem played on it is a trigger of its own, picking its own random minion (a Golden
 //! one plays both of a trigger's Blood Gems on that minion). It never plays them on another
 //! `Geomagus Roogug`: with no other minion, nothing happens (so two Roogugs don't loop). In the
-//! Tavern, each Blood Gem it plays counts as a spell cast (`Felboar`; `docs/tavern.md` §7.4).
+//! Tavern, each Blood Gem it plays counts as a spell cast on that minion (`Felboar`, `Glambot`,
+//! ...; `docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Keyword, PlayerAuras, Tribe, Unit};

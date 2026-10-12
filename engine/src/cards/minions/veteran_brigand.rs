@@ -2,7 +2,8 @@
 //!
 //! Choose One - This plays 3 (`6` if Golden) Blood Gems on all your minions; or cast `Blood Gem Barrage` 3 (`6` if Golden) times.
 //!
-//! Each Blood Gem Brigand's Share plays counts as a spell cast (`Felboar`; `docs/tavern.md` §7.4).
+//! Each Blood Gem Brigand's Share plays counts as a spell cast on that minion (`Felboar`,
+//! `Glambot`, ...; `docs/tavern.md` §7.4).
 
 use crate::cards::tokens::{make_choice_option, CHOICE_BRIGAND_BARRAGE, CHOICE_BRIGAND_GEMS};
 use crate::cards::{resolve_pending_effects, spells, CardTemplate};

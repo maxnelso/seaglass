@@ -3,7 +3,9 @@
 //! Whenever you cast a spell on a Mech, Magnetize a 4/4 Satellite to it (`twice` if Golden).
 //!
 //! A Mech in the Tavern counts too: the Satellite merges into it, without the friendly Magnetize
-//! observers.
+//! observers. A Blood Gem one of your minions plays on a Mech in the Tavern Phase counts as a spell
+//! cast on it (`Geomagus Roogug`, `Veteran Brigand`, ...: a Satellite per Blood Gem); one a spell
+//! plays doesn't (`docs/tavern.md` §7.4).
 
 use crate::cards::{self, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};

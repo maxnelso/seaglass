@@ -2,7 +2,9 @@
 //!
 //! Whenever you cast a spell on a Murloc, give Murlocs in your hand and board `+3/+3` (`+6/+6` if Golden).
 //!
-//! A Murloc in the Tavern counts too (it isn't buffed itself, unlike a Murloc on your board).
+//! A Murloc in the Tavern counts too (it isn't buffed itself, unlike a Murloc on your board). A
+//! Blood Gem one of your minions plays on a Murloc in the Tavern Phase counts as a spell cast on it
+//! (`Geomagus Roogug`, `Bonker`, ...); one a spell plays doesn't (`docs/tavern.md` §7.4).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};

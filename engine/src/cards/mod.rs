@@ -1210,22 +1210,15 @@ pub fn after_cast_any_spell(state: &mut TavernState, pool: &mut CardPool, rng: &
     );
 }
 
-/// A played Blood Gem that counts also runs the `after_targeted_spell` observers ("whenever you
-/// cast a spell on": `Glambot`, `Shamanic Tidecaller`, ...) for the minion it was played on
-/// (`docs/tavern.md` §7.4), pending answers.
-pub const PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON: bool = false;
-
 /// Count the Blood Gems your minions played that weren't counted yet
 /// ([`Unit::play_blood_gems_by_minion`]; `docs/tavern.md` §7.4), once the effect that played them
-/// resolved: one at a time, left to right, each runs the `after_spell_cast` observers (`Felboar`),
-/// after the `after_targeted_spell` observers for the minion it was played on if
-/// [`PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON`].
+/// resolved: one at a time, left to right, each is a spell cast on the minion it was played on,
+/// running the `after_targeted_spell` observers for that minion (`Glambot`, ...), then the
+/// `after_spell_cast` observers (`Felboar`).
 pub fn count_played_blood_gems(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     while let Some(pos) = state.board.iter().position(|u| u.blood_gems_to_count > 0) {
         state.board[pos].blood_gems_to_count -= 1;
-        if PLAYED_BLOOD_GEMS_TRIGGER_CAST_ON {
-            after_cast_targeted_spell(state, MinionSlot::Board(pos), pool, rng);
-        }
+        after_cast_targeted_spell(state, MinionSlot::Board(pos), pool, rng);
         after_cast_any_spell(state, pool, rng);
     }
 }

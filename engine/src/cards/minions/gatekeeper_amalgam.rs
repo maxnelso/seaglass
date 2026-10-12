@@ -5,6 +5,8 @@
 //! Its `Misplaced Tea Set` counts as a Tavern spell you cast (`docs/tavern.md` §7.4): it counts
 //! toward `tavern_spells_cast`, triggers the spell-cast observers (`Felboar`, the "whenever you cast
 //! a Tavern spell" minions) and becomes the last Tavern spell you cast (`Cataclysmic Harbinger`).
+//! A Blood Gem one of your minions plays on it in the Tavern Phase counts as a spell cast on it (a
+//! `Misplaced Tea Set` per Blood Gem); one a spell plays doesn't.
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
