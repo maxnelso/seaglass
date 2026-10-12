@@ -216,6 +216,7 @@ When `EndTurn` is executed:
 - Tribal and token stat bonuses (applied to existing and newly played/summoned matching units).
 - Summon/death counters for scaling minions.
 - Tavern spells cast (`tavern_spells_cast`, §7.4, including those your minions cast in combat: `docs/combat.md` §2) and sell-scaling stacks.
+- What combat changes comes back with its result (`docs/combat.md` §1, Combat-to-Tavern Persistence): a Tavern aura gained in combat (`Living Azerite`'s Elemental bonus) also buffs the minions already in the Tavern.
 
 ### 7.7 Rallies and Attacks in the Tavern
 A friendly minion's Rally can trigger in the Tavern (`Sky-hatch Runaway`), and a friendly minion can attack a minion in the Tavern: a `Fishbait` (`Lurking Lionfish`, `Snarky Shark`: your left-most Beast attacks it). While one resolves, the minions on your board have distinct ids (given back afterwards), so the hooks that tell minions apart work as in combat (`Wolf Pup`'s "your other minions", `Prodigious Tusker`'s "another friendly minion"). The Blood Gems your minions play during one (a Rally of `Bonker`, `Prodigious Tusker`) aren't spells you cast (§7.4, **Played Blood Gems**).

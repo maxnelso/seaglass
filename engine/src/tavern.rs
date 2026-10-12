@@ -1087,13 +1087,24 @@ impl TavernState {
             ),
         };
 
+        // Tavern auras gained in combat also buff the minions already in the Tavern
+        // (`docs/combat.md` §1, Combat-to-Tavern Persistence).
         let d_tavern_atk = new_auras.tavern_all_atk - self.auras.tavern_all_atk;
         let d_tavern_hp = new_auras.tavern_all_hp - self.auras.tavern_all_hp;
+        let d_elemental_atk = new_auras.tavern_elemental_atk - self.auras.tavern_elemental_atk;
+        let d_elemental_hp = new_auras.tavern_elemental_hp - self.auras.tavern_elemental_hp;
         self.auras = new_auras;
         if d_tavern_atk != 0 || d_tavern_hp != 0 {
             for s in &mut self.shop {
                 if !s.is_spell {
                     s.add_stats(d_tavern_atk, d_tavern_hp);
+                }
+            }
+        }
+        if d_elemental_atk != 0 || d_elemental_hp != 0 {
+            for s in &mut self.shop {
+                if !s.is_spell && s.tribe.matches(Tribe::Elemental) {
+                    s.add_stats(d_elemental_atk, d_elemental_hp);
                 }
             }
         }

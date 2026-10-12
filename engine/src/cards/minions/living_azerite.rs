@@ -3,7 +3,8 @@
 //! Whenever you cast a Tavern spell, give Elementals in the Tavern `+4/+3` (`+8/+6` if Golden) this game.
 //!
 //! It also reacts to the Tavern spells your minions cast in combat (`Runic Arcanist`, `Crimson
-//! Vindicator`; `docs/combat.md` §2): the bonus is kept.
+//! Vindicator`; `docs/combat.md` §2): the bonus is kept, and the Elementals in the Tavern get it once
+//! the combat is over.
 
 use crate::cards::{CardTemplate, CombatCastCtx};
 use crate::model::{CardId, Tribe};
@@ -31,7 +32,8 @@ pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool,
     }
 }
 
-/// A Tavern spell cast in combat: the bonus only.
+/// A Tavern spell cast in combat: the bonus only (the Elementals in the Tavern get it once the
+/// combat is over).
 pub fn on_combat_spell_cast(ctx: &mut CombatCastCtx<'_>, self_idx: usize) {
     let mult = ctx.board[self_idx].golden_mult();
     ctx.auras.tavern_elemental_atk += 4 * mult;
