@@ -1,6 +1,7 @@
 //! `Boon of Beetles` — Tier 4 Tavern spell (`1` Gold).
 //!
-//! Summon 2 Taunt Beetles in combat, each as soon as there is room.
+//! Summon 2 Taunt Beetles in combat, each as soon as there is room (a Beetle that never finds room
+//! waits for a later combat).
 
 use super::{record_effect, spell, SPELL_BOON_OF_BEETLES};
 use crate::cards::{apply_combat_summon_modifiers, tokens, BoardCtx, CardHooks};

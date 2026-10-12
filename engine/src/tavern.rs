@@ -673,13 +673,10 @@ impl TavernState {
             && (self.health + self.armor > 1 || cards::board_prevents_hero_damage(&self.board))
     }
 
-    /// Effective Gold cost to buy `card` from `shop` (taking `next_spell_discount` into account).
+    /// Effective cost to buy spell `card` from `shop`, in Gold or, if it `costs_health`, in Health
+    /// (taking `next_spell_discount` into account).
     pub fn effective_spell_buy_cost(&self, card: &Unit) -> u32 {
-        if card.costs_health {
-            card.spell_cost
-        } else {
-            (card.spell_cost as i32 - self.auras.next_spell_discount).max(0) as u32
-        }
+        (card.spell_cost as i32 - self.auras.next_spell_discount).max(0) as u32
     }
 
     /// Deal `amount` damage to the friendly hero during the Tavern Phase.
@@ -1009,11 +1006,12 @@ impl TavernState {
                     return false;
                 }
                 if card.is_spell {
+                    let cost = self.effective_spell_buy_cost(card);
                     if card.costs_health {
-                        self.health + self.armor > card.spell_cost as i32
+                        self.health + self.armor > cost as i32
                             || cards::board_prevents_hero_damage(&self.board)
                     } else {
-                        self.gold >= self.effective_spell_buy_cost(card)
+                        self.gold >= cost
                     }
                 } else {
                     self.gold >= 3
@@ -1309,11 +1307,11 @@ impl TavernState {
                 let mut unit = self.shop.remove(shop_index);
                 let bought_snapshot = unit.clone();
                 if unit.is_spell {
+                    let cost = self.effective_spell_buy_cost(&unit);
+                    self.auras.next_spell_discount = 0;
                     if unit.costs_health {
-                        self.deal_hero_damage(unit.spell_cost as i32);
+                        self.deal_hero_damage(cost as i32);
                     } else {
-                        let cost = self.effective_spell_buy_cost(&unit);
-                        self.auras.next_spell_discount = 0;
                         self.spend_gold(cost, pool, rng);
                     }
                     self.hand.push(unit);

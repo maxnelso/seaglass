@@ -158,6 +158,8 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 | `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand`, return others to `CardPool`, clear `discover_pending`, check for Triple. |
 | `EndTurn` | Always legal when `discover_pending.is_none()` | Run end-of-turn triggers and conclude the Tavern turn. |
 
+**Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.
+
 ---
 
 ## 7. General Tavern Trigger Hooks & Subsystems

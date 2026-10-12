@@ -1,6 +1,6 @@
 //! `Leaf Through the Pages` — Tier 2 Tavern spell (`1` Gold).
 //!
-//! Get 2 free Refreshes.
+//! Get 2 free Refreshes (unused ones carry over to later turns).
 
 use super::spell;
 use crate::cards::CardHooks;

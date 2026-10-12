@@ -1,5 +1,7 @@
 //! `Ominous Seer` (`BG31_330`) — Tier 1 Demon (`2/1`).
 //! **Battlecry:** The next Tavern spell you buy costs `(1)` (`(2)` if Golden) less.
+//! The discount also lowers a Health cost (`Hasty Excavation`: 2 Health) and waits for the next
+//! spell bought, even on a later turn (`docs/tavern.md` §6).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
