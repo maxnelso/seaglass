@@ -5,3 +5,15 @@ scenarios:
     steps:
       - play: {hand: Tavern Dish Banana, pos: 1}   # +2/+2 on Iron Groundskeeper
     expect: {board: ["Charging Czarina 8/1", "Iron Groundskeeper 4/4"]}
+
+  - name: a_spell_your_minion_casts_in_combat_gives_attack_for_that_combat_only
+    description: >-
+      Runic Arcanist casts two Shiny Rings at Start of Combat, and Czarina gives the Divine Shield
+      minions (itself) +4 Attack before each; after combat, it is back to its Tavern stats.
+    tavern: {board: [Charging Czarina, Runic Arcanist]}   # 4/1 Divine Shield; 2/4
+    steps:
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat:
+        events: {where: {type: stat_buff, reason: Charging Czarina}, count: 2, all: {unit: 0, atk_delta: 4, hp_delta: 0}}
+      board: ["Charging Czarina 4/1 divine_shield", "Runic Arcanist 2/4"]

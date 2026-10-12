@@ -1,8 +1,11 @@
 //! `Living Azerite` (`BG28_707`) — Tier 5 Elemental (`8/6`).
 //!
 //! Whenever you cast a Tavern spell, give Elementals in the Tavern `+4/+3` (`+8/+6` if Golden) this game.
+//!
+//! It also reacts to the Tavern spells your minions cast in combat (`Runic Arcanist`, `Crimson
+//! Vindicator`; `docs/combat.md` §2): the bonus is kept.
 
-use crate::cards::CardTemplate;
+use crate::cards::{CardTemplate, CombatCastCtx};
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -13,6 +16,7 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Living Azerite", 8, 6, 5)
         .with_tribe(Tribe::Elemental)
         .on_spell_cast(on_spell_cast)
+        .on_combat_spell_cast(on_combat_spell_cast)
 }
 
 pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool, _: &mut Rng) {
@@ -25,4 +29,11 @@ pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool,
             s.add_stats(d_atk, d_hp);
         }
     }
+}
+
+/// A Tavern spell cast in combat: the bonus only.
+pub fn on_combat_spell_cast(ctx: &mut CombatCastCtx<'_>, self_idx: usize) {
+    let mult = ctx.board[self_idx].golden_mult();
+    ctx.auras.tavern_elemental_atk += 4 * mult;
+    ctx.auras.tavern_elemental_hp += 3 * mult;
 }

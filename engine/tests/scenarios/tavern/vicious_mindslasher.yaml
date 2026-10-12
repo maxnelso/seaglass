@@ -10,3 +10,19 @@ scenarios:
     expect:
       board: ["Vicious Mindslasher 2/4"]
       auras: {deity: {attack: 2, health: 3}}
+
+  - name: a_spell_your_minion_casts_in_combat_only_leaves_the_deity_stats
+    description: >-
+      Crimson Vindicator casts Mighty Dragonbreath when it attacks, and Mindslasher gives itself and
+      the Deity +1/+2 first. After combat, Mindslasher is back to its Tavern stats, and the Deity
+      keeps +1/+2.
+    tavern:
+      auras: {deity: {kind: cthun}}
+      board: [Crimson Vindicator, Vicious Mindslasher]   # 8/9; 1/2
+    steps:
+      - fight: {board: [Patient Scout]}   # A has more minions: the Vindicator attacks first, once
+    expect:
+      combat:
+        events: {where: {type: stat_buff, reason: Vicious Mindslasher}, count: 1, all: {unit: 1, attack: 2, health: 4}}
+      board: ["Crimson Vindicator 8/9", "Vicious Mindslasher 1/2"]
+      auras: {deity: {attack: 2, health: 3}}

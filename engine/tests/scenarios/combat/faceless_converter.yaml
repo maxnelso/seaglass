@@ -4,3 +4,17 @@ scenarios:
     seed: 518
     combat: {board_a: [Faceless Converter], board_b: [Tyrael]}
     expect: {auras_a: {deity: {attack: 3, health: 2}}}   # from the base 1/1
+
+  # Unit ids: A's Faceless Converter 0, Runic Arcanist 1; B's Tyrael 2.
+  - name: tavern_spells_your_minions_cast_in_combat_improve_it_at_once
+    description: >-
+      Runic Arcanist's two Shiny Rings count as Tavern spells you cast as soon as they are cast:
+      when Faceless Converter dies later in the combat, it gives the Deity (1 + 2) x +2/+1.
+    seed: 518
+    combat: {board_a: [Faceless Converter, Runic Arcanist], board_b: [Tyrael]}
+    expect:
+      auras_a: {tavern_spells_cast: 2, deity: {attack: 7, health: 4}}   # from the base 1/1
+      events:
+        sequence:
+          - {type: stat_buff, unit: 0, reason: Shiny Ring, attack: 7, health: 7}
+          - {type: death, unit: 0}

@@ -42,3 +42,81 @@ scenarios:
         survivors_a:
           - "Crimson Vindicator 20/18 -divine_shield"   # 8/9 + 12/9
           - "Annoy-o-Module 13/15"   # 5/9 + 8/6
+
+  # Each Mighty Dragonbreath counts as you casting a Tavern spell (docs/combat.md §2).
+
+  # Unit ids: A's Crimson Vindicator 0, Vicious Mindslasher 1, Forsaken Weaver 2, Living Azerite 3;
+  # B's Greedy Conniver 4.
+  - name: whenever_you_cast_a_tavern_spell_minions_react_to_each_mighty_dragonbreath
+    description: >-
+      The Vindicator attacks once. Before its Mighty Dragonbreath (+3/+2, again for a Dragon and for
+      Divine Shield), left to right: Vicious Mindslasher gives itself and the Deity +1/+2, Forsaken
+      Weaver gives the Undead +3 Attack this game (itself, and Plaguerunner in hand), and Living
+      Azerite gives the Elementals in the Tavern +4/+3 this game.
+    seed: 604
+    combat:
+      board_a: [Crimson Vindicator, Vicious Mindslasher, Forsaken Weaver, Living Azerite]
+      board_b: [Greedy Conniver]   # 7/7
+      hand_a: [Plaguerunner]   # a 4/2 Undead
+    expect:
+      outcome: a_win
+      survivors_a:
+        - "Crimson Vindicator 17/15 -divine_shield"   # 8/9 + 9/6
+        - "Vicious Mindslasher 5/6"   # 1/2 + 1/2 + 3/2
+        - "Forsaken Weaver 9/10"   # 3/8 + 3/0 + 3/2
+        - "Living Azerite 11/8"   # 8/6 + 3/2
+      hand_a: ["Plaguerunner 7/2"]
+      auras_a:
+        tavern_spells_cast: 1
+        deity: {attack: 2, health: 3}   # from the base 1/1
+        undead_bonus_attack: 3
+        tavern_elemental_atk: 4
+        tavern_elemental_hp: 3
+      events:
+        sequence:
+          - {type: attack_declared, side: a, attacker: 0, target: 4}
+          - {type: stat_buff, unit: 1, reason: Vicious Mindslasher, attack: 2, health: 4}
+          - {type: stat_buff, unit: 2, reason: Forsaken Weaver, attack: 6, health: 8}
+          - {type: stat_buff, unit: 0, reason: Crimson Vindicator, attack: 17, health: 15}
+          - {type: damage_dealt, unit: 4, amount: 17, from: 0}
+
+  - name: golden_minions_react_with_their_golden_bonuses
+    description: >-
+      Before Mighty Dragonbreath, a Golden Mindslasher gives itself and the Deity +2/+4, a Golden
+      Forsaken Weaver gives the Undead +6 Attack, and a Golden Living Azerite gives the Elementals
+      in the Tavern +8/+6.
+    seed: 604
+    combat:
+      board_a:
+        - Crimson Vindicator
+        - "golden Vicious Mindslasher 2/4"
+        - "golden Forsaken Weaver 6/16"
+        - "golden Living Azerite 16/12"
+      board_b: [Greedy Conniver]
+    expect:
+      auras_a:
+        deity: {attack: 3, health: 5}
+        undead_bonus_attack: 6
+        tavern_elemental_atk: 8
+        tavern_elemental_hp: 6
+      events:
+        all_of:
+          - {where: {type: stat_buff, reason: Vicious Mindslasher}, count: 1, all: {unit: 1, atk_delta: 2, hp_delta: 4}}
+          - {where: {type: stat_buff, reason: Forsaken Weaver}, count: 1, all: {unit: 2, atk_delta: 6, hp_delta: 0}}
+
+  - name: each_cast_counts_as_a_tavern_spell_cast_but_not_as_the_last_one
+    description: >-
+      A Golden Vindicator casts Mighty Dragonbreath twice when it attacks: tavern_spells_cast goes
+      up by 2 (Faceless Converter), but Armor Stash stays the last Tavern spell cast, so Cataclysmic
+      Harbinger gets a copy of it at the end of the turn.
+    seed: 604
+    tavern: {board: ["golden Crimson Vindicator 16/18", Cataclysmic Harbinger], hand: [Armor Stash]}
+    steps:
+      - play: {hand: Armor Stash, pos: 0}   # an untargeted spell is played at 0
+      - expect: {auras: {tavern_spells_cast: 1, last_tavern_spell_cast: {capture: armor_stash}}}
+      - fight: {board: [Patient Scout]}   # A has more minions: the Vindicator attacks first, once
+      - expect:
+          combat: {events: {where: {type: stat_buff, reason: Crimson Vindicator}, count: 4}}   # 2 casts x 2 minions
+          auras: {tavern_spells_cast: 3, last_tavern_spell_cast: {same_as: armor_stash}}
+      - end_turn
+    expect: {hand: [Armor Stash]}

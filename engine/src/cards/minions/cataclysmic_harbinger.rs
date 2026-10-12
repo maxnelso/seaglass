@@ -1,6 +1,9 @@
 //! `Cataclysmic Harbinger` (`BG35_123`) — Tier 5 Neutral (`6/10`).
 //!
 //! At the end of your turn, get a copy (`2` copies if Golden) of the last Tavern spell you cast.
+//!
+//! A Tavern spell one of your minions casts in combat (`Runic Arcanist`, `Crimson Vindicator`)
+//! doesn't become the last one you cast (`docs/combat.md` §2).
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::CardId;

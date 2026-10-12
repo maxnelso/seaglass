@@ -25,3 +25,86 @@ scenarios:
                 - {type: death, unit: 1}   # the Sentinel
                 - {type: stat_buff, unit: 0, reason: Shiny Ring}
             - {where: {type: stat_buff, reason: Shiny Ring}, count: 4, all: {atk_delta: 2, hp_delta: 1}}
+
+  # Each Shiny Ring counts as you casting a Tavern spell (docs/combat.md §2).
+
+  # Unit ids: A's Sha of Fear 0, Timecap'n Hooktail 1, Charging Czarina 2, Runic Arcanist 3; B's
+  # Tyrael 4.
+  - name: whenever_you_cast_a_tavern_spell_minions_react_to_each_shiny_ring
+    description: >-
+      Before each Shiny Ring's +1/+1, left to right: Sha of Fear gives A's minions and the Deity
+      +3/+3, Timecap'n Hooktail gives them +1 Attack, and Charging Czarina gives the Divine Shield
+      minions (itself) +4 Attack. All at Start of Combat, before the first attack.
+    seed: 449
+    combat:
+      board_a: [Sha of Fear, Timecap'n Hooktail, Charging Czarina, Runic Arcanist]
+      board_b: [Tyrael]
+    expect:
+      outcome: a_win
+      survivors_a:   # +10/+8 each, Czarina +18/+8; Sha of Fear took Tyrael's 10
+        - "Sha of Fear 20/11"
+        - "Timecap'n Hooktail 11/12"
+        - "Charging Czarina 22/9 divine_shield"
+        - "Runic Arcanist 12/12"
+      auras_a: {tavern_spells_cast: 2, deity: {attack: 7, health: 7}}   # the deity from the base 1/1
+      events:
+        all_of:
+          - where: {type: stat_buff, unit: 2}   # Czarina (4/1)
+            sequence:
+              - {reason: Sha of Fear, attack: 7, health: 4}
+              - {reason: "Timecap'n Hooktail", attack: 8, health: 4}
+              - {reason: Charging Czarina, attack: 12, health: 4}
+              - {reason: Shiny Ring, attack: 13, health: 5}
+              - {reason: Sha of Fear, attack: 16, health: 8}
+              - {reason: "Timecap'n Hooktail", attack: 17, health: 8}
+              - {reason: Charging Czarina, attack: 21, health: 8}
+              - {reason: Shiny Ring, attack: 22, health: 9}
+          - {where: {type: stat_buff, reason: Sha of Fear}, count: 8, all: {atk_delta: 3, hp_delta: 3}}
+          - {where: {type: stat_buff, reason: "Timecap'n Hooktail"}, count: 8, all: {atk_delta: 1, hp_delta: 0}}
+          - {where: {type: stat_buff, reason: Charging Czarina}, count: 2, all: {unit: 2, atk_delta: 4, hp_delta: 0}}
+          - sequence:
+              - {type: stat_buff, unit: 3, reason: Shiny Ring, attack: 12, health: 12}
+              - {type: attack_declared}
+
+  - name: golden_minions_react_with_their_golden_bonuses
+    description: >-
+      Before each Shiny Ring, a Golden Sha of Fear gives +6/+6 (the Deity too), a Golden Hooktail
+      +2 Attack and a Golden Czarina +8 Attack.
+    seed: 449
+    combat:
+      board_a:
+        - "golden Sha of Fear 20/26"
+        - "golden Timecap'n Hooktail 2/8"
+        - "golden Charging Czarina 8/2"
+        - Runic Arcanist
+      board_b: [Tyrael]
+    expect:
+      auras_a: {deity: {attack: 13, health: 13}}
+      events:
+        all_of:
+          - {where: {type: stat_buff, reason: Sha of Fear}, count: 8, all: {atk_delta: 6, hp_delta: 6}}
+          - {where: {type: stat_buff, reason: "Timecap'n Hooktail"}, count: 8, all: {atk_delta: 2, hp_delta: 0}}
+          - {where: {type: stat_buff, reason: Charging Czarina}, count: 2, all: {unit: 2, atk_delta: 8, hp_delta: 0}}
+
+  - name: shiny_rings_count_as_tavern_spells_cast_but_not_as_the_last_one_or_for_felboar
+    description: >-
+      A Golden Arcanist casts 4 Shiny Rings in combat: each counts toward tavern_spells_cast
+      (Faceless Converter), but Armor Stash stays the last Tavern spell cast, so Cataclysmic
+      Harbinger gets a copy of it at the end of the turn; Felboar counts none of them.
+    seed: 449
+    tavern:
+      board: ["golden Runic Arcanist 4/8", Cataclysmic Harbinger, Felboar]
+      shop: [Firelands Fugitive]
+      hand: [Armor Stash]
+    steps:
+      - play: {hand: Armor Stash, pos: 0}   # an untargeted spell is played at 0; Felboar counts it
+      - expect:
+          auras: {tavern_spells_cast: 1, last_tavern_spell_cast: {capture: armor_stash}}
+          board: {2: {card: Felboar, counter: 1}}
+      - fight: {board: [Patient Scout]}
+      - expect:
+          auras: {tavern_spells_cast: 5, last_tavern_spell_cast: {same_as: armor_stash}}
+          board: {2: {card: Felboar, stats: 2/6, counter: 1}}
+          shop: [Firelands Fugitive]
+      - end_turn
+    expect: {hand: [Armor Stash]}

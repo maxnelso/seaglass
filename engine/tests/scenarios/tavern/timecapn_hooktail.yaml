@@ -5,3 +5,15 @@ scenarios:
     steps:
       - play: {hand: Hasty Excavation, pos: 0}   # untargeted spells are played at 0
     expect: {board: ["Timecap'n Hooktail 2/4"]}
+
+  - name: a_spell_your_minion_casts_in_combat_gives_attack_for_that_combat_only
+    description: >-
+      Runic Arcanist casts two Shiny Rings at Start of Combat, and Hooktail gives A's minions +1
+      Attack before each; after combat, they are back to their Tavern stats.
+    tavern: {board: [Timecap'n Hooktail, Runic Arcanist]}   # 1/4; 2/4
+    steps:
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat:
+        events: {where: {type: stat_buff, reason: "Timecap'n Hooktail"}, count: 4, all: {atk_delta: 1, hp_delta: 0}}
+      board: ["Timecap'n Hooktail 1/4", "Runic Arcanist 2/4"]

@@ -1,6 +1,9 @@
 //! `Faceless Converter` (`BG36_318`) — Tier 5 Aberration (`5/5`).
 //!
 //! Deathrattle: Give your Deity `+2/+1` (`+4/+2` if Golden). (Improved by each Tavern spell you've cast this game!)
+//!
+//! The Tavern spells your minions cast in combat (`Runic Arcanist`, `Crimson Vindicator`) count too,
+//! as soon as they are cast (`docs/combat.md` §2).
 
 use crate::cards::{CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit};

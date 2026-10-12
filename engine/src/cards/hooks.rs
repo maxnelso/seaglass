@@ -17,7 +17,7 @@
 //!   [`PlayerEffect`](crate::model::PlayerEffect)s of the card, in the order they were recorded
 //!   (`player_turn_start`, `player_start_of_combat`, ...).
 
-use crate::cards::{ActivateTargetKind, BoardCtx, CombatSides, RallyCtx};
+use crate::cards::{ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, RallyCtx};
 use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
@@ -170,6 +170,8 @@ pub type RallyFn = fn(&mut RallyCtx<'_>) -> Vec<Unit>;
 pub type SocFn = fn(&mut BoardCtx<'_>, UnitId, bool);
 /// Combat observer: `(ctx, self_idx)`.
 pub type CombatFn = fn(&mut BoardCtx<'_>, usize);
+/// A Tavern spell is cast in combat: `(ctx, self_idx)`.
+pub type CombatCastFn = fn(&mut CombatCastCtx<'_>, usize);
 /// After a friendly minion is played or Magnetized: `(state, self_idx, played, pool, rng)`.
 pub type PlayedFn = fn(&mut TavernState, usize, &Played, &mut CardPool, &mut Rng);
 /// After a friendly Battlecry triggers: `(state, self_idx, played_unit_if_not_on_board)`.
@@ -391,6 +393,10 @@ card_hooks! {
     after_friendly_reborn(on_after_friendly_reborn): fn(&mut BoardCtx<'_>, usize, i32),
     /// A friendly minion lost its Divine Shield: `(self)`.
     friendly_divine_shield_lost(on_friendly_divine_shield_lost): UnitFn,
+    /// A friendly minion casts a Tavern spell in combat, before the spell takes effect: `(ctx,
+    /// self_idx)`. The combat counterpart of `spell_cast` (see
+    /// [`cast_tavern_spell_in_combat`](super::cast_tavern_spell_in_combat)).
+    combat_spell_cast(on_combat_spell_cast): CombatCastFn,
 
     // ---- Player effects (fire for each of the player's effects of this card, in the order
     // they were recorded) ----------------------------------------------------------------

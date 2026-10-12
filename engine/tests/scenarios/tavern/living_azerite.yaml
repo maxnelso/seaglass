@@ -5,3 +5,15 @@ scenarios:
     steps:
       - play: {hand: Armor Stash, pos: 0}
     expect: {auras: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}}
+
+  - name: a_spell_your_minion_casts_in_combat_gives_the_bonus_this_game
+    description: >-
+      Crimson Vindicator casts Mighty Dragonbreath when it attacks, and Living Azerite gives the
+      Elementals in the Tavern +4/+3 this game first.
+    tavern: {board: [Crimson Vindicator, Living Azerite]}
+    steps:
+      - fight: {board: [Patient Scout]}   # A has more minions: the Vindicator attacks first, once
+    expect:
+      combat: {auras_a: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}}
+      auras: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}
+      board: ["Crimson Vindicator 8/9", "Living Azerite 8/6"]

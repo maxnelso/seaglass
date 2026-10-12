@@ -7,3 +7,18 @@ scenarios:
     expect:
       board: ["Sha of Fear 13/16"]
       auras: {deity: {attack: 4, health: 4}}
+
+  - name: a_spell_your_minion_casts_in_combat_only_leaves_the_deity_stats
+    description: >-
+      Runic Arcanist casts two Shiny Rings at Start of Combat, and Sha of Fear gives A's minions and
+      the Deity +3/+3 before each. After combat, the minions are back to their Tavern stats (except
+      Tarecgosa, which keeps what it gained in combat), and the Deity keeps +6/+6.
+    tavern: {board: [Sha of Fear, Runic Arcanist, Tarecgosa]}   # 10/13; 2/4; 4/4
+    steps:
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat:
+        events: {where: {type: stat_buff, reason: Sha of Fear}, count: 6, all: {atk_delta: 3, hp_delta: 3}}
+        survivors_a: {2: "Tarecgosa 12/12"}   # +3/+3 and +1/+1, twice
+      board: ["Sha of Fear 10/13", "Runic Arcanist 2/4", "Tarecgosa 12/12"]
+      auras: {deity: {attack: 7, health: 7}}

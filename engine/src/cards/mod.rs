@@ -153,20 +153,9 @@ impl<'a> BoardCtx<'a> {
         hp_delta: i32,
         reason: &'static str,
     ) {
-        if board_idx >= self.board.len() {
-            return;
+        if let Some(u) = self.board.get_mut(board_idx) {
+            buff_logged(self.side, u, atk_delta, hp_delta, reason, self.events);
         }
-        let u = &mut self.board[board_idx];
-        u.add_stats(atk_delta, hp_delta);
-        self.events.push(Event::StatBuff {
-            side: self.side,
-            unit: u.id,
-            atk_delta,
-            hp_delta,
-            attack: u.attack,
-            health: u.health,
-            reason,
-        });
     }
 
     /// Buff all friendly minions currently on `self.board` by `(atk_delta, hp_delta)`.
@@ -201,6 +190,39 @@ impl<'a> BoardCtx<'a> {
     pub fn destroy(&mut self, unit: UnitId) {
         self.destroys.push(unit);
     }
+
+    /// This side as seen by a Tavern spell a friendly minion casts in combat (see
+    /// [`cast_tavern_spell_in_combat`]).
+    pub fn cast_ctx(&mut self) -> CombatCastCtx<'_> {
+        CombatCastCtx {
+            side: self.side,
+            board: &mut self.board[..],
+            hand: &mut self.hand[..],
+            auras: &mut *self.auras,
+            events: &mut *self.events,
+        }
+    }
+}
+
+/// `unit` gains `(atk_delta, hp_delta)`, logged as a `StatBuff` event of `side`.
+fn buff_logged(
+    side: Side,
+    unit: &mut Unit,
+    atk_delta: i32,
+    hp_delta: i32,
+    reason: &'static str,
+    events: &mut Vec<Event>,
+) {
+    unit.add_stats(atk_delta, hp_delta);
+    events.push(Event::StatBuff {
+        side,
+        unit: unit.id,
+        atk_delta,
+        hp_delta,
+        attack: unit.attack,
+        health: unit.health,
+        reason,
+    });
 }
 
 /// Everything a `Rally` (On-Attack) hook may touch.
@@ -218,7 +240,7 @@ pub struct RallyCtx<'a> {
     /// effects of the enemy minions a Rally damages (`on_damage_taken`).
     pub def_hand: &'a mut [Unit],
     pub auras: &'a mut PlayerAuras,
-    pub hand: &'a [Unit],
+    pub hand: &'a mut [Unit],
     pub hand_summoned: &'a mut [bool],
     /// Cards to add to hand once the Rally resolves.
     pub generated_hand: &'a mut Vec<Unit>,
@@ -226,6 +248,20 @@ pub struct RallyCtx<'a> {
     pub summons_attack_target: bool,
     pub rng: &'a mut Rng,
     pub events: &'a mut Vec<Event>,
+}
+
+impl RallyCtx<'_> {
+    /// The attacking side as seen by a Tavern spell the Rally casts (see
+    /// [`cast_tavern_spell_in_combat`]).
+    pub fn cast_ctx(&mut self) -> CombatCastCtx<'_> {
+        CombatCastCtx {
+            side: self.side,
+            board: &mut *self.board,
+            hand: &mut *self.hand,
+            auras: &mut *self.auras,
+            events: &mut *self.events,
+        }
+    }
 }
 
 /// Both boards as seen by a player effect at Start of Combat (`player_start_of_combat` hooks).
@@ -236,6 +272,41 @@ pub struct CombatSides<'a> {
     pub enemy_board: &'a mut [Unit],
     pub rng: &'a mut Rng,
     pub events: &'a mut Vec<Event>,
+}
+
+/// One side as seen by a Tavern spell that a friendly minion casts in combat, and by the
+/// `combat_spell_cast` observers it triggers (see [`cast_tavern_spell_in_combat`]): its board,
+/// its hand and the player's auras.
+pub struct CombatCastCtx<'a> {
+    pub side: Side,
+    pub board: &'a mut [Unit],
+    pub hand: &'a mut [Unit],
+    pub auras: &'a mut PlayerAuras,
+    pub events: &'a mut Vec<Event>,
+}
+
+impl CombatCastCtx<'_> {
+    /// Buff `self.board[board_idx]` by `(atk_delta, hp_delta)` and emit a `StatBuff` event.
+    pub fn buff_unit(
+        &mut self,
+        board_idx: usize,
+        atk_delta: i32,
+        hp_delta: i32,
+        reason: &'static str,
+    ) {
+        if let Some(u) = self.board.get_mut(board_idx) {
+            buff_logged(self.side, u, atk_delta, hp_delta, reason, self.events);
+        }
+    }
+
+    /// Re-synchronize the "wherever this is" auras of the minions on the board and in the hand
+    /// once the player's auras changed, emitting a `StatBuff` (logged with `reason`) for each
+    /// minion on the board whose stats changed.
+    pub fn sync_auras(&mut self, reason: &'static str) {
+        let before = stat_snapshot(self.board);
+        sync_combat_auras(self.board, self.hand, self.auras);
+        push_stat_changes(self.side, self.board, &before, reason, self.events);
+    }
 }
 
 /// Static definition of a purchasable minion in the shared card pool.
@@ -1519,7 +1590,7 @@ pub fn on_rally(
     def_target: Option<(&mut [Unit], usize)>,
     def_hand: &mut [Unit],
     auras: &mut PlayerAuras,
-    hand: &[Unit],
+    hand: &mut [Unit],
     hand_summoned: &mut [bool],
     generated_hand: &mut Vec<Unit>,
     rng: &mut Rng,
@@ -1679,7 +1750,7 @@ fn tavern_rally(state: &mut TavernState, target_pos: usize, next_id: &mut UnitId
         None,
         &mut [],
         &mut state.auras,
-        &state.hand,
+        &mut state.hand,
         &mut hand_summoned,
         &mut generated_hand,
         rng,
@@ -1864,6 +1935,31 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
         died(dying, ctx.auras);
     }
     notify_board(ctx, |h| h.friendly_death, |c, idx, f| f(c, idx, dying));
+}
+
+/// One cast of a Tavern spell by a friendly minion in combat (`Runic Arcanist`, `Crimson
+/// Vindicator`; `docs/combat.md` §2). It counts as the player casting a Tavern spell, in the order
+/// of a cast in the Tavern: it counts toward `tavern_spells_cast`, then the `combat_spell_cast`
+/// observers react (living friendly minions, left to right), then `effect`, the spell's effect,
+/// resolves. It doesn't become the last Tavern spell cast (`last_tavern_spell_cast`), and the
+/// `after_spell_cast` observers don't see it.
+pub fn cast_tavern_spell_in_combat(
+    ctx: &mut CombatCastCtx<'_>,
+    effect: impl FnOnce(&mut CombatCastCtx<'_>),
+) {
+    ctx.auras.tavern_spells_cast += 1;
+    let observers: Vec<_> = ctx
+        .board
+        .iter()
+        .filter(|u| u.health > 0)
+        .filter_map(|u| hooks(u.card_id).combat_spell_cast.map(|f| (u.id, f)))
+        .collect();
+    for (id, f) in observers {
+        if let Some(pos) = ctx.board.iter().position(|u| u.id == id && u.health > 0) {
+            f(ctx, pos);
+        }
+    }
+    effect(ctx);
 }
 
 /// Resolve a dying minion's `Deathrattle` hook (once; callers apply repeat multipliers). Each
