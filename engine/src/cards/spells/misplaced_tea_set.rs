@@ -1,6 +1,8 @@
 //! `Misplaced Tea Set` — Tier 4 Tavern spell (`3` Gold).
 //!
-//! Give a friendly minion of each type +4/+4.
+//! Give a friendly minion of each type +4/+4. The minions are the best assignment of friendly
+//! minions to types (as many as possible: `Treasure Parrot` and `Flittering Bat` both get it, the
+//! Parrot as the Pirate), at random among the best ones (`super::select_menagerie_targets`).
 
 use super::{apply_misplaced_tea_set, spell};
 use crate::cards::CardHooks;
