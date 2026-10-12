@@ -6,3 +6,34 @@ scenarios:
       board_a: [Harmless Bonehead, Titus Rivendare]
       board_b: [Razorfen Geomancer]
     expect: {survivors_a: {where: Skeleton, count: 4}}   # 2 Skeletons x 2
+
+  # Turquoise Skitterer (5/5) attacks first and trades with Azsharan Cutlassier (6/4).
+  - name: two_tituses_give_three_triggers
+    description: >-
+      Each trigger gives Beetles +5/+5 (also those already summoned) and summons one: the three
+      Beetles end at 2/2 + 15/15.
+    seed: 551
+    combat:
+      board_a: [Turquoise Skitterer, Titus Rivendare, Titus Rivendare]
+      board_b: [Azsharan Cutlassier]
+    expect:
+      outcome: a_win
+      auras_a: {counters: {Beetle: [15, 15]}}
+      survivors_a:
+        - "Beetle 17/17"
+        - "Beetle 17/17"
+        - "Beetle 17/17"
+        - Titus Rivendare
+        - Titus Rivendare
+
+  - name: a_titus_dying_at_the_same_time_adds_no_trigger
+    description: >-
+      Side B (more minions) attacks first with Obsidian Ravager, which must target the Taunt
+      Buzzing Vermin: its Rally deals 7 damage to the Vermin and to one of its neighbours, so a
+      Titus dies with it. Only the surviving Titus adds a trigger: two Beetles, not three.
+    seed: 551
+    combat:
+      board_a: [Titus Rivendare, Buzzing Vermin, Titus Rivendare]
+      board_b: [Obsidian Ravager, Southsea Busker, Razorfen Geomancer, Patient Scout]
+    expect:
+      events: {where: {type: unit_summoned, source: 1}, count: 2}   # Buzzing Vermin (unit 1)
