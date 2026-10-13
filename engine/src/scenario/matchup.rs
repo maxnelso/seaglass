@@ -107,6 +107,7 @@ pub(crate) fn apply_unit_token(unit: &mut Unit, tok: &str, spec: &str) -> Result
         "pirate" => unit.tribe = Tribe::Pirate,
         "quilboar" => unit.tribe = Tribe::Quilboar,
         "undead" => unit.tribe = Tribe::Undead,
+        "naga" => unit.tribe = Tribe::Naga,
         "all" => unit.tribe = Tribe::All,
         // Card template lookup by slug
         other if other.starts_with("card:") => {

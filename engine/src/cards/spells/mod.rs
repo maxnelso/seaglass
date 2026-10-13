@@ -84,7 +84,7 @@ pub mod winners_bread;
 use crate::cards::hooks::{CastAtFn, CastFn, SpellTarget};
 use crate::cards::tokens::{self, is_choice_option, SPELL_GEM_DAY};
 use crate::cards::{board_passive, hooks, CardFlags, CardHooks, Passive};
-use crate::model::{CardId, EffectDuration, Tribe, Unit, UnitId, SINGLE_TRIBES};
+use crate::model::{CardId, EffectDuration, Tribe, Unit, UnitId, LOBBY_TRIBES, SINGLE_TRIBES};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
 
@@ -521,8 +521,9 @@ pub fn draw_discover_tavern_spells_exact_tier(tier: u32, count: usize, rng: &mut
     out
 }
 
-/// Determine the player's most common minion tribe on `board` (`Friendly Bounty`, `Planar Telescope`, `Dark Paradox`).
-/// Ties are broken uniformly at random using `rng`.
+/// Determine the player's most common minion tribe on `board` (`Friendly Bounty`, `Planar Telescope`, `Dark Paradox`):
+/// the type the most minions have, Naga included (`docs/tavern.md` §7.8). Ties are broken
+/// uniformly at random using `rng`; if no minion has a type, it is a random lobby type.
 pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
     let mut best_count = 0usize;
     let mut candidates = Vec::new();
@@ -532,9 +533,12 @@ pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
             best_count = count;
             candidates.clear();
             candidates.push(tribe);
-        } else if count == best_count {
+        } else if count == best_count && count > 0 {
             candidates.push(tribe);
         }
+    }
+    if candidates.is_empty() {
+        candidates = LOBBY_TRIBES.to_vec();
     }
     if candidates.len() == 1 {
         candidates[0]

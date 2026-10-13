@@ -7,3 +7,13 @@ scenarios:
       - add_to_hand: Planar Telescope
       - play: {hand: Planar Telescope, pos: 0}   # an untargeted spell is played at 0
     expect: {discover_pending: {count: 3, all: dragon}}
+
+  - name: without_a_minion_with_a_type_discovers_a_lobby_type
+    description: >-
+      With no minion with a type, the most common type is a random lobby type, never Naga (not a
+      lobby type): each lobby type has 2 Tier 1 minions to Discover, Naga at most 1.
+    seeds: "1..50"
+    tavern: {catalog: tier1, board: [Suspicious Prisonguard], hand: [Planar Telescope]}   # no type
+    steps:
+      - play: {hand: Planar Telescope, pos: 0}
+    expect: {discover_pending: {count: ">= 2"}}

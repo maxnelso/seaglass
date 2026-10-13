@@ -157,7 +157,7 @@ a plain copy of the card. Tokens, applied in order:
 | `golden` / `-golden` | Set or clear the golden flag only (stats are not doubled; give them explicitly). | Is / is not golden. |
 | `taunt`, `divine_shield`, `windfury`, `reborn`, `venomous`, `stealth`, `magnetic` | Grant the keyword. | Has the keyword. |
 | `-<keyword>` | Remove it. | Lacks it. |
-| `beast`, `demon`, ..., `all`, `none` | Set the tribe. | `Tribe::matches` (`none`: exactly no tribe). |
+| `beast`, `demon`, ..., `naga`, `all`, `none`, or two types (`beast_pirate`, `dragon_naga`, ...) | Set the tribe. | `Tribe::matches` (`none`: exactly no tribe). |
 | `tN` / `tier:N` | Set the Tavern Tier. | Has that tier. |
 
 A vanilla `A/H` unit is built like a matchup unit (§9.1), so `card:<slug>` also works there:
@@ -360,4 +360,4 @@ A matchup is a board-vs-board battle for `combat_cli` (and `seaglass.parse_unit`
 Tokens: `card:<slug>` (a catalog minion's id, name, tier, tribe and keywords; the slug is its
 name in lowercase with spaces, `-` and `'` replaced by `_`), a keyword (`taunt`,
 `divine_shield`, `windfury`, `reborn`, `venomous`, `stealth`, `magnetic`), `golden`, a tribe
-(`beast`, ..., `all`), `tier:<N>` or `t<N>`. Unknown tokens are errors.
+(`beast`, ..., `naga`, `all`), `tier:<N>` or `t<N>`. Unknown tokens are errors.

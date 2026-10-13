@@ -34,7 +34,7 @@ At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_
   `[gold/10, max_gold/10, tavern_tier/6, upgrade_cost/10, turn/max_turns, health/30, bonus_gold_next_turn/5]`.
 - **Card Entity Tokens**: One token per card across `board` (`zone=0`), `hand` (`zone=1`), and `shop` (`zone=2`), containing:
   - `card_id`: Dense vocabulary index derived dynamically at import time from `seaglass.catalog("full")` plus token/spell IDs (never a hardcoded ID table).
-  - `tribe`: Engine `Tribe` discriminant (`0..11`).
+  - `tribe`: Engine `Tribe` discriminant (`0..22`; new types such as `naga` are appended, so existing values keep their meaning).
   - `zone`: Zone index (`0..2`).
   - `stats`: `[log1p(attack), log1p(health), tavern_tier / 6, slot / 7]`.
   - `keywords`: Binary flags `[is_golden, taunt, divine_shield, windfury, reborn]`.

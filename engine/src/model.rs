@@ -33,7 +33,9 @@ pub const BONUS_KEYWORDS: [Keyword; 6] = [
     Keyword::Stealth,
 ];
 
-/// Minion tribe classification (Patch 36.6.3), including dual-tribe combinations.
+/// Minion tribe classification (Patch 36.6.3), including dual-tribe combinations: the 10 lobby
+/// types ([`LOBBY_TRIBES`]) and `Naga` (`docs/tavern.md` §7.8). `Naga` and its dual types come
+/// last, so the earlier variants keep their discriminants.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Tribe {
@@ -57,10 +59,16 @@ pub enum Tribe {
     DemonDragon,
     DemonQuilboar,
     All,
+    /// Not a lobby type in Patch 36.6.3: the pool's Nagas have a lobby type too (`DragonNaga`,
+    /// `DemonNaga`).
+    Naga,
+    DragonNaga,
+    DemonNaga,
 }
 
-/// All 10 base single minion tribes in Patch 36.6.3.
-pub const SINGLE_TRIBES: [Tribe; 10] = [
+/// The 10 lobby types of Patch 36.6.3: every base single minion tribe but `Naga`, which no lobby
+/// has.
+pub const LOBBY_TRIBES: [Tribe; 10] = [
     Tribe::Aberration,
     Tribe::Beast,
     Tribe::Demon,
@@ -71,6 +79,23 @@ pub const SINGLE_TRIBES: [Tribe; 10] = [
     Tribe::Pirate,
     Tribe::Quilboar,
     Tribe::Undead,
+];
+
+/// All 11 base single minion tribes in Patch 36.6.3: the 10 lobby types, then `Naga`, which no
+/// lobby has but some minions carry as their second type (`docs/tavern.md` §7.8). Every effect
+/// that looks at minion types counts all of them.
+pub const SINGLE_TRIBES: [Tribe; 11] = [
+    Tribe::Aberration,
+    Tribe::Beast,
+    Tribe::Demon,
+    Tribe::Dragon,
+    Tribe::Elemental,
+    Tribe::Mech,
+    Tribe::Murloc,
+    Tribe::Pirate,
+    Tribe::Quilboar,
+    Tribe::Undead,
+    Tribe::Naga,
 ];
 
 impl Tribe {
@@ -91,6 +116,7 @@ impl Tribe {
                     | Tribe::Pirate
                     | Tribe::Quilboar
                     | Tribe::Undead
+                    | Tribe::Naga
             ),
             Tribe::UndeadMech => matches!(single, Tribe::Undead | Tribe::Mech),
             Tribe::DragonPirate => matches!(single, Tribe::Dragon | Tribe::Pirate),
@@ -99,6 +125,8 @@ impl Tribe {
             Tribe::MechMurloc => matches!(single, Tribe::Mech | Tribe::Murloc),
             Tribe::DemonDragon => matches!(single, Tribe::Demon | Tribe::Dragon),
             Tribe::DemonQuilboar => matches!(single, Tribe::Demon | Tribe::Quilboar),
+            Tribe::DragonNaga => matches!(single, Tribe::Dragon | Tribe::Naga),
+            Tribe::DemonNaga => matches!(single, Tribe::Demon | Tribe::Naga),
             other => other == single,
         }
     }
@@ -136,6 +164,9 @@ impl Tribe {
             Tribe::DemonDragon => "demon_dragon",
             Tribe::DemonQuilboar => "demon_quilboar",
             Tribe::All => "all",
+            Tribe::Naga => "naga",
+            Tribe::DragonNaga => "dragon_naga",
+            Tribe::DemonNaga => "demon_naga",
         }
     }
 }
