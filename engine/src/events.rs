@@ -1,4 +1,4 @@
-//! Structured combat event log (`docs/combat.md` §6).
+//! Structured combat event log (`docs/combat.md` §6, `docs/duos.md` §7).
 
 use serde::Serialize;
 
@@ -10,6 +10,13 @@ use crate::model::{BattleOutcome, DeityKind, Side, UnitId};
 pub enum Event {
     BattleStart {
         seed: u64,
+        first_attacker: Side,
+    },
+    /// A Duos warband enters the fight: one of the two opening warbands, or a warband stepping
+    /// in for its teammate (`docs/duos.md` §7). `player` is its index in its team (0 or 1).
+    WarbandSteppedIn {
+        team: Side,
+        player: usize,
         first_attacker: Side,
     },
     AttackDeclared {

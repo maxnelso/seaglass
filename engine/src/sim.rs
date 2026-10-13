@@ -1,8 +1,9 @@
-//! Public simulation entry points: [`simulate`] and [`simulate_batch`].
+//! Public simulation entry points: [`simulate`] and [`simulate_batch`], and their Duos
+//! counterparts [`simulate_duos`] and [`simulate_duos_batch`].
 
 use serde::Serialize;
 
-use crate::combat::{resolve_battle, BattleResult};
+use crate::combat::{resolve_battle, resolve_duos_battle, BattleResult, DuosResult, DuosTeam};
 use crate::model::{BattleOutcome, GameState, Unit};
 use crate::rng::Rng;
 
@@ -49,6 +50,26 @@ pub fn simulate_batch(
     assert!(n > 0, "simulate_batch requires n > 0");
     distribution(base_seed, n, |seed| {
         let res = resolve_battle(board_a, board_b, state, seed);
+        (res.outcome, res.hero_damage)
+    })
+}
+
+/// Simulate one deterministic Duos combat from `(team_a, team_b, seed)` (`docs/duos.md`).
+pub fn simulate_duos(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> DuosResult {
+    resolve_duos_battle(team_a, team_b, seed)
+}
+
+/// Simulate `n` Duos combats from a deterministic seed sequence derived from `base_seed`, as
+/// [`simulate_batch`] does (`docs/duos.md` §5). Team A is side A.
+pub fn simulate_duos_batch(
+    team_a: &DuosTeam,
+    team_b: &DuosTeam,
+    base_seed: u64,
+    n: u32,
+) -> BattleDistribution {
+    assert!(n > 0, "simulate_duos_batch requires n > 0");
+    distribution(base_seed, n, |seed| {
+        let res = resolve_duos_battle(team_a, team_b, seed);
         (res.outcome, res.hero_damage)
     })
 }

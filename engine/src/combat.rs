@@ -1,4 +1,5 @@
-//! Card-agnostic combat resolution loop (`docs/combat.md`).
+//! Card-agnostic combat resolution loop (`docs/combat.md`), and Duos combats built on it
+//! (`docs/duos.md`).
 
 use std::cmp::Ordering;
 use std::collections::VecDeque;
@@ -28,6 +29,72 @@ pub struct BattleResult {
     pub auras_b: PlayerAuras,
     pub dead_units_a: Vec<Unit>,
     pub dead_units_b: Vec<Unit>,
+}
+
+/// One player's warband in a Duos combat (`docs/duos.md` §1): their board, hand, player auras
+/// and Tavern Tier.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Warband {
+    pub board: Vec<Unit>,
+    pub hand: Vec<Unit>,
+    pub auras: PlayerAuras,
+    /// The player's Tavern Tier, added to the damage if this warband wins (`docs/duos.md` §4).
+    pub hero_tier: u32,
+}
+
+impl Default for Warband {
+    fn default() -> Self {
+        Self {
+            board: Vec::new(),
+            hand: Vec::new(),
+            auras: PlayerAuras::default(),
+            hero_tier: 1,
+        }
+    }
+}
+
+impl Warband {
+    /// A warband with `board`, an empty hand, default auras and Tavern Tier 1.
+    pub fn new(board: Vec<Unit>) -> Self {
+        Self {
+            board,
+            ..Self::default()
+        }
+    }
+}
+
+/// One Duos team (`docs/duos.md` §1): its two players' warbands and the one that fights first.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DuosTeam {
+    pub warbands: [Warband; 2],
+    /// The player (`0` or `1`) whose warband fights first.
+    pub first: usize,
+}
+
+/// One player's result of a Duos combat (`docs/duos.md` §6), for their Tavern to apply.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct WarbandResult {
+    /// `true` if the warband stepped in. A warband that didn't comes back unchanged: its whole
+    /// board as `survivors`, its hand and auras as given.
+    pub fought: bool,
+    pub survivors: Vec<Unit>,
+    pub hand: Vec<Unit>,
+    pub auras: PlayerAuras,
+    pub dead_units: Vec<Unit>,
+}
+
+/// Complete result of a deterministic Duos combat (`docs/duos.md` §6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct DuosResult {
+    /// The teams' outcome (`AWin`: team A won).
+    pub outcome: BattleOutcome,
+    /// The damage the losing team takes (`docs/duos.md` §4; 0 on a draw).
+    pub hero_damage: u32,
+    pub events: Vec<Event>,
+    /// Team A's players' results: player 0, then player 1.
+    pub team_a: [WarbandResult; 2],
+    /// Team B's players' results: player 0, then player 1.
+    pub team_b: [WarbandResult; 2],
 }
 
 /// Per-side combat state tracked during a single battle.
@@ -274,6 +341,309 @@ fn run_attack_turns(
     false
 }
 
+/// One team during a Duos combat (`docs/duos.md`): each player's warband, the one on the team's
+/// side, and the ones that stepped in.
+struct DuosTeamState {
+    /// Each player's warband as given, with its combat ids (the result of a warband that never
+    /// fights, and the teammate's minions that fill out the board for the damage).
+    given: [Warband; 2],
+    /// Each player's combat state (a waiting warband's never changes: no effect reaches it).
+    warbands: [SideCombatState; 2],
+    /// The player whose warband fights first.
+    first: usize,
+    /// The player whose warband is on the team's side: the fighting one (the first warband
+    /// while none has stepped in, for a team whose two warbands are empty).
+    fighting: usize,
+    /// Which players' warbands have stepped in.
+    fought: [bool; 2],
+}
+
+impl DuosTeamState {
+    fn new(team: &DuosTeam, boards: [Vec<Unit>; 2]) -> Self {
+        let [board_0, board_1] = boards;
+        let with_board = |w: &Warband, board: Vec<Unit>| Warband {
+            board,
+            hand: w.hand.clone(),
+            auras: w.auras.clone(),
+            hero_tier: w.hero_tier,
+        };
+        let given = [
+            with_board(&team.warbands[0], board_0),
+            with_board(&team.warbands[1], board_1),
+        ];
+        let warbands = given.each_ref().map(|w| {
+            SideCombatState::new(
+                w.board.clone(),
+                w.hero_tier,
+                w.auras.clone(),
+                w.hand.clone(),
+            )
+        });
+        Self {
+            given,
+            warbands,
+            first: team.first,
+            fighting: team.first,
+            fought: [false; 2],
+        }
+    }
+
+    /// The fighting warband's combat state.
+    fn side(&mut self) -> &mut SideCombatState {
+        &mut self.warbands[self.fighting]
+    }
+
+    /// `true` if the team's fighting warband has no minions left.
+    fn is_empty(&self) -> bool {
+        self.warbands[self.fighting].is_empty()
+    }
+
+    /// The player whose warband opens the fight: the first warband, or its teammate if it is
+    /// empty (`docs/duos.md` §3.1 step 5); `None` if both are empty.
+    fn opening_player(&self) -> Option<usize> {
+        [self.first, 1 - self.first]
+            .into_iter()
+            .find(|&p| !self.given[p].board.is_empty())
+    }
+
+    /// The teammate whose warband steps in once the fighting one has no minions left: one that
+    /// hasn't fought yet and isn't empty (`docs/duos.md` §3.2, §3.5).
+    fn waiting_teammate(&self) -> Option<usize> {
+        let mate = 1 - self.fighting;
+        (!self.fought[mate] && !self.given[mate].board.is_empty()).then_some(mate)
+    }
+
+    /// Put `player`'s warband on the team's side (its pointer is still on its leftmost minion)
+    /// and log it; its `first_attacker` is recorded once its Start of Combat has resolved.
+    fn step_in(&mut self, team: Side, player: usize, events: &mut Vec<Event>) {
+        self.fighting = player;
+        self.fought[player] = true;
+        events.push(Event::WarbandSteppedIn {
+            team,
+            player,
+            first_attacker: Side::A,
+        });
+    }
+
+    /// The damage the team deals if it won (`docs/duos.md` §4): the fighting warband's player's
+    /// Tavern Tier plus the tiers of its survivors, then of its teammate's minions if the
+    /// teammate never fought, up to the board cap.
+    fn damage(&self) -> u32 {
+        let winner = &self.warbands[self.fighting];
+        let mate = 1 - self.fighting;
+        let fill_out: &[Unit] = if self.fought[mate] {
+            &[]
+        } else {
+            &self.given[mate].board
+        };
+        let tiers: u32 = winner
+            .board
+            .iter()
+            .chain(fill_out)
+            .take(MAX_BOARD_SIZE)
+            .map(|u| u.tavern_tier)
+            .sum();
+        winner.hero_tier + tiers
+    }
+
+    /// Each player's result (`docs/duos.md` §6).
+    fn results(self) -> [WarbandResult; 2] {
+        let [given_0, given_1] = self.given;
+        let [side_0, side_1] = self.warbands;
+        let result = |fought: bool, given: Warband, side: SideCombatState| {
+            if fought {
+                WarbandResult {
+                    fought,
+                    survivors: side.board,
+                    hand: side.hand,
+                    auras: side.auras,
+                    dead_units: side.dead_units,
+                }
+            } else {
+                WarbandResult {
+                    fought,
+                    survivors: given.board,
+                    hand: given.hand,
+                    auras: given.auras,
+                    dead_units: Vec::new(),
+                }
+            }
+        };
+        [
+            result(self.fought[0], given_0, side_0),
+            result(self.fought[1], given_1, side_1),
+        ]
+    }
+}
+
+/// Resolve one deterministic Duos combat from `(team_a, team_b, seed)` (`docs/duos.md`): the
+/// teams' warbands fight as a relay, each with the Solo rules and its own player context.
+pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> DuosResult {
+    for team in [team_a, team_b] {
+        assert!(
+            team.first < 2,
+            "a Duos team's first warband is player 0 or 1, got {}",
+            team.first
+        );
+    }
+    // Ids: the first warbands, A's then B's, then the second warbands (docs/duos.md §3.1 step 1).
+    let mut next_id: UnitId = 0;
+    let mut boards: [[Vec<Unit>; 2]; 2] = Default::default();
+    for nth in 0..2 {
+        for (t, team) in [team_a, team_b].into_iter().enumerate() {
+            let player = if nth == 0 { team.first } else { 1 - team.first };
+            boards[t][player] = with_combat_ids(&team.warbands[player].board, &mut next_id);
+        }
+    }
+    let [boards_a, boards_b] = boards;
+    let mut teams = [
+        DuosTeamState::new(team_a, boards_a),
+        DuosTeamState::new(team_b, boards_b),
+    ];
+
+    let mut rng = Rng::new(seed);
+    // `first_attacker` is decided after Start of Combat (docs/duos.md §3.3).
+    let mut events = vec![Event::BattleStart {
+        seed,
+        first_attacker: Side::A,
+    }];
+
+    // The opening warbands step in and their Start of Combat resolves together (§3.1 step 5).
+    let mut entered = vec![0];
+    let mut opening = Vec::new();
+    for (side, team) in [Side::A, Side::B].into_iter().zip(teams.iter_mut()) {
+        if let Some(player) = team.opening_player() {
+            entered.push(events.len());
+            team.step_in(side, player, &mut events);
+            opening.push(side);
+        }
+    }
+    {
+        let [team_a, team_b] = &mut teams;
+        resolve_entering_start_of_combat(
+            &opening,
+            team_a.side(),
+            team_b.side(),
+            &mut next_id,
+            &mut rng,
+            &mut events,
+        );
+    }
+    entered.extend(step_in_duos_warbands(
+        &mut teams,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    ));
+
+    let mut stalled_draw = false;
+    loop {
+        let [team_a, team_b] = &mut teams;
+        let first_attacker = side_with_more_minions(
+            team_a.side().board.len(),
+            team_b.side().board.len(),
+            &mut rng,
+        );
+        record_first_attacker(&mut events, &entered, first_attacker);
+        if team_a.is_empty() || team_b.is_empty() {
+            break;
+        }
+        // Stall: a draw, even with teammates waiting (docs/duos.md §3.5).
+        stalled_draw = run_attack_turns(
+            first_attacker,
+            team_a.side(),
+            team_b.side(),
+            &mut next_id,
+            &mut rng,
+            &mut events,
+        );
+        if stalled_draw {
+            break;
+        }
+        entered = step_in_duos_warbands(&mut teams, &mut next_id, &mut rng, &mut events);
+        if entered.is_empty() {
+            break;
+        }
+    }
+
+    // A team is out when its fighting warband has no minions left: no teammate could step in.
+    let [team_a, team_b] = teams;
+    let outcome = if stalled_draw || (team_a.is_empty() && team_b.is_empty()) {
+        BattleOutcome::Draw
+    } else if team_b.is_empty() {
+        BattleOutcome::AWin
+    } else {
+        BattleOutcome::BWin
+    };
+    let hero_damage = match outcome {
+        BattleOutcome::AWin => team_a.damage(),
+        BattleOutcome::BWin => team_b.damage(),
+        BattleOutcome::Draw => 0,
+    };
+    events.push(Event::BattleEnd {
+        outcome,
+        hero_damage,
+    });
+
+    DuosResult {
+        outcome,
+        hero_damage,
+        events,
+        team_a: team_a.results(),
+        team_b: team_b.results(),
+    }
+}
+
+/// Step in the waiting warband of each team whose fighting warband has no minions left, then
+/// resolve their Start of Combat; again while a Start of Combat leaves a fighting warband with no
+/// minions and a teammate waiting (`docs/duos.md` §3.2). Returns the indices of the
+/// `WarbandSteppedIn` events, whose `first_attacker` the caller records.
+fn step_in_duos_warbands(
+    teams: &mut [DuosTeamState; 2],
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) -> Vec<usize> {
+    let mut entered = Vec::new();
+    loop {
+        let mut stepping = Vec::new();
+        for (side, team) in [Side::A, Side::B].into_iter().zip(teams.iter_mut()) {
+            if !team.is_empty() {
+                continue;
+            }
+            if let Some(player) = team.waiting_teammate() {
+                entered.push(events.len());
+                team.step_in(side, player, events);
+                stepping.push(side);
+            }
+        }
+        if stepping.is_empty() {
+            return entered;
+        }
+        let [team_a, team_b] = teams;
+        resolve_entering_start_of_combat(
+            &stepping,
+            team_a.side(),
+            team_b.side(),
+            next_id,
+            rng,
+            events,
+        );
+    }
+}
+
+/// Record `side` as the `first_attacker` of the `BattleStart` / `WarbandSteppedIn` events at
+/// `indices`.
+fn record_first_attacker(events: &mut [Event], indices: &[usize], side: Side) {
+    for &i in indices {
+        if let Event::BattleStart { first_attacker, .. }
+        | Event::WarbandSteppedIn { first_attacker, .. } = &mut events[i]
+        {
+            *first_attacker = side;
+        }
+    }
+}
+
 /// The side with more minions, or a coin flip on a tie (`docs/combat.md` §4.1, §4.4).
 fn side_with_more_minions(len_a: usize, len_b: usize, rng: &mut Rng) -> Side {
     match len_a.cmp(&len_b) {
@@ -322,6 +692,24 @@ fn resolve_start_of_combat(
         rng,
         events,
     );
+}
+
+/// Resolve the Start of Combat of the Duos warbands that just entered the fight on `sides`
+/// (`docs/duos.md` §3.1 step 5, §3.2): both sides' together, as at the start of a Solo battle,
+/// or one side's alone (the other side's effects don't trigger again).
+fn resolve_entering_start_of_combat(
+    sides: &[Side],
+    side_a: &mut SideCombatState,
+    side_b: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    if sides.len() == 2 {
+        resolve_start_of_combat(side_a, side_b, next_id, rng, events);
+    } else {
+        resolve_start_of_combat_in_order(sides, side_a, side_b, next_id, rng, events);
+    }
 }
 
 /// Resolve the Start-of-Combat effects of the sides in `order` (`docs/combat.md` §5.1.1 steps

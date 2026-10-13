@@ -1170,6 +1170,17 @@ fn print_combat_trace(
             Event::TurnSkipped { side } => {
                 println!("    ({num:03}) TurnSkipped ({})", format_side(*side));
             }
+            Event::WarbandSteppedIn {
+                team,
+                player,
+                first_attacker,
+            } => {
+                println!(
+                    "    ({num:03}) WarbandSteppedIn: team {} player {player}, first_attacker={}",
+                    format_side(*team),
+                    format_side(*first_attacker)
+                );
+            }
             Event::BattleEnd {
                 outcome,
                 hero_damage,

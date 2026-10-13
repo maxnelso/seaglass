@@ -1,7 +1,7 @@
 //! `seaglass`: Deterministic headless Hearthstone Battlegrounds game engine.
 //!
 //! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`) and the
-//! **Combat Phase** (`docs/combat.md`).
+//! **Combat Phase** (`docs/combat.md`, and Duos combats: `docs/duos.md`).
 
 pub mod cards;
 pub mod combat;
@@ -20,7 +20,9 @@ pub use cards::{
     solo_tier_6_catalog, solo_tier_7_catalog, tier1_catalog, tier2_catalog, tier3_catalog,
     tier4_catalog, tier5_catalog, tier6_catalog, tier7_catalog, ActivateTargetKind, CardTemplate,
 };
-pub use combat::{resolve_battle, BattleResult};
+pub use combat::{
+    resolve_battle, resolve_duos_battle, BattleResult, DuosResult, DuosTeam, Warband, WarbandResult,
+};
 pub use events::Event;
 pub use model::{
     BattleOutcome, CardId, DeityKind, DeityState, GameState, Keyword, PlayerAuras, Side, Tribe,
@@ -28,7 +30,9 @@ pub use model::{
 };
 pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};
-pub use sim::{simulate, simulate_batch, BattleDistribution, DamageStats};
+pub use sim::{
+    simulate, simulate_batch, simulate_duos, simulate_duos_batch, BattleDistribution, DamageStats,
+};
 pub use tavern::{
     base_copies_for_tier, base_upgrade_cost, shop_capacity, CardPool, MinionSlot, TavernAction,
     TavernState,

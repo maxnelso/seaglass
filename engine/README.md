@@ -46,6 +46,7 @@ The engine contains **only game rules and simulation**. All reinforcement learni
 - **Keywords & Triggers**:
   - Keywords: `Taunt`, `Divine Shield` (inherent vs. granted), `Windfury`, `Reborn`, `Magnetic`.
   - Triggers: `Start of Combat`, `Rally` (on-attack), `Deathrattle`, and card-specific latches (e.g., `Scarlet Survivor`).
+- **Duos (`docs/duos.md`)**: Team-against-team combats fought as a relay of the players' warbands (`simulate_duos`, `simulate_duos_batch`): a warband steps in, with its Start of Combat, when its teammate's has no minions left, and each player keeps their own auras, hand, Deity and Tavern Tier.
 
 ---
 

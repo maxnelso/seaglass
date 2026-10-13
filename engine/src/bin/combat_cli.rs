@@ -461,6 +461,15 @@ fn main() {
             Event::TurnSkipped { side } => {
                 println!("  [Skip]   Side {side:?} has no minions with Attack > 0; turn skipped");
             }
+            Event::WarbandSteppedIn {
+                team,
+                player,
+                first_attacker,
+            } => {
+                println!(
+                    "  [Duos]   Team {team:?}'s player {player} steps in | Side {first_attacker:?} attacks first"
+                );
+            }
             Event::BattleEnd {
                 outcome,
                 hero_damage,
