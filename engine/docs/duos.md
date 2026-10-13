@@ -1,5 +1,7 @@
 # Duos Combat Specification
 
+The team's Tavern phase (one Health pool, Pass) is specified in [`duos_tavern.md`](duos_tavern.md).
+
 This is the exact specification of how Seaglass resolves a Battlegrounds **Duos** combat: one team of two players against another, fought as a relay of the players' warbands. It builds on the Solo specification, [`combat.md`](combat.md): everything this document does not change works exactly as there, and Solo battles are unaffected by it. Like `combat.md`, it is updated **before** behavior changes, and the combat loop stays card-agnostic.
 
 Rules marked **(confirmed)** were settled with the user. Rules marked **(engine decision)** are details the user has not settled yet: the engine implements them as written, and each lives in one place so that it is a small change if the answer differs (§9).

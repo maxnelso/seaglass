@@ -2,6 +2,8 @@
 
 This document defines the exact rules and state transitions for **Seaglass's Tavern Phase (Recruit Phase)**. Like [`combat.md`](combat.md), this specification is the single source of truth: every rule, cost, and state transition is pinned here before implementation.
 
+**Duos** Taverns (a team of two players with one Health pool, who can Pass cards to each other) are specified in [`duos_tavern.md`](duos_tavern.md), which builds on this document.
+
 The Tavern Phase is modeled as a **card-agnostic sequential decision state machine**: one Tavern turn consists of a start-of-turn sequence (`start_turn`), followed by a sequence of discrete player actions (`TavernAction`) ending with `EndTurn`. Individual card definitions live in the card catalog and plug into the general hooks defined below.
 
 ---
