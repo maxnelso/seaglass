@@ -1,0 +1,170 @@
+# Duos Combat Specification
+
+This is the exact specification of how Seaglass resolves a Battlegrounds **Duos** combat: one team of two players against another, fought as a relay of the players' warbands. It builds on the Solo specification, [`combat.md`](combat.md): everything this document does not change works exactly as there, and Solo battles are unaffected by it. Like `combat.md`, it is updated **before** behavior changes, and the combat loop stays card-agnostic.
+
+Rules marked **(confirmed)** were settled with the user. Rules marked **(engine decision)** are details the user has not settled yet: the engine implements them as written, and each lives in one place so that it is a small change if the answer differs (§9).
+
+---
+
+## 1. Definitions
+
+- **Team** — Duos has 4 teams of 2 players. A combat is one team against another: team `A` against team `B`. In the battle, a team's fighting warband is its **side** (`combat.md` §2): side `A` in the event log is team A's fighting warband.
+- **Player** — A team's two players are numbered `0` and `1`. Each has their own **warband**: their board, hand, player auras (`PlayerAuras`: their player effects, counters, Deity, ...) and Tavern Tier (`hero_tier`).
+- **First warband** — For each team, the warband that fights first. It is an input of the combat (in the real game it is picked at random each turn).
+- **Fighting warband** — The warband on its team's side of the battle. A team has at most one at a time; its teammate's warband is either **waiting** (it has not fought yet) or **done** (it fought and has no minions left).
+- **Empty warband** — A warband with no minions on its board when the combat starts.
+- **Player context** — Everything Solo keeps per side (`combat.md` §2, §5) is kept per player: the board and its starting warband, the next-attacker pointer, the hand (with the cards summoned from hand and the cards given this combat), the player auras and counters, the Deity and its friendly Aberration deaths, combat-long bonuses (the Beast Attack bonus), the dead units, the queued immediate attacks, and the Tavern Tier.
+
+---
+
+## 2. Teammates Are Not Friendly
+
+Only the fighting warband is on its team's side: teammates' minions are never on the board together, and teammates are not friendly to each other **(confirmed)**.
+
+- "Friendly" means the player's own warband. An Avenge counts only the deaths of its own player's minions; the "whenever a friendly minion attacks / dies / is summoned" observers (`Prodigious Tusker`) and the auras see only their own warband.
+- Each warband keeps its own player context (§1): its player effects, counters, hand, Deity and starting warband are its own player's, and only that player's minions count toward them (a player's Deity awakens after 4 of **that player's** Aberrations died).
+- "Enemy" means the other team's fighting warband.
+- No effect reaches a waiting warband: it steps in as it was given.
+
+---
+
+## 3. The Battle Algorithm
+
+### 3.1 Setup
+
+1. **Assign IDs.** Units receive `UnitId`s in board order: team A's first warband, then team B's first warband, then team A's second warband, then team B's second warband (when both first warbands have minions, the opening fight numbers its minions as a Solo battle between them would). Tokens summoned during the combat take the next IDs, after all four warbands.
+2. Initialize the PRNG from `seed`: one PRNG for the whole combat.
+3. Set each warband's next-attacker pointer to its leftmost unit (`combat.md` §5.1 step 3).
+4. Emit `BattleStart` (its `first_attacker` is the side decided in step 7).
+5. **Opening.** Each team's first warband steps in (§3.2). If it is empty, its teammate steps in at once in its place (§3.5). If both of a team's warbands are empty, no warband steps in for it: the team has no minions. The opening warbands' Start of Combat resolves together, exactly as in a Solo battle (`combat.md` §5.1.1, the order coin flip included).
+6. **Step-ins** that the opening Start of Combat caused (§3.2).
+7. **First attacker** (§3.3).
+8. **Turn loop** (§3.4).
+
+### 3.2 Stepping In
+
+When a team's fighting warband has no minions left, its teammate's warband **steps in**, if it has not fought yet and is not empty **(confirmed)**. This is checked where Solo checks for an empty board: after Start of Combat and after each attack turn (`combat.md` §5.1, §5.2). A step-in:
+
+1. emits `WarbandSteppedIn { team, player, first_attacker }` (§7);
+2. puts the warband on its team's side: its board, with its pointer on its leftmost minion, and its player context;
+3. resolves its **Start of Combat** (`combat.md` §5.1.1): its player's own effects (`Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`), the copies its hand cards summon (`Flighty Scout`), the player effects that fill open board slots (`Boon of Beetles`), then its minions' triggers, left to right, each followed by the deaths it caused **(confirmed)**. The other warband's Start of Combat effects, its player's included, do not trigger again **(confirmed)**.
+
+- **Both at once.** If both teams' fighting warbands have no minions left at the same check (they died at the same time) and both have a teammate waiting, both teammates step in: team A's `WarbandSteppedIn`, then team B's, then their Start of Combat resolves together, as at the start of a Solo battle (`combat.md` §5.1.1: the side with more minions first, a coin flip on an equal count if both have a Start of Combat effect) **(engine decision)**. If only one of them has a teammate waiting, only that teammate steps in.
+- **Chains.** If a Start of Combat leaves a fighting warband with no minions (the stepping-in warband's `Boom-in-a-Box` kills the other team's last minions), that warband's teammate steps in in turn, if it can, before the first attacker is decided.
+- **Between turns.** A step-in happens between attack turns. A turn whose defending warband runs out of minions ends there: a Windfury attacker does not strike the stepping-in warband, and immediate attacks that find no enemy minion are lost, as in Solo **(engine decision)**.
+
+### 3.3 Attack Order After a Step-In
+
+1. **First attacker.** Once the step-ins' Start of Combat (chains included) has resolved, the first attacker is decided as in Solo (`combat.md` §5.1 step 6): the side with more minions attacks first; on an equal count it is a coin flip (§5) **(confirmed)**.
+2. **The warband that was already fighting carries on** where it was in its attack order: its pointer is not reset (`combat.md` §5.4) **(confirmed)**. If `X` of `[X, Y, Z]` attacked last, its next attacker is `Y`, not its leftmost minion.
+3. **The stepping-in warband** attacks from its leftmost minion; its pointer moves on as usual if that minion dies during its Start of Combat (`combat.md` §5.4) **(confirmed)**.
+
+### 3.4 Turn Loop
+
+```text
+loop:
+    run Solo turns (docs/combat.md §5.2) until a fighting warband has no minions left
+    if neither side can attack:
+        result = DRAW                 # even if teammates are waiting (§3.5)
+        break
+    step in (§3.2)
+    if no warband stepped in:
+        break                         # -> outcome (§3.5)
+    decide the first attacker (§3.3)
+```
+
+### 3.5 Outcome
+
+- The combat ends when a team has **no minions left and no warband left to step in** (its teammate has fought, or is empty) **(confirmed)**.
+- Both teams at once (their fighting warbands died at the same time and neither has a teammate waiting) $\to$ **Draw** **(engine decision)**.
+- Only team B $\to$ **team A wins**; only team A $\to$ **team B wins**.
+- **Stall.** If neither fighting warband can attack, the combat ends at once in a **Draw**, even if teammates are still waiting (`combat.md` §5.2) **(engine decision)**.
+- **Empty warband.** An empty warband never fights: if it is its team's first warband, its teammate fights first (§3.1 step 5), and it never steps in later. Its player's own Start of Combat effects (player effects, `Flighty Scout` in hand) do not trigger, and it comes back unchanged (§6). A team whose two warbands are empty has no minions: it loses, or draws if the other team has none either **(engine decision)**.
+
+---
+
+## 4. Damage
+
+If a team wins, the losing team takes:
+
+```text
+winning warband's player's Tavern Tier + sum(tavern_tier of the counted minions)
+```
+
+- The **winning warband** is the winning team's fighting warband at the end of the combat. Only its player's Tavern Tier is added, not its teammate's **(confirmed)**.
+- The **counted minions** are its surviving minions. If its teammate never fought (the winning warband beat both opposing warbands, or its teammate is empty), its teammate's minions fill out the board: the winning warband's survivors first, then the teammate's minions left to right (its board as given), up to **7** minions in total **(confirmed)**.
+- Draw $\to 0$.
+
+---
+
+## 5. Randomness
+
+One seeded PRNG, drawn exactly as in Solo (`combat.md` §4), with these draws for the relay:
+
+1. **First-attacker coin flip** — Consumed after the opening (as in Solo, `combat.md` §4.1), and again each time warbands have stepped in, once their Start of Combat (chains included) has resolved (§3.3), only when both fighting warbands then have the same minion count. Draw `v = rng.below(2)`; `v == 0` $\to$ **A** attacks first, `v == 1` $\to$ **B**.
+2. **Start of Combat order coin flip** — At the opening, as in Solo (`combat.md` §4.4), between the two opening warbands; when both teams' warbands step in at once, by the same rule between them. A single warband stepping in makes no draw.
+
+**Batch mode (`simulate_duos_batch`)** derives each combat's seed from `base_seed` exactly as `simulate_batch` does (`combat.md` §4).
+
+---
+
+## 6. Results
+
+A Duos combat (`simulate_duos`) returns a `DuosResult`:
+
+- `outcome` — `a_win` (team A won), `b_win` or `draw`.
+- `hero_damage` — The damage the losing team takes (§4; `0` on a draw).
+- `events` — The event log (§7).
+- `team_a`, `team_b` — Each player's `WarbandResult`, in player order (`0`, `1`), so that each player's Tavern can apply its own result (Combat-to-Tavern Persistence, `combat.md` §1):
+  - `fought` — `true` if the warband stepped in.
+  - `survivors`, `hand`, `auras`, `dead_units` — As in a Solo `BattleResult`, for this player alone.
+  - A warband that never fought comes back unchanged: its whole board as `survivors`, its hand and auras as given (its player effects keep their stacks), no dead units.
+
+---
+
+## 7. Event Log
+
+A Duos combat logs Solo's events (`combat.md` §6), where `side` is the team, plus:
+
+- `WarbandSteppedIn { team, player, first_attacker }` — A warband enters the fight: emitted for each opening warband (right after `BattleStart`, team A's first) and for every step-in (§3.2), before its Start of Combat. `first_attacker` is the side that attacks first when the fight resumes, decided after that Start of Combat (§3.3), like `BattleStart`'s.
+
+`BattleEnd`'s `outcome` is the teams' (`a_win`: team A won), and its `hero_damage` is the damage the losing team takes.
+
+---
+
+## 8. Worked Example
+
+Team A — player 0 (first): `["3/3", "1/1"]`, Tavern Tier 2; player 1: `["5/5", "1/1"]`, Tier 4.
+Team B — player 0 (first): `["2/2"]`, Tier 3; player 1: `["4/6"]`, Tier 5.
+
+IDs (§3.1): A0's `3/3` = 0, `1/1` = 1; B0's `2/2` = 2; A1's `5/5` = 3, `1/1` = 4; B1's `4/6` = 5.
+
+1. Nobody has a Start of Combat effect. Team A has more minions (2 v 1): A attacks first.
+2. A's `3/3` attacks B's `2/2`: the `2/2` dies, the `3/3` is now `3/1`. B's player 0 has no minions left, so B's player 1 steps in with its `4/6`. A has more minions (2 v 1), so A attacks first, and A's warband carries on in its attack order: its next attacker is the `1/1`, not the `3/3`.
+3. A's `1/1` attacks the `4/6`: the `1/1` dies, the `4/6` is now `4/5`.
+4. B's `4/5` attacks A's `3/1`: the `3/1` dies, the `4/5` is now `4/2`. A's player 0 has no minions left, so A's player 1 steps in. A has more minions (2 v 1): A attacks first, from its leftmost minion.
+5. A's `5/5` attacks the `4/2`: the `4/2` dies, the `5/5` is now `5/1`. Team B has no minions left and no warband left to step in: **team A wins**.
+
+Damage: A's player 1's Tier 4 plus its survivors' tiers ($1 + 1$) $= 6$. Player 0's Tier 2 is not added, and there is no fill-out: player 1's teammate fought.
+
+---
+
+## 9. Decisions
+
+The three details the user settled:
+
+1. Only the winning warband's player's Tavern Tier is added to the damage (§4) **(confirmed)**.
+2. When a warband steps in, the warband that was already fighting carries on in its attack order; only the stepping-in warband starts from its leftmost minion (§3.3) **(confirmed)**.
+3. The stepping-in player's own Start of Combat effects (`Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`, `Boon of Beetles`) trigger when their warband steps in; the other side's do not trigger again (§3.2) **(confirmed)**.
+
+Engine decisions, pending the user's confirmation (each is one place in `combat.rs`):
+
+| Decision | Rule | Where |
+| :--- | :--- | :--- |
+| Both fighting warbands die at once | Both teammates step in; their Start of Combat is ordered as at the start of a Solo battle (§3.2). | `step_in_duos_warbands` |
+| Both teams run out at once | Draw, `0` damage (§3.5). | `resolve_duos_battle` |
+| Stall | Neither fighting warband can attack: draw at once, even with teammates waiting (§3.5). | `resolve_duos_battle` |
+| Empty warband | Never fights: its teammate fights first, it never steps in, its player's Start of Combat effects don't trigger, it comes back unchanged; a team with two empty warbands has no minions (§3.5). | `DuosTeamState::opening_player`, `waiting_teammate` |
+| Step-ins between turns | A turn ends when the defending warband runs out; no Windfury strike or immediate attack carries over to the stepping-in warband (§3.2). | `run_attack_turns` |
+| Unit IDs | First warbands first, A before B, then the second warbands (§3.1). | `resolve_duos_battle` |
+| Fill-out board | The teammate's board as given: its hand cards and player effects (`Flighty Scout`, `Boon of Beetles`) summon nothing (§4). | `DuosTeamState::damage` |

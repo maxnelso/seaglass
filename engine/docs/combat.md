@@ -4,6 +4,8 @@ This is the exact specification of how Seaglass resolves a single battle. It is 
 
 The combat loop is **card-agnostic**: it knows only about units, keywords, and general trigger hooks. Individual card definitions live in the card catalog ([`tavern.md`](tavern.md)) and plug into the phases defined below.
 
+**Duos** combats (a team of two players against another, fought as a relay of the players' warbands) are specified in [`duos.md`](duos.md), which builds on this document.
+
 ---
 
 ## 1. Mechanics & Trigger Hooks
@@ -228,6 +230,7 @@ Every single-battle simulation produces an ordered, structured event log:
 - `Death { unit }`
 - `TurnSkipped { side }`
 - `BattleEnd { outcome, hero_damage }`
+- `WarbandSteppedIn { team, player, first_attacker }` — Duos combats only ([`duos.md`](duos.md) §7).
 
 ---
 
