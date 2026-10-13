@@ -77,7 +77,7 @@ loop:
 - The combat ends when a team has **no minions left and no warband left to step in** (its teammate has fought) **(confirmed)**.
 - Both teams at once (their fighting warbands died at the same time and neither has a teammate waiting) $\to$ **Draw**, as in Solo **(engine decision)**.
 - Only team B $\to$ **team A wins**; only team A $\to$ **team B wins**.
-- **Stall.** If neither fighting warband can attack, both **leave the fight**, as if they had run out of minions at the same time: each team's teammate steps in if it has not fought yet (§3.2, both at once) **(confirmed)**. The minions that left are not dead: they come back as their player's survivors (§6). A team with no teammate left to step in is out: if neither team has one it is a **Draw**, and if only one team's teammate steps in, that team wins **(engine decision)**.
+- **Stall.** If neither fighting warband can attack, both **leave the fight**, as if they had run out of minions at the same time: each team's teammate steps in if it has not fought yet (§3.2, both at once) **(confirmed)**. The minions that left are not dead: they come back as their player's survivors (§6). A team with no teammate left to step in is out: if neither team has one it is a **Draw**, and if only one team's teammate steps in, that team wins **(confirmed)**.
 - **Empty warband.** An empty warband fights like any other: it steps in, at the opening if it is its team's first warband (§3.1 step 5) or when its teammate runs out, and its Start of Combat resolves: its player's own effects, its hand cards' copies (`Flighty Scout`) and `Boon of Beetles` **(confirmed)**. If it still has no minions, its teammate steps in at once (§3.2, chains), or its team is out. Solo works the same way: a player with no minions still has a Start of Combat (`combat.md` §5.1).
 
 ---
@@ -157,7 +157,7 @@ The details the user settled:
 3. The stepping-in player's own Start of Combat effects (`Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`, `Boon of Beetles`) trigger when their warband steps in; the other side's do not trigger again (§3.2) **(confirmed)**.
 4. When both fighting warbands die at once, both teammates step in, and their Start of Combat is ordered as at the start of a Solo battle (§3.2) **(confirmed)**.
 5. A step-in is like a new Start of Combat: a Windfury attacker's attack is done when the defending warband runs out, and `Eternal Tycoon`'s Knight is summoned but doesn't attack (§3.2) **(confirmed)**.
-6. A stall makes both fighting warbands leave the fight, and both teammates step in (§3.5) **(confirmed)**.
+6. A stall makes both fighting warbands leave the fight, and both teammates step in; if only one team has a teammate waiting, that team wins (§3.5) **(confirmed)**.
 7. An empty warband still steps in and has its Start of Combat (`Flighty Scout` in hand, player effects), in Duos as in Solo (§3.5) **(confirmed)**.
 
 Engine decisions, pending the user's confirmation (each is one place in `combat.rs`):
@@ -165,6 +165,5 @@ Engine decisions, pending the user's confirmation (each is one place in `combat.
 | Decision | Rule | Where |
 | :--- | :--- | :--- |
 | Both teams run out at once | Draw, `0` damage, as in Solo (§3.5). | `resolve_duos_battle` |
-| A stall with one team's teammate waiting | The other team has no warband left: the team whose teammate stepped in wins (§3.5). | `resolve_duos_battle` |
 | Unit IDs | First warbands first, A before B, then the second warbands (§3.1). | `resolve_duos_battle` |
 | Fill-out board | The teammate's board as given: its hand cards and player effects (`Flighty Scout`, `Boon of Beetles`) summon nothing (§4). | `DuosTeamState::damage` |
