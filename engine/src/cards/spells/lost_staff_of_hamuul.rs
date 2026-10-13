@@ -1,6 +1,9 @@
 //! `Lost Staff of Hamuul` — Tier 6 Tavern spell (`2` Gold).
 //!
 //! Refresh the Tavern with minions of a friendly minion's type.
+//!
+//! A two-type target has both types (`docs/tavern.md` §7.8): on an `Ominous Seer` (Demon/Naga),
+//! it refreshes the Tavern with Demons and Nagas (`Firescale Hoarder`).
 
 use super::targeted_typed;
 use crate::cards::CardHooks;

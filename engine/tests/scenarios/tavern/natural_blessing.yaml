@@ -38,3 +38,17 @@ scenarios:
     expect:   # +2/+1 to every minion with a type
       board: ["Dark Paradox 4/7", "Flittering Bat 3/5", "Iron Groundskeeper 2/2"]
       shop: ["Lullabot 4/3"]
+
+  - name: a_naga_target_buffs_its_dragon_and_naga_types
+    description: >-
+      Firescale Hoarder is a Dragon and a Naga: Ominous Seer (Demon/Naga) gets it, Wrath Weaver
+      (Demon) doesn't.
+    tavern:
+      board: [Firescale Hoarder, Ominous Seer, Glim Guardian, Wrath Weaver]   # 5/5, 2/1, Dragon 1/4, Demon 1/3
+      shop: [Ominous Seer, Wrath Weaver]
+      hand: [Natural Blessing]
+    steps:
+      - play: {hand: Natural Blessing, pos: 0}
+    expect:   # +2/+1 to Dragons and Nagas
+      board: ["Firescale Hoarder 7/6", "Ominous Seer 4/2", "Glim Guardian 3/5", "Wrath Weaver 1/3"]
+      shop: ["Ominous Seer 4/2", "Wrath Weaver 1/3"]

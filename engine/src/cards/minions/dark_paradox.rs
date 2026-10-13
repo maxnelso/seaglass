@@ -1,6 +1,9 @@
 //! `Dark Paradox` (`BG36_360` / `BG36_360t5`) — Tier 4 All (`2/6`).
 //!
 //! Rally: Get a (`2` if Golden) random minion(s) of your most common type.
+//!
+//! Naga counts (`docs/tavern.md` §7.8): with a `Firescale Hoarder` and an `Ominous Seer`, the
+//! most common type is Naga.
 
 use crate::cards::{self, spells, CardTemplate};
 use crate::model::{CardId, PlayerAuras, Tribe, Unit};

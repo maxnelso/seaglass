@@ -1,6 +1,9 @@
 //! `Natural Blessing` — Tier 4 Tavern spell (`2` Gold).
 //!
 //! Give minions of a friendly minion's type +2/+1, on your board and in the Tavern.
+//!
+//! A two-type target has both types (`docs/tavern.md` §7.8): on a `Firescale Hoarder`
+//! (Dragon/Naga), it buffs the Dragons and the Nagas (`Ominous Seer`).
 
 use super::targeted_typed;
 use crate::cards::CardHooks;

@@ -20,3 +20,15 @@ scenarios:
     expect:
       combat: {outcome: a_win}
       board: ["The Last One Standing 30/30", "Treasure Parrot 20/20", "Flittering Bat 16/19"]
+
+  - name: rally_counts_naga_as_a_type
+    description: >-
+      The Last One Standing (All), Glim Guardian as the Dragon and Firescale Hoarder (Dragon/Naga)
+      as the Naga all get it.
+    seeds: "1..10"
+    tavern: {board: [The Last One Standing, Glim Guardian, Firescale Hoarder]}   # 15/15, 1/4, 5/5
+    steps:
+      - fight: {board: [Patient Scout]}
+    expect:
+      combat: {outcome: a_win}
+      board: ["The Last One Standing 30/30", "Glim Guardian 16/19", "Firescale Hoarder 20/20"]

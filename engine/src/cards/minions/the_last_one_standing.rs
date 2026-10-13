@@ -1,7 +1,8 @@
 //! `The Last One Standing` (`BG34_320`) — Tier 7 All (`15/15`).
 //!
 //! Rally: Give a friendly minion of each type `+15/+15` permanently (`twice` if Golden). The
-//! minions are chosen as for `Misplaced Tea Set` (the best assignment of minions to types).
+//! minions are chosen as for `Misplaced Tea Set` (the best assignment of minions to types, Naga
+//! included).
 
 use crate::cards::{spells, CardTemplate};
 use crate::events::Event;

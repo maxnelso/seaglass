@@ -41,3 +41,7 @@ scenarios:
       - expect: {auras: {next_spell_discount: 1}}
       - buy: Recruit a Trainee
     expect: {gold: 2, auras: {next_spell_discount: 0}}
+
+  - name: is_a_demon_and_a_naga
+    tavern: {board: [Ominous Seer]}
+    expect: {board: ["Ominous Seer demon naga"]}

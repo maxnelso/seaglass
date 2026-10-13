@@ -1,6 +1,9 @@
 //! `Eonar's Favor` — Tier 4 Tavern spell (`2` Gold).
 //!
 //! Minions in the Tavern of a friendly minion's type have +3/+3 for the rest of the game.
+//!
+//! A two-type target has both types (`docs/tavern.md` §7.8): on an `Ominous Seer` (Demon/Naga),
+//! it buffs the Demons and the Nagas (`Firescale Hoarder`).
 
 use super::targeted_typed;
 use crate::cards::CardHooks;

@@ -54,3 +54,29 @@ scenarios:
     steps:
       - play: {hand: Misplaced Tea Set, pos: 0}
     expect: {board: ["Treasure Parrot 9/9", "Flittering Bat 1/4", "Flittering Bat 5/8"]}
+
+  - name: a_naga_takes_the_naga_type
+    description: >-
+      Firescale Hoarder (Dragon/Naga) gets it as the Naga and Glim Guardian as the Dragon, so both
+      Dragons get +4/+4.
+    seeds: "1..20"
+    tavern: {board: [Glim Guardian, Firescale Hoarder], hand: [Misplaced Tea Set]}   # 1/4, 5/5
+    steps:
+      - play: {hand: Misplaced Tea Set, pos: 0}
+    expect: {board: ["Glim Guardian 5/8", "Firescale Hoarder 9/9"]}
+
+  - name: naga_is_a_third_type_for_two_dragons_and_two_demons
+    description: >-
+      Glim Guardian (Dragon), Wrath Weaver (Demon), Firescale Hoarder (Dragon/Naga) and Ominous
+      Seer (Demon/Naga) stand for 3 types (Dragon, Demon and Naga), so 3 of them get +4/+4.
+    seeds: "1..20"
+    tavern:
+      board: [Glim Guardian, Wrath Weaver, Firescale Hoarder, Ominous Seer]   # 1/4, 1/3, 5/5, 2/1
+      hand: [Misplaced Tea Set]
+    steps:
+      - play: {hand: Misplaced Tea Set, pos: 0}
+    expect:
+      board:
+        where:
+          any_of: ["Glim Guardian 5/8", "Wrath Weaver 5/7", "Firescale Hoarder 9/9", "Ominous Seer 6/5"]
+        count: 3

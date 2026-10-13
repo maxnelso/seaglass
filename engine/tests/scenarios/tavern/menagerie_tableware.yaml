@@ -17,3 +17,10 @@ scenarios:
     steps:
       - play: {hand: Menagerie Tableware, pos: 0}
     expect: {board: ["Treasure Parrot 14/14", "Flittering Bat 10/13"]}   # 2 types: +9/+9
+
+  - name: naga_counts_as_a_minion_type
+    description: Firescale Hoarder (Dragon/Naga) counts as the Naga and Glim Guardian as the Dragon, so 2 types.
+    tavern: {board: [Glim Guardian, Firescale Hoarder], hand: [Menagerie Tableware]}   # 1/4, 5/5
+    steps:
+      - play: {hand: Menagerie Tableware, pos: 0}
+    expect: {board: ["Glim Guardian 10/13", "Firescale Hoarder 14/14"]}   # 2 types: +9/+9

@@ -7,3 +7,13 @@ scenarios:
       - add_to_hand: Friendly Bounty
       - play: {hand: Friendly Bounty, pos: 0}   # an untargeted spell is played at 0
     expect: {hand: [dragon]}
+
+  - name: gets_a_naga_when_naga_is_your_most_common_type
+    description: >-
+      Naga 2 (Firescale Hoarder and Ominous Seer), Dragon 1, Demon 1. In a Tier 1 Tavern the only
+      Naga is Ominous Seer.
+    seeds: "1..20"
+    tavern: {board: [Firescale Hoarder, Ominous Seer], hand: [Friendly Bounty]}
+    steps:
+      - play: {hand: Friendly Bounty, pos: 0}
+    expect: {hand: [Ominous Seer]}

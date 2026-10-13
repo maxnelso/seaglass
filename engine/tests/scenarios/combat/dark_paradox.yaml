@@ -15,3 +15,15 @@ scenarios:
       board_a: [golden Dark Paradox, Flittering Bat, Flittering Bat]   # Rally: get 2 random Beasts (or All)
       board_b: [Patient Scout]
     expect: {hand_a: {count: 2, none: {card: Dark Paradox}}}
+
+  - name: rally_gets_a_naga_when_naga_is_your_most_common_type
+    description: >-
+      Naga 3 (Dark Paradox, Firescale Hoarder and Ominous Seer), Dragon 2, Demon 2: a random Naga
+      (Firescale Hoarder, Ominous Seer, or an All minion).
+    seeds: "1..20"
+    combat:
+      board_a: [Dark Paradox, Firescale Hoarder, Ominous Seer]
+      board_b: [Patient Scout]
+    expect:
+      outcome: a_win
+      hand_a: [naga]

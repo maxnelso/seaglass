@@ -1,7 +1,10 @@
-//! `Ominous Seer` (`BG31_330`) — Tier 1 Demon (`2/1`).
+//! `Ominous Seer` (`BG31_330`) — Tier 1 Demon/Naga (`2/1`).
 //! **Battlecry:** The next Tavern spell you buy costs `(1)` (`(2)` if Golden) less.
 //! The discount also lowers a Health cost (`Hasty Excavation`: 2 Health) and waits for the next
 //! spell bought, even on a later turn (`docs/tavern.md` §6).
+//!
+//! Naga isn't a lobby type, so it is in the pool as a Demon, but the effects that look at minion
+//! types see both of its types (`docs/tavern.md` §7.8).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};
@@ -12,7 +15,7 @@ pub const NAME: &str = "Ominous Seer";
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 1, 1)
-        .with_tribe(Tribe::Demon)
+        .with_tribe(Tribe::DemonNaga)
         .on_battlecry(|state, unit, _, _, _| on_battlecry(state, unit))
 }
 

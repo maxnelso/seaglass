@@ -332,7 +332,7 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
         "BGS_004" | "TB_BaconUps_079" => {
             Some((minions::wrath_weaver::ID, "wrath_weaver", Tribe::Demon))
         }
-        "BG31_330" => Some((minions::ominous_seer::ID, "ominous_seer", Tribe::Demon)),
+        "BG31_330" => Some((minions::ominous_seer::ID, "ominous_seer", Tribe::DemonNaga)),
         "BG29_888" => Some((minions::glim_guardian::ID, "glim_guardian", Tribe::Dragon)),
         "BG35_814" => Some((
             minions::scarlet_survivor::ID,
@@ -1162,7 +1162,7 @@ pub fn map_hs_card_id(hs_id: &str) -> Option<(CardId, &'static str, Tribe)> {
         "BG32_820" => Some((
             seaglass::cards::minions::firescale_hoarder::ID,
             "firescale_hoarder",
-            Tribe::Dragon,
+            Tribe::DragonNaga,
         )),
         "BGS_008" | "TB_BaconUps_057" => Some((
             seaglass::cards::minions::ghastcoiler::ID,

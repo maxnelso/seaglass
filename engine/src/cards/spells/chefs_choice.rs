@@ -1,6 +1,10 @@
 //! `Chef's Choice` — Tier 2 Tavern spell (`2` Gold).
 //!
 //! Get a different random minion of a friendly minion's type.
+//!
+//! A two-type target has both types (`docs/tavern.md` §7.8): on an `Ominous Seer` (Demon/Naga),
+//! it can get a `Firescale Hoarder` (Dragon/Naga). The minion is a plain copy, even for a Golden
+//! target.
 
 use super::targeted_typed;
 use crate::cards::CardHooks;

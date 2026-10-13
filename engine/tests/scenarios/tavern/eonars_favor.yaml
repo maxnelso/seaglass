@@ -22,3 +22,24 @@ scenarios:
     steps:
       - play: {hand: "Eonar's Favor", pos: 0}
     expect: {shop: ["Wolf Pup 6/9", "Lullabot 5/5", "Iron Groundskeeper 2/2"]}
+
+  - name: a_naga_target_buffs_its_demon_and_naga_types
+    description: >-
+      Ominous Seer is a Demon and a Naga: Firescale Hoarder (Dragon/Naga) and Wrath Weaver (Demon)
+      get it, Glim Guardian (Dragon) doesn't.
+    tavern:
+      board: [Ominous Seer]
+      shop: [Firescale Hoarder, Wrath Weaver, Glim Guardian]   # 5/5, Demon 1/3, Dragon 1/4
+      hand: ["Eonar's Favor"]
+    steps:
+      - play: {hand: "Eonar's Favor", pos: 0}
+    expect: {shop: ["Firescale Hoarder 8/8", "Wrath Weaver 4/6", "Glim Guardian 1/4"]}
+
+  - name: a_naga_the_tavern_offers_later_gets_it_too
+    description: The Firescale Hoarders the Tavern offers after the cast have +3/+3 too.
+    seeds: [10, 23]
+    tavern: {catalog: tier5, tavern_tier: 5, gold: 1, board: [Ominous Seer], hand: ["Eonar's Favor"]}   # Tier 5 minions only
+    steps:
+      - play: {hand: "Eonar's Favor", pos: 0}
+      - refresh
+    expect: {shop: {any: "Firescale Hoarder 8/8", none: "Firescale Hoarder 5/5"}}

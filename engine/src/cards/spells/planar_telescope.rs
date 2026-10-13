@@ -1,6 +1,9 @@
 //! `Planar Telescope` — Tier 3 Tavern spell (`4` Gold).
 //!
 //! Discover a minion of your most common type.
+//!
+//! Naga counts (`docs/tavern.md` §7.8): with a `Firescale Hoarder` and an `Ominous Seer`, it
+//! Discovers Nagas (and All minions).
 
 use super::{most_common_tribe, spell};
 use crate::cards::CardHooks;

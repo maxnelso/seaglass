@@ -5,3 +5,7 @@ scenarios:
       - add_to_hand: Firescale Hoarder
       - play: Firescale Hoarder
     expect: {hand: [Shiny Ring]}
+
+  - name: is_a_dragon_and_a_naga
+    tavern: {board: [Firescale Hoarder]}
+    expect: {board: ["Firescale Hoarder dragon naga"]}

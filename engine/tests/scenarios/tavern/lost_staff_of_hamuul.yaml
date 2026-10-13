@@ -20,3 +20,12 @@ scenarios:
       - play: {hand: Lost Staff of Hamuul, pos: 0}
     expect:
       shop: {count: 6, all: {any_of: [beast, pirate]}}
+
+  - name: a_naga_target_refreshes_with_demons_and_nagas
+    description: Ominous Seer is a Demon and a Naga, so the Tavern can offer Firescale Hoarder (Dragon/Naga).
+    seeds: [1, 2]
+    tavern: {catalog: tier5, tavern_tier: 6, board: [Ominous Seer], hand: [Lost Staff of Hamuul]}   # Tier 5 minions only
+    steps:
+      - play: {hand: Lost Staff of Hamuul, pos: 0}
+    expect:
+      shop: {count: 6, all: {any_of: [demon, naga]}, any: Firescale Hoarder}

@@ -34,3 +34,33 @@ scenarios:
     steps:
       - play: {hand: "Chef's Choice", pos: 0}
     expect: {hand: [{not: none}]}   # any Tier 1 minion with a type (not Suspicious Prisonguard)
+
+  - name: a_naga_target_can_get_another_naga
+    description: >-
+      Ominous Seer is a Demon and a Naga, so it can get Firescale Hoarder, a Dragon/Naga (a plain
+      one).
+    seeds: [1, 7]
+    tavern: {catalog: tier5, tavern_tier: 5, board: [Ominous Seer], hand: [Chef's Choice]}   # Tier 5 minions only
+    steps:
+      - play: {hand: Chef's Choice, pos: 0}
+    expect: {hand: ["Firescale Hoarder -golden"]}
+
+  - name: a_golden_naga_target_gets_a_plain_minion
+    description: The target being Golden doesn't make the minion Golden.
+    seeds: [1, 7]
+    tavern: {catalog: tier5, tavern_tier: 5, board: [golden Ominous Seer], hand: [Chef's Choice]}
+    steps:
+      - play: {hand: Chef's Choice, pos: 0}
+    expect: {hand: ["Firescale Hoarder -golden"]}
+
+  - name: a_third_copy_of_the_naga_it_gets_makes_a_triple
+    description: The Firescale Hoarder it gets makes a Triple with the 2 in your hand, as any third copy does.
+    seeds: [1, 7]
+    tavern:
+      catalog: tier5
+      tavern_tier: 5
+      board: [Ominous Seer]
+      hand: [Firescale Hoarder, Firescale Hoarder, Chef's Choice]
+    steps:
+      - play: {hand: Chef's Choice, pos: 0}
+    expect: {hand: ["golden Firescale Hoarder 10/10"]}

@@ -17,3 +17,13 @@ scenarios:
     steps:
       - play: {hand: Planar Telescope, pos: 0}
     expect: {discover_pending: {count: ">= 2"}}
+
+  - name: discovers_nagas_when_naga_is_your_most_common_type
+    description: >-
+      Naga 2 (Firescale Hoarder and Ominous Seer), Dragon 1, Demon 1. In a Tier 5 Tavern the Nagas
+      are those two, Dark Paradox and Nightmare Par-tea Guest (All).
+    seeds: "1..20"
+    tavern: {tavern_tier: 5, board: [Firescale Hoarder, Ominous Seer], hand: [Planar Telescope]}
+    steps:
+      - play: {hand: Planar Telescope, pos: 0}
+    expect: {discover_pending: {count: 3, all: naga}}

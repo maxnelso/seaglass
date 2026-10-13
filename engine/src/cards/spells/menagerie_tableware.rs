@@ -2,7 +2,8 @@
 //!
 //! Give your minions +3/+3, plus +3/+3 per minion type among them. The types are counted as for
 //! `Misplaced Tea Set`: the most types your minions can each stand for at once (a `Treasure
-//! Parrot` and a `Flittering Bat` count 2).
+//! Parrot` and a `Flittering Bat` count 2, and so do a `Firescale Hoarder` and a `Glim Guardian`:
+//! Naga is a type too).
 
 use super::{menagerie_type_count, spell};
 use crate::cards::CardHooks;
