@@ -1,0 +1,571 @@
+topic: Duos combat
+scenarios:
+  # Unit ids (docs/duos.md §3.1): A0's 3/3 0, 1/1 1; B0's 2/2 2; A1's 5/5 3, 1/1 4; B1's 4/6 5.
+  - name: the_worked_example_relay
+    description: >-
+      docs/duos.md §8. A0 beats B0, so B1 steps in; A0 carries on (its 1/1 attacks next) and
+      runs out, so A1 steps in, from its leftmost minion, and wins. The damage is A1's player's
+      Tier 4 plus its two survivors' tiers.
+    duos:
+      team_a:
+        - {board: ["3/3", "1/1"], hero_tier: 2}
+        - {board: ["5/5", "1/1"], hero_tier: 4}
+      team_b:
+        - {board: ["2/2"], hero_tier: 3}
+        - {board: ["4/6"], hero_tier: 5}
+    expect:
+      outcome: a_win
+      hero_damage: 6
+      events:
+        where: {type: {any_of: [battle_start, warband_stepped_in, attack_declared, battle_end]}}
+        count: 10
+        sequence:
+          - {type: battle_start, first_attacker: a}
+          - {type: warband_stepped_in, team: a, player: 0, first_attacker: a}
+          - {type: warband_stepped_in, team: b, player: 0, first_attacker: a}
+          - {type: attack_declared, side: a, attacker: 0, target: 2}
+          - {type: warband_stepped_in, team: b, player: 1, first_attacker: a}
+          - {type: attack_declared, side: a, attacker: 1, target: 5}
+          - {type: attack_declared, side: b, attacker: 5, target: 0}
+          - {type: warband_stepped_in, team: a, player: 1, first_attacker: a}
+          - {type: attack_declared, side: a, attacker: 3, target: 5}
+          - {type: battle_end, outcome: a_win, hero_damage: 6}
+      team_a:
+        - {fought: true, survivors: [], dead_units: [{id: 1}, {id: 0}]}
+        - {fought: true, survivors: ["5/1", "1/1"], dead_units: []}
+      team_b:
+        - {fought: true, survivors: [], dead_units: [{id: 2}]}
+        - {fought: true, survivors: [], dead_units: [{id: 5}]}
+
+  # Unit ids: A0's 4/4 0, 3/3 1, 2/2 2; B0's 1/1 3; A1's 1/1 4; B1's 1/10 5, 1/9 6.
+  - name: the_warband_already_fighting_carries_on_in_its_attack_order
+    description: >-
+      A0 (3 v 1) attacks first: its 4/4 kills B0's 1/1, and B1 steps in. A still has more minions
+      (3 v 2) and attacks first, with its 3/3, the minion after its last attacker, not its leftmost
+      4/4. Then B1 attacks from its leftmost minion, the 1/10.
+    duos:
+      team_a: [["4/4", "3/3", "2/2"], ["1/1"]]
+      team_b: [["1/1"], ["1/10", "1/9"]]
+    expect:
+      events:
+        where: {type: {any_of: [warband_stepped_in, attack_declared]}}
+        2: {type: attack_declared, side: a, attacker: 0, target: 3}
+        3: {type: warband_stepped_in, team: b, player: 1, first_attacker: a}
+        4: {type: attack_declared, side: a, attacker: 1}
+        5: {type: attack_declared, side: b, attacker: 5}
+
+  # Unit ids: A0's 1/1 0; B0's 3/3 1, 1/1 2; A1's 1/5 3; B1's 1/1 4.
+  - name: the_first_attacker_is_decided_again_after_a_step_in
+    description: >-
+      B0 (2 v 1) attacks first, and its 3/3 kills A0's only minion on B's turn. A1 steps in with
+      one minion: B has more (2 v 1), so B attacks first again instead of in turn, with its 1/1
+      (B0 carries on).
+    duos:
+      team_a: [["1/1"], ["1/5"]]
+      team_b: [["3/3", "1/1"], ["1/1"]]
+    expect:
+      events:
+        where: {type: {any_of: [warband_stepped_in, attack_declared]}}
+        2: {type: attack_declared, side: b, attacker: 1, target: 0}
+        3: {type: warband_stepped_in, team: a, player: 1, first_attacker: b}
+        4: {type: attack_declared, side: b, attacker: 2, target: 3}
+
+  # Unit ids: A0's 2/2 0; B0's 1/1 1; A1's 1/1 2; B1's 1/3 3.
+  - name: on_an_equal_count_after_a_step_in_a_coin_flip_decides_the_first_attacker
+    description: >-
+      A's 2/2 attacks first at this seed and kills B0's 1/1. B1 steps in with one minion (1 v 1):
+      A wins the coin flip and attacks again.
+    seed: 2
+    duos:
+      team_a: [["2/2"], ["1/1"]]
+      team_b: [["1/1"], ["1/3"]]
+    expect:
+      events:
+        where: {type: {any_of: [warband_stepped_in, attack_declared]}}
+        2: {type: attack_declared, side: a, attacker: 0, target: 1}
+        3: {type: warband_stepped_in, team: b, player: 1, first_attacker: a}
+        4: {type: attack_declared, side: a, attacker: 0, target: 3}
+
+  - name: the_step_in_coin_flip_can_favour_either_side
+    description: As above, but B wins the coin flip after the step-in at this seed.
+    seed: 6
+    duos:
+      team_a: [["2/2"], ["1/1"]]
+      team_b: [["1/1"], ["1/3"]]
+    expect:
+      events:
+        where: {type: {any_of: [warband_stepped_in, attack_declared]}}
+        2: {type: attack_declared, side: a, attacker: 0, target: 1}
+        3: {type: warband_stepped_in, team: b, player: 1, first_attacker: b}
+        4: {type: attack_declared, side: b, attacker: 3, target: 0}
+
+  # Unit ids: A0's 6/20 0; B0's 1/1 1; A1's 1/1 2; B1's Boom-in-a-Box 3.
+  - name: start_of_combat_triggers_when_the_warband_steps_in
+    description: >-
+      B1's Boom-in-a-Box isn't in the fight at the start: its 3 damage hits A0's 6/20 once, when
+      B1 steps in after B0's 1/1 died.
+    seeds: "1..=4"
+    duos:
+      team_a: [["6/20"], ["1/1"]]
+      team_b: [["1/1"], [Boom-in-a-Box]]
+    expect:
+      events:
+        all_of:
+          - {where: {type: damage_dealt, from: 3, amount: 3}, count: 1}
+          - sequence:
+              - {type: death, unit: 1}
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: damage_dealt, unit: 0, amount: 3, from: 3}
+              - {type: attack_declared}
+
+  # Unit ids: A0's 6/20 0; B0's 1/1 1; A1's 1/1 2; B1's Hopebringer 3, 2/2 4.
+  - name: hopebringer_buffs_its_warband_when_it_steps_in
+    seeds: "1..=4"
+    duos:
+      team_a: [["6/20"], ["1/1"]]
+      team_b: [["1/1"], [Hopebringer, "2/2"]]
+    expect:
+      events:
+        all_of:
+          - {where: {type: stat_buff, reason: Hopebringer}, count: 2}
+          - sequence:
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: stat_buff, side: b, unit: 3, reason: Hopebringer, attack: 8, health: 6}
+              - {type: stat_buff, side: b, unit: 4, reason: Hopebringer, attack: 6, health: 5}
+              - {type: attack_declared}
+
+  # Unit ids: A0's 10/4 0; B0's 1/1 1; A1's 2/2 2; B1's Boom-in-a-Box 3.
+  - name: a_start_of_combat_that_empties_a_warband_steps_in_its_teammate
+    description: >-
+      A0's 10/4 kills B0's 1/1 and is left at 10/3. B1 steps in and its Boom-in-a-Box kills the
+      10/3, so A1 steps in at once; the first attacker is decided once both have stepped in (1 v 1,
+      a coin flip) and recorded in both step-ins.
+    seeds: "1..=4"
+    duos:
+      team_a: [["10/4"], ["2/2"]]
+      team_b: [["1/1"], [Boom-in-a-Box]]
+    steps:
+      - expect:
+          outcome: b_win
+          hero_damage: 5   # B1's player's Tier 1 + Boom-in-a-Box's Tier 4
+          events:
+            sequence:
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: damage_dealt, unit: 0, amount: 3, from: 3}
+              - {type: death, unit: 0}
+              - {type: warband_stepped_in, team: a, player: 1}
+              - {type: attack_declared}
+      - expect:
+          events:
+            where: {type: warband_stepped_in}
+            count: 4
+            2: {team: b, first_attacker: {capture: first}}
+            3: {team: a, first_attacker: {same_as: first}}
+
+  # Unit ids: A0's Boom-in-a-Box 0; B0's 1/1 1; A1's 1/1 2; B1's 2/10 3.
+  - name: the_warband_already_fighting_doesnt_start_combat_again
+    description: >-
+      A0's Boom-in-a-Box kills B0's 1/1 at the start, so B1 steps in before the first attack (the
+      first attacker, a coin flip, is decided after it). Boom-in-a-Box's Start of Combat doesn't
+      trigger again for B1: its 3 damage is dealt once.
+    seeds: "1..=4"
+    duos:
+      team_a: [[Boom-in-a-Box], ["1/1"]]
+      team_b: [["1/1"], ["2/10"]]
+    steps:
+      - expect:
+          events:
+            all_of:
+              - {where: {type: damage_dealt, from: 0, amount: 3}, count: 1, all: {unit: 1}}
+              - sequence:
+                  - {type: death, unit: 1}
+                  - {type: warband_stepped_in, team: b, player: 1}
+                  - {type: attack_declared}
+      - expect:
+          events: {0: {type: battle_start, first_attacker: {capture: first}}}
+      - expect:
+          events:
+            where: {type: warband_stepped_in}
+            count: 3
+            2: {team: b, player: 1, first_attacker: {same_as: first}}
+
+  # Unit ids: A0's 6/20 0; B0's 1/1 1; A1's 1/1 2; B1's 2/2 3; the Flighty Scout copy 4.
+  - name: a_flighty_scout_in_hand_is_summoned_when_its_warband_steps_in
+    description: >-
+      B1's player has Flighty Scout in hand: its copy is summoned when B1 steps in, not at the
+      start, and counts for the first attacker: B has more minions (2 v 1) and attacks first.
+    seeds: "1..=4"
+    duos:
+      team_a: [["6/20"], ["1/1"]]
+      team_b:
+        - ["1/1"]
+        - {board: ["2/2"], hand: [Flighty Scout]}
+    expect:
+      events:
+        all_of:
+          - {where: {type: unit_summoned, name: Flighty Scout}, count: 1}
+          - where: {type: {any_of: [warband_stepped_in, unit_summoned, attack_declared]}}
+            sequence:
+              - {type: warband_stepped_in, team: b, player: 1, first_attacker: b}
+              - {type: unit_summoned, side: b, unit: 4, name: Flighty Scout}
+              - {type: attack_declared, side: b, attacker: 3}
+      team_b: {1: {hand: [Flighty Scout]}}
+
+  # Unit ids: A0's 5/50 0; B0's 1/1 1; A1's 1/1 2; B1's 3/10 3.
+  - name: the_stepping_in_players_own_start_of_combat_effects_trigger_then
+    description: >-
+      Brood of Nozdormu doubles A0's 5/50 at the start (10/50), B1's 3/10 when B1 steps in (6/10),
+      and A0's doesn't trigger again then. A1 never fights: its player's Brood of Nozdormu waits.
+    seeds: "1..=4"
+    duos:
+      team_a:
+        - {board: ["5/50"], auras: {effects: [{card: Brood of Nozdormu, duration: Turn}]}}
+        - {board: ["1/1"], auras: {effects: [{card: Brood of Nozdormu, duration: Turn}]}}
+      team_b:
+        - ["1/1"]
+        - {board: ["3/10"], auras: {effects: [{card: Brood of Nozdormu, duration: Turn}]}}
+    expect:
+      outcome: a_win
+      hero_damage: 3   # A0's player's Tier 1 + the 10/50's tier 1 + A1's 1/1 filling out
+      events:
+        all_of:
+          - where: {type: stat_buff, reason: Brood of Nozdormu}
+            count: 2
+            0: {side: a, unit: 0, attack: 10}
+            1: {side: b, unit: 3, attack: 6}
+          - sequence:
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: stat_buff, side: b, reason: Brood of Nozdormu}
+      team_a:
+        - {fought: true, auras: {effect_stacks: {Brood of Nozdormu: 0}}}
+        - {fought: false, auras: {effect_stacks: {Brood of Nozdormu: 1}}}
+      team_b: {1: {auras: {effect_stacks: {Brood of Nozdormu: 0}}}}
+
+  # Unit ids: A0's 10/30 0; B0's 1/1 1; B1's 1/1 2.
+  - name: the_stepping_in_players_upper_hand_hits_the_warband_already_fighting
+    description: >-
+      A0's 10/30 kills B0's 1/1. When B1 steps in, its player's Upper Hand sets the 10/29's Health
+      to 1, so B1's 1/1 and the 10/1 trade: both teams are out (A1 is empty), a draw.
+    seeds: "1..=4"
+    duos:
+      team_a: [["10/30"], []]
+      team_b:
+        - ["1/1"]
+        - {board: ["1/1"], auras: {effects: [{card: Upper Hand, duration: Turn}]}}
+    expect:
+      outcome: draw
+      hero_damage: 0
+      events:
+        sequence:
+          - {type: warband_stepped_in, team: b, player: 1}
+          - {type: attack_declared}
+          - {type: death, unit: 0}
+
+  # Unit ids: A0's 6/20 0; B0's 1/1 1; A1's 1/1 2; B1's 1/1 3; the Beetles 4, 5.
+  - name: boon_of_beetles_summons_when_its_warband_steps_in
+    description: >-
+      B1's player's Boon of Beetles summons its 2 Taunt Beetles when B1 steps in, not at the start;
+      A1 never fights, so its player's Boon of Beetles keeps its stacks.
+    seeds: "1..=4"
+    duos:
+      team_a:
+        - ["6/20"]
+        - {board: ["1/1"], auras: {effects: [{card: Boon of Beetles, stacks: 2}]}}
+      team_b:
+        - ["1/1"]
+        - {board: ["1/1"], auras: {effects: [{card: Boon of Beetles, stacks: 2}]}}
+    expect:
+      events:
+        all_of:
+          - {where: {type: unit_summoned}, count: 2, all: {side: b, name: Beetle}}
+          - sequence:
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: unit_summoned, unit: 4, reason: Boon of Beetles}
+              - {type: unit_summoned, unit: 5, reason: Boon of Beetles}
+      team_a: {1: {fought: false, auras: {effect_stacks: {Boon of Beetles: 2}}}}
+      team_b: {1: {auras: {effect_stacks: {Boon of Beetles: 0}}}}
+
+  # Unit ids: A0's 10/30 0; B0's 1/1 1, 1/1 2, 1/1 3; A1's 1/1 4; B1's Relentless Deflector 5.
+  - name: an_avenge_doesnt_count_its_teammates_deaths
+    description: >-
+      Relentless Deflector (Avenge (3): gain Divine Shield) steps in after B0's three minions died:
+      they aren't friendly to it, so it has no Divine Shield and A0's 10/30 kills it at once.
+    seeds: "1..=4"
+    duos:
+      team_a: [["10/30"], ["1/1"]]
+      team_b: [["1/1", "1/1", "1/1"], [Relentless Deflector]]
+    expect:
+      outcome: a_win
+      events:
+        all_of:
+          - {none: {type: divine_shield_popped}}
+          - {any: {type: damage_dealt, unit: 5, amount: 10}}
+      team_b: {1: {dead_units: [{card: Relentless Deflector, avenge_counter: 0}]}}
+
+  # Unit ids: A0's 2/4 0; B0's 2/30 1; A1's Prodigious Tusker 2, 2/4 3; B1's 1/1 4.
+  - name: prodigious_tusker_doesnt_gem_its_teammates_attackers
+    description: >-
+      A0's 2/4 attacks while A1's Prodigious Tusker waits: no Blood Gem, it hits for 2. Once A1
+      steps in, the Tusker gems A1's own 2/4, which hits for 3.
+    seeds: "1..=4"
+    duos:
+      team_a: [["2/4"], [Prodigious Tusker, "2/4"]]
+      team_b: [["2/30"], ["1/1"]]
+    expect:
+      events:
+        all_of:
+          - {none: {type: stat_buff, unit: 0}}
+          - {where: {type: damage_dealt, from: 0}, count: ">= 1", all: {unit: 1, amount: 2}}
+          - {where: {type: stat_buff, reason: ProdigiousTusker}, count: ">= 1", all: {unit: 3}}
+          - {any: {type: damage_dealt, unit: 1, from: 3, amount: 3}}
+
+  # Unit ids: A0's 2/60 0; B0's Zoatroids 1, 2, 3; A1's 1/1 4; B1's Zoatroids 5, 6, 7, 8.
+  - name: each_players_deity_counts_only_their_own_aberrations
+    description: >-
+      B0's three Zoatroids die first: not enough for B0's player's C'Thun, and they don't count for
+      B1's player's. B1's C'Thun (7/7) awakens after B1's own 4th Zoatroid dies.
+    seeds: "1..=4"
+    duos:
+      team_a: [["2/60"], ["1/1"]]
+      team_b:
+        - {board: [Zoatroid, Zoatroid, Zoatroid], auras: {deity: {kind: cthun, attack: 5, health: 5}}}
+        - board: [Zoatroid, Zoatroid, Zoatroid, Zoatroid]
+          auras: {deity: {kind: cthun, attack: 7, health: 7}}
+    expect:
+      events:
+        all_of:
+          - {where: {type: deity_awakened}, count: 1, all: {side: b, deity: cthun}}
+          - sequence:
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: death}
+              - {type: death}
+              - {type: death}
+              - {type: death}
+              - {type: deity_awakened}
+
+  # Unit ids: A0's 3/30 0; B0's Very Hungry Winterfinner 1; A1's 1/1 2; B1's Very Hungry
+  # Winterfinner 3. Each Winterfinner takes damage twice before it dies.
+  - name: each_player_keeps_their_own_hand
+    description: >-
+      Each Very Hungry Winterfinner buffs a minion in its own player's hand (+2/+1 each time it
+      takes damage): B0's player's 1/1 becomes 5/3 and B1's player's 1/2 becomes 5/4.
+    seeds: "1..=4"
+    duos:
+      team_a: [["3/30"], ["1/1"]]
+      team_b:
+        - {board: [Very Hungry Winterfinner], hand: ["1/1"]}
+        - {board: [Very Hungry Winterfinner], hand: ["1/2"]}
+    expect:
+      outcome: a_win
+      team_b:
+        - {hand: ["5/3"]}
+        - {hand: ["5/4"]}
+
+  # Unit ids: A0's 1/1 0; B0's 5/5 1; A1's 10/10 2.
+  - name: the_damage_adds_only_the_winning_warbands_players_tier
+    description: >-
+      A0 (Tier 6) loses to B0's 5/5; A1 (Tier 2) steps in and wins, and B1 is empty: no
+      reinforcements. The damage is A1's player's Tier 2 plus its 10/10's Tier 3.
+    seeds: "1..=4"
+    duos:
+      team_a:
+        - {board: ["1/1"], hero_tier: 6}
+        - {board: ["10/10 t3"], hero_tier: 2}
+      team_b: [["5/5"], []]
+    expect:
+      outcome: a_win
+      hero_damage: 5
+      team_b: {1: {fought: false}}
+
+  # Unit ids: A0's 30/30s 0, 1; B0's 1/1 2; A1's 1/1s 3 to 8; B1's 1/1 9.
+  - name: a_warband_that_beat_both_fills_out_the_damage_with_its_teammates_minions
+    description: >-
+      A0 beats B0 and B1, so A1 never fights: the damage counts A0's two survivors (Tiers 2 and 3),
+      then A1's minions left to right up to 7 minions (Tiers 1 to 5, not 6), plus A0's player's
+      Tier 5: 5 + 5 + 15.
+    duos:
+      team_a:
+        - {board: ["30/30 t2", "30/30 t3"], hero_tier: 5}
+        - ["1/1 t1", "1/1 t2", "1/1 t3", "1/1 t4", "1/1 t5", "1/1 t6"]
+      team_b: [["1/1"], ["1/1"]]
+    expect:
+      outcome: a_win
+      hero_damage: 25
+      team_a: {1: {fought: false, survivors: {count: 6}}}
+
+  # Unit ids: A0's 3/3 0; B0's 3/3 1; A1's Hopebringer 2, 1/5 3; B1's Boom-in-a-Box 4, 4/4 5,
+  # 4/4 6.
+  - name: both_fighting_warbands_dying_at_once_step_in_both_teammates
+    description: >-
+      The 3/3s trade, so A1 and B1 step in together and their Start of Combat resolves as at the
+      start of a Solo battle: B1 has more minions (3 v 2) and goes first, and Boom-in-a-Box kills
+      the 4/3 Hopebringer before its buff.
+    seeds: "1..=4"
+    duos:
+      team_a: [["3/3"], [Hopebringer, "1/5"]]
+      team_b: [["3/3"], [Boom-in-a-Box, "4/4", "4/4"]]
+    expect:
+      events:
+        all_of:
+          - {none: {type: stat_buff, reason: Hopebringer}}
+          - where: {type: {any_of: [death, warband_stepped_in]}}
+            2: {type: death}
+            3: {type: death}
+            4: {type: warband_stepped_in, team: a, player: 1}
+            5: {type: warband_stepped_in, team: b, player: 1}
+          - sequence:
+              - {type: warband_stepped_in, team: b, player: 1}
+              - {type: damage_dealt, unit: 2, amount: 3, from: 4}
+              - {type: death, unit: 2}
+
+  # Unit ids: A0's 3/3 0; B0's 3/3 1; A1's Hopebringer 2, 1/5 3, 1/5 4; B1's Boom-in-a-Box 5,
+  # 4/4 6.
+  - name: both_stepping_in_the_side_with_more_minions_starts_first
+    description: >-
+      As above, but A1 has more minions (3 v 2): Hopebringer gives A1's minions +4/+3 first (8/6)
+      and survives Boom-in-a-Box's 3 damage (8/3).
+    seeds: "1..=4"
+    duos:
+      team_a: [["3/3"], [Hopebringer, "1/5", "1/5"]]
+      team_b: [["3/3"], [Boom-in-a-Box, "4/4"]]
+    expect:
+      events:
+        sequence:
+          - {type: warband_stepped_in, team: a, player: 1}
+          - {type: warband_stepped_in, team: b, player: 1}
+          - {type: stat_buff, side: a, unit: 2, reason: Hopebringer, attack: 8, health: 6}
+          - {type: damage_dealt, unit: 2, amount: 3, from: 5}
+
+  # Unit ids: A0's 2/2 0; B0's 1/1 1; A1's 1/1 2; B1's 1/1 3.
+  - name: when_both_fighting_warbands_die_only_a_waiting_teammate_steps_in
+    description: >-
+      A0's 2/2 beats B0's 1/1 (2/1 left) and trades with B1's 1/1. Team B has no warband left;
+      A1 steps in and team A wins. A1's teammate fought: no fill-out, 2 damage.
+    seeds: "1..=4"
+    duos:
+      team_a: [["2/2"], ["1/1 t1"]]
+      team_b: [["1/1"], ["1/1"]]
+    expect:
+      outcome: a_win
+      hero_damage: 2
+      events:
+        where: {type: warband_stepped_in}
+        count: 4
+        3: {team: a, player: 1, first_attacker: a}
+      team_a: {1: {fought: true, survivors: ["1/1"]}}
+
+  - name: both_teams_running_out_at_once_is_a_draw
+    description: Each pair of 3/3s trades; nobody is left to step in after the second trade.
+    seeds: "1..=4"
+    duos:
+      team_a: [["3/3"], ["3/3"]]
+      team_b: [["3/3"], ["3/3"]]
+    expect:
+      outcome: draw
+      hero_damage: 0
+      events: {where: {type: warband_stepped_in}, count: 4}
+      team_a: {all: {fought: true, survivors: []}}
+      team_b: {all: {fought: true, survivors: []}}
+
+  - name: a_stall_is_a_draw_even_with_teammates_waiting
+    description: Neither fighting warband can attack, so the combat ends at once.
+    duos:
+      team_a: [["0/5"], ["5/5"]]
+      team_b: [["0/5"], ["5/5"]]
+    expect:
+      outcome: draw
+      hero_damage: 0
+      events: {where: {type: warband_stepped_in}, count: 2}
+      team_a: {1: {fought: false}}
+      team_b: {1: {fought: false}}
+
+  # Unit ids: B0's 2/2 0; A1's 5/5 1 (A0 is empty).
+  - name: an_empty_first_warband_lets_its_teammate_fight_first
+    description: >-
+      A0 has no minions: A1 steps in at once, and A0 never fights (its player's Flighty Scout in
+      hand isn't summoned). B1 is empty too, so once B0's 2/2 dies team A wins; A0's empty board
+      fills out nothing.
+    seeds: "1..=4"
+    duos:
+      team_a:
+        - {board: [], hand: [Flighty Scout]}
+        - ["5/5"]
+      team_b: [["2/2"], []]
+    expect:
+      outcome: a_win
+      hero_damage: 2
+      events:
+        all_of:
+          - {none: {type: unit_summoned}}
+          - where: {type: {any_of: [battle_start, warband_stepped_in]}}
+            count: 3
+            1: {team: a, player: 1}
+            2: {team: b, player: 0}
+      team_a:
+        - {fought: false, survivors: [], hand: [Flighty Scout]}
+        - {fought: true}
+      team_b: [{fought: true}, {fought: false}]
+
+  # Unit ids: A0's 1/1 0; A1's 1/1 1.
+  - name: a_team_with_two_empty_warbands_has_no_minions
+    description: >-
+      Team B has no minions at all: A0 steps in alone and wins at once, and A1's minion fills out
+      the damage (1 + Tier 2 + Tier 3).
+    duos:
+      team_a: [["1/1 t2"], ["1/1 t3"]]
+      team_b: [[], []]
+    expect:
+      outcome: a_win
+      hero_damage: 6
+      events:
+        count: 3
+        1: {type: warband_stepped_in, team: a, player: 0, first_attacker: a}
+      team_b: {all: {fought: false}}
+
+  - name: four_empty_warbands_draw
+    duos:
+      team_a: [[], []]
+      team_b: [[], []]
+    expect:
+      outcome: draw
+      hero_damage: 0
+      events: [{type: battle_start}, {type: battle_end, outcome: draw}]
+
+  # Unit ids (the first warbands first, docs/duos.md §3.1): A1's 5/5 0; B1's 3/3 1; A0's 1/1 2;
+  # B0's 2/2 3.
+  - name: the_first_warbands_are_inputs_and_take_the_first_ids
+    description: >-
+      With first_a and first_b set to 1, A1 and B1 open the fight. A1's 5/5 beats B1's 3/3 and
+      trades with B0's 2/2, then A0 steps in and team A wins.
+    seeds: "1..=4"
+    duos:
+      team_a: [["1/1"], ["5/5"]]
+      team_b: [["2/2"], ["3/3"]]
+      first_a: 1
+      first_b: 1
+    expect:
+      outcome: a_win
+      hero_damage: 2
+      events:
+        where: {type: warband_stepped_in}
+        count: 4
+        0: {team: a, player: 1}
+        1: {team: b, player: 1}
+        2: {team: b, player: 0}
+        3: {team: a, player: 0}
+      team_a:
+        - {fought: true, survivors: [{id: 2, stats: "1/1"}]}
+        - {fought: true, dead_units: [{id: 0}]}
+
+  - name: a_duos_batch_counts_every_combat
+    description: >-
+      A0's 4/4 beats B0's 3/3 and trades with B1's 3/3; A1 steps in and wins: 2 damage at every
+      seed.
+    duos:
+      team_a: [["4/4"], ["4/4"]]
+      team_b: [["3/3"], ["3/3"]]
+    batch: {base_seed: 7, n: 100}
+    expect:
+      battles: 100
+      a_wins: 100
+      damage: {min: 2, max: 2, mean: 2.0}

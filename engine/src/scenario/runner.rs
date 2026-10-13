@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 use std::panic::{self, AssertUnwindSafe};
 
 use crate::cards::{self, CardTemplate};
-use crate::combat::BattleResult;
+use crate::combat::{BattleResult, DuosResult};
 use crate::model::{GameState, Unit};
 use crate::rng::Rng;
 use crate::sim::{self, BattleDistribution};
@@ -96,6 +96,8 @@ struct World {
     seed: u64,
     tavern: Option<Tavern>,
     battles: Vec<BattleResult>,
+    /// The Duos combat of a `duos:` scenario.
+    duos: Option<DuosResult>,
     distribution: Option<BattleDistribution>,
     captures: Captures,
     trace: bool,
@@ -212,6 +214,7 @@ impl World {
             seed,
             tavern: None,
             battles: Vec::new(),
+            duos: None,
             distribution: None,
             captures: Captures::new(),
             trace,
@@ -239,6 +242,21 @@ impl World {
                     &board_a,
                     &board_b,
                     &state,
+                    batch.base_seed,
+                    batch.n,
+                ));
+            }
+            Setup::Duos(plan) => {
+                world.duos = Some(sim::simulate_duos(
+                    &plan.team_a,
+                    &plan.team_b,
+                    plan.seed.unwrap_or(seed),
+                ));
+            }
+            Setup::DuosBatch(plan, batch) => {
+                world.distribution = Some(sim::simulate_duos_batch(
+                    &plan.team_a,
+                    &plan.team_b,
                     batch.base_seed,
                     batch.n,
                 ));
@@ -457,6 +475,9 @@ impl World {
         if let Some(distribution) = &self.distribution {
             return View::of(distribution);
         }
+        if let Some(duos) = &self.duos {
+            return View::of(duos);
+        }
         let combat = self.battles.last().map_or(View::Null, View::of);
         match &self.tavern {
             Some(t) => {
@@ -498,6 +519,25 @@ impl World {
             );
             return out;
         }
+        if let Some(d) = &self.duos {
+            let _ = write!(
+                out,
+                "  duos: {:?}, hero_damage {}",
+                d.outcome, d.hero_damage
+            );
+            for (team, players) in [("a", &d.team_a), ("b", &d.team_b)] {
+                for (player, p) in players.iter().enumerate() {
+                    let _ = write!(
+                        out,
+                        "\n  team_{team}[{player}]{}: survivors {}, hand {}",
+                        if p.fought { "" } else { " (didn't fight)" },
+                        list(&p.survivors),
+                        list(&p.hand)
+                    );
+                }
+            }
+            return out;
+        }
         if let Some(t) = &self.tavern {
             let s = &t.state;
             let _ = writeln!(
@@ -537,6 +577,9 @@ impl World {
     /// Everything a run produced, for the determinism check.
     fn fingerprint(&self) -> String {
         let tavern = self.tavern.as_ref().map(|t| (&t.state, &t.pool, &t.rng));
-        format!("{:#?}", (tavern, &self.battles, &self.distribution))
+        format!(
+            "{:#?}",
+            (tavern, &self.battles, &self.duos, &self.distribution)
+        )
     }
 }

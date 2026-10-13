@@ -13,10 +13,11 @@
 //!     expect: {auras: {deity: {attack: 3, health: 2}}}
 //! ```
 //!
-//! A scenario runs in one of three modes: a Tavern (the default, `tavern:`), a standalone
-//! combat (`combat:`, simulated before the steps) or a batch of combats (`combat:` and
-//! `batch:`, only `expect:`). A scenario that does not compile still loads; it fails with
-//! [`Failure::Invalid`](super::Failure::Invalid) when run.
+//! A scenario runs in one of four modes: a Tavern (the default, `tavern:`), a standalone
+//! combat (`combat:`, simulated before the steps), a standalone Duos combat (`duos:`, likewise)
+//! or a batch of combats (`combat:` or `duos:`, and `batch:`, only `expect:`). A scenario that
+//! does not compile still loads; it fails with [`Failure::Invalid`](super::Failure::Invalid)
+//! when run.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -25,6 +26,7 @@ use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 
 use crate::cards;
+use crate::combat::{DuosTeam, Warband};
 use crate::model::{CardId, PlayerAuras, Unit};
 
 use super::matchup::Batch;
@@ -74,6 +76,10 @@ pub(super) enum Setup {
     Combat(CombatPlan),
     /// A batch of combats (`simulate_batch`).
     Batch(CombatPlan, Batch),
+    /// A standalone Duos combat, simulated before the steps.
+    Duos(DuosPlan),
+    /// A batch of Duos combats (`simulate_duos_batch`).
+    DuosBatch(DuosPlan, Batch),
 }
 
 #[derive(Debug)]
@@ -209,6 +215,14 @@ pub(super) struct FightPlan {
     pub hand: Vec<Unit>,
 }
 
+/// A standalone Duos combat (`sim::simulate_duos`, `docs/duos.md`).
+#[derive(Debug)]
+pub(super) struct DuosPlan {
+    pub seed: Option<u64>,
+    pub team_a: DuosTeam,
+    pub team_b: DuosTeam,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawScenario {
@@ -228,6 +242,8 @@ struct RawScenario {
     tavern: Option<Value>,
     #[serde(default)]
     combat: Option<Value>,
+    #[serde(default)]
+    duos: Option<Value>,
     #[serde(default)]
     batch: Option<Batch>,
     #[serde(default)]
@@ -272,6 +288,34 @@ struct RawFight {
     auras: Value,
     #[serde(default)]
     hand: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDuos {
+    #[serde(default)]
+    seed: Option<u64>,
+    #[serde(default)]
+    team_a: Value,
+    #[serde(default)]
+    team_b: Value,
+    #[serde(default)]
+    first_a: usize,
+    #[serde(default)]
+    first_b: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawWarband {
+    #[serde(default)]
+    board: Value,
+    #[serde(default)]
+    hand: Value,
+    #[serde(default)]
+    auras: Value,
+    #[serde(default = "tier_one")]
+    hero_tier: u32,
 }
 
 fn tier_one() -> u32 {
@@ -347,14 +391,21 @@ impl ScenarioFile {
             if !raw.is_mapping() {
                 return Err(format!("scenario #{} is not a mapping", i + 1));
             }
-            // A scenario's own mode wins: its `combat:` drops the default `tavern:`, and its
-            // `tavern:` drops the default `combat:` and `batch:`.
+            // A scenario's own mode wins: its `combat:` or `duos:` drops the default `tavern:`
+            // and the other of the two, and its `tavern:` drops the default `combat:`, `duos:`
+            // and `batch:`.
             let mut base = defaults.clone();
             if raw.get("combat").is_some() {
                 base.remove("tavern");
+                base.remove("duos");
+            }
+            if raw.get("duos").is_some() {
+                base.remove("tavern");
+                base.remove("combat");
             }
             if raw.get("tavern").is_some() {
                 base.remove("combat");
+                base.remove("duos");
                 base.remove("batch");
             }
             let mut merged = Value::Mapping(base);
@@ -426,27 +477,37 @@ fn compile_body(value: Value) -> Result<Body, String> {
             kind: StepKind::Expect(expect),
         });
     }
-    let setup = match (raw.tavern, raw.combat, raw.batch) {
-        (Some(_), Some(_), _) => return Err("`tavern` and `combat` are exclusive".to_string()),
-        (_, None, Some(_)) => return Err("`batch` needs `combat`".to_string()),
-        (None, Some(combat), Some(batch)) => {
-            if has_steps {
-                return Err("a `batch` scenario has no `steps`, only `expect`".to_string());
-            }
-            if batch.n == 0 {
-                return Err("`batch.n` must be at least 1".to_string());
-            }
+    let modes = [
+        raw.tavern.is_some(),
+        raw.combat.is_some(),
+        raw.duos.is_some(),
+    ];
+    if modes.into_iter().filter(|&mode| mode).count() > 1 {
+        return Err("`tavern`, `combat` and `duos` are exclusive".to_string());
+    }
+    let setup = match (raw.tavern, raw.combat, raw.duos, raw.batch) {
+        (_, None, None, Some(_)) => return Err("`batch` needs `combat` or `duos`".to_string()),
+        (_, Some(combat), _, Some(batch)) => {
+            check_batch(has_steps, &batch)?;
             let plan = compile_combat(&combat)?;
             standalone(&plan)?;
             Setup::Batch(plan, batch)
         }
-        (None, Some(combat), None) => {
+        (_, Some(combat), _, None) => {
             combat_only(&steps)?;
             let plan = compile_combat(&combat)?;
             standalone(&plan)?;
             Setup::Combat(plan)
         }
-        (tavern, None, None) => {
+        (_, None, Some(duos), Some(batch)) => {
+            check_batch(has_steps, &batch)?;
+            Setup::DuosBatch(compile_duos(&duos)?, batch)
+        }
+        (_, None, Some(duos), None) => {
+            duos_only(&steps)?;
+            Setup::Duos(compile_duos(&duos)?)
+        }
+        (tavern, None, None, None) => {
             let mut patch = match tavern {
                 None | Some(Value::Null) => Mapping::new(),
                 Some(Value::Mapping(m)) => m,
@@ -557,6 +618,40 @@ fn combat_only(steps: &[Step]) -> Result<(), String> {
                 ))
             }
         }
+    }
+    Ok(())
+}
+
+/// A `duos:` scenario only checks.
+fn duos_only(steps: &[Step]) -> Result<(), String> {
+    for step in steps {
+        match &step.kind {
+            StepKind::Expect(_) => {}
+            StepKind::If {
+                then, otherwise, ..
+            } => {
+                duos_only(then)?;
+                duos_only(otherwise)?;
+            }
+            StepKind::Repeat { steps, .. } => duos_only(steps)?,
+            _ => {
+                return Err(format!(
+                    "step `{}`: a `duos:` scenario only has expect, if and repeat steps",
+                    step.desc
+                ))
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A `batch` scenario has no steps and at least one battle.
+fn check_batch(has_steps: bool, batch: &Batch) -> Result<(), String> {
+    if has_steps {
+        return Err("a `batch` scenario has no `steps`, only `expect`".to_string());
+    }
+    if batch.n == 0 {
+        return Err("`batch.n` must be at least 1".to_string());
     }
     Ok(())
 }
@@ -884,5 +979,61 @@ fn compile_fight(value: &Value) -> Result<FightPlan, String> {
         tier: raw.tier,
         auras: auras(&raw.auras, "auras")?,
         hand: units::build_list(&raw.hand).map_err(|e| format!("hand: {e}"))?,
+    })
+}
+
+fn compile_duos(value: &Value) -> Result<DuosPlan, String> {
+    let raw: RawDuos = serde_yaml::from_value(value.clone()).map_err(|e| format!("duos: {e}"))?;
+    Ok(DuosPlan {
+        seed: raw.seed,
+        team_a: compile_team(&raw.team_a, raw.first_a, "a")?,
+        team_b: compile_team(&raw.team_b, raw.first_b, "b")?,
+    })
+}
+
+/// A Duos team: its two players' warbands (`team_<x>: [<player 0>, <player 1>]`) and the one
+/// that fights first (`first_<x>`).
+fn compile_team(value: &Value, first: usize, x: &str) -> Result<DuosTeam, String> {
+    if first > 1 {
+        return Err(format!(
+            "duos.first_{x} is the player whose warband fights first: 0 or 1, got {first}"
+        ));
+    }
+    let Value::Sequence(list) = value else {
+        return Err(format!(
+            "duos.team_{x} must list the team's two warbands (player 0, player 1), got {}",
+            show(value)
+        ));
+    };
+    let [player_0, player_1] = list.as_slice() else {
+        return Err(format!(
+            "duos.team_{x} must list the team's two warbands (player 0, player 1), got {}",
+            list.len()
+        ));
+    };
+    Ok(DuosTeam {
+        warbands: [
+            compile_warband(player_0, &format!("team_{x}[0]"))?,
+            compile_warband(player_1, &format!("team_{x}[1]"))?,
+        ],
+        first,
+    })
+}
+
+/// A Duos warband: a mapping `{board, hand, auras, hero_tier}`, or just its board (a list of
+/// unit specs).
+fn compile_warband(value: &Value, field: &str) -> Result<Warband, String> {
+    if value.is_sequence() {
+        let board = units::build_list(value).map_err(|e| format!("{field}: {e}"))?;
+        return Ok(Warband::new(board));
+    }
+    let raw: RawWarband = serde_yaml::from_value(value.clone()).map_err(|e| {
+        format!("{field}: a warband is a mapping (board, hand, auras, hero_tier) or a board: {e}")
+    })?;
+    Ok(Warband {
+        board: units::build_list(&raw.board).map_err(|e| format!("{field}.board: {e}"))?,
+        hand: units::build_list(&raw.hand).map_err(|e| format!("{field}.hand: {e}"))?,
+        auras: auras(&raw.auras, &format!("{field}.auras"))?,
+        hero_tier: raw.hero_tier,
     })
 }

@@ -55,13 +55,14 @@ scenarios:
 | `description` | Free text. |
 | `known_bug` | Marks a scenario that reproduces a known engine bug (§6.2). |
 | `seed` / `seeds` | The seed (default `0`), or several: a list, `"1..50"` or `"1..=50"` (at most 10000). The scenario runs once per seed. |
-| `tavern` / `combat` / `batch` | The setup (§2.1). |
+| `tavern` / `combat` / `duos` / `batch` | The setup (§2.1). |
 | `steps` | Steps, run in order (§2.2). |
 | `expect` | A final expectation, the same as a last `expect:` step. |
 
 `defaults` is deep-merged into each scenario: mappings merge key by key, other values
-replace. A scenario's own `combat:` drops a default `tavern:` (and its own `tavern:` drops a
-default `combat:` and `batch:`), so a file can default to a Tavern and still hold combats.
+replace. A scenario's own `combat:` or `duos:` drops a default `tavern:` and the other of the
+two (and its own `tavern:` drops a default `combat:`, `duos:` and `batch:`), so a file can
+default to a Tavern and still hold combats.
 
 ### 2.1 Modes
 
@@ -96,6 +97,26 @@ expect: {outcome: a_win}
 
 **Batch**: `combat:` plus `batch: {base_seed, n}` runs `sim::simulate_batch` (`n` battles).
 A batch scenario has no steps, only `expect` (against the distribution, §5.1).
+
+**Duos**: a standalone Duos combat (`sim::simulate_duos`, `docs/duos.md`), run before the
+steps. Each team lists its two players' warbands, player 0 then player 1. A warband is a
+mapping (`board`, and optionally `hand`, `auras`: a `PlayerAuras` patch (§4), `hero_tier`:
+the player's Tavern Tier, default 1), or just its board (a list of unit specs). Steps may only
+be `expect`, `if` and `repeat`; with `batch:`, it runs `sim::simulate_duos_batch` instead.
+
+```yaml
+duos:
+  seed: 7                        # optional: defaults to the scenario seed
+  team_a:
+    - {board: [Hopebringer], hand: [Flighty Scout], hero_tier: 3}
+    - ["5/5", "1/1"]               # just a board
+  team_b:
+    - {board: [Boom-in-a-Box], auras: {effects: [{card: Upper Hand, duration: Turn}]}}
+    - []                           # an empty warband
+  first_a: 0                     # optional (default 0): the warband that fights first
+  first_b: 1
+expect: {outcome: a_win, team_a: {1: {fought: false}}}
+```
 
 ### 2.2 Steps
 
@@ -202,7 +223,8 @@ An expectation is a **matcher** checked against a **view** of the state.
 | :--- | :--- |
 | Tavern | The `TavernState` fields (`turn`, `health`, `armor`, `tavern_tier`, `gold`, `max_gold`, `board`, `hand`, `shop`, `discover_pending`, `auras`, ...), plus `pool` and `combat`. |
 | Combat | The last `BattleResult`: `outcome` (`a_win`, `b_win`, `draw`), `hero_damage`, `survivors_a`/`_b`, `events`, `hand_a`/`_b`, `auras_a`/`_b`, `dead_units_a`/`_b`. |
-| Batch | The `BattleDistribution`: `battles`, `a_wins`, `b_wins`, `draws`, `a_win_rate`, `b_win_rate`, `draw_rate`, `damage: {min, max, mean}`. |
+| Duos | The `DuosResult`: `outcome` (the teams': `a_win`, `b_win`, `draw`), `hero_damage` (to the losing team), `events`, and `team_a` / `team_b`: each player's `{fought, survivors, hand, auras, dead_units}`, player 0 then player 1 (`team_b: {1: {fought: true}}`). |
+| Batch | The `BattleDistribution`: `battles`, `a_wins`, `b_wins`, `draws`, `a_win_rate`, `b_win_rate`, `draw_rate`, `damage: {min, max, mean}` (team A's and B's in a Duos batch). |
 
 Values are the engine's serde forms, with derived keys:
 
