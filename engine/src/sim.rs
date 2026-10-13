@@ -47,6 +47,20 @@ pub fn simulate_batch(
     n: u32,
 ) -> BattleDistribution {
     assert!(n > 0, "simulate_batch requires n > 0");
+    distribution(base_seed, n, |seed| {
+        let res = resolve_battle(board_a, board_b, state, seed);
+        (res.outcome, res.hero_damage)
+    })
+}
+
+/// The distribution of `n` battles: battle `i` (0-indexed) is `battle` run with the `(i + 1)`-th
+/// `next_u64()` of a `SplitMix64` seeded with `base_seed`, and gives its outcome and hero damage
+/// (`docs/combat.md` §4).
+fn distribution(
+    base_seed: u64,
+    n: u32,
+    mut battle: impl FnMut(u64) -> (BattleOutcome, u32),
+) -> BattleDistribution {
     let mut seeder = Rng::new(base_seed);
 
     let mut a_wins = 0u32;
@@ -58,15 +72,15 @@ pub fn simulate_batch(
 
     for _ in 0..n {
         let battle_seed = seeder.next_u64();
-        let res = resolve_battle(board_a, board_b, state, battle_seed);
-        let signed_dmg = match res.outcome {
+        let (outcome, hero_damage) = battle(battle_seed);
+        let signed_dmg = match outcome {
             BattleOutcome::AWin => {
                 a_wins += 1;
-                res.hero_damage as i32
+                hero_damage as i32
             }
             BattleOutcome::BWin => {
                 b_wins += 1;
-                -(res.hero_damage as i32)
+                -(hero_damage as i32)
             }
             BattleOutcome::Draw => {
                 draws += 1;

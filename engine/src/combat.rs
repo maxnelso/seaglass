@@ -148,28 +148,8 @@ pub fn resolve_battle(
     seed: u64,
 ) -> BattleResult {
     let mut next_id: UnitId = 0;
-
-    let mut units_a: Vec<Unit> = board_a
-        .iter()
-        .cloned()
-        .map(|mut u| {
-            u.id = next_id;
-            next_id += 1;
-            u
-        })
-        .collect();
-    let mut units_b: Vec<Unit> = board_b
-        .iter()
-        .cloned()
-        .map(|mut u| {
-            u.id = next_id;
-            next_id += 1;
-            u
-        })
-        .collect();
-
-    units_a.truncate(MAX_BOARD_SIZE);
-    units_b.truncate(MAX_BOARD_SIZE);
+    let units_a = with_combat_ids(board_a, &mut next_id);
+    let units_b = with_combat_ids(board_b, &mut next_id);
 
     let mut rng = Rng::new(seed);
 
@@ -206,33 +186,14 @@ pub fn resolve_battle(
         first_attacker,
     };
 
-    let mut current = first_attacker;
-    let mut stalled_draw = false;
-
-    while !side_a.is_empty() && !side_b.is_empty() {
-        let (atk_side, def_side) = match current {
-            Side::A => (&mut side_a, &mut side_b),
-            Side::B => (&mut side_b, &mut side_a),
-        };
-
-        if atk_side.can_attack() {
-            perform_attack_turn(
-                current,
-                atk_side,
-                def_side,
-                &mut next_id,
-                &mut rng,
-                &mut events,
-            );
-            current = current.other();
-        } else if !def_side.can_attack() {
-            stalled_draw = true;
-            break;
-        } else {
-            events.push(Event::TurnSkipped { side: current });
-            current = current.other();
-        }
-    }
+    let stalled_draw = run_attack_turns(
+        first_attacker,
+        &mut side_a,
+        &mut side_b,
+        &mut next_id,
+        &mut rng,
+        &mut events,
+    );
 
     let outcome = if stalled_draw || (side_a.is_empty() && side_b.is_empty()) {
         BattleOutcome::Draw
@@ -270,6 +231,47 @@ pub fn resolve_battle(
         dead_units_a: side_a.dead_units,
         dead_units_b: side_b.dead_units,
     }
+}
+
+/// `board`'s units with combat ids from `next_id` on, in board order, cut to the board cap
+/// (`docs/combat.md` §5.1 step 1).
+fn with_combat_ids(board: &[Unit], next_id: &mut UnitId) -> Vec<Unit> {
+    let mut units: Vec<Unit> = board
+        .iter()
+        .cloned()
+        .map(|mut u| {
+            u.id = *next_id;
+            *next_id += 1;
+            u
+        })
+        .collect();
+    units.truncate(MAX_BOARD_SIZE);
+    units
+}
+
+/// Run attack turns, `current` first, until a side has no minions left (`docs/combat.md` §5.2).
+/// Returns `true` if the combat stalled instead: neither side can attack.
+fn run_attack_turns(
+    mut current: Side,
+    side_a: &mut SideCombatState,
+    side_b: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) -> bool {
+    while !side_a.is_empty() && !side_b.is_empty() {
+        let (atk_side, def_side) = sides_mut(current, side_a, side_b);
+        if atk_side.can_attack() {
+            perform_attack_turn(current, atk_side, def_side, next_id, rng, events);
+            current = current.other();
+        } else if !def_side.can_attack() {
+            return true;
+        } else {
+            events.push(Event::TurnSkipped { side: current });
+            current = current.other();
+        }
+    }
+    false
 }
 
 /// The side with more minions, or a coin flip on a tie (`docs/combat.md` §4.1, §4.4).
@@ -312,17 +314,47 @@ fn resolve_start_of_combat(
     } else {
         side_with_more_minions(len_a, len_b, rng)
     };
+    resolve_start_of_combat_in_order(
+        &[first, first.other()],
+        side_a,
+        side_b,
+        next_id,
+        rng,
+        events,
+    );
+}
 
-    for side in [first, first.other()] {
+/// Resolve the Start-of-Combat effects of the sides in `order` (`docs/combat.md` §5.1.1 steps
+/// 2-4): each one's own effects and Start-of-Combat summons, in that order, then their minions'
+/// triggers, one minion per side in turn, `order[0]`'s first.
+fn resolve_start_of_combat_in_order(
+    order: &[Side],
+    side_a: &mut SideCombatState,
+    side_b: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    let Some(&first) = order.first() else {
+        return;
+    };
+    for &side in order {
         let (own_side, opp_side) = sides_mut(side, side_a, side_b);
         resolve_start_of_combat_effects(side, own_side, opp_side, rng, events);
         cards::start_of_combat_summons(&mut own_side.ctx(side, next_id, rng, events));
         resolve_effect_deaths(side, own_side, opp_side, next_id, rng, events);
     }
 
+    let listed = |side: Side, board: &[Unit]| {
+        if order.contains(&side) {
+            start_of_combat_minions(board)
+        } else {
+            VecDeque::new()
+        }
+    };
     let mut queues = [
-        start_of_combat_minions(&side_a.board),
-        start_of_combat_minions(&side_b.board),
+        listed(Side::A, &side_a.board),
+        listed(Side::B, &side_b.board),
     ];
     let mut turn = first;
     while let Some((side, src_id)) = next_start_of_combat_minion(turn, &mut queues, side_a, side_b)
