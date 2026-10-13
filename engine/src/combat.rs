@@ -349,10 +349,11 @@ struct DuosTeamState {
     given: [Warband; 2],
     /// Each player's combat state (a waiting warband's never changes: no effect reaches it).
     warbands: [SideCombatState; 2],
+    /// The minions of each warband that left the fight after a stall: alive, out of the fight.
+    departed: [Vec<Unit>; 2],
     /// The player whose warband fights first.
     first: usize,
-    /// The player whose warband is on the team's side: the fighting one (the first warband
-    /// while none has stepped in, for a team whose two warbands are empty).
+    /// The player whose warband is on the team's side: the last one that stepped in.
     fighting: usize,
     /// Which players' warbands have stepped in.
     fought: [bool; 2],
@@ -382,6 +383,7 @@ impl DuosTeamState {
         Self {
             given,
             warbands,
+            departed: Default::default(),
             first: team.first,
             fighting: team.first,
             fought: [false; 2],
@@ -398,19 +400,19 @@ impl DuosTeamState {
         self.warbands[self.fighting].is_empty()
     }
 
-    /// The player whose warband opens the fight: the first warband, or its teammate if it is
-    /// empty (`docs/duos.md` §3.1 step 5); `None` if both are empty.
-    fn opening_player(&self) -> Option<usize> {
-        [self.first, 1 - self.first]
-            .into_iter()
-            .find(|&p| !self.given[p].board.is_empty())
-    }
-
     /// The teammate whose warband steps in once the fighting one has no minions left: one that
-    /// hasn't fought yet and isn't empty (`docs/duos.md` §3.2, §3.5).
+    /// hasn't fought yet, even with no minions, since its Start of Combat may summon some
+    /// (`docs/duos.md` §3.2).
     fn waiting_teammate(&self) -> Option<usize> {
         let mate = 1 - self.fighting;
-        (!self.fought[mate] && !self.given[mate].board.is_empty()).then_some(mate)
+        (!self.fought[mate]).then_some(mate)
+    }
+
+    /// The fighting warband leaves the fight after a stall (`docs/duos.md` §3.5): its minions
+    /// are set aside, alive, and the team's side has no minions left.
+    fn leave(&mut self) {
+        let board = std::mem::take(&mut self.warbands[self.fighting].board);
+        self.departed[self.fighting] = board;
     }
 
     /// Put `player`'s warband on the team's side (its pointer is still on its leftmost minion)
@@ -450,11 +452,14 @@ impl DuosTeamState {
     fn results(self) -> [WarbandResult; 2] {
         let [given_0, given_1] = self.given;
         let [side_0, side_1] = self.warbands;
-        let result = |fought: bool, given: Warband, side: SideCombatState| {
+        let [departed_0, departed_1] = self.departed;
+        let result = |fought: bool, given: Warband, side: SideCombatState, departed: Vec<Unit>| {
             if fought {
+                let mut survivors = side.board;
+                survivors.extend(departed);
                 WarbandResult {
                     fought,
-                    survivors: side.board,
+                    survivors,
                     hand: side.hand,
                     auras: side.auras,
                     dead_units: side.dead_units,
@@ -470,8 +475,8 @@ impl DuosTeamState {
             }
         };
         [
-            result(self.fought[0], given_0, side_0),
-            result(self.fought[1], given_1, side_1),
+            result(self.fought[0], given_0, side_0, departed_0),
+            result(self.fought[1], given_1, side_1, departed_1),
         ]
     }
 }
@@ -508,20 +513,17 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
         first_attacker: Side::A,
     }];
 
-    // The opening warbands step in and their Start of Combat resolves together (§3.1 step 5).
+    // Each team's first warband steps in, even with no minions, and their Start of Combat
+    // resolves together, as at the start of a Solo battle (§3.1 step 5).
     let mut entered = vec![0];
-    let mut opening = Vec::new();
     for (side, team) in [Side::A, Side::B].into_iter().zip(teams.iter_mut()) {
-        if let Some(player) = team.opening_player() {
-            entered.push(events.len());
-            team.step_in(side, player, &mut events);
-            opening.push(side);
-        }
+        entered.push(events.len());
+        let first = team.first;
+        team.step_in(side, first, &mut events);
     }
     {
         let [team_a, team_b] = &mut teams;
-        resolve_entering_start_of_combat(
-            &opening,
+        resolve_start_of_combat(
             team_a.side(),
             team_b.side(),
             &mut next_id,
@@ -536,7 +538,6 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
         &mut events,
     ));
 
-    let mut stalled_draw = false;
     loop {
         let [team_a, team_b] = &mut teams;
         let first_attacker = side_with_more_minions(
@@ -548,8 +549,7 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
         if team_a.is_empty() || team_b.is_empty() {
             break;
         }
-        // Stall: a draw, even with teammates waiting (docs/duos.md §3.5).
-        stalled_draw = run_attack_turns(
+        let stalled = run_attack_turns(
             first_attacker,
             team_a.side(),
             team_b.side(),
@@ -557,8 +557,10 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
             &mut rng,
             &mut events,
         );
-        if stalled_draw {
-            break;
+        if stalled {
+            // Neither can attack: both leave the fight, as if they had run out at once (§3.5).
+            team_a.leave();
+            team_b.leave();
         }
         entered = step_in_duos_warbands(&mut teams, &mut next_id, &mut rng, &mut events);
         if entered.is_empty() {
@@ -568,7 +570,7 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
 
     // A team is out when its fighting warband has no minions left: no teammate could step in.
     let [team_a, team_b] = teams;
-    let outcome = if stalled_draw || (team_a.is_empty() && team_b.is_empty()) {
+    let outcome = if team_a.is_empty() && team_b.is_empty() {
         BattleOutcome::Draw
     } else if team_b.is_empty() {
         BattleOutcome::AWin
@@ -695,7 +697,7 @@ fn resolve_start_of_combat(
 }
 
 /// Resolve the Start of Combat of the Duos warbands that just entered the fight on `sides`
-/// (`docs/duos.md` §3.1 step 5, §3.2): both sides' together, as at the start of a Solo battle,
+/// (`docs/duos.md` §3.2): both sides' together, as at the start of a Solo battle,
 /// or one side's alone (the other side's effects don't trigger again).
 fn resolve_entering_start_of_combat(
     sides: &[Side],

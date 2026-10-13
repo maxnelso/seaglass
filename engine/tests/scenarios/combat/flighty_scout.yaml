@@ -29,3 +29,19 @@ scenarios:
           - {type: unit_summoned, side: a, unit: 2, name: Flighty Scout}
           - {type: damage_dealt, unit: 2, amount: 3, from: 1}
           - {type: death, unit: 2}
+
+  # Unit ids: B's 1/1 0; the Flighty Scout copy 1.
+  - name: an_empty_board_still_summons_it
+    description: >-
+      A has no minions, but its Start of Combat still happens: the copy is summoned and beats B's
+      1/1.
+    seeds: "1..=4"
+    combat: {board_a: [], board_b: ["1/1"], hand_a: [Flighty Scout]}
+    expect:
+      outcome: a_win
+      survivors_a: ["Flighty Scout 3/2"]
+      hand_a: [Flighty Scout]
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, unit: 1, name: Flighty Scout}
+          - {type: attack_declared}

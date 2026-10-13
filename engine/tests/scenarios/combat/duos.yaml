@@ -245,7 +245,7 @@ scenarios:
   - name: the_stepping_in_players_upper_hand_hits_the_warband_already_fighting
     description: >-
       A0's 10/30 kills B0's 1/1. When B1 steps in, its player's Upper Hand sets the 10/29's Health
-      to 1, so B1's 1/1 and the 10/1 trade: both teams are out (A1 is empty), a draw.
+      to 1, so B1's 1/1 and the 10/1 trade: both teams are out (A1 steps in with nothing), a draw.
     seeds: "1..=4"
     duos:
       team_a: [["10/30"], []]
@@ -364,8 +364,8 @@ scenarios:
   # Unit ids: A0's 1/1 0; B0's 5/5 1; A1's 10/10 2.
   - name: the_damage_adds_only_the_winning_warbands_players_tier
     description: >-
-      A0 (Tier 6) loses to B0's 5/5; A1 (Tier 2) steps in and wins, and B1 is empty: no
-      reinforcements. The damage is A1's player's Tier 2 plus its 10/10's Tier 3.
+      A0 (Tier 6) loses to B0's 5/5; A1 (Tier 2) steps in and wins, and B1 is empty: it steps in
+      with nothing. The damage is A1's player's Tier 2 plus its 10/10's Tier 3.
     seeds: "1..=4"
     duos:
       team_a:
@@ -375,7 +375,7 @@ scenarios:
     expect:
       outcome: a_win
       hero_damage: 5
-      team_b: {1: {fought: false}}
+      team_b: {1: {fought: true, survivors: []}}
 
   # Unit ids: A0's 30/30s 0, 1; B0's 1/1 2; A1's 1/1s 3 to 8; B1's 1/1 9.
   - name: a_warband_that_beat_both_fills_out_the_damage_with_its_teammates_minions
@@ -467,24 +467,111 @@ scenarios:
       team_a: {all: {fought: true, survivors: []}}
       team_b: {all: {fought: true, survivors: []}}
 
-  - name: a_stall_is_a_draw_even_with_teammates_waiting
-    description: Neither fighting warband can attack, so the combat ends at once.
+  # Unit ids: A0's 3/10 0, 1/1 1; B0's 1/1 2; A1's 1/1 3; B1's 1/10 4.
+  - name: a_windfury_strike_that_empties_a_warband_ends_its_attack
+    description: >-
+      A0's Windfury 3/10 kills B0's only minion with its first strike: its attack is done, and its
+      second strike doesn't hit B1 stepping in. The fight resumes like a new one: A has more
+      minions (2 v 1) and attacks first, carrying on with its 1/1.
+    seeds: "1..=4"
+    duos:
+      team_a: [["3/10 windfury", "1/1"], ["1/1"]]
+      team_b: [["1/1"], ["1/10"]]
+    expect:
+      events:
+        where: {type: {any_of: [warband_stepped_in, attack_declared]}}
+        2: {type: attack_declared, side: a, attacker: 0, target: 2}
+        3: {type: warband_stepped_in, team: b, player: 1, first_attacker: a}
+        4: {type: attack_declared, side: a, attacker: 1, target: 4}
+
+  # Unit ids: A0's 1/1 0, Eternal Tycoon 1; B0's 1/1 2; A1's 1/1 3; B1's 2/20 4; the Eternal
+  # Knight 5.
+  - name: an_eternal_knight_with_nothing_to_attack_doesnt_attack_the_warband_stepping_in
+    description: >-
+      A0's 1/1 and B0's 1/1 trade: Eternal Tycoon's Avenge (5) summons its Knight, but B0 has no
+      minion left for it to attack. B1 steps in and the Knight doesn't attack it: A has more
+      minions (2 v 1) and attacks first, carrying on with the Tycoon.
+    seeds: "1..=4"
+    duos:
+      team_a: [["1/1", {card: Eternal Tycoon, avenge_counter: 4}], ["1/1"]]
+      team_b: [["1/1"], ["2/20"]]
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: unit_summoned, side: a, unit: 5, name: Eternal Knight}
+              - {type: warband_stepped_in, team: b, player: 1, first_attacker: a}
+          - where: {type: {any_of: [warband_stepped_in, attack_declared]}}
+            2: {type: attack_declared, side: a, attacker: 0, target: 2}
+            3: {type: warband_stepped_in, team: b, player: 1}
+            4: {type: attack_declared, side: a, attacker: 1, target: 4}
+
+  # Unit ids: A0's 0/5 0; B0's 0/5 1; A1's 5/5 2; B1's 3/3 3.
+  - name: a_stall_steps_in_both_teammates
+    description: >-
+      Neither fighting warband can attack: both leave the fight, as if they had run out at once,
+      and both teammates step in. A1's 5/5 beats B1's 3/3. The 0/5s come back as survivors.
+    seeds: "1..=4"
     duos:
       team_a: [["0/5"], ["5/5"]]
-      team_b: [["0/5"], ["5/5"]]
+      team_b: [["0/5"], ["3/3"]]
+    expect:
+      outcome: a_win
+      hero_damage: 2   # A1's player's Tier 1 + the 5/5's Tier 1; A0 fought: no fill-out
+      events:
+        where: {type: warband_stepped_in}
+        count: 4
+        2: {team: a, player: 1}
+        3: {team: b, player: 1}
+      team_a:
+        - {fought: true, survivors: ["0/5"], dead_units: []}
+        - {fought: true, survivors: ["5/2"]}
+      team_b:
+        - {fought: true, survivors: ["0/5"], dead_units: []}
+        - {fought: true, survivors: []}
+
+  # Unit ids: A0's 0/5 0; A1's 5/5 1; B1's 0/5 2 (B0 is empty).
+  - name: a_stall_with_one_teammate_waiting_ends_the_other_team
+    description: >-
+      B0 is empty, so B1 steps in at once, and its 0/5 and A0's stall. Both leave the fight: A1
+      steps in, but team B has no warband left, so team A wins with A1's untouched 5/5.
+    seeds: "1..=4"
+    duos:
+      team_a: [["0/5"], ["5/5"]]
+      team_b: [[], ["0/5"]]
+    expect:
+      outcome: a_win
+      hero_damage: 2
+      events:
+        where: {type: warband_stepped_in}
+        count: 4
+        2: {team: b, player: 1}
+        3: {team: a, player: 1}
+      team_a: [{fought: true, survivors: ["0/5"]}, {fought: true, survivors: ["5/5"]}]
+      team_b: {1: {fought: true, survivors: ["0/5"]}}
+
+  # Unit ids: A1's 0/5 0; B1's 0/5 1 (A0 and B0 are empty).
+  - name: a_stall_with_no_teammate_waiting_is_a_draw
+    description: >-
+      A0 and B0 are empty, so A1 and B1 step in together, and their 0/5s stall: both leave the
+      fight and nobody is left to step in.
+    seeds: "1..=4"
+    duos:
+      team_a: [[], ["0/5"]]
+      team_b: [[], ["0/5"]]
     expect:
       outcome: draw
       hero_damage: 0
-      events: {where: {type: warband_stepped_in}, count: 2}
-      team_a: {1: {fought: false}}
-      team_b: {1: {fought: false}}
+      events: {where: {type: warband_stepped_in}, count: 4}
+      team_a: {1: {fought: true, survivors: ["0/5"]}}
+      team_b: {1: {fought: true, survivors: ["0/5"]}}
 
-  # Unit ids: B0's 2/2 0; A1's 5/5 1 (A0 is empty).
-  - name: an_empty_first_warband_lets_its_teammate_fight_first
+  # Unit ids: B0's 2/2 0; A1's 5/5 1; the Flighty Scout copy 2 (A0 and B1 are empty).
+  - name: an_empty_warband_still_has_a_start_of_combat
     description: >-
-      A0 has no minions: A1 steps in at once, and A0 never fights (its player's Flighty Scout in
-      hand isn't summoned). B1 is empty too, so once B0's 2/2 dies team A wins; A0's empty board
-      fills out nothing.
+      A0 has no minions, but it opens the fight like any warband: its player's Flighty Scout in
+      hand summons a copy, which beats B0's 2/2. B1 is empty: it steps in with nothing to summon,
+      so team B is out. A1 never fought, so its 5/5 fills out the damage.
     seeds: "1..=4"
     duos:
       team_a:
@@ -493,24 +580,74 @@ scenarios:
       team_b: [["2/2"], []]
     expect:
       outcome: a_win
-      hero_damage: 2
+      hero_damage: 3   # A0's player's Tier 1 + the Scout's Tier 1 + the 5/5's Tier 1
       events:
         all_of:
-          - {none: {type: unit_summoned}}
-          - where: {type: {any_of: [battle_start, warband_stepped_in]}}
+          - {where: {type: unit_summoned}, count: 1, all: {side: a, unit: 2, name: Flighty Scout}}
+          - where: {type: warband_stepped_in}
             count: 3
-            1: {team: a, player: 1}
-            2: {team: b, player: 0}
+            0: {team: a, player: 0}
+            1: {team: b, player: 0}
+            2: {team: b, player: 1}
       team_a:
-        - {fought: false, survivors: [], hand: [Flighty Scout]}
-        - {fought: true}
-      team_b: [{fought: true}, {fought: false}]
+        - {fought: true, survivors: ["Flighty Scout 3/1"], hand: [Flighty Scout]}
+        - {fought: false, survivors: ["5/5"]}
+      team_b: {all: {fought: true, survivors: []}}
+
+  # Unit ids: B0's 2/20 0; A1's 2/5 1 (A0 and B1 are empty).
+  - name: an_empty_warbands_player_effects_trigger_before_its_teammate_steps_in
+    description: >-
+      A0 has no minions, but its player's Upper Hand still triggers at the start and sets B0's
+      2/20's Health to 1. Then A1 steps in at once, and its 2/5 kills the 2/1. Without Upper Hand,
+      the 2/20 would win.
+    seeds: "1..=4"
+    duos:
+      team_a:
+        - {board: [], auras: {effects: [{card: Upper Hand, duration: Turn}]}}
+        - ["2/5"]
+      team_b: [["2/20"], []]
+    expect:
+      outcome: a_win
+      hero_damage: 2   # A1's player's Tier 1 + the 2/5's Tier 1; A0 fought: no fill-out
+      events:
+        where: {type: warband_stepped_in}
+        count: 4
+        0: {team: a, player: 0}
+        1: {team: b, player: 0}
+        2: {team: a, player: 1}
+        3: {team: b, player: 1}
+      team_a:
+        - {fought: true, survivors: [], auras: {effect_stacks: {Upper Hand: 0}}}
+        - {fought: true, survivors: ["2/3"]}
+
+  # Unit ids: A0's 6/20 0; B0's 1/1 1; A1's 1/1 2; the Flighty Scout copy 3 (B1 is empty).
+  - name: an_empty_second_warband_still_steps_in
+    description: >-
+      B1 has no minions, but it steps in once B0's 1/1 dies: its player's Flighty Scout in hand
+      summons a copy, which fights A0's 6/20.
+    seeds: "1..=4"
+    duos:
+      team_a: [["6/20"], ["1/1"]]
+      team_b:
+        - ["1/1"]
+        - {board: [], hand: [Flighty Scout]}
+    expect:
+      outcome: a_win
+      hero_damage: 3   # A0's player's Tier 1 + the 6/20's Tier 1 + A1's 1/1 filling out
+      events:
+        sequence:
+          - {type: death, unit: 1}
+          - {type: warband_stepped_in, team: b, player: 1}
+          - {type: unit_summoned, side: b, unit: 3, name: Flighty Scout}
+          - {type: attack_declared}
+          - {type: death, unit: 3}
+      team_b: {1: {fought: true, survivors: [], hand: [Flighty Scout]}}
 
   # Unit ids: A0's 1/1 0; A1's 1/1 1.
   - name: a_team_with_two_empty_warbands_has_no_minions
     description: >-
-      Team B has no minions at all: A0 steps in alone and wins at once, and A1's minion fills out
-      the damage (1 + Tier 2 + Tier 3).
+      Team B has no minions at all: B0 and B1 step in with nothing to summon, so A0 wins at once,
+      and A1's minion fills out the damage (1 + Tier 2 + Tier 3).
     duos:
       team_a: [["1/1 t2"], ["1/1 t3"]]
       team_b: [[], []]
@@ -518,18 +655,27 @@ scenarios:
       outcome: a_win
       hero_damage: 6
       events:
-        count: 3
+        count: 5
         1: {type: warband_stepped_in, team: a, player: 0, first_attacker: a}
-      team_b: {all: {fought: false}}
+        2: {type: warband_stepped_in, team: b, player: 0, first_attacker: a}
+        3: {type: warband_stepped_in, team: b, player: 1, first_attacker: a}
+      team_a: [{fought: true}, {fought: false}]
+      team_b: {all: {fought: true, survivors: []}}
 
   - name: four_empty_warbands_draw
+    description: Every warband steps in with nothing to summon, so neither team has a minion.
     duos:
       team_a: [[], []]
       team_b: [[], []]
     expect:
       outcome: draw
       hero_damage: 0
-      events: [{type: battle_start}, {type: battle_end, outcome: draw}]
+      events:
+        count: 6
+        0: {type: battle_start}
+        5: {type: battle_end, outcome: draw}
+      team_a: {all: {fought: true}}
+      team_b: {all: {fought: true}}
 
   # Unit ids (the first warbands first, docs/duos.md §3.1): A1's 5/5 0; B1's 3/3 1; A0's 1/1 2;
   # B0's 2/2 3.

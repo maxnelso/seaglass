@@ -91,7 +91,7 @@ Deterministic triggers (positional buffs, board-wide buffs, token summons, Rebor
 2. Initialize the PRNG from `seed`.
 3. Set each side's **next-attacker pointer** to its leftmost unit. The pointer is tracked by **unit identity**, not by raw index, so it survives board shifts (§5.4); an empty side has no pointer.
 4. Emit `BattleStart` (its `first_attacker` is the side decided in step 6).
-5. **Start of Combat** (§5.1.1).
+5. **Start of Combat** (§5.1.1), even for a side with no minions: its player's effects and hand cards still trigger (`Flighty Scout`'s copy, `Boon of Beetles`), and the minions they summon fight.
 6. **First attacker**, decided from the board sizes **after** all Start of Combat effects (counting the minions they summoned and killed):
    - `len(A) > len(B)` $\to$ A first.
    - `len(B) > len(A)` $\to$ B first.
