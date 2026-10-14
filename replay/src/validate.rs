@@ -157,6 +157,8 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
     if p.tags_known {
         a.spell_bonus_atk = tag("TAVERN_SPELL_ATTACK_INCREASE").unwrap_or(0);
         a.spell_bonus_hp = tag("TAVERN_SPELL_HEALTH_INCREASE").unwrap_or(0);
+        // Tavern spells cast this game (`Faceless Converter`).
+        a.tavern_spells_cast = tag("3088").unwrap_or(0).max(0) as u32;
         let beetle = (tag("3874").unwrap_or(0), tag("3924").unwrap_or(0));
         if beetle != (0, 0) {
             tokens::add_beetle_bonus(&mut a, beetle.0, beetle.1);
@@ -220,6 +222,17 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
                     "{} (player {}): {hidden} hidden hand card(s){note}",
                     p.hero_name, p.player_id
                 ));
+            }
+            for m in &p.board {
+                if !m.dark_gifts.is_empty() {
+                    gaps.push(format!(
+                        "{} (player {}): {} has Dark Gift(s) {} (not simulated)",
+                        p.hero_name,
+                        p.player_id,
+                        m.name,
+                        m.dark_gifts.join(", ")
+                    ));
+                }
             }
             if p.hero_power_start_of_combat {
                 gaps.push(format!(
@@ -603,6 +616,23 @@ pub struct Divergence {
     pub damage: i32,
 }
 
+/// The engine replaying the real attack targets ([`seaglass::combat::with_target_chooser`]):
+/// every strike attacks the real defender, so the runs can only leave the real sequence where
+/// the engine's rules or state differ (or another random effect does).
+#[derive(Clone, Debug, Serialize)]
+pub struct Guided {
+    pub runs: u32,
+    pub a_wins: u32,
+    pub b_wins: u32,
+    pub draws: u32,
+    /// Runs with the real outcome, and with the real outcome and damage.
+    pub real_outcome_runs: u32,
+    pub real_exact_runs: u32,
+    pub divergence: Option<Divergence>,
+    /// Why the best run stopped following the real targets: `(real attack index, reason)`.
+    pub lost: Option<(usize, String)>,
+}
+
 /// The engine's results on one combat, compared with the real result.
 #[derive(Clone, Debug, Serialize)]
 pub struct Validation {
@@ -621,6 +651,7 @@ pub struct Validation {
     /// Every run produced the same step sequence (no randomness).
     pub deterministic: bool,
     pub divergence: Option<Divergence>,
+    pub guided: Option<Guided>,
     pub flags: Vec<String>,
 }
 
@@ -634,22 +665,206 @@ fn signed(outcome: BattleOutcome, damage: u32, cap: Option<i32>) -> i32 {
     }
 }
 
+/// One engine combat: `(outcome, hero damage, events)`.
+fn run_engine(input: &EngineInput, seed: u64) -> (BattleOutcome, u32, Vec<Event>) {
+    if input.is_duos {
+        let r = resolve_duos_battle(&input.team_a, &input.team_b, seed);
+        (r.outcome, r.hero_damage, r.events)
+    } else {
+        let [a, b] = [&input.team_a.warbands[0], &input.team_b.warbands[0]];
+        let state = GameState {
+            hero_tier_a: a.hero_tier,
+            hero_tier_b: b.hero_tier,
+            auras_a: a.auras.clone(),
+            auras_b: b.auras.clone(),
+            hand_a: a.hand.clone(),
+            hand_b: b.hand.clone(),
+        };
+        let r = resolve_battle(&a.board, &b.board, &state, seed);
+        (r.outcome, r.hero_damage, r.events)
+    }
+}
+
+/// `(leading steps matching on identity, leading steps matching with stats)`.
+fn prefix(real: &[Step], steps: &[Step]) -> (usize, usize) {
+    let matched = real
+        .iter()
+        .zip(steps)
+        .take_while(|(r, e)| r.same_identity(e))
+        .count();
+    let with_stats = real.iter().zip(steps).take_while(|(r, e)| r == e).count();
+    (matched, with_stats)
+}
+
+fn divergence(
+    real: &[Step],
+    steps: &[Step],
+    seed: u64,
+    outcome: BattleOutcome,
+    damage: i32,
+) -> Divergence {
+    let (matched, with_stats) = prefix(real, steps);
+    let first_stat_diff = (with_stats < matched).then(|| {
+        (
+            with_stats,
+            real[with_stats].clone(),
+            steps[with_stats].clone(),
+        )
+    });
+    let (first_diff, kind) = if matched < real.len() || matched < steps.len() {
+        let r = real.get(matched).cloned();
+        let e = steps.get(matched).cloned();
+        let kind = match (&r, &e) {
+            (Some(_), None) => "the engine's combat ended earlier".to_string(),
+            (None, Some(_)) => "the real combat ended earlier".to_string(),
+            (
+                Some(Step::Attack {
+                    side: rs,
+                    attacker: ra,
+                    defender: rd,
+                }),
+                Some(Step::Attack {
+                    side: es,
+                    attacker: ea,
+                    defender: ed,
+                }),
+            ) => {
+                if rs != es {
+                    "a different side attacks".to_string()
+                } else if ra.0 != ea.0 {
+                    "a different attacker (attack order or board differs)".to_string()
+                } else if rd.0 != ed.0 {
+                    "a different target (random, or the boards differ)".to_string()
+                } else {
+                    "stats".to_string()
+                }
+            }
+            (Some(Step::Entry { .. }), _) | (_, Some(Step::Entry { .. })) => {
+                "a warband enters at a different point".to_string()
+            }
+            _ => String::new(),
+        };
+        (Some((matched, r, e)), kind)
+    } else {
+        (None, String::new())
+    };
+    Divergence {
+        seed,
+        real_len: real.len(),
+        matched,
+        matched_with_stats: with_stats,
+        first_stat_diff,
+        first_diff,
+        kind,
+        outcome,
+        damage,
+    }
+}
+
+/// A real attack, as the guided replay follows it.
+#[derive(Clone)]
+struct RealAttack {
+    side: Side,
+    attacker: String,
+    defender: (String, i32, i32),
+}
+
+/// The guided replay's state: the real attacks, the next one, and where it lost them.
+struct Guide {
+    attacks: Vec<RealAttack>,
+    next: usize,
+    lost: Option<(usize, String)>,
+}
+
+/// The best guided run so far: its prefix lengths, divergence, and where it lost the targets.
+type BestGuided = ((usize, usize), Divergence, Option<(usize, String)>);
+
+/// One engine combat attacking the real targets while its attacks match the real ones.
+fn guided_run(
+    input: &EngineInput,
+    attacks: &[RealAttack],
+    seed: u64,
+) -> (BattleOutcome, u32, Vec<Event>, Option<(usize, String)>) {
+    let guide = std::rc::Rc::new(std::cell::RefCell::new(Guide {
+        attacks: attacks.to_vec(),
+        next: 0,
+        lost: None,
+    }));
+    let g = guide.clone();
+    let chooser = move |side: Side, attacker: &Unit, defenders: &[Unit], candidates: &[usize]| {
+        let mut g = g.borrow_mut();
+        if g.lost.is_some() {
+            return None;
+        }
+        let k = g.next;
+        g.next += 1;
+        let att = norm(&attacker.name, attacker.is_golden);
+        let Some(real) = g.attacks.get(k).cloned() else {
+            g.lost = Some((
+                k,
+                format!(
+                    "the engine attacks on ({side:?} {att}) after the real combat's last attack"
+                ),
+            ));
+            return None;
+        };
+        if side != real.side || att != real.attacker {
+            g.lost = Some((
+                k,
+                format!(
+                    "the engine's attacker is {side:?} {att}, the real one {:?} {}",
+                    real.side, real.attacker
+                ),
+            ));
+            return None;
+        }
+        let pick = candidates
+            .iter()
+            .copied()
+            .filter(|&i| norm(&defenders[i].name, defenders[i].is_golden) == real.defender.0)
+            .min_by_key(|&i| {
+                let d = &defenders[i];
+                (
+                    (d.attack - real.defender.1).abs() + (d.health - real.defender.2).abs(),
+                    i,
+                )
+            });
+        if pick.is_none() {
+            let legal: Vec<String> = candidates
+                .iter()
+                .map(|&i| norm(&defenders[i].name, defenders[i].is_golden))
+                .collect();
+            g.lost = Some((
+                k,
+                format!(
+                    "the real target {} isn't a legal target in the engine (candidates: {})",
+                    real.defender.0,
+                    legal.join(", ")
+                ),
+            ));
+        }
+        pick
+    };
+    let (outcome, damage, events) =
+        seaglass::combat::with_target_chooser(chooser, || run_engine(input, seed));
+    let lost = guide.borrow().lost.clone();
+    (outcome, damage, events, lost)
+}
+
 /// Runs the engine `runs` times (seeds derived from `base_seed` as `simulate_batch` does) and
-/// compares with the real result.
-pub fn validate(setup: &CombatSetup, input: &EngineInput, runs: u32, base_seed: u64) -> Validation {
+/// compares with the real result; then `guided_runs` runs replaying the real targets.
+pub fn validate(
+    setup: &CombatSetup,
+    input: &EngineInput,
+    runs: u32,
+    guided_runs: u32,
+    base_seed: u64,
+) -> Validation {
     let real = real_steps(setup);
     let real_damage = match setup.result.outcome {
         BattleOutcome::AWin => setup.result.damage,
         BattleOutcome::BWin => -setup.result.damage,
         BattleOutcome::Draw => 0,
-    };
-    let solo_state = GameState {
-        hero_tier_a: input.team_a.warbands[0].hero_tier,
-        hero_tier_b: input.team_b.warbands[0].hero_tier,
-        auras_a: input.team_a.warbands[0].auras.clone(),
-        auras_b: input.team_b.warbands[0].auras.clone(),
-        hand_a: input.team_a.warbands[0].hand.clone(),
-        hand_b: input.team_b.warbands[0].hand.clone(),
     };
     let mut seeder = Rng::new(base_seed);
     let mut v = Validation {
@@ -663,24 +878,14 @@ pub fn validate(setup: &CombatSetup, input: &EngineInput, runs: u32, base_seed: 
         real_exact_runs: 0,
         deterministic: true,
         divergence: None,
+        guided: None,
         flags: Vec::new(),
     };
     let mut first_identity: Option<Vec<Step>> = None;
-    let mut best: Option<(usize, usize, u64, Vec<Step>, BattleOutcome, i32)> = None;
+    let mut best: Option<((usize, usize), Divergence)> = None;
     for _ in 0..runs {
         let seed = seeder.next_u64();
-        let (outcome, damage, events) = if input.is_duos {
-            let r = resolve_duos_battle(&input.team_a, &input.team_b, seed);
-            (r.outcome, r.hero_damage, r.events)
-        } else {
-            let r = resolve_battle(
-                &input.team_a.warbands[0].board,
-                &input.team_b.warbands[0].board,
-                &solo_state,
-                seed,
-            );
-            (r.outcome, r.hero_damage, r.events)
-        };
+        let (outcome, damage, events) = run_engine(input, seed);
         let d = signed(outcome, damage, setup.damage_cap);
         match outcome {
             BattleOutcome::AWin => v.a_wins += 1,
@@ -706,77 +911,69 @@ pub fn validate(setup: &CombatSetup, input: &EngineInput, runs: u32, base_seed: 
                 }
             }
         }
-        let matched = real
-            .iter()
-            .zip(&steps)
-            .take_while(|(r, e)| r.same_identity(e))
-            .count();
-        let with_stats = real.iter().zip(&steps).take_while(|(r, e)| r == e).count();
-        let better = match &best {
-            None => true,
-            Some((m, w, ..)) => (matched, with_stats) > (*m, *w),
-        };
-        if better {
-            best = Some((matched, with_stats, seed, steps, outcome, d));
+        let p = prefix(&real, &steps);
+        if best.as_ref().is_none_or(|(bp, _)| p > *bp) {
+            best = Some((p, divergence(&real, &steps, seed, outcome, d)));
         }
     }
-    if let Some((matched, with_stats, seed, steps, outcome, damage)) = best {
-        let first_stat_diff = (with_stats < matched).then(|| {
-            (
-                with_stats,
-                real[with_stats].clone(),
-                steps[with_stats].clone(),
-            )
-        });
-        let (first_diff, kind) = if matched < real.len() || matched < steps.len() {
-            let r = real.get(matched).cloned();
-            let e = steps.get(matched).cloned();
-            let kind = match (&r, &e) {
-                (Some(_), None) => "the engine's combat ended earlier".to_string(),
-                (None, Some(_)) => "the real combat ended earlier".to_string(),
-                (
-                    Some(Step::Attack {
-                        side: rs,
-                        attacker: ra,
-                        defender: rd,
-                    }),
-                    Some(Step::Attack {
-                        side: es,
-                        attacker: ea,
-                        defender: ed,
-                    }),
-                ) => {
-                    if rs != es {
-                        "a different side attacks".to_string()
-                    } else if ra.0 != ea.0 {
-                        "a different attacker (attack order or board differs)".to_string()
-                    } else if rd.0 != ed.0 {
-                        "a different target (random, or the boards differ)".to_string()
-                    } else {
-                        "stats".to_string()
-                    }
-                }
-                (Some(Step::Entry { .. }), _) | (_, Some(Step::Entry { .. })) => {
-                    "a warband enters at a different point".to_string()
-                }
-                _ => String::new(),
-            };
-            (Some((matched, r, e)), kind)
-        } else {
-            (None, String::new())
+    v.divergence = best.map(|(_, d)| d);
+
+    if guided_runs > 0 {
+        let attacks: Vec<RealAttack> = real
+            .iter()
+            .filter_map(|s| match s {
+                Step::Attack {
+                    side,
+                    attacker,
+                    defender,
+                } => Some(RealAttack {
+                    side: *side,
+                    attacker: attacker.0.clone(),
+                    defender: defender.clone(),
+                }),
+                Step::Entry { .. } => None,
+            })
+            .collect();
+        let mut g = Guided {
+            runs: guided_runs,
+            a_wins: 0,
+            b_wins: 0,
+            draws: 0,
+            real_outcome_runs: 0,
+            real_exact_runs: 0,
+            divergence: None,
+            lost: None,
         };
-        v.divergence = Some(Divergence {
-            seed,
-            real_len: real.len(),
-            matched,
-            matched_with_stats: with_stats,
-            first_stat_diff,
-            first_diff,
-            kind,
-            outcome,
-            damage,
-        });
+        let mut best: Option<BestGuided> = None;
+        let mut seeder = Rng::new(base_seed ^ 0x9e37_79b9_7f4a_7c15);
+        for _ in 0..guided_runs {
+            let seed = seeder.next_u64();
+            let (outcome, damage, events, lost) = guided_run(input, &attacks, seed);
+            let d = signed(outcome, damage, setup.damage_cap);
+            match outcome {
+                BattleOutcome::AWin => g.a_wins += 1,
+                BattleOutcome::BWin => g.b_wins += 1,
+                BattleOutcome::Draw => g.draws += 1,
+            }
+            if outcome == setup.result.outcome {
+                g.real_outcome_runs += 1;
+                if d == real_damage {
+                    g.real_exact_runs += 1;
+                }
+            }
+            let steps = engine_steps(input, &events);
+            let p = prefix(&real, &steps);
+            if best.as_ref().is_none_or(|(bp, ..)| p > *bp) {
+                best = Some((p, divergence(&real, &steps, seed, outcome, d), lost));
+            }
+        }
+        if let Some((_, d, lost)) = best {
+            g.divergence = Some(d);
+            g.lost = lost;
+        }
+        v.guided = Some(g);
     }
+
     let p = v.real_outcome_runs as f64 / runs.max(1) as f64;
     if v.real_outcome_runs == 0 {
         v.flags

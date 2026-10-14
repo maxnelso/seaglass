@@ -8,7 +8,7 @@
 //!   cargo run --bin replay_cli -- export-yaml [/path/to/Power.log] [--game 1] [--turn <T>] [-o out.yaml]
 //!   cargo run --bin replay_cli -- combats [/path/to/Power.log] [--game 1] [--turn <T>]   # Reconstructed combats (YAML)
 //!   cargo run --bin replay_cli -- cards [/path/to/Power.log]                             # Cards in the log vs the engine
-//!   cargo run --release --bin replay_cli -- validate [/path/to/Power.log] [--game N] [--turn T] [--runs 2000] [--seed 2026] [-v]
+//!   cargo run --release --bin replay_cli -- validate [/path/to/Power.log] [--game N] [--turn T] [--runs 2000] [--guided-runs 200] [--seed 2026] [-v]
 
 mod validate_cmd;
 
@@ -44,7 +44,7 @@ fn print_usage() {
     println!("  cargo run --bin replay_cli -- combats [<Power.log>] [--game <N>] [--turn <T>]");
     println!("  cargo run --bin replay_cli -- cards [<Power.log>]");
     println!(
-        "  cargo run --release --bin replay_cli -- validate [<Power.log>] [--game <N>] [--turn <T>] [--runs <N>] [--seed <S>] [-v]"
+        "  cargo run --release --bin replay_cli -- validate [<Power.log>] [--game <N>] [--turn <T>] [--runs <N>] [--guided-runs <N>] [--seed <S>] [-v]"
     );
 }
 
@@ -489,6 +489,7 @@ fn main() {
     let mut out_path: Option<PathBuf> = None;
     let mut game_given = false;
     let mut runs: u32 = 2000;
+    let mut guided_runs: u32 = 200;
     let mut seed: u64 = 2026;
     let mut verbose = false;
 
@@ -516,6 +517,16 @@ fn main() {
                     .filter(|&n| n > 0)
                     .unwrap_or_else(|| {
                         eprintln!("--runs requires a positive number");
+                        process::exit(1);
+                    });
+            }
+            "--guided-runs" => {
+                i += 1;
+                guided_runs = args
+                    .get(i)
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .unwrap_or_else(|| {
+                        eprintln!("--guided-runs requires a number");
                         process::exit(1);
                     });
             }
@@ -597,6 +608,7 @@ fn main() {
             &games,
             &validate_cmd::Options {
                 runs,
+                guided_runs,
                 seed,
                 verbose,
                 turn: turn_num,

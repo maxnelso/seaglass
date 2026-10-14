@@ -75,6 +75,8 @@ pub fn print_cards(games: &[GameReplay]) {
 
 pub struct Options {
     pub runs: u32,
+    /// Runs of the guided replay (the engine attacking the real targets).
+    pub guided_runs: u32,
     pub seed: u64,
     pub verbose: bool,
     pub turn: Option<u32>,
@@ -174,7 +176,13 @@ fn print_team(label: &str, players: &[PlayerSetup]) {
             } else {
                 p.board
                     .iter()
-                    .map(|m| m.short())
+                    .map(|m| {
+                        if m.dark_gifts.is_empty() {
+                            m.short()
+                        } else {
+                            format!("{} {{{}}}", m.short(), m.dark_gifts.join(", "))
+                        }
+                    })
                     .collect::<Vec<_>>()
                     .join(", ")
             }
@@ -245,6 +253,26 @@ fn print_validation(setup: &CombatSetup, input: &EngineInput, v: &Validation, ve
             .map(|c| format!(" (damage cap {c})"))
             .unwrap_or_default()
     );
+    if let Some(winner) = setup.result.winner_player_id {
+        let players = setup.team_a.players.iter().chain(&setup.team_b.players);
+        let tier = players
+            .clone()
+            .find(|p| p.player_id == winner)
+            .map_or(0, |p| p.tier);
+        let tiers: u32 = setup.result.survivors.iter().map(|m| m.tier).sum();
+        println!(
+            "  real damage: winner player {winner} (Tier {tier}) with {} survivor(s) [{}], Tier + their tiers = {}",
+            setup.result.survivors.len(),
+            setup
+                .result
+                .survivors
+                .iter()
+                .map(|m| format!("{} T{}", m.name, m.tier))
+                .collect::<Vec<_>>()
+                .join(", "),
+            tier + tiers
+        );
+    }
     println!(
         "  engine ({} runs): A wins {:.1}% | draws {:.1}% | B wins {:.1}%   real outcome {:.1}%, real outcome+damage {:.1}%{}",
         v.runs,
@@ -291,6 +319,51 @@ fn print_validation(setup: &CombatSetup, input: &EngineInput, v: &Validation, ve
                 eng.as_ref()
                     .map_or("(combat over)".to_string(), |s| s.describe())
             );
+        }
+    }
+    if let Some(g) = &v.guided {
+        println!(
+            "  guided replay (real targets, {} runs): A wins {:.1}% | draws {:.1}% | B wins {:.1}%   real outcome {:.1}%, real outcome+damage {:.1}%",
+            g.runs,
+            pct(g.a_wins, g.runs),
+            pct(g.draws, g.runs),
+            pct(g.b_wins, g.runs),
+            pct(g.real_outcome_runs, g.runs),
+            pct(g.real_exact_runs, g.runs),
+        );
+        if let Some(d) = &g.divergence {
+            println!(
+                "    best guided run (seed {}): matches {}/{} steps ({} with stats), ends {}",
+                d.seed,
+                d.matched,
+                d.real_len,
+                d.matched_with_stats,
+                outcome_str(d.outcome, d.damage.abs())
+            );
+            if let Some((i, real, eng)) = &d.first_stat_diff {
+                println!("    first stats difference at step {}:", i + 1);
+                println!("      real:   {}", real.describe());
+                println!("      engine: {}", eng.describe());
+            }
+            if let Some((i, real, eng)) = &d.first_diff {
+                println!("    first divergence at step {} ({}):", i + 1, d.kind);
+                println!(
+                    "      real:   {}",
+                    real.as_ref()
+                        .map_or("(combat over)".to_string(), |s| s.describe())
+                );
+                println!(
+                    "      engine: {}",
+                    eng.as_ref()
+                        .map_or("(combat over)".to_string(), |s| s.describe())
+                );
+            }
+            if let Some((k, why)) = &g.lost {
+                println!(
+                    "    stopped following the real targets at attack {}: {why}",
+                    k + 1
+                );
+            }
         }
     }
     if !input.unimplemented.is_empty() {
@@ -352,7 +425,7 @@ pub fn run(games: &[GameReplay], opts: &Options) {
             }
             total += 1;
             let input = engine_input(setup, deity);
-            let v = validate(setup, &input, opts.runs, opts.seed);
+            let v = validate(setup, &input, opts.runs, opts.guided_runs, opts.seed);
             for c in &input.unimplemented {
                 unimplemented
                     .entry(format!("{} ({})", c.name, c.card_id))

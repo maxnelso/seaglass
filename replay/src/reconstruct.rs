@@ -58,6 +58,9 @@ pub struct LogMinion {
     /// Card IDs of its enchantments (Magnetized cards, buffs, Dark Gifts, ...).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enchantments: Vec<String>,
+    /// Its Dark Gifts (enchantments with `IS_NIGHTMARE_BONUS`), by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dark_gifts: Vec<String>,
     /// `TAG_SCRIPT_DATA_NUM_1/2`: the numbers its card text shows (counters, stored stats).
     pub script_data: [i32; 2],
 }
@@ -229,6 +232,9 @@ pub struct RealResult {
     /// The player whose hero dealt the damage (the winning warband's player).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub winner_player_id: Option<i32>,
+    /// The winning side's minions when its hero attacked.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub survivors: Vec<LogMinion>,
 }
 
 /// A combat reconstructed as engine input.
@@ -460,7 +466,7 @@ impl<'a> Tracker<'a> {
 
     fn minion(&self, id: u32) -> LogMinion {
         let e = self.ents.get(&id).cloned().unwrap_or_default();
-        let enchantments = self
+        let attached: BTreeMap<u32, &Ent> = self
             .ents
             .iter()
             .filter(|(_, x)| {
@@ -469,10 +475,15 @@ impl<'a> Tracker<'a> {
                     && x.str("ZONE") != "REMOVEDFROMGAME"
                     && x.str("ZONE") != "GRAVEYARD"
             })
-            .map(|(eid, x)| (*eid, x.card_id.clone()))
-            .collect::<BTreeMap<_, _>>()
-            .into_values()
+            .map(|(eid, x)| (*eid, x))
             .collect();
+        let enchantments = attached.values().map(|x| x.card_id.clone()).collect();
+        let mut dark_gifts: Vec<String> = attached
+            .values()
+            .filter(|x| x.int("IS_NIGHTMARE_BONUS") > 0)
+            .map(|x| self.dark_gift_name(&x.card_id))
+            .collect();
+        dark_gifts.dedup();
         LogMinion {
             entity_id: id,
             card_id: e.card_id.clone(),
@@ -489,11 +500,32 @@ impl<'a> Tracker<'a> {
             venomous: e.int("VENOMOUS") > 0 || e.int("POISONOUS") > 0,
             stealth: e.int("STEALTH") > 0,
             enchantments,
+            dark_gifts,
             script_data: [
                 e.int("TAG_SCRIPT_DATA_NUM_1"),
                 e.int("TAG_SCRIPT_DATA_NUM_2"),
             ],
         }
+    }
+
+    /// The name of the Dark Gift an enchantment comes from (`BG36_MidGameEffect_000t9e2` →
+    /// `BG36_MidGameEffect_000t9`, "Admiration").
+    fn dark_gift_name(&self, enchantment: &str) -> String {
+        let base = enchantment
+            .find("_000t")
+            .and_then(|i| {
+                let digits = enchantment[i + 5..]
+                    .bytes()
+                    .take_while(u8::is_ascii_digit)
+                    .count();
+                (digits > 0).then(|| &enchantment[..i + 5 + digits])
+            })
+            .unwrap_or(enchantment);
+        self.card_names
+            .get(base)
+            .or_else(|| self.card_names.get(enchantment))
+            .cloned()
+            .unwrap_or_else(|| enchantment.to_string())
     }
 
     fn unit_ref(&self, id: u32) -> UnitRef {
@@ -1074,8 +1106,14 @@ impl<'a> Tracker<'a> {
         }
         // The winning warband's hero hits the losing team's hero.
         let damage = a.damage_meta.unwrap_or(att_e.int("ATK"));
-        let side = self.side_of_controller(att_e.int("CONTROLLER"));
+        let controller = att_e.int("CONTROLLER");
+        let side = self.side_of_controller(controller);
         let winner = att_e.int("PLAYER_ID");
+        let survivors = self
+            .zone_minions(controller, "PLAY")
+            .into_iter()
+            .map(|id| self.minion(id))
+            .collect();
         let c = self.combat.as_mut().unwrap();
         if c.result.is_none() {
             c.result = Some(RealResult {
@@ -1085,6 +1123,7 @@ impl<'a> Tracker<'a> {
                 },
                 damage,
                 winner_player_id: (winner != 0).then_some(winner),
+                survivors,
             });
         }
     }
@@ -1367,6 +1406,7 @@ impl<'a> Tracker<'a> {
             outcome: BattleOutcome::Draw,
             damage: 0,
             winner_player_id: None,
+            survivors: Vec::new(),
         });
         CombatSetup {
             turn: c.turn,
