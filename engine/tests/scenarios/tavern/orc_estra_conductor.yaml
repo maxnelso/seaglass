@@ -49,8 +49,17 @@ scenarios:
     expect:
       players: {0: {board: ["Orc-estra Conductor 4/4", "Orc-estra Conductor 8/8"]}}
 
+  - name: a_golden_first_gives_4_4
+    description: The team's first Orc-estra, Golden, gives +4/+4.
+    duos_tavern:
+      players: [{board: ["1/1"], hand: ["golden Orc-estra Conductor 8/8"]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players: {0: {board: ["5/5", "golden Orc-estra Conductor 8/8"]}}
+
   - name: golden_gives_4_4_for_each
-    description: The team's second Orc-estra, Golden, gives +8/+8.
+    description: The team's second Orc-estra (the first was the teammate's), Golden, gives +8/+8.
     duos_tavern:
       players:
         - {board: ["1/1"], hand: ["golden Orc-estra Conductor 8/8"]}
