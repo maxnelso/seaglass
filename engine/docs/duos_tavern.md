@@ -111,7 +111,7 @@ Any card can be passed: a minion or a spell, Golden or not **(confirmed)**. Ther
 - The card leaves the passer's hand at once **(confirmed)**. A Pass is neither a play nor a discard: no Battlecry, no "whenever you discard" trigger **(engine decision)**.
 - It keeps its stats, buffs, keywords and Golden status **(confirmed: a passed Golden arrives Golden)**. A player's "wherever this is" auras come off as it arrives and the receiver's go on: they are player effects, and teammates are not friendly **(engine decision)**.
 - **Locked cards can't be passed** **(confirmed)**: a card locked until the next turn (`locked_turns > 0`: the minion `Search Through Time` Discovered), and a card still in a `Lockbox` (`lockbox_turns_left > 0`, `Bilgewater Breakout`).
-- A card of a group (the spells of a `Wandering Willbreaker`, the Aberrations of a `Faceless Operative`: `tavern.md` §6, card groups) leaves its group: the rest stay with the passer, and the passed card is a group of its own in the receiver's hand **(engine decision)**.
+- A card of a group (the spells of a `Wandering Willbreaker`, the Aberrations of a `Faceless Operative`: `tavern.md` §6, card groups) is passed as it would be played: it counts down its group, and once the Pass has resolved the rest of the group is discarded from the passer's hand if it is used up, as after a play. The passed card arrives as a plain card, in no group **(confirmed)**.
 
 ### 5.4 Arrival and the Queue
 
@@ -135,7 +135,7 @@ Any card can be passed: a minion or a spell, Golden or not **(confirmed)**. Ther
 5. The passer's `after_pass` observers, then both players' `after_team_pass` observers (the passer's first).
 6. The card joins the receiver's queue, and the queues deliver (§5.4).
 
-A Pass by a card effect ("Pass it", §7.2) is steps 3–6: the card has already left wherever it was, and nothing is paid.
+A Pass by a card effect ("Pass it", §7.2) is steps 3–6: the card has already left wherever it was, and nothing is paid: it costs no Gold and uses no free Pass, and it counts as the team's Pass for everything that reacts to Passes (the counters, `after_pass`, `after_team_pass`) **(confirmed)**.
 
 ---
 
@@ -185,7 +185,7 @@ A card that gives the teammate something ("your teammate gets", "you and your te
 | Gift | Means | For |
 | :--- | :--- | :--- |
 | `Card(card)` | The teammate gets `card`: it joins their incoming queue (§5.4) like a passed card, so it arrives at once, or waits if their hand is full; it counts for their triples only once it arrives **(confirmed)**. | `Friendly Saloonkeeper`'s Tavern Coin, `Generous Geomancer`'s Blood Gem. |
-| `Pass(card)` | The player's card effect **Passes** `card` ("Pass it"): a Pass in all but the payment (§5.6 steps 3–6: the card's `passed` hook, the team's counters, the `after_pass` and `after_team_pass` observers, the queue). It costs nothing and uses no free Pass **(engine decision)**. | `Jumping Jack`, `Mirror Monster`, the Portals. |
+| `Pass(card)` | The player's card effect **Passes** `card` ("Pass it"): a Pass in all but the payment (§5.6 steps 3–6: the card's `passed` hook, the team's counters, the `after_pass` and `after_team_pass` observers, the queue). It costs nothing and uses no free Pass **(confirmed)**. | `Jumping Jack`, `Mirror Monster`, the Portals. |
 | `Effect { card_id, amount, team }` | Anything else: the giving card's `teammate_gift` hook runs on the teammate's Tavern with `amount`, or on both players' Taverns if `team` (the giver's first). The cards it returns join that player's queue, as `Card`s do. | `Feisty Freshwater`'s free Refreshes, `Wheeled Crewmate`'s cheaper upgrades. |
 
 The team delivers the gifts (`DuosTavern::deliver_gifts`), each player's in order, the acting player's first, until none is left (a gift's hooks may give more):
@@ -224,8 +224,9 @@ In a Duos combat a card can read its teammate's warband as it entered the combat
 
 - `catalog_for("duos")` (alias `"duos_full"`) is the full Solo catalog (`full_catalog()`) followed by the implemented Duos-exclusive minions (`duos_exclusive_catalog()`).
 - **Duos-exclusive cards are only in a Duos catalog and pool** **(confirmed)**: no Solo catalog (`tierN`, `full`, ...) changes.
-- They are registered like any card (their hooks, their template, the names unit specs know), but the effects that generate random minions from the catalog (`Lockbox`, `Deathly Striker`, and the Duos cards' own: `Shifty Snake`, `Grave Narrator`, ...) keep using the Solo catalog **(engine decision)**.
-- The engine has no lobby types, so the Duos minions of a type no lobby has (the Nagas `Private Chef` and `Storm Splitter`) are always in the Duos pool **(engine decision)**.
+- They are registered like any card (their hooks, their template, the names unit specs know).
+- **Random minions in Duos** **(confirmed)**: in a Duos game, the effects that generate random minions from the catalog draw from the Duos catalog, Duos-exclusive minions included; in Solo they draw from the Solo catalog, as before. A player's auras say whether they are in a Duos game (`PlayerAuras::duos_game`, set by the team's Tavern and carried into combat by the warbands), and those effects draw from `cards::game_templates(auras)`: `Lockbox`, `Deathly Striker`, `Headhunter Gryphon`, `Dark Paradox`, `Ghastcoiler`, and the Duos cards' own (`Shifty Snake`, `Grave Narrator`, ...). Effects that draw from the card pool use the game's pool, which is the Duos one in Duos.
+- **Naga-only minions** **(confirmed)**: a minion whose only type is Naga (`Private Chef`, `Storm Splitter`) is in the pool only when Naga is in the game, which can't happen in the lobbies of Patch 36.6.3. They are implemented and registered (unit specs can name them), but they are in no catalog, so neither in the Duos pool nor in its random draws (`cards::duos_out_of_pool_catalog`).
 - Their card ids are `10_000 + 100 × tier + n`, after every Solo card, so that adding them only appends to sorted id lists (the RL card vocabulary).
 - Each card's file starts with its card ID (`BGDUO_...`), which the Power.log replay tools read.
 
@@ -242,8 +243,8 @@ Their text acts in combat (and in the Tavern if they die there). What they give 
 | `Generous Geomancer` (`BGDUO_111`), Tier 2 Quilboar `1/1` | *Deathrattle: You and your teammate each get a Blood Gem.* (Golden `2/2`: 2.) | The player gets the Blood Gems; the teammate's are `Card` gifts. |
 | `Wheeled Crewmate` (`BGDUO31_207`), Tier 3 Pirate `6/3` | *Deathrattle: Reduce the Cost of upgrading your team's Taverns by (1).* (Golden `12/6`: 2.) | A team `Effect` gift: each player's `upgrade_cost` goes down, never below 0. |
 | `Feisty Freshwater` (`BGDUO_110`), Tier 4 Elemental `6/4` | *Deathrattle: You and your teammate each gain two free Refreshes.* (Golden `12/8`: four.) | The player's `free_refreshes` go up at once (they come back with the auras); the teammate's through an `Effect` gift. |
-| `Grave Narrator` (`BGDUO_112`), Tier 4 Undead `2/7` | *Avenge (3): Your teammate gets a random minion of their most common type.* (Golden `4/14`: 2.) | Combat only, like every Avenge. "Their most common type" is read from the teammate's warband as it entered the combat (§7.4), as `Friendly Bounty` reads a board (`tavern.md` §7.8: ties at random, a random lobby type if no minion has one); the minion is of that type and of the Narrator's player's Tavern Tier or lower **(confirmed)**, from the Solo catalog (§8): a `Card` gift. |
-| `Shifty Snake` (`BGDUO31_203`), Tier 4 Beast `6/1` | *Deathrattle: Your teammate gets a random Deathrattle minion.* (Golden `12/2`: 2.) | Of the Snake's player's Tavern Tier or lower, from the Solo catalog **(engine decision)**: a `Card` gift. |
+| `Grave Narrator` (`BGDUO_112`), Tier 4 Undead `2/7` | *Avenge (3): Your teammate gets a random minion of their most common type.* (Golden `4/14`: 2.) | Combat only, like every Avenge. "Their most common type" is read from the teammate's warband as it entered the combat (§7.4), as `Friendly Bounty` reads a board (`tavern.md` §7.8: ties at random, a random lobby type if no minion has one); the minion is of that type and of the Narrator's player's Tavern Tier or lower **(confirmed)**, from the game's catalog (§8): a `Card` gift. |
+| `Shifty Snake` (`BGDUO31_203`), Tier 4 Beast `6/1` | *Deathrattle: Your teammate gets a random Deathrattle minion.* (Golden `12/2`: 2.) | Of the Snake's player's Tavern Tier or lower **(engine decision)**, from the game's catalog (§8): a `Card` gift. |
 | `San'layn Scribe` (`BGDUO31_208`), Tier 4 Undead `4/4` | *Has +4/+4 for each of your team's San'layn Scribes that died this game (wherever this is).* (Golden `8/8`: +8/+8.) | As `Eternal Knight`: each Scribe that dies (Golden or not, in combat or in the Tavern) counts 1 for its player; the bonus counts the team's (`team_counter`, §7.1), so a Scribe stepping in counts its teammate's Scribes that died before it. |
 | `C'Thrax Wrecker` (`BGDUO_701`), Tier 5 Aberration `8/8` | *Battlecry, Deathrattle, and Rally: Give your team's Deities +4/+4.* (Golden `16/16`: +8/+8.) | The player's Deity gains it at once (in combat, an awakened Deity on the board too, as `Drifting Sacrifice`); the teammate's through an `Effect` gift. |
 | `Transport Reactor` (`BGDUO31_211`), Tier 6 Mech `3/3`, Magnetic | *Has +3/+3 for each time your team has Passed this game (wherever this is).* (Golden `6/6`: +6/+6.) | Counts `team_passes_this_game` (§7.1): the Passes before it was bought too. Magnetized onto a Mech, the Mech keeps the bonus as its own "wherever this is" aura (`Unit::pass_aura`), growing with the team's later Passes. |
@@ -272,7 +273,7 @@ The Python bindings (`DuosTavernGame`, `TavernAction.pass_card`, `simulate_duos`
 
 ## 11. Decisions
 
-The rules the user settled are marked **(confirmed)** above: 4 teams of 2, separate Taverns and one pool, teammates not friendly and effects per player; one Health pool of 30 plus both heroes' Armor; per-player hero-damage triggers, and none for combat damage; simultaneous turns, arrival at once, the turn ending when both have ended; the random first fighter that usually switches; Pass from hand to hand for 1 Gold (Gold spent), with no limit, any card but locked ones (`Search Through Time`, a `Lockbox`); the free Passes of `Wanderer Cho`, one per Cho, used before paying; the unbounded incoming queue; triples completed by passed cards, with the receiver's Golden and Triple Reward; combat damage to the losing team's pool; the team's result for both players; a sat-out warband keeping its next-combat effects; Duos-exclusive cards only in Duos pools.
+The rules the user settled are marked **(confirmed)** above: 4 teams of 2, separate Taverns and one pool, teammates not friendly and effects per player; one Health pool of 30 plus both heroes' Armor; per-player hero-damage triggers, and none for combat damage; simultaneous turns, arrival at once, the turn ending when both have ended; the random first fighter that usually switches; Pass from hand to hand for 1 Gold (Gold spent), with no limit, any card but locked ones (`Search Through Time`, a `Lockbox`); the free Passes of `Wanderer Cho`, one per Cho, used before paying; a passed group card counting down its group, arriving plain; the unbounded incoming queue; triples completed by passed cards, with the receiver's Golden and Triple Reward; combat damage to the losing team's pool; the team's result for both players; a sat-out warband keeping its next-combat effects; Duos-exclusive cards only in Duos pools, Naga-only minions in none; gift cards queuing like passed cards; Passes by card effects, free and counting as Passes; random minions from the Duos catalog in Duos; `Sandy` and `Grave Narrator` reading the teammate's warband as it entered the combat.
 
 Engine decisions, pending the user's confirmation (each is one place in `src/duos_tavern.rs` unless noted):
 
@@ -284,19 +285,14 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 | After `EndTurn` | No more actions that turn; passed cards still arrive (§4.2). | `DuosTavern::is_legal` |
 | First fighter | A fair coin on turn 1, then switching with `first_fighter_switch_chance` (default `0.75`), one RNG draw per turn (§4.3). | `DuosTavern::draw_first_fighter` |
 | Pass with a pending Discover | Not legal for the passer; the receiver's doesn't matter (§5.1). | `DuosTavern::can_pass` |
-| Not a play or discard | A Pass triggers no Battlecry or discard effect (§5.3). | `DuosTavern::pass` |
-| Card groups | A passed group card leaves its group (§5.3). | `DuosTavern::pass` |
+| Not a play or discard | A Pass triggers no Battlecry or discard effect of the passed card (§5.3). | `DuosTavern::pass` |
 | Queued cards in combat | Not in the warband's hand (§5.4). | `DuosTavern::warband` |
 | Keeping next-combat effects | The unused Start of Combat effects (`Turn`) of a warband that sat out survive the next start of turn (§6.3). | `DuosTavern::start_turn` |
-| Random minions | `Lockbox` and `Deathly Striker` draw from the Solo catalog even in Duos (§8). | `cards::all_templates` |
 | Team counters | Each player counts their own; the team mirrors them into the teammate's `teammate_counters` (§7.1). | `DuosTavern::mirror` |
 | Counters at a step-in | A warband stepping in takes its teammate's counts from this combat (§7.1). | `combat.rs` (`DuosTeamState::step_in`) |
-| Passes by effects | Free, and no free Pass is used (§7.2). | `DuosTavern::send_pass` |
 | Gifts in combat | They reach the teammate's Tavern after the combat, not their warband (§7.2). | `DuosTavern::apply_results` |
 
 ### Open Questions
 
 1. What is the real chance that the first fighter switches? (To be measured from game logs.)
-2. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
-3. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?
-4. In combat, does a gift to the teammate reach their warband at once (a `Deity` buff, a `San'layn Scribe` death) or only their Tavern after the combat?
+2. In combat, does a gift to the teammate reach their warband at once (a `Deity` buff, a `San'layn Scribe` death) or only their Tavern after the combat?

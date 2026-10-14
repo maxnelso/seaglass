@@ -282,29 +282,28 @@ impl DuosTavern {
         Ok(ended)
     }
 
-    /// `player` Passes `hand[hand_index]` to their teammate (§5.6).
+    /// `player` Passes `hand[hand_index]` to their teammate (§5.6). A card of a group counts down
+    /// its group, whose rest is discarded once the Pass has resolved if it is used up, as after a
+    /// play (§5.3).
     fn pass(&mut self, player: usize, hand_index: usize, pool: &mut CardPool, rng: &mut Rng) {
         let passer = &mut self.players[player];
-        let card = passer.hand.remove(hand_index);
+        let (card, group) = passer.take_card_to_pass(hand_index);
         // A free Pass first (a charge of the left-most FREE_PASS minion), else 1 Gold spent.
         if !cards::use_charge(&mut passer.board, CardFlags::FREE_PASS) {
             passer.spend_gold(1, pool, rng);
         }
         self.send_pass(player, card, pool, rng);
+        self.players[player].discard_used_group(group, pool, rng);
     }
 
     /// `player` Passes `card`, which has left their hand or wherever it was, to their teammate:
     /// a Pass from its `passed` hook on (§5.6 steps 3-6), the whole of a Pass by a card effect
-    /// (§7.2).
+    /// (§7.2). It arrives as a plain card, in no group (§5.3).
     fn send_pass(&mut self, player: usize, mut card: Unit, pool: &mut CardPool, rng: &mut Rng) {
         let mate = Self::teammate(player);
         cards::on_passed(&mut card);
-        // A card of a group leaves its group: a group of its own in the receiver's hand.
-        if card.willbreaker_group != 0 {
-            let receiver = &mut self.players[mate];
-            card.willbreaker_group = receiver.next_willbreaker_group;
-            receiver.next_willbreaker_group += 1;
-        }
+        card.willbreaker_group = 0;
+        card.willbreaker_remaining = 0;
         self.passes_this_turn += 1;
         self.passes_this_game += 1;
         self.mirror();
@@ -384,7 +383,7 @@ impl DuosTavern {
 
     /// Copy the team's Health, Armor and counters into both players, and each player's card
     /// counters into their teammate's `teammate_counters` (§3.3, §7.1), re-syncing the auras of a
-    /// player whose values changed.
+    /// player whose values changed. Both players' auras say they are in a Duos game (§8).
     pub fn mirror(&mut self) {
         let (health, armor) = (self.health, self.armor);
         let (this_turn, this_game) = (self.passes_this_turn, self.passes_this_game);
@@ -393,6 +392,7 @@ impl DuosTavern {
             self.players[0].auras.card_counters.clone(),
         ];
         for (state, teammate_counters) in self.players.iter_mut().zip(counters) {
+            state.auras.duos_game = true;
             let same = state.health == health
                 && state.armor == armor
                 && state.auras.team_passes_this_turn == this_turn
@@ -643,6 +643,24 @@ mod tests {
         for state in &team.players {
             assert_eq!(state.auras.team_passes_this_game, 1);
         }
+    }
+
+    #[test]
+    fn a_duos_players_random_minions_come_from_the_duos_catalog() {
+        let team = DuosTavern::new();
+        let ids = |templates: &[crate::cards::CardTemplate]| -> Vec<u32> {
+            templates.iter().map(|t| t.card_id).collect()
+        };
+        let duos = ids(cards::game_templates(&team.players[1].auras));
+        let solo = ids(cards::game_templates(&crate::model::PlayerAuras::default()));
+        assert_eq!(solo, ids(cards::all_templates()));
+        // The Solo catalog, then the Duos pool's exclusive minions.
+        assert_eq!(duos[..solo.len()], solo[..]);
+        assert_eq!(
+            duos[solo.len()..],
+            ids(cards::duos_exclusive_templates())[..]
+        );
+        assert!(duos.contains(&crate::cards::minions::wanderer_cho::ID));
     }
 
     #[test]

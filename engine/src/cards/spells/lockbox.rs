@@ -4,7 +4,8 @@
 
 use crate::cards::tokens::SPELL_LOCKBOX;
 use crate::cards::{
-    all_templates, check_stat_thresholds, on_card_added_to_hand, CardFlags, CardHooks, CardTemplate,
+    check_stat_thresholds, game_templates, on_card_added_to_hand, CardFlags, CardHooks,
+    CardTemplate,
 };
 use crate::model::Tribe;
 use crate::rng::Rng;
@@ -42,12 +43,12 @@ pub fn open_lockbox(state: &mut TavernState, hand_idx: usize, rng: &mut Rng) {
     }
     let target_tier = state.tavern_tier.max(1);
     let typed = |t: &&CardTemplate| t.tribe != Tribe::None && !t.intrinsic_golden;
-    let mut typed_templates: Vec<&CardTemplate> = all_templates()
+    let mut typed_templates: Vec<&CardTemplate> = game_templates(&state.auras)
         .iter()
         .filter(|t| typed(t) && t.tavern_tier == target_tier)
         .collect();
     if typed_templates.is_empty() {
-        typed_templates = all_templates()
+        typed_templates = game_templates(&state.auras)
             .iter()
             .filter(|t| typed(t) && t.tavern_tier <= target_tier)
             .collect();

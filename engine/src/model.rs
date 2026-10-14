@@ -312,6 +312,11 @@ pub struct PlayerAuras {
     /// teammates' auras by the team's Tavern (`docs/duos_tavern.md` §7). Always 0 in Solo.
     pub team_passes_this_turn: u32,
     pub team_passes_this_game: u32,
+    /// Duos: the player is in a Duos game, so their random-minion effects draw from the Duos
+    /// catalog (`docs/duos_tavern.md` §8). Set by the team's Tavern and carried into combat by
+    /// the warband; `false` in Solo.
+    #[serde(default)]
+    pub duos_game: bool,
     /// Duos: the teammate's `card_counters`, mirrored by the team's Tavern, so that a "your
     /// team's" count is [`Self::team_counter`] (`docs/duos_tavern.md` §7.1). Empty in Solo.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

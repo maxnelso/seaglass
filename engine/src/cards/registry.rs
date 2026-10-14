@@ -6,15 +6,20 @@
 use std::sync::OnceLock;
 
 use super::hooks::CardHooks;
-use super::{deities, duos_exclusive_catalog, full_catalog, spells, tokens, CardTemplate};
+use super::{
+    deities, duos_exclusive_catalog, duos_out_of_pool_catalog, full_catalog, spells, tokens,
+    CardTemplate,
+};
 use crate::model::{CardId, PlayerAuras, Unit};
 
 const NO_SLOT: u16 = u16::MAX;
 
 struct Registry {
-    /// The full Solo catalog, then the Duos-exclusive minions (from `solo_len` on).
+    /// The full Solo catalog, then the Duos-exclusive minions of the Duos pool (from `solo_len`
+    /// on), then those in no pool (from `duos_len` on: the Naga-only ones).
     templates: Vec<CardTemplate>,
     solo_len: usize,
+    duos_len: usize,
     template_slot: Vec<u16>,
     hooks: Vec<CardHooks>,
     hook_slot: Vec<u16>,
@@ -39,6 +44,8 @@ fn build() -> Registry {
     let mut templates = full_catalog();
     let solo_len = templates.len();
     templates.extend(duos_exclusive_catalog());
+    let duos_len = templates.len();
+    templates.extend(duos_out_of_pool_catalog());
     let mut template_slot = Vec::new();
     let mut hooks = Vec::new();
     let mut hook_slot = Vec::new();
@@ -58,6 +65,7 @@ fn build() -> Registry {
     Registry {
         templates,
         solo_len,
+        duos_len,
         template_slot,
         hooks,
         hook_slot,
@@ -115,15 +123,23 @@ pub fn plain_instance(unit: &Unit) -> Option<Unit> {
     }
 }
 
-/// All Solo catalog templates (Tier 1..=7), in catalog order: what effects that generate random
-/// minions draw from (`docs/duos_tavern.md` §8).
+/// All Solo catalog templates (Tier 1..=7), in catalog order: what a Solo player's effects that
+/// generate random minions draw from (`docs/duos_tavern.md` §8; see `cards::game_templates`).
 pub fn all_templates() -> &'static [CardTemplate] {
     let r = registry();
     &r.templates[..r.solo_len]
 }
 
-/// The Duos-exclusive minion templates, in catalog order (`docs/duos_tavern.md` §8).
+/// The Duos-exclusive minion templates of the Duos pool, in catalog order
+/// (`docs/duos_tavern.md` §8).
 pub fn duos_exclusive_templates() -> &'static [CardTemplate] {
     let r = registry();
-    &r.templates[r.solo_len..]
+    &r.templates[r.solo_len..r.duos_len]
+}
+
+/// The Duos catalog's templates: the Solo catalog, then the Duos-exclusive minions of the Duos
+/// pool. What a Duos player's effects that generate random minions draw from.
+pub fn duos_templates() -> &'static [CardTemplate] {
+    let r = registry();
+    &r.templates[..r.duos_len]
 }

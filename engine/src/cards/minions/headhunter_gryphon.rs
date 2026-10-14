@@ -24,8 +24,8 @@ pub fn on_rally(
     rng: &mut Rng,
 ) {
     let count = if attacker.is_golden { 2 } else { 1 };
-    let candidates: Vec<CardTemplate> = cards::full_catalog()
-        .into_iter()
+    let candidates: Vec<&CardTemplate> = cards::game_templates(auras)
+        .iter()
         .filter(|t| t.tavern_tier <= 6 && t.card_id != ID && t.tribe.matches(Tribe::Beast))
         .collect();
     if candidates.is_empty() {

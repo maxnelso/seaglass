@@ -18,3 +18,15 @@ scenarios:
       - fight: {team: [["1/20"], []]}
     expect:
       players: {1: {hand: {count: 2, all: {deathrattle: true, tavern_tier: "<= 4"}}}}
+
+  - name: in_a_duos_game_it_can_give_a_duos_exclusive_minion
+    description: >-
+      In a Duos game the random minion comes from the Duos catalog: here the Tier 2 Duos
+      Deathrattle minion, Generous Geomancer.
+    seed: 8
+    duos_tavern:
+      players: [{tavern_tier: 2, board: [Shifty Snake]}, {}]
+    steps:
+      - fight: {team: [["1/10"], []]}
+    expect:
+      players: {1: {hand: [Generous Geomancer]}}

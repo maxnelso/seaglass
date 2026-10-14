@@ -217,25 +217,51 @@ scenarios:
     expect:
       players: {1: {hand: ["Risen Rider 3/1"]}}
 
-  - name: a_passed_card_leaves_its_group
+  - name: passing_a_group_card_discards_the_rest_of_its_group
     description: >-
-      The receiver has a pair of their own (group 1: playing one discards the other). The passed
-      card was in the passer's group 1; in the receiver's hand it is a group of its own, so it
-      stays when their pair is used up.
+      Passing one of a pair (group 1: playing one discards the other) counts as playing it for
+      its group: the other is discarded from the passer's hand. The passed card arrives plain,
+      in no group, so the receiver's own pair doesn't take it along when it is used up.
     duos_tavern:
       players:
         - gold: 1
-          hand: [{card: Joyous, willbreaker_group: 1, willbreaker_remaining: 1}]
+          hand:
+            - {card: Joyous, willbreaker_group: 1, willbreaker_remaining: 1}
+            - {card: Zoatroid, willbreaker_group: 1, willbreaker_remaining: 1}
         - next_willbreaker_group: 2
           hand:
             - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
             - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
     steps:
       - {player: 0, pass: Joyous}
-      - expect: {players: {1: {hand: {-1: {card: Joyous, willbreaker_group: 2}}}}}
+      - expect:
+          players:
+            - {hand: [], auras: {cards_discarded: 1}}
+            - hand: {-1: {card: Joyous, willbreaker_group: 0, willbreaker_remaining: 0}}
       - {player: 1, play: Tavern Coin}   # the other Coin is discarded
     expect:
       players: {1: {hand: [Joyous]}}
+
+  - name: passing_a_group_card_that_is_not_used_up_keeps_the_rest
+    description: >-
+      In a group of three with two plays left, passing one leaves one play to the other two:
+      they stay.
+    duos_tavern:
+      players:
+        - gold: 1
+          hand:
+            - {card: Joyous, willbreaker_group: 1, willbreaker_remaining: 2}
+            - {card: Zoatroid, willbreaker_group: 1, willbreaker_remaining: 2}
+            - {card: Wrath Weaver, willbreaker_group: 1, willbreaker_remaining: 2}
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players:
+        - hand:
+            - {card: Zoatroid, willbreaker_group: 1, willbreaker_remaining: 1}
+            - {card: Wrath Weaver, willbreaker_group: 1, willbreaker_remaining: 1}
+        - hand: [{card: Joyous, willbreaker_group: 0}]
 
   - name: a_solo_tavern_never_allows_a_pass
     tavern: {gold: 10, hand: [Joyous]}

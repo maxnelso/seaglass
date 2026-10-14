@@ -29,8 +29,8 @@ pub fn on_rally(
 ) {
     let count = if board[attacker_pos].is_golden { 2 } else { 1 };
     let tribe = spells::most_common_tribe(board, rng);
-    let candidates: Vec<CardTemplate> = cards::full_catalog()
-        .into_iter()
+    let candidates: Vec<&CardTemplate> = cards::game_templates(auras)
+        .iter()
         .filter(|t| t.tavern_tier <= 6 && t.card_id != ID && t.tribe.matches(tribe))
         .collect();
     if candidates.is_empty() {

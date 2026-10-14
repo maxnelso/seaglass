@@ -625,10 +625,35 @@ pub fn solo_full_catalog() -> Vec<CardTemplate> {
     full_catalog()
 }
 
-/// The implemented Duos-exclusive minions, in catalog order (`docs/duos_tavern.md` §8): only in
-/// the Duos catalog, never in a Solo one.
+/// The implemented Duos-exclusive minions of the Duos pool, in catalog order
+/// (`docs/duos_tavern.md` §8): only in the Duos catalog, never in a Solo one. A minion whose only
+/// type is Naga is in no pool ([`duos_out_of_pool_catalog`]).
 pub fn duos_exclusive_catalog() -> Vec<CardTemplate> {
     minions::duos_catalog()
+        .into_iter()
+        .filter(|t| t.tribe != Tribe::Naga)
+        .collect()
+}
+
+/// The implemented Duos-exclusive minions in no pool, in catalog order (`docs/duos_tavern.md`
+/// §8): those whose only type is Naga, as no lobby has Naga. They are registered like any card,
+/// but neither in the Duos pool nor in its random draws.
+pub fn duos_out_of_pool_catalog() -> Vec<CardTemplate> {
+    minions::duos_catalog()
+        .into_iter()
+        .filter(|t| t.tribe == Tribe::Naga)
+        .collect()
+}
+
+/// The minions a player's effects that generate random minions draw from
+/// (`docs/duos_tavern.md` §8): the Duos catalog in a Duos game (`auras.duos_game`), else the
+/// Solo catalog ([`all_templates`]).
+pub fn game_templates(auras: &PlayerAuras) -> &'static [CardTemplate] {
+    if auras.duos_game {
+        registry::duos_templates()
+    } else {
+        all_templates()
+    }
 }
 
 /// The Duos catalog: the full Solo catalog, then the implemented Duos-exclusive minions.

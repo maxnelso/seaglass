@@ -33,7 +33,7 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, self_idx: usize, _dying: &Unit)
 /// lower, recorded as given by the Striker `self_id` for its Deathrattle.
 pub fn on_avenge(ctx: &mut BoardCtx<'_>, self_id: UnitId, is_golden: bool) {
     let max_tier = ctx.hero_tier.max(1);
-    let candidates: Vec<&CardTemplate> = cards::all_templates()
+    let candidates: Vec<&CardTemplate> = cards::game_templates(ctx.auras)
         .iter()
         .filter(|t| t.tribe.matches(Tribe::Undead) && t.tavern_tier <= max_tier && t.card_id != ID)
         .collect();

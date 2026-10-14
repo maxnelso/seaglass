@@ -711,9 +711,21 @@ impl TavernState {
         card
     }
 
+    /// Duos: take `hand[hand_idx]` to Pass it (`docs/duos_tavern.md` §5.3). A card of a group
+    /// counts down its group as a card taken to be played does, and leaves as a plain card, in
+    /// no group. Returns the card and its group, whose rest the caller discards once the Pass
+    /// has resolved ([`discard_used_group`](Self::discard_used_group)).
+    pub fn take_card_to_pass(&mut self, hand_idx: usize) -> (Unit, u32) {
+        let mut card = self.take_card_to_play(hand_idx);
+        let group = std::mem::take(&mut card.willbreaker_group);
+        card.willbreaker_remaining = 0;
+        (card, group)
+    }
+
     /// Once the play of a card of the group `grp` has resolved, discard the rest of the group if
-    /// it is used up (right to left; nothing for `grp == 0`, a card of no group).
-    fn discard_used_group(&mut self, grp: u32, pool: &mut CardPool, rng: &mut Rng) {
+    /// it is used up (right to left; nothing for `grp == 0`, a card of no group). A Duos Pass of
+    /// a group card resolves the same way (`docs/duos_tavern.md` §5.3).
+    pub fn discard_used_group(&mut self, grp: u32, pool: &mut CardPool, rng: &mut Rng) {
         if grp == 0 {
             return;
         }

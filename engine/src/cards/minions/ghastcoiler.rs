@@ -2,7 +2,7 @@
 //!
 //! Deathrattle: Summon 2 (`4` if Golden) random Deathrattle minions.
 
-use crate::cards::{full_catalog, is_deathrattle_minion, CardTemplate, DeathrattleContext};
+use crate::cards::{game_templates, is_deathrattle_minion, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 523;
@@ -14,8 +14,8 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
-    let pool: Vec<CardTemplate> = full_catalog()
-        .into_iter()
+    let pool: Vec<&CardTemplate> = game_templates(ctx.auras)
+        .iter()
         .filter(|t| t.tavern_tier <= 6 && is_deathrattle_minion(t.card_id) && t.card_id != ID)
         .collect();
     if pool.is_empty() {
