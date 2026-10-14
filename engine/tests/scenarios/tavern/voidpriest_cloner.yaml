@@ -1,0 +1,111 @@
+card: Voidpriest Cloner
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_aberration_5_6
+    tavern: {hand: [Voidpriest Cloner]}
+    expect: {hand: [{card: Voidpriest Cloner, stats: 5/6, tavern_tier: 3, tribe: aberration}]}
+
+  - name: after_a_discard_it_passes_a_plain_copy
+    description: Brain Rotter discards a buffed Joyous; the teammate gets a plain one.
+    duos_tavern:
+      players: [{board: [Voidpriest Cloner, Brain Rotter], hand: ["Joyous 9/9"]}, {}]
+    steps:
+      - {player: 0, activate: {pos: 1, target: 0}}
+    expect:
+      players:
+        - {hand: [], board: [{card: Voidpriest Cloner, charges: 0}, Brain Rotter]}
+        - {hand: [{card: Joyous, stats: 2/3, is_golden: false}]}
+      passes_this_turn: 1
+
+  - name: a_golden_card_gives_a_plain_copy
+    duos_tavern:
+      players: [{board: [Voidpriest Cloner, Brain Rotter], hand: ["golden Joyous 4/6"]}, {}]
+    steps:
+      - {player: 0, activate: {pos: 1, target: 0}}
+    expect:
+      players: {1: {hand: [{card: Joyous, stats: 2/3, is_golden: false}]}}
+
+  - name: once_per_turn
+    duos_tavern:
+      players:
+        - board: [Voidpriest Cloner]
+          hand:
+            - {card: Joyous, willbreaker_group: 1, willbreaker_remaining: 1}
+            - {card: Zoatroid, willbreaker_group: 1, willbreaker_remaining: 1}
+            - {card: Joyous, willbreaker_group: 2, willbreaker_remaining: 1}
+            - {card: Zoatroid, willbreaker_group: 2, willbreaker_remaining: 1}
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}   # discards the group's Zoatroid
+      - {player: 0, play: {hand: 0, pos: 2}}   # discards the other group's Zoatroid
+    expect:
+      players: [{hand: []}, {hand: [Zoatroid]}]
+      passes_this_turn: 1
+
+  - name: its_use_comes_back_each_turn
+    duos_tavern:
+      players: [{board: [{card: Voidpriest Cloner, charges: 0}, Brain Rotter], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, activate: {pos: 1, target: 0}}
+      - expect: {players: {1: {hand: []}}}
+      - start_turn
+      - {player: 0, add_to_hand: Zoatroid}
+      - {player: 0, activate: {pos: 1, target: 0}}
+    expect:
+      players: {1: {hand: [Zoatroid]}}
+
+  - name: golden_twice_per_turn
+    description: Brain Rotter's Activate is reset between discards to discard three cards.
+    duos_tavern:
+      players:
+        - board: [{card: "golden Voidpriest Cloner 10/12", charges: 0}, Brain Rotter]
+          hand: [Joyous, Zoatroid, Joyous]
+        - {}
+    steps:
+      - start_turn
+      - expect: {players: {0: {board: {0: {charges: 2}}}}}
+      - {player: 0, activate: {pos: 1, target: 0}}
+      - {player: 0, set: {board: {1: {activated_this_turn: false}}}}
+      - {player: 0, activate: {pos: 1, target: 0}}
+      - {player: 0, set: {board: {1: {activated_this_turn: false}}}}
+      - {player: 0, activate: {pos: 1, target: 0}}
+    expect:
+      players: [{hand: []}, {hand: [Joyous, Zoatroid]}]
+      passes_this_turn: 2
+
+  - name: the_pass_is_free_and_counts_as_the_teams_pass
+    description: >-
+      A discarded Tavern spell's copy is Passed: no Gold or free Pass used, and Storm Splitter
+      (a Pass of a Tavern spell), Passenger and Transport Reactor see it.
+    duos_tavern:
+      players:
+        - gold: 0
+          board: [Voidpriest Cloner, Brain Rotter, Wanderer Cho, Storm Splitter, Passenger, Transport Reactor]
+          hand: [Fortify]
+        - {}
+    steps:
+      - {player: 0, activate: {pos: 1, target: 0}}
+    expect:
+      players:
+        - gold: 0
+          hand: [Fortify]   # Storm Splitter's new copy
+          board:
+            - Voidpriest Cloner
+            - Brain Rotter
+            - {card: Wanderer Cho, charges: 1}
+            - {card: Storm Splitter, charges: 0}
+            - Passenger 3/4
+            - Transport Reactor 6/6
+        - {hand: [{card: Fortify, is_spell: true}]}
+      passes_this_game: 1
+
+  - name: selling_or_passing_a_card_is_not_discarding_it
+    duos_tavern:
+      players: [{gold: 1, board: [Voidpriest Cloner, Joyous], hand: [Zoatroid]}, {}]
+    steps:
+      - {player: 0, sell: Joyous}
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: [{board: [{card: Voidpriest Cloner, charges: 1}]}, {hand: [Zoatroid]}]
+      passes_this_turn: 1

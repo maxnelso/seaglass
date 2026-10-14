@@ -1,0 +1,68 @@
+card: Well Wishes
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: passes_a_friendly_non_golden_minion
+    description: It leaves the board (not to the pool) and arrives with its stats.
+    duos_tavern:
+      players: [{board: ["Joyous 5/5", Well Wisher], hand: [Well Wishes]}, {}]
+    steps:
+      - take_from_pool: Joyous
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players: [{board: [Well Wisher], hand: []}, {hand: ["Joyous 5/5"]}]
+      passes_this_turn: 1
+      pool: {Joyous: 14}
+
+  - name: not_a_golden_minion_a_well_wisher_or_a_minion_in_the_tavern
+    duos_tavern:
+      players:
+        - {board: ["golden Joyous 4/6", Well Wisher, Zoatroid], hand: [Well Wishes], shop: [Joyous]}
+        - {}
+    steps:
+      - {player: 0, expect_illegal: {play: {hand: 0, pos: 0}}}
+      - {player: 0, expect_illegal: {play: {hand: 0, pos: 1}}}
+      - {player: 0, expect_illegal: {play: {hand: 0, shop: 0}}}
+      - {player: 0, expect_legal: {play: {hand: 0, pos: 2}}}
+
+  - name: the_pass_is_free_and_counts_as_the_teams_pass
+    duos_tavern:
+      players:
+        - gold: 0
+          board: [Joyous, Wanderer Cho, Passenger, Transport Reactor]
+          hand: [Well Wishes]
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players:
+        - gold: 0
+          board: [{card: Wanderer Cho, charges: 1}, Passenger 3/4, Transport Reactor 6/6]
+        - {hand: [Joyous]}
+
+  - name: it_is_not_a_tavern_spell
+    duos_tavern:
+      players: [{board: [Joyous], hand: [Well Wishes]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players: {0: {auras: {tavern_spells_cast: 0}}}
+
+  - name: it_is_discarded_at_the_end_of_the_turn
+    duos_tavern:
+      players: [{hand: [Well Wishes, Joyous]}, {}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {0: {hand: [Joyous], auras: {cards_discarded: 0}}}
+
+  - name: one_passed_after_the_end_of_the_turn_is_discarded_at_the_start_of_the_next
+    duos_tavern:
+      players: [{}, {gold: 1, hand: [Well Wishes]}]
+    steps:
+      - {player: 0, end_turn}
+      - {player: 1, pass: Well Wishes}
+      - expect: {players: {0: {hand: [Well Wishes]}}}
+      - start_turn
+    expect:
+      players: {0: {hand: []}}

@@ -549,11 +549,20 @@ pub struct Unit {
     /// it is, from the `Transport Reactor`s Magnetized onto it (`docs/duos_tavern.md` §8.2).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub pass_aura: i32,
+    /// Duos: this Discover option goes to the teammate if another option is chosen, instead of
+    /// back to the pool (`Bargain Bundle`, `docs/duos_tavern.md` §8.3).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub unchosen_to_teammate: bool,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
 fn is_zero(n: &i32) -> bool {
     *n == 0
+}
+
+/// `true` if `b` is `false` (serde: a field skipped while it is `false`).
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl Unit {
@@ -619,6 +628,7 @@ impl Unit {
             combine_choose_one: false,
             stitched_stored: Vec::new(),
             pass_aura: 0,
+            unchosen_to_teammate: false,
         }
     }
 

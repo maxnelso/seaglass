@@ -121,11 +121,14 @@ struct Catalog {
     minions: BTreeMap<u32, Vec<String>>,
     minion_ids: BTreeMap<u32, [u32; 2]>,
     duos_minions: BTreeMap<u32, Vec<String>>,
+    duos_out_of_pool: BTreeMap<u32, Vec<String>>,
     tiers: BTreeMap<u32, TierRow>,
     spells: BTreeMap<u32, Vec<String>>,
+    duos_spells: BTreeMap<u32, Vec<String>>,
     not_in_pool: Vec<String>,
     token_minions: Vec<String>,
     token_spells: Vec<String>,
+    duos_token_spells: Vec<String>,
     deities: Vec<String>,
 }
 
@@ -301,6 +304,28 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
             }
         }
     }
+    // Duos-exclusive minions in no pool (Naga-only): registered, in no catalog.
+    let out_of_pool = cards::duos_out_of_pool_catalog();
+    check(list_diff(
+        "duos_out_of_pool_catalog()",
+        &template_names(&out_of_pool),
+        &want
+            .duos_out_of_pool
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ));
+    for (tier, names) in &want.duos_out_of_pool {
+        for card in out_of_pool.iter().filter(|c| names.contains(&c.name)) {
+            if card.tavern_tier != *tier {
+                check(Some(format!(
+                    "{} is a Tier {tier} Duos minion in catalog.yaml but has tavern_tier {}",
+                    card.name, card.tavern_tier
+                )));
+            }
+        }
+    }
     let mut duos_all = all_minions.clone();
     duos_all.extend(duos_minions);
     for name in ["duos", "duos_full"] {
@@ -329,6 +354,34 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
         &unit_names(&all_spells[tavern_spells.len()..]),
         &want.token_spells,
     ));
+    // Duos spells: only in Duos games, so in none of the Solo lists above.
+    let duos_spells = spells::duos_spells();
+    check(list_diff(
+        "spells::duos_spells()",
+        &unit_names(&duos_spells),
+        &want
+            .duos_spells
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ));
+    for (tier, names) in &want.duos_spells {
+        for spell in duos_spells.iter().filter(|s| names.contains(&s.name)) {
+            if spell.tavern_tier != *tier {
+                check(Some(format!(
+                    "{} is a Tier {tier} Duos spell in catalog.yaml but has tavern_tier {}",
+                    spell.name, spell.tavern_tier
+                )));
+            }
+        }
+    }
+    let duos_token_spells = spells::duos_token_spells();
+    check(list_diff(
+        "spells::duos_token_spells()",
+        &unit_names(&duos_token_spells),
+        &want.duos_token_spells,
+    ));
     let token_minions = tokens::all_token_minions();
     check(list_diff(
         "token minions",
@@ -345,10 +398,13 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
     let everything = seaglass::full_catalog()
         .into_iter()
         .chain(duos_exclusive)
+        .chain(out_of_pool)
         .map(|t| (t.card_id, t.name))
         .chain(
             all_spells
                 .iter()
+                .chain(&duos_spells)
+                .chain(&duos_token_spells)
                 .chain(&token_minions)
                 .chain(&deities)
                 .map(|u| (u.card_id, u.name.clone())),

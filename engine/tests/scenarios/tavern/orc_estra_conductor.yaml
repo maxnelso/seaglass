@@ -1,0 +1,78 @@
+card: Orc-estra Conductor
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_4_4
+    tavern: {hand: [Orc-estra Conductor]}
+    expect: {hand: [{card: Orc-estra Conductor, stats: 4/4, tavern_tier: 3, tribe: none}]}
+
+  - name: the_teams_first_gives_a_minion_2_2
+    duos_tavern:
+      players: [{board: ["1/1"], hand: [Orc-estra Conductor]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players: {0: {board: ["3/3", "Orc-estra Conductor 4/4"]}}
+
+  - name: each_orc_estra_the_team_played_improves_it
+    description: >-
+      Player 0's gives +2/+2 (the team's first); player 1's, the team's second, +4/+4; player
+      0's next, the third, +6/+6.
+    duos_tavern:
+      players:
+        - {board: ["1/1"], hand: [Orc-estra Conductor, Orc-estra Conductor]}
+        - {board: ["1/1"], hand: [Orc-estra Conductor]}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}
+      - {player: 1, play: {hand: 0, pos: 1}}
+      - expect: {players: {1: {board: ["5/5", "Orc-estra Conductor 4/4"]}}}
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players:
+        0: {board: ["Orc-estra Conductor 4/4", "9/9", "Orc-estra Conductor 4/4"]}
+
+  - name: it_targets_the_minion_at_the_play_position
+    description: Played between a 1/1 and a 2/2, it buffs the 2/2 to its right.
+    duos_tavern:
+      players: [{board: ["1/1", "2/2"], hand: [Orc-estra Conductor]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players: {0: {board: ["1/1", "Orc-estra Conductor 4/4", "4/4"]}}
+
+  - name: alone_it_buffs_nothing_but_still_counts
+    duos_tavern:
+      players: [{hand: [Orc-estra Conductor, Orc-estra Conductor]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players: {0: {board: ["Orc-estra Conductor 4/4", "Orc-estra Conductor 8/8"]}}
+
+  - name: golden_gives_4_4_for_each
+    description: The team's second Orc-estra, Golden, gives +8/+8.
+    duos_tavern:
+      players:
+        - {board: ["1/1"], hand: ["golden Orc-estra Conductor 8/8"]}
+        - {hand: [Orc-estra Conductor]}
+    steps:
+      - {player: 1, play: Orc-estra Conductor}
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players: {0: {board: ["9/9", "golden Orc-estra Conductor 8/8"]}}
+
+  - name: a_repeated_battlecry_does_not_count_again
+    description: >-
+      With Brann Bronzebeard the Battlecry triggers twice, +2/+2 each (the team's first); the
+      next Orc-estra is the team's second: +4/+4, twice.
+    duos_tavern:
+      players:
+        - {board: ["1/1", Brann Bronzebeard], hand: [Orc-estra Conductor, Orc-estra Conductor]}
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+      - expect: {players: {0: {board: ["Orc-estra Conductor 4/4", "5/5", Brann Bronzebeard]}}}
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players:
+        0: {board: ["Orc-estra Conductor 4/4", "Orc-estra Conductor 4/4", "13/13", Brann Bronzebeard]}

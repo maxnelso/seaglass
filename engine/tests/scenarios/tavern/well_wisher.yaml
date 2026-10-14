@@ -1,0 +1,25 @@
+card: Well Wisher
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_5_6_6
+    tavern: {hand: [Well Wisher]}
+    expect: {hand: [{card: Well Wisher, stats: 6/6, tavern_tier: 5, tribe: none}]}
+
+  - name: playing_it_gives_well_wishes
+    duos_tavern:
+      players: [{hand: [Well Wisher]}, {}]
+    steps:
+      - {player: 0, play: Well Wisher}
+    expect:
+      players: {0: {board: [Well Wisher], hand: [{card: Well Wishes, is_spell: true}]}}
+
+  - name: it_gives_a_new_one_each_turn_and_the_old_one_is_discarded
+    duos_tavern:
+      players: [{board: [Well Wisher], hand: [Well Wishes]}, {}]
+    steps:
+      - {player: 0, end_turn}
+      - expect: {players: {0: {hand: []}}}
+      - start_turn
+    expect:
+      players: {0: {hand: [Well Wishes]}}

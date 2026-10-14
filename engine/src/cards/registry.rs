@@ -143,3 +143,10 @@ pub fn duos_templates() -> &'static [CardTemplate] {
     let r = registry();
     &r.templates[..r.duos_len]
 }
+
+/// The Duos-exclusive minion templates in no pool, in catalog order (the Naga-only ones:
+/// `docs/duos_tavern.md` §8). Registered like any minion, so unit specs can name them.
+pub fn duos_out_of_pool_templates() -> &'static [CardTemplate] {
+    let r = registry();
+    &r.templates[r.duos_len..]
+}

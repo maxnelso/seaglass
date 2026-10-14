@@ -1,0 +1,87 @@
+card: Jumping Jack
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_all_3_4
+    tavern: {hand: [Jumping Jack]}
+    expect: {hand: [{card: Jumping Jack, stats: 3/4, tavern_tier: 3, tribe: all}]}
+
+  - name: after_its_first_sale_it_is_passed_with_its_stats
+    description: >-
+      The seller gets the Gold of the sale; the Jack goes to the teammate instead of back to the
+      pool (one copy was out of it), remembering it was sold.
+    duos_tavern:
+      players: [{gold: 0, board: ["Jumping Jack 5/6"]}, {}]
+    steps:
+      - take_from_pool: Jumping Jack
+      - {player: 0, sell: Jumping Jack}
+    expect:
+      players:
+        - {gold: 1, board: []}
+        - {hand: [{card: Jumping Jack, stats: 5/6, counter: 1}]}
+      passes_this_turn: 1
+      passes_this_game: 1
+      pool: {Jumping Jack: 12}
+
+  - name: sold_again_it_goes_back_to_the_pool
+    duos_tavern:
+      players: [{gold: 0, board: [Jumping Jack]}, {gold: 0}]
+    steps:
+      - take_from_pool: Jumping Jack
+      - {player: 0, sell: Jumping Jack}
+      - {player: 1, play: Jumping Jack}
+      - {player: 1, sell: Jumping Jack}
+    expect:
+      players: [{gold: 1, hand: []}, {gold: 1, board: [], hand: []}]
+      passes_this_game: 1
+      pool: {Jumping Jack: 13}
+
+  - name: the_pass_is_free_and_counts_as_the_teams_pass
+    description: >-
+      No Gold beyond the sale, no free Pass used; Passenger (the team's first Pass this turn) and
+      Transport Reactor (one more Pass this game) see it.
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Jumping Jack, Wanderer Cho, Passenger, Transport Reactor]}
+        - {}
+    steps:
+      - {player: 0, sell: Jumping Jack}
+    expect:
+      players:
+        - gold: 1
+          gold_spent_this_turn: 0
+          board:
+            - {card: Wanderer Cho, charges: 1}
+            - Passenger 3/4
+            - Transport Reactor 6/6
+        - {hand: [Jumping Jack]}
+      free_passes: [1, 0]
+
+  - name: the_sellers_sell_triggers_see_the_sale
+    description: Twisted Wrathguard adds a Fodder to the next Refresh, as for any sale.
+    duos_tavern:
+      players: [{gold: 0, board: [Jumping Jack, Twisted Wrathguard]}, {}]
+    steps:
+      - {player: 0, sell: Jumping Jack}
+    expect:
+      players:
+        - gold: 1
+          board: [Twisted Wrathguard]
+          auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}
+        - {hand: [Jumping Jack]}
+
+  - name: made_golden_it_forgets_it_was_sold
+    duos_tavern:
+      players: [{hand: [{card: Jumping Jack, counter: 1}, Jumping Jack]}, {}]
+    steps:
+      - {player: 0, add_to_hand: Jumping Jack}
+    expect:
+      players: {0: {hand: [{card: Jumping Jack, is_golden: true, stats: 6/8, counter: 0}]}}
+
+  - name: a_golden_one_is_passed_after_its_first_sale_too
+    duos_tavern:
+      players: [{gold: 0, board: ["golden Jumping Jack 6/8"]}, {}]
+    steps:
+      - {player: 0, sell: Jumping Jack}
+    expect:
+      players: [{gold: 1}, {hand: [{card: Jumping Jack, is_golden: true, counter: 1}]}]

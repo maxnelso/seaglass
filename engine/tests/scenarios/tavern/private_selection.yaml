@@ -1,0 +1,73 @@
+card: Private Selection
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: passes_a_different_minion_of_the_targets_type
+    description: >-
+      At Tavern Tier 1 the only other Undead is Risen Rider. It comes from the pool and is
+      Passed at once.
+    duos_tavern:
+      players: [{tavern_tier: 1, board: [Harmless Bonehead], hand: [Private Selection]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players: [{hand: [], board: [Harmless Bonehead]}, {hand: [Risen Rider]}]
+      passes_this_turn: 1
+      pool: {Risen Rider: 14}
+
+  - name: it_can_target_a_minion_in_the_tavern
+    duos_tavern:
+      players: [{tavern_tier: 1, hand: [Private Selection], shop: [Harmless Bonehead]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, shop: 0}}
+    expect:
+      players: [{shop: [Harmless Bonehead]}, {hand: [Risen Rider]}]
+
+  - name: not_a_minion_without_a_type
+    duos_tavern:
+      players: [{board: [Wanderer Cho, Joyous], hand: [Private Selection], shop: [Passenger]}, {}]
+    steps:
+      - {player: 0, expect_illegal: {play: {hand: 0, pos: 0}}}
+      - {player: 0, expect_illegal: {play: {hand: 0, shop: 0}}}
+      - {player: 0, expect_legal: {play: {hand: 0, pos: 1}}}
+
+  - name: golden_passes_2_different_minions
+    duos_tavern:
+      players:
+        - {tavern_tier: 2, board: [Harmless Bonehead], hand: [{card: Private Selection, is_golden: true}]}
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players:
+        1:
+          hand:
+            count: 2
+            all: {tribe: undead, tavern_tier: "<= 2", card: {not: Harmless Bonehead}}
+            0: {card: {capture: first}}
+            1: {card: {not: {same_as: first}}}
+      passes_this_turn: 2
+
+  - name: the_pass_is_free_and_counts_as_the_teams_pass
+    duos_tavern:
+      players:
+        - gold: 0
+          tavern_tier: 1
+          board: [Harmless Bonehead, Wanderer Cho, Passenger, Transport Reactor]
+          hand: [Private Selection]
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players:
+        - gold: 0
+          board: [Harmless Bonehead, {card: Wanderer Cho, charges: 1}, Passenger 3/4, Transport Reactor 6/6]
+        - {hand: [Risen Rider]}
+
+  - name: it_is_not_a_tavern_spell
+    duos_tavern:
+      players: [{tavern_tier: 1, board: [Harmless Bonehead], hand: [Private Selection]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players: {0: {auras: {tavern_spells_cast: 0}}}

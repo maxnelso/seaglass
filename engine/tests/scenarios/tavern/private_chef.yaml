@@ -1,0 +1,56 @@
+card: Private Chef
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_4_naga_5_4_in_no_pool
+    description: Naga is in no lobby, so neither is a Naga-only minion (docs/duos_tavern.md §8).
+    duos_tavern:
+      players: [{hand: [Private Chef]}, {}]
+    expect:
+      players: {0: {hand: [{card: Private Chef, stats: 5/4, tavern_tier: 4, tribe: naga}]}}
+      pool: {Private Chef: null}
+
+  - name: playing_it_gives_its_spellcraft_spell
+    duos_tavern:
+      players: [{hand: [Private Chef]}, {}]
+    steps:
+      - {player: 0, play: Private Chef}
+    expect:
+      players: {0: {board: [Private Chef], hand: [{card: Private Selection, is_spell: true, is_golden: false}]}}
+
+  - name: it_gives_a_new_one_at_the_start_of_each_turn
+    duos_tavern:
+      players: [{board: [Private Chef, Private Chef]}, {}]
+    steps:
+      - start_turn
+    expect:
+      players: {0: {hand: [Private Selection, Private Selection]}}
+
+  - name: the_spell_is_discarded_at_the_end_of_the_turn
+    description: Without discard effects (Cutthroat K'Thir doesn't see it).
+    duos_tavern:
+      players: [{hand: [Private Chef], board: [Cutthroat K'Thir]}, {}]
+    steps:
+      - {player: 0, play: Private Chef}
+      - expect: {players: {0: {hand: [Private Selection]}}}
+      - {player: 0, end_turn}
+    expect:
+      players:
+        0: {hand: [], board: ["Cutthroat K'Thir 4/4", Private Chef], auras: {cards_discarded: 0}}
+
+  - name: golden_gives_a_golden_spell
+    duos_tavern:
+      players: [{hand: ["golden Private Chef 10/8"]}, {}]
+    steps:
+      - {player: 0, play: Private Chef}
+      - {player: 0, choose_discover: 0}   # its Triple Reward
+    expect:
+      players: {0: {hand: {any: {card: Private Selection, is_golden: true}}}}
+
+  - name: no_spell_with_a_full_hand
+    duos_tavern:
+      players: [{board: [Private Chef], hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}, {}]
+    steps:
+      - start_turn
+    expect:
+      players: {0: {hand: {count: 10, none: {card: Private Selection}}}}

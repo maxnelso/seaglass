@@ -1,14 +1,17 @@
-//! Tier 1 through Tier 7 Tavern Spells (`Patch 36.6.3`).
+//! Tier 1 through Tier 7 Tavern Spells (`Patch 36.6.3`), and the Duos spells.
 //!
 //! Each spell (Tavern spells and token spells) lives in its own submodule with its `cast` hook
 //! and other card text; this module holds the spell ids and tables, lookups and random draws,
-//! the shared casting flow ([`cast_spell`]), and the registry table ([`behaviors`]).
+//! the shared casting flow ([`cast_spell`]), and the registry table ([`behaviors`]). The Duos
+//! spells ([`duos_spells`], [`duos_token_spells`]) are only in Duos games
+//! (`docs/duos_tavern.md` §8.3), so they are in none of the Solo lists ([`all_spells`]).
 
 pub mod a_new_sprout;
 pub mod alliance_flag;
 pub mod arcane_absorption;
 pub mod armor_stash;
 pub mod azerite_empowerment;
+pub mod bargain_bundle;
 pub mod blood_gem;
 pub mod blood_gem_barrage;
 pub mod boon_of_beetles;
@@ -54,6 +57,9 @@ pub mod overconfidence;
 pub mod perfect_vision;
 pub mod planar_telescope;
 pub mod pointy_arrow;
+pub mod portal_in_a_crystal;
+pub mod portal_in_a_fountain;
+pub mod private_selection;
 pub mod recruit_a_trainee;
 pub mod repair_job;
 pub mod robust_evolution;
@@ -79,12 +85,15 @@ pub mod upper_hand;
 pub mod wave_of_gold;
 pub mod wealthy_bounty;
 pub mod weapons_forge;
+pub mod well_wishes;
 pub mod winners_bread;
 
 use crate::cards::hooks::{CastAtFn, CastFn, SpellTarget};
 use crate::cards::tokens::{self, is_choice_option, SPELL_GEM_DAY};
 use crate::cards::{board_passive, hooks, CardFlags, CardHooks, Passive};
-use crate::model::{CardId, EffectDuration, Tribe, Unit, UnitId, LOBBY_TRIBES, SINGLE_TRIBES};
+use crate::model::{
+    CardId, EffectDuration, TeammateGift, Tribe, Unit, UnitId, LOBBY_TRIBES, SINGLE_TRIBES,
+};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
 
@@ -168,6 +177,16 @@ pub const SPELL_HALLOWED_RITUAL: CardId = 864;
 pub const SPELL_MENAGERIE_TABLEWARE: CardId = 865;
 pub const SPELL_SACRED_GIFT: CardId = 866;
 pub const SPELL_SHARING_IS_CARING: CardId = 867;
+
+// The Duos shop's Tavern spells (`docs/duos_tavern.md` §8.3): `10_000 + 100 × tier + 50 + n`.
+pub const SPELL_PORTAL_IN_A_FOUNTAIN: CardId = 10351;
+pub const SPELL_BARGAIN_BUNDLE: CardId = 10551;
+pub const SPELL_PORTAL_IN_A_CRYSTAL: CardId = 10552;
+
+// The Spellcraft spells of the Duos minions (token spells): `10_000 + 100 × tier + 90 + n`, with
+// their minion's tier.
+pub const SPELL_PRIVATE_SELECTION: CardId = 10491;
+pub const SPELL_WELL_WISHES: CardId = 10591;
 
 /// All 5 Bounty Tavern Spells (`Bigwig Bandit`, `Shipwrecked Rascal`, `Proud Privateer`).
 pub const BOUNTY_SPELL_IDS: [CardId; 5] = [
@@ -427,14 +446,64 @@ pub fn all_spells() -> Vec<Unit> {
     list
 }
 
-/// Look up a Tavern Spell or token spell by `CardId`.
-pub fn spell_by_id(card_id: CardId) -> Option<Unit> {
-    all_spells().into_iter().find(|s| s.card_id == card_id)
+/// The Duos shop's Tavern spells (`docs/duos_tavern.md` §8.3), by tier: offered only by Duos
+/// shops ([`draw_shop_spell`]).
+pub fn duos_spells() -> Vec<Unit> {
+    vec![
+        make_tavern_spell(
+            SPELL_PORTAL_IN_A_FOUNTAIN,
+            "Portal in a Fountain",
+            3,
+            3,
+            false,
+        ),
+        make_tavern_spell(SPELL_BARGAIN_BUNDLE, "Bargain Bundle", 5, 5, false),
+        make_tavern_spell(
+            SPELL_PORTAL_IN_A_CRYSTAL,
+            "Portal in a Crystal",
+            5,
+            2,
+            false,
+        ),
+    ]
 }
 
-/// Look up a Tavern Spell or token spell by exact name.
+/// The Duos minions' Spellcraft spells (token spells, `docs/duos_tavern.md` §8.3).
+pub fn duos_token_spells() -> Vec<Unit> {
+    vec![make_private_selection(), make_well_wishes()]
+}
+
+/// Every Duos spell: [`duos_spells`], then [`duos_token_spells`].
+pub fn all_duos_spells() -> Vec<Unit> {
+    let mut list = duos_spells();
+    list.extend(duos_token_spells());
+    list
+}
+
+/// `Private Selection` (`Private Chef`'s Spellcraft spell).
+pub fn make_private_selection() -> Unit {
+    make_tavern_spell(SPELL_PRIVATE_SELECTION, "Private Selection", 4, 0, false)
+}
+
+/// `Well Wishes` (`Well Wisher`'s Spellcraft spell).
+pub fn make_well_wishes() -> Unit {
+    make_tavern_spell(SPELL_WELL_WISHES, "Well Wishes", 5, 0, false)
+}
+
+/// Look up a spell (Tavern spell or token spell, Solo or Duos) by `CardId`.
+pub fn spell_by_id(card_id: CardId) -> Option<Unit> {
+    all_spells()
+        .into_iter()
+        .chain(all_duos_spells())
+        .find(|s| s.card_id == card_id)
+}
+
+/// Look up a spell (Tavern spell or token spell, Solo or Duos) by exact name.
 pub fn spell_by_name(name: &str) -> Option<Unit> {
-    all_spells().into_iter().find(|s| s.name == name)
+    all_spells()
+        .into_iter()
+        .chain(all_duos_spells())
+        .find(|s| s.name == name)
 }
 
 /// Returns `true` if `card_id` is a collectible Tavern spell eligible for the shop and random/Discover Tavern spell pools
@@ -448,6 +517,26 @@ pub fn is_pool_tavern_spell(card_id: CardId) -> bool {
 pub fn draw_random_tavern_spell(max_tier: u32, rng: &mut Rng) -> Unit {
     let pool: Vec<Unit> = spells_up_to_tier(max_tier)
         .into_iter()
+        .filter(|s| is_pool_tavern_spell(s.card_id))
+        .collect();
+    let idx = rng.below(pool.len());
+    pool[idx].clone()
+}
+
+/// Draw the spell a shop offers (`docs/tavern.md` §4): a uniformly random Tavern spell with
+/// `tavern_tier <= max_tier` ([`draw_random_tavern_spell`]), or in a Duos game (`duos`) one among
+/// those and the Duos spells with `tavern_tier <= max_tier` (`docs/duos_tavern.md` §8.3).
+pub fn draw_shop_spell(max_tier: u32, duos: bool, rng: &mut Rng) -> Unit {
+    if !duos {
+        return draw_random_tavern_spell(max_tier, rng);
+    }
+    let pool: Vec<Unit> = spells_up_to_tier(max_tier)
+        .into_iter()
+        .chain(
+            duos_spells()
+                .into_iter()
+                .filter(|s| s.tavern_tier <= max_tier),
+        )
         .filter(|s| is_pool_tavern_spell(s.card_id))
         .collect();
     let idx = rng.below(pool.len());
@@ -548,24 +637,35 @@ pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
 }
 
 /// Returns `true` if casting `card_id` from hand requires a target: a friendly minion on `board`
-/// (or, for a [`SpellTarget::Minion`] spell, a minion in the Tavern; see [`can_target_in_shop`]).
+/// (or, for a [`SpellTarget::Minion`] or [`SpellTarget::TavernMinion`] spell, a minion in the
+/// Tavern; see [`can_target_in_shop`]).
 pub fn spell_requires_board_target(card_id: CardId) -> bool {
     hooks(card_id).spell_target != SpellTarget::None
 }
 
-/// Check whether `unit` is a valid board target for targeted spell `spell_id`.
+/// Check whether `unit` is a valid board target for targeted spell `spell_id` (its
+/// `spell_target`, then its `spell_target_filter`).
 pub fn can_target(spell_id: CardId, unit: &Unit) -> bool {
-    match hooks(spell_id).spell_target {
+    let card = hooks(spell_id);
+    let allowed = match card.spell_target {
         SpellTarget::FriendlyTribe(tribe) => unit.tribe.matches(tribe),
         SpellTarget::FriendlyTyped => unit.tribe != Tribe::None,
+        SpellTarget::TavernMinion => false,
         SpellTarget::None | SpellTarget::Friendly | SpellTarget::Minion => true,
-    }
+    };
+    allowed && card.spell_target_filter.is_none_or(|filter| filter(unit))
 }
 
 /// Check whether `unit`, in the Tavern, is a valid target for spell `spell_id`: a minion, for a
-/// spell that can target any minion ([`SpellTarget::Minion`]).
+/// spell that can target a minion there ([`SpellTarget::Minion`], [`SpellTarget::TavernMinion`])
+/// and whose `spell_target_filter` allows it.
 pub fn can_target_in_shop(spell_id: CardId, unit: &Unit) -> bool {
-    hooks(spell_id).spell_target == SpellTarget::Minion && !unit.is_spell
+    let card = hooks(spell_id);
+    matches!(
+        card.spell_target,
+        SpellTarget::Minion | SpellTarget::TavernMinion
+    ) && !unit.is_spell
+        && card.spell_target_filter.is_none_or(|filter| filter(unit))
 }
 
 /// Each minion's types on `board`, as bits over [`SINGLE_TRIBES`] (none for a dead minion).
@@ -918,19 +1018,30 @@ fn find_cast_target(state: &TavernState, target: MinionSlot) -> Option<MinionSlo
     zone.iter().position(is_cast_target).map(slot)
 }
 
-/// Give the target of the spell cast (and any copy of it made meanwhile) its own id back.
+/// Give the target of the spell cast (and any copy of it made meanwhile) its own id back,
+/// wherever it is: on the board, in the hand or the Tavern, in a prompt, or given to the teammate
+/// (a Passed target: `Well Wishes`).
 fn unmark_cast_target(state: &mut TavernState, id: UnitId) {
     let prompts = state
         .discover_pending
         .iter_mut()
         .chain(&mut state.discover_queue)
         .flatten();
+    let gifts = state
+        .auras
+        .to_teammate
+        .iter_mut()
+        .filter_map(|gift| match gift {
+            TeammateGift::Card(unit) | TeammateGift::Pass(unit) => Some(unit),
+            TeammateGift::Effect { .. } => None,
+        });
     let units = state
         .board
         .iter_mut()
         .chain(&mut state.hand)
         .chain(&mut state.shop)
-        .chain(prompts);
+        .chain(prompts)
+        .chain(gifts);
     for unit in units.filter(|u| is_cast_target(u)) {
         unit.id = id;
     }
@@ -970,6 +1081,19 @@ pub(crate) fn targeted_minion(cast: CastAtFn) -> CardHooks {
         .on_cast_at(cast)
         .with_spell_target(SpellTarget::Minion)
 }
+
+/// Hooks of a spell cast with `cast` on a minion in the Tavern, and only there.
+pub(crate) fn targeted_tavern_minion(cast: CastAtFn) -> CardHooks {
+    CardHooks::EMPTY
+        .on_cast_at(cast)
+        .with_spell_target(SpellTarget::TavernMinion)
+}
+
+/// The flags of a Spellcraft spell (`docs/tavern.md` §7.4): a temporary token spell, not a
+/// Tavern spell.
+pub(crate) const SPELLCRAFT: CardFlags = CardFlags::TEMPORARY
+    .union(CardFlags::NOT_TAVERN_SPELL)
+    .union(CardFlags::NOT_IN_POOL);
 
 /// Behaviour tables for all spells, Tavern and token, from their modules (registered in the card
 /// registry).
@@ -1065,6 +1189,12 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         (tokens::SPELL_POINTY_ARROW, pointy_arrow::hooks()),
         (tokens::SPELL_SLUDGE_CORROSION, sludge_corrosion::hooks()),
         (tokens::SPELL_TAVERN_COIN, tavern_coin::hooks()),
+        // Duos spells
+        (SPELL_PORTAL_IN_A_FOUNTAIN, portal_in_a_fountain::hooks()),
+        (SPELL_BARGAIN_BUNDLE, bargain_bundle::hooks()),
+        (SPELL_PORTAL_IN_A_CRYSTAL, portal_in_a_crystal::hooks()),
+        (SPELL_PRIVATE_SELECTION, private_selection::hooks()),
+        (SPELL_WELL_WISHES, well_wishes::hooks()),
     ];
     for (card_id, card_hooks) in &mut out {
         if BOUNTY_SPELL_IDS.contains(card_id) {

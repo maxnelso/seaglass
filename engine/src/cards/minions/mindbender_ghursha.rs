@@ -3,7 +3,7 @@
 //! Whenever you discard a card, give your other minions `+4/+4` (`+8/+8` if Golden).
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Tribe};
+use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -18,6 +18,7 @@ pub fn template() -> CardTemplate {
 pub fn after_friendly_discard(
     state: &mut TavernState,
     self_idx: usize,
+    _: &Unit,
     _: &mut CardPool,
     _: &mut Rng,
 ) {

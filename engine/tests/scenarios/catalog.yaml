@@ -3,12 +3,16 @@
 # - minions: every shop minion by Tavern Tier, in catalog order (`tier<N>_catalog()`; together
 #   they are `full_catalog()`), and minion_ids: each tier's card id range.
 # - duos_minions: the Duos-exclusive minions by Tavern Tier (`duos_exclusive_catalog()`): only in
-#   the Duos catalog (`catalog_for("duos")` = `full_catalog()` + these), never in a Solo one.
+#   the Duos catalog (`catalog_for("duos")` = `full_catalog()` + these), never in a Solo one; and
+#   duos_out_of_pool: those in no pool, as no lobby has their only type, Naga
+#   (`duos_out_of_pool_catalog()`).
 # - tiers: per Tavern Tier, the pool copies of each minion (`base_copies_for_tier`), the shop
 #   capacity (`shop_capacity`) and the cost to upgrade from it (`base_upgrade_cost`).
 # - spells: every Tavern spell by tier (`spells::tier<N>_spells()`), and not_in_pool: the Tavern
-#   spells never drawn into the shop or random spell pools.
-# - token_minions, token_spells, deities: the other cards that unit specs can name.
+#   spells never drawn into the shop or random spell pools; duos_spells: the Duos shop's Tavern
+#   spells by tier (`spells::duos_spells()`), in no Solo list.
+# - token_minions, token_spells, duos_token_spells, deities: the other cards that unit specs can
+#   name.
 #
 # Card ids are unique across all of these.
 
@@ -283,22 +287,37 @@ minion_ids:
   7: [701, 712]
 
 duos_minions:
+  1:  # 1
+    - Passenger
   2:  # 2
     - Wanderer Cho
     - Generous Geomancer
-  3:  # 1
+  3:  # 5
     - Wheeled Crewmate
-  4:  # 4
+    - Jumping Jack
+    - Orc-estra Conductor
+    - Puddle Prancer
+    - Voidpriest Cloner
+  4:  # 6
     - Feisty Freshwater
     - Grave Narrator
     - San'layn Scribe
     - Shifty Snake
-  5:  # 1
+    - Mantid King
+    - Mirror Monster
+  5:  # 2
     - C'Thrax Wrecker
+    - Well Wisher
   6:  # 1
     - Transport Reactor
   7:  # 1
     - Sandy
+
+duos_out_of_pool:
+  4:  # 1
+    - Private Chef
+  5:  # 1
+    - Storm Splitter
 
 tiers:
   1: {copies: 15, shop_capacity: 3, upgrade_cost: 5}
@@ -388,6 +407,13 @@ spells:
     - Sacred Gift
     - Sharing is Caring
 
+duos_spells:
+  3:  # 1
+    - Portal in a Fountain
+  5:  # 2
+    - Bargain Bundle
+    - Portal in a Crystal
+
 not_in_pool:
   - Gem Confiscation
   - Sludge Corrosion
@@ -422,6 +448,10 @@ token_spells:
   - Pointy Arrow
   - Arcane Absorption
   - Conflagration
+
+duos_token_spells:
+  - Private Selection
+  - Well Wishes
 
 deities:
   - C'Thun

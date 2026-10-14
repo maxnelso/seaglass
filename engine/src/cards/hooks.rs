@@ -62,6 +62,9 @@ impl CardFlags {
     /// Duos: while this has `charges` left, a Pass is free, using a charge
     /// (`docs/duos_tavern.md` §5.2).
     pub const FREE_PASS: CardFlags = CardFlags(1 << 13);
+    /// A temporary card: still in the hand when its player ends their turn, it is discarded,
+    /// without discard effects (a Spellcraft spell; `docs/tavern.md` §7.4).
+    pub const TEMPORARY: CardFlags = CardFlags(1 << 14);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -152,6 +155,8 @@ pub enum SpellTarget {
     FriendlyTyped,
     /// Any minion ("a minion"): a friendly one or one in the Tavern (cast with `cast_at`).
     Minion,
+    /// A minion in the Tavern, and only there ("a minion in the Tavern"; cast with `cast_at`).
+    TavernMinion,
 }
 
 // --- Hook signatures --------------------------------------------------------------------
@@ -273,6 +278,12 @@ card_hooks! {
     extra_magnetizations(on_extra_magnetizations): fn(&mut Unit) -> u32,
     /// This card was sold.
     sell(on_sell): CardEventFn,
+    /// "When you buy or Discover this": this card was bought (it is in the hand, its triple
+    /// checked) or Discovered (added to the hand); `card` is the card as it reached the hand.
+    obtained(on_obtained): CardEventFn,
+    /// Spellcraft: the spell this minion gives its player when it is played and at the start of
+    /// each turn (a [`CardFlags::TEMPORARY`] card; `docs/tavern.md` §7.4).
+    spellcraft(on_spellcraft): fn(&Unit) -> Unit,
     /// `Activate` ability (see also `activate_cost` / `activate_target`).
     activate(on_activate): ActivateFn,
     /// This option card was chosen from a Choose-One / Discover-style prompt.
@@ -315,8 +326,11 @@ card_hooks! {
     /// spell without one adds its stats to the target.
     cast(on_cast): CastFn,
     /// This spell is cast on `target`, a friendly minion or one in the Tavern, once per cast
-    /// (instead of `cast`; [`SpellTarget::Minion`] spells).
+    /// (instead of `cast`; [`SpellTarget::Minion`] and [`SpellTarget::TavernMinion`] spells).
     cast_at(on_cast_at): CastAtFn,
+    /// Which minions this targeted spell can be cast on, on top of its `spell_target` ("a
+    /// non-Golden minion").
+    spell_target_filter(on_spell_target_filter): fn(&Unit) -> bool,
 
     // ---- Observers: Tavern (fire for each friendly board unit, left to right) ----------
     /// Start of turn (after Gold is refreshed).
@@ -353,8 +367,8 @@ card_hooks! {
     after_buy(on_after_buy): fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng),
     /// After a card is Discovered.
     discover(on_discover): TavernFn,
-    /// After a card is discarded from hand.
-    after_friendly_discard(on_after_friendly_discard): TavernFn,
+    /// After a card is discarded from hand: `(state, self_idx, discarded, pool, rng)`.
+    after_friendly_discard(on_after_friendly_discard): CardObserverFn,
     /// A card was added to hand (Tavern or Combat): `(self, auras)`.
     card_added_to_hand(on_card_added_to_hand): fn(&Unit, &mut PlayerAuras),
     /// Hero is about to take Tavern damage: `(state, self_idx, amount)`. Whether the damage is

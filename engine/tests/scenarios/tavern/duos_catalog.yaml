@@ -17,8 +17,19 @@ scenarios:
     expect: {pool: {Wanderer Cho: 14}, pool_size: "$duos - 1"}
 
   - name: a_duos_shop_can_offer_wanderer_cho
-    seed: 12
+    seed: 26
     duos_tavern:
       players: [{tavern_tier: 2}, {tavern_tier: 2}]
     steps: [start_turn]
     expect: {players: {0: {shop: {any: Wanderer Cho}}}}
+
+  - name: a_solo_shop_never_offers_the_duos_spells
+    seed: 5
+    tavern: {include_shop_spells: true, tavern_tier: 6, gold: 60}
+    steps:
+      - repeat: 60
+        steps:
+          - refresh
+          - expect:
+              shop:
+                none: {card: {any_of: [Portal in a Fountain, Portal in a Crystal, Bargain Bundle]}}

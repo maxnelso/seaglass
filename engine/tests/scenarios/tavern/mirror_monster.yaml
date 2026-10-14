@@ -1,0 +1,80 @@
+card: Mirror Monster
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_4_all_4_4
+    tavern: {hand: [Mirror Monster]}
+    expect: {hand: [{card: Mirror Monster, stats: 4/4, tavern_tier: 4, tribe: all}]}
+
+  - name: buying_it_passes_an_extra_copy
+    description: The copy is not taken from the pool (only the bought one came from it).
+    duos_tavern:
+      players: [{gold: 3, shop: [Mirror Monster]}, {}]
+    steps:
+      - take_from_pool: Mirror Monster   # the shop's copy
+      - {player: 0, buy: Mirror Monster}
+    expect:
+      players: [{gold: 0, hand: [Mirror Monster]}, {hand: [Mirror Monster]}]
+      passes_this_turn: 1
+      pool: {Mirror Monster: 10}
+
+  - name: discovering_it_passes_an_extra_copy
+    duos_tavern:
+      players: [{discover_pending: [Mirror Monster, Joyous, Zoatroid]}, {}]
+    steps:
+      - {player: 0, choose_discover: Mirror Monster}
+    expect:
+      players: [{hand: [Mirror Monster]}, {hand: [Mirror Monster]}]
+      passes_this_turn: 1
+
+  - name: the_copy_is_the_card_as_it_was_bought
+    duos_tavern:
+      players: [{gold: 3, shop: ["Mirror Monster 6/7"]}, {}]
+    steps:
+      - {player: 0, buy: Mirror Monster}
+    expect:
+      players: [{hand: ["Mirror Monster 6/7"]}, {hand: ["Mirror Monster 6/7"]}]
+
+  - name: golden_passes_2_golden_copies
+    duos_tavern:
+      players: [{gold: 3, shop: ["golden Mirror Monster 8/8"]}, {}]
+    steps:
+      - {player: 0, buy: Mirror Monster}
+    expect:
+      players:
+        - {hand: ["golden Mirror Monster 8/8"]}
+        - {hand: ["golden Mirror Monster 8/8", "golden Mirror Monster 8/8"]}
+      passes_this_turn: 2
+
+  - name: the_pass_is_free_and_counts_as_the_teams_pass
+    duos_tavern:
+      players:
+        - {gold: 3, board: [Wanderer Cho, Passenger, Transport Reactor], shop: [Mirror Monster]}
+        - {}
+    steps:
+      - {player: 0, buy: Mirror Monster}
+    expect:
+      players:
+        - gold: 0
+          gold_spent_this_turn: 3
+          board: [{card: Wanderer Cho, charges: 1}, Passenger 3/4, Transport Reactor 6/6]
+        - {hand: [Mirror Monster]}
+
+  - name: the_copy_can_complete_the_teammates_triple
+    duos_tavern:
+      players: [{gold: 3, shop: [Mirror Monster]}, {hand: [Mirror Monster, Mirror Monster]}]
+    steps:
+      - {player: 0, buy: Mirror Monster}
+    expect:
+      players:
+        - {hand: [Mirror Monster]}
+        - {hand: [{card: Mirror Monster, is_golden: true}]}
+
+  - name: a_mirror_monster_passed_to_the_teammate_does_nothing
+    duos_tavern:
+      players: [{gold: 1, hand: [Mirror Monster]}, {}]
+    steps:
+      - {player: 0, pass: Mirror Monster}
+    expect:
+      players: [{hand: []}, {hand: [Mirror Monster]}]
+      passes_this_turn: 1

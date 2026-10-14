@@ -1,0 +1,34 @@
+card: Puddle Prancer
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_murloc_4_4
+    tavern: {hand: [Puddle Prancer]}
+    expect: {hand: [{card: Puddle Prancer, stats: 4/4, tavern_tier: 3, tribe: murloc}]}
+
+  - name: gains_4_4_each_time_it_is_passed
+    duos_tavern:
+      players: [{gold: 1, hand: [Puddle Prancer]}, {gold: 1}]
+    steps:
+      - {player: 0, pass: Puddle Prancer}
+      - expect: {players: {1: {hand: ["Puddle Prancer 8/8"]}}}
+      - {player: 1, pass: Puddle Prancer}
+    expect:
+      players: [{hand: ["Puddle Prancer 12/12"]}, {hand: []}]
+
+  - name: golden_gains_8_8
+    duos_tavern:
+      players: [{gold: 1, hand: ["golden Puddle Prancer 8/8"]}, {}]
+    steps:
+      - {player: 0, pass: 0}
+    expect:
+      players: {1: {hand: ["golden Puddle Prancer 16/16"]}}
+
+  - name: passed_by_a_card_it_gains_too
+    description: Portal in a Crystal Passes it from the board.
+    duos_tavern:
+      players: [{gold: 2, board: [Puddle Prancer], hand: [Portal in a Crystal]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect:
+      players: [{board: []}, {hand: ["Puddle Prancer 8/8"]}]

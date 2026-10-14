@@ -3,7 +3,7 @@
 use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
 use crate::model::{
-    BattleOutcome, CardId, CombatResult, GameState, PlayerAuras, Side, Tribe, Unit,
+    BattleOutcome, CardId, CombatResult, GameState, PlayerAuras, Side, TeammateGift, Tribe, Unit,
 };
 use crate::rng::Rng;
 
@@ -345,17 +345,38 @@ impl CardPool {
         if unit.is_spell {
             return;
         }
-        let copies = if unit.is_golden && !unit.intrinsic_golden && !unit.golden_from_effect {
-            3
-        } else {
-            1
-        };
+        let copies = Self::copies_of(unit);
         for entry in &mut self.entries {
             if entry.template.card_id == unit.card_id {
                 let cap = base_copies_for_tier(entry.template.tavern_tier);
                 entry.remaining = (entry.remaining + copies).min(cap);
                 break;
             }
+        }
+    }
+
+    /// Take a unit's copies back out of the shared card pool, as many as
+    /// [`return_unit`](Self::return_unit) returns (never below 0): the Duos `Jumping Jack`, Passed
+    /// once it is sold instead of going back to the pool.
+    pub fn take_unit(&mut self, unit: &Unit) {
+        if unit.is_spell {
+            return;
+        }
+        let copies = Self::copies_of(unit);
+        for entry in &mut self.entries {
+            if entry.template.card_id == unit.card_id {
+                entry.remaining = entry.remaining.saturating_sub(copies);
+                break;
+            }
+        }
+    }
+
+    /// The pool copies `unit` stands for (see [`return_unit`](Self::return_unit)).
+    fn copies_of(unit: &Unit) -> u32 {
+        if unit.is_golden && !unit.intrinsic_golden && !unit.golden_from_effect {
+            3
+        } else {
+            1
         }
     }
 }
@@ -770,6 +791,7 @@ impl TavernState {
             pool.return_unit(&card);
         } else {
             cards::on_first_play_or_magnetize(self, &mut card);
+            let spellcraft = cards::spellcraft_spell(&card);
             self.combine_choose_one = card.combine_choose_one;
             self.defer_combined_choose_one = true;
             self.play_slot = Some(board_pos.min(self.board.len()));
@@ -793,6 +815,9 @@ impl TavernState {
                 from_hand: true,
             };
             cards::after_play_minion(self, &played, pool, rng);
+            if let Some(spell) = spellcraft {
+                self.add_to_hand(spell);
+            }
             if should_die_on_play
                 && insert_idx < self.board.len()
                 && self.board[insert_idx].dies_on_play_this_turn
@@ -943,6 +968,18 @@ impl TavernState {
         self.sync_all_auras();
     }
 
+    /// Draw the spell the shop offers: a random Tavern spell of the Tavern's Tier or lower, or in a
+    /// Duos game a Duos spell too (`docs/duos_tavern.md` §8.3).
+    fn draw_shop_spell(&self, rng: &mut Rng) -> Unit {
+        cards::spells::draw_shop_spell(self.tavern_tier, self.auras.duos_game, rng)
+    }
+
+    /// Discard the temporary cards still in the hand ([`CardFlags::TEMPORARY`]: Spellcraft
+    /// spells), without discard effects (`docs/tavern.md` §7.4).
+    fn discard_temporary_cards(&mut self) {
+        self.hand.retain(|card| !cards::is_temporary(card));
+    }
+
     /// Perform a free shop Refresh (`Snarky Shark`).
     pub fn refresh_shop_free(&mut self, pool: &mut CardPool, rng: &mut Rng) {
         self.is_frozen = false;
@@ -957,8 +994,8 @@ impl TavernState {
             }
         }
         if self.include_shop_spells {
-            self.shop
-                .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
+            let spell = self.draw_shop_spell(rng);
+            self.shop.push(spell);
         }
         cards::after_shop_refresh(self, rng);
     }
@@ -977,14 +1014,15 @@ impl TavernState {
             }
         }
         if self.include_shop_spells {
-            self.shop
-                .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
+            let spell = self.draw_shop_spell(rng);
+            self.shop.push(spell);
         }
         cards::after_shop_refresh(self, rng);
     }
 
     /// Execute the start-of-turn sequence (`docs/tavern.md` §4).
     pub fn start_turn(&mut self, pool: &mut CardPool, rng: &mut Rng) {
+        self.discard_temporary_cards();
         let won_last = self.last_combat_won;
         self.last_combat_won = false;
         self.gold_spent_this_turn = 0;
@@ -1051,8 +1089,8 @@ impl TavernState {
                 }
             }
             if new_spell {
-                self.shop
-                    .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
+                let spell = self.draw_shop_spell(rng);
+                self.shop.push(spell);
             }
         } else {
             for old in self.shop.drain(..) {
@@ -1065,11 +1103,12 @@ impl TavernState {
                 }
             }
             if self.include_shop_spells {
-                self.shop
-                    .push(cards::spells::draw_random_tavern_spell(self.tavern_tier, rng));
+                let spell = self.draw_shop_spell(rng);
+                self.shop.push(spell);
             }
             cards::after_shop_refresh(self, rng);
         }
+        cards::on_start_turn_spellcrafts(self);
         self.sync_all_auras();
     }
 
@@ -1617,6 +1656,7 @@ impl TavernState {
             TavernAction::Buy { shop_index } => {
                 let mut unit = self.shop.remove(shop_index);
                 let bought_snapshot = unit.clone();
+                let obtained;
                 if unit.is_spell {
                     let cost = self.effective_spell_buy_cost(&unit);
                     self.auras.next_spell_discount = 0;
@@ -1625,16 +1665,19 @@ impl TavernState {
                     } else {
                         self.spend_gold(cost, pool, rng);
                     }
+                    obtained = unit.clone();
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                 } else {
                     self.spend_gold(3, pool, rng);
                     cards::on_minion_bought(self, &mut unit);
                     let cid = unit.card_id;
+                    obtained = unit.clone();
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
                 }
+                cards::on_obtained(self, &obtained, pool, rng);
                 cards::after_buy_card(self, &bought_snapshot, pool, rng);
                 Ok(false)
             }
@@ -1737,20 +1780,29 @@ impl TavernState {
                     return Ok(false);
                 }
 
-                for unchosen in &opts {
-                    pool.return_unit(unchosen);
+                for mut unchosen in opts {
+                    if std::mem::take(&mut unchosen.unchosen_to_teammate) {
+                        // Duos `Bargain Bundle`: the teammate gets the other options.
+                        self.auras.give_teammate(TeammateGift::Card(unchosen));
+                    } else {
+                        pool.return_unit(&unchosen);
+                    }
                 }
+                chosen.unchosen_to_teammate = false;
                 if chosen.discover_deals_tier_damage {
                     chosen.discover_deals_tier_damage = false;
                     let dmg = chosen.tavern_tier as i32;
                     self.deal_hero_damage(dmg);
                 }
+                let obtained = chosen.clone();
                 self.add_to_hand(chosen);
+                cards::on_obtained(self, &obtained, pool, rng);
                 cards::on_card_discovered(self, pool, rng);
                 Ok(false)
             }
             TavernAction::EndTurn => {
                 cards::on_end_turn(self, pool, rng);
+                self.discard_temporary_cards();
                 Ok(true)
             }
             TavernAction::Pass { .. } => Err(format!(

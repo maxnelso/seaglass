@@ -1,0 +1,111 @@
+card: Mantid King
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_4_3_3
+    tavern: {hand: [Mantid King]}
+    expect: {hand: [{card: Mantid King, stats: 3/3, tavern_tier: 4, tribe: none}]}
+
+  - name: after_a_team_pass_it_gains_a_keyword_until_next_turn
+    duos_tavern:
+      players: [{gold: 1, board: [Mantid King], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - expect:
+          players:
+            0:
+              board:
+                - any_of:
+                    - {venomous: true, taunt: false, divine_shield: false}
+                    - {venomous: false, taunt: true, divine_shield: false}
+                    - {venomous: false, taunt: false, divine_shield: true}
+      - start_turn
+    expect:
+      players: {0: {board: [{venomous: false, taunt: false, divine_shield: false}]}}
+
+  - name: it_gains_one_it_does_not_have
+    duos_tavern:
+      players: [{gold: 1, board: ["Mantid King taunt venomous"], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players: {0: {board: [{venomous: true, taunt: true, divine_shield: true}]}}
+
+  - name: three_passes_give_all_three
+    duos_tavern:
+      players: [{gold: 3, board: [Mantid King], hand: [Joyous, Zoatroid, Flittering Bat]}, {}]
+    steps:
+      - repeat: 3
+        steps: [{player: 0, pass: 0}]
+    expect:
+      players: {0: {board: [{venomous: true, taunt: true, divine_shield: true}]}}
+
+  - name: with_all_three_it_gains_nothing
+    duos_tavern:
+      players:
+        - {gold: 1, board: ["Mantid King taunt venomous divine_shield"], hand: [Joyous]}
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - start_turn   # they are its own: they stay
+    expect:
+      players: {0: {board: [{venomous: true, taunt: true, divine_shield: true}]}}
+
+  - name: the_teammates_pass_counts_too
+    duos_tavern:
+      players: [{board: ["Mantid King taunt venomous"]}, {gold: 1, hand: [Joyous]}]
+    steps:
+      - {player: 1, pass: Joyous}
+    expect:
+      players: {0: {board: [{divine_shield: true}]}}
+
+  - name: a_pass_by_a_card_effect_counts
+    description: Selling Jumping Jack Passes it.
+    duos_tavern:
+      players: [{board: [Jumping Jack, "Mantid King taunt venomous"]}, {}]
+    steps:
+      - {player: 0, sell: Jumping Jack}
+    expect:
+      players: {0: {board: [{card: Mantid King, divine_shield: true}]}}
+
+  - name: golden_keeps_them
+    duos_tavern:
+      players: [{gold: 1, board: ["golden Mantid King 6/6 taunt venomous"], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - start_turn
+    expect:
+      players: {0: {board: [{venomous: true, taunt: true, divine_shield: true}]}}
+
+  - name: tripled_its_keyword_until_next_turn_stays_temporary
+    description: >-
+      The King gains Taunt until next turn (the only one it lacks), then triples: the Golden, in
+      the hand, loses that Taunt at the start of the next turn and keeps its own keywords.
+    duos_tavern:
+      players:
+        - {gold: 1, board: ["Mantid King venomous divine_shield"], hand: [Joyous, Mantid King]}
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, add_to_hand: Mantid King}
+      - expect: {players: {0: {board: [], hand: [{card: Mantid King, is_golden: true, taunt: true}]}}}
+      - start_turn
+    expect:
+      players:
+        0: {hand: [{card: Mantid King, is_golden: true, taunt: false, venomous: true, divine_shield: true}]}
+
+  - name: tripled_with_a_copy_that_has_it_for_good_it_keeps_it
+    duos_tavern:
+      players:
+        - gold: 1
+          board: ["Mantid King venomous divine_shield"]
+          hand: [Joyous, "Mantid King taunt"]
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - expect: {players: {0: {board: [{taunt: true}]}}}
+      - {player: 0, add_to_hand: Mantid King}
+      - start_turn
+    expect:
+      players:
+        0: {hand: [{card: Mantid King, is_golden: true, taunt: true, venomous: true, divine_shield: true}]}

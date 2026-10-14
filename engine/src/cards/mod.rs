@@ -19,15 +19,16 @@ pub mod volumizers;
 
 pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
 pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
-pub use registry::{all_templates, duos_exclusive_templates, hooks, template};
-
-use registry::plain_instance;
+pub use registry::{
+    all_templates, duos_exclusive_templates, duos_out_of_pool_templates, hooks, plain_instance,
+    template,
+};
 
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
 use crate::model::{
-    CardId, CombatResult, Keyword, PlayerAuras, PlayerEffect, Side, Tribe, Unit, UnitId,
-    BONUS_KEYWORDS,
+    CardId, CombatResult, Keyword, PlayerAuras, PlayerEffect, Side, TeammateGift, Tribe, Unit,
+    UnitId, BONUS_KEYWORDS,
 };
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
@@ -1286,6 +1287,28 @@ pub fn on_player_turn_start(state: &mut TavernState) {
     effects::turn_start(state);
 }
 
+/// The Spellcraft spell `unit` gives its player (its `spellcraft` hook), if it has one.
+pub fn spellcraft_spell(unit: &Unit) -> Option<Unit> {
+    hooks(unit.card_id)
+        .spellcraft
+        .map(|spellcraft| spellcraft(unit))
+}
+
+/// Start of turn, once the shop is filled: each Spellcraft minion on the board gives its spell,
+/// left to right, while the hand has room (`docs/tavern.md` §4).
+pub fn on_start_turn_spellcrafts(state: &mut TavernState) {
+    let spells: Vec<Unit> = state.board.iter().filter_map(spellcraft_spell).collect();
+    for spell in spells {
+        state.add_to_hand(spell);
+    }
+}
+
+/// `true` if `card` is a temporary card ([`CardFlags::TEMPORARY`]), discarded at the end of
+/// its player's turn.
+pub fn is_temporary(card: &Unit) -> bool {
+    hooks(card.card_id).has(CardFlags::TEMPORARY)
+}
+
 /// Apply End-of-Turn triggers when `EndTurn` is taken, repeated per
 /// [`Passive::EndOfTurnTriggers`]: Magnetized Health bonuses, then each minion's `end_of_turn`
 /// hook, left to right.
@@ -1361,6 +1384,14 @@ pub fn after_buy_card(state: &mut TavernState, bought: &Unit, pool: &mut CardPoo
         |h| h.after_buy,
         |s, idx, f| f(s, idx, bought, pool, rng),
     );
+}
+
+/// "When you buy or Discover this": `card`, as it reached the hand, was bought or Discovered
+/// (its own `obtained` hook).
+pub fn on_obtained(state: &mut TavernState, card: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(obtained) = hooks(card.card_id).obtained {
+        obtained(state, card, pool, rng);
+    }
 }
 
 /// Apply `discover` observers (left to right) after a card is Discovered.
@@ -1469,7 +1500,7 @@ pub fn on_discard_hand_card(
     notify_tavern(
         state,
         |h| h.after_friendly_discard,
-        |s, idx, f| f(s, idx, pool, rng),
+        |s, idx, f| f(s, idx, discarded, pool, rng),
     );
     if let Some(on_discarded) = hooks(discarded.card_id).discarded {
         on_discarded(state, discarded, pool, rng);
@@ -2222,6 +2253,29 @@ pub fn after_teammate_sell(
         |h| h.after_teammate_sell,
         |s, idx, f| f(s, idx, sold, pool, rng),
     );
+}
+
+/// A card Passes the friendly minion `state.board[pos]` (`Well Wishes`, `Portal in a Crystal`;
+/// `docs/duos_tavern.md` §8.3): it leaves the board, without going back to the pool, and is
+/// Passed with its stats (a `Pass` gift).
+pub fn pass_board_minion(state: &mut TavernState, pos: usize) {
+    if pos >= state.board.len() {
+        return;
+    }
+    let minion = state.board.remove(pos);
+    sync_board_spell_auras(&state.board, &mut state.auras);
+    state.auras.give_teammate(TeammateGift::Pass(minion));
+}
+
+/// A card Passes the minion `state.shop[idx]` in the Tavern (`Portal in a Fountain`;
+/// `docs/duos_tavern.md` §8.3): it leaves the shop, without going back to the pool, and is
+/// Passed with its stats (a `Pass` gift).
+pub fn pass_shop_minion(state: &mut TavernState, idx: usize) {
+    if state.minion(MinionSlot::Shop(idx)).is_none() {
+        return;
+    }
+    let minion = state.shop.remove(idx);
+    state.auras.give_teammate(TeammateGift::Pass(minion));
 }
 
 /// The `Effect` gift of the card `card_id` reaches `state`'s Tavern with `amount` (its

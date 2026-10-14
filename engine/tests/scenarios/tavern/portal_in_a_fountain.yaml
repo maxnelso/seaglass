@@ -1,0 +1,62 @@
+card: Portal in a Fountain
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_tavern_spell_for_3_gold
+    duos_tavern:
+      players: [{gold: 3, shop: [Portal in a Fountain]}, {}]
+    steps:
+      - {player: 0, buy: Portal in a Fountain}
+    expect:
+      players: {0: {gold: 0, hand: [{card: Portal in a Fountain, is_spell: true, tavern_tier: 3}]}}
+
+  - name: passes_a_minion_in_the_tavern
+    description: It leaves the shop without going back to the pool.
+    duos_tavern:
+      players: [{hand: [Portal in a Fountain], shop: [Joyous, "Zoatroid 3/3"]}, {}]
+    steps:
+      - take_from_pool: Zoatroid
+      - {player: 0, play: {hand: 0, shop: 1}}
+    expect:
+      players: [{hand: [], shop: [Joyous]}, {hand: ["Zoatroid 3/3"]}]
+      passes_this_turn: 1
+      pool: {Zoatroid: 14}
+
+  - name: not_a_minion_on_the_board
+    duos_tavern:
+      players: [{board: [Joyous], hand: [Portal in a Fountain], shop: [Zoatroid]}, {}]
+    steps:
+      - {player: 0, expect_illegal: {play: {hand: 0, pos: 0}}}
+      - {player: 0, expect_legal: {play: {hand: 0, shop: 0}}}
+
+  - name: the_pass_is_free_and_counts_as_the_teams_pass
+    duos_tavern:
+      players:
+        - gold: 0
+          board: [Wanderer Cho, Passenger, Transport Reactor]
+          hand: [Portal in a Fountain]
+          shop: [Joyous]
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, shop: 0}}
+    expect:
+      players:
+        - gold: 0
+          board: [{card: Wanderer Cho, charges: 1}, Passenger 3/4, Transport Reactor 6/6]
+        - {hand: [Joyous]}
+
+  - name: it_counts_as_a_tavern_spell
+    duos_tavern:
+      players: [{hand: [Portal in a Fountain], shop: [Joyous]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, shop: 0}}
+    expect:
+      players: {0: {auras: {tavern_spells_cast: 1}}}
+
+  - name: a_duos_shop_can_offer_it
+    description: In a Duos game the shop's spell can be a Duos spell of its Tier or lower.
+    seed: 16
+    duos_tavern:
+      players: [{tavern_tier: 3, include_shop_spells: true}, {tavern_tier: 3}]
+    steps: [start_turn]
+    expect: {players: {0: {shop: {-1: {card: Portal in a Fountain, is_spell: true}}}}}

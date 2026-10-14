@@ -1,0 +1,67 @@
+card: Bargain Bundle
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_5_tavern_spell_for_5_gold
+    duos_tavern:
+      players: [{gold: 5, shop: [Bargain Bundle]}, {}]
+    steps:
+      - {player: 0, buy: Bargain Bundle}
+    expect:
+      players: {0: {gold: 0, hand: [{card: Bargain Bundle, is_spell: true, tavern_tier: 5}]}}
+
+  - name: the_teammate_gets_the_other_options
+    description: >-
+      3 minions of the player's Tier or lower from the pool; the other 2 go to the teammate
+      instead of back to the pool. They are gifts, not Passes.
+    duos_tavern:
+      players: [{tavern_tier: 2, hand: [Bargain Bundle]}, {}]
+    steps:
+      - expect: {pool_size: {capture: before}}
+      - {player: 0, play: Bargain Bundle}
+      - expect:
+          players:
+            0:
+              discover_pending:
+                count: 3
+                all: {tavern_tier: "<= 2", is_spell: false}
+                0: {card: {capture: a}}
+                1: {card: {capture: b}}
+                2: {card: {capture: c}}
+      - {player: 0, choose_discover: 1}
+    expect:
+      players:
+        - {hand: [{card: {same_as: b}}], discover_pending: null}
+        - {hand: [{card: {same_as: a}}, {card: {same_as: c}}]}
+      passes_this_turn: 0
+      pool_size: "$before - 3"
+
+  - name: the_options_are_not_passes
+    duos_tavern:
+      players: [{tavern_tier: 2, board: [Passenger], hand: [Bargain Bundle]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+      - {player: 0, choose_discover: 0}
+    expect:
+      players: [{board: ["Passenger 2/2"]}, {hand: {count: 2}}]
+      passes_this_turn: 0
+
+  - name: other_discovers_return_their_options_to_the_pool
+    description: Only Bargain Bundle's options go to the teammate.
+    duos_tavern:
+      players: [{tavern_tier: 2, hand: [Hired Headhunter]}, {}]
+    steps:
+      - expect: {pool_size: {capture: before}}
+      - {player: 0, play: Hired Headhunter}
+      - {player: 0, choose_discover: 0}
+    expect:
+      players: [{hand: {count: 1}}, {hand: []}]
+      pool_size: "$before - 1"
+
+  - name: a_duos_shop_can_offer_it
+    description: In a Duos game the shop's spell can be a Duos spell of its Tier or lower.
+    seed: 79
+    duos_tavern:
+      players: [{tavern_tier: 5, include_shop_spells: true}, {tavern_tier: 5}]
+    steps: [start_turn]
+    expect: {players: {0: {shop: {-1: {card: Bargain Bundle, is_spell: true}}}}}

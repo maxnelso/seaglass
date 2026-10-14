@@ -1,0 +1,66 @@
+card: Passenger
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_1_2_2
+    tavern: {hand: [Passenger]}
+    expect: {hand: [{card: Passenger, stats: 2/2, tavern_tier: 1, tribe: none}]}
+
+  - name: gains_1_2_the_first_time_the_team_passes_each_turn
+    duos_tavern:
+      players: [{gold: 2, board: [Passenger], hand: [Joyous, Zoatroid]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - expect: {players: {0: {board: ["Passenger 3/4"]}}}
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: {0: {board: ["Passenger 3/4"]}}
+      passes_this_turn: 2
+
+  - name: the_teammates_pass_counts_too
+    duos_tavern:
+      players: [{board: [Passenger]}, {gold: 1, hand: [Joyous]}]
+    steps:
+      - {player: 1, pass: Joyous}
+    expect:
+      players: {0: {board: ["Passenger 3/4"]}}
+
+  - name: it_gains_again_the_next_turn
+    duos_tavern:
+      players: [{gold: 1, board: [Passenger], hand: [Joyous]}, {gold: 1, hand: [Zoatroid]}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 1, pass: Zoatroid}
+      - expect: {players: {0: {board: ["Passenger 3/4"]}}}
+      - start_turn
+      - {player: 1, pass: Joyous}
+    expect:
+      players: {0: {board: ["Passenger 4/6"]}}
+
+  - name: golden_gains_2_4
+    duos_tavern:
+      players: [{gold: 1, board: ["golden Passenger 4/4"], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players: {0: {board: ["golden Passenger 6/8"]}}
+
+  - name: played_after_the_teams_first_pass_it_gains_nothing_that_turn
+    duos_tavern:
+      players: [{gold: 2, hand: [Passenger, Joyous, Zoatroid]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, play: Passenger}
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: {0: {board: ["Passenger 2/2"]}}
+
+  - name: a_pass_by_a_card_effect_counts
+    description: Selling Jumping Jack Passes it (free) - the team's first Pass of the turn.
+    duos_tavern:
+      players: [{gold: 0, board: [Jumping Jack, Passenger]}, {}]
+    steps:
+      - {player: 0, sell: Jumping Jack}
+    expect:
+      players: {0: {gold: 1, board: ["Passenger 3/4"]}}
+      passes_this_turn: 1

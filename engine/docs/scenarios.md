@@ -374,12 +374,14 @@ The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
   `catalog_for("tierN")`), every minion's `tavern_tier`, `full_catalog()`; `minion_ids`: each
   tier's card id range;
 - `duos_minions`: the Duos-exclusive minions by tier (`duos_exclusive_catalog()`), and
-  `catalog_for("duos")`: `full_catalog()` followed by them;
+  `catalog_for("duos")`: `full_catalog()` followed by them; `duos_out_of_pool`: those in no pool
+  (`duos_out_of_pool_catalog()`, the Naga-only ones);
 - `tiers`: each tier's pool copies per minion (`base_copies_for_tier`), shop capacity
   (`shop_capacity`) and upgrade cost (`base_upgrade_cost`; Tier 7 has neither);
 - `spells`: each tier's Tavern spells (`spells::tierN_spells()`, `spells_up_to_tier`);
-  `not_in_pool`: the Tavern spells the shop never offers;
-- `token_minions`, `token_spells`, `deities`;
+  `not_in_pool`: the Tavern spells the shop never offers; `duos_spells`: the Duos shop's Tavern
+  spells by tier (`spells::duos_spells()`);
+- `token_minions`, `token_spells`, `duos_token_spells`, `deities`;
 - card ids and names are unique across all cards, and unit specs can name every card.
 
 The `coverage` test checks that every

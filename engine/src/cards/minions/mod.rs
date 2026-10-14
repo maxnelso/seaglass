@@ -138,6 +138,7 @@ pub mod intrepid_botanist;
 pub mod iron_groundskeeper;
 pub mod jailbird_juggernaut;
 pub mod joyous;
+pub mod jumping_jack;
 pub mod kalecgos_arcane_aspect;
 pub mod kelp_keeper;
 pub mod laboratory_assistant;
@@ -154,12 +155,14 @@ pub mod lurking_lionfish;
 pub mod magicfin_mycologist;
 pub mod malchezaar_prince_of_dance;
 pub mod mangled_bandit;
+pub mod mantid_king;
 pub mod maritime_extortionist;
 pub mod maw_caster;
 pub mod mechagnome_interpreter;
 pub mod mind_muck;
 pub mod mindbender_ghursha;
 pub mod mindbending_recruiter;
+pub mod mirror_monster;
 pub mod mummifier;
 pub mod mysterious_kthir;
 pub mod nadina_the_red;
@@ -170,15 +173,19 @@ pub mod nraqi_frostcaller;
 pub mod nraqi_sapper;
 pub mod obsidian_ravager;
 pub mod ominous_seer;
+pub mod orc_estra_conductor;
 pub mod parasitic_fleshling;
+pub mod passenger;
 pub mod patient_scout;
 pub mod persistent_poet;
 pub mod plaguerunner;
 pub mod polarizing_beatboxer;
 pub mod primalfin_lookout;
+pub mod private_chef;
 pub mod prodigious_tusker;
 pub mod prosthetic_hand;
 pub mod proud_privateer;
+pub mod puddle_prancer;
 pub mod ravaging_scorpid;
 pub mod razorfen_flapper;
 pub mod razorfen_geomancer;
@@ -226,6 +233,7 @@ pub mod sprightly_scarab;
 pub mod stalwart_kodo;
 pub mod stitched_salvager;
 pub mod stone_age_slab;
+pub mod storm_splitter;
 pub mod surfing_sylvar;
 pub mod suspicious_prisonguard;
 pub mod tad;
@@ -258,9 +266,11 @@ pub mod very_hungry_winterfinner;
 pub mod veteran_brigand;
 pub mod vicious_mindslasher;
 pub mod victorious_geomant;
+pub mod voidpriest_cloner;
 pub mod wanderer_cho;
 pub mod wandering_willbreaker;
 pub mod waveling;
+pub mod well_wisher;
 pub mod wheeled_crewmate;
 pub mod wildfire_elemental;
 pub mod wolf_pup;
@@ -543,18 +553,29 @@ pub fn catalog() -> Vec<CardTemplate> {
 /// group.
 pub fn duos_catalog() -> Vec<CardTemplate> {
     vec![
+        // Tier 1
+        passenger::template(),
         // Tier 2
         wanderer_cho::template(),
         generous_geomancer::template(),
         // Tier 3
         wheeled_crewmate::template(),
+        jumping_jack::template(),
+        orc_estra_conductor::template(),
+        puddle_prancer::template(),
+        voidpriest_cloner::template(),
         // Tier 4
         feisty_freshwater::template(),
         grave_narrator::template(),
         sanlayn_scribe::template(),
         shifty_snake::template(),
+        mantid_king::template(),
+        mirror_monster::template(),
+        private_chef::template(),
         // Tier 5
         cthrax_wrecker::template(),
+        storm_splitter::template(),
+        well_wisher::template(),
         // Tier 6
         transport_reactor::template(),
         // Tier 7

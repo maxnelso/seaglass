@@ -3,7 +3,7 @@
 //! Whenever you discard a card, give your Deity `+2/+1` (`+4/+2` if Golden) and improve this.
 
 use crate::cards::CardTemplate;
-use crate::model::{CardId, Tribe};
+use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -18,6 +18,7 @@ pub fn template() -> CardTemplate {
 pub fn after_friendly_discard(
     state: &mut TavernState,
     self_idx: usize,
+    _: &Unit,
     _: &mut CardPool,
     _: &mut Rng,
 ) {

@@ -1,0 +1,65 @@
+card: Storm Splitter
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_5_naga_5_5_in_no_pool
+    duos_tavern:
+      players: [{hand: [Storm Splitter]}, {}]
+    expect:
+      players: {0: {hand: [{card: Storm Splitter, stats: 5/5, tavern_tier: 5, tribe: naga}]}}
+      pool: {Storm Splitter: null}
+
+  - name: after_passing_a_tavern_spell_it_gets_a_new_copy
+    duos_tavern:
+      players: [{gold: 1, board: [Storm Splitter], hand: [Fortify]}, {}]
+    steps:
+      - {player: 0, pass: Fortify}
+    expect:
+      players:
+        - {gold: 0, hand: [{card: Fortify, is_spell: true}], board: [{card: Storm Splitter, charges: 0}]}
+        - {hand: [Fortify]}
+
+  - name: once_per_turn
+    duos_tavern:
+      players: [{gold: 2, board: [Storm Splitter], hand: [Fortify, Tavern Coin]}, {}]
+    steps:
+      - {player: 0, pass: Fortify}
+      - {player: 0, pass: Tavern Coin}
+    expect:
+      players: [{hand: [Fortify]}, {hand: [Fortify, Tavern Coin]}]
+
+  - name: its_use_comes_back_each_turn
+    duos_tavern:
+      players: [{board: [{card: Storm Splitter, charges: 0}]}, {}]
+    steps:
+      - start_turn
+    expect:
+      players: {0: {board: [{card: Storm Splitter, charges: 1}]}}
+
+  - name: golden_gets_2_copies
+    duos_tavern:
+      players: [{gold: 1, board: ["golden Storm Splitter 10/10"], hand: [Fortify]}, {}]
+    steps:
+      - {player: 0, pass: Fortify}
+    expect:
+      players: [{hand: [Fortify, Fortify]}, {hand: [Fortify]}]
+
+  - name: not_after_passing_a_minion_or_a_blood_gem
+    duos_tavern:
+      players: [{gold: 3, board: [Storm Splitter], hand: [Joyous, Blood Gem, Fortify]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, pass: Blood Gem}
+      - expect: {players: {0: {hand: [Fortify], board: [{charges: 1}]}}}
+      - {player: 0, pass: Fortify}
+    expect:
+      players: [{hand: [Fortify]}, {hand: [Joyous, Blood Gem, Fortify]}]
+
+  - name: not_after_the_teammate_passes_one
+    description: The Fortify the teammate Passed arrives; no copy.
+    duos_tavern:
+      players: [{board: [Storm Splitter]}, {gold: 1, hand: [Fortify]}]
+    steps:
+      - {player: 1, pass: Fortify}
+    expect:
+      players: [{hand: [Fortify], board: [{charges: 1}]}, {hand: []}]
