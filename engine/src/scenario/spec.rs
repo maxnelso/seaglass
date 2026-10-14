@@ -13,11 +13,11 @@
 //!     expect: {auras: {deity: {attack: 3, health: 2}}}
 //! ```
 //!
-//! A scenario runs in one of four modes: a Tavern (the default, `tavern:`), a standalone
-//! combat (`combat:`, simulated before the steps), a standalone Duos combat (`duos:`, likewise)
-//! or a batch of combats (`combat:` or `duos:`, and `batch:`, only `expect:`). A scenario that
-//! does not compile still loads; it fails with [`Failure::Invalid`](super::Failure::Invalid)
-//! when run.
+//! A scenario runs in one of five modes: a Tavern (the default, `tavern:`), a Duos team's Tavern
+//! (`duos_tavern:`, whose steps name their player: `{player: 1, pass: 0}`), a standalone combat
+//! (`combat:`, simulated before the steps), a standalone Duos combat (`duos:`, likewise) or a
+//! batch of combats (`combat:` or `duos:`, and `batch:`, only `expect:`). A scenario that does
+//! not compile still loads; it fails with [`Failure::Invalid`](super::Failure::Invalid) when run.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -72,6 +72,9 @@ pub(super) struct Body {
 pub(super) enum Setup {
     /// A Tavern: `TavernState::new()` patched by `patch`, with a pool of the catalog `catalog`.
     Tavern { catalog: String, patch: Value },
+    /// A Duos team's Tavern: `DuosTavern::new()` patched by `patch`, with a pool of the catalog
+    /// `catalog`.
+    DuosTavern { catalog: String, patch: Value },
     /// A standalone combat, simulated before the steps.
     Combat(CombatPlan),
     /// A batch of combats (`simulate_batch`).
@@ -86,6 +89,8 @@ pub(super) enum Setup {
 pub(super) struct Step {
     /// The step as written (compact), for messages.
     pub desc: String,
+    /// The player a Duos Tavern step is for (`{player: 1, pass: 0}`).
+    pub player: Option<usize>,
     pub kind: StepKind,
 }
 
@@ -105,6 +110,8 @@ pub(super) enum StepKind {
     /// `Unit::play_blood_gems(count, auras)` on one card.
     PlayBloodGems(Zone, Index, u32),
     Fight(Box<FightPlan>),
+    /// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
+    DuosFight(Box<DuosFightPlan>),
     Simulate(Box<CombatPlan>),
     Expect(Value),
     ExpectError(Action),
@@ -182,6 +189,8 @@ pub(super) enum Action {
     ToggleFreeze,
     ChooseDiscover(Index),
     EndTurn,
+    /// Duos: Pass the hand card `hand` to the teammate.
+    Pass(Index),
 }
 
 /// Either given in the scenario, or `tavern` (copied from the Tavern when the step runs).
@@ -223,6 +232,14 @@ pub(super) struct DuosPlan {
     pub team_b: DuosTeam,
 }
 
+/// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
+#[derive(Debug)]
+pub(super) struct DuosFightPlan {
+    pub seed: Option<u64>,
+    /// The opponent team: its two warbands and the one that fights first.
+    pub team: DuosTeam,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawScenario {
@@ -240,6 +257,8 @@ struct RawScenario {
     seeds: Option<Value>,
     #[serde(default)]
     tavern: Option<Value>,
+    #[serde(default)]
+    duos_tavern: Option<Value>,
     #[serde(default)]
     combat: Option<Value>,
     #[serde(default)]
@@ -318,15 +337,36 @@ struct RawWarband {
     hero_tier: u32,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDuosFight {
+    #[serde(default)]
+    seed: Option<u64>,
+    team: Value,
+    #[serde(default)]
+    first: usize,
+}
+
 fn tier_one() -> u32 {
     1
 }
 
 const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, refresh, \
-    upgrade_tavern, toggle_freeze, choose_discover, end_turn, add_to_hand, push_board, \
+    upgrade_tavern, toggle_freeze, choose_discover, end_turn, pass, add_to_hand, push_board, \
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
     expect_legal, expect_illegal, if/then/else, repeat/steps";
+
+/// The steps that are only a name (`end_turn`); tagged with a player they are written
+/// `{player: 1, end_turn}`.
+const NAME_STEPS: [&str; 6] = [
+    "start_turn",
+    "sync_all_auras",
+    "refresh",
+    "upgrade_tavern",
+    "toggle_freeze",
+    "end_turn",
+];
 
 impl ScenarioFile {
     /// Load and validate the scenario file at `path`.
@@ -391,19 +431,28 @@ impl ScenarioFile {
             if !raw.is_mapping() {
                 return Err(format!("scenario #{} is not a mapping", i + 1));
             }
-            // A scenario's own mode wins: its `combat:` or `duos:` drops the default `tavern:`
-            // and the other of the two, and its `tavern:` drops the default `combat:`, `duos:`
-            // and `batch:`.
+            // A scenario's own mode wins: its `combat:` or `duos:` drops the default `tavern:`,
+            // `duos_tavern:` and the other of the two, its `tavern:` or `duos_tavern:` drops the
+            // default `combat:`, `duos:`, `batch:` and the other of the two.
             let mut base = defaults.clone();
             if raw.get("combat").is_some() {
                 base.remove("tavern");
+                base.remove("duos_tavern");
                 base.remove("duos");
             }
             if raw.get("duos").is_some() {
                 base.remove("tavern");
+                base.remove("duos_tavern");
                 base.remove("combat");
             }
             if raw.get("tavern").is_some() {
+                base.remove("duos_tavern");
+                base.remove("combat");
+                base.remove("duos");
+                base.remove("batch");
+            }
+            if raw.get("duos_tavern").is_some() {
+                base.remove("tavern");
                 base.remove("combat");
                 base.remove("duos");
                 base.remove("batch");
@@ -474,17 +523,32 @@ fn compile_body(value: Value) -> Result<Body, String> {
     if let Some(expect) = raw.expect {
         steps.push(Step {
             desc: "expect".to_string(),
+            player: None,
             kind: StepKind::Expect(expect),
         });
     }
     let modes = [
         raw.tavern.is_some(),
+        raw.duos_tavern.is_some(),
         raw.combat.is_some(),
         raw.duos.is_some(),
     ];
     if modes.into_iter().filter(|&mode| mode).count() > 1 {
-        return Err("`tavern`, `combat` and `duos` are exclusive".to_string());
+        return Err("`tavern`, `duos_tavern`, `combat` and `duos` are exclusive".to_string());
     }
+    if let Some(duos_tavern) = raw.duos_tavern {
+        if raw.batch.is_some() {
+            return Err("`batch` needs `combat` or `duos`".to_string());
+        }
+        team_steps(&mut steps)?;
+        let (catalog, patch) = compile_duos_tavern(duos_tavern)?;
+        return Ok(Body {
+            seeds,
+            setup: Setup::DuosTavern { catalog, patch },
+            steps,
+        });
+    }
+    solo_steps(&steps)?;
     let setup = match (raw.tavern, raw.combat, raw.duos, raw.batch) {
         (_, None, None, Some(_)) => return Err("`batch` needs `combat` or `duos`".to_string()),
         (_, Some(combat), _, Some(batch)) => {
@@ -656,16 +720,205 @@ fn check_batch(has_steps: bool, batch: &Batch) -> Result<(), String> {
     Ok(())
 }
 
+/// Outside a `duos_tavern:` scenario, steps name no player and fight no team.
+fn solo_steps(steps: &[Step]) -> Result<(), String> {
+    for step in steps {
+        if step.player.is_some() {
+            return Err(format!(
+                "step `{}`: `player:` is only for the steps of a `duos_tavern:` scenario",
+                step.desc
+            ));
+        }
+        match &step.kind {
+            StepKind::DuosFight(_) => {
+                return Err(format!(
+                    "step `{}`: `fight: {{team: ...}}` is a Duos team's fight (a `duos_tavern:` \
+                     scenario)",
+                    step.desc
+                ))
+            }
+            StepKind::If {
+                then, otherwise, ..
+            } => {
+                solo_steps(then)?;
+                solo_steps(otherwise)?;
+            }
+            StepKind::Repeat { steps, .. } => solo_steps(steps)?,
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// In a `duos_tavern:` scenario, a player's steps name their player (`{player: 1, pass: 0}`)
+/// and the team's steps (`start_turn`, `fight: {team: ...}`, `take_from_pool`, `expect`) don't;
+/// `set` is the team's or, with a player, theirs. Team `set` patches take `players` as a list.
+fn team_steps(steps: &mut [Step]) -> Result<(), String> {
+    for step in steps {
+        let desc = &step.desc;
+        match (&mut step.kind, step.player) {
+            (
+                StepKind::If {
+                    then, otherwise, ..
+                },
+                _,
+            ) => {
+                team_steps(then)?;
+                team_steps(otherwise)?;
+            }
+            (StepKind::Repeat { steps, .. }, _) => team_steps(steps)?,
+            (StepKind::Set(patch), None) => {
+                *patch =
+                    team_patch(patch.clone(), "set").map_err(|e| format!("step `{desc}`: {e}"))?
+            }
+            (StepKind::Set(patch), Some(_)) => {
+                player_patch(patch, "set").map_err(|e| format!("step `{desc}`: {e}"))?
+            }
+            (StepKind::Fight(_) | StepKind::Simulate(_), _) => {
+                return Err(format!(
+                    "step `{desc}`: a Duos team fights an opponent team: \
+                     `fight: {{team: [<warband>, <warband>], first, seed}}`"
+                ))
+            }
+            (
+                StepKind::StartTurn
+                | StepKind::TakeFromPool(_)
+                | StepKind::DuosFight(_)
+                | StepKind::Expect(_),
+                Some(_),
+            ) => {
+                return Err(format!(
+                    "step `{desc}`: this is a team step: it takes no `player:`"
+                ))
+            }
+            (
+                StepKind::StartTurn
+                | StepKind::TakeFromPool(_)
+                | StepKind::DuosFight(_)
+                | StepKind::Expect(_),
+                None,
+            ) => {}
+            (_, None) => {
+                return Err(format!(
+                    "step `{desc}`: a player's step needs `player: 0` or `player: 1` \
+                     (`{{player: 1, pass: 0}}`)"
+                ))
+            }
+            (_, Some(_)) => {}
+        }
+    }
+    Ok(())
+}
+
+/// The setup of a `duos_tavern:` scenario: its catalog (default `duos`) and its `DuosTavern`
+/// patch.
+fn compile_duos_tavern(value: Value) -> Result<(String, Value), String> {
+    let mut patch = match value {
+        Value::Null => Mapping::new(),
+        Value::Mapping(m) => m,
+        other => {
+            return Err(format!(
+                "`duos_tavern:` must be a mapping, got {}",
+                show(&other)
+            ))
+        }
+    };
+    let catalog = match patch.remove("catalog") {
+        None => "duos".to_string(),
+        Some(Value::String(name)) => name,
+        Some(other) => {
+            return Err(format!(
+                "`duos_tavern.catalog` must be a catalog name, got {}",
+                show(&other)
+            ))
+        }
+    };
+    cards::catalog_for(&catalog).map_err(|e| format!("duos_tavern.catalog: {e}"))?;
+    let patch = team_patch(Value::Mapping(patch), "duos_tavern")?;
+    Ok((catalog, patch))
+}
+
+/// A `DuosTavern` patch: `players` may list the two players' patches (`[<player 0>, <player
+/// 1>]`, `null` for no change); a player's patch can't set the team's Health or Armor.
+fn team_patch(value: Value, path: &str) -> Result<Value, String> {
+    let Value::Mapping(mut fields) = value else {
+        return Ok(value);
+    };
+    if let Some(players) = fields.get_mut("players") {
+        if let Value::Sequence(list) = players {
+            if list.len() != 2 {
+                return Err(format!(
+                    "`{path}.players` lists the two players' patches (player 0, player 1), got \
+                     {} item(s)",
+                    list.len()
+                ));
+            }
+            let mut by_index = Mapping::new();
+            for (i, player) in list.iter().enumerate() {
+                if !player.is_null() {
+                    by_index.insert(Value::from(i as u64), player.clone());
+                }
+            }
+            *players = Value::Mapping(by_index);
+        }
+        if let Value::Mapping(by_index) = players {
+            for (i, player) in by_index.iter() {
+                player_patch(player, &format!("{path}.players[{}]", show(i)))?;
+            }
+        }
+    }
+    Ok(Value::Mapping(fields))
+}
+
+/// A player's patch can't set `health` or `armor`: they are the team's
+/// (`docs/duos_tavern.md` §3).
+fn player_patch(value: &Value, path: &str) -> Result<(), String> {
+    if let Some(fields) = value.as_mapping() {
+        for key in ["health", "armor"] {
+            if fields.contains_key(key) {
+                return Err(format!(
+                    "`{path}.{key}`: Health and Armor are the team's: set `{key}` on the team"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn compile_steps(list: &[Value], prefix: &str) -> Result<Vec<Step>, String> {
     list.iter()
         .enumerate()
         .map(|(i, value)| {
             let desc = describe(value);
-            let kind = step_kind(value, &format!("{prefix}{}.", i + 1))
+            let (player, value) =
+                split_player(value).map_err(|e| format!("step {prefix}{} `{desc}`: {e}", i + 1))?;
+            let kind = step_kind(&value, &format!("{prefix}{}.", i + 1))
                 .map_err(|e| format!("step {prefix}{} `{desc}`: {e}", i + 1))?;
-            Ok(Step { desc, kind })
+            Ok(Step { desc, player, kind })
         })
         .collect()
+}
+
+/// A step tagged with its player (`{player: 1, pass: 0}`): the player, and the step without the
+/// tag.
+fn split_player(value: &Value) -> Result<(Option<usize>, Value), String> {
+    let Some(fields) = value.as_mapping().filter(|m| m.contains_key("player")) else {
+        return Ok((None, value.clone()));
+    };
+    let player = fields
+        .get("player")
+        .and_then(Value::as_u64)
+        .filter(|&p| p <= 1)
+        .ok_or_else(|| format!("`player` is 0 or 1, got {}", show(&fields["player"])))?;
+    let mut rest = fields.clone();
+    rest.remove("player");
+    if rest.contains_key("if") || rest.contains_key("repeat") {
+        return Err("`player:` goes on a single step, not on `if` or `repeat`".to_string());
+    }
+    if rest.is_empty() {
+        return Err("`player:` needs a step (`{player: 1, pass: 0}`)".to_string());
+    }
+    Ok((Some(player as usize), Value::Mapping(rest)))
 }
 
 /// A compact description of a step.
@@ -712,6 +965,12 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
             ))
         }
     };
+    // A name step written as a mapping (`{player: 1, end_turn}`).
+    if let Some((Value::String(name), Value::Null)) = m.iter().next().filter(|_| m.len() == 1) {
+        if NAME_STEPS.contains(&name.as_str()) {
+            return step_kind(&Value::String(name.clone()), prefix);
+        }
+    }
     if m.contains_key("if") {
         only_keys(m, &["if", "then", "else"])?;
         let branch = |key: &str| match m.get(key) {
@@ -753,6 +1012,7 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
     Ok(match name {
         "buy" => StepKind::Action(Action::Buy(index(arg)?)),
         "sell" => StepKind::Action(Action::Sell(index(arg)?)),
+        "pass" => StepKind::Action(Action::Pass(index(arg)?)),
         "choose_discover" => StepKind::Action(Action::ChooseDiscover(index(arg)?)),
         "play" => StepKind::Action(match arg.as_mapping() {
             Some(m) if m.contains_key("hand") && m.contains_key("shop") => {
@@ -855,6 +1115,9 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 index(at)?,
                 count,
             )
+        }
+        "fight" if arg.as_mapping().is_some_and(|m| m.contains_key("team")) => {
+            StepKind::DuosFight(Box::new(compile_duos_fight(arg)?))
         }
         "fight" => StepKind::Fight(Box::new(compile_fight(arg)?)),
         "simulate" => StepKind::Simulate(Box::new(compile_combat(arg)?)),
@@ -979,6 +1242,39 @@ fn compile_fight(value: &Value) -> Result<FightPlan, String> {
         tier: raw.tier,
         auras: auras(&raw.auras, "auras")?,
         hand: units::build_list(&raw.hand).map_err(|e| format!("hand: {e}"))?,
+    })
+}
+
+/// A Duos team's fight: `{team: [<player 0's warband>, <player 1's>], first, seed}`, the
+/// opponent team's warbands as in a `duos:` combat.
+fn compile_duos_fight(value: &Value) -> Result<DuosFightPlan, String> {
+    let raw: RawDuosFight =
+        serde_yaml::from_value(value.clone()).map_err(|e| format!("fight: {e}"))?;
+    if raw.first > 1 {
+        return Err(format!(
+            "fight.first is the opponent's player whose warband fights first: 0 or 1, got {}",
+            raw.first
+        ));
+    }
+    let warbands = match &raw.team {
+        Value::Sequence(list) if list.len() == 2 => [
+            compile_warband(&list[0], "fight.team[0]")?,
+            compile_warband(&list[1], "fight.team[1]")?,
+        ],
+        other => {
+            return Err(format!(
+                "fight.team must list the opponent team's two warbands (player 0, player 1), \
+                 got {}",
+                show(other)
+            ))
+        }
+    };
+    Ok(DuosFightPlan {
+        seed: raw.seed,
+        team: DuosTeam {
+            warbands,
+            first: raw.first,
+        },
     })
 }
 

@@ -32,6 +32,10 @@ const UNIT_LISTS: [&str; 7] = [
     "hand_b",
 ];
 
+/// Fields that hold a list of lists of units (`discover_queue`, a Duos team's `incoming`
+/// queues): patches give each list as unit specs. `incoming` also takes `{<player>: [...]}`.
+const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
+
 /// Patch `target` with `patch`, a mapping of field names to new values.
 pub fn apply<T: Serialize + DeserializeOwned>(target: &mut T, patch: &Value) -> Result<(), String> {
     if !patch.is_mapping() {
@@ -126,12 +130,18 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
             Some(slot) if UNIT_LISTS.contains(&name.as_str()) => {
                 patch_units(slot, change, &field_path)?
             }
-            Some(slot) if name == "discover_queue" && change.is_sequence() => {
+            Some(slot) if UNIT_LIST_LISTS.contains(&name.as_str()) && change.is_sequence() => {
                 let lists = change.as_sequence().into_iter().flatten();
                 let lists: Vec<Value> = lists
                     .map(|list| units_value(list, &field_path))
                     .collect::<Result<_, _>>()?;
                 *slot = Value::Sequence(lists);
+            }
+            Some(Value::Sequence(items)) if name == "incoming" && change.is_mapping() => {
+                for (key, list) in change.as_mapping().into_iter().flatten() {
+                    let i = index(key, items.len(), &field_path)?;
+                    items[i] = units_value(list, &format!("{field_path}[{}]", show(key)))?;
+                }
             }
             Some(slot) => merge(slot, change, &field_path)?,
             None if open => {

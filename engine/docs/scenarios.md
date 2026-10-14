@@ -55,14 +55,15 @@ scenarios:
 | `description` | Free text. |
 | `known_bug` | Marks a scenario that reproduces a known engine bug (§6.2). |
 | `seed` / `seeds` | The seed (default `0`), or several: a list, `"1..50"` or `"1..=50"` (at most 10000). The scenario runs once per seed. |
-| `tavern` / `combat` / `duos` / `batch` | The setup (§2.1). |
+| `tavern` / `duos_tavern` / `combat` / `duos` / `batch` | The setup (§2.1). |
 | `steps` | Steps, run in order (§2.2). |
 | `expect` | A final expectation, the same as a last `expect:` step. |
 
 `defaults` is deep-merged into each scenario: mappings merge key by key, other values
-replace. A scenario's own `combat:` or `duos:` drops a default `tavern:` and the other of the
-two (and its own `tavern:` drops a default `combat:`, `duos:` and `batch:`), so a file can
-default to a Tavern and still hold combats.
+replace. A scenario's own `combat:` or `duos:` drops a default `tavern:`, `duos_tavern:` and
+the other of the two, and its own `tavern:` or `duos_tavern:` drops a default `combat:`,
+`duos:`, `batch:` and the other of the two, so a file can default to a Tavern and still hold
+combats.
 
 ### 2.1 Modes
 
@@ -77,6 +78,46 @@ tavern: {catalog: tier1, gold: 10, tavern_tier: 3, board: [Joyous, "golden Zoatr
 
 Nothing happens until a step runs: use `start_turn` to begin a turn (gold, shop roll,
 start-of-turn triggers).
+
+**Duos Tavern**: a Duos team's Tavern phase (`DuosTavern::new()`, `docs/duos_tavern.md`),
+patched by the `duos_tavern:` mapping (§4), with an RNG seeded by the scenario seed and one
+card pool. `catalog:` picks the pool (`duos` by default). The team's fields are patched at the
+top (`health`, `armor`, `first_fighter`, `first_fighter_switch_chance`, `passes_this_game`,
+...), each player's Tavern under `players`: a list of the two players' patches (`null` or `{}`
+for no change) or `{<player>: <patch>}`. Health and Armor are the team's: a player's patch can't
+set them. `incoming` takes the queues as lists of unit specs (`[[], [Joyous]]` or
+`{1: [Joyous]}`).
+
+```yaml
+duos_tavern:
+  armor: 5
+  first_fighter: 1
+  players:
+    - {gold: 3, board: [Wanderer Cho], hand: [Joyous]}   # player 0
+    - {tavern_tier: 2}                                  # player 1
+steps:
+  - {player: 0, pass: Joyous}
+expect: {players: {1: {hand: [Joyous]}}, passes_this_turn: 1}
+```
+
+A player's steps name their player (`{player: 1, pass: 0}`; a name step is written
+`{player: 1, end_turn}`): the actions (through `DuosTavern::step`, so a Pass, the shared
+Health and the queues work as in the game), `expect_error`, `expect_legal` / `expect_illegal`
+(`DuosTavern::is_legal`), and the steps on their own Tavern (`add_to_hand`, `push_*`, `clear`,
+`set`, `deal_hero_damage`, `apply_global_unit_auras`, `sync_all_auras`, `play_blood_gems`;
+afterwards the team's pool takes the Health and Armor they changed, but the queues don't
+deliver). The team's steps name no player: `start_turn` (`DuosTavern::start_turn`), `set` (a
+patch of the team), `take_from_pool`, `expect`, `if` and `repeat`, and `fight` against an
+opponent team (`DuosTavern::resolve_combat_against`):
+
+```yaml
+- fight:
+    team: [{board: ["5/5 t4"], hero_tier: 3}, []]   # the opponent's warbands, as in `duos:`
+    first: 0                                        # optional (default 0): theirs that fights first
+    seed: 7                                         # optional: defaults to the scenario seed
+```
+
+The team's own first warband is its `first_fighter`.
 
 **Combat**: a standalone battle (`sim::simulate`), run before the steps. Steps may only be
 `simulate`, `expect`, `if` and `repeat`.
@@ -120,11 +161,12 @@ expect: {outcome: a_win, team_a: {1: {fought: false}}}
 
 ### 2.2 Steps
 
-A step is a name (`refresh`) or a single-key mapping (`buy: 0`).
+A step is a name (`refresh`) or a single-key mapping (`buy: 0`). In a Duos Tavern, a player's
+step also has `player:` (§2.1).
 
 | Step | Effect |
 | :--- | :--- |
-| `start_turn` | `TavernState::start_turn`. |
+| `start_turn` | `TavernState::start_turn` (a Duos team's: `DuosTavern::start_turn`). |
 | `buy: <shop index>` | `TavernAction::Buy`. |
 | `sell: <board index>` | `TavernAction::Sell`. |
 | `play: <hand index>` or `play: {hand: <index>, pos: <p>}` | `TavernAction::Play` (`pos` defaults to the end of the board). |
@@ -133,6 +175,7 @@ A step is a name (`refresh`) or a single-key mapping (`buy: 0`).
 | `activate: <board index>` or `activate: {pos: <index>, target: <p>}` | `TavernAction::Activate`. |
 | `refresh`, `upgrade_tavern`, `toggle_freeze`, `end_turn` | The `TavernAction`s. |
 | `choose_discover: <option index>` | `TavernAction::ChooseDiscover` (indexes `discover_pending`). |
+| `pass: <hand index>` | `TavernAction::Pass`: pass the card to the teammate (a Solo Tavern never allows it). |
 | `add_to_hand: <unit spec(s)>` | `TavernState::add_to_hand` for each card (as if it were gained: triples, hand limit). |
 | `push_board` / `push_hand` / `push_shop: <unit spec(s)>` | Append the cards directly: no triggers, no auras, no triples. |
 | `clear: <zone>` or `clear: [<zones>]` | Empty `board`, `hand` and/or `shop`. |
@@ -142,11 +185,11 @@ A step is a name (`refresh`) or a single-key mapping (`buy: 0`).
 | `sync_all_auras` | `TavernState::sync_all_auras`. |
 | `take_from_pool: <card(s)>` | `CardPool::take_copy` for each card (it must be in the Tavern's catalog). |
 | `play_blood_gems: {<zone>: <index>, count: <n>}` | `Unit::play_blood_gems` on one card, with the Tavern's auras. |
-| `fight: {board, tier, auras, hand, seed}` | The Tavern's combat against that opponent (`resolve_combat_against`: start/end-of-combat effects, damage, persistence). `tier` defaults to 1, `seed` to the scenario seed. |
+| `fight: {board, tier, auras, hand, seed}` | The Tavern's combat against that opponent (`resolve_combat_against`: start/end-of-combat effects, damage, persistence). `tier` defaults to 1, `seed` to the scenario seed. A Duos team fights an opponent team: `fight: {team, first, seed}` (§2.1). |
 | `simulate: {...}` | A standalone battle, as `combat:` (§2.1). In a Tavern, `board_a: tavern` (or `hand_*`, `auras_*`) copies the Tavern's board (hand, auras). |
 | `expect: <matcher>` | Check the state (§5). |
 | `expect_error: <action step>` | The engine must reject the action, with a message. |
-| `expect_legal` / `expect_illegal: <action step>` | `TavernState::is_legal` must agree. |
+| `expect_legal` / `expect_illegal: <action step>` | `TavernState::is_legal` (a Duos team's: `DuosTavern::is_legal`) must agree. |
 | `if: <matcher>`, `then: [...]`, `else: [...]` | Run a branch, depending on whether the state matches. |
 | `repeat: <n>`, `steps: [...]` | Run the steps `n` times. |
 
@@ -202,7 +245,8 @@ fields of an engine value (its serde form) and keep the others.
 Fields that hold units (`board`, `hand`, `shop`, `discover_pending`, `stitched_stored`,
 `hand_a`, `hand_b`) take unit specs: a list (or a single spec) replaces the field,
 `{<index>: <spec>}` replaces one unit, `{<index>: {<field>: ...}}` patches one unit, and
-`null` sets the field to null. `discover_queue` takes a list of lists of specs.
+`null` sets the field to null. `discover_queue` takes a list of lists of specs, and so does a
+Duos team's `incoming` (also `{<player>: [<specs>]}`).
 
 `PlayerAuras` patches also take:
 
@@ -221,7 +265,8 @@ An expectation is a **matcher** checked against a **view** of the state.
 
 | Mode | The view |
 | :--- | :--- |
-| Tavern | The `TavernState` fields (`turn`, `health`, `armor`, `tavern_tier`, `gold`, `max_gold`, `board`, `hand`, `shop`, `discover_pending`, `auras`, ...), plus `pool` and `combat`. |
+| Tavern | The `TavernState` fields (`turn`, `health`, `armor`, `tavern_tier`, `gold`, `max_gold`, `board`, `hand`, `shop`, `discover_pending`, `auras`, ...), plus `pool`, `pool_size` and `combat`. |
+| Duos Tavern | The `DuosTavern` fields (`players`: each player's `TavernState` view, player 0 then player 1; `health`, `armor`, `passes_this_turn`, `passes_this_game`, `incoming`, `ended`, `first_fighter`, `sat_out`, ...), plus `free_passes` (each player's free Passes left), `out` (the team is out), `pool`, `pool_size`, and `combat`: the team's last fight (a Duos view, below) or `null`. |
 | Combat | The last `BattleResult`: `outcome` (`a_win`, `b_win`, `draw`), `hero_damage`, `survivors_a`/`_b`, `events`, `hand_a`/`_b`, `auras_a`/`_b`, `dead_units_a`/`_b`. |
 | Duos | The `DuosResult`: `outcome` (the teams': `a_win`, `b_win`, `draw`), `hero_damage` (to the losing team), `events`, and `team_a` / `team_b`: each player's `{fought, survivors, hand, auras, dead_units}`, player 0 then player 1 (`team_b: {1: {fought: true}}`). |
 | Batch | The `BattleDistribution`: `battles`, `a_wins`, `b_wins`, `draws`, `a_win_rate`, `b_win_rate`, `draw_rate`, `damage: {min, max, mean}` (team A's and B's in a Duos batch). |
@@ -233,7 +278,9 @@ Values are the engine's serde forms, with derived keys:
 - **Player auras** also have `counters` (card counters keyed by card name; `[0, 0]` for cards
   without one) and `effect_stacks` (total stacks of each card's effects; `0` for cards
   without one). Each effect also has `card`.
-- **`pool`** (Tavern): the remaining copies of each catalog card, by name.
+- **`pool`** (Tavern, Duos Tavern): the remaining copies of each catalog card, by name (`null`
+  for a card that isn't in the catalog: `pool: {Wanderer Cho: null}` in a Solo pool);
+  **`pool_size`**: their total.
 - **`combat`** (Tavern): the last battle (as in Combat mode), or `null`.
 - **Events** are maps with a `type` (`battle_start`, `attack_declared`, `damage_dealt`, ...)
   and the variant's fields (`docs/combat.md`).
@@ -326,6 +373,8 @@ The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
 - `minions`: each tier's catalog, in order (`tierN_catalog()`, `solo_tier_N_catalog()`,
   `catalog_for("tierN")`), every minion's `tavern_tier`, `full_catalog()`; `minion_ids`: each
   tier's card id range;
+- `duos_minions`: the Duos-exclusive minions by tier (`duos_exclusive_catalog()`), and
+  `catalog_for("duos")`: `full_catalog()` followed by them;
 - `tiers`: each tier's pool copies per minion (`base_copies_for_tier`), shop capacity
   (`shop_capacity`) and upgrade cost (`base_upgrade_cost`; Tier 7 has neither);
 - `spells`: each tier's Tavern spells (`spells::tierN_spells()`, `spells_up_to_tier`);

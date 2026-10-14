@@ -1,14 +1,15 @@
 //! Running scenarios (`docs/scenarios.md` §6).
 //!
-//! Each seed runs the scenario twice: both runs must end in the same state (Tavern state,
-//! pool, RNG and every battle), so every scenario also checks determinism. `SCENARIO_TRACE=1`
-//! prints every step and the state after it.
+//! Each seed runs the scenario twice: both runs must end in the same state (Tavern state or
+//! Duos team, pool, RNG and every battle), so every scenario also checks determinism.
+//! `SCENARIO_TRACE=1` prints every step and the state after it.
 
 use std::fmt::Write as _;
 use std::panic::{self, AssertUnwindSafe};
 
 use crate::cards::{self, CardTemplate};
 use crate::combat::{BattleResult, DuosResult};
+use crate::duos_tavern::DuosTavern;
 use crate::model::{GameState, Unit};
 use crate::rng::Rng;
 use crate::sim::{self, BattleDistribution};
@@ -92,12 +93,23 @@ struct Tavern {
     catalog: Vec<CardTemplate>,
 }
 
+/// The Duos team of a `duos_tavern:` scenario.
+struct Team {
+    state: DuosTavern,
+    pool: CardPool,
+    rng: Rng,
+    catalog: Vec<CardTemplate>,
+}
+
 struct World {
     seed: u64,
     tavern: Option<Tavern>,
+    team: Option<Team>,
     battles: Vec<BattleResult>,
     /// The Duos combat of a `duos:` scenario.
     duos: Option<DuosResult>,
+    /// The fights of a `duos_tavern:` scenario's team.
+    team_fights: Vec<DuosResult>,
     distribution: Option<BattleDistribution>,
     captures: Captures,
     trace: bool,
@@ -199,12 +211,118 @@ fn tavern_action(
             }
         }
         Action::EndTurn => TavernAction::EndTurn,
+        Action::Pass(i) => TavernAction::Pass {
+            hand_index: position(&state.hand, i, "hand", captures)?,
+        },
     })
+}
+
+/// Run a step on one player's own Tavern that isn't an action (`add_to_hand`, `push_*`,
+/// `clear`, `set`, `deal_hero_damage`, `apply_global_unit_auras`, `sync_all_auras`,
+/// `take_from_pool`, `play_blood_gems`); `false` if `kind` is not one of them.
+fn tavern_step(
+    state: &mut TavernState,
+    pool: &mut CardPool,
+    catalog: &[CardTemplate],
+    kind: &StepKind,
+    captures: &Captures,
+) -> Result<bool, Failure> {
+    match kind {
+        StepKind::SyncAllAuras => state.sync_all_auras(),
+        StepKind::AddToHand(cards) => {
+            for card in cards {
+                state.add_to_hand(card.clone());
+            }
+        }
+        StepKind::Push(z, cards) => zone_mut(state, *z).extend(cards.iter().cloned()),
+        StepKind::Clear(zones) => {
+            for &z in zones {
+                zone_mut(state, z).clear();
+            }
+        }
+        StepKind::Set(fields) => patch::apply(state, fields).map_err(Failure::Invalid)?,
+        StepKind::DealHeroDamage(amount) => state.deal_hero_damage(*amount),
+        StepKind::ApplyGlobalUnitAuras(z, index) => {
+            let i = position(zone(state, *z), index, z.name(), captures)?;
+            let mut unit = zone(state, *z)
+                .get(i)
+                .cloned()
+                .ok_or_else(|| Failure::Mismatch(format!("{}[{i}]: no such card", z.name())))?;
+            state.apply_global_unit_auras(&mut unit);
+            zone_mut(state, *z)[i] = unit;
+        }
+        StepKind::TakeFromPool(ids) => take_from_pool(catalog, pool, ids)?,
+        StepKind::PlayBloodGems(z, index, count) => {
+            let i = position(zone(state, *z), index, z.name(), captures)?;
+            let auras = state.auras.clone();
+            let unit = zone_mut(state, *z)
+                .get_mut(i)
+                .ok_or_else(|| Failure::Mismatch(format!("{}[{i}]: no such card", z.name())))?;
+            unit.play_blood_gems(*count, &auras);
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
+}
+
+/// `CardPool::take_copy` for each card, which must be in the catalog.
+fn take_from_pool(
+    catalog: &[CardTemplate],
+    pool: &mut CardPool,
+    ids: &[crate::model::CardId],
+) -> Result<(), Failure> {
+    for &id in ids {
+        if !catalog.iter().any(|tpl| tpl.card_id == id) {
+            return Err(Failure::Invalid(format!(
+                "{} is not in this Tavern's pool",
+                super::view::card_name(id)
+            )));
+        }
+        pool.take_copy(id);
+    }
+    Ok(())
+}
+
+/// The view of a pool: the remaining copies of each catalog card, by name (`null` for a card
+/// that isn't in the catalog).
+fn pool_view(catalog: &[CardTemplate], pool: &CardPool) -> View {
+    let copies = catalog
+        .iter()
+        .map(|tpl| {
+            (
+                tpl.name.clone(),
+                View::Int(pool.remaining_copies(tpl.card_id).into()),
+            )
+        })
+        .collect();
+    View::CardMap(copies, Some(Box::new(View::Null)))
+}
+
+/// The total remaining copies in a pool.
+fn pool_size(catalog: &[CardTemplate], pool: &CardPool) -> View {
+    let total: u32 = catalog
+        .iter()
+        .map(|tpl| pool.remaining_copies(tpl.card_id))
+        .sum();
+    View::Int(total.into())
 }
 
 fn list(cards: &[Unit]) -> String {
     let names: Vec<String> = cards.iter().map(describe).collect();
     format!("[{}]", names.join(", "))
+}
+
+/// An `expect_error` step: the engine must have rejected `action`, with a message.
+fn rejected<T>(action: TavernAction, result: Result<T, String>) -> Result<(), Failure> {
+    match result {
+        Ok(_) => Err(Failure::Mismatch(format!(
+            "expected the engine to reject {action:?}, but it was accepted"
+        ))),
+        Err(e) if e.trim().is_empty() => Err(Failure::Mismatch(format!(
+            "the engine rejected {action:?} without a message"
+        ))),
+        Err(_) => Ok(()),
+    }
 }
 
 impl World {
@@ -213,8 +331,10 @@ impl World {
         let mut world = World {
             seed,
             tavern: None,
+            team: None,
             battles: Vec::new(),
             duos: None,
+            team_fights: Vec::new(),
             distribution: None,
             captures: Captures::new(),
             trace,
@@ -226,6 +346,19 @@ impl World {
                 patch::apply(&mut state, patch)
                     .map_err(|e| Failure::Invalid(format!("tavern: {e}")))?;
                 world.tavern = Some(Tavern {
+                    state,
+                    pool: CardPool::new(catalog.clone()),
+                    rng: Rng::new(seed),
+                    catalog,
+                });
+            }
+            Setup::DuosTavern { catalog, patch } => {
+                let catalog = cards::catalog_for(catalog).map_err(Failure::Invalid)?;
+                let mut state = DuosTavern::new();
+                patch::apply(&mut state, patch)
+                    .map_err(|e| Failure::Invalid(format!("duos_tavern: {e}")))?;
+                state.mirror();
+                world.team = Some(Team {
                     state,
                     pool: CardPool::new(catalog.clone()),
                     rng: Rng::new(seed),
@@ -299,7 +432,7 @@ impl World {
                     }
                 }
                 kind => {
-                    self.leaf(kind)
+                    self.leaf(kind, step.player)
                         .map_err(|f| f.prefixed(&format!("step {number} `{}`: ", step.desc)))?;
                     if self.trace {
                         println!("--- step {number}: {}\n{}", step.desc, self.summary());
@@ -310,73 +443,28 @@ impl World {
         Ok(())
     }
 
-    fn leaf(&mut self, kind: &StepKind) -> Result<(), Failure> {
+    fn leaf(&mut self, kind: &StepKind, player: Option<usize>) -> Result<(), Failure> {
+        if let StepKind::Expect(expected) = kind {
+            let view = self.view();
+            return matcher::check(expected, &view, &mut self.captures).map_err(|f| match f {
+                Failure::Mismatch(m) => Failure::Mismatch(format!("{m}\n{}", self.summary())),
+                invalid => invalid,
+            });
+        }
+        if self.team.is_some() {
+            return self.team_leaf(kind, player);
+        }
         match kind {
             StepKind::StartTurn => {
                 let t = tavern_mut(&mut self.tavern)?;
                 t.state.start_turn(&mut t.pool, &mut t.rng);
             }
-            StepKind::SyncAllAuras => tavern_mut(&mut self.tavern)?.state.sync_all_auras(),
             StepKind::Action(action) => {
                 let t = tavern_mut(&mut self.tavern)?;
                 let action = tavern_action(&t.state, action, &self.captures)?;
                 t.state.step(action, &mut t.pool, &mut t.rng).map_err(|e| {
                     Failure::Mismatch(format!("the engine rejected {action:?}: {e}"))
                 })?;
-            }
-            StepKind::AddToHand(cards) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                for card in cards {
-                    t.state.add_to_hand(card.clone());
-                }
-            }
-            StepKind::Push(z, cards) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                zone_mut(&mut t.state, *z).extend(cards.iter().cloned());
-            }
-            StepKind::Clear(zones) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                for &z in zones {
-                    zone_mut(&mut t.state, z).clear();
-                }
-            }
-            StepKind::Set(fields) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                patch::apply(&mut t.state, fields).map_err(Failure::Invalid)?;
-            }
-            StepKind::DealHeroDamage(amount) => tavern_mut(&mut self.tavern)?
-                .state
-                .deal_hero_damage(*amount),
-            StepKind::ApplyGlobalUnitAuras(z, index) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                let i = position(zone(&t.state, *z), index, z.name(), &self.captures)?;
-                let mut unit = zone(&t.state, *z)
-                    .get(i)
-                    .cloned()
-                    .ok_or_else(|| Failure::Mismatch(format!("{}[{i}]: no such card", z.name())))?;
-                t.state.apply_global_unit_auras(&mut unit);
-                zone_mut(&mut t.state, *z)[i] = unit;
-            }
-            StepKind::TakeFromPool(ids) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                for &id in ids {
-                    if !t.catalog.iter().any(|tpl| tpl.card_id == id) {
-                        return Err(Failure::Invalid(format!(
-                            "{} is not in this Tavern's pool",
-                            super::view::card_name(id)
-                        )));
-                    }
-                    t.pool.take_copy(id);
-                }
-            }
-            StepKind::PlayBloodGems(z, index, count) => {
-                let t = tavern_mut(&mut self.tavern)?;
-                let i = position(zone(&t.state, *z), index, z.name(), &self.captures)?;
-                let auras = t.state.auras.clone();
-                let unit = zone_mut(&mut t.state, *z)
-                    .get_mut(i)
-                    .ok_or_else(|| Failure::Mismatch(format!("{}[{i}]: no such card", z.name())))?;
-                unit.play_blood_gems(*count, &auras);
             }
             StepKind::Fight(plan) => {
                 let seed = plan.seed.unwrap_or(self.seed);
@@ -394,29 +482,10 @@ impl World {
                 let battle = self.simulate(plan)?;
                 self.battles.push(battle);
             }
-            StepKind::Expect(expected) => {
-                let view = self.view();
-                matcher::check(expected, &view, &mut self.captures).map_err(|f| match f {
-                    Failure::Mismatch(m) => Failure::Mismatch(format!("{m}\n{}", self.summary())),
-                    invalid => invalid,
-                })?;
-            }
             StepKind::ExpectError(action) => {
                 let t = tavern_mut(&mut self.tavern)?;
                 let action = tavern_action(&t.state, action, &self.captures)?;
-                match t.state.step(action, &mut t.pool, &mut t.rng) {
-                    Ok(_) => {
-                        return Err(Failure::Mismatch(format!(
-                            "expected the engine to reject {action:?}, but it was accepted"
-                        )))
-                    }
-                    Err(e) if e.trim().is_empty() => {
-                        return Err(Failure::Mismatch(format!(
-                            "the engine rejected {action:?} without a message"
-                        )))
-                    }
-                    Err(_) => {}
-                }
+                rejected(action, t.state.step(action, &mut t.pool, &mut t.rng))?;
             }
             StepKind::ExpectLegal(action, legal) => {
                 let t = tavern_mut(&mut self.tavern)?;
@@ -429,6 +498,76 @@ impl World {
                 }
             }
             StepKind::If { .. } | StepKind::Repeat { .. } => unreachable!("handled by steps()"),
+            other => {
+                let t = tavern_mut(&mut self.tavern)?;
+                if !tavern_step(&mut t.state, &mut t.pool, &t.catalog, other, &self.captures)? {
+                    return Err(Failure::Invalid(
+                        "this step needs a Duos team (a `duos_tavern:` scenario)".to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// A step of a `duos_tavern:` scenario: the team's, or a player's (`player`).
+    fn team_leaf(&mut self, kind: &StepKind, player: Option<usize>) -> Result<(), Failure> {
+        let team = self.team.as_mut().expect("a Duos team");
+        let for_player =
+            || player.ok_or_else(|| Failure::Invalid("this step needs a `player:`".to_string()));
+        match kind {
+            StepKind::StartTurn => team.state.start_turn(&mut team.pool, &mut team.rng),
+            StepKind::DuosFight(plan) => {
+                let seed = plan.seed.unwrap_or(self.seed);
+                let fight = team.state.resolve_combat_against(&plan.team, seed);
+                self.team_fights.push(fight);
+            }
+            StepKind::TakeFromPool(ids) => take_from_pool(&team.catalog, &mut team.pool, ids)?,
+            StepKind::Set(fields) if player.is_none() => {
+                patch::apply(&mut team.state, fields).map_err(Failure::Invalid)?;
+                team.state.mirror();
+            }
+            StepKind::Action(action) => {
+                let p = for_player()?;
+                let action = tavern_action(&team.state.players[p], action, &self.captures)?;
+                team.state
+                    .step(p, action, &mut team.pool, &mut team.rng)
+                    .map_err(|e| {
+                        Failure::Mismatch(format!(
+                            "the engine rejected {action:?} for player {p}: {e}"
+                        ))
+                    })?;
+            }
+            StepKind::ExpectError(action) => {
+                let p = for_player()?;
+                let action = tavern_action(&team.state.players[p], action, &self.captures)?;
+                rejected(
+                    action,
+                    team.state.step(p, action, &mut team.pool, &mut team.rng),
+                )?;
+            }
+            StepKind::ExpectLegal(action, legal) => {
+                let p = for_player()?;
+                let action = tavern_action(&team.state.players[p], action, &self.captures)?;
+                if team.state.is_legal(p, &action) != *legal {
+                    return Err(Failure::Mismatch(format!(
+                        "expected {action:?} to be {} for player {p}",
+                        if *legal { "legal" } else { "illegal" }
+                    )));
+                }
+            }
+            StepKind::If { .. } | StepKind::Repeat { .. } => unreachable!("handled by steps()"),
+            other => {
+                let p = for_player()?;
+                let state = &mut team.state.players[p];
+                if !tavern_step(state, &mut team.pool, &team.catalog, other, &self.captures)? {
+                    return Err(Failure::Invalid(
+                        "this step is not valid in a `duos_tavern:` scenario".to_string(),
+                    ));
+                }
+                // What the step did to the player's Health and Armor is the team's.
+                team.state.settle();
+            }
         }
         Ok(())
     }
@@ -478,21 +617,27 @@ impl World {
         if let Some(duos) = &self.duos {
             return View::of(duos);
         }
+        if let Some(t) = &self.team {
+            let mut view = View::of(&t.state);
+            let free_passes = (0..2)
+                .map(|p| View::Int(t.state.free_passes(p).into()))
+                .collect();
+            view.push("free_passes", View::List(free_passes));
+            view.push("out", View::Bool(t.state.is_out()));
+            view.push("pool", pool_view(&t.catalog, &t.pool));
+            view.push("pool_size", pool_size(&t.catalog, &t.pool));
+            view.push(
+                "combat",
+                self.team_fights.last().map_or(View::Null, View::of),
+            );
+            return view;
+        }
         let combat = self.battles.last().map_or(View::Null, View::of);
         match &self.tavern {
             Some(t) => {
                 let mut view = View::of(&t.state);
-                let pool = t
-                    .catalog
-                    .iter()
-                    .map(|tpl| {
-                        (
-                            tpl.name.clone(),
-                            View::Int(t.pool.remaining_copies(tpl.card_id).into()),
-                        )
-                    })
-                    .collect();
-                view.push("pool", View::CardMap(pool, None));
+                view.push("pool", pool_view(&t.catalog, &t.pool));
+                view.push("pool_size", pool_size(&t.catalog, &t.pool));
                 view.push("combat", combat);
                 view
             }
@@ -525,16 +670,50 @@ impl World {
                 "  duos: {:?}, hero_damage {}",
                 d.outcome, d.hero_damage
             );
-            for (team, players) in [("a", &d.team_a), ("b", &d.team_b)] {
-                for (player, p) in players.iter().enumerate() {
-                    let _ = write!(
-                        out,
-                        "\n  team_{team}[{player}]{}: survivors {}, hand {}",
-                        if p.fought { "" } else { " (didn't fight)" },
-                        list(&p.survivors),
-                        list(&p.hand)
-                    );
+            duos_players(&mut out, d);
+            return out;
+        }
+        if let Some(t) = &self.team {
+            let team = &t.state;
+            let _ = write!(
+                out,
+                "  team: health {}, armor {}, passes {} this turn / {} this game, first fighter \
+                 {}, ended {:?}",
+                team.health,
+                team.armor,
+                team.passes_this_turn,
+                team.passes_this_game,
+                team.first_fighter,
+                team.ended
+            );
+            for (p, s) in team.players.iter().enumerate() {
+                let _ = write!(
+                    out,
+                    "\n  player {p}: turn {}, tier {}, gold {}/{}, free passes {}{}",
+                    s.turn,
+                    s.tavern_tier,
+                    s.gold,
+                    s.max_gold,
+                    team.free_passes(p),
+                    if s.is_frozen { ", frozen" } else { "" }
+                );
+                let _ = write!(out, "\n    board: {}", list(&s.board));
+                let _ = write!(out, "\n    hand: {}", list(&s.hand));
+                let _ = write!(out, "\n    shop: {}", list(&s.shop));
+                if !team.incoming[p].is_empty() {
+                    let _ = write!(out, "\n    incoming: {}", list(&team.incoming[p]));
                 }
+                if let Some(options) = &s.discover_pending {
+                    let _ = write!(out, "\n    discover: {}", list(options));
+                }
+            }
+            if let Some(d) = self.team_fights.last() {
+                let _ = write!(
+                    out,
+                    "\n  combat: {:?}, hero_damage {}",
+                    d.outcome, d.hero_damage
+                );
+                duos_players(&mut out, d);
             }
             return out;
         }
@@ -577,9 +756,32 @@ impl World {
     /// Everything a run produced, for the determinism check.
     fn fingerprint(&self) -> String {
         let tavern = self.tavern.as_ref().map(|t| (&t.state, &t.pool, &t.rng));
+        let team = self.team.as_ref().map(|t| (&t.state, &t.pool, &t.rng));
         format!(
             "{:#?}",
-            (tavern, &self.battles, &self.duos, &self.distribution)
+            (
+                tavern,
+                team,
+                &self.battles,
+                &self.duos,
+                &self.team_fights,
+                &self.distribution
+            )
         )
+    }
+}
+
+/// Each player's part of a Duos combat, for the summary.
+fn duos_players(out: &mut String, d: &DuosResult) {
+    for (team, players) in [("a", &d.team_a), ("b", &d.team_b)] {
+        for (player, p) in players.iter().enumerate() {
+            let _ = write!(
+                out,
+                "\n  team_{team}[{player}]{}: survivors {}, hand {}",
+                if p.fought { "" } else { " (didn't fight)" },
+                list(&p.survivors),
+                list(&p.hand)
+            );
+        }
     }
 }
