@@ -140,6 +140,10 @@ pub struct PlayerSetup {
     /// The hero power has a Start of Combat effect (`START_OF_COMBAT` tag).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub hero_power_start_of_combat: bool,
+    /// The hero power was used for this combat (`BACON_HERO_POWER_ACTIVATED` at the start of
+    /// combat: Y'Shaarj's Embrace Your Rage).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hero_power_activated: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinkets: Vec<String>,
     /// Deity Attack/Health.
@@ -392,6 +396,8 @@ struct CombatBuilder {
     local_hero: u32,
     /// The local hero's tags at the start of combat.
     local_hero_tags: Ent,
+    /// The local hero power's tags at the start of combat.
+    local_hero_power: Option<Ent>,
     local_tags: BTreeMap<String, String>,
     local_enchantments: Vec<PlayerEnchantment>,
     entries: Vec<Entry>,
@@ -740,6 +746,7 @@ impl<'a> Tracker<'a> {
             local_pending,
             local_hero,
             local_hero_tags: self.ent(local_hero).cloned().unwrap_or_default(),
+            local_hero_power: self.local_hero_power(),
             local_tags: self.player_tags(self.local_eid),
             local_enchantments: self.player_enchantments(self.local_eid),
             entries: Vec::new(),
@@ -748,6 +755,22 @@ impl<'a> Tracker<'a> {
             result: None,
             summoned: Default::default(),
         });
+    }
+
+    /// The local player's hero power: the `HERO_POWER` entity they control in `PLAY` (the
+    /// lowest id, as the reconstruction has always taken the first one).
+    fn local_hero_power(&self) -> Option<Ent> {
+        let mut powers: Vec<(&u32, &Ent)> = self
+            .ents
+            .iter()
+            .filter(|(_, e)| {
+                e.int("CONTROLLER") == self.local_pid
+                    && e.str("ZONE") == "PLAY"
+                    && e.str("CARDTYPE") == "HERO_POWER"
+            })
+            .collect();
+        powers.sort_by_key(|(id, _)| **id);
+        powers.first().map(|(_, e)| (*e).clone())
     }
 
     fn on_created(&mut self, id: u32) {
@@ -1325,6 +1348,8 @@ impl<'a> Tracker<'a> {
             hero_armor: hero.int("ARMOR"),
             hero_power: hero_power.map(|h| h.card_id.clone()),
             hero_power_start_of_combat: hero_power.is_some_and(|h| h.int("START_OF_COMBAT") > 0),
+            hero_power_activated: hero_power
+                .is_some_and(|h| h.int("BACON_HERO_POWER_ACTIVATED") > 0),
             trinkets: p
                 .trinkets
                 .iter()
@@ -1360,8 +1385,15 @@ impl<'a> Tracker<'a> {
             tier: hero.int("PLAYER_TECH_LEVEL").max(1) as u32,
             hero_health: hero.health(),
             hero_armor: hero.int("ARMOR"),
-            hero_power: None,
-            hero_power_start_of_combat: false,
+            hero_power: c.local_hero_power.as_ref().map(|h| h.card_id.clone()),
+            hero_power_start_of_combat: c
+                .local_hero_power
+                .as_ref()
+                .is_some_and(|h| h.int("START_OF_COMBAT") > 0),
+            hero_power_activated: c
+                .local_hero_power
+                .as_ref()
+                .is_some_and(|h| h.int("BACON_HERO_POWER_ACTIVATED") > 0),
             trinkets: Vec::new(),
             deity: {
                 let t = &c.local_tags;
@@ -1455,6 +1487,7 @@ impl<'a> Tracker<'a> {
                         hero_armor: hero.int("ARMOR"),
                         hero_power: None,
                         hero_power_start_of_combat: false,
+                        hero_power_activated: false,
                         trinkets: Vec::new(),
                         deity: None,
                         board: snap.board.clone(),

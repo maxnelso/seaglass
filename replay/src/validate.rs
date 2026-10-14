@@ -7,9 +7,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use serde::Serialize;
 
 use seaglass::cards::{self, ballers, tokens, volumizers};
+use seaglass::heroes;
 use seaglass::model::{
-    BattleOutcome, DeityKind, DeityState, EffectDuration, GameState, PlayerAuras, PlayerEffect,
-    Side, Tribe, Unit, UnitId,
+    BattleOutcome, DeityKind, DeityState, EffectDuration, GameState, HeroPowerState, HeroState,
+    PlayerAuras, PlayerEffect, Side, Tribe, Unit, UnitId,
 };
 use seaglass::scenario::card_index;
 use seaglass::{resolve_battle, resolve_duos_battle, DuosTeam, Event, Rng, Warband};
@@ -26,6 +27,58 @@ pub const HAND_READERS: [&str; 6] = [
     "Deathly Striker",
     "Flighty Scout",
 ];
+
+/// The enchantments a Hero Power puts on the minion it chose to act on at Start of Combat:
+/// Teron Gorefiend's (`BG25_HERO_103pe`) and Flobbidinous Floop's (`BGDUO_HERO_101pe2`).
+const MARKED_BY_HERO_POWER: [&str; 2] = ["BG25_HERO_103pe", "BGDUO_HERO_101pe2"];
+
+/// The hero powers that act once per combat once unlocked (Turn 7), armed when the log shows
+/// them active (`START_OF_COMBAT`): Vanndar's and Drek'Thar's.
+const ARMED_WHEN_UNLOCKED: [&str; 2] = ["BG22_HERO_003p", "BG22_HERO_002p"];
+
+/// `true` if the engine simulates the hero power `card_id` (any of its forms) in combat: it is an
+/// implemented Hero Power with a combat hook (`engine/docs/heroes.md` §4).
+pub fn hero_power_simulated(card_id: &str) -> bool {
+    heroes::power_card(card_id).is_some_and(|id| {
+        let h = cards::hooks(id);
+        h.hero_start_of_combat.is_some()
+            || h.hero_combat_space.is_some()
+            || h.hero_enemy_killed.is_some()
+    })
+}
+
+/// The player's hero for the engine (`engine/docs/heroes.md` §10): the hero of `p`'s hero card
+/// (or skin), with the hero power the log shows (any form, even another hero's: Master Nguyen),
+/// armed if it was used for this combat.
+fn hero_state(p: &PlayerSetup) -> Option<HeroState> {
+    let power = p.hero_power.as_deref().and_then(heroes::power_card)?;
+    let hero = heroes::by_card_id(&p.hero_card_id);
+    let mut state = match hero {
+        Some(h) => heroes::new_state(h),
+        None => HeroState {
+            hero_id: 0,
+            power: HeroPowerState {
+                card_id: power,
+                cost: 0,
+                uses_left: 0,
+                counter: 0,
+                stacks: 0,
+                armed: 0,
+                stored: Vec::new(),
+            },
+        },
+    };
+    state.power.card_id = power;
+    state.power.uses_left = 0;
+    // Armed for this combat: a power the player used for it (Y'Shaarj), or one that acts once per
+    // combat once unlocked (Vanndar, Drek'Thar), which the log shows as `START_OF_COMBAT` on it.
+    let unlocked = p.hero_power_start_of_combat
+        && p.hero_power
+            .as_deref()
+            .is_some_and(|hp| ARMED_WHEN_UNLOCKED.contains(&hp));
+    state.power.armed = u32::from(p.hero_power_activated || unlocked);
+    Some(state)
+}
 
 /// A card of the reconstruction the engine doesn't implement, or maps only by name.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
@@ -110,6 +163,12 @@ impl Builder {
         u.reborn = m.reborn;
         u.venomous = m.venomous;
         u.stealth = m.stealth;
+        // Chosen by its player's Hero Power for this Start of Combat (`engine/docs/heroes.md`
+        // §3.3): Teron's "Impending Death", Floop's "In the Gloop".
+        u.marked = m
+            .enchantments
+            .iter()
+            .any(|e| MARKED_BY_HERO_POWER.contains(&e.as_str()));
         // The log's stats already include the "wherever this is" auras: mark them applied.
         cards::sync_unit_auras(&mut u, auras);
         u.attack = m.attack;
@@ -155,6 +214,7 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
         None => DeityState::new(deity),
     };
     a.hero_health = Some(p.hero_health);
+    a.hero = hero_state(p);
     if p.tags_known {
         a.spell_bonus_atk = tag("TAVERN_SPELL_ATTACK_INCREASE").unwrap_or(0);
         a.spell_bonus_hp = tag("TAVERN_SPELL_HEALTH_INCREASE").unwrap_or(0);
@@ -254,9 +314,10 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
                     ));
                 }
             }
-            if p.hero_power_start_of_combat {
+            let simulated = p.hero_power.as_deref().is_some_and(hero_power_simulated);
+            if p.hero_power_start_of_combat && !simulated {
                 gaps.push(format!(
-                    "{} (player {}): hero power {} has a Start of Combat effect (hero powers are not simulated)",
+                    "{} (player {}): hero power {} has a Start of Combat effect (not simulated)",
                     p.hero_name,
                     p.player_id,
                     p.hero_power.as_deref().unwrap_or("?")
@@ -295,6 +356,7 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
         } = e
         {
             let what = match kind.as_str() {
+                "HERO_POWER" if hero_power_simulated(card_id) => continue,
                 "HERO_POWER" => "hero power",
                 "BATTLEGROUND_TRINKET" => "trinket",
                 _ => continue,

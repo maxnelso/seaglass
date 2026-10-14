@@ -152,7 +152,8 @@ fn not_simulated(kind: &str, card_id: &str, name: &str) -> Option<&'static str> 
         return None;
     }
     match kind {
-        "HERO_POWER" => Some("hero power"),
+        "HERO_POWER" if !crate::validate::hero_power_simulated(card_id) => Some("hero power"),
+        "HERO_POWER" => None,
         "BATTLEGROUND_TRINKET" => Some("trinket"),
         "ENCHANTMENT" => Some("Dark Gift"),
         "MINION" if !implemented(card_id, name) => Some("unimplemented minion"),
@@ -569,6 +570,7 @@ mod tests {
             hero_armor: 0,
             hero_power: None,
             hero_power_start_of_combat: false,
+            hero_power_activated: false,
             trinkets: Vec::new(),
             deity: None,
             board,
