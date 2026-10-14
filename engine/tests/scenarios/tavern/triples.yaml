@@ -16,3 +16,78 @@ scenarios:
       board: [Risen Rider]
       hand: {count: 10, 0: Risen Rider}
       shop: [Risen Rider]
+
+  - name: skeletons_a_tavern_deathrattle_summons_form_a_triple
+    description: >-
+      Three copies form a Triple whenever they come together in the Tavern (confirmed), checked
+      after every action and trigger pass (docs/tavern.md §5): the three Skeletons of the Cadaver
+      Caretaker that Disguised Graverobber destroys are on the board once its Battlecry resolves.
+    tavern:
+      board: [Cadaver Caretaker]
+      hand: [Disguised Graverobber]
+    steps:
+      - play: {hand: Disguised Graverobber, pos: 0}   # destroys the Caretaker: 3 Skeletons
+    expect:
+      board: [Disguised Graverobber]
+      hand: [Cadaver Caretaker, "golden Skeleton"]   # the Graverobber's copy, and the Triple
+
+  - name: a_third_copy_robust_evolution_makes_forms_a_triple
+    description: A minion transformed into a third copy forms a Triple too (confirmed).
+    seed: 7   # Robust Evolution turns the Glim Guardian into a Roadboar
+    tavern:
+      board: [Roadboar, Roadboar, Glim Guardian]
+      hand: [Robust Evolution]
+    steps:
+      - play: {hand: Robust Evolution, pos: 2}
+    expect:
+      board: []
+      hand: ["golden Roadboar"]
+
+  - name: a_triple_of_board_copies_waits_for_room_in_a_full_hand
+    description: >-
+      A Triple whose three copies are all on the board needs a hand slot for its Golden: with a
+      full hand it waits, its copies staying on the board (confirmed), and forms once a card
+      played from the hand frees a slot.
+    tavern:
+      board: [Roadboar, Roadboar, Roadboar]
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem, Blood Gem]   # 10 cards
+    steps:
+      - toggle_freeze
+      - expect: {board: [Roadboar, Roadboar, Roadboar], hand: {count: 10}}
+      - play: {hand: 0, pos: 0}   # a Blood Gem: a slot opens
+    expect:
+      board: []
+      hand: {count: 10, any: "golden Roadboar"}
+
+  - name: a_minion_played_from_a_full_hand_lets_a_waiting_triple_form
+    description: >-
+      Playing a minion from the full hand frees a slot too: the waiting Triple forms once the play
+      has resolved.
+    tavern:
+      board: [Roadboar, Roadboar, Roadboar]
+      hand: [Glim Guardian, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem, Blood Gem, Blood Gem]   # 10 cards
+    steps:
+      - play: {hand: Glim Guardian, pos: 3}
+    expect:
+      board: [Glim Guardian]
+      hand: {count: 10, any: "golden Roadboar"}
+
+  - name: a_triple_a_tavern_rally_summon_completes_waits_for_room_in_a_full_hand
+    description: >-
+      The Bat that Flittering Bat's Rally summons in the Tavern (Sky-hatch Runaway) is the third
+      Bat on the board: with a full hand the Triple waits (it used to push an 11th card into the
+      hand), and forms once a card played from the hand frees a slot.
+    tavern:
+      gold: 1
+      board: [Sky-hatch Runaway, Flittering Bat, Bat, Bat]
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem, Blood Gem]   # 10 cards
+    steps:
+      - activate: {pos: Sky-hatch Runaway, target: 1}   # Flittering Bat's Rally: a third Bat
+      - expect: {board: {count: 5}, hand: {count: 10, none: "golden Bat"}}
+      - play: {hand: 0, pos: 1}   # a Blood Gem on the Flittering Bat
+    expect:
+      board: [Sky-hatch Runaway, Flittering Bat]
+      hand: {count: 10, any: "golden Bat"}

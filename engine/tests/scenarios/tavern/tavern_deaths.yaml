@@ -16,14 +16,15 @@ scenarios:
   - name: titus_rivendare_doubles_a_deathrattle_in_the_tavern
     description: >-
       Butchering destroys Harmless Bonehead: with Titus Rivendare its Deathrattle triggers twice,
-      for 4 Skeletons (1/1, +8 Attack from Butchering).
+      for 4 Skeletons (1/1, +8 Attack from Butchering), three of which form a Triple.
     tavern: {board: [Titus Rivendare, Harmless Bonehead]}
     steps:
       - add_to_hand: Butchering
       - play: {hand: Butchering, pos: 1}
     expect:
       auras: {deathrattles_triggered: 2}
-      board: [Titus Rivendare, "Skeleton 9/1", "Skeleton 9/1", "Skeleton 9/1", "Skeleton 9/1"]
+      board: [Titus Rivendare, "Skeleton 9/1"]
+      hand: ["golden Skeleton"]
 
   - name: falling_sky_golem_counts_a_deathrattle_triggered_in_the_tavern
     description: >-

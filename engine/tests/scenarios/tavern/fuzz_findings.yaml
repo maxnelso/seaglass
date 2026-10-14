@@ -117,21 +117,6 @@ scenarios:
       - start_turn
     expect: {board: [Ichoron the Protector, "Dune Dweller divine_shield"]}
 
-  - name: skeletons_summoned_in_the_tavern_do_not_triple
-    known_bug: no Triple check after Tavern Deathrattle summons (rule question)
-    description: >-
-      Rule question. A Deathrattle that summons in the Tavern (Disguised Graverobber destroying a
-      Cadaver Caretaker) puts three Skeletons on the board and no Triple forms; the engine checks
-      Triples when a card reaches the hand, and after a Tavern Rally summon or a Reborn in the
-      Tavern, but not after Deathrattle summons or transforms (Robust Evolution).
-    tavern:
-      board: [Cadaver Caretaker]
-      hand: [Disguised Graverobber]
-    steps:
-      - play: {hand: Disguised Graverobber, pos: 0}   # destroys the Caretaker: 3 Skeletons
-    expect:
-      hand: {any: "golden Skeleton"}
-
   - name: a_card_discovered_with_a_full_hand_leaves_the_pool_for_good
     known_bug: a card Discovered with a full hand is dropped without returning to the pool (rule question)
     description: >-

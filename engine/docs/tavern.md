@@ -4,6 +4,8 @@ This document defines the exact rules and state transitions for **Seaglass's Tav
 
 **Duos** Taverns (a team of two players with one Health pool, who can Pass cards to each other) are specified in [`duos_tavern.md`](duos_tavern.md), which builds on this document.
 
+Rules marked **(confirmed)** were settled with the user. Rules marked **(engine decision)** are details nobody has settled yet: the engine implements them as written, each in one place, so that it is a small change if the answer differs.
+
 The Tavern Phase is modeled as a **card-agnostic sequential decision state machine**: one Tavern turn consists of a start-of-turn sequence (`start_turn`), followed by a sequence of discrete player actions (`TavernAction`) ending with `EndTurn`. Individual card definitions live in the card catalog and plug into the general hooks defined below.
 
 ---
@@ -118,9 +120,11 @@ At the beginning of Turn `t`:
 
 ## 5. Triples & Golden Minion Resolution
 
-Whenever a minion is added to `hand` (via `Buy`, `ChooseDiscover`, or card generation), the engine checks whether the player owns **3 non-golden copies** of the same `card_id` across `board` and `hand`. Buying still needs a free hand slot (§6), even for the copy that would complete a triple.
+**3 non-golden copies** of the same `card_id` across `board` and `hand` form a Triple whenever they come together in the Tavern **(confirmed)**: a minion added to the hand (via `Buy`, `ChooseDiscover`, or card generation), summoned to the board (a Tavern Deathrattle: the Skeletons of a `Cadaver Caretaker` that `Disguised Graverobber` destroys; a Rally; a Reborn) or transformed (`Robust Evolution` making a third copy). The engine checks every card after each action (`step`), at the end of the start of turn and of a combat's return, and once each Tavern trigger pass is over (`resolve_triples`); a minion added to the hand outside a trigger pass is also checked at once. Buying still needs a free hand slot (§6), even for the copy that would complete a triple.
 
 While a Tavern trigger pass resolves (the minions that react to one event, left to right: the end-of-turn triggers, the after-buy, Gold-spent or after-play observers, ...), the Triples it completes wait until the pass is over, then resolve. So the minions of the pass keep their places, every one of them triggers, and a trigger keeps acting on its own minion: two `Resourceful Robot`s both Magnetize a Volumizer even when the first one's copy completes a Triple with Volumizers on the board, and so do both Magnetizations of a Golden one.
+
+The Golden goes to the hand, so a Triple whose copies are all on the board needs a hand slot: with a full hand it waits, its copies staying where they are, and forms at the first check once a slot is free (a card played from the hand) **(confirmed)**. That holds however the third copy arrived: summoned by a Rally or a Deathrattle, or transformed.
 
 ### 5.1 Triple Combination (`check_and_resolve_triple`)
 If 3 non-golden copies exist:

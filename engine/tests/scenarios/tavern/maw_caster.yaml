@@ -32,11 +32,13 @@ scenarios:
     seed: 441
     tavern:
       tavern_tier: 4
-      board: [Harmless Bonehead, Lullabot, Lullabot, Lullabot, Lullabot, Lullabot]
+      # No three copies of a minion, which would form a Triple.
+      board: [Harmless Bonehead, Lullabot, Lullabot, Glim Guardian, Glim Guardian, Dune Dweller]
     steps:
       - add_to_hand: Maw Caster
       - play: {hand: Maw Caster, pos: 1}   # 6 minions and Maw Caster: room for 1 Skeleton
-    expect: {board: [Skeleton, Maw Caster, Lullabot, Lullabot, Lullabot, Lullabot, Lullabot]}
+    expect:
+      board: [Skeleton, Maw Caster, Lullabot, Lullabot, Glim Guardian, Glim Guardian, Dune Dweller]
 
   - name: gets_the_undead_attack_from_a_plaguerunner_it_destroys
     seed: 441

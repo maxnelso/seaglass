@@ -465,11 +465,10 @@ pub struct TavernState {
     /// will take: kept between the same neighbours when the Battlecry destroys a minion
     /// (`docs/tavern.md` §7.1).
     pub play_slot: Option<usize>,
-    /// While a Tavern trigger pass resolves ([`with_deferred_triples`](Self::with_deferred_triples)),
-    /// the card ids whose Triple checks wait for it to end (`docs/tavern.md` §5); `None` outside
-    /// one.
+    /// While a Tavern trigger pass resolves ([`with_deferred_triples`](Self::with_deferred_triples)):
+    /// its Triples wait for it to end (`docs/tavern.md` §5).
     #[serde(skip)]
-    pub deferred_triples: Option<Vec<CardId>>,
+    pub triples_deferred: bool,
     pub next_willbreaker_group: u32,
     pub last_combat_won: bool,
     pub last_combat_lost: bool,
@@ -509,7 +508,7 @@ impl TavernState {
             defer_combined_choose_one: false,
             pending_combined_choices: Vec::new(),
             play_slot: None,
-            deferred_triples: None,
+            triples_deferred: false,
             next_willbreaker_group: 1,
             last_combat_won: false,
             last_combat_lost: false,
@@ -1116,6 +1115,7 @@ impl TavernState {
         }
         cards::on_start_turn_spellcrafts(self);
         self.sync_all_auras();
+        self.resolve_triples();
     }
 
     /// Build the player's board snapshot for Combat (including Start-of-Combat hand summons).
@@ -1189,7 +1189,7 @@ impl TavernState {
     /// gained in combat also buff the shop), their after-combat player effects with `result`,
     /// their hand after the combat, the hand cards that became ready (resolved with `ready_rng`),
     /// what their minions keep from combat (`survivors` and `dead_units`, matched to
-    /// `pre_combat_snapshot` by unit id), triples in hand, and the result. A Solo side's result
+    /// `pre_combat_snapshot` by unit id), Triples, and the result. A Solo side's result
     /// and a Duos player's (`docs/duos_tavern.md` §6.2) both come back through here.
     #[allow(clippy::too_many_arguments)]
     pub fn apply_combat_return(
@@ -1234,15 +1234,7 @@ impl TavernState {
             cards::on_post_combat_unit(pre_combat_snapshot, idx, &post_units, tavern_unit);
         }
 
-        let hand_cids: Vec<CardId> = self
-            .hand
-            .iter()
-            .filter(|u| !u.is_spell && !u.is_golden)
-            .map(|u| u.card_id)
-            .collect();
-        for cid in hand_cids {
-            self.check_and_resolve_triple(cid);
-        }
+        self.resolve_triples();
 
         self.last_combat_won = result == CombatResult::Won;
         self.last_combat_lost = result == CombatResult::Lost;
@@ -1647,7 +1639,8 @@ impl TavernState {
     }
 
     /// Execute one `TavernAction`. Returns `Ok(true)` if the turn ended (`EndTurn`),
-    /// `Ok(false)` otherwise, or `Err` if the action is illegal.
+    /// `Ok(false)` otherwise, or `Err` if the action is illegal. The copies that came together
+    /// during the action form their Triples once it has resolved (`docs/tavern.md` §5).
     pub fn step(
         &mut self,
         action: TavernAction,
@@ -1657,7 +1650,18 @@ impl TavernState {
         if !self.is_legal(&action) {
             return Err(format!("illegal tavern action: {action:?}"));
         }
+        let ended = self.apply_action(action, pool, rng)?;
+        self.resolve_triples();
+        Ok(ended)
+    }
 
+    /// The effect of the legal `action` (see [`step`](Self::step)).
+    fn apply_action(
+        &mut self,
+        action: TavernAction,
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) -> Result<bool, String> {
         match action {
             TavernAction::Buy { shop_index } => {
                 let mut unit = self.shop.remove(shop_index);
@@ -1817,36 +1821,55 @@ impl TavernState {
         }
     }
 
-    /// Run `f`, a Tavern trigger pass, with the Triple checks it asks for deferred until it
-    /// returns, then resolve them (`docs/tavern.md` §5): no minion of the pass moves under it.
-    /// A pass inside a pass defers to the outer one.
+    /// Run `f`, a Tavern trigger pass, with its Triples deferred until it returns, then resolve
+    /// them (`docs/tavern.md` §5): no minion of the pass moves under it. A pass inside a pass
+    /// defers to the outer one.
     pub fn with_deferred_triples<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-        if self.deferred_triples.is_some() {
+        if self.triples_deferred {
             return f(self);
         }
-        self.deferred_triples = Some(Vec::new());
+        self.triples_deferred = true;
         let out = f(self);
-        for cid in self.deferred_triples.take().unwrap_or_default() {
-            self.check_and_resolve_triple(cid);
-        }
+        self.triples_deferred = false;
+        self.resolve_triples();
         out
+    }
+
+    /// Form a Triple from every 3 non-Golden copies that have come together across `board` and
+    /// `hand` (`docs/tavern.md` §5): checked after each action, start of turn and combat, and once
+    /// each Tavern trigger pass is over.
+    pub fn resolve_triples(&mut self) {
+        loop {
+            let cards = self.board.len() + self.hand.len();
+            let mut cids: Vec<CardId> = Vec::new();
+            for u in self.board.iter().chain(&self.hand) {
+                if !u.is_spell && !u.is_golden && !cids.contains(&u.card_id) {
+                    cids.push(u.card_id);
+                }
+            }
+            for cid in cids {
+                self.check_and_resolve_triple(cid);
+            }
+            // A Triple takes 3 cards for 1; stop once a round forms none.
+            if self.board.len() + self.hand.len() == cards {
+                return;
+            }
+        }
     }
 
     /// Combine 3 non-golden copies of `card_id` across `board` and `hand` into 1 Golden copy in `hand` (`docs/tavern.md` §5.1).
     /// Cards flagged [`CardFlags::TRIPLE_WILDCARD_ELEMENTAL`] (`Elemental of Surprise`) can triple
     /// with any Elemental; cards flagged [`CardFlags::NO_TRIPLE`] never triple. During a Tavern
     /// trigger pass, the check waits for the pass to end
-    /// ([`with_deferred_triples`](Self::with_deferred_triples)).
+    /// ([`with_deferred_triples`](Self::with_deferred_triples)), and a Triple whose Golden has no
+    /// room in the hand waits for room.
     pub fn check_and_resolve_triple(&mut self, card_id: CardId) {
         let no_triple = |cid: CardId| cards::hooks(cid).has(CardFlags::NO_TRIPLE);
         let is_wildcard = |cid: CardId| cards::hooks(cid).has(CardFlags::TRIPLE_WILDCARD_ELEMENTAL);
         if card_id == 0 || no_triple(card_id) {
             return;
         }
-        if let Some(deferred) = &mut self.deferred_triples {
-            if !deferred.contains(&card_id) {
-                deferred.push(card_id);
-            }
+        if self.triples_deferred {
             return;
         }
         let is_eligible = |u: &Unit| -> bool {
@@ -1935,6 +1958,21 @@ impl TavernState {
                 }
             }
         };
+
+        // The Golden goes to the hand: unless enough copies leave the hand, a full hand makes the
+        // Triple wait for room (`docs/tavern.md` §5). The copies are taken from the board first,
+        // then from the hand, exact copies before wildcards.
+        let exact = |u: &&Unit| is_eligible(u) && u.card_id == target_cid;
+        let board_exact = self.board.iter().filter(exact).count().min(3);
+        let mut from_hand = self.hand.iter().filter(exact).count().min(3 - board_exact);
+        if use_wildcard {
+            let wildcard = |u: &&Unit| is_eligible(u) && is_wildcard(u.card_id);
+            let left = 3 - board_exact - from_hand;
+            from_hand += left - self.board.iter().filter(wildcard).count().min(left);
+        }
+        if self.hand.len() - from_hand >= 10 {
+            return;
+        }
 
         let mut copies = Vec::with_capacity(3);
         self.remove_board_minions(|u| {

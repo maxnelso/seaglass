@@ -562,19 +562,31 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
     }
     check_units(s)?;
     check_transients(s)?;
-    // Three non-Golden copies across board and hand form a Triple (`docs/tavern.md` §5).
-    let mut copies: BTreeMap<u32, usize> = BTreeMap::new();
-    for u in s.board.iter().chain(&s.hand) {
+    // Three non-Golden copies across board and hand form a Triple, unless its Golden has no room
+    // in the hand: the copies are taken from the board first (`docs/tavern.md` §5).
+    let mut copies: BTreeMap<u32, (usize, usize)> = BTreeMap::new();
+    for (u, in_hand) in s
+        .board
+        .iter()
+        .map(|u| (u, false))
+        .chain(s.hand.iter().map(|u| (u, true)))
+    {
         let eligible = !u.is_spell
             && !u.is_golden
             && !u.intrinsic_golden
             && u.card_id != 0
             && !cards::hooks(u.card_id).has(CardFlags::NO_TRIPLE);
         if eligible {
-            *copies.entry(u.card_id).or_default() += 1;
+            let (on_board, held) = copies.entry(u.card_id).or_default();
+            *if in_hand { held } else { on_board } += 1;
         }
     }
-    if let Some((&cid, &n)) = copies.iter().find(|(_, &n)| n >= 3) {
+    let untripled = copies.iter().find(|(_, &(on_board, held))| {
+        let from_hand = held.min(3 - on_board.min(3));
+        on_board + held >= 3 && s.hand.len() - from_hand < 10
+    });
+    if let Some((&cid, &(on_board, held))) = untripled {
+        let n = on_board + held;
         let name = s
             .board
             .iter()
@@ -680,8 +692,8 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
 fn check_transients(s: &TavernState) -> Result<(), Violation> {
     let problem = if s.play_slot.is_some() {
         Some(format!("play_slot {:?}", s.play_slot))
-    } else if s.deferred_triples.is_some() {
-        Some(format!("deferred_triples {:?}", s.deferred_triples))
+    } else if s.triples_deferred {
+        Some("triples_deferred".to_string())
     } else if s.repeating_cast {
         Some("repeating_cast".to_string())
     } else if s.combine_choose_one || s.defer_combined_choose_one {
@@ -2269,11 +2281,6 @@ fn snapshot_pool(snap: &Snapshot) -> (CardPool, Vec<CardTemplate>) {
 /// Failures already reported (by a substring of their signature), tolerated unless
 /// `SEAGLASS_FUZZ_STRICT=1`, so that `cargo test` stays green until they are fixed.
 const KNOWN_BUGS: &[(&str, &str)] = &[
-    (
-        "did not form a Triple",
-        "no Triple check after a Tavern summon or transform \
-         (fuzz_findings::skeletons_summoned_in_the_tavern_do_not_triple)",
-    ),
     (
         "re-synced: Relentless Deflector",
         "Relentless Deflector's sync wipes a Taunt given by a spell \

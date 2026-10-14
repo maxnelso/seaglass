@@ -2,7 +2,8 @@ card: Relentless Deflector
 scenarios:
   - name: tavern_deaths_do_not_trigger_avenge
     tavern:
-      board: [Relentless Deflector, Eternal Knight, Eternal Knight, Eternal Knight]
+      # Three Undead to destroy, but not three copies, which would form a Triple.
+      board: [Relentless Deflector, Eternal Knight, Eternal Knight, golden Eternal Knight]
       hand: [Butchering, Butchering, Butchering]
     steps:
       - play: {hand: Butchering, pos: 1}
