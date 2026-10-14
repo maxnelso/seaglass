@@ -465,3 +465,47 @@ fn number_units(team_a: &mut DuosTeam, team_b: &mut DuosTeam) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unit(attack: i32, health: i32) -> Unit {
+        Unit::new(format!("{attack}/{health}"), attack, health)
+    }
+
+    #[test]
+    fn the_team_starts_with_30_health_and_both_heroes_armor() {
+        let team = DuosTavern::new().with_armor([4, 2]);
+        assert_eq!((team.health, team.armor), (30, 6));
+        for state in &team.players {
+            assert_eq!((state.health, state.armor), (30, 6));
+        }
+    }
+
+    #[test]
+    fn a_pair_combat_damages_only_the_losing_team_and_both_take_their_results() {
+        let mut a = DuosTavern::new();
+        let mut b = DuosTavern::new().with_armor([1, 0]);
+        a.players[0].board = vec![unit(10, 10)];
+        a.players[1].board = vec![unit(1, 1)];
+        b.players[0].board = vec![unit(1, 1)];
+        b.players[1].board = vec![unit(1, 1)];
+        let res = DuosTavern::resolve_combat_pair(&mut a, &mut b, 1);
+        assert_eq!(res.outcome, BattleOutcome::AWin);
+        // A0's Tier 1, its survivor's Tier 1, and its teammate's (who never fought) Tier 1.
+        assert_eq!(res.hero_damage, 3);
+        assert_eq!((a.health, a.armor), (30, 0));
+        assert_eq!((b.health, b.armor), (28, 0));
+        for state in &a.players {
+            assert!(state.last_combat_won);
+        }
+        for state in &b.players {
+            assert!(state.last_combat_lost);
+            assert_eq!((state.health, state.armor), (28, 0));
+        }
+        // A0 beat both of B's warbands alone: A1's never fought.
+        assert_eq!(a.sat_out, [false, true]);
+        assert_eq!(b.sat_out, [false, false]);
+    }
+}
