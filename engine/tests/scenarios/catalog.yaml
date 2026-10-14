@@ -289,15 +289,20 @@ minion_ids:
 duos_minions:
   1:  # 1
     - Passenger
-  2:  # 2
+  2:  # 4
     - Wanderer Cho
     - Generous Geomancer
-  3:  # 5
+    - Friendly Saloonkeeper
+    - Gathering Stormer
+  3:  # 8
     - Wheeled Crewmate
     - Jumping Jack
     - Orc-estra Conductor
     - Puddle Prancer
     - Voidpriest Cloner
+    - Bottom Feeder
+    - Doting Dracthyr
+    - Plunder Pal
   4:  # 6
     - Feisty Freshwater
     - Grave Narrator
@@ -305,11 +310,16 @@ duos_minions:
     - Shifty Snake
     - Mantid King
     - Mirror Monster
-  5:  # 2
+  5:  # 5
     - C'Thrax Wrecker
     - Well Wisher
-  6:  # 1
+    - Man'ari Messenger
+    - Selfless Sightseer
+    - Support System
+  6:  # 3
     - Transport Reactor
+    - Dark Dazzler
+    - Loyal Mobster
   7:  # 1
     - Sandy
 

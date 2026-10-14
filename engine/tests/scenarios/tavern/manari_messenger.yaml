@@ -1,0 +1,35 @@
+card: Man'ari Messenger
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_5_demon_9_6
+    tavern: {hand: [Man'ari Messenger]}
+    expect: {hand: [{card: Man'ari Messenger, stats: 9/6, tavern_tier: 5, tribe: demon}]}
+
+  - name: battlecry_minions_in_both_taverns_have_3_2
+    duos_tavern:
+      players: [{hand: [Man'ari Messenger], shop: ["1/1", Fortify]}, {shop: ["2/2"]}]
+    steps:
+      - {player: 0, play: Man'ari Messenger}
+    expect:
+      players:
+        - {shop: ["4/3", Fortify], auras: {tavern_all_atk: 3, tavern_all_hp: 2}}
+        - {shop: ["5/4"], auras: {tavern_all_atk: 3, tavern_all_hp: 2}}
+
+  - name: the_taverns_offer_them_with_it_later
+    duos_tavern:
+      players: [{hand: [Man'ari Messenger]}, {tavern_tier: 1}]
+    steps:
+      - {player: 0, play: Man'ari Messenger}
+      - start_turn
+    expect:
+      players: {1: {shop: {all: {attack: ">= 3", health: ">= 3"}}, auras: {tavern_all_atk: 3, tavern_all_hp: 2}}}
+
+  - name: golden_gives_6_4
+    duos_tavern:
+      players: [{hand: ["golden Man'ari Messenger 18/12"]}, {shop: ["2/2"]}]
+    steps:
+      - {player: 0, play: Man'ari Messenger}
+      - {player: 0, choose_discover: 0}   # its Triple Reward
+    expect:
+      players: {1: {shop: ["8/6"]}}

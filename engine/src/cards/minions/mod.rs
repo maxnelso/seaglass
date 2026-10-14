@@ -27,6 +27,7 @@ pub mod blue_volumizer;
 pub mod blue_whelp;
 pub mod bonker;
 pub mod boom_in_a_box;
+pub mod bottom_feeder;
 pub mod brain_rotter;
 pub mod bramble_tunneler;
 pub mod brann_bronzebeard;
@@ -51,6 +52,7 @@ pub mod crater_miner;
 pub mod crimson_vindicator;
 pub mod cthrax_wrecker;
 pub mod cutthroat_kthir;
+pub mod dark_dazzler;
 pub mod dark_paradox;
 pub mod dark_puppeteer;
 pub mod de_volition_ist;
@@ -64,6 +66,7 @@ pub mod devilish_distractor;
 pub mod devout_hellcaller;
 pub mod diremuck_forager;
 pub mod disguised_graverobber;
+pub mod doting_dracthyr;
 pub mod draconic_warden;
 pub mod drakkari_enchanter;
 pub mod drifting_sacrifice;
@@ -98,9 +101,11 @@ pub mod flittering_bat;
 pub mod forest_rover;
 pub mod forsaken_weaver;
 pub mod friendly_geist;
+pub mod friendly_saloonkeeper;
 pub mod fruit_vendor;
 pub mod futurefin;
 pub mod gatekeeper_amalgam;
+pub mod gathering_stormer;
 pub mod gearfin;
 pub mod gem_rat;
 pub mod generous_geomancer;
@@ -149,11 +154,13 @@ pub mod living_azerite;
 pub mod living_prison;
 pub mod locked_up_mutineer;
 pub mod lovesick_balladist;
+pub mod loyal_mobster;
 pub mod lullabot;
 pub mod lurking_leviathan;
 pub mod lurking_lionfish;
 pub mod magicfin_mycologist;
 pub mod malchezaar_prince_of_dance;
+pub mod manari_messenger;
 pub mod mangled_bandit;
 pub mod mantid_king;
 pub mod maritime_extortionist;
@@ -179,6 +186,7 @@ pub mod passenger;
 pub mod patient_scout;
 pub mod persistent_poet;
 pub mod plaguerunner;
+pub mod plunder_pal;
 pub mod polarizing_beatboxer;
 pub mod primalfin_lookout;
 pub mod private_chef;
@@ -207,6 +215,7 @@ pub mod sanguine_refiner;
 pub mod sanlayn_scribe;
 pub mod scarlet_skull;
 pub mod scarlet_survivor;
+pub mod selfless_sightseer;
 pub mod sellemental;
 pub mod sewer_escapee;
 pub mod sewer_lord;
@@ -234,6 +243,7 @@ pub mod stalwart_kodo;
 pub mod stitched_salvager;
 pub mod stone_age_slab;
 pub mod storm_splitter;
+pub mod support_system;
 pub mod surfing_sylvar;
 pub mod suspicious_prisonguard;
 pub mod tad;
@@ -558,12 +568,17 @@ pub fn duos_catalog() -> Vec<CardTemplate> {
         // Tier 2
         wanderer_cho::template(),
         generous_geomancer::template(),
+        friendly_saloonkeeper::template(),
+        gathering_stormer::template(),
         // Tier 3
         wheeled_crewmate::template(),
         jumping_jack::template(),
         orc_estra_conductor::template(),
         puddle_prancer::template(),
         voidpriest_cloner::template(),
+        bottom_feeder::template(),
+        doting_dracthyr::template(),
+        plunder_pal::template(),
         // Tier 4
         feisty_freshwater::template(),
         grave_narrator::template(),
@@ -576,8 +591,13 @@ pub fn duos_catalog() -> Vec<CardTemplate> {
         cthrax_wrecker::template(),
         storm_splitter::template(),
         well_wisher::template(),
+        manari_messenger::template(),
+        selfless_sightseer::template(),
+        support_system::template(),
         // Tier 6
         transport_reactor::template(),
+        dark_dazzler::template(),
+        loyal_mobster::template(),
         // Tier 7
         sandy::template(),
     ]

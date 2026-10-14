@@ -1,0 +1,56 @@
+card: Friendly Saloonkeeper
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_2_3_4
+    tavern: {hand: [Friendly Saloonkeeper]}
+    expect: {hand: [{card: Friendly Saloonkeeper, stats: 3/4, tavern_tier: 2, tribe: none}]}
+
+  - name: battlecry_the_teammate_gets_a_tavern_coin
+    description: A gift, not a Pass.
+    duos_tavern:
+      players: [{hand: [Friendly Saloonkeeper]}, {}]
+    steps:
+      - {player: 0, play: Friendly Saloonkeeper}
+    expect:
+      players: [{hand: []}, {hand: [{card: Tavern Coin, is_spell: true}]}]
+      passes_this_turn: 0
+
+  - name: golden_gives_2
+    duos_tavern:
+      players: [{hand: ["golden Friendly Saloonkeeper 6/8"]}, {}]
+    steps:
+      - {player: 0, play: Friendly Saloonkeeper}
+      - {player: 0, choose_discover: 0}   # its Triple Reward
+    expect:
+      players: {1: {hand: [Tavern Coin, Tavern Coin]}}
+
+  - name: brann_bronzebeard_doubles_it
+    duos_tavern:
+      players: [{board: [Brann Bronzebeard], hand: [Friendly Saloonkeeper]}, {}]
+    steps:
+      - {player: 0, play: Friendly Saloonkeeper}
+    expect:
+      players: {1: {hand: [Tavern Coin, Tavern Coin]}}
+
+  - name: with_a_full_hand_the_coin_waits
+    duos_tavern:
+      players:
+        - {hand: [Friendly Saloonkeeper]}
+        - {hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}
+    steps:
+      - {player: 0, play: Friendly Saloonkeeper}
+      - expect: {incoming: [[], [Tavern Coin]]}
+      - {player: 1, play: Joyous}
+    expect:
+      players: {1: {hand: {count: 10, -1: Tavern Coin}}}
+      incoming: [[], []]
+
+  - name: the_teammate_can_spend_it
+    duos_tavern:
+      players: [{hand: [Friendly Saloonkeeper]}, {gold: 0}]
+    steps:
+      - {player: 0, play: Friendly Saloonkeeper}
+      - {player: 1, play: Tavern Coin}
+    expect:
+      players: {1: {gold: 1, hand: []}}

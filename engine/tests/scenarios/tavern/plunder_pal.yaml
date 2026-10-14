@@ -1,0 +1,40 @@
+card: Plunder Pal
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_pirate_2_2
+    tavern: {hand: [Plunder Pal]}
+    expect: {hand: [{card: Plunder Pal, stats: 2/2, tavern_tier: 3, tribe: pirate}]}
+
+  - name: at_the_start_of_the_turn_both_players_gain_1_gold
+    description: Turn 1 gives 3 Gold; the teammate's Gold arrives after their own start of turn.
+    duos_tavern:
+      players: [{board: [Plunder Pal]}, {}]
+    steps:
+      - start_turn
+    expect:
+      players: [{gold: 4}, {gold: 4}]
+
+  - name: golden_gives_2
+    duos_tavern:
+      players: [{}, {board: ["golden Plunder Pal 4/4"]}]
+    steps:
+      - start_turn
+    expect:
+      players: [{gold: 5}, {gold: 5}]
+
+  - name: two_pals_on_both_boards
+    duos_tavern:
+      players: [{board: [Plunder Pal]}, {board: [Plunder Pal]}]
+    steps:
+      - start_turn
+    expect:
+      players: [{gold: 5}, {gold: 5}]
+
+  - name: not_at_the_end_of_the_turn
+    duos_tavern:
+      players: [{gold: 0, board: [Plunder Pal]}, {gold: 0}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: [{gold: 0}, {gold: 0}]

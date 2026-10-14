@@ -1,0 +1,35 @@
+card: Doting Dracthyr
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_dragon_4_3
+    tavern: {hand: [Doting Dracthyr]}
+    expect: {hand: [{card: Doting Dracthyr, stats: 4/3, tavern_tier: 3, tribe: dragon}]}
+
+  - name: at_the_end_of_the_turn_the_teammates_minions_gain_1_attack
+    duos_tavern:
+      players: [{board: [Doting Dracthyr, "1/1"]}, {board: ["2/2", "3/3"], hand: ["5/5"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players:
+        - {board: ["Doting Dracthyr 4/3", "1/1"]}
+        - {board: ["3/2", "4/3"], hand: ["5/5"]}
+
+  - name: golden_gives_2_attack
+    duos_tavern:
+      players: [{board: ["golden Doting Dracthyr 8/6"]}, {board: ["2/2"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {1: {board: ["4/2"]}}
+
+  - name: after_the_teammate_ended_their_turn_too
+    duos_tavern:
+      players: [{board: [Doting Dracthyr]}, {board: ["2/2"]}]
+    steps:
+      - {player: 1, end_turn}
+      - {player: 0, end_turn}
+      - start_turn
+    expect:
+      players: {1: {board: ["3/2"]}}

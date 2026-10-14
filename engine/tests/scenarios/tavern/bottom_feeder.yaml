@@ -1,0 +1,50 @@
+card: Bottom Feeder
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_3_murloc_3_4
+    tavern: {hand: [Bottom Feeder]}
+    expect: {hand: [{card: Bottom Feeder, stats: 3/4, tavern_tier: 3, tribe: murloc}]}
+
+  - name: at_the_end_of_the_turn_both_players_get_a_random_tier_1_card
+    description: Gifts, not Passes; not from the pool.
+    duos_tavern:
+      players: [{board: [Bottom Feeder]}, {}]
+    steps:
+      - expect: {pool_size: {capture: before}}
+      - {player: 0, end_turn}
+    expect:
+      players:
+        - {hand: [{tavern_tier: 1}]}
+        - {hand: [{tavern_tier: 1}]}
+      passes_this_turn: 0
+      pool_size: {same_as: before}
+
+  - name: golden_gives_two_each
+    duos_tavern:
+      players: [{board: ["golden Bottom Feeder 6/8"]}, {}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players:
+        - {hand: {count: 2, all: {tavern_tier: 1}}}
+        - {hand: {count: 2, all: {tavern_tier: 1}}}
+
+  - name: it_can_give_a_tier_1_tavern_spell
+    seed: 4
+    duos_tavern:
+      players: [{board: [Bottom Feeder]}, {}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {0: {hand: [{is_spell: true, tavern_tier: 1}]}}
+
+  - name: in_a_duos_game_it_can_give_a_duos_exclusive_minion
+    seed: 44
+    duos_tavern:
+      players: [{board: [Bottom Feeder]}, {}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {0: {hand: [Passenger]}}
+

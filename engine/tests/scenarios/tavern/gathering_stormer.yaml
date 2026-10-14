@@ -1,0 +1,44 @@
+card: Gathering Stormer
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_2_elemental_5_1
+    tavern: {hand: [Gathering Stormer]}
+    expect: {hand: [{card: Gathering Stormer, stats: 5/1, tavern_tier: 2, tribe: elemental}]}
+
+  - name: sold_the_teammate_gains_1_gold
+    description: The seller gets the Gold of the sale as usual.
+    duos_tavern:
+      players: [{gold: 0, board: [Gathering Stormer]}, {gold: 0}]
+    steps:
+      - {player: 0, sell: Gathering Stormer}
+    expect:
+      players: [{gold: 1}, {gold: 1}]
+
+  - name: it_improves_each_turn_on_the_board
+    duos_tavern:
+      players: [{board: [Gathering Stormer], hand: [Gathering Stormer]}, {}]
+    steps:
+      - start_turn
+      - start_turn
+      - expect: {players: {0: {board: [{counter: 2}], hand: [{counter: 0}]}}}
+      - {player: 1, set: {gold: 0}}
+      - {player: 0, sell: Gathering Stormer}
+    expect:
+      players: {1: {gold: 3}}
+
+  - name: golden_gives_twice_as_much
+    duos_tavern:
+      players: [{board: [{card: "golden Gathering Stormer 10/2", counter: 1}]}, {gold: 0}]
+    steps:
+      - {player: 0, sell: Gathering Stormer}
+    expect:
+      players: {1: {gold: 4}}
+
+  - name: a_triple_keeps_the_most_improved_copy
+    duos_tavern:
+      players: [{hand: [{card: Gathering Stormer, counter: 3}, Gathering Stormer]}, {}]
+    steps:
+      - {player: 0, add_to_hand: Gathering Stormer}
+    expect:
+      players: {0: {hand: [{card: Gathering Stormer, is_golden: true, counter: 3}]}}

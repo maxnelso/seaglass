@@ -1,0 +1,34 @@
+card: Support System
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_5_mech_4_5
+    tavern: {hand: [Support System]}
+    expect: {hand: [{card: Support System, stats: 4/5, tavern_tier: 5, tribe: mech}]}
+
+  - name: at_the_end_of_the_turn_a_teammate_minion_without_one_gets_divine_shield
+    duos_tavern:
+      players: [{board: [Support System]}, {board: ["2/2 divine_shield", "3/3"]}]
+    steps:
+      - {player: 0, end_turn}
+      - start_turn   # it is theirs for good
+    expect:
+      players:
+        - {board: [{card: Support System, divine_shield: false}]}
+        - {board: [{divine_shield: true}, {divine_shield: true}]}
+
+  - name: golden_gives_two_minions_divine_shield
+    duos_tavern:
+      players: [{board: ["golden Support System 8/10"]}, {board: ["2/2", "3/3", "4/4"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {1: {board: {where: {divine_shield: true}, count: 2}}}
+
+  - name: nothing_if_they_all_have_it
+    duos_tavern:
+      players: [{board: [Support System]}, {board: ["2/2 divine_shield"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {1: {board: [{divine_shield: true}]}}

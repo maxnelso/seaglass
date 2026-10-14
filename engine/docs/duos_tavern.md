@@ -298,6 +298,23 @@ A Pass by one of these cards takes the card out of wherever it was (the board fo
 | `Unit::unchosen_to_teammate` | A Discover option that goes to the teammate if another one is chosen. | `Bargain Bundle`. |
 | `CardPool::take_unit` | Takes a unit's copies back out of the pool (the inverse of `return_unit`). | `Jumping Jack`. |
 
+### 8.4 The Teammate-Gift Cards
+
+What they give the teammate are gifts (§7.2): a card is a `Card` gift (it queues like a passed card, and is not a Pass), the rest are `Effect` gifts on the teammate's Tavern, delivered after the action, or at the start of the turn after both players' start of turn. What they give their own player comes at once. Golden doubles the number in the text; a repeated Battlecry or end-of-turn trigger (`Brann Bronzebeard`, `Drakkari Enchanter`) gives again.
+
+| Card | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Friendly Saloonkeeper` (`BGDUO_104`), Tier 2 `3/4` | *Battlecry: Your teammate gets a Tavern Coin.* (Golden `6/8`: 2.) | `Card` gifts of `Tavern Coin`s. |
+| `Gathering Stormer` (`BGDUO31_201`), Tier 2 Elemental `5/1` | *When you sell this, your teammate gains 1 Gold. (Improves each turn!)* (Golden `10/2`: 2 Gold.) | It improves at the start of each turn it starts on the board, without a cap (`counter`, as `Patient Scout`; a triple keeps the copies' highest); sold, the teammate gains `1 + counter` Gold, twice that if Golden, so a Golden one improves by 2 **(engine decision)**. |
+| `Plunder Pal` (`BGDUO_118`), Tier 3 Pirate `2/2` | *At the start of your turn, you and your teammate each gain 1 Gold.* (Golden `4/4`: 2.) | A `turn_start` observer: its player gains the Gold at once; the teammate's arrives after both players' start of turn (§7.2), so their own Gold for the turn doesn't replace it. |
+| `Bottom Feeder` (`BGDUO33_140`), Tier 3 Murloc `3/4` | *At the end of your turn, you and your teammate each get a random Tier 1 card.* (Golden `6/8`: two each.) | Each card is drawn on its own, uniformly among the game's Tier 1 minions (§8: the Duos catalog in Duos) and the Tier 1 Tavern spells the shop can offer; generated, not from the pool **(engine decision)**. |
+| `Doting Dracthyr` (`BGDUO_107`), Tier 3 Dragon `4/3` | *At the end of your turn, give your teammate's minions +1 Attack.* (Golden `8/6`: +2.) | The minions on the teammate's board gain it, permanently, whether or not the teammate has ended their turn. |
+| `Support System` (`BGDUO_109`), Tier 5 Mech `4/5` | *At the end of your turn, give a minion in your teammate's warband Divine Shield.* (Golden `8/10`: 2 minions.) | Random different minions on the teammate's board that don't have Divine Shield (fewer if fewer lack it). The Divine Shield is permanent. |
+| `Man'ari Messenger` (`BGDUO_121`), Tier 5 Demon `9/6` | *Battlecry: Minions in your team's Taverns have +3/+2 this game.* (Golden `18/12`: +6/+4.) | In both players' Taverns, as `Staff of Enrichment` (without spell bonuses): the minions in the Tavern now and those it offers later (`tavern_all_atk` / `tavern_all_hp`). |
+| `Selfless Sightseer` (`BGDUO31_205`), Tier 5 Dragon `6/2` | *Battlecry: Increase your team's maximum Gold by (1).* (Golden `12/4`: 2.) | For both players, as `Strike Oil`: `max_gold` and `base_max_gold_bonus` go up (above 10 too), with no Gold this turn. |
+| `Loyal Mobster` (`BGDUO31_202`), Tier 6 Quilboar `6/5` | *At the end of your turn, this plays a Blood Gem on all your teammate's minions.* (Golden `12/10`: 2.) | Played Blood Gems (`tavern.md` §7.4: not spells cast) on the minions on the teammate's board, of its own player's Blood Gem size **(confirmed)**: its card counter holds that size, which the teammate's Tavern reads in `teammate_counters` (§7.1). |
+| `Dark Dazzler` (`BGDUO33_150`), Tier 6 Demon `4/7` | *After your teammate sells a minion, gain its stats. (Once per turn.)* (Golden `8/14`: twice per turn.) | An `after_teammate_sell` observer (§7.3): it gains the sold minion's current Attack and Health, permanently; its `charges` are its uses left this turn (`+1` when made Golden). |
+
 ---
 
 ## 9. Determinism
@@ -314,7 +331,7 @@ The Python bindings (`DuosTavernGame`, `TavernAction.pass_card`, `simulate_duos`
 
 ## 11. Decisions
 
-The rules the user settled are marked **(confirmed)** above: 4 teams of 2, separate Taverns and one pool, teammates not friendly and effects per player; one Health pool of 30 plus both heroes' Armor; per-player hero-damage triggers, and none for combat damage; simultaneous turns, arrival at once, the turn ending when both have ended; the random first fighter that usually switches; Pass from hand to hand for 1 Gold (Gold spent), with no limit, any card but locked ones (`Search Through Time`, a `Lockbox`); the free Passes of `Wanderer Cho`, one per Cho, used before paying; a passed group card counting down its group, arriving plain; the unbounded incoming queue; triples completed by passed cards, with the receiver's Golden and Triple Reward; combat damage to the losing team's pool; the team's result for both players; a sat-out warband keeping its next-combat effects; Duos-exclusive cards only in Duos pools, Naga-only minions in none; gift cards queuing like passed cards; Passes by card effects, free and counting as Passes; random minions from the Duos catalog in Duos; `Sandy` and `Grave Narrator` reading the teammate's warband as it entered the combat; the Orc-estras' team count (+2/+2, then +4/+4, ...), `Mantid King` gaining only keywords it lacks, `Mirror Monster`'s new copies, `Private Selection` and `Bargain Bundle` drawing from the pool up to the player's Tier (`Private Selection` Passing at once), and `Jumping Jack` forgetting its sale when made Golden.
+The rules the user settled are marked **(confirmed)** above: 4 teams of 2, separate Taverns and one pool, teammates not friendly and effects per player; one Health pool of 30 plus both heroes' Armor; per-player hero-damage triggers, and none for combat damage; simultaneous turns, arrival at once, the turn ending when both have ended; the random first fighter that usually switches; Pass from hand to hand for 1 Gold (Gold spent), with no limit, any card but locked ones (`Search Through Time`, a `Lockbox`); the free Passes of `Wanderer Cho`, one per Cho, used before paying; a passed group card counting down its group, arriving plain; the unbounded incoming queue; triples completed by passed cards, with the receiver's Golden and Triple Reward; combat damage to the losing team's pool; the team's result for both players; a sat-out warband keeping its next-combat effects; Duos-exclusive cards only in Duos pools, Naga-only minions in none; gift cards queuing like passed cards; Passes by card effects, free and counting as Passes; random minions from the Duos catalog in Duos; `Sandy` and `Grave Narrator` reading the teammate's warband as it entered the combat; the Orc-estras' team count (+2/+2, then +4/+4, ...), `Mantid King` gaining only keywords it lacks, `Mirror Monster`'s new copies, `Private Selection` and `Bargain Bundle` drawing from the pool up to the player's Tier (`Private Selection` Passing at once), `Jumping Jack` forgetting its sale when made Golden, and `Loyal Mobster`'s Blood Gems of its own player's size.
 
 Engine decisions, pending the user's confirmation (each is one place in `src/duos_tavern.rs` unless noted):
 
@@ -336,6 +353,8 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 | `Mantid King` made Golden | The keywords it has until next turn stay temporary (§8.3). | `mantid_king.rs` |
 | Spellcraft | The spell on play and at the start of each turn if there is room in the hand; temporary: discarded at `EndTurn` without discard effects (§8.3). | `tavern.rs` |
 | The Duos spells | Only in Duos shops, drawn uniformly with the Tavern spells; random Tavern spells stay Solo ones (§8.3). | `spells/mod.rs` |
+| `Gathering Stormer` Golden | Improves by 2 each turn: it gives twice `1 + counter` (§8.4). | `gathering_stormer.rs` |
+| `Bottom Feeder`'s cards | Uniform among the game's Tier 1 minions and the shop's Tier 1 Tavern spells, generated (§8.4). | `bottom_feeder.rs` |
 
 ### Open Questions
 

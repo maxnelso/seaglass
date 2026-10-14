@@ -304,6 +304,6 @@ mod tests {
             card("BG28_603_Gt", ""),
             Some(("Beetle".into(), MatchedBy::GoldenCardId))
         );
-        assert_eq!(card("BGDUO_109", "Support System"), None);
+        assert_eq!(card("BGDUO_124", "Recruitment Program"), None);
     }
 }

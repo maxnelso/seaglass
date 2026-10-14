@@ -17,7 +17,7 @@ scenarios:
     expect: {pool: {Wanderer Cho: 14}, pool_size: "$duos - 1"}
 
   - name: a_duos_shop_can_offer_wanderer_cho
-    seed: 26
+    seed: 17
     duos_tavern:
       players: [{tavern_tier: 2}, {tavern_tier: 2}]
     steps: [start_turn]

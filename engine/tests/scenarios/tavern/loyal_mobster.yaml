@@ -1,0 +1,42 @@
+card: Loyal Mobster
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_6_quilboar_6_5
+    tavern: {hand: [Loyal Mobster]}
+    expect: {hand: [{card: Loyal Mobster, stats: 6/5, tavern_tier: 6, tribe: quilboar}]}
+
+  - name: at_the_end_of_the_turn_it_plays_a_blood_gem_on_all_the_teammates_minions
+    duos_tavern:
+      players: [{board: [Loyal Mobster, "1/1"]}, {board: ["1/1", "2/2"], hand: ["3/3"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players:
+        - {board: ["Loyal Mobster 6/5", "1/1"]}
+        - {board: [{stats: 2/2, blood_gems_played: 1}, {stats: 3/3, blood_gems_played: 1}], hand: ["3/3"]}
+
+  - name: the_blood_gems_are_its_players_size
+    description: Its player's Blood Gems are 3/1; the teammate's would be 1/1.
+    duos_tavern:
+      players: [{board: [Loyal Mobster], auras: {blood_gem_bonus_atk: 2}}, {board: ["1/1"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {1: {board: ["4/2"]}}
+
+  - name: golden_plays_2
+    duos_tavern:
+      players: [{board: ["golden Loyal Mobster 12/10"]}, {board: ["1/1"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {1: {board: [{stats: 3/3, blood_gems_played: 2}]}}
+
+  - name: they_are_not_spells_cast
+    duos_tavern:
+      players: [{board: [Loyal Mobster]}, {board: ["1/1"]}]
+    steps:
+      - {player: 0, end_turn}
+    expect:
+      players: {1: {auras: {tavern_spells_cast: 0}}}

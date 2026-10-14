@@ -1,0 +1,52 @@
+card: Dark Dazzler
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: is_a_tier_6_demon_4_7
+    tavern: {hand: [Dark Dazzler]}
+    expect: {hand: [{card: Dark Dazzler, stats: 4/7, tavern_tier: 6, tribe: demon}]}
+
+  - name: after_the_teammate_sells_a_minion_it_gains_its_stats
+    description: Its current stats, buffs included.
+    duos_tavern:
+      players: [{board: [Dark Dazzler]}, {board: ["Joyous 5/6"]}]
+    steps:
+      - {player: 1, sell: 0}
+    expect:
+      players: {0: {board: [{card: Dark Dazzler, stats: 9/13, charges: 0}]}}
+
+  - name: once_per_turn
+    duos_tavern:
+      players: [{board: [Dark Dazzler]}, {board: ["2/2", "3/3"]}]
+    steps:
+      - {player: 1, sell: 0}
+      - {player: 1, sell: 0}
+    expect:
+      players: {0: {board: ["Dark Dazzler 6/9"]}}
+
+  - name: its_use_comes_back_each_turn
+    duos_tavern:
+      players: [{board: [{card: Dark Dazzler, charges: 0}]}, {board: ["2/2"]}]
+    steps:
+      - start_turn
+      - {player: 1, sell: 0}
+    expect:
+      players: {0: {board: ["Dark Dazzler 6/9"]}}
+
+  - name: golden_twice_per_turn
+    duos_tavern:
+      players: [{board: [{card: "golden Dark Dazzler 8/14", charges: 0}]}, {board: ["1/1", "2/2", "3/3"]}]
+    steps:
+      - start_turn
+      - repeat: 3
+        steps: [{player: 1, sell: 0}]
+    expect:
+      players: {0: {board: ["golden Dark Dazzler 11/17"]}}
+
+  - name: not_after_its_own_players_sales
+    duos_tavern:
+      players: [{board: [Dark Dazzler, "2/2"]}, {}]
+    steps:
+      - {player: 0, sell: 1}
+    expect:
+      players: {0: {board: [{card: Dark Dazzler, stats: 4/7, charges: 1}]}}
