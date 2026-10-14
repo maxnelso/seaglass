@@ -117,6 +117,9 @@ struct SideCombatState {
     dead_aberrations: Vec<Unit>,
     dead_units: Vec<Unit>,
     pending_immediate_attacks: Vec<UnitId>,
+    /// The units a Deathrattle destroyed, dead in the next round of deaths whatever buffs reach
+    /// them first (`docs/combat.md` §5.3.1 step 9).
+    destroyed: Vec<UnitId>,
 }
 
 impl SideCombatState {
@@ -151,6 +154,7 @@ impl SideCombatState {
             dead_aberrations: Vec::new(),
             dead_units: Vec::new(),
             pending_immediate_attacks: Vec::new(),
+            destroyed: Vec::new(),
         }
     }
 
@@ -1858,6 +1862,12 @@ fn resolve_deaths(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
+    // A unit a Deathrattle destroyed is dead, whatever buffs reached it since.
+    for id in std::mem::take(&mut side_state.destroyed) {
+        if let Some(unit) = side_state.board.iter_mut().find(|u| u.id == id) {
+            unit.health = unit.health.min(0);
+        }
+    }
     if !side_state.board.iter().any(|u| u.health <= 0) {
         return;
     }
@@ -1914,10 +1924,12 @@ fn resolve_deaths(
             if let Some(target) = opp_side.board.iter_mut().find(is_target) {
                 target.health = 0;
                 events.push(Event::Death { unit: target.id });
+                opp_side.destroyed.push(target.id);
                 killed_opp = true;
             } else if let Some(target) = side_state.board.iter_mut().find(is_target) {
                 target.health = 0;
                 events.push(Event::Death { unit: target.id });
+                side_state.destroyed.push(target.id);
                 killed_own = true;
             }
         }

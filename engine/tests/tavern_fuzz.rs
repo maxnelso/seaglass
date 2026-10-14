@@ -2317,11 +2317,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
          their aura changes (fuzz_findings::a_bought_undead_misses_the_undead_bonus_its_gold_gave)",
     ),
     (
-        "aren't the units that didn't die",
-        "a minion a Deathrattle destroys stays at 0 Health, where a buff revives it \
-         (fuzz_findings::a_minion_a_deathrattle_destroys_comes_back_with_a_buff)",
-    ),
-    (
         "shop has # cards",
         "Demon Fodder Refreshes have no cap on the Tavern's size (rule question)",
     ),

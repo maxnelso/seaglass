@@ -33,3 +33,15 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a: ["Stitched Salvager 16/3"]
+
+  - name: a_minion_its_deathrattle_destroys_stays_dead_through_a_later_buff
+    description: >-
+      Boom-in-a-Box's Start of Combat kills Leeroy the Reckless and Ship Master Eudora. Leeroy's
+      Deathrattle destroys its killer, the Boom, then Eudora's Deathrattle gives the friendly
+      minions +6/+6: the destroyed Boom stays dead (it used to come back at 6 Health and win).
+    combat:
+      board_a: [Leeroy the Reckless, Ship Master Eudora, Boom-in-a-Box]
+      board_b: []
+    expect:
+      survivors_a: []
+      outcome: draw

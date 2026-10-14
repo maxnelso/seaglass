@@ -1,19 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: a_minion_a_deathrattle_destroys_comes_back_with_a_buff
-    known_bug: a minion a Deathrattle destroys stays on the board at 0 Health, where buffs revive it
-    description: >-
-      Boom-in-a-Box's Start of Combat kills Leeroy the Reckless and Ship Master Eudora. Leeroy's
-      Deathrattle destroys its killer, the Boom (Death emitted, health 0, left on the board for a
-      further round), then Eudora's Deathrattle gives the friendly minions +6/+6, the destroyed
-      Boom included: back at 6 Health, it survives the further round and wins the combat.
-    combat:
-      board_a: [Leeroy the Reckless, Ship Master Eudora, Boom-in-a-Box]
-      board_b: []
-    expect:
-      survivors_a: []
-      outcome: draw
-
   - name: a_lockbox_got_on_a_buy_overfills_the_hand
     known_bug: Buy runs the gold_spent observers before the bought card reaches the hand (hand of 11)
     description: >-
