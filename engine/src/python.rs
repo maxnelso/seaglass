@@ -9,10 +9,16 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::cards::{self, CardTemplate};
+use crate::combat::{DuosResult, DuosTeam, Warband};
+use crate::duos_tavern::DuosTavern;
 use crate::model::{BattleOutcome, DeityKind, GameState, Keyword, Unit};
 use crate::rng::Rng;
 use crate::scenario::{parse_unit as rust_parse_unit, Defaults};
-use crate::sim::{simulate as rust_simulate, simulate_batch as rust_simulate_batch};
+use crate::sim::{
+    simulate as rust_simulate, simulate_batch as rust_simulate_batch,
+    simulate_duos as rust_simulate_duos, simulate_duos_batch as rust_simulate_duos_batch,
+    BattleDistribution,
+};
 use crate::tavern::{CardPool, TavernAction, TavernState};
 
 fn parse_deity_kind(name: Option<&str>) -> PyResult<DeityKind> {
@@ -714,6 +720,398 @@ impl PyTavernGame {
     }
 }
 
+/// `units` as Python units.
+fn py_units(units: &[Unit]) -> Vec<PyUnit> {
+    units
+        .iter()
+        .cloned()
+        .map(|inner| PyUnit { inner })
+        .collect()
+}
+
+/// A battle outcome's Python name: `a_win`, `b_win` or `draw`.
+fn outcome_name(outcome: BattleOutcome) -> String {
+    match outcome {
+        BattleOutcome::AWin => "a_win",
+        BattleOutcome::BWin => "b_win",
+        BattleOutcome::Draw => "draw",
+    }
+    .to_string()
+}
+
+/// A [`BattleDistribution`] as a Python `BattleDistribution`.
+fn py_distribution(dist: BattleDistribution) -> PyDistribution {
+    PyDistribution {
+        battles: dist.battles,
+        a_wins: dist.a_wins,
+        b_wins: dist.b_wins,
+        draws: dist.draws,
+        a_win_rate: dist.a_win_rate,
+        b_win_rate: dist.b_win_rate,
+        draw_rate: dist.draw_rate,
+        damage_min: dist.damage.min,
+        damage_max: dist.damage.max,
+        damage_mean: dist.damage.mean,
+    }
+}
+
+/// A Duos team from Python (`docs/duos.md` §1): its two players' boards (player 0, player 1),
+/// the player whose warband fights first, and each player's Tavern Tier.
+fn duos_team(boards: Vec<Vec<PyUnit>>, first: usize, hero_tiers: (u32, u32)) -> PyResult<DuosTeam> {
+    if first > 1 {
+        return Err(PyValueError::new_err(format!(
+            "first is the player whose warband fights first: 0 or 1, got {first}"
+        )));
+    }
+    let count = boards.len();
+    let [board_0, board_1]: [Vec<PyUnit>; 2] = boards.try_into().map_err(|_| {
+        PyValueError::new_err(format!(
+            "a Duos team lists its two players' boards, got {count}"
+        ))
+    })?;
+    let warband = |board: Vec<PyUnit>, hero_tier: u32| Warband {
+        board: board.into_iter().map(|u| u.inner).collect(),
+        hero_tier,
+        ..Warband::default()
+    };
+    Ok(DuosTeam {
+        warbands: [
+            warband(board_0, hero_tiers.0),
+            warband(board_1, hero_tiers.1),
+        ],
+        first,
+    })
+}
+
+/// Python wrapper around [`DuosResult`]: a Duos combat's outcome and damage, and each player's
+/// part in it (`docs/duos.md` §6).
+#[pyclass(name = "DuosBattleResult")]
+#[derive(Clone, Debug)]
+pub struct PyDuosBattleResult {
+    /// The teams' outcome: `a_win`, `b_win` or `draw`.
+    #[pyo3(get)]
+    pub outcome: String,
+    /// The damage the losing team takes.
+    #[pyo3(get)]
+    pub hero_damage: u32,
+    /// Whether each of team A's players' warbands fought (player 0, player 1).
+    #[pyo3(get)]
+    pub fought_a: Vec<bool>,
+    #[pyo3(get)]
+    pub fought_b: Vec<bool>,
+    /// Each of team A's players' surviving minions (player 0, player 1).
+    #[pyo3(get)]
+    pub survivors_a: Vec<Vec<PyUnit>>,
+    #[pyo3(get)]
+    pub survivors_b: Vec<Vec<PyUnit>>,
+}
+
+impl From<&DuosResult> for PyDuosBattleResult {
+    fn from(res: &DuosResult) -> Self {
+        Self {
+            outcome: outcome_name(res.outcome),
+            hero_damage: res.hero_damage,
+            fought_a: res.team_a.iter().map(|w| w.fought).collect(),
+            fought_b: res.team_b.iter().map(|w| w.fought).collect(),
+            survivors_a: res.team_a.iter().map(|w| py_units(&w.survivors)).collect(),
+            survivors_b: res.team_b.iter().map(|w| py_units(&w.survivors)).collect(),
+        }
+    }
+}
+
+#[pymethods]
+impl PyDuosBattleResult {
+    fn __repr__(&self) -> String {
+        format!(
+            "DuosBattleResult(outcome={:?}, hero_damage={}, fought_a={:?}, fought_b={:?})",
+            self.outcome, self.hero_damage, self.fought_a, self.fought_b
+        )
+    }
+}
+
+/// One player's view of a Duos team (`docs/duos_tavern.md`): their own Tavern (the fields of
+/// `TavernObservation`; `health` and `armor` are the team's), their queue and free Passes, what
+/// they see of their teammate's Tavern, and the team's.
+#[pyclass(name = "DuosObservation")]
+#[derive(Clone, Debug)]
+pub struct PyDuosObservation {
+    /// The observing player (`0` or `1`).
+    #[pyo3(get)]
+    pub player: usize,
+    #[pyo3(get)]
+    pub turn: u32,
+    #[pyo3(get)]
+    pub health: i32,
+    #[pyo3(get)]
+    pub armor: i32,
+    #[pyo3(get)]
+    pub tavern_tier: u32,
+    #[pyo3(get)]
+    pub max_gold: u32,
+    #[pyo3(get)]
+    pub gold: u32,
+    #[pyo3(get)]
+    pub bonus_gold_next_turn: u32,
+    #[pyo3(get)]
+    pub free_refreshes: u32,
+    #[pyo3(get)]
+    pub upgrade_cost: u32,
+    #[pyo3(get)]
+    pub is_frozen: bool,
+    #[pyo3(get)]
+    pub board: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub hand: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub shop: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub discover_pending: Option<Vec<PyUnit>>,
+    #[pyo3(get)]
+    pub deity: String,
+    #[pyo3(get)]
+    pub deity_attack: i32,
+    #[pyo3(get)]
+    pub deity_health: i32,
+    /// `true` once this player has ended their turn.
+    #[pyo3(get)]
+    pub ended: bool,
+    /// The cards passed to this player waiting for room in their hand, first in first out.
+    #[pyo3(get)]
+    pub incoming: Vec<PyUnit>,
+    /// This player's free Passes left this turn (`Wanderer Cho`).
+    #[pyo3(get)]
+    pub free_passes: u32,
+    /// `true` if this player's warband fights first in the coming combat.
+    #[pyo3(get)]
+    pub fights_first: bool,
+    #[pyo3(get)]
+    pub teammate_board: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub teammate_hand: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub teammate_shop: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub teammate_tavern_tier: u32,
+    #[pyo3(get)]
+    pub teammate_gold: u32,
+    #[pyo3(get)]
+    pub teammate_incoming: Vec<PyUnit>,
+    #[pyo3(get)]
+    pub teammate_ended: bool,
+    #[pyo3(get)]
+    pub teammate_free_passes: u32,
+    /// The team's shared Health and Armor (the same as `health` and `armor`).
+    #[pyo3(get)]
+    pub team_health: i32,
+    #[pyo3(get)]
+    pub team_armor: i32,
+    /// The team's Passes this turn and this game.
+    #[pyo3(get)]
+    pub passes_this_turn: u32,
+    #[pyo3(get)]
+    pub passes_this_game: u32,
+    /// The player whose warband fights first in the coming combat.
+    #[pyo3(get)]
+    pub first_fighter: usize,
+}
+
+impl PyDuosObservation {
+    fn new(team: &DuosTavern, player: usize) -> Self {
+        let mate = DuosTavern::teammate(player);
+        let own = PyTavernObservation::from(&team.players[player]);
+        let other = &team.players[mate];
+        Self {
+            player,
+            turn: own.turn,
+            health: own.health,
+            armor: own.armor,
+            tavern_tier: own.tavern_tier,
+            max_gold: own.max_gold,
+            gold: own.gold,
+            bonus_gold_next_turn: own.bonus_gold_next_turn,
+            free_refreshes: own.free_refreshes,
+            upgrade_cost: own.upgrade_cost,
+            is_frozen: own.is_frozen,
+            board: own.board,
+            hand: own.hand,
+            shop: own.shop,
+            discover_pending: own.discover_pending,
+            deity: own.deity,
+            deity_attack: own.deity_attack,
+            deity_health: own.deity_health,
+            ended: team.ended[player],
+            incoming: py_units(&team.incoming[player]),
+            free_passes: team.free_passes(player),
+            fights_first: team.first_fighter == player,
+            teammate_board: py_units(&other.board),
+            teammate_hand: py_units(&other.hand),
+            teammate_shop: py_units(&other.shop),
+            teammate_tavern_tier: other.tavern_tier,
+            teammate_gold: other.gold,
+            teammate_incoming: py_units(&team.incoming[mate]),
+            teammate_ended: team.ended[mate],
+            teammate_free_passes: team.free_passes(mate),
+            team_health: team.health,
+            team_armor: team.armor,
+            passes_this_turn: team.passes_this_turn,
+            passes_this_game: team.passes_this_game,
+            first_fighter: team.first_fighter,
+        }
+    }
+}
+
+/// Stateful handle wrapping a Duos team's [`DuosTavern`], its [`CardPool`] and [`Rng`]
+/// (`docs/duos_tavern.md`). Every player-specific call takes the player (`0` or `1`).
+#[pyclass(name = "DuosTavernGame")]
+#[derive(Clone, Debug)]
+pub struct PyDuosTavernGame {
+    team: DuosTavern,
+    pool: CardPool,
+    rng: Rng,
+}
+
+impl PyDuosTavernGame {
+    fn check_player(player: usize) -> PyResult<()> {
+        if player > 1 {
+            return Err(PyValueError::new_err(format!(
+                "a Duos team's players are 0 and 1, got {player}"
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl PyDuosTavernGame {
+    /// `armor` is each hero's starting Armor: the team starts with their sum (§3).
+    #[new]
+    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None))]
+    fn new(
+        seed: u64,
+        catalog: &str,
+        armor: (i32, i32),
+        first_fighter_switch_chance: f64,
+        shop_spells: bool,
+        deity: Option<&str>,
+    ) -> PyResult<Self> {
+        if !(0.0..=1.0).contains(&first_fighter_switch_chance) {
+            return Err(PyValueError::new_err(format!(
+                "first_fighter_switch_chance is a probability, got {first_fighter_switch_chance}"
+            )));
+        }
+        let templates = cards::catalog_for(catalog).map_err(PyValueError::new_err)?;
+        let kind = parse_deity_kind(deity)?;
+        let mut team = DuosTavern::new()
+            .with_armor([armor.0, armor.1])
+            .with_shop_spells(shop_spells)
+            .with_first_fighter_switch_chance(first_fighter_switch_chance);
+        for state in &mut team.players {
+            state.auras.deity.kind = kind;
+        }
+        Ok(Self {
+            team,
+            pool: CardPool::new(templates),
+            rng: Rng::new(seed),
+        })
+    }
+
+    /// `player`'s view of the team.
+    fn observe(&self, player: usize) -> PyResult<PyDuosObservation> {
+        Self::check_player(player)?;
+        Ok(PyDuosObservation::new(&self.team, player))
+    }
+
+    /// Start the team's turn: both players' start of turn, then the first fighter.
+    fn start_turn(&mut self) {
+        self.team.start_turn(&mut self.pool, &mut self.rng);
+    }
+
+    fn is_legal(&self, player: usize, action: &PyTavernAction) -> bool {
+        self.team.is_legal(player, &action.inner)
+    }
+
+    fn legal_actions(&self, player: usize) -> PyResult<Vec<PyTavernAction>> {
+        Self::check_player(player)?;
+        Ok(self
+            .team
+            .valid_actions(player)
+            .into_iter()
+            .map(|inner| PyTavernAction { inner })
+            .collect())
+    }
+
+    /// `player` takes `action`; returns `True` if it ended their turn.
+    fn step(&mut self, player: usize, action: &PyTavernAction) -> PyResult<bool> {
+        self.team
+            .step(player, action.inner, &mut self.pool, &mut self.rng)
+            .map_err(PyValueError::new_err)
+    }
+
+    fn end_turn(&mut self, player: usize) -> PyResult<()> {
+        self.step(
+            player,
+            &PyTavernAction {
+                inner: TavernAction::EndTurn,
+            },
+        )
+        .map(|_| ())
+    }
+
+    /// `True` once both players have ended their turn.
+    fn turn_over(&self) -> bool {
+        self.team.turn_over()
+    }
+
+    /// `True` if the team is out (0 Health or less).
+    fn is_out(&self) -> bool {
+        self.team.is_out()
+    }
+
+    #[getter]
+    fn health(&self) -> i32 {
+        self.team.health
+    }
+
+    #[getter]
+    fn armor(&self) -> i32 {
+        self.team.armor
+    }
+
+    #[getter]
+    fn first_fighter(&self) -> usize {
+        self.team.first_fighter
+    }
+
+    /// This team (side A) fights `other`'s (side B); both teams take their results. The seed
+    /// defaults to a draw from this game's RNG.
+    #[pyo3(signature = (other, seed=None))]
+    fn resolve_combat_with(
+        &mut self,
+        other: &mut PyDuosTavernGame,
+        seed: Option<u64>,
+    ) -> PyDuosBattleResult {
+        let combat_seed = seed.unwrap_or_else(|| self.rng.next_u64());
+        let res = DuosTavern::resolve_combat_pair(&mut self.team, &mut other.team, combat_seed);
+        PyDuosBattleResult::from(&res)
+    }
+
+    /// This team (side A) fights a fixed opponent team: its two players' boards, the one that
+    /// fights first, and their Tavern Tiers. Only this team takes its results.
+    #[pyo3(signature = (opponent, first=0, hero_tiers=(1, 1), seed=None))]
+    fn resolve_combat_against(
+        &mut self,
+        opponent: Vec<Vec<PyUnit>>,
+        first: usize,
+        hero_tiers: (u32, u32),
+        seed: Option<u64>,
+    ) -> PyResult<PyDuosBattleResult> {
+        let opponent = duos_team(opponent, first, hero_tiers)?;
+        let combat_seed = seed.unwrap_or_else(|| self.rng.next_u64());
+        let res = self.team.resolve_combat_against(&opponent, combat_seed);
+        Ok(PyDuosBattleResult::from(&res))
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature = (board_a, board_b, seed, hero_tier_a=1, hero_tier_b=1, deity_a=None, deity_b=None, deity_stats_a=(1, 1), deity_stats_b=(1, 1)))]
 #[allow(clippy::too_many_arguments)]
@@ -822,6 +1220,51 @@ fn catalog(name: &str) -> PyResult<Vec<PyCardTemplate>> {
         .collect())
 }
 
+/// One Duos combat (`docs/duos.md`): each team lists its two players' boards (player 0, player
+/// 1), with the player whose warband fights first and each player's Tavern Tier.
+#[pyfunction]
+#[pyo3(signature = (team_a, team_b, seed, first_a=0, first_b=0, hero_tiers_a=(1, 1), hero_tiers_b=(1, 1)))]
+fn simulate_duos(
+    team_a: Vec<Vec<PyUnit>>,
+    team_b: Vec<Vec<PyUnit>>,
+    seed: u64,
+    first_a: usize,
+    first_b: usize,
+    hero_tiers_a: (u32, u32),
+    hero_tiers_b: (u32, u32),
+) -> PyResult<PyDuosBattleResult> {
+    let team_a = duos_team(team_a, first_a, hero_tiers_a)?;
+    let team_b = duos_team(team_b, first_b, hero_tiers_b)?;
+    Ok(PyDuosBattleResult::from(&rust_simulate_duos(
+        &team_a, &team_b, seed,
+    )))
+}
+
+/// `n` Duos combats from seeds derived from `base_seed` (`docs/duos.md` §5), as
+/// `simulate_batch`: team A's equity.
+#[pyfunction]
+#[pyo3(signature = (team_a, team_b, base_seed, n, first_a=0, first_b=0, hero_tiers_a=(1, 1), hero_tiers_b=(1, 1)))]
+#[allow(clippy::too_many_arguments)]
+fn simulate_duos_batch(
+    team_a: Vec<Vec<PyUnit>>,
+    team_b: Vec<Vec<PyUnit>>,
+    base_seed: u64,
+    n: u32,
+    first_a: usize,
+    first_b: usize,
+    hero_tiers_a: (u32, u32),
+    hero_tiers_b: (u32, u32),
+) -> PyResult<PyDistribution> {
+    if n == 0 {
+        return Err(PyValueError::new_err("simulate_duos_batch requires n > 0"));
+    }
+    let team_a = duos_team(team_a, first_a, hero_tiers_a)?;
+    let team_b = duos_team(team_b, first_b, hero_tiers_b)?;
+    Ok(py_distribution(rust_simulate_duos_batch(
+        &team_a, &team_b, base_seed, n,
+    )))
+}
+
 #[pyfunction]
 fn all_card_ids() -> Vec<u32> {
     let mut ids: Vec<u32> = crate::scenario::card_index()
@@ -849,8 +1292,13 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTavernAction>()?;
     m.add_class::<PyTavernObservation>()?;
     m.add_class::<PyTavernGame>()?;
+    m.add_class::<PyDuosBattleResult>()?;
+    m.add_class::<PyDuosObservation>()?;
+    m.add_class::<PyDuosTavernGame>()?;
     m.add_function(wrap_pyfunction!(simulate, m)?)?;
     m.add_function(wrap_pyfunction!(simulate_batch, m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_duos, m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_duos_batch, m)?)?;
     m.add_function(wrap_pyfunction!(catalog, m)?)?;
     m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;

@@ -62,12 +62,18 @@ def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, 
         for s_idx in range(MAX_SHOP):
             register(seaglass.TavernAction.play_on_shop(h_idx, s_idx))
 
+    # 9. Duos: Pass a hand card to the teammate: hand_index in 0..10 (last, so the indices above
+    #    are unchanged). A Solo game never lists them as legal, so its masks leave them out.
+    for h_idx in range(MAX_HAND):
+        register(seaglass.TavernAction.pass_card(h_idx))
+
     return actions, lookup
 
 
 ACTIONS, ACTION_TO_INDEX = _build_action_table()
 ACTION_SPACE_SIZE = len(ACTIONS)
 END_TURN_INDEX = ACTION_TO_INDEX[("end_turn", None, None)]
+PASS_INDICES = [ACTION_TO_INDEX[("pass", h_idx, None)] for h_idx in range(MAX_HAND)]
 
 
 def action_from_index(index: int) -> seaglass.TavernAction:
@@ -82,17 +88,21 @@ def index_from_action(action: seaglass.TavernAction) -> int:
 
 
 def action_mask(
-    game: seaglass.TavernGame,
+    game: seaglass.TavernGame | seaglass.DuosTavernGame,
     allow_reposition: bool = False,
     allow_freeze: bool = False,
     prune_dominated: bool = False,
-    obs: seaglass.TavernObservation | None = None,
+    obs: seaglass.TavernObservation | seaglass.DuosObservation | None = None,
+    player: int | None = None,
 ) -> np.ndarray:
-    """Return a boolean mask of shape `(ACTION_SPACE_SIZE,)` for currently legal actions."""
+    """Return a boolean mask of shape `(ACTION_SPACE_SIZE,)` for currently legal actions.
+
+    For a `DuosTavernGame`, pass the acting `player` (0 or 1).
+    """
     mask = np.zeros(ACTION_SPACE_SIZE, dtype=np.bool_)
     if prune_dominated:
         if obs is None:
-            obs = game.observe()
+            obs = game.observe() if player is None else game.observe(player)
         board_len = len(obs.board)
         hand_has_minion = any(not u.is_spell for u in obs.hand)
         can_sell = (board_len >= MAX_BOARD and (hand_has_minion or obs.gold >= 2)) or (
@@ -103,7 +113,8 @@ def action_mask(
         can_sell = True
         can_refresh = True
 
-    for act in game.legal_actions():
+    legal = game.legal_actions() if player is None else game.legal_actions(player)
+    for act in legal:
         kind = act.kind
         if not allow_reposition and kind == "reposition":
             continue

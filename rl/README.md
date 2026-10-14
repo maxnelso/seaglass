@@ -41,7 +41,7 @@ At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_
 
 ### 2. Action Space & Legality Mask
 During a Tavern turn, the agent repeatedly takes discrete micro-actions until selecting `EndTurn`.
-- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
+- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, and the Duos `Pass`). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
 - The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Triple Reward Discover is pending, all actions except `ChooseDiscover` are masked out.
 
 ### 3. Reward Function
@@ -52,6 +52,25 @@ $$\Phi(s) = w_{\text{eq}} \cdot \text{combat\_equity}(s) + w_{\text{tier}} \cdot
 $$r_t = \Phi(s_t) - \Phi(s_{t-1}) + r_{\text{shaping}}$$
 
 where $\text{combat\_equity}(s) = \text{win\_rate} + 0.5 \cdot \text{draw\_rate}$ is estimated via `seaglass.simulate_batch` against the current turn's opponent board. Because $\Phi(s)$ is computed in Python, reward weights and shaping terms can be configured per experiment without touching the Rust crate.
+
+---
+
+## Duos
+
+A Duos team (two players with one Health pool who can Pass cards to each other, [`engine/docs/duos_tavern.md`](../engine/docs/duos_tavern.md)) is `seaglass.DuosTavernGame`. The engine has everything a Duos agent needs; the encoding below and a Duos environment are the next step (the policy network and training are unchanged).
+
+### Bindings
+- `DuosTavernGame(seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=True, deity=None)`: one team's Tavern phase, with its card pool and RNG (everything is deterministic from `seed`). `armor` is each hero's starting Armor (the team starts with 30 Health and their sum); `catalog="duos"` is the full catalog plus the Duos-exclusive minions (`Wanderer Cho`).
+- Per player (`0` or `1`): `observe(player)`, `legal_actions(player)`, `is_legal(player, action)`, `step(player, action)` (returns `True` if it ended that player's turn), `end_turn(player)`.
+- Per team: `start_turn()` (both players, then the coming combat's first fighter), `turn_over()` (both players ended), `is_out()`, `health`, `armor`, `first_fighter`; `resolve_combat_with(other, seed=None)` (team vs team: both take their results, the loser the damage) and `resolve_combat_against(opponent, first=0, hero_tiers=(1, 1), seed=None)` (a fixed opponent team: its two boards). Both return a `DuosBattleResult` (`outcome`, `hero_damage`, `fought_a`/`_b`, `survivors_a`/`_b`, per player). Two `DuosTavernGame`s have separate card pools (4-team matches are out of scope).
+- `TavernAction.pass_card(hand_index)`: kind `"pass"`, args `(hand_index, None)`. A Solo `TavernGame` never lists it as legal.
+- `simulate_duos(team_a, team_b, seed, first_a=0, first_b=0, hero_tiers_a=(1, 1), hero_tiers_b=(1, 1))` and `simulate_duos_batch(team_a, team_b, base_seed, n, ...)`: Duos combat equity, where a team is its two players' boards (`[[units], [units]]`).
+
+### MDP
+- **Agents**: each player is an agent acting on their own Tavern. Both act during the same turn: the environment interleaves their micro-steps (any order is legal) until both have ended; then the teams fight. Rewards follow the team: its shared Health, the team combat's outcome and damage, and `simulate_duos_batch` equity.
+- **Actions**: the Solo table plus 10 `Pass` actions, one per hand slot, appended at the end (`PASS_INDICES`), so Solo indices keep their meaning and Solo masks leave them out. `action_mask(game, ..., player=p)` masks a Duos player's actions.
+- **Observation** (`DuosObservation`): the player's own `TavernObservation` fields (with the team's `health` and `armor`), plus `incoming` (the cards passed to them waiting for room in a full hand), `free_passes`, `fights_first`, `ended`; the teammate's `teammate_board`, `teammate_hand`, `teammate_shop`, `teammate_tavern_tier`, `teammate_gold`, `teammate_incoming`, `teammate_ended`, `teammate_free_passes`; and the team's `team_health`, `team_armor`, `passes_this_turn`, `passes_this_game`, `first_fighter`.
+- **Planned encoding**: the teammate's cards become extra card tokens with new zones appended after the Solo ones (`3` teammate board, `4` teammate hand, `5` teammate shop, `6` own incoming queue, `7` teammate's incoming queue), and the team scalars (team Health/Armor, free Passes, the Pass counters, `fights_first`, the teammate's Tier and Gold, both `ended` flags) are appended to the `[PLAYER]` vector. The card vocabulary already includes the Duos-exclusive cards: their ids (`10_000` and up) sort after every Solo card, so they only append to it.
 
 ---
 
@@ -83,7 +102,8 @@ rl/
 │   ├── train_ppo.py           # PPO rollout collection, GAE/returns, clipped policy update
 │   └── sandbox_cli.py         # Interactive terminal inspector for tavern & combat
 └── tests/
-    └── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
+    ├── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
+    └── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
 ```
 
 ---
