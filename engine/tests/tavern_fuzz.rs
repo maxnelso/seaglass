@@ -5,31 +5,62 @@
 //! `valid_actions()` (biased toward buying, playing, selling and spells) until `EndTurn` or an
 //! action cap. Then they fight in pairs (`TavernState::resolve_combat_pair`; the odd player out
 //! fights the last eliminated player's ghost with `resolve_combat_against`), and players at 0
-//! Health or less are eliminated, until one is left or the turn cap.
+//! Health or less are eliminated, until one is left or the turn cap. Some games give the players
+//! extra maximum Gold or random cards first (Tier 7 minions, token spells), so that every card
+//! gets played.
 //!
-//! After every action and every combat it checks the invariants of [`check_tavern`],
-//! [`check_legality`] and [`check_battle`]. A panic is caught per game, so one run collects
-//! several failures, and every game is replayed from its seed to check that it is
-//! deterministic. Failures are grouped by signature; the earliest one of each group is kept as
-//! its repro (with `SEAGLASS_FUZZ_OUT`, written as a snapshot of the state just before the
-//! failing call, which `SEAGLASS_FUZZ_REPRO` replays).
+//! After every action, start of turn and combat it checks:
+//! - [`check_legality`]: `valid_actions()` lists each legal action once, `is_legal` agrees with it
+//!   on every candidate action (each index up to one past its zone, and a huge one), a pending
+//!   Discover allows only `ChooseDiscover`, and `step()` accepts every listed action (all of them,
+//!   on copies of the game, at `SEAGLASS_FUZZ_LOOKAHEAD` of the decision points);
+//! - [`check_tavern`]: at most 7 minions on the board and 10 cards in hand, a Tier in 1..=6,
+//!   minions in the Tavern with at least 1 Health and no negative Attack, no spell on the board,
+//!   no empty or orphaned Discover, `max_gold`, `upgrade_cost` and Armor as specified, no three
+//!   non-Golden copies left untripled, each unit matching its card (Tier, type, name, base
+//!   stats), no leftover marker id or transient state;
+//! - [`check_synced`]: re-syncing the auras changes nothing; [`check_round_trip`]: the state
+//!   survives a serde round trip; [`check_pool_leaks`]: the pool holds at most the base copies
+//!   and no copy leaves it for nowhere;
+//! - per action: a rolled shop holds `shop_capacity` minions and one spell, prices are paid in
+//!   Gold, a Health cost never kills, Upgrade goes up one Tier, a bought or Discovered card
+//!   reaches the hand, a Golden played from hand offers a Triple Reward of the next Tier, a
+//!   Tavern spell counts as cast, the hero is never healed;
+//! - per combat: [`check_battle`] (at most 7 survivors, all alive, outcome and `hero_damage` as
+//!   specified, events framed by `BattleStart` / `BattleEnd`), [`check_battle_units`] (every unit
+//!   accounted for by the events), the hero loses exactly the damage, and the Tavern keeps its
+//!   minions, shop, Gold and Tier ([`check_combat_keeps_tavern`]).
+//!
+//! A panic is caught per game, so one run collects several failures, and every game is replayed
+//! from its seed to check that it is deterministic. Failures are grouped by signature; the
+//! earliest one of each group is kept as its repro (with `SEAGLASS_FUZZ_OUT`, written as a
+//! snapshot of the state just before the failing call, which `SEAGLASS_FUZZ_REPRO` replays).
+//! Games go on past the failures of known bugs ([`KNOWN_BUGS`], reported in
+//! `tests/scenarios/tavern/fuzz_findings.yaml`), and `cargo test` fails only on new ones.
+//! [`random_battles_keep_the_invariants`] checks the same combat invariants over random boards.
 //!
 //! - `SEAGLASS_FUZZ_GAMES`: the number of games (default 12).
-//! - `SEAGLASS_FUZZ_SEED`: the first game's seed (default 1); game `i` uses `seed + i`.
-//! - `SEAGLASS_FUZZ_THREADS`: worker threads (default 1).
-//! - `SEAGLASS_FUZZ_TURNS`: the turn cap (default 25).
+//! - `SEAGLASS_FUZZ_BATTLES`: the number of random battles (default 300).
+//! - `SEAGLASS_FUZZ_SEED`: the first game's (or battle's) seed (default 1); game `i` uses
+//!   `seed + i`.
+//! - `SEAGLASS_FUZZ_THREADS`: worker threads (default: up to 4).
+//! - `SEAGLASS_FUZZ_TURNS`: the turn cap, varied per game in `turns/2..=turns*3/2` (default 25).
 //! - `SEAGLASS_FUZZ_LOOKAHEAD`: per mille of decision points at which every listed action is
-//!   also stepped on a copy of the game (default 100).
-//! - `SEAGLASS_FUZZ_GAME=<seed>`: play that one game, printing its trace.
+//!   also stepped on a copy of the game (default 100; use the run's value to trace its games).
+//! - `SEAGLASS_FUZZ_GAME=<seed>`: play that one game, printing its trace (and checking the pool
+//!   after every action, to find the one that leaks).
 //! - `SEAGLASS_FUZZ_OUT=<dir>`: write each failure group's repro snapshot there.
-//! - `SEAGLASS_FUZZ_REPRO=<file>`: replay a repro snapshot's failing call, printing the result.
-//! - `SEAGLASS_FUZZ_STRICT=1`: fail on the known bugs ([`KNOWN_BUGS`]) too.
+//! - `SEAGLASS_FUZZ_REPRO=<file>`: replay a repro snapshot's failing call, printing the result
+//!   (a combat's events too).
+//! - `SEAGLASS_FUZZ_STRICT=1`: fail on the known bugs too.
+//! - `SEAGLASS_FUZZ_STOP_AT_KNOWN=1`: end a game at a known bug instead of going on.
 //!
 //! A big run, in release with the debug assertions and overflow checks on:
 //!
 //! ```sh
 //! CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-//! SEAGLASS_FUZZ_GAMES=20000 SEAGLASS_FUZZ_THREADS=32 SEAGLASS_FUZZ_OUT=target/fuzz \
+//! SEAGLASS_FUZZ_GAMES=50000 SEAGLASS_FUZZ_BATTLES=3000000 SEAGLASS_FUZZ_THREADS=18 \
+//! SEAGLASS_FUZZ_LOOKAHEAD=300 SEAGLASS_FUZZ_OUT=target/fuzz \
 //!   cargo test --release -p seaglass --test tavern_fuzz -- --nocapture
 //! ```
 
@@ -54,6 +85,11 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------------------------
+
+/// Worker threads by default: a few, so that `cargo test` stays fast.
+fn default_threads() -> usize {
+    std::thread::available_parallelism().map_or(1, |n| n.get().min(4))
+}
 
 fn env_or<T: std::str::FromStr>(name: &str, default: T) -> T {
     std::env::var(name)
@@ -81,7 +117,7 @@ impl Settings {
         Self {
             games: env_or("SEAGLASS_FUZZ_GAMES", 12),
             first_seed: env_or("SEAGLASS_FUZZ_SEED", 1),
-            threads: env_or("SEAGLASS_FUZZ_THREADS", 1usize).max(1),
+            threads: env_or("SEAGLASS_FUZZ_THREADS", default_threads()).max(1),
             turns: env_or("SEAGLASS_FUZZ_TURNS", 25),
             lookahead: env_or("SEAGLASS_FUZZ_LOOKAHEAD", 100),
             out: std::env::var("SEAGLASS_FUZZ_OUT").ok(),
@@ -1127,7 +1163,7 @@ fn check_combat_keeps_tavern(before: &TavernState, after: &TavernState) -> Resul
                 rest.next();
                 true
             } else {
-                tripled.contains(&u.card_id)
+                tripled.contains(&u.card_id) || (!tripled.is_empty() && is_wildcard(u))
             }
         }) && rest.next().is_none()
     };
@@ -1741,10 +1777,8 @@ impl Game {
             }),
             TavernAction::Refresh => Some(if free_refresh { 0 } else { 1 }),
             TavernAction::UpgradeTavern => Some(s.upgrade_cost),
-            TavernAction::Activate { board_pos, .. } => s
-                .board
-                .get(board_pos)
-                .and_then(|u| cards::activate_cost(u.card_id)),
+            // (Not an Activate: its effect can give Gold, a Kelp Keeper triggering a Battlecry
+            // that casts a Tavern Coin.)
             _ => None,
         };
         if let TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } =
@@ -2247,12 +2281,32 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
     ),
     (
         "transient state set: pending_choice_target",
-        "a Choose One followed by a Triple Reward leaves pending_choice_target set",
+        "a Choose One followed by a Triple Reward leaves pending_choice_target set \
+         (fuzz_findings::a_choose_one_before_a_triple_reward_leaves_its_target_set)",
     ),
     (
         "left the pool for nowhere",
         "a card Discovered with a full hand is dropped without returning to the pool \
          (fuzz_findings::a_card_discovered_with_a_full_hand_leaves_the_pool_for_good)",
+    ),
+    (
+        "a minion in the hand changes when the auras are re-synced",
+        "Buy runs the gold_spent observers before the card reaches the hand, so it misses \
+         their aura changes (fuzz_findings::a_bought_undead_misses_the_undead_bonus_its_gold_gave)",
+    ),
+    (
+        "aren't the units that didn't die",
+        "a minion a Deathrattle destroys stays at 0 Health, where a buff revives it \
+         (fuzz_findings::a_minion_a_deathrattle_destroys_comes_back_with_a_buff)",
+    ),
+    (
+        "Crash: engine/src/cards/mod.rs:#: index out of bounds",
+        "Resourceful Robot's end of turn keeps a stale self_idx after a Triple \
+         (fuzz_findings::a_golden_resourceful_robot_crashes_after_a_triple_moves_it)",
+    ),
+    (
+        "shop has # cards",
+        "Demon Fodder Refreshes have no cap on the Tavern's size (rule question)",
     ),
 ];
 
@@ -2339,7 +2393,7 @@ fn run_all(settings: &Settings) -> Groups {
             scope.spawn(move || {
                 let mut reported = Vec::new();
                 while done.load(Ordering::Relaxed) < settings.games as usize {
-                    std::thread::sleep(Duration::from_secs(5));
+                    std::thread::sleep(Duration::from_millis(200));
                     for (seed, since) in running.lock().unwrap().iter().flatten() {
                         if since.elapsed() > Duration::from_secs(60) && !reported.contains(seed) {
                             eprintln!("[fuzz] game {seed} has run for {:.0?}", since.elapsed());
@@ -2370,9 +2424,11 @@ fn report(groups: &Groups, settings: &Settings) -> String {
     let failures: usize = groups.groups.values().map(|(c, _)| c).sum();
     let _ = writeln!(
         out,
-        "{} games from seed {}: {failures} failures in {} groups",
+        "{} games from seed {} (turns {}, lookahead {}): {failures} failures in {} groups",
         groups.games,
         settings.first_seed,
+        settings.turns,
+        settings.lookahead,
         groups.groups.len()
     );
     if groups.games >= 1000 {
@@ -2606,7 +2662,7 @@ fn random_battles_keep_the_invariants() {
     install_panic_hook();
     let battles: u64 = env_or("SEAGLASS_FUZZ_BATTLES", 300);
     let first_seed: u64 = env_or("SEAGLASS_FUZZ_SEED", 1);
-    let threads: usize = env_or("SEAGLASS_FUZZ_THREADS", 1usize).max(1);
+    let threads: usize = env_or("SEAGLASS_FUZZ_THREADS", default_threads()).max(1);
     let strict = std::env::var("SEAGLASS_FUZZ_STRICT").is_ok_and(|v| v == "1");
     let next = AtomicUsize::new(0);
     let groups: Mutex<BTreeMap<String, (usize, String)>> = Mutex::new(BTreeMap::new());
@@ -2707,6 +2763,14 @@ fn trace_one_game() {
     };
     let settings = Settings::from_env();
     let run = run_game(seed, &settings, true);
+    for f in &run.known {
+        println!(
+            "KNOWN: {}\n  {}\n  {}",
+            f.signature,
+            describe_call(&f.call),
+            f.detail
+        );
+    }
     match run.failure {
         Some(f) => {
             println!(
@@ -2721,6 +2785,21 @@ fn trace_one_game() {
         }
         None => println!("no failure"),
     }
+}
+
+/// A battle's outcome, its checks and its events, one per line.
+fn describe_battle(res: &BattleResult) -> String {
+    let mut out = format!(
+        "{:?}, {} damage; survivors A {} B {}\n",
+        res.outcome,
+        res.hero_damage,
+        units_desc(&res.survivors_a),
+        units_desc(&res.survivors_b)
+    );
+    for (i, e) in res.events.iter().enumerate() {
+        let _ = writeln!(out, "  {i:3} {e:?}");
+    }
+    out
 }
 
 /// `SEAGLASS_FUZZ_REPRO=<file>`: replay a snapshot's failing call and print the outcome.
@@ -2748,7 +2827,7 @@ fn replay_a_snapshot() {
                 &mut other,
                 snap.combat_seed.expect("a combat seed"),
             );
-            format!("{:?}, {} damage", res.outcome, res.hero_damage)
+            describe_battle(&res)
         }
         (Phase::Ghost, _) => {
             let other = snap.opponent.clone().expect("a ghost");
@@ -2759,7 +2838,7 @@ fn replay_a_snapshot() {
                 &other.hand,
                 snap.combat_seed.expect("a combat seed"),
             );
-            format!("{:?}, {} damage", res.outcome, res.hero_damage)
+            describe_battle(&res)
         }
         (_, Some(act)) => {
             let action = TavernAction::from(act);

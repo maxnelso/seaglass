@@ -1,5 +1,49 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
+  - name: a_golden_resourceful_robot_crashes_after_a_triple_moves_it
+    known_bug: Resourceful Robot's end of turn keeps its self_idx after the copy it gets triples (panic)
+    description: >-
+      Crash. Golden Resourceful Robot's end of turn Magnetizes two Volumizers to board[self_idx]
+      and gets a copy of each: the first copy completes a Triple with two Red Volumizers on the
+      board left of it, which leave the board, and the second Magnetize indexes the stale
+      self_idx (cards/mod.rs magnetize_card: index out of bounds).
+    seed: 1   # the first Volumizer is a Red Volumizer
+    tavern:
+      board: [Red Volumizer, Red Volumizer, golden Resourceful Robot]
+    steps:
+      - end_turn
+    expect:
+      board: {any: Resourceful Robot}
+
+  - name: a_triple_at_the_end_of_the_turn_skips_the_next_end_of_turn_trigger
+    known_bug: a Triple in an end-of-turn trigger moves the board, and notify_tavern skips the next observer
+    description: >-
+      Same cause as a_golden_resourceful_robot_crashes_after_a_triple_moves_it, without the crash:
+      the first Resourceful Robot's Red Volumizer copy completes a Triple with the two on the board,
+      which leave it, so the second Robot is no longer at its slot when notify_tavern comes to it,
+      and its end of turn is skipped.
+    seed: 1   # the first Volumizer is a Red Volumizer
+    tavern:
+      board: [Red Volumizer, Red Volumizer, Resourceful Robot, Resourceful Robot]
+    steps:
+      - end_turn
+    expect:
+      board: {count: 2, all: {card: Resourceful Robot, magnetizations_count: 1}}
+
+  - name: a_minion_a_deathrattle_destroys_comes_back_with_a_buff
+    known_bug: a minion a Deathrattle destroys stays on the board at 0 Health, where buffs revive it
+    description: >-
+      Boom-in-a-Box's Start of Combat kills Leeroy the Reckless and Ship Master Eudora. Leeroy's
+      Deathrattle destroys its killer, the Boom (Death emitted, health 0, left on the board for a
+      further round), then Eudora's Deathrattle gives the friendly minions +6/+6, the destroyed
+      Boom included: back at 6 Health, it survives the further round and wins the combat.
+    combat:
+      board_a: [Leeroy the Reckless, Ship Master Eudora, Boom-in-a-Box]
+      board_b: []
+    expect:
+      survivors_a: []
+      outcome: draw
+
   - name: a_lockbox_got_on_a_buy_overfills_the_hand
     known_bug: Buy runs the gold_spent observers before the bought card reaches the hand (hand of 11)
     description: >-
@@ -16,6 +60,23 @@ scenarios:
       - buy: 0
     expect:
       hand: {count: 10, any: Lullabot}
+
+  - name: a_bought_undead_misses_the_undead_bonus_its_gold_gave
+    known_bug: Buy runs the gold_spent observers before the bought card reaches the hand (aura missed)
+    description: >-
+      Same cause as a_lockbox_got_on_a_buy_overfills_the_hand: the 3 Gold of the Buy make Air
+      Revenant cast Easterly Winds, so Forsaken Weaver gives the Undead +3 Attack and re-syncs the
+      auras while the bought Undead is neither in the shop nor in the hand: it reaches the hand
+      without the bonus (until the next aura sync).
+    tavern:
+      gold: 10
+      board: [{card: Air Revenant, counter: 4}, Forsaken Weaver]   # 3 more Gold: Easterly Winds
+      shop: [Cadaver Caretaker]
+    steps:
+      - buy: 0
+    expect:
+      auras: {undead_bonus_attack: 3}
+      hand: ["Cadaver Caretaker 6/3"]
 
   - name: a_discovered_card_is_lost_to_the_cards_its_damage_gives
     known_bug: ChooseDiscover deals the Tier damage before adding the chosen card, which a full hand then drops
@@ -71,6 +132,21 @@ scenarios:
         then:
           - expect: {board: [{attack: 4}]}
 
+  - name: a_divine_shield_given_over_ichorons_still_expires
+    known_bug: a Divine Shield a spell gives a minion with a temporary one stays temporary
+    description: >-
+      Ichoron's Divine Shield "until next turn" (temp_divine_shield) stays temporary when a spell
+      then gives the minion Divine Shield (Sacred Gift: apply_keyword leaves temp_divine_shield
+      set), so the permanent shield expires at the start of the next turn.
+    tavern:
+      board: [Ichoron the Protector]
+      hand: [Dune Dweller, Sacred Gift]
+    steps:
+      - play: Dune Dweller   # Divine Shield until next turn
+      - play: {hand: Sacred Gift, pos: 1}   # Divine Shield
+      - start_turn
+    expect: {board: [Ichoron the Protector, "Dune Dweller divine_shield"]}
+
   - name: skeletons_summoned_in_the_tavern_do_not_triple
     known_bug: no Triple check after Tavern Deathrattle summons (rule question)
     description: >-
@@ -103,17 +179,19 @@ scenarios:
       hand: {count: 10, none: Imp-lusionist}
       pool: {Imp-lusionist: 11, Soul Rewinder: 15}
 
-  - name: a_divine_shield_given_over_ichorons_still_expires
-    known_bug: a Divine Shield a spell gives a minion with a temporary one stays temporary
+  - name: a_choose_one_before_a_triple_reward_leaves_its_target_set
+    known_bug: ChooseDiscover clears pending_choice_target only after a Choose One option with no prompt left
     description: >-
-      Ichoron's Divine Shield "until next turn" (temp_divine_shield) stays temporary when a spell
-      then gives the minion Divine Shield (Sacred Gift: apply_keyword leaves temp_divine_shield
-      set), so the permanent shield expires at the start of the next turn.
+      A Golden Sprightly Scarab offers its Choose One, then its Triple Reward. Choosing the option
+      leaves pending_choice_target set because the Triple Reward is still pending, and choosing the
+      Triple Reward (not an option card) never clears it.
     tavern:
-      board: [Ichoron the Protector]
-      hand: [Dune Dweller, Sacred Gift]
+      tavern_tier: 3
+      board: ["1/1 beast"]
+      hand: [golden Sprightly Scarab]
     steps:
-      - play: Dune Dweller   # Divine Shield until next turn
-      - play: {hand: Sacred Gift, pos: 1}   # Divine Shield
-      - start_turn
-    expect: {board: [Ichoron the Protector, "Dune Dweller divine_shield"]}
+      - play: {hand: 0, pos: 1}
+      - expect: {discover_queue: {count: 1}}   # the Triple Reward, behind the Choose One
+      - choose_discover: 0
+      - choose_discover: 0
+    expect: {discover_pending: null, pending_choice_target: null}
