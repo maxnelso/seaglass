@@ -6,6 +6,11 @@
 //!   cargo run --bin replay_cli -- summary [/path/to/Power.log] [--game 1]
 //!   cargo run --bin replay_cli -- turn <TURN> [/path/to/Power.log] [--game 1]
 //!   cargo run --bin replay_cli -- export-yaml [/path/to/Power.log] [--game 1] [--turn <T>] [-o out.yaml]
+//!   cargo run --bin replay_cli -- combats [/path/to/Power.log] [--game 1] [--turn <T>]   # Reconstructed combats (YAML)
+//!   cargo run --bin replay_cli -- cards [/path/to/Power.log]                             # Cards in the log vs the engine
+//!   cargo run --release --bin replay_cli -- validate [/path/to/Power.log] [--game N] [--turn T] [--runs 2000] [--seed 2026] [-v]
+
+mod validate_cmd;
 
 use std::env;
 use std::fs;
@@ -35,6 +40,11 @@ fn print_usage() {
     println!("  cargo run --bin replay_cli -- turn <TURN> [<Power.log>] [--game <N>]");
     println!(
         "  cargo run --bin replay_cli -- export-yaml [<Power.log>] [--game <N>] [--turn <T>] [-o <file.yaml>]"
+    );
+    println!("  cargo run --bin replay_cli -- combats [<Power.log>] [--game <N>] [--turn <T>]");
+    println!("  cargo run --bin replay_cli -- cards [<Power.log>]");
+    println!(
+        "  cargo run --release --bin replay_cli -- validate [<Power.log>] [--game <N>] [--turn <T>] [--runs <N>] [--seed <S>] [-v]"
     );
 }
 
@@ -477,6 +487,10 @@ fn main() {
     let mut game_num: usize = 1;
     let mut turn_num: Option<u32> = None;
     let mut out_path: Option<PathBuf> = None;
+    let mut game_given = false;
+    let mut runs: u32 = 2000;
+    let mut seed: u64 = 2026;
+    let mut verbose = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -485,7 +499,7 @@ fn main() {
                 print_usage();
                 return;
             }
-            "list" | "summary" | "turn" | "export-yaml" => {
+            "list" | "summary" | "turn" | "export-yaml" | "combats" | "validate" | "cards" => {
                 cmd = args[i].clone();
                 if cmd == "turn" && i + 1 < args.len() {
                     if let Ok(t) = args[i + 1].parse::<u32>() {
@@ -494,7 +508,30 @@ fn main() {
                     }
                 }
             }
+            "--runs" | "-n" => {
+                i += 1;
+                runs = args
+                    .get(i)
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .filter(|&n| n > 0)
+                    .unwrap_or_else(|| {
+                        eprintln!("--runs requires a positive number");
+                        process::exit(1);
+                    });
+            }
+            "--seed" => {
+                i += 1;
+                seed = args
+                    .get(i)
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or_else(|| {
+                        eprintln!("--seed requires a number");
+                        process::exit(1);
+                    });
+            }
+            "--verbose" | "-v" => verbose = true,
             "--game" | "-g" => {
+                game_given = true;
                 i += 1;
                 game_num = args
                     .get(i)
@@ -551,6 +588,23 @@ fn main() {
         print_game_list(&path, &games);
         return;
     }
+    if cmd == "cards" {
+        validate_cmd::print_cards(&games);
+        return;
+    }
+    if cmd == "validate" {
+        validate_cmd::run(
+            &games,
+            &validate_cmd::Options {
+                runs,
+                seed,
+                verbose,
+                turn: turn_num,
+                games: if game_given { vec![game_num] } else { Vec::new() },
+            },
+        );
+        return;
+    }
 
     let game = games
         .iter()
@@ -564,6 +618,14 @@ fn main() {
         });
 
     match cmd.as_str() {
+        "combats" => {
+            for c in &game.combats {
+                if turn_num.is_some_and(|t| t != c.turn) {
+                    continue;
+                }
+                print!("{}", serde_yaml::to_string(c).unwrap());
+            }
+        }
         "summary" => {
             print_game_list(&path, &games);
             print_game_summary(game);

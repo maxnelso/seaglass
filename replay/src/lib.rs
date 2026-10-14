@@ -17,6 +17,10 @@ use seaglass::model::{BattleOutcome, CardId, Keyword, Tribe, Unit};
 use seaglass::scenario::{card_index, slug, Batch, Defaults, Matchup};
 
 pub mod cards;
+pub mod reconstruct;
+pub mod validate;
+
+use reconstruct::{cards_seen, reconstruct_combats, CombatSetup};
 
 /// A complete parsed Battlegrounds game from `Power.log`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -30,6 +34,12 @@ pub struct GameReplay {
     pub hero_name: String,
     pub hero_card_id: String,
     pub turns: Vec<TurnReplay>,
+    /// Every combat reconstructed as engine input ([`reconstruct`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub combats: Vec<CombatSetup>,
+    /// Every minion and spell card the game's log shows: card ID → `(name, CARDTYPE, Golden)`.
+    #[serde(skip)]
+    pub cards_seen: std::collections::BTreeMap<String, (String, String, bool)>,
 }
 
 /// One full Battlegrounds round (Tavern Phase + Combat Phase).
@@ -512,7 +522,9 @@ pub fn parse_power_log_str(content: &str) -> Result<Vec<GameReplay>, String> {
 
     let mut replays = Vec::new();
     for (idx, (start_time, lines)) in game_chunks.into_iter().enumerate() {
-        if let Some(replay) = parse_single_game(idx + 1, start_time, &lines, &card_names) {
+        if let Some(mut replay) = parse_single_game(idx + 1, start_time, &lines, &card_names) {
+            replay.combats = reconstruct_combats(&lines, &card_names);
+            replay.cards_seen = cards_seen(&lines, &card_names);
             replays.push(replay);
         }
     }
@@ -534,7 +546,7 @@ struct ActiveBlock {
     tripled_card: Option<String>,
 }
 
-fn parse_bracket_entity(s: &str) -> Option<(u32, Option<String>, Option<String>)> {
+pub(crate) fn parse_bracket_entity(s: &str) -> Option<(u32, Option<String>, Option<String>)> {
     let s = s.trim();
     if !s.starts_with('[') {
         return None;
@@ -559,7 +571,7 @@ fn parse_bracket_entity(s: &str) -> Option<(u32, Option<String>, Option<String>)
     Some((id, name, cid))
 }
 
-fn resolve_entity_ref(
+pub(crate) fn resolve_entity_ref(
     s: &str,
     game_entity_id: u32,
     local_player_entity_id: u32,
@@ -1317,6 +1329,8 @@ fn parse_single_game(
         hero_name,
         hero_card_id,
         turns,
+        combats: Vec::new(),
+        cards_seen: Default::default(),
     })
 }
 
