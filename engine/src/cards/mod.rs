@@ -781,16 +781,20 @@ fn observers<F>(board: &[Unit], get: impl Fn(&CardHooks) -> Option<F>) -> Vec<(u
 /// Invoke the Tavern observer hook selected by `get` once for every friendly board unit that
 /// carries it, left to right. Observers are snapshotted up front; an observer whose slot no
 /// longer holds the same card when its turn comes (the board changed underneath it) is skipped.
+/// The Triples the pass completes wait until it is over (`TavernState::with_deferred_triples`),
+/// so they don't move its observers.
 fn notify_tavern<F>(
     state: &mut TavernState,
     get: impl Fn(&CardHooks) -> Option<F>,
     mut call: impl FnMut(&mut TavernState, usize, F),
 ) {
-    for (idx, card_id, f) in observers(&state.board, get) {
-        if state.board.get(idx).is_some_and(|u| u.card_id == card_id) {
-            call(state, idx, f);
+    state.with_deferred_triples(|state| {
+        for (idx, card_id, f) in observers(&state.board, get) {
+            if state.board.get(idx).is_some_and(|u| u.card_id == card_id) {
+                call(state, idx, f);
+            }
         }
-    }
+    });
 }
 
 /// Invoke the observer hook selected by `get` for every friendly unit on `ctx.board` carrying

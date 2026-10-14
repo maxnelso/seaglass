@@ -1,35 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: a_golden_resourceful_robot_crashes_after_a_triple_moves_it
-    known_bug: Resourceful Robot's end of turn keeps its self_idx after the copy it gets triples (panic)
-    description: >-
-      Crash. Golden Resourceful Robot's end of turn Magnetizes two Volumizers to board[self_idx]
-      and gets a copy of each: the first copy completes a Triple with two Red Volumizers on the
-      board left of it, which leave the board, and the second Magnetize indexes the stale
-      self_idx (cards/mod.rs magnetize_card: index out of bounds).
-    seed: 1   # the first Volumizer is a Red Volumizer
-    tavern:
-      board: [Red Volumizer, Red Volumizer, golden Resourceful Robot]
-    steps:
-      - end_turn
-    expect:
-      board: {any: Resourceful Robot}
-
-  - name: a_triple_at_the_end_of_the_turn_skips_the_next_end_of_turn_trigger
-    known_bug: a Triple in an end-of-turn trigger moves the board, and notify_tavern skips the next observer
-    description: >-
-      Same cause as a_golden_resourceful_robot_crashes_after_a_triple_moves_it, without the crash:
-      the first Resourceful Robot's Red Volumizer copy completes a Triple with the two on the board,
-      which leave it, so the second Robot is no longer at its slot when notify_tavern comes to it,
-      and its end of turn is skipped.
-    seed: 1   # the first Volumizer is a Red Volumizer
-    tavern:
-      board: [Red Volumizer, Red Volumizer, Resourceful Robot, Resourceful Robot]
-    steps:
-      - end_turn
-    expect:
-      board: {count: 2, all: {card: Resourceful Robot, magnetizations_count: 1}}
-
   - name: a_minion_a_deathrattle_destroys_comes_back_with_a_buff
     known_bug: a minion a Deathrattle destroys stays on the board at 0 Health, where buffs revive it
     description: >-

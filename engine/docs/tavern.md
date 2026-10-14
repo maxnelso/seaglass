@@ -120,6 +120,8 @@ At the beginning of Turn `t`:
 
 Whenever a minion is added to `hand` (via `Buy`, `ChooseDiscover`, or card generation), the engine checks whether the player owns **3 non-golden copies** of the same `card_id` across `board` and `hand`. Buying still needs a free hand slot (§6), even for the copy that would complete a triple.
 
+While a Tavern trigger pass resolves (the minions that react to one event, left to right: the end-of-turn triggers, the after-buy, Gold-spent or after-play observers, ...), the Triples it completes wait until the pass is over, then resolve. So the minions of the pass keep their places, every one of them triggers, and a trigger keeps acting on its own minion: two `Resourceful Robot`s both Magnetize a Volumizer even when the first one's copy completes a Triple with Volumizers on the board, and so do both Magnetizations of a Golden one.
+
 ### 5.1 Triple Combination (`check_and_resolve_triple`)
 If 3 non-golden copies exist:
 1. Remove the 3 copies (scanning `board` first, then `hand`, preserving relative order of all other cards).

@@ -465,6 +465,11 @@ pub struct TavernState {
     /// will take: kept between the same neighbours when the Battlecry destroys a minion
     /// (`docs/tavern.md` §7.1).
     pub play_slot: Option<usize>,
+    /// While a Tavern trigger pass resolves ([`with_deferred_triples`](Self::with_deferred_triples)),
+    /// the card ids whose Triple checks wait for it to end (`docs/tavern.md` §5); `None` outside
+    /// one.
+    #[serde(skip)]
+    pub deferred_triples: Option<Vec<CardId>>,
     pub next_willbreaker_group: u32,
     pub last_combat_won: bool,
     pub last_combat_lost: bool,
@@ -504,6 +509,7 @@ impl TavernState {
             defer_combined_choose_one: false,
             pending_combined_choices: Vec::new(),
             play_slot: None,
+            deferred_triples: None,
             next_willbreaker_group: 1,
             last_combat_won: false,
             last_combat_lost: false,
@@ -1811,13 +1817,36 @@ impl TavernState {
         }
     }
 
+    /// Run `f`, a Tavern trigger pass, with the Triple checks it asks for deferred until it
+    /// returns, then resolve them (`docs/tavern.md` §5): no minion of the pass moves under it.
+    /// A pass inside a pass defers to the outer one.
+    pub fn with_deferred_triples<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        if self.deferred_triples.is_some() {
+            return f(self);
+        }
+        self.deferred_triples = Some(Vec::new());
+        let out = f(self);
+        for cid in self.deferred_triples.take().unwrap_or_default() {
+            self.check_and_resolve_triple(cid);
+        }
+        out
+    }
+
     /// Combine 3 non-golden copies of `card_id` across `board` and `hand` into 1 Golden copy in `hand` (`docs/tavern.md` §5.1).
     /// Cards flagged [`CardFlags::TRIPLE_WILDCARD_ELEMENTAL`] (`Elemental of Surprise`) can triple
-    /// with any Elemental; cards flagged [`CardFlags::NO_TRIPLE`] never triple.
+    /// with any Elemental; cards flagged [`CardFlags::NO_TRIPLE`] never triple. During a Tavern
+    /// trigger pass, the check waits for the pass to end
+    /// ([`with_deferred_triples`](Self::with_deferred_triples)).
     pub fn check_and_resolve_triple(&mut self, card_id: CardId) {
         let no_triple = |cid: CardId| cards::hooks(cid).has(CardFlags::NO_TRIPLE);
         let is_wildcard = |cid: CardId| cards::hooks(cid).has(CardFlags::TRIPLE_WILDCARD_ELEMENTAL);
         if card_id == 0 || no_triple(card_id) {
+            return;
+        }
+        if let Some(deferred) = &mut self.deferred_triples {
+            if !deferred.contains(&card_id) {
+                deferred.push(card_id);
+            }
             return;
         }
         let is_eligible = |u: &Unit| -> bool {

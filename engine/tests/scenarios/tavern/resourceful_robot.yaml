@@ -11,3 +11,31 @@ scenarios:
     expect:
       board: [{card: Resourceful Robot, attack: "> 4"}]
       hand: [{card: {any_of: [Blue Volumizer, Green Volumizer, Red Volumizer]}}]
+
+  - name: a_golden_robot_magnetizes_twice_when_its_first_copy_completes_a_triple
+    description: >-
+      The first Volumizer copy completes a Triple with the two Red Volumizers on the board, left of
+      the Robot. The Triple waits until the end-of-turn triggers are over (docs/tavern.md §5), so
+      the Robot keeps its place for its second Magnetization (the stale slot used to panic).
+    seed: 1   # the first Volumizer is a Red Volumizer
+    tavern:
+      board: [Red Volumizer, Red Volumizer, golden Resourceful Robot]
+    steps:
+      - end_turn
+    expect:
+      board: [{card: Resourceful Robot, magnetizations_count: 2}]
+      hand: {count: 2, any: "golden Red Volumizer"}
+
+  - name: a_triple_one_robot_completes_does_not_skip_the_next_robot
+    description: >-
+      The first Robot's Red Volumizer copy completes a Triple with the two on the board. The Triple
+      waits until the end-of-turn triggers are over, so the second Robot is still in its slot and
+      triggers too (it used to be skipped).
+    seed: 1   # the first Volumizer is a Red Volumizer
+    tavern:
+      board: [Red Volumizer, Red Volumizer, Resourceful Robot, Resourceful Robot]
+    steps:
+      - end_turn
+    expect:
+      board: {count: 2, all: {card: Resourceful Robot, magnetizations_count: 1}}
+      hand: {count: 2, any: "golden Red Volumizer"}

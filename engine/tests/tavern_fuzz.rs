@@ -674,11 +674,14 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
     Ok(())
 }
 
-/// The state an action uses while it resolves is reset once it has: no play slot, no cast being
-/// repeated, no Choose One being combined, and no Choose One target or repeat without a prompt.
+/// The state an action uses while it resolves is reset once it has: no play slot, no Triple
+/// deferred, no cast being repeated, no Choose One being combined, and no Choose One target or
+/// repeat without a prompt.
 fn check_transients(s: &TavernState) -> Result<(), Violation> {
     let problem = if s.play_slot.is_some() {
         Some(format!("play_slot {:?}", s.play_slot))
+    } else if s.deferred_triples.is_some() {
+        Some(format!("deferred_triples {:?}", s.deferred_triples))
     } else if s.repeating_cast {
         Some("repeating_cast".to_string())
     } else if s.combine_choose_one || s.defer_combined_choose_one {
@@ -2310,11 +2313,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
         "aren't the units that didn't die",
         "a minion a Deathrattle destroys stays at 0 Health, where a buff revives it \
          (fuzz_findings::a_minion_a_deathrattle_destroys_comes_back_with_a_buff)",
-    ),
-    (
-        "Crash: engine/src/cards/mod.rs:#: index out of bounds",
-        "Resourceful Robot's end of turn keeps a stale self_idx after a Triple \
-         (fuzz_findings::a_golden_resourceful_robot_crashes_after_a_triple_moves_it)",
     ),
     (
         "shop has # cards",
