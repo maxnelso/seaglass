@@ -22,7 +22,7 @@ The Tavern Phase is modeled as a **card-agnostic sequential decision state machi
 - **General Tavern Hooks (Tiers 1–2)**: Battlecries, after-play/magnetize board observers (`Wrath Weaver`, `Mechagnome Interpreter`), Volumizer scaling (`Blue` / `Green` / `Red Volumizer`), `Activate` abilities targeting board/hand/shop (`Suspicious Prisonguard`, `Brain Rotter`, `Clever Castaway`, `Decoy Conjurer`, `Lurking Lionfish`), `Lockbox` countdown (`Bilgewater Breakout`), `Demon Fodder` refreshes (`Laboratory Assistant`), on-sell triggers (`Zoatroid`, `Fire Baller`, `Snow Baller`, `Patient Scout`, `Sellemental`, `Tad`, `Wandering Willbreaker`), end-of-turn triggers (`Lullabot`, `Surfing Sylvar`), and hero damage rewind (`Soul Rewinder`).
 
 ### Deferred to Later Phases
-- Hero Powers, Buddy meters, Quests, Trinkets, Darkmoon Prizes, and Anomalies.
+- Buddy meters, Quests, Trinkets, Darkmoon Prizes, and Anomalies. (Heroes and Hero Powers are specified in [`heroes.md`](heroes.md).)
 - Tier 3–6 minions and Tier 3–6 Tavern Spells.
 
 ---
@@ -62,7 +62,7 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
 
 ### 3.1 Player & Economy Fields
 - `turn: u32` — Current turn number (`0` before game start; `1` on first Tavern turn).
-- `health: i32` — Hero health (starts at `30`).
+- `health: i32` — Hero health (starts at `30`; a hero sets its starting Health and Armor, [`heroes.md`](heroes.md) §2.3).
 - `tavern_tier: u32` — Current Tavern Tier in `1..=6` (starts at `1`).
 - `max_gold: u32` — Gold cap for the turn: `min(10, 2 + turn) + auras.base_max_gold_bonus` (`Turn 1 = 3g`, `Turn 2 = 4g`, ..., `Turn 8+ = 10g`, plus the permanent bonus). "Increase your maximum Gold by `N`" (`Strike Oil`, `Snare Trapper`) adds `N` to both `max_gold` and `base_max_gold_bonus` but gives no Gold right away; `max_gold` can exceed `10`.
 - `gold: u32` — Current spendable gold (it can exceed `10`).
@@ -165,6 +165,8 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 | `UpgradeTavern` | `tavern_tier < 6`, `gold >= upgrade_cost` | `gold -= upgrade_cost`, `tavern_tier += 1`, `upgrade_cost = base_upgrade_cost(tavern_tier)`. |
 | `ToggleFreeze` | Always legal | `is_frozen = !is_frozen`. Costs `0` gold. |
 | `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand` (with a full hand it is lost and returns to `CardPool`, §2), return others to `CardPool` (Duos: those marked `unchosen_to_teammate` go to the teammate instead, `docs/duos_tavern.md` §8.3), clear `discover_pending`, check for Triple, then the chosen card's "when you Discover this" text (`obtained`, only if it reached the hand **(confirmed)**: a `Mirror Monster` Discovered into a full hand gives no copy) and the `discover` observers. A Choose-One option takes effect instead (once per cast of the spell that offered it, §7.4). |
+| `HeroPower { target }` | The player's hero has an active Hero Power with uses left, `gold >= cost`, a valid target ([`heroes.md`](heroes.md) §5) | Use the Hero Power. |
+| `ChooseHero { option_index }` | `hero_options` is non-empty (then it is the only legal action), `option_index < hero_options.len()` | Get that hero ([`heroes.md`](heroes.md) §6). |
 | `EndTurn` | Always legal when `discover_pending.is_none()` | Run end-of-turn triggers, discard the temporary cards still in `hand` (Spellcraft spells, §7.4) without discard effects, and conclude the Tavern turn. |
 
 **Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.

@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### Deferred
 - 4-team matches and their pairings: the engine has one team's Tavern; a match of four teams is the caller's job.
-- Heroes (Hero Powers, starting Armor values) and the Duos combat rules themselves (`duos.md`).
+- The Duos combat rules themselves (`duos.md`). Heroes, their Hero Powers and their starting Armor are specified in [`heroes.md`](heroes.md).
 
 ---
 
@@ -45,7 +45,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ## 3. Shared Health and Armor
 
-1. **One pool** **(confirmed)**. Teammates share one Health pool: `30` Health, plus Armor equal to the sum of both heroes' Armor. Heroes are out of scope, so each hero's starting Armor is a parameter (`DuosTavern::with_armor([a0, a1])`: the team starts with `a0 + a1` Armor).
+1. **One pool** **(confirmed)**. Teammates share one Health pool: `30` Health, plus Armor equal to the sum of both heroes' Armor. Each hero's Duos Armor comes from the hero data (`DuosTavern::with_heroes`, `ChooseHero`: [`heroes.md`](heroes.md) §2.3); without heroes it is a parameter (`DuosTavern::with_armor([a0, a1])`: the team starts with `a0 + a1` Armor).
 2. **Damage** takes Armor first, then Health, as in Solo (`tavern.md` §7.2).
 3. **"Your Health" is the team's.** Each player's `TavernState.health` and `armor` always hold the team's values: the team copies them in before a player acts and back out after **(engine decision: how the pool is shared)**. So every Solo rule that reads or changes "your" Health or Armor uses the pool:
    - Health costs: a `Hasty Excavation` is payable while the team's Health plus Armor is above its cost; a Health Refresh likewise.
