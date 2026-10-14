@@ -1,20 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: a_divine_shield_given_over_ichorons_still_expires
-    known_bug: a Divine Shield a spell gives a minion with a temporary one stays temporary
-    description: >-
-      Ichoron's Divine Shield "until next turn" (temp_divine_shield) stays temporary when a spell
-      then gives the minion Divine Shield (Sacred Gift: apply_keyword leaves temp_divine_shield
-      set), so the permanent shield expires at the start of the next turn.
-    tavern:
-      board: [Ichoron the Protector]
-      hand: [Dune Dweller, Sacred Gift]
-    steps:
-      - play: Dune Dweller   # Divine Shield until next turn
-      - play: {hand: Sacred Gift, pos: 1}   # Divine Shield
-      - start_turn
-    expect: {board: [Ichoron the Protector, "Dune Dweller divine_shield"]}
-
   - name: a_choose_one_before_a_triple_reward_leaves_its_target_set
     known_bug: ChooseDiscover clears pending_choice_target only after a Choose One option with no prompt left
     description: >-

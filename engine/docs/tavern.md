@@ -96,7 +96,7 @@ At the beginning of Turn `t`:
 
 1. **Expire the Previous Turn's Temporary Effects**:
    - Discard the temporary cards still in `hand` (`CardFlags::TEMPORARY`: a Spellcraft spell that reached the hand after the player ended their turn, §7.4), without discard effects.
-   - On every minion on `board`: its start-of-turn upkeep (`turn_start_unit`: what lasted until next turn ends), the end of a Divine Shield "until next turn" (`temp_divine_shield`), and its per-turn charges reset. A Divine Shield "until next turn" also expires on minions in `hand`.
+   - On every minion on `board`: its start-of-turn upkeep (`turn_start_unit`: what lasted until next turn ends), the end of a Divine Shield "until next turn" (`temp_divine_shield`), and its per-turn charges reset. A Divine Shield "until next turn" also expires on minions in `hand`. A lasting Divine Shield given to a minion that has one until next turn makes it lasting (`Sacred Gift` on a minion `Ichoron the Protector` shielded) **(confirmed)**.
 2. **Increment Turn & Refill Gold**:
    - `turn += 1`
    - `max_gold = min(10, 2 + turn) + auras.base_max_gold_bonus`

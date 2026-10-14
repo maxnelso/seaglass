@@ -12,3 +12,17 @@ scenarios:
     steps:
       - play: {hand: Sacred Gift, shop: 0}
     expect: {shop: ["Lullabot 2/2 divine_shield"]}
+
+  - name: a_divine_shield_given_over_a_temporary_one_lasts
+    description: >-
+      Ichoron the Protector gives the played Dune Dweller Divine Shield until next turn; Sacred
+      Gift then gives it Divine Shield, which lasts (confirmed: it used to expire at the start of
+      the next turn).
+    tavern:
+      board: [Ichoron the Protector]
+      hand: [Dune Dweller, Sacred Gift]
+    steps:
+      - play: Dune Dweller   # Divine Shield until next turn
+      - play: {hand: Sacred Gift, pos: 1}   # Divine Shield
+      - start_turn
+    expect: {board: [Ichoron the Protector, "Dune Dweller divine_shield"]}

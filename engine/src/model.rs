@@ -680,6 +680,8 @@ impl Unit {
             }
             Keyword::DivineShield => {
                 self.divine_shield = true;
+                // A lasting Divine Shield over one until next turn makes it lasting.
+                self.temp_divine_shield = false;
                 if inherent {
                     self.inherent_divine_shield = true;
                 }
