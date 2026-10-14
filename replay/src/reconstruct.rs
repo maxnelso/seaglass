@@ -148,6 +148,11 @@ pub struct PlayerSetup {
     pub board: Vec<LogMinion>,
     pub board_source: BoardSource,
     pub hand: Vec<HandCard>,
+    /// Spells waiting for this combat (`OBJECTIVE`s in the `SECRET` zone, such as `Brood of
+    /// Nozdormu`): the local player's at the start of combat, and each warband's when it enters
+    /// (a warband that never fought: unknown).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_spells: Vec<HandCard>,
     /// Player tags read when the warband entered the fight (or at the start of combat for the
     /// local player): the counters the game transfers between teammates.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -188,6 +193,16 @@ impl UnitRef {
     }
 }
 
+/// The source of a trigger: a minion, hero power, trinket, pending spell, Dark Gift or Deity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Source {
+    pub entity_id: u32,
+    pub card_id: String,
+    pub name: String,
+    /// Its `CARDTYPE`.
+    pub kind: String,
+}
+
 /// One event of the server's combat log.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -197,14 +212,21 @@ pub enum ServerEvent {
         side: Side,
         player_id: i32,
     },
-    /// A trigger of a minion, hero power, trinket or Deity during the fight.
+    /// A trigger of a minion, hero power, trinket, Dark Gift or Deity during the fight.
     Trigger {
         side: Side,
+        /// The source's entity.
+        #[serde(default)]
+        entity_id: u32,
         source: String,
         card_id: String,
-        /// The source's `CARDTYPE` (`MINION`, `HERO_POWER`, `BATTLEGROUND_TRINKET`, `SPELL`).
+        /// The source's `CARDTYPE` (`MINION`, `HERO_POWER`, `BATTLEGROUND_TRINKET`; `SPELL` /
+        /// `BATTLEGROUND_SPELL`: a pending spell; `ENCHANTMENT`: a Dark Gift).
         kind: String,
         depth: usize,
+        /// Minions whose stats or keywords changed during it: `(entity id, name)`.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        targets: Vec<(u32, String)>,
     },
     /// An attack, with both minions' stats when it was declared.
     Attack {
@@ -215,6 +237,9 @@ pub enum ServerEvent {
     Summon {
         side: Side,
         unit: UnitRef,
+        /// What summoned it: the innermost trigger's source.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        by: Option<Source>,
     },
     Death {
         side: Side,
@@ -340,6 +365,8 @@ struct EntrySnapshot {
     tags: BTreeMap<String, String>,
     enchantments: Vec<PlayerEnchantment>,
     board: Vec<LogMinion>,
+    /// Its side's `SECRET` zone: the entering player's pending spells.
+    pending: Vec<HandCard>,
     hero: Option<u32>,
 }
 
@@ -361,6 +388,7 @@ struct CombatBuilder {
     local_copy: Vec<u32>,
     local_board: Vec<LogMinion>,
     local_hand: Vec<HandCard>,
+    local_pending: Vec<HandCard>,
     local_hero: u32,
     /// The local hero's tags at the start of combat.
     local_hero_tags: Ent,
@@ -388,7 +416,24 @@ struct Tracker<'a> {
     done: Vec<CombatSetup>,
     /// Blocks open: `(indent, block type, entity id)`.
     blocks: Vec<(usize, String, u32)>,
+    /// For each open block, the index of the `Trigger` event it recorded (if any).
+    block_triggers: Vec<Option<usize>>,
 }
+
+/// Tags whose change shows a trigger affecting a minion (stats and keywords).
+const AFFECTING_TAGS: [&str; 11] = [
+    "ATK",
+    "HEALTH",
+    "DAMAGE",
+    "REBORN",
+    "DIVINE_SHIELD",
+    "TAUNT",
+    "WINDFURY",
+    "MEGA_WINDFURY",
+    "POISONOUS",
+    "VENOMOUS",
+    "STEALTH",
+];
 
 impl<'a> Tracker<'a> {
     fn new(card_names: &'a HashMap<String, String>) -> Self {
@@ -405,6 +450,7 @@ impl<'a> Tracker<'a> {
             combat: None,
             done: Vec::new(),
             blocks: Vec::new(),
+            block_triggers: Vec::new(),
         }
     }
 
@@ -572,6 +618,25 @@ impl<'a> Tracker<'a> {
         v.into_iter().map(|(_, id)| id).collect()
     }
 
+    /// Spells waiting in `controller`'s `SECRET` zone (`OBJECTIVE`s such as `Brood of Nozdormu`:
+    /// "at the start of your next combat ...").
+    fn pending_spell_ids(&self, controller: i32) -> Vec<u32> {
+        let mut v: Vec<u32> = self
+            .ents
+            .iter()
+            .filter(|(_, e)| {
+                e.str("ZONE") == "SECRET"
+                    && e.int("CONTROLLER") == controller
+                    && matches!(e.str("CARDTYPE"), "SPELL" | "BATTLEGROUND_SPELL")
+                    && !e.card_id.is_empty()
+                    && e.card_id != "BG_OldGod"
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        v.sort();
+        v
+    }
+
     fn hand_ids(&self, controller: i32) -> Vec<u32> {
         let mut v: Vec<(i32, u32)> = self
             .ents
@@ -634,6 +699,7 @@ impl<'a> Tracker<'a> {
     }
 
     fn start_combat(&mut self) {
+        self.block_triggers.iter_mut().for_each(|t| *t = None);
         let local_hero = self
             .ent(self.local_eid)
             .map_or(0, |p| p.int("HERO_ENTITY") as u32);
@@ -652,6 +718,11 @@ impl<'a> Tracker<'a> {
             .into_iter()
             .map(|id| self.hand_card(id))
             .collect();
+        let local_pending = self
+            .pending_spell_ids(self.local_pid)
+            .into_iter()
+            .map(|id| self.hand_card(id))
+            .collect();
         let deity_dbid = self
             .ent(self.game_eid)
             .map(|g| g.str("BACON_GLOBAL_OLD_GOD_DBID").to_string())
@@ -666,6 +737,7 @@ impl<'a> Tracker<'a> {
             local_copy: Vec::new(),
             local_board,
             local_hand,
+            local_pending,
             local_hero,
             local_hero_tags: self.ent(local_hero).cloned().unwrap_or_default(),
             local_tags: self.player_tags(self.local_eid),
@@ -679,6 +751,7 @@ impl<'a> Tracker<'a> {
     }
 
     fn on_created(&mut self, id: u32) {
+        self.note_enchantment(id);
         let Some(e) = self.ents.get(&id) else {
             return;
         };
@@ -772,15 +845,41 @@ impl<'a> Tracker<'a> {
 
     fn record_summon(&mut self, id: u32, side: Side) {
         let unit = self.unit_ref(id);
+        // What summoned it: the innermost trigger or power block's source.
+        let by = self
+            .blocks
+            .iter()
+            .rev()
+            .find(|(_, btype, ent)| (btype == "TRIGGER" || btype == "POWER") && *ent != 0)
+            .map(|&(_, _, ent)| Source {
+                entity_id: ent,
+                card_id: self.ent(ent).map(|e| e.card_id.clone()).unwrap_or_default(),
+                name: self.name_of(ent),
+                kind: self.ent(ent).map_or("", |e| e.str("CARDTYPE")).to_string(),
+            });
         if let Some(c) = self.combat.as_mut() {
             if c.summoned.insert(id) {
-                c.events.push(ServerEvent::Summon { side, unit });
+                c.events.push(ServerEvent::Summon { side, unit, by });
             }
         }
     }
 
     /// An entity revealed by `SHOW_ENTITY` (the Deity is created hidden, then shown in `PLAY`).
+    /// An enchantment attached during a trigger: the trigger affects that minion (its stats change
+    /// only after the block).
+    fn note_enchantment(&mut self, id: u32) {
+        let attached = self
+            .ents
+            .get(&id)
+            .filter(|e| e.str("CARDTYPE") == "ENCHANTMENT")
+            .map_or(0, |e| e.int("ATTACHED") as u32);
+        if attached != 0 && self.combat.is_some() {
+            self.note_target(attached);
+        }
+    }
+
     fn on_shown(&mut self, id: u32) {
+        self.note_enchantment(id);
         let Some(e) = self.ents.get(&id) else {
             return;
         };
@@ -874,6 +973,11 @@ impl<'a> Tracker<'a> {
                     .into_iter()
                     .map(|id| self.minion(id))
                     .collect(),
+                pending: self
+                    .pending_spell_ids(controller)
+                    .into_iter()
+                    .map(|id| self.hand_card(id))
+                    .collect(),
                 hero: self
                     .ent(player_eid)
                     .map(|p| p.int("HERO_ENTITY") as u32)
@@ -886,6 +990,9 @@ impl<'a> Tracker<'a> {
     }
 
     fn on_tag(&mut self, id: u32, tag: &str, old: Option<String>, value: &str) {
+        if AFFECTING_TAGS.contains(&tag) && self.combat.is_some() {
+            self.note_target(id);
+        }
         if id == self.game_eid {
             match tag {
                 "TURN" => {
@@ -1025,6 +1132,7 @@ impl<'a> Tracker<'a> {
             .and_then(|r| self.resolve(&r))
             .unwrap_or(0);
         self.blocks.push((indent, btype.clone(), ent));
+        self.block_triggers.push(None);
         let fights = self
             .combat
             .as_ref()
@@ -1048,7 +1156,9 @@ impl<'a> Tracker<'a> {
             };
             let ctype = e.str("CARDTYPE");
             let interesting = matches!(ctype, "MINION" | "HERO_POWER" | "BATTLEGROUND_TRINKET")
-                || e.card_id == "BG_OldGod";
+                || e.card_id == "BG_OldGod"
+                || (ctype == "ENCHANTMENT" && e.int("IS_NIGHTMARE_BONUS") > 0)
+                || (e.str("ZONE") == "SECRET" && matches!(ctype, "SPELL" | "BATTLEGROUND_SPELL"));
             if !interesting {
                 return;
             }
@@ -1063,21 +1173,43 @@ impl<'a> Tracker<'a> {
             let kind = e.str("CARDTYPE").to_string();
             let source = self.name_of(ent);
             let depth = self.blocks.len() - 1;
-            self.combat
-                .as_mut()
-                .unwrap()
-                .events
-                .push(ServerEvent::Trigger {
-                    side,
-                    source,
-                    card_id,
-                    kind,
-                    depth,
-                });
+            let events = &mut self.combat.as_mut().unwrap().events;
+            events.push(ServerEvent::Trigger {
+                side,
+                entity_id: ent,
+                source,
+                card_id,
+                kind,
+                depth,
+                targets: Vec::new(),
+            });
+            let idx = events.len() - 1;
+            if let Some(slot) = self.block_triggers.last_mut() {
+                *slot = Some(idx);
+            }
+        }
+    }
+
+    /// Notes `id` as affected by the innermost recorded trigger (a stat or keyword change).
+    fn note_target(&mut self, id: u32) {
+        let Some(idx) = self.block_triggers.iter().rev().flatten().next().copied() else {
+            return;
+        };
+        if !self.ent(id).is_some_and(|e| e.str("CARDTYPE") == "MINION") {
+            return;
+        }
+        let name = self.name_of(id);
+        if let Some(c) = self.combat.as_mut() {
+            if let Some(ServerEvent::Trigger { targets, .. }) = c.events.get_mut(idx) {
+                if !targets.iter().any(|(t, _)| *t == id) {
+                    targets.push((id, name));
+                }
+            }
         }
     }
 
     fn on_block_end(&mut self) {
+        self.block_triggers.pop();
         let Some((indent, btype, _)) = self.blocks.pop() else {
             return;
         };
@@ -1204,6 +1336,7 @@ impl<'a> Tracker<'a> {
             board: p.board.iter().map(|&id| self.minion(id)).collect(),
             board_source: BoardSource::Package,
             hand,
+            pending_spells: Vec::new(),
             player_tags: BTreeMap::new(),
             player_enchantments: Vec::new(),
             tags_known: false,
@@ -1238,6 +1371,7 @@ impl<'a> Tracker<'a> {
             board: c.local_board.clone(),
             board_source: BoardSource::LocalBoard,
             hand: c.local_hand.clone(),
+            pending_spells: c.local_pending.clone(),
             player_tags: c.local_tags.clone(),
             player_enchantments: c.local_enchantments.clone(),
             tags_known: true,
@@ -1326,6 +1460,7 @@ impl<'a> Tracker<'a> {
                         board: snap.board.clone(),
                         board_source: BoardSource::Entry,
                         hand: Vec::new(),
+                        pending_spells: Vec::new(),
                         player_tags: BTreeMap::new(),
                         player_enchantments: Vec::new(),
                         tags_known: false,
@@ -1337,6 +1472,9 @@ impl<'a> Tracker<'a> {
             };
             let p = &mut players[idx];
             p.fought = true;
+            // The pending spells its side showed when it entered (the teammate's and opponents'
+            // are only in the log then).
+            p.pending_spells = snap.pending.clone();
             if p.player_id != self.local_pid {
                 p.player_tags = snap.tags.clone();
                 p.player_enchantments = snap.enchantments.clone();

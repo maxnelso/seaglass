@@ -43,6 +43,7 @@ fn print_usage() {
     );
     println!("  cargo run --bin replay_cli -- combats [<Power.log>] [--game <N>] [--turn <T>]");
     println!("  cargo run --bin replay_cli -- cards [<Power.log>]");
+    println!("  cargo run --bin replay_cli -- drift [<Power.log>]");
     println!(
         "  cargo run --release --bin replay_cli -- validate [<Power.log>] [--game <N>] [--turn <T>] [--runs <N>] [--guided-runs <N>] [--seed <S>] [-v]"
     );
@@ -500,7 +501,8 @@ fn main() {
                 print_usage();
                 return;
             }
-            "list" | "summary" | "turn" | "export-yaml" | "combats" | "validate" | "cards" => {
+            "list" | "summary" | "turn" | "export-yaml" | "combats" | "validate" | "cards"
+            | "drift" => {
                 cmd = args[i].clone();
                 if cmd == "turn" && i + 1 < args.len() {
                     if let Ok(t) = args[i + 1].parse::<u32>() {
@@ -601,6 +603,10 @@ fn main() {
     }
     if cmd == "cards" {
         validate_cmd::print_cards(&games);
+        return;
+    }
+    if cmd == "drift" {
+        validate_cmd::print_drift(&seaglass_replay::drift::report(&games));
         return;
     }
     if cmd == "validate" {

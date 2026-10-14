@@ -5,6 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use seaglass::model::{BattleOutcome, DeityKind};
 use seaglass_replay::cards::{engine_card, CardKind, MatchedBy};
+use seaglass_replay::diagnose::{diagnose, Cause, Diagnosis};
+use seaglass_replay::drift::{self, DriftReport};
 use seaglass_replay::reconstruct::{CombatSetup, PlayerSetup, ServerEvent};
 use seaglass_replay::validate::{deity_kind_of, engine_input, validate, EngineInput, Validation};
 use seaglass_replay::GameReplay;
@@ -70,6 +72,44 @@ pub fn print_cards(games: &[GameReplay]) {
     );
     for l in &missing_spells {
         println!("  {l}");
+    }
+}
+
+/// `replay_cli drift`: where the log's card data and rules differ from the engine's.
+pub fn print_drift(report: &DriftReport) {
+    let builds: BTreeSet<String> = report
+        .builds
+        .iter()
+        .map(|(_, b)| b.map_or("unknown".to_string(), |b| b.to_string()))
+        .collect();
+    println!(
+        "log client build(s): {} | engine targets Patch {}",
+        builds.into_iter().collect::<Vec<_>>().join(", "),
+        report.engine_patch
+    );
+    println!(
+        "{} minion cards in the log; {} differ from the engine; {} game rule(s) differ",
+        report.cards_seen,
+        report.cards.len(),
+        report.rules.len()
+    );
+    if !report.rules.is_empty() {
+        println!("\nRules:");
+        for r in &report.rules {
+            println!("  {r}");
+        }
+    }
+    if !report.cards.is_empty() {
+        println!("\nCards:");
+        for d in &report.cards {
+            println!(
+                "  {}{} ({}): {}",
+                d.name,
+                if d.golden { " ★" } else { "" },
+                d.card_id,
+                d.diffs.join("; ")
+            );
+        }
     }
 }
 
@@ -153,6 +193,10 @@ fn player_line(p: &PlayerSetup) -> String {
     if !p.trinkets.is_empty() {
         extras.push(format!("trinkets {}", p.trinkets.join(" ")));
     }
+    if !p.pending_spells.is_empty() {
+        let names: Vec<&str> = p.pending_spells.iter().map(|c| c.name.as_str()).collect();
+        extras.push(format!("pending spells {}", names.join(", ")));
+    }
     format!(
         "{} (player {}) T{} {}+{}hp{} | {}",
         p.hero_name,
@@ -227,15 +271,26 @@ fn print_events(setup: &CombatSetup) {
                 side,
                 source,
                 depth,
+                targets,
                 ..
             } => {
+                let names: Vec<&str> = targets.iter().map(|(_, n)| n.as_str()).collect();
+                let targets = match names.len() {
+                    0 => String::new(),
+                    1..=3 => format!(" → {}", names.join(", ")),
+                    k => format!(" → {} +{}", names[..3].join(", "), k - 3),
+                };
                 println!(
-                    "           {}trigger {side:?} {source}",
+                    "           {}trigger {side:?} {source}{targets}",
                     "  ".repeat(*depth)
                 );
             }
-            ServerEvent::Summon { side, unit } => {
-                println!("           + {side:?} {}", unit.short());
+            ServerEvent::Summon { side, unit, by } => {
+                let by = by
+                    .as_ref()
+                    .map(|b| format!(" (by {})", b.name))
+                    .unwrap_or_default();
+                println!("           + {side:?} {}{by}", unit.short());
             }
             ServerEvent::Death { side, unit } => {
                 println!("           x {side:?} {}", unit.short());
@@ -399,14 +454,47 @@ fn print_validation(setup: &CombatSetup, input: &EngineInput, v: &Validation, ve
     }
 }
 
+fn also(d: &Diagnosis) -> String {
+    if d.also.is_empty() {
+        return String::new();
+    }
+    let also: Vec<&str> = d.also.iter().map(|c| c.short()).collect();
+    format!(" (also: {})", also.join(", "))
+}
+
+fn print_diagnosis(d: &Diagnosis, verbose: bool) {
+    println!(
+        "  diagnosis: {}{} — {}",
+        d.cause.label(),
+        also(d),
+        d.examined
+    );
+    let weak = d.evidence.iter().filter(|e| !e.strong).count();
+    for e in d.evidence.iter().filter(|e| e.strong || verbose).take(12) {
+        println!(
+            "    [{}{}] {}",
+            e.cause.short(),
+            if e.strong { "" } else { ", weak" },
+            e.what
+        );
+    }
+    if !verbose && weak > 0 {
+        println!("    (+{weak} weak, -v shows them)");
+    }
+}
+
 struct Flagged {
     game: usize,
     turn: u32,
     flags: Vec<String>,
     cards: BTreeSet<String>,
+    diagnosis: Diagnosis,
 }
 
 pub fn run(games: &[GameReplay], opts: &Options) {
+    let drift = drift::report(games);
+    let drifted = drift.names();
+    let mut drift_seen: BTreeSet<String> = BTreeSet::new();
     let mut total = 0;
     let mut flagged: Vec<Flagged> = Vec::new();
     let mut unimplemented: BTreeMap<String, BTreeSet<(usize, u32)>> = BTreeMap::new();
@@ -444,22 +532,37 @@ pub fn run(games: &[GameReplay], opts: &Options) {
             print_team("A", &setup.team_a.players);
             print_team("B", &setup.team_b.players);
             print_validation(setup, &input, &v, opts.verbose);
+            let cards: BTreeSet<String> = setup
+                .team_a
+                .players
+                .iter()
+                .chain(&setup.team_b.players)
+                .flat_map(|p| p.board.iter().map(|m| m.name.clone()))
+                .chain(setup.events.iter().filter_map(|e| match e {
+                    ServerEvent::Summon { unit, .. } => Some(unit.name.clone()),
+                    _ => None,
+                }))
+                .collect();
+            drift_seen.extend(
+                cards
+                    .iter()
+                    .filter(|c| drifted.contains(&c.to_ascii_lowercase()))
+                    .cloned(),
+            );
+            let diagnosis = diagnose(setup, &input, &v, &drift);
+            if is_flagged || (opts.verbose && diagnosis.diverged) {
+                print_diagnosis(&diagnosis, opts.verbose);
+            }
             if opts.verbose {
                 print_events(setup);
             }
             if is_flagged {
-                let cards = setup
-                    .team_a
-                    .players
-                    .iter()
-                    .chain(&setup.team_b.players)
-                    .flat_map(|p| p.board.iter().map(|m| m.name.clone()))
-                    .collect();
                 flagged.push(Flagged {
                     game: g.game_index,
                     turn: setup.turn,
                     flags: v.flags.clone(),
                     cards,
+                    diagnosis,
                 });
             }
         }
@@ -472,8 +575,32 @@ pub fn run(games: &[GameReplay], opts: &Options) {
         flagged.len(),
         opts.runs
     );
-    for f in &flagged {
-        println!("  game {} turn {}: {}", f.game, f.turn, f.flags.join("; "));
+    for cause in Cause::ALL {
+        let of: Vec<&Flagged> = flagged
+            .iter()
+            .filter(|f| f.diagnosis.cause == cause)
+            .collect();
+        if of.is_empty() {
+            continue;
+        }
+        println!("  {} ({}):", cause.label(), of.len());
+        for f in of {
+            println!(
+                "    game {} turn {}{}: {}",
+                f.game,
+                f.turn,
+                also(&f.diagnosis),
+                f.flags.join("; ")
+            );
+            if let Some(e) = f
+                .diagnosis
+                .evidence
+                .iter()
+                .find(|e| e.cause == f.diagnosis.cause)
+            {
+                println!("      {}", e.what);
+            }
+        }
     }
     let mut card_counts: BTreeMap<&str, usize> = BTreeMap::new();
     for f in &flagged {
@@ -491,6 +618,27 @@ pub fn run(games: &[GameReplay], opts: &Options) {
                 .map(|(c, n)| format!("{c} ({n})"))
                 .collect::<Vec<_>>()
                 .join(", ")
+        );
+    }
+    let builds: BTreeSet<String> = drift
+        .builds
+        .iter()
+        .map(|(_, b)| b.map_or("unknown".to_string(), |b| b.to_string()))
+        .collect();
+    println!(
+        "  patch drift (log build {} vs engine Patch {}): {} rule(s), {} card(s) differ (replay_cli drift lists them)",
+        builds.into_iter().collect::<Vec<_>>().join(", "),
+        drift.engine_patch,
+        drift.rules.len(),
+        drift.cards.len()
+    );
+    for r in &drift.rules {
+        println!("    rule: {r}");
+    }
+    if !drift_seen.is_empty() {
+        println!(
+            "    drifted cards in these combats: {}",
+            drift_seen.into_iter().collect::<Vec<_>>().join(", ")
         );
     }
     if !unimplemented.is_empty() {

@@ -8,7 +8,8 @@ use serde::Serialize;
 
 use seaglass::cards::{self, ballers, tokens, volumizers};
 use seaglass::model::{
-    BattleOutcome, DeityKind, DeityState, GameState, PlayerAuras, Side, Tribe, Unit, UnitId,
+    BattleOutcome, DeityKind, DeityState, EffectDuration, GameState, PlayerAuras, PlayerEffect,
+    Side, Tribe, Unit, UnitId,
 };
 use seaglass::scenario::card_index;
 use seaglass::{resolve_battle, resolve_duos_battle, DuosTeam, Event, Rng, Warband};
@@ -176,6 +177,25 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
             // Beetle Army: the Beetle bonus (also player tags 3874/3924).
             "BG31_808pe" if !p.tags_known => tokens::add_beetle_bonus(&mut a, n1, n2),
             _ => {}
+        }
+    }
+    // Spells waiting for this combat (`Brood of Nozdormu`, ...): their player effects.
+    for c in &p.pending_spells {
+        let card = c.card_id.as_deref().and_then(|id| engine_card(id, &c.name));
+        let Some(card) = card.filter(|c| c.kind == CardKind::Spell) else {
+            gaps.push(format!(
+                "{} (player {}): pending spell {} is not implemented",
+                p.hero_name, p.player_id, c.name
+            ));
+            continue;
+        };
+        match a.effects.iter_mut().find(|e| e.card_id == card.card_id) {
+            Some(e) => e.stacks += 1,
+            None => a.effects.push(PlayerEffect {
+                card_id: card.card_id,
+                stacks: 1,
+                duration: EffectDuration::Turn,
+            }),
         }
     }
     if !p.tags_known {
@@ -376,18 +396,19 @@ fn norm(name: &str, golden: bool) -> String {
 
 /// Sorts each run of consecutive entries by side (A first): warbands entering together (the
 /// opening, simultaneous step-ins) are logged in either order.
-fn normalize(mut steps: Vec<Step>) -> Vec<Step> {
+fn normalize(steps: Vec<Step>) -> Vec<Step> {
+    normalize_by(steps, |s| s)
+}
+
+fn normalize_by<T>(mut steps: Vec<T>, step: impl Fn(&T) -> &Step) -> Vec<T> {
     let mut i = 0;
     while i < steps.len() {
         let mut j = i;
-        while j < steps.len() && matches!(steps[j], Step::Entry { .. }) {
+        while j < steps.len() && matches!(step(&steps[j]), Step::Entry { .. }) {
             j += 1;
         }
         if j > i + 1 {
-            steps[i..j].sort_by_key(|s| match s {
-                Step::Entry { side, .. } => *side == Side::B,
-                _ => false,
-            });
+            steps[i..j].sort_by_key(|s| matches!(step(s), Step::Entry { side: Side::B, .. }));
         }
         i = j.max(i + 1);
     }
@@ -396,6 +417,14 @@ fn normalize(mut steps: Vec<Step>) -> Vec<Step> {
 
 /// The server's steps. Warbands without minions "enter" in the log but never fight: skipped.
 pub fn real_steps(setup: &CombatSetup) -> Vec<Step> {
+    real_steps_indexed(setup)
+        .into_iter()
+        .map(|(s, _)| s)
+        .collect()
+}
+
+/// [`real_steps`], each with the index of its event in `setup.events`.
+pub fn real_steps_indexed(setup: &CombatSetup) -> Vec<(Step, usize)> {
     let empty: HashSet<i32> = setup
         .team_a
         .players
@@ -407,36 +436,43 @@ pub fn real_steps(setup: &CombatSetup) -> Vec<Step> {
     setup
         .events
         .iter()
-        .filter_map(|e| match e {
+        .enumerate()
+        .filter_map(|(i, e)| match e {
             ServerEvent::Entry { side, player_id }
                 if setup.is_duos && !empty.contains(player_id) =>
             {
-                Some(Step::Entry {
-                    side: *side,
-                    player_id: *player_id,
-                })
+                Some((
+                    Step::Entry {
+                        side: *side,
+                        player_id: *player_id,
+                    },
+                    i,
+                ))
             }
             ServerEvent::Attack {
                 side,
                 attacker,
                 defender,
-            } => Some(Step::Attack {
-                side: *side,
-                attacker: (
-                    norm(&attacker.name, attacker.golden),
-                    attacker.attack,
-                    attacker.health,
-                ),
-                defender: (
-                    norm(&defender.name, defender.golden),
-                    defender.attack,
-                    defender.health,
-                ),
-            }),
+            } => Some((
+                Step::Attack {
+                    side: *side,
+                    attacker: (
+                        norm(&attacker.name, attacker.golden),
+                        attacker.attack,
+                        attacker.health,
+                    ),
+                    defender: (
+                        norm(&defender.name, defender.golden),
+                        defender.attack,
+                        defender.health,
+                    ),
+                },
+                i,
+            )),
             _ => None,
         })
         .collect::<Vec<_>>()
-        .pipe(normalize)
+        .pipe(|v| normalize_by(v, |(s, _)| s))
 }
 
 /// `value.pipe(f)` = `f(value)`.

@@ -17,6 +17,8 @@ use seaglass::model::{BattleOutcome, CardId, Keyword, Tribe, Unit};
 use seaglass::scenario::{card_index, slug, Batch, Defaults, Matchup};
 
 pub mod cards;
+pub mod diagnose;
+pub mod drift;
 pub mod reconstruct;
 pub mod validate;
 
@@ -40,6 +42,12 @@ pub struct GameReplay {
     /// Every minion and spell card the game's log shows: card ID → `(name, CARDTYPE, Golden)`.
     #[serde(skip)]
     pub cards_seen: std::collections::BTreeMap<String, (String, String, bool)>,
+    /// What the game's log shows of each minion card, to compare with the engine ([`drift`]).
+    #[serde(skip)]
+    pub cards_observed: std::collections::BTreeMap<String, drift::CardObservation>,
+    /// The game client's build (`GameState.DebugPrintGame() - BuildNumber=`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build_number: Option<u32>,
 }
 
 /// One full Battlegrounds round (Tavern Phase + Combat Phase).
@@ -499,7 +507,14 @@ pub fn parse_power_log_str(content: &str) -> Result<Vec<GameReplay>, String> {
 
     // Split into games by `GameState.DebugPrintPower() - CREATE_GAME`.
     let mut game_chunks: Vec<(String, Vec<&str>)> = Vec::new();
+    let mut builds: Vec<Option<u32>> = Vec::new();
     for line in content.lines() {
+        if let Some((_, build)) = line.split_once("GameState.DebugPrintGame() - BuildNumber=") {
+            if let Some(b) = builds.last_mut() {
+                *b = build.trim().parse().ok();
+            }
+            continue;
+        }
         let Some((prefix, body)) = line.split_once("GameState.DebugPrintPower() - ") else {
             continue;
         };
@@ -514,6 +529,7 @@ pub fn parse_power_log_str(content: &str) -> Result<Vec<GameReplay>, String> {
                 .unwrap_or("00:00:00")
                 .to_string();
             game_chunks.push((ts, Vec::new()));
+            builds.push(None);
         }
         if let Some((_, lines)) = game_chunks.last_mut() {
             lines.push(body);
@@ -525,6 +541,8 @@ pub fn parse_power_log_str(content: &str) -> Result<Vec<GameReplay>, String> {
         if let Some(mut replay) = parse_single_game(idx + 1, start_time, &lines, &card_names) {
             replay.combats = reconstruct_combats(&lines, &card_names);
             replay.cards_seen = cards_seen(&lines, &card_names);
+            replay.cards_observed = drift::observe_cards(&lines, &card_names);
+            replay.build_number = builds.get(idx).copied().flatten();
             replays.push(replay);
         }
     }
@@ -1331,6 +1349,8 @@ fn parse_single_game(
         turns,
         combats: Vec::new(),
         cards_seen: Default::default(),
+        cards_observed: Default::default(),
+        build_number: None,
     })
 }
 

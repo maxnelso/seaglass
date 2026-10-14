@@ -10,7 +10,7 @@
 //! "Vicious Mindslasher")`. The generated code names the module's `ID` constant, so a renamed or
 //! removed module fails the build instead of silently mapping to the wrong card. Spells whose
 //! headers name a card ID are listed too (most spell headers only name the card; those resolve
-//! by name).
+//! by name). It also reads the patch the engine targets from the minion pool's doc.
 
 use std::env;
 use std::fs;
@@ -95,7 +95,24 @@ fn main() {
             }
         }
     }
-    code.push_str("];\n");
+    code.push_str("];\n\n");
+
+    // The patch the engine's card pool targets, from `cards/minions/mod.rs`'s doc ("Patch X.Y.Z").
+    let pool = fs::read_to_string(cards.join("minions/mod.rs")).unwrap_or_default();
+    let patch = pool
+        .split("Patch ")
+        .nth(1)
+        .map(|r| {
+            r.chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect::<String>()
+        })
+        .map(|p| p.trim_end_matches('.').to_string())
+        .unwrap_or_default();
+    code.push_str(
+        "/// The patch the engine's card pool targets (`engine/src/cards/minions/mod.rs`).\n",
+    );
+    code.push_str(&format!("pub const ENGINE_PATCH: &str = {patch:?};\n"));
 
     let out = PathBuf::from(env::var("OUT_DIR").unwrap()).join("engine_hs_ids.rs");
     fs::write(out, code).unwrap();
