@@ -34,3 +34,14 @@ scenarios:
     expect:
       auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}
       shop: {any: Demon Fodder}
+
+  - name: demon_fodder_is_tier_1
+    description: >-
+      Demon Fodder is a Tier 1 token (HearthstoneJSON `BG35_150t`): a surviving Fodder adds 1 to
+      the damage.
+    tavern: {board: [Demon Fodder]}
+    steps:
+      - fight: {board: []}
+    expect:
+      board: ["Demon Fodder 2/2 t1"]
+      combat: {outcome: a_win, hero_damage: 2}   # Tier 1 + the Fodder's Tier 1

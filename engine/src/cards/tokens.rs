@@ -205,12 +205,13 @@ pub fn make_water_droplet() -> Unit {
         .with_tribe(Tribe::Elemental)
 }
 
-/// `Demon Fodder` (`2/2` Demon generated in shop by `Laboratory Assistant` / `Trapped Clapper`).
+/// `Demon Fodder` (`BG35_150t`, Tier 1 `2/2` Demon generated in shop by `Laboratory Assistant` /
+/// `Trapped Clapper`).
 pub fn make_demon_fodder(is_golden: bool) -> Unit {
     let s = if is_golden { 4 } else { 2 };
     Unit::new("Demon Fodder", s, s)
         .with_card_id(TOKEN_DEMON_FODDER)
-        .with_tavern_tier(2)
+        .with_tavern_tier(1)
         .with_tribe(Tribe::Demon)
         .with_golden(is_golden)
 }
