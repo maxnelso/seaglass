@@ -1,0 +1,30 @@
+card: Feisty Freshwater
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: deathrattle_gives_both_players_two_free_refreshes
+    duos_tavern:
+      players: [{board: [Feisty Freshwater]}, {}]
+    steps:
+      - fight: {team: [["10/10"], []]}
+    expect:
+      players: [{auras: {free_refreshes: 2}}, {auras: {free_refreshes: 2}}]
+
+  - name: golden_gives_each_player_four
+    duos_tavern:
+      players: [{board: ["golden Feisty Freshwater 12/8"]}, {}]
+    steps:
+      - fight: {team: [["20/20"], []]}
+    expect:
+      players: [{auras: {free_refreshes: 4}}, {auras: {free_refreshes: 4}}]
+
+  - name: the_teammate_refreshes_for_free_next_turn
+    duos_tavern:
+      players: [{board: [Feisty Freshwater]}, {}]
+    steps:
+      - fight: {team: [["10/10"], []]}
+      - start_turn
+      - {player: 1, refresh}
+      - {player: 1, refresh}
+    expect:
+      players: {1: {gold: 3, auras: {free_refreshes: 0}}}

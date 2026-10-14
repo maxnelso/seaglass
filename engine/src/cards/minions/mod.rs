@@ -49,6 +49,7 @@ pub mod costume_enthusiast;
 pub mod crackling_cyclone;
 pub mod crater_miner;
 pub mod crimson_vindicator;
+pub mod cthrax_wrecker;
 pub mod cutthroat_kthir;
 pub mod dark_paradox;
 pub mod dark_puppeteer;
@@ -84,6 +85,7 @@ pub mod faceless_converter;
 pub mod faceless_operative;
 pub mod falling_sky_golem;
 pub mod fearless_foodie;
+pub mod feisty_freshwater;
 pub mod felboar;
 pub mod felfire_conjurer;
 pub mod fetid_corroder;
@@ -101,12 +103,14 @@ pub mod futurefin;
 pub mod gatekeeper_amalgam;
 pub mod gearfin;
 pub mod gem_rat;
+pub mod generous_geomancer;
 pub mod geomagus_roogug;
 pub mod ghastcoiler;
 pub mod glambot;
 pub mod glim_guardian;
 pub mod goldrinn_the_great_wolf;
 pub mod gormling_gourmet;
+pub mod grave_narrator;
 pub mod greedy_conniver;
 pub mod green_volumizer;
 pub mod gunpowder_courier;
@@ -190,8 +194,10 @@ pub mod roaring_recruiter;
 pub mod rodeo_performer;
 pub mod runic_arcanist;
 pub mod sacrificial_wrathguard;
+pub mod sandy;
 pub mod sanguine_champion;
 pub mod sanguine_refiner;
+pub mod sanlayn_scribe;
 pub mod scarlet_skull;
 pub mod scarlet_survivor;
 pub mod sellemental;
@@ -199,6 +205,7 @@ pub mod sewer_escapee;
 pub mod sewer_lord;
 pub mod sha_of_fear;
 pub mod shamanic_tidecaller;
+pub mod shifty_snake;
 pub mod ship_master_eudora;
 pub mod shipwrecked_rascal;
 pub mod shoalfin_mystic;
@@ -232,6 +239,7 @@ pub mod tichondrius;
 pub mod timecapn_hooktail;
 pub mod titus_rivendare;
 pub mod tortollan_blue_shell;
+pub mod transport_reactor;
 pub mod trapped_clapper;
 pub mod treasure_parrot;
 pub mod trench_fighter;
@@ -253,6 +261,7 @@ pub mod victorious_geomant;
 pub mod wanderer_cho;
 pub mod wandering_willbreaker;
 pub mod waveling;
+pub mod wheeled_crewmate;
 pub mod wildfire_elemental;
 pub mod wolf_pup;
 pub mod wrath_weaver;
@@ -536,5 +545,19 @@ pub fn duos_catalog() -> Vec<CardTemplate> {
     vec![
         // Tier 2
         wanderer_cho::template(),
+        generous_geomancer::template(),
+        // Tier 3
+        wheeled_crewmate::template(),
+        // Tier 4
+        feisty_freshwater::template(),
+        grave_narrator::template(),
+        sanlayn_scribe::template(),
+        shifty_snake::template(),
+        // Tier 5
+        cthrax_wrecker::template(),
+        // Tier 6
+        transport_reactor::template(),
+        // Tier 7
+        sandy::template(),
     ]
 }

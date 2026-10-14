@@ -32,7 +32,7 @@ Only the fighting warband is on its team's side: teammates' minions are never on
 
 - **Gifts.** "Your teammate gets ...", "you and your teammate each ...": the card records a gift in its player's auras (`PlayerAuras::to_teammate`). It doesn't act in this combat: it comes back with the warband's auras (§6) and the team's Tavern delivers it after the combat (`duos_tavern.md` §7.2) **(engine decision)**.
 - **Team counters.** "Your team's ... this game" counts are each player's own card counters plus their teammate's (`PlayerAuras::teammate_counters`, mirrored by the team's Tavern). Each warband adds to its own player's counters; a warband that steps in takes its teammate's counters as they are then (§3.2) **(engine decision)**.
-- **The teammate's warband.** A card can read its teammate's warband as it entered the combat (`BoardCtx::teammate_board`): the board as given, whether it is waiting, fighting or done; empty in Solo **(engine decision)**.
+- **The teammate's warband.** A card can read its teammate's warband as it entered the combat (`BoardCtx::teammate_board`): the board as given, whether it is waiting, fighting or done; empty in Solo **(confirmed)**.
 
 ---
 
@@ -167,6 +167,7 @@ The details the user settled:
 5. A step-in is like a new Start of Combat: a Windfury attacker's attack is done when the defending warband runs out, and `Eternal Tycoon`'s Knight is summoned but doesn't attack (§3.2) **(confirmed)**.
 6. A stall makes both fighting warbands leave the fight, and both teammates step in; if only one team has a teammate waiting, that team wins (§3.5) **(confirmed)**.
 7. An empty warband still steps in and has its Start of Combat (`Flighty Scout` in hand, player effects), in Duos as in Solo (§3.5) **(confirmed)**.
+8. A card that reads its teammate's warband reads it as it entered the combat, even once it has fought (§2; `Sandy`) **(confirmed)**.
 
 Engine decisions, pending the user's confirmation (each is one place in `combat.rs`):
 
@@ -177,4 +178,3 @@ Engine decisions, pending the user's confirmation (each is one place in `combat.
 | Fill-out board | The teammate's board as given: its hand cards and player effects (`Flighty Scout`, `Boon of Beetles`) summon nothing (§4). | `DuosTeamState::damage` |
 | Gifts in combat | A gift to the teammate acts after the combat, in their Tavern (§2). | `PlayerAuras::to_teammate` |
 | Counters at a step-in | The stepping-in warband takes its teammate's card counters as they are then (§3.2). | `DuosTeamState::step_in` |
-| The teammate's warband | Read as it entered the combat, even once it has fought (§2). | `DuosTeamState::new` |

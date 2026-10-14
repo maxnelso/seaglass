@@ -42,6 +42,15 @@ pub enum Event {
         health: i32,
         reason: &'static str,
     },
+    /// A minion transformed into a copy of another card, keeping its id and place (Duos
+    /// `Sandy`): its new name and stats.
+    UnitTransformed {
+        side: Side,
+        unit: UnitId,
+        name: String,
+        attack: i32,
+        health: i32,
+    },
     DamageDealt {
         unit: UnitId,
         amount: i32,

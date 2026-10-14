@@ -1,0 +1,51 @@
+card: San'layn Scribe
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: has_4_4_for_each_of_the_teams_scribes_that_died
+    description: Player 0 lost one Scribe this game and player 1 two, so the team lost three.
+    duos_tavern:
+      players:
+        - {board: [San'layn Scribe], auras: {counters: {San'layn Scribe: 1}}}
+        - {hand: [San'layn Scribe], auras: {counters: {San'layn Scribe: 2}}}
+    steps:
+      - {player: 0, sync_all_auras}
+    expect:
+      players:
+        - {board: ["San'layn Scribe 16/16"]}
+        - {hand: ["San'layn Scribe 16/16"]}
+
+  - name: golden_has_8_8_for_each
+    duos_tavern:
+      players:
+        - {board: ["golden San'layn Scribe 8/8"]}
+        - {auras: {counters: {San'layn Scribe: 1}}}
+    steps:
+      - {player: 0, sync_all_auras}
+    expect:
+      players: {0: {board: ["golden San'layn Scribe 16/16"]}}
+
+  - name: a_scribe_stepping_in_counts_the_scribe_its_teammate_lost
+    description: >-
+      Player 0's Scribe trades with the 4/8, leaving it a 4/4. Player 1's Scribe steps in with
+      +4/+4 for it, an 8/8, and wins: a 4/4 would only have traded.
+    duos_tavern:
+      players: [{board: [San'layn Scribe]}, {board: [San'layn Scribe]}]
+    steps:
+      - fight: {team: [["4/8"], []]}
+    expect:
+      combat: {outcome: a_win, team_a: {1: {survivors: ["San'layn Scribe 8/4"]}}}
+      players:
+        - {board: ["San'layn Scribe 8/8"], auras: {counters: {San'layn Scribe: {0: 1}}}}
+        - {board: ["San'layn Scribe 8/8"], auras: {counters: {San'layn Scribe: {0: 0}}}}
+
+  - name: a_scribe_dying_in_the_tavern_counts
+    description: Maw Caster's Battlecry destroys the Scribe; player 1's Scribe gets +4/+4.
+    duos_tavern:
+      players:
+        - {board: [San'layn Scribe], hand: [Maw Caster]}
+        - {board: [San'layn Scribe]}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players: {1: {board: ["San'layn Scribe 8/8"]}}

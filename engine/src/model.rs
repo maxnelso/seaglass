@@ -540,6 +540,15 @@ pub struct Unit {
     pub combine_choose_one: bool,
     /// Minions destroyed at Start of Combat and stored inside `Stitched Salvager` for its Deathrattle.
     pub stitched_stored: Vec<Unit>,
+    /// Duos: Attack and Health this unit has for each time its team Passed this game, wherever
+    /// it is, from the `Transport Reactor`s Magnetized onto it (`docs/duos_tavern.md` §8.2).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub pass_aura: i32,
+}
+
+/// `true` if `n` is 0 (serde: a field skipped while it is 0).
+fn is_zero(n: &i32) -> bool {
+    *n == 0
 }
 
 impl Unit {
@@ -604,6 +613,7 @@ impl Unit {
             magnetizations_count: 0,
             combine_choose_one: false,
             stitched_stored: Vec::new(),
+            pass_aura: 0,
         }
     }
 

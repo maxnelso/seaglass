@@ -283,8 +283,22 @@ minion_ids:
   7: [701, 712]
 
 duos_minions:
-  2:  # 1
+  2:  # 2
     - Wanderer Cho
+    - Generous Geomancer
+  3:  # 1
+    - Wheeled Crewmate
+  4:  # 4
+    - Feisty Freshwater
+    - Grave Narrator
+    - San'layn Scribe
+    - Shifty Snake
+  5:  # 1
+    - C'Thrax Wrecker
+  6:  # 1
+    - Transport Reactor
+  7:  # 1
+    - Sandy
 
 tiers:
   1: {copies: 15, shop_capacity: 3, upgrade_cost: 5}

@@ -1,0 +1,36 @@
+card: Wheeled Crewmate
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: deathrattle_makes_both_players_upgrades_cheaper
+    duos_tavern:
+      players:
+        - {board: [Wheeled Crewmate], upgrade_cost: 5}
+        - {upgrade_cost: 7}
+    steps:
+      - fight: {team: [["10/10"], []]}
+    expect:
+      players: [{upgrade_cost: 4}, {upgrade_cost: 6}]
+
+  - name: golden_takes_2_off_but_never_below_0
+    duos_tavern:
+      players:
+        - {board: ["golden Wheeled Crewmate 12/6"], upgrade_cost: 5}
+        - {upgrade_cost: 1}
+    steps:
+      - fight: {team: [["20/20"], []]}
+    expect:
+      players: [{upgrade_cost: 3}, {upgrade_cost: 0}]
+
+  - name: a_cheaper_upgrade_is_taken_next_turn
+    description: >-
+      Player 1's Crewmate dies on turn 1: on turn 2 both upgrades cost 3 (5, less 1 for the
+      Crewmate, less the turn's 1).
+    duos_tavern:
+      players: [{}, {board: [Wheeled Crewmate]}]
+    steps:
+      - start_turn
+      - fight: {team: [["10/10"], []]}
+      - start_turn
+    expect:
+      players: [{turn: 2, upgrade_cost: 3}, {turn: 2, upgrade_cost: 3}]

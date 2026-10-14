@@ -436,6 +436,27 @@ fn main() {
                     "  [Summon] ({reason}) {src_str} summons {new_tag} ({attack}/{health})"
                 );
             }
+            Event::UnitTransformed {
+                side,
+                unit,
+                name,
+                attack,
+                health,
+            } => {
+                let old_tag = tracker
+                    .get(unit)
+                    .map(|t| t.tag(*unit))
+                    .unwrap_or_else(|| format!("#{unit}"));
+                let tracked = TrackedUnit {
+                    side: *side,
+                    name: name.clone(),
+                    attack: *attack,
+                    health: *health,
+                };
+                let new_tag = tracked.tag(*unit);
+                tracker.insert(*unit, tracked);
+                println!("  [Transform] {old_tag} becomes {new_tag} ({attack}/{health})");
+            }
             Event::DeityAwakened {
                 side,
                 unit,

@@ -15,12 +15,17 @@ use crate::rng::Rng;
 use crate::tavern::TavernState;
 
 /// Stats the player-wide "wherever this is" auras give `unit` (the Undead bonus from
-/// `Nerubian Deathswarmer` and `Butchering`).
+/// `Nerubian Deathswarmer` and `Butchering`; in Duos, the team's Passes for a unit a `Transport
+/// Reactor` was Magnetized onto).
 pub fn aura_bonus(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
+    let passes = unit.pass_aura * auras.team_passes_this_game as i32;
     if unit.tribe.matches(Tribe::Undead) {
-        (auras.undead_bonus_attack, auras.undead_bonus_health)
+        (
+            auras.undead_bonus_attack + passes,
+            auras.undead_bonus_health + passes,
+        )
     } else {
-        (0, 0)
+        (passes, passes)
     }
 }
 

@@ -1,0 +1,64 @@
+card: C'Thrax Wrecker
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: battlecry_gives_both_players_deities_4_4
+    duos_tavern:
+      players: [{hand: [C'Thrax Wrecker]}, {}]
+    steps:
+      - {player: 0, play: 0}
+    expect:
+      players:
+        - {auras: {deity: {attack: 5, health: 5}}}
+        - {auras: {deity: {attack: 5, health: 5}}}
+
+  - name: each_rally_gives_both_deities_4_4
+    description: It attacks the 0/10 twice, two Rallies.
+    duos_tavern:
+      players: [{board: [C'Thrax Wrecker]}, {}]
+    steps:
+      - fight: {team: [["0/10"], []]}
+    expect:
+      combat: {outcome: a_win}
+      players:
+        - {auras: {deity: {attack: 9, health: 9}}}
+        - {auras: {deity: {attack: 9, health: 9}}}
+
+  - name: deathrattle_gives_both_deities_4_4
+    description: The 20/20 attacks first (two minions against one) and kills it before it attacks.
+    duos_tavern:
+      players: [{board: [C'Thrax Wrecker]}, {}]
+    steps:
+      - fight: {team: [["20/20", "1/1"], []]}
+    expect:
+      players:
+        - {auras: {deity: {attack: 5, health: 5}}}
+        - {auras: {deity: {attack: 5, health: 5}}}
+
+  - name: an_awakened_deity_gains_it_on_the_board
+    description: >-
+      Player 0's C'Thun awakened in this combat (4 Aberrations died). The Wrecker's Rally gives
+      the C'Thun on the board +4/+4 as well as the Deity's stats.
+    duos_tavern:
+      players:
+        - board: ["1/1 aberration", "1/1 aberration", "1/1 aberration", "1/1 aberration", C'Thrax Wrecker stealth]
+        - {}
+    steps:
+      - fight: {team: [["0/30", "10/30 taunt"], []], seed: 3}
+    expect:
+      combat:
+        events:
+          sequence:
+            - {type: deity_awakened}
+            - {type: stat_buff, reason: C'Thrax Wrecker, atk_delta: 4, hp_delta: 4}
+      players: {1: {auras: {deity: {attack: "> 1"}}}}
+
+  - name: golden_gives_8_8
+    duos_tavern:
+      players: [{hand: ["golden C'Thrax Wrecker 16/16"]}, {}]
+    steps:
+      - {player: 0, play: 0}
+    expect:
+      players:
+        - {auras: {deity: {attack: 9, health: 9}}}
+        - {auras: {deity: {attack: 9, health: 9}}}

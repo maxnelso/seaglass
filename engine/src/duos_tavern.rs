@@ -315,10 +315,10 @@ impl DuosTavern {
     }
 
     /// Deliver the gifts the players' cards gave (§7.2): each player's in order, `first`'s
-    /// first, until none is left. A gift card goes to the receiver's hand (lost if it is full,
-    /// as in Solo); a Pass is sent (§5.6); an `Effect` runs its card's `teammate_gift` hook on
-    /// the teammate's Tavern, or on both players' if it is the team's. Without a `pool` (after a
-    /// combat) the Passes wait for the next delivery.
+    /// first, until none is left. A gift card joins the receiver's incoming queue, as a passed
+    /// card does (the caller delivers the queues); a Pass is sent (§5.6); an `Effect` runs its
+    /// card's `teammate_gift` hook on the teammate's Tavern, or on both players' if it is the
+    /// team's. Without a `pool` (after a combat) the Passes wait for the next delivery.
     fn deliver_gifts(&mut self, first: usize, mut pool: Option<&mut CardPool>, rng: &mut Rng) {
         for _ in 0..MAX_GIFT_ROUNDS {
             let mut delivered = false;
@@ -335,7 +335,7 @@ impl DuosTavern {
                             }
                         },
                         TeammateGift::Card(card) => {
-                            self.players[Self::teammate(player)].add_to_hand(card)
+                            self.incoming[Self::teammate(player)].push(card)
                         }
                         TeammateGift::Effect {
                             card_id,
@@ -348,10 +348,8 @@ impl DuosTavern {
                                 self.mirror();
                                 let state = &mut self.players[receiver];
                                 let cards = cards::apply_teammate_gift(state, card_id, amount, rng);
-                                for card in cards {
-                                    state.add_to_hand(card);
-                                }
                                 state.sync_all_auras();
+                                self.incoming[receiver].extend(cards);
                                 self.settle();
                             }
                         }
@@ -609,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn a_gift_card_goes_to_the_hand_and_is_lost_if_it_is_full() {
+    fn a_gift_card_arrives_like_a_passed_card_and_waits_if_the_hand_is_full() {
         let mut team = DuosTavern::new();
         let (mut pool, mut rng) = (empty_pool(), Rng::new(1));
         team.players[1].hand = (0..9).map(|_| unit(1, 1)).collect();
@@ -624,7 +622,7 @@ mod tests {
         assert!(team.players[0].auras.to_teammate.is_empty());
         assert_eq!(team.players[1].hand.len(), 10);
         assert_eq!(team.players[1].hand[9], unit(2, 2));
-        assert!(team.incoming[1].is_empty());
+        assert_eq!(team.incoming[1], vec![unit(3, 3)]);
         // A gift is not a Pass.
         assert_eq!(team.passes_this_game, 0);
     }

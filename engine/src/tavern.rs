@@ -1926,6 +1926,7 @@ impl TavernState {
         golden.stacks = copies.iter().map(|u| u.stacks).sum();
         golden.eot_health_bonus = copies.iter().map(|u| u.eot_health_bonus).sum();
         golden.sot_gold_bonus = copies.iter().map(|u| u.sot_gold_bonus).sum();
+        golden.pass_aura = copies.iter().map(|u| u.pass_aura).sum();
         cards::init_unit_turn_charges(&mut golden);
         // The Golden's own spell aura comes from its card; what the copies gained on top of
         // theirs carries over.

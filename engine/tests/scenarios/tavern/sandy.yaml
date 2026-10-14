@@ -1,0 +1,89 @@
+card: Sandy
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: transforms_into_a_copy_of_the_teammates_highest_health_minion
+    description: After the combat Sandy is itself again, and keeps nothing from it.
+    duos_tavern:
+      players:
+        - {board: [Sandy]}
+        - {board: ["Zoatroid +5/+1", "Joyous +0/+6", "5/5"]}   # 8/3, 2/9, 5/5
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat:
+        outcome: a_win
+        events: {any: {type: unit_transformed, name: Joyous, attack: 2, health: 9}}
+        team_a: [{survivors: ["Joyous 2/9"]}, {fought: false}]
+      players: {0: {board: ["Sandy 1/1"]}}
+
+  - name: golden_makes_the_copy_golden
+    duos_tavern:
+      players:
+        - {board: ["golden Sandy 2/2"]}
+        - {board: ["Joyous +0/+6"]}   # 2/9, base 2/3
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat: {team_a: {0: {survivors: ["golden Joyous 4/12"]}}}
+
+  - name: a_golden_minion_is_copied_golden
+    duos_tavern:
+      players:
+        - {board: [Sandy]}
+        - {board: ["golden Joyous 4/6"]}
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat: {team_a: {0: {survivors: ["golden Joyous 4/6"]}}}
+
+  - name: with_no_teammate_minion_it_stays_sandy
+    duos_tavern:
+      players: [{board: [Sandy]}, {}]
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat:
+        events: {none: {type: unit_transformed}}
+        team_a: {0: {survivors: ["Sandy 1/1"]}}
+
+  - name: it_copies_from_the_teammates_warband_even_after_it_fought
+    description: Player 1 fights first and its 2/9 dies; Sandy then steps in and still copies it.
+    duos_tavern:
+      first_fighter: 1
+      players: [{board: [Sandy]}, {board: ["Joyous +0/+6"]}]
+    steps:
+      - fight: {team: [["20/20"], []]}
+    expect:
+      combat:
+        events:
+          sequence:
+            - {type: death}
+            - {type: warband_stepped_in, team: a, player: 0}
+            - {type: unit_transformed, name: Joyous, attack: 2, health: 9}
+
+  - name: the_copy_takes_its_players_auras
+    description: >-
+      Player 1's Undead have +3 Attack, so their 2/9 Undead is a 5/9 to them. Sandy's player
+      has no such bonus: Sandy's copy is a 2/9.
+    duos_tavern:
+      players:
+        - {board: [Sandy]}
+        - {board: ["2/9 undead"], auras: {undead_bonus_attack: 3}}
+    steps:
+      - {player: 1, sync_all_auras}
+      - expect: {players: {1: {board: ["5/9 undead"]}}}
+      - fight: {team: [[], []]}
+    expect:
+      combat: {team_a: {0: {survivors: ["2/9 undead"]}}}
+
+  - name: a_tie_for_the_most_health_is_broken_at_random
+    seeds: "1..=6"
+    duos_tavern:
+      players:
+        - {board: [Sandy]}
+        - {board: ["Joyous +1/+6", "Zoatroid +1/+7"]}   # 3/9, 4/9
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat: {team_a: {0: {survivors: [{any_of: ["Joyous 3/9", "Zoatroid 4/9"]}]}}}

@@ -1,0 +1,53 @@
+card: Transport Reactor
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: has_3_3_for_each_time_the_team_passed_this_game
+    description: Wherever it is, in either player's Tavern.
+    duos_tavern:
+      passes_this_game: 2
+      players:
+        - {board: [Transport Reactor], shop: [Transport Reactor]}
+        - {hand: [Transport Reactor]}
+    expect:
+      players:
+        - {board: ["Transport Reactor 9/9"], shop: ["Transport Reactor 9/9"]}
+        - {hand: ["Transport Reactor 9/9"]}
+
+  - name: grows_with_each_pass_of_either_player
+    duos_tavern:
+      players: [{board: [Transport Reactor]}, {gold: 1, hand: ["1/1"]}]
+    steps:
+      - {player: 1, pass: 0}
+    expect:
+      players: {0: {board: ["Transport Reactor 6/6"]}}
+
+  - name: golden_has_6_6_for_each
+    duos_tavern:
+      passes_this_game: 1
+      players: [{board: ["golden Transport Reactor 6/6"]}, {}]
+    expect:
+      players: {0: {board: ["golden Transport Reactor 12/12"]}}
+
+  - name: magnetized_its_mech_keeps_growing
+    description: >-
+      After one Pass it is a 6/6. Magnetized onto a 2/2 Mech it makes an 8/8, which grows by
+      +3/+3 with the team's next Pass.
+    duos_tavern:
+      passes_this_game: 1
+      players: [{gold: 1, board: ["2/2 mech"], hand: [Transport Reactor, "1/1"]}, {}]
+    steps:
+      - {player: 0, play: {hand: 0, pos: 0}}
+      - expect: {players: {0: {board: ["8/8 mech"]}}}
+      - {player: 0, pass: 0}
+    expect:
+      players: {0: {board: ["11/11 mech"]}}
+
+  - name: it_keeps_its_bonus_in_combat
+    duos_tavern:
+      passes_this_game: 3
+      players: [{board: [Transport Reactor]}, {}]
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat: {team_a: {0: {survivors: ["Transport Reactor 12/12"]}}}

@@ -1,0 +1,38 @@
+card: Grave Narrator
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: avenge_3_gives_the_teammate_a_minion_of_their_most_common_type
+    description: >-
+      Three of player 0's 1/1s die while the Narrator hides in Stealth. Player 1's warband is
+      three Murlocs and a Beast: they get a random Murloc of player 0's Tier 3 or lower.
+    duos_tavern:
+      players:
+        - {tavern_tier: 3, board: ["1/1", "1/1", "1/1", Grave Narrator stealth]}
+        - {board: ["1/1 murloc", "1/1 murloc", "1/1 murloc", "1/1 beast"]}
+    steps:
+      - fight: {team: [["5/100"], []]}
+    expect:
+      players:
+        0: {hand: []}
+        1: {hand: [{all_of: [murloc, {tavern_tier: "<= 3"}]}]}
+
+  - name: golden_gives_two
+    duos_tavern:
+      players:
+        - {tavern_tier: 2, board: ["1/1", "1/1", "1/1", "golden Grave Narrator 4/14 stealth"]}
+        - {board: ["1/1 demon"]}
+    steps:
+      - fight: {team: [["5/100"], []]}
+    expect:
+      players: {1: {hand: {count: 2, all: {all_of: [demon, {tavern_tier: "<= 2"}]}}}}
+
+  - name: fewer_than_3_deaths_give_nothing
+    duos_tavern:
+      players:
+        - {board: ["1/1", "1/1", Grave Narrator stealth]}
+        - {board: ["1/1 murloc"]}
+    steps:
+      - fight: {team: [["5/100"], []]}
+    expect:
+      players: {1: {hand: []}}

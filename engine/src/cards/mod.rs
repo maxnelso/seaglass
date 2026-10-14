@@ -2102,6 +2102,13 @@ pub fn on_post_combat_unit(
     let Some(pre_combat) = pre_board.get(idx) else {
         return;
     };
+    // A minion that transformed into another card in combat (Duos `Sandy`) keeps nothing from it.
+    if post_combat_board
+        .iter()
+        .any(|u| u.id == pre_combat.id && u.card_id != pre_combat.card_id)
+    {
+        return;
+    }
     if let Some(post_combat) = hooks(tavern_unit.card_id).post_combat {
         post_combat(pre_combat, post_combat_board, tavern_unit);
     }

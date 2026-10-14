@@ -1,0 +1,48 @@
+card: Generous Geomancer
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: deathrattle_gives_both_players_a_blood_gem
+    description: >-
+      Player 0's Geomancer dies in combat: player 0's Blood Gem comes back with their hand,
+      player 1's reaches their hand after the combat.
+    duos_tavern:
+      players: [{board: [Generous Geomancer]}, {}]
+    steps:
+      - fight: {team: [["5/5"], []]}
+    expect:
+      players: [{hand: [Blood Gem]}, {hand: [Blood Gem]}]
+
+  - name: golden_gives_each_player_two
+    duos_tavern:
+      players: [{board: ["golden Generous Geomancer 2/2"]}, {}]
+    steps:
+      - fight: {team: [["5/5"], []]}
+    expect:
+      players: [{hand: [Blood Gem, Blood Gem]}, {hand: [Blood Gem, Blood Gem]}]
+
+  - name: the_teammates_gem_waits_if_their_hand_is_full
+    description: >-
+      A card given to the teammate queues like a passed card, and arrives once they have room.
+    duos_tavern:
+      players:
+        - {board: [Generous Geomancer]}
+        - hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - fight: {team: [["5/5"], []]}
+      - expect:
+          players: [{hand: [Blood Gem]}, {hand: {count: 10, none: Blood Gem}}]
+          incoming: [[], [Blood Gem]]
+      - {player: 1, play: 0}   # makes room: the Blood Gem arrives
+    expect:
+      players: {1: {hand: {count: 10, contains: Blood Gem}}}
+      incoming: [[], []]
+
+  - name: in_solo_the_player_still_gets_theirs
+    description: Solo has no teammate, so the gift stays undelivered in the player's auras.
+    tavern: {board: [Generous Geomancer]}
+    steps:
+      - fight: {board: ["5/5"]}
+    expect:
+      hand: [Blood Gem]
+      auras: {to_teammate: {count: 1}}

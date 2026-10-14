@@ -1136,6 +1136,20 @@ fn print_combat_trace(
                     fmt_uid(&unit_names, *source)
                 );
             }
+            Event::UnitTransformed {
+                side,
+                unit,
+                name,
+                attack,
+                health,
+            } => {
+                let old = fmt_uid(&unit_names, *unit);
+                unit_names.insert(*unit, (*side, name.clone()));
+                println!(
+                    "    ({num:03}) UnitTransformed ({}): {old} becomes \"{name}\" ({attack}/{health})",
+                    format_side(*side)
+                );
+            }
             Event::DamageDealt { unit, amount, from } => {
                 println!(
                     "    ({num:03}) DamageDealt: {} takes {amount} dmg from {}",
