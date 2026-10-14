@@ -12,11 +12,10 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The team (`DuosTavern`): two players' Taverns, the shared Health and Armor, simultaneous turns, the first fighter, and the team counters.
 - **Pass** (`TavernAction::Pass`): its cost, free Passes (`Wanderer Cho`), the incoming queue, and triples completed by passed cards.
 - The team's combat: building both players' warbands, applying each player's result to their own Tavern, and the team damage.
-- The Duos catalog (`catalog_for("duos")`) and the first Duos-exclusive minion, `Wanderer Cho`.
-- Hook points and team counters for the Duos cards that read Passes.
+- The Duos catalog (`catalog_for("duos")`) and the Duos-exclusive cards (§8).
+- How card text reaches the teammate (§7): team counters, gifts to the teammate, the teammate's observers, the teammate's warband in combat.
 
 ### Deferred
-- The other Duos-exclusive cards (`Passenger`, `Transport Reactor`, `Mantid King`, `Puddle Prancer`, `Storm Splitter`, ...).
 - 4-team matches and their pairings: the engine has one team's Tavern; a match of four teams is the caller's job.
 - Heroes (Hero Powers, starting Armor values) and the Duos combat rules themselves (`duos.md`).
 
@@ -65,7 +64,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 1. `passes_this_turn = 0`, and no player has ended their turn.
 2. Player 0's start of turn (`tavern.md` §4), then player 1's, with the shared pool and RNG **(engine decision: the order)**. A player whose warband sat out the last combat keeps its next-combat effects (§6.3).
-3. The queues deliver (§5.4): player 0's, then player 1's.
+3. The gifts deliver (§7.2), then the queues (§5.4): player 0's, then player 1's.
 4. The first fighter is drawn (§4.3).
 
 ### 4.2 Simultaneous Turns
@@ -136,6 +135,8 @@ Any card can be passed: a minion or a spell, Golden or not **(confirmed)**. Ther
 5. The passer's `after_pass` observers, then both players' `after_team_pass` observers (the passer's first).
 6. The card joins the receiver's queue, and the queues deliver (§5.4).
 
+A Pass by a card effect ("Pass it", §7.2) is steps 3–6: the card has already left wherever it was, and nothing is paid.
+
 ---
 
 ## 6. The Team's Combat
@@ -159,7 +160,7 @@ Each player's `WarbandResult` comes back to **their own** Tavern exactly as a So
 6. their triple check;
 7. `last_combat_won` / `last_combat_lost`: the team's result, for both players (`Winner's Bread`, `Tortollan Blue Shell`), even one whose warband sat out: the team's combat is its combat **(confirmed)**.
 
-Then the **damage**: if the team lost, its pool takes `hero_damage` once, Armor first **(confirmed)**; no "your hero takes damage" minion reacts to it (§3.5).
+Then the gifts the players' cards gave in combat deliver (§7.2), and the **damage**: if the team lost, its pool takes `hero_damage` once, Armor first **(confirmed)**; no "your hero takes damage" minion reacts to it (§3.5).
 
 ### 6.3 A Warband That Sat Out
 
@@ -167,18 +168,55 @@ A warband that never fought (its teammate won alone, or it had nothing to fight 
 
 ---
 
-## 7. Team Counters and Hook Points
+## 7. How Card Text Reaches the Teammate
 
-**Counters.** `passes_this_turn` (reset at the start of each turn) and `passes_this_game` count the team's Passes, either player's. Both players' auras mirror them (`PlayerAuras::team_passes_this_turn`, `team_passes_this_game`), so card hooks and "wherever this is" auras can read them in the Tavern and in combat. They stay `0` in Solo.
+Teammates are not friendly (§2): a player's cards see their own Tavern only. A card reaches the teammate only through the channels below, when its text says *team* or *teammate* **(confirmed)**. The engine stays card-agnostic: the team routes and counts, and what a card does lives in its card file.
 
-**Hooks** (`src/cards/hooks.rs`), for the Duos cards that read Passes (none is implemented yet):
+### 7.1 Team Counters
+
+- **Passes.** `passes_this_turn` (reset at the start of each turn) and `passes_this_game` count the team's Passes, either player's (a Pass by a card effect too, §7.2). Both players' auras mirror them (`PlayerAuras::team_passes_this_turn`, `team_passes_this_game`), so card hooks and "wherever this is" auras can read them in the Tavern and in combat. They stay `0` in Solo.
+- **Card counters.** The other "your team's ... this game" counts (the `San'layn Scribe`s that died, the `Orc-estra Conductor`s played) are card counters (`PlayerAuras::card_counters`, keyed by the card): each player's cards add to their **own** counters, in the Tavern and in combat. The team mirrors each player's card counters into their teammate's `PlayerAuras::teammate_counters` (with the Health and the Passes, §3.3: `DuosTavern::mirror`), so `PlayerAuras::team_counter(key)` (own plus teammate's) is the team's count **(engine decision: how)**. In Solo `teammate_counters` stays empty: a team counter is the player's own.
+- In combat each warband counts for its own player; a warband that steps in takes its teammate's counts as they are at that moment, so a `San'layn Scribe` stepping in has the Scribes that died before it in its teammate's warband (`duos.md` §3.2) **(engine decision)**.
+
+### 7.2 Gifts to the Teammate
+
+A card that gives the teammate something ("your teammate gets", "you and your teammate each", "your team's") records a **gift** in its player's `PlayerAuras::to_teammate`, in the order it gives them. A `TeammateGift` is one of:
+
+| Gift | Means | For |
+| :--- | :--- | :--- |
+| `Card(card)` | The teammate gets `card`: it goes to their hand (`TavernState::add_to_hand`: their auras, observers and triple check), or is lost if their hand is full, as a card gained in Solo; it is not a passed card and doesn't queue **(engine decision)**. | `Friendly Saloonkeeper`'s Tavern Coin, `Generous Geomancer`'s Blood Gem. |
+| `Pass(card)` | The player's card effect **Passes** `card` ("Pass it"): a Pass in all but the payment (§5.6 steps 3–6: the card's `passed` hook, the team's counters, the `after_pass` and `after_team_pass` observers, the queue). It costs nothing and uses no free Pass **(engine decision)**. | `Jumping Jack`, `Mirror Monster`, the Portals. |
+| `Effect { card_id, amount, team }` | Anything else: the giving card's `teammate_gift` hook runs on the teammate's Tavern with `amount`, or on both players' Taverns if `team` (the giver's first). The cards it returns go to that player's hand, as `Card`s do. | `Feisty Freshwater`'s free Refreshes, `Wheeled Crewmate`'s cheaper upgrades. |
+
+The team delivers the gifts (`DuosTavern::deliver_gifts`), each player's in order, the acting player's first, until none is left (a gift's hooks may give more):
+
+1. after every action of either player (§4.2), before the queues deliver;
+2. at the start of the turn, after both players' start of turn (§4.1), so the Gold a teammate gives at the start of the turn is not replaced by the receiver's own Gold for the turn;
+3. after the team's combat (§6.2), before the damage: in combat a gift waits in its warband's auras and comes back in its `WarbandResult` (`duos.md` §6), so it reaches the teammate's Tavern after the combat, not their warband **(engine decision)**. The RNG of the combat's gifts is derived from the combat seed and the team. A Pass given in combat waits for the next action or start of turn: its observers may draw from the shared pool, which the combat doesn't have.
+
+In Solo nothing delivers them: Solo has no teammate.
+
+### 7.3 The Teammate's Observers
+
+- `after_teammate_sell`: after a player sells a minion (`TavernAction::Sell`), their teammate's observers see it, as it was on the board (`Dark Dazzler`).
+- `after_team_pass`: both players' observers, after any Pass of the team (§5.6).
+
+### 7.4 The Teammate's Warband in Combat
+
+In a Duos combat a card can read its teammate's warband as it entered the combat (`BoardCtx::teammate_board`, read-only): their board at the start of the combat, whether it is waiting, fighting or done **(engine decision)**. It is empty in Solo and in the Tavern. (`Sandy`)
+
+### 7.5 Hooks
+
+`src/cards/hooks.rs`:
 
 | Hook | Fires | For |
 | :--- | :--- | :--- |
 | `passed` | The passed card's own text, as it is passed (§5.6 step 3). | "After this is Passed, gain +4/+4" (`Puddle Prancer`). |
 | `after_pass` | Observers on the passer's board, with the passed card. | "After you Pass a Tavern spell, get a copy" (`Storm Splitter`). |
 | `after_team_pass` | Observers on both players' boards, after the counters went up. | "The first time your team Passes each turn" (`Passenger`). |
-| (auras) | `team_passes_this_game` in the player's auras. | "+1/+1 for each time your team Passed this game, wherever this is" (`Transport Reactor`). |
+| `after_teammate_sell` | Observers on the teammate's board, with the sold minion (§7.3). | "After your teammate sells a minion" (`Dark Dazzler`). |
+| `teammate_gift` | The giving card's `Effect` gift, on the teammate's Tavern (§7.2). | "You and your teammate each gain two free Refreshes" (`Feisty Freshwater`). |
+| (auras) | `team_passes_this_game`, `team_counter(key)` in the player's auras (§7.1). | "+3/+3 for each time your team Passed this game, wherever this is" (`Transport Reactor`). |
 
 ---
 
@@ -226,9 +264,17 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 | Queued cards in combat | Not in the warband's hand (§5.4). | `DuosTavern::warband` |
 | Keeping next-combat effects | The unused Start of Combat effects (`Turn`) of a warband that sat out survive the next start of turn (§6.3). | `DuosTavern::start_turn` |
 | Random minions | `Lockbox` and `Deathly Striker` draw from the Solo catalog even in Duos (§8). | `cards::all_templates` |
+| Team counters | Each player counts their own; the team mirrors them into the teammate's `teammate_counters` (§7.1). | `DuosTavern::mirror` |
+| Counters at a step-in | A warband stepping in takes its teammate's counts from this combat (§7.1). | `combat.rs` (`DuosTeamState::step_in`) |
+| Gift cards | A card given to the teammate is lost if their hand is full, as in Solo; only passed cards queue (§7.2). | `DuosTavern::deliver_gifts` |
+| Passes by effects | Free, and no free Pass is used (§7.2). | `DuosTavern::effect_pass` |
+| Gifts in combat | They reach the teammate's Tavern after the combat, not their warband (§7.2). | `DuosTavern::apply_results` |
+| The teammate's warband | A combat card reads it as it entered the combat, even after it fought (§7.4). | `combat.rs` (`DuosTeamState::new`) |
 
 ### Open Questions
 
 1. What is the real chance that the first fighter switches? (To be measured from game logs.)
 2. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
 3. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?
+4. Does a card given to a teammate whose hand is full wait like a passed card, or is it lost as in Solo (the engine's choice)?
+5. In combat, does a gift to the teammate reach their warband at once (a `Deity` buff, a `San'layn Scribe` death) or only their Tavern after the combat?

@@ -68,6 +68,9 @@ pub struct BoardCtx<'a> {
     /// This side's starting warband: its board as the combat started, before Start of Combat
     /// (`docs/combat.md` §2; empty outside combat).
     pub start_board: &'a [Unit],
+    /// Duos: the teammate's warband as it entered the combat (`docs/duos.md` §2; empty in Solo
+    /// and outside combat).
+    pub teammate_board: &'a [Unit],
     /// Board slot where the next summon is inserted.
     pub cursor: usize,
     /// Board slots held for minions that aren't on the board yet (in the Tavern, the minion being
@@ -1716,6 +1719,7 @@ fn with_tavern_ctx<R>(
         in_combat: false,
         board: &mut state.board,
         start_board: &[],
+        teammate_board: &[],
         cursor: 0,
         reserved_slots,
         auras: &mut state.auras,
@@ -2144,7 +2148,7 @@ pub fn is_start_of_combat_effect(effect: &PlayerEffect) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// Duos: Passes (`docs/duos_tavern.md` §5.6, §7)
+// Duos: Passes and the teammate (`docs/duos_tavern.md` §5.6, §7)
 // ---------------------------------------------------------------------------
 
 /// `card` is being Passed to the teammate: its own `passed` hook ("After this is Passed").
@@ -2171,4 +2175,33 @@ pub fn after_team_pass(state: &mut TavernState, pool: &mut CardPool, rng: &mut R
         |h| h.after_team_pass,
         |s, idx, f| f(s, idx, pool, rng),
     );
+}
+
+/// The player's teammate sold `sold`: the player's `after_teammate_sell` observers, left to
+/// right (`state` is the player's Tavern, not the seller's).
+pub fn after_teammate_sell(
+    state: &mut TavernState,
+    sold: &Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    notify_tavern(
+        state,
+        |h| h.after_teammate_sell,
+        |s, idx, f| f(s, idx, sold, pool, rng),
+    );
+}
+
+/// The `Effect` gift of the card `card_id` reaches `state`'s Tavern with `amount` (its
+/// `teammate_gift` hook; `docs/duos_tavern.md` §7.2). Returns the cards `state`'s player gets.
+pub fn apply_teammate_gift(
+    state: &mut TavernState,
+    card_id: CardId,
+    amount: i32,
+    rng: &mut Rng,
+) -> Vec<Unit> {
+    match hooks(card_id).teammate_gift {
+        Some(gift) => gift(state, amount, rng),
+        None => Vec::new(),
+    }
 }

@@ -312,6 +312,32 @@ pub struct PlayerAuras {
     /// teammates' auras by the team's Tavern (`docs/duos_tavern.md` §7). Always 0 in Solo.
     pub team_passes_this_turn: u32,
     pub team_passes_this_game: u32,
+    /// Duos: the teammate's `card_counters`, mirrored by the team's Tavern, so that a "your
+    /// team's" count is [`Self::team_counter`] (`docs/duos_tavern.md` §7.1). Empty in Solo.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub teammate_counters: BTreeMap<CardId, (i32, i32)>,
+    /// Duos: what this player's cards gave their teammate, in order, waiting for the team's
+    /// Tavern to deliver it (`docs/duos_tavern.md` §7.2). Nothing delivers it in Solo.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub to_teammate: Vec<TeammateGift>,
+}
+
+/// Something a player's card gives their teammate (`docs/duos_tavern.md` §7.2), recorded in
+/// [`PlayerAuras::to_teammate`] and delivered by the team's Tavern.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TeammateGift {
+    /// The teammate gets this card: it arrives in their hand like a passed card.
+    Card(Unit),
+    /// The player's card effect Passes this card to the teammate: a Pass without its payment.
+    Pass(Unit),
+    /// The giving card's `teammate_gift` hook runs on the teammate's Tavern with `amount`, or
+    /// on both players' Taverns if `team` (the giver's first).
+    Effect {
+        card_id: CardId,
+        amount: i32,
+        team: bool,
+    },
 }
 
 impl PlayerAuras {
@@ -347,6 +373,17 @@ impl PlayerAuras {
         let counter = self.card_counters.entry(key).or_default();
         counter.0 += a;
         counter.1 += b;
+    }
+
+    /// Duos: the team's value of the card counter `key`: this player's plus their teammate's
+    /// (`docs/duos_tavern.md` §7.1). In Solo it is the player's own.
+    pub fn team_counter(&self, key: CardId) -> i32 {
+        self.counter(key) + self.teammate_counters.get(&key).map_or(0, |c| c.0)
+    }
+
+    /// Duos: give the teammate `gift` (`docs/duos_tavern.md` §7.2).
+    pub fn give_teammate(&mut self, gift: TeammateGift) {
+        self.to_teammate.push(gift);
     }
 
     /// Record `stacks` of the player effect of `card_id`, lasting `duration` (merged into an

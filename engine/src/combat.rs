@@ -103,6 +103,8 @@ struct SideCombatState {
     board: Vec<Unit>,
     /// The starting warband (`docs/combat.md` §2).
     start_board: Vec<Unit>,
+    /// Duos: the teammate's warband as it entered the combat (`docs/duos.md` §2; empty in Solo).
+    teammate_board: Vec<Unit>,
     ptr: Option<UnitId>,
     hero_tier: u32,
     auras: PlayerAuras,
@@ -135,6 +137,7 @@ impl SideCombatState {
         let ptr = board.first().map(|u| u.id);
         Self {
             start_board: board.clone(),
+            teammate_board: Vec::new(),
             board,
             ptr,
             hero_tier,
@@ -164,6 +167,7 @@ impl SideCombatState {
             in_combat: true,
             board: &mut self.board,
             start_board: &self.start_board,
+            teammate_board: &self.teammate_board,
             cursor: 0,
             reserved_slots: 0,
             auras: &mut self.auras,
@@ -373,7 +377,7 @@ impl DuosTeamState {
             with_board(&team.warbands[0], board_0),
             with_board(&team.warbands[1], board_1),
         ];
-        let warbands = given.each_ref().map(|w| {
+        let mut warbands = given.each_ref().map(|w| {
             SideCombatState::new(
                 w.board.clone(),
                 w.hero_tier,
@@ -381,6 +385,10 @@ impl DuosTeamState {
                 w.hand.clone(),
             )
         });
+        // Each warband can read its teammate's as it entered the combat (docs/duos.md §2).
+        for (player, warband) in warbands.iter_mut().enumerate() {
+            warband.teammate_board = given[1 - player].board.clone();
+        }
         Self {
             given,
             warbands,
@@ -417,7 +425,9 @@ impl DuosTeamState {
     }
 
     /// Put `player`'s warband on the team's side (its pointer is still on its leftmost minion)
-    /// and log it; its `first_attacker` is recorded once its Start of Combat has resolved.
+    /// and log it; its `first_attacker` is recorded once its Start of Combat has resolved. It
+    /// takes its teammate's card counters as they are now (docs/duos.md §3.2), and its minions'
+    /// "wherever this is" auras resync if they changed.
     fn step_in(&mut self, team: Side, player: usize, events: &mut Vec<Event>) {
         self.fighting = player;
         self.fought[player] = true;
@@ -426,6 +436,14 @@ impl DuosTeamState {
             player,
             first_attacker: Side::A,
         });
+        let counters = self.warbands[1 - player].auras.card_counters.clone();
+        let warband = &mut self.warbands[player];
+        if warband.auras.teammate_counters != counters {
+            warband.auras.teammate_counters = counters;
+            let before = cards::stat_snapshot(&warband.board);
+            cards::sync_combat_auras(&mut warband.board, &mut warband.hand, &warband.auras);
+            cards::push_stat_changes(team, &warband.board, &before, "Team Counters", events);
+        }
     }
 
     /// The damage the team deals if it won (`docs/duos.md` §4): the fighting warband's player's

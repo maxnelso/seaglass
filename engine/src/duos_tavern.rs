@@ -12,7 +12,9 @@ use crate::cards::{self, CardFlags};
 use crate::combat::{
     resolve_duos_battle, DuosResult, DuosTeam, Warband, WarbandResult, MAX_BOARD_SIZE,
 };
-use crate::model::{BattleOutcome, CombatResult, EffectDuration, PlayerEffect, Side, Unit};
+use crate::model::{
+    BattleOutcome, CombatResult, EffectDuration, PlayerEffect, Side, TeammateGift, Unit,
+};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernAction, TavernState};
 
@@ -31,6 +33,14 @@ const READY_SALTS: [[u64; 2]; 2] = [
     [0xD1B5_4A32_D192_ED03, 0xAEF1_7502_108E_F2D9],
     [0x8CB9_2BA7_2F3D_8DD7, 0xDB4F_0B91_75AE_2165],
 ];
+
+/// Salts of the RNGs of the gifts the players' cards gave in combat (`docs/duos_tavern.md`
+/// §7.2), by team (side A, side B).
+const GIFT_SALTS: [u64; 2] = [0x9FB2_1C65_1E98_DF25, 0xC2B2_AE3D_27D4_EB4F];
+
+/// The most rounds of gifts delivered at once (§7.2): a gift's hooks may give more gifts, but
+/// never endlessly.
+const MAX_GIFT_ROUNDS: usize = 64;
 
 /// One Duos team's Tavern phase (`docs/duos_tavern.md` §2).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -128,7 +138,7 @@ impl DuosTavern {
     }
 
     /// Start the team's turn (§4.1): reset the turn's counter, run both players' start of turn
-    /// (player 0's first), deliver the queues, then draw the first fighter.
+    /// (player 0's first), deliver the gifts and the queues, then draw the first fighter.
     pub fn start_turn(&mut self, pool: &mut CardPool, rng: &mut Rng) {
         self.passes_this_turn = 0;
         self.ended = [false; 2];
@@ -156,6 +166,7 @@ impl DuosTavern {
             }
             self.settle();
         }
+        self.deliver_gifts(0, Some(pool), rng);
         self.deliver();
         self.draw_first_fighter(rng);
     }
@@ -225,8 +236,9 @@ impl DuosTavern {
     }
 
     /// `player` takes `action` (§4.2): a Pass, or an action of their own Tavern. Returns
-    /// `Ok(true)` if it ended their turn, or `Err` if it is illegal. Afterwards the team's pool
-    /// takes the Health and Armor the action changed, and the queues deliver.
+    /// `Ok(true)` if it ended their turn, or `Err` if it is illegal. Afterwards the teammate's
+    /// observers see a sold minion (§7.3), the team's pool takes the Health and Armor the action
+    /// changed, and the gifts (§7.2) and the queues deliver.
     pub fn step(
         &mut self,
         player: usize,
@@ -246,6 +258,10 @@ impl DuosTavern {
             return Err(format!("illegal tavern action: {action:?}"));
         }
         self.mirror();
+        let sold = match action {
+            TavernAction::Sell { board_pos } => self.players[player].board.get(board_pos).cloned(),
+            _ => None,
+        };
         let ended = match action {
             TavernAction::Pass { hand_index } => {
                 self.pass(player, hand_index, pool, rng);
@@ -256,20 +272,32 @@ impl DuosTavern {
         if ended {
             self.ended[player] = true;
         }
+        if let Some(sold) = sold {
+            let mate = Self::teammate(player);
+            cards::after_teammate_sell(&mut self.players[mate], &sold, pool, rng);
+        }
         self.settle();
+        self.deliver_gifts(player, Some(pool), rng);
         self.deliver();
         Ok(ended)
     }
 
     /// `player` Passes `hand[hand_index]` to their teammate (§5.6).
     fn pass(&mut self, player: usize, hand_index: usize, pool: &mut CardPool, rng: &mut Rng) {
-        let mate = Self::teammate(player);
         let passer = &mut self.players[player];
-        let mut card = passer.hand.remove(hand_index);
+        let card = passer.hand.remove(hand_index);
         // A free Pass first (a charge of the left-most FREE_PASS minion), else 1 Gold spent.
         if !cards::use_charge(&mut passer.board, CardFlags::FREE_PASS) {
             passer.spend_gold(1, pool, rng);
         }
+        self.send_pass(player, card, pool, rng);
+    }
+
+    /// `player` Passes `card`, which has left their hand or wherever it was, to their teammate:
+    /// a Pass from its `passed` hook on (§5.6 steps 3-6), the whole of a Pass by a card effect
+    /// (§7.2).
+    fn send_pass(&mut self, player: usize, mut card: Unit, pool: &mut CardPool, rng: &mut Rng) {
+        let mate = Self::teammate(player);
         cards::on_passed(&mut card);
         // A card of a group leaves its group: a group of its own in the receiver's hand.
         if card.willbreaker_group != 0 {
@@ -286,6 +314,62 @@ impl DuosTavern {
         self.incoming[mate].push(card);
     }
 
+    /// Deliver the gifts the players' cards gave (§7.2): each player's in order, `first`'s
+    /// first, until none is left. A gift card goes to the receiver's hand (lost if it is full,
+    /// as in Solo); a Pass is sent (§5.6); an `Effect` runs its card's `teammate_gift` hook on
+    /// the teammate's Tavern, or on both players' if it is the team's. Without a `pool` (after a
+    /// combat) the Passes wait for the next delivery.
+    fn deliver_gifts(&mut self, first: usize, mut pool: Option<&mut CardPool>, rng: &mut Rng) {
+        for _ in 0..MAX_GIFT_ROUNDS {
+            let mut delivered = false;
+            for player in [first, Self::teammate(first)] {
+                let gifts = std::mem::take(&mut self.players[player].auras.to_teammate);
+                let mut waiting = Vec::new();
+                for gift in gifts {
+                    match gift {
+                        TeammateGift::Pass(card) => match pool.as_deref_mut() {
+                            Some(pool) => self.send_pass(player, card, pool, rng),
+                            None => {
+                                waiting.push(TeammateGift::Pass(card));
+                                continue;
+                            }
+                        },
+                        TeammateGift::Card(card) => {
+                            self.players[Self::teammate(player)].add_to_hand(card)
+                        }
+                        TeammateGift::Effect {
+                            card_id,
+                            amount,
+                            team,
+                        } => {
+                            let mate = Self::teammate(player);
+                            let receivers: &[usize] = if team { &[player, mate] } else { &[mate] };
+                            for &receiver in receivers {
+                                self.mirror();
+                                let state = &mut self.players[receiver];
+                                let cards = cards::apply_teammate_gift(state, card_id, amount, rng);
+                                for card in cards {
+                                    state.add_to_hand(card);
+                                }
+                                state.sync_all_auras();
+                                self.settle();
+                            }
+                        }
+                    }
+                    delivered = true;
+                }
+                // Keep the waiting Passes ahead of any gift their delivery added.
+                let added = std::mem::take(&mut self.players[player].auras.to_teammate);
+                waiting.extend(added);
+                self.players[player].auras.to_teammate = waiting;
+            }
+            if !delivered {
+                break;
+            }
+        }
+        self.mirror();
+    }
+
     /// Move queued passed cards into their receivers' hands while they have room (§5.4): player
     /// 0's queue, then player 1's. Each card goes through the receiver's `add_to_hand` (their
     /// auras, observers and triple check).
@@ -300,21 +384,28 @@ impl DuosTavern {
         }
     }
 
-    /// Copy the team's Health, Armor and counters into both players (§3.3, §7), re-syncing the
-    /// auras of a player whose values changed.
+    /// Copy the team's Health, Armor and counters into both players, and each player's card
+    /// counters into their teammate's `teammate_counters` (§3.3, §7.1), re-syncing the auras of a
+    /// player whose values changed.
     pub fn mirror(&mut self) {
         let (health, armor) = (self.health, self.armor);
         let (this_turn, this_game) = (self.passes_this_turn, self.passes_this_game);
-        for state in &mut self.players {
+        let counters = [
+            self.players[1].auras.card_counters.clone(),
+            self.players[0].auras.card_counters.clone(),
+        ];
+        for (state, teammate_counters) in self.players.iter_mut().zip(counters) {
             let same = state.health == health
                 && state.armor == armor
                 && state.auras.team_passes_this_turn == this_turn
-                && state.auras.team_passes_this_game == this_game;
+                && state.auras.team_passes_this_game == this_game
+                && state.auras.teammate_counters == teammate_counters;
             if !same {
                 state.health = health;
                 state.armor = armor;
                 state.auras.team_passes_this_turn = this_turn;
                 state.auras.team_passes_this_game = this_game;
+                state.auras.teammate_counters = teammate_counters;
                 state.sync_all_auras();
             }
         }
@@ -403,9 +494,9 @@ impl DuosTavern {
             (BattleOutcome::AWin, Side::A) | (BattleOutcome::BWin, Side::B) => CombatResult::Won,
             _ => CombatResult::Lost,
         };
-        let salts = match side {
-            Side::A => READY_SALTS[0],
-            Side::B => READY_SALTS[1],
+        let (salts, gift_salt) = match side {
+            Side::A => (READY_SALTS[0], GIFT_SALTS[0]),
+            Side::B => (READY_SALTS[1], GIFT_SALTS[1]),
         };
         for (player, warband_result) in results.iter().enumerate() {
             // A warband that sat out comes back unchanged: its minions keep nothing from a
@@ -428,6 +519,10 @@ impl DuosTavern {
             self.sat_out[player] = !warband_result.fought;
         }
         self.settle();
+        // The gifts the players' cards gave in combat reach the teammate's Tavern (§7.2).
+        let mut gift_rng = Rng::new(seed ^ gift_salt);
+        self.deliver_gifts(0, None, &mut gift_rng);
+        self.deliver();
         if result == CombatResult::Lost {
             self.take_combat_damage(res.hero_damage);
         }
@@ -507,5 +602,83 @@ mod tests {
         // A0 beat both of B's warbands alone: A1's never fought.
         assert_eq!(a.sat_out, [false, true]);
         assert_eq!(b.sat_out, [false, false]);
+    }
+
+    fn empty_pool() -> CardPool {
+        CardPool::new(Vec::new())
+    }
+
+    #[test]
+    fn a_gift_card_goes_to_the_hand_and_is_lost_if_it_is_full() {
+        let mut team = DuosTavern::new();
+        let (mut pool, mut rng) = (empty_pool(), Rng::new(1));
+        team.players[1].hand = (0..9).map(|_| unit(1, 1)).collect();
+        team.players[0]
+            .auras
+            .give_teammate(TeammateGift::Card(unit(2, 2)));
+        team.players[0]
+            .auras
+            .give_teammate(TeammateGift::Card(unit(3, 3)));
+        team.step(0, TavernAction::ToggleFreeze, &mut pool, &mut rng)
+            .unwrap();
+        assert!(team.players[0].auras.to_teammate.is_empty());
+        assert_eq!(team.players[1].hand.len(), 10);
+        assert_eq!(team.players[1].hand[9], unit(2, 2));
+        assert!(team.incoming[1].is_empty());
+        // A gift is not a Pass.
+        assert_eq!(team.passes_this_game, 0);
+    }
+
+    #[test]
+    fn a_pass_by_a_card_effect_is_free_and_counts_as_a_pass() {
+        let mut team = DuosTavern::new();
+        let (mut pool, mut rng) = (empty_pool(), Rng::new(1));
+        team.players[1].gold = 2;
+        team.players[1]
+            .auras
+            .give_teammate(TeammateGift::Pass(unit(2, 2)));
+        team.step(1, TavernAction::ToggleFreeze, &mut pool, &mut rng)
+            .unwrap();
+        assert_eq!(team.players[1].gold, 2);
+        assert_eq!(team.players[0].hand, vec![unit(2, 2)]);
+        assert_eq!((team.passes_this_turn, team.passes_this_game), (1, 1));
+        for state in &team.players {
+            assert_eq!(state.auras.team_passes_this_game, 1);
+        }
+    }
+
+    #[test]
+    fn card_counters_are_mirrored_into_the_teammates_auras() {
+        let mut team = DuosTavern::new();
+        team.players[0].auras.add_counter(7, 2);
+        team.players[1].auras.add_counter(7, 3);
+        team.mirror();
+        assert_eq!(team.players[0].auras.team_counter(7), 5);
+        assert_eq!(team.players[1].auras.team_counter(7), 5);
+        assert_eq!(team.players[1].auras.counter(7), 3);
+    }
+
+    #[test]
+    fn combat_gifts_reach_the_teammate_after_the_combat_and_passes_wait_for_a_pool() {
+        let mut team = DuosTavern::new();
+        team.players[0].board = vec![unit(10, 10)];
+        team.players[0]
+            .auras
+            .give_teammate(TeammateGift::Card(unit(2, 2)));
+        team.players[0]
+            .auras
+            .give_teammate(TeammateGift::Pass(unit(3, 3)));
+        let opponent = DuosTeam::default();
+        team.resolve_combat_against(&opponent, 1);
+        assert_eq!(team.players[1].hand, vec![unit(2, 2)]);
+        assert_eq!(
+            team.players[0].auras.to_teammate,
+            vec![TeammateGift::Pass(unit(3, 3))]
+        );
+        let (mut pool, mut rng) = (empty_pool(), Rng::new(1));
+        team.start_turn(&mut pool, &mut rng);
+        assert!(team.players[0].auras.to_teammate.is_empty());
+        assert_eq!(team.players[1].hand, vec![unit(2, 2), unit(3, 3)]);
+        assert_eq!(team.passes_this_game, 1);
     }
 }

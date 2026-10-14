@@ -16,8 +16,9 @@
 //! - **Player-effect hooks** fire for each of the player's
 //!   [`PlayerEffect`](crate::model::PlayerEffect)s of the card, in the order they were recorded
 //!   (`player_turn_start`, `player_start_of_combat`, ...).
-//! - **Duos Pass hooks** fire when a card is Passed to the teammate (`passed`, `after_pass`,
-//!   `after_team_pass`; `docs/duos_tavern.md` §7).
+//! - **Duos hooks** fire when a card is Passed to the teammate (`passed`, `after_pass`,
+//!   `after_team_pass`), when the teammate sells (`after_teammate_sell`), and when a card's gift
+//!   reaches the teammate (`teammate_gift`; `docs/duos_tavern.md` §7).
 
 use crate::cards::{ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, RallyCtx};
 use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
@@ -202,6 +203,8 @@ pub type EffectRefreshFn = fn(&mut TavernState, &mut PlayerEffect, &mut Rng);
 pub type EffectSocFn = fn(&mut CombatSides<'_>, &mut PlayerEffect);
 /// Player effect after combat: `(state, effect, result)`.
 pub type EffectAfterCombatFn = fn(&mut TavernState, &mut PlayerEffect, CombatResult);
+/// Observer of a card event (a Pass, a sale): `(state, self_idx, card, pool, rng)`.
+pub type CardObserverFn = fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng);
 
 macro_rules! card_hooks {
     ($( $(#[$meta:meta])* $field:ident($builder:ident): $ty:ty ),* $(,)?) => {
@@ -419,16 +422,22 @@ card_hooks! {
     /// After combat.
     player_after_combat(on_player_after_combat): EffectAfterCombatFn,
 
-    // ---- Duos: Passes (`docs/duos_tavern.md` §7) -----------------------------------------
+    // ---- Duos: Passes and the teammate (`docs/duos_tavern.md` §7) ------------------------
     /// This card was Passed to the teammate (its own text: "After this is Passed"), as it leaves
     /// the passer's hand.
     passed(on_passed): UnitFn,
     /// Observer on the passer's board: after the player Passes a card: `(state, self_idx,
     /// passed_card, pool, rng)`.
-    after_pass(on_after_pass): fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng),
+    after_pass(on_after_pass): CardObserverFn,
     /// Observer on both teammates' boards: after the team Passes a card (either teammate); the
     /// team's counters are in `auras.team_passes_this_turn` / `team_passes_this_game`.
     after_team_pass(on_after_team_pass): TavernFn,
+    /// Observer on the teammate's board: after the player sold a minion: `(state, self_idx,
+    /// sold, pool, rng)`, `state` being the teammate's Tavern.
+    after_teammate_sell(on_after_teammate_sell): CardObserverFn,
+    /// This card's `Effect` gift (`TeammateGift::Effect`), on a receiving Tavern: `(state,
+    /// amount, rng)`. Returns the cards the receiver gets (they arrive like passed cards).
+    teammate_gift(on_teammate_gift): fn(&mut TavernState, i32, &mut Rng) -> Vec<Unit>,
 }
 
 impl Default for CardHooks {

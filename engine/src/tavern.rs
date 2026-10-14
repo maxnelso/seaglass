@@ -607,6 +607,7 @@ impl TavernState {
             in_combat: false,
             board: &mut self.board,
             start_board: &[],
+            teammate_board: &[],
             cursor: board_pos,
             reserved_slots: usize::from(self.play_slot.is_some()),
             auras: &mut self.auras,

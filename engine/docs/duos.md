@@ -26,7 +26,13 @@ Only the fighting warband is on its team's side: teammates' minions are never on
 - "Friendly" means the player's own warband. An Avenge counts only the deaths of its own player's minions; the "whenever a friendly minion attacks / dies / is summoned" observers (`Prodigious Tusker`) and the auras see only their own warband.
 - Each warband keeps its own player context (§1): its player effects, counters, hand, Deity and starting warband are its own player's, and only that player's minions count toward them (a player's Deity awakens after 4 of **that player's** Aberrations died).
 - "Enemy" means the other team's fighting warband.
-- No effect reaches a waiting warband: it steps in as it was given.
+- No effect reaches a waiting warband: it steps in as it was given, but for the team counters it takes when it steps in (§3.2).
+
+**What reaches the teammate.** A card that names the teammate or the team (`duos_tavern.md` §7) reaches them only this way; the rules above don't change:
+
+- **Gifts.** "Your teammate gets ...", "you and your teammate each ...": the card records a gift in its player's auras (`PlayerAuras::to_teammate`). It doesn't act in this combat: it comes back with the warband's auras (§6) and the team's Tavern delivers it after the combat (`duos_tavern.md` §7.2) **(engine decision)**.
+- **Team counters.** "Your team's ... this game" counts are each player's own card counters plus their teammate's (`PlayerAuras::teammate_counters`, mirrored by the team's Tavern). Each warband adds to its own player's counters; a warband that steps in takes its teammate's counters as they are then (§3.2) **(engine decision)**.
+- **The teammate's warband.** A card can read its teammate's warband as it entered the combat (`BoardCtx::teammate_board`): the board as given, whether it is waiting, fighting or done; empty in Solo **(engine decision)**.
 
 ---
 
@@ -48,7 +54,7 @@ Only the fighting warband is on its team's side: teammates' minions are never on
 When a team's fighting warband has no minions left, its teammate's warband **steps in**, if it has not fought yet **(confirmed)**, even if it is empty: it has a Start of Combat like any warband, which may summon minions for it (`Flighty Scout` in hand, `Boon of Beetles`) **(confirmed)**. This is checked where Solo checks for an empty board: after Start of Combat and after each attack turn (`combat.md` §5.1, §5.2). A step-in:
 
 1. emits `WarbandSteppedIn { team, player, first_attacker }` (§7);
-2. puts the warband on its team's side: its board, with its pointer on its leftmost minion, and its player context;
+2. puts the warband on its team's side: its board, with its pointer on its leftmost minion, and its player context, with its teammate's card counters as they are now (`teammate_counters`, §2; its minions' "wherever this is" auras resync if they changed);
 3. resolves its **Start of Combat** (`combat.md` §5.1.1): its player's own effects (`Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`), the copies its hand cards summon (`Flighty Scout`), the player effects that fill open board slots (`Boon of Beetles`), then its minions' triggers, left to right, each followed by the deaths it caused **(confirmed)**. The other warband's Start of Combat effects, its player's included, do not trigger again **(confirmed)**.
 
 - **Both at once.** If both teams' fighting warbands have no minions left at the same check (they died at the same time) and both have a teammate waiting, both teammates step in: team A's `WarbandSteppedIn`, then team B's, then their Start of Combat resolves together, as at the start of a Solo battle (`combat.md` §5.1.1: the side with more minions first, a coin flip on an equal count if both have a Start of Combat effect) **(confirmed)**. If only one of them has a teammate waiting, only that teammate steps in.
@@ -118,7 +124,7 @@ A Duos combat (`simulate_duos`) returns a `DuosResult`:
 - `events` — The event log (§7).
 - `team_a`, `team_b` — Each player's `WarbandResult`, in player order (`0`, `1`), so that each player's Tavern can apply its own result (Combat-to-Tavern Persistence, `combat.md` §1):
   - `fought` — `true` if the warband stepped in.
-  - `survivors`, `hand`, `auras`, `dead_units` — As in a Solo `BattleResult`, for this player alone. The minions of a warband that left the fight after a stall (§3.5) are its survivors.
+  - `survivors`, `hand`, `auras`, `dead_units` — As in a Solo `BattleResult`, for this player alone. The minions of a warband that left the fight after a stall (§3.5) are its survivors. The `auras` hold the gifts its cards gave the teammate (`to_teammate`, §2).
   - A warband that never fought comes back unchanged: its whole board as `survivors`, its hand and auras as given (its player effects keep their stacks), no dead units.
 
 ---
@@ -169,3 +175,6 @@ Engine decisions, pending the user's confirmation (each is one place in `combat.
 | Both teams run out at once | Draw, `0` damage, as in Solo (§3.5). | `resolve_duos_battle` |
 | Unit IDs | First warbands first, A before B, then the second warbands (§3.1). | `resolve_duos_battle` |
 | Fill-out board | The teammate's board as given: its hand cards and player effects (`Flighty Scout`, `Boon of Beetles`) summon nothing (§4). | `DuosTeamState::damage` |
+| Gifts in combat | A gift to the teammate acts after the combat, in their Tavern (§2). | `PlayerAuras::to_teammate` |
+| Counters at a step-in | The stepping-in warband takes its teammate's card counters as they are then (§3.2). | `DuosTeamState::step_in` |
+| The teammate's warband | Read as it entered the combat, even once it has fought (§2). | `DuosTeamState::new` |
