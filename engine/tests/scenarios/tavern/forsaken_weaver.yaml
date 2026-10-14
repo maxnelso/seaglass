@@ -24,3 +24,18 @@ scenarios:
       auras: {undead_bonus_attack: 3}
       board: ["Crimson Vindicator 8/9", "Forsaken Weaver 6/8"]
       hand: ["Plaguerunner 7/2"]
+
+  - name: a_bought_undead_gets_the_undead_attack_its_own_gold_gives
+    description: >-
+      The 3 Gold of the Buy make Air Revenant cast Easterly Winds, so Forsaken Weaver gives the
+      Undead +3 Attack. The bought Undead is already in the hand then (confirmed), so it gets it (it
+      used to miss it until the next aura sync).
+    tavern:
+      gold: 10
+      board: [{card: Air Revenant, counter: 4}, Forsaken Weaver]   # 3 more Gold: Easterly Winds
+      shop: [Cadaver Caretaker]
+    steps:
+      - buy: 0
+    expect:
+      auras: {undead_bonus_attack: 3}
+      hand: ["Cadaver Caretaker 6/3"]

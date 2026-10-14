@@ -153,7 +153,7 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 
 | Action | Preconditions | Effect |
 | :--- | :--- | :--- |
-| `Buy { shop_index }` | `gold >= 3`, `shop_index < shop.len()`, `hand.len() < 10` | `gold -= 3`; move `shop[shop_index]` to `hand`; check for Triple. |
+| `Buy { shop_index }` | `gold >= 3`, `shop_index < shop.len()`, `hand.len() < 10` | Move `shop[shop_index]` to `hand`, then `gold -= 3` (the card takes its hand slot before the Gold is spent, below); check for Triple. |
 | `Play { hand_index, board_pos }` (Minion) | `hand_index < hand.len()`, card is a minion, `board.len() < 7`, `board_pos <= board.len()` | Remove from `hand`, apply on-play Battlecries/auras, insert at `board[board_pos]`, run post-play triggers, trigger Discover if tripled Golden. |
 | `Play { hand_index, board_pos }` (Targeted Spell) | `hand_index < hand.len()`, card is a targeted spell, `board_pos < board.len()`, `board[board_pos]` is a valid target (§7.4: e.g. an Undead for `Butchering`, a minion with a type for `Chef's Choice`) | Remove spell from `hand`, cast it on `board[board_pos]` (§7.4). |
 | `PlayOnShop { hand_index, shop_index }` (Spell on a Tavern minion) | `hand_index < hand.len()`, card is a spell that can target a minion in the Tavern (its text says "a minion", §7.4), `shop[shop_index]` is a minion | Remove spell from `hand`, cast it once on `shop[shop_index]` (§7.4). |
@@ -169,6 +169,8 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 **Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.
 
 **Buying a minion**: the effects on the minion being bought (`minion_bought`) resolve left to right in board order, before it reaches the hand. Once it is in the hand (and its triple checked), its own "when you buy this" text (`obtained`, Duos `Mirror Monster`) resolves, then the `after_buy` observers (after any card is bought). With a `Stone Age Slab` to the left of an activated `Living Prison`, the Prison gains the stats the Slab gave the minion; to its right, the stats the minion had.
+
+**A bought card is in the hand before its price is paid** **(confirmed)**: a minion or spell takes its hand slot, then its Gold (or Health) is spent, so the Gold-spent triggers (and the hero-damage ones, for a Health cost) see it there. A bought Undead gets the Undead Attack its own Gold gives (`Air Revenant` casting `Easterly Winds` with a `Forsaken Weaver`), and with 9 cards the bought card takes the 10th slot: a card those triggers give (`Enterprising Escapee`'s `Lockbox`, `Sky Admiral Rogers`' Bounty) meets a full hand and is lost.
 
 **Card groups** (the spells of a `Wandering Willbreaker`, the Aberrations of a `Faceless Operative`: `willbreaker_group`): playing one of the cards counts the play down for the rest of its group (`willbreaker_remaining`), and once that play has resolved (the spell cast, or the minion played with its Battlecry and the observers of its play), the rest of a used-up group is discarded. So the discarded cards still take their hand slots while the spell is cast, and the played minion sees them discarded (a `Mindbender Ghur'sha` played from a `Faceless Operative` pair triggers).
 

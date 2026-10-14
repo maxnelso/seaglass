@@ -20,3 +20,32 @@ scenarios:
       - expect: {gold: 2, hand: []}
       - refresh   # the 6th Gold since it was played
     expect: {gold: 1, hand: [Lockbox]}
+
+  - name: a_lockbox_got_for_a_buy_with_nine_cards_is_lost
+    description: >-
+      The bought minion takes its hand slot before its Gold is spent (confirmed): with 9 cards it
+      takes the 10th, and the Lockbox the Gold gives meets a full hand and is lost (it used to make
+      a hand of 11).
+    tavern:
+      gold: 10
+      board: [{card: Enterprising Escapee, counter: 3}]   # 3 more Gold spent: a Lockbox
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem]   # 9 cards
+      shop: [Lullabot]
+    steps:
+      - buy: 0
+    expect:
+      hand: {count: 10, any: Lullabot, none: Lockbox}
+
+  - name: a_spell_bought_with_nine_cards_takes_the_last_slot
+    description: A bought spell is in the hand before its Gold is spent too.
+    tavern:
+      gold: 10
+      board: [{card: Enterprising Escapee, counter: 5}]   # 1 more Gold spent: a Lockbox
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem]   # 9 cards
+      shop: [Fortify]
+    steps:
+      - buy: 0
+    expect:
+      hand: {count: 10, any: Fortify, none: Lockbox}

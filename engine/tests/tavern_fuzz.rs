@@ -2292,11 +2292,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
          (fuzz_findings::relentless_deflector_loses_the_taunt_a_spell_gave_it)",
     ),
     (
-        "hand has # cards",
-        "Buy runs the gold_spent observers before the card reaches the hand \
-         (fuzz_findings::a_lockbox_got_on_a_buy_overfills_the_hand)",
-    ),
-    (
         "the Discover card did not reach the hand",
         "ChooseDiscover deals its Tier damage before adding the card \
          (fuzz_findings::a_discovered_card_is_lost_to_the_cards_its_damage_gives)",
@@ -2310,11 +2305,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
         "left the pool for nowhere",
         "a card Discovered with a full hand is dropped without returning to the pool \
          (fuzz_findings::a_card_discovered_with_a_full_hand_leaves_the_pool_for_good)",
-    ),
-    (
-        "a minion in the hand changes when the auras are re-synced",
-        "Buy runs the gold_spent observers before the card reaches the hand, so it misses \
-         their aura changes (fuzz_findings::a_bought_undead_misses_the_undead_bonus_its_gold_gave)",
     ),
     (
         "shop has # cards",

@@ -1,39 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: a_lockbox_got_on_a_buy_overfills_the_hand
-    known_bug: Buy runs the gold_spent observers before the bought card reaches the hand (hand of 11)
-    description: >-
-      Buy spends the Gold before the bought minion reaches the hand, so the gold_spent observers
-      run first: Enterprising Escapee's Lockbox takes the last free slot, then the bought minion is
-      pushed anyway.
-    tavern:
-      gold: 10
-      board: [{card: Enterprising Escapee, counter: 3}]   # 3 more Gold spent: a Lockbox
-      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
-             Blood Gem]   # 9 cards
-      shop: [Lullabot]
-    steps:
-      - buy: 0
-    expect:
-      hand: {count: 10, any: Lullabot}
-
-  - name: a_bought_undead_misses_the_undead_bonus_its_gold_gave
-    known_bug: Buy runs the gold_spent observers before the bought card reaches the hand (aura missed)
-    description: >-
-      Same cause as a_lockbox_got_on_a_buy_overfills_the_hand: the 3 Gold of the Buy make Air
-      Revenant cast Easterly Winds, so Forsaken Weaver gives the Undead +3 Attack and re-syncs the
-      auras while the bought Undead is neither in the shop nor in the hand: it reaches the hand
-      without the bonus (until the next aura sync).
-    tavern:
-      gold: 10
-      board: [{card: Air Revenant, counter: 4}, Forsaken Weaver]   # 3 more Gold: Easterly Winds
-      shop: [Cadaver Caretaker]
-    steps:
-      - buy: 0
-    expect:
-      auras: {undead_bonus_attack: 3}
-      hand: ["Cadaver Caretaker 6/3"]
-
   - name: a_discovered_card_is_lost_to_the_cards_its_damage_gives
     known_bug: ChooseDiscover deals the Tier damage before adding the chosen card, which a full hand then drops
     description: >-

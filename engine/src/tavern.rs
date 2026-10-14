@@ -1664,28 +1664,31 @@ impl TavernState {
     ) -> Result<bool, String> {
         match action {
             TavernAction::Buy { shop_index } => {
+                // The bought card takes its hand slot before its price is paid, so the triggers
+                // of the payment see it there (`docs/tavern.md` §6).
                 let mut unit = self.shop.remove(shop_index);
                 let bought_snapshot = unit.clone();
                 let obtained;
                 if unit.is_spell {
                     let cost = self.effective_spell_buy_cost(&unit);
                     self.auras.next_spell_discount = 0;
-                    if unit.costs_health {
+                    let costs_health = unit.costs_health;
+                    obtained = unit.clone();
+                    self.hand.push(unit);
+                    cards::on_card_added_to_hand(&self.board, &mut self.auras);
+                    if costs_health {
                         self.deal_hero_damage(cost as i32);
                     } else {
                         self.spend_gold(cost, pool, rng);
                     }
-                    obtained = unit.clone();
-                    self.hand.push(unit);
-                    cards::on_card_added_to_hand(&self.board, &mut self.auras);
                 } else {
-                    self.spend_gold(3, pool, rng);
                     cards::on_minion_bought(self, &mut unit);
                     let cid = unit.card_id;
                     obtained = unit.clone();
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
+                    self.spend_gold(3, pool, rng);
                 }
                 cards::on_obtained(self, &obtained, pool, rng);
                 cards::after_buy_card(self, &bought_snapshot, pool, rng);

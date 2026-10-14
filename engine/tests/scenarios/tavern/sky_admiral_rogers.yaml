@@ -24,3 +24,19 @@ scenarios:
       - expect: {gold: 1, hand: []}
       - refresh   # the 9th Gold
     expect: {gold: 0, hand: [{is_spell: true}]}   # a Bounty
+
+  - name: a_bounty_got_for_a_buy_with_nine_cards_is_lost
+    description: >-
+      The bought minion takes the 10th slot before its Gold is spent (confirmed), so the Bounty the
+      Gold gives meets a full hand and is lost.
+    seed: 621
+    tavern:
+      gold: 10
+      board: [{card: Sky Admiral Rogers, counter: 6}]   # 3 more Gold spent: a Bounty
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem]   # 9 cards
+      shop: [Lullabot]
+    steps:
+      - buy: 0
+    expect:
+      hand: {count: 10, 9: Lullabot}
