@@ -1,7 +1,8 @@
 //! Global card registry: `CardId` → [`CardTemplate`] and [`CardHooks`].
 //!
 //! Built once from the full minion catalog and the Duos-exclusive minions, plus the behaviour
-//! tables exported by the token, spell, and Deity modules.
+//! tables exported by the token, spell, and Deity modules, and the heroes' Hero Powers (their
+//! card ids are their dbfIds: `docs/heroes.md` §4).
 
 use std::sync::OnceLock;
 
@@ -57,7 +58,8 @@ fn build() -> Registry {
     let extra = tokens::behaviors()
         .into_iter()
         .chain(spells::behaviors())
-        .chain(deities::behaviors());
+        .chain(deities::behaviors())
+        .chain(crate::heroes::behaviors());
     for (card_id, h) in extra {
         set_slot(&mut hook_slot, card_id, hooks.len(), "hooks");
         hooks.push(h);

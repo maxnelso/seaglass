@@ -41,7 +41,7 @@ At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_
 
 ### 2. Action Space & Legality Mask
 During a Tavern turn, the agent repeatedly takes discrete micro-actions until selecting `EndTurn`.
-- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, and the Duos `Pass`). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
+- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, and the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
 - The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Triple Reward Discover is pending, all actions except `ChooseDiscover` are masked out.
 
 ### 3. Reward Function
@@ -74,6 +74,23 @@ A Duos team (two players with one Health pool who can Pass cards to each other, 
 
 ---
 
+## Heroes
+
+Heroes and their Hero Powers ([`engine/docs/heroes.md`](../engine/docs/heroes.md)) are optional: a game without a hero (the default) is exactly as before.
+
+### Bindings
+- `TavernGame(..., hero=None)`: a hero by name (`"Y'Shaarj"`) or id (its dbfId, `66196`) gives the player its Health, Armor (then `armor` is ignored) and Hero Power. `DuosTavernGame(..., heroes=None)`: a pair `(hero_0, hero_1)` (each a name, an id or `None`); the team gets 30 Health plus both heroes' Duos Armor (Patchwerk: his extra 30 Health), replacing `armor`.
+- `TavernAction.hero_power(target=None)` (kind `"hero_power"`, args `(target, None)`): use the Hero Power, on a board, shop or hand index if it needs one. `TavernAction.choose_hero(option_index)` (kind `"choose_hero"`): choose an offered hero; while heroes are offered, it is the only legal action.
+- `heroes_table()`: `(id, name, implemented)` for each of the 123 heroes of the pool.
+
+### Observation
+`TavernObservation` and `DuosObservation` have `hero_id` (0 without a hero), `hero_power_id` (the Hero Power card in use: it changes with Bru'kan's Element), `hero_power_cost`, `hero_power_uses_left`, `hero_power_counter`, `hero_power_stacks`, `hero_power_armed` (next-combat effects paid for: Y'Shaarj), `hero_power_usable` (some `HeroPower` action is legal now) and `hero_options`; `DuosObservation` also has `teammate_hero_id`. `features.py` appends six of them to the `[PLAYER]` vector (`PLAYER_DIM` is 15): has a hero, `hero_power_usable`, `hero_power_cost / 10`, `hero_power_uses_left`, `hero_power_armed / 3`, and whether heroes are offered.
+
+### Actions
+After the Duos `Pass` actions, the table appends 11 `HeroPower` actions (`HERO_POWER_INDICES`: untargeted, then targets `0..10`) and 4 `ChooseHero` actions (`CHOOSE_HERO_INDICES`; 2 heroes are offered by default). A player without a hero never lists them as legal.
+
+---
+
 ## Model Architecture (`BattlegroundsActorCritic`)
 
 1. **`PlayerEntityEncoder`**: Projects the 7-D player economy vector into a 64-D `[PLAYER]` token (`Entity #0`).
@@ -103,7 +120,8 @@ rl/
 │   └── sandbox_cli.py         # Interactive terminal inspector for tavern & combat
 └── tests/
     ├── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
-    └── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
+    ├── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
+    └── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
 ```
 
 ---

@@ -9,6 +9,7 @@ import seaglass
 
 from seaglass_rl.actions import (
     ACTION_SPACE_SIZE,
+    HERO_POWER_INDICES,
     MAX_HAND,
     PASS_INDICES,
     action_from_index,
@@ -139,8 +140,9 @@ def test_the_duos_action_mask_matches_engine_legality() -> None:
         assert not action_mask(game, player=1)[PASS_INDICES[0]]  # an empty hand
 
 
-def test_passes_are_appended_last_and_never_legal_in_solo() -> None:
-    assert PASS_INDICES == list(range(ACTION_SPACE_SIZE - MAX_HAND, ACTION_SPACE_SIZE))
+def test_passes_come_before_the_hero_actions_and_are_never_legal_in_solo() -> None:
+    first_hero_action = HERO_POWER_INDICES[0]
+    assert PASS_INDICES == list(range(first_hero_action - MAX_HAND, first_hero_action))
     assert index_from_action(seaglass.TavernAction.pass_card(3)) == PASS_INDICES[3]
     act = seaglass.TavernAction.pass_card(2)
     assert act.kind == "pass" and act.args == (2, None)

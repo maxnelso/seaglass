@@ -7,7 +7,8 @@
 //! fights the last eliminated player's ghost with `resolve_combat_against`), and players at 0
 //! Health or less are eliminated, until one is left or the turn cap. Some games give the players
 //! extra maximum Gold or random cards first (Tier 7 minions, token spells), so that every card
-//! gets played.
+//! gets played, and half of them give every player a random implemented hero (`docs/heroes.md`),
+//! whose Hero Power the policy uses like any action.
 //!
 //! After every action, start of turn and combat it checks:
 //! - [`check_legality`]: `valid_actions()` lists each legal action once, `is_legal` agrees with it
@@ -78,7 +79,8 @@ use std::sync::{Mutex, Once};
 use std::time::{Duration, Instant};
 
 use seaglass::cards::{self, CardFlags};
-use seaglass::model::TeammateGift;
+use seaglass::heroes;
+use seaglass::model::{HeroId, TeammateGift};
 use seaglass::{
     base_copies_for_tier, base_upgrade_cost, catalog_for, shop_capacity, BattleOutcome,
     BattleResult, CardPool, CardTemplate, DeityKind, Event, PlayerAuras, Rng, Side, TavernAction,
@@ -160,6 +162,8 @@ struct Config {
     /// Cards given to players before the game (`add_to_hand`, as if Discovered), so that rare
     /// cards (Tier 7 minions, token spells) get played too: `(player, card)`.
     gifts: Vec<(usize, Unit)>,
+    /// Each player's hero (`docs/heroes.md`), or none.
+    heroes: Vec<Option<HeroId>>,
 }
 
 impl Config {
@@ -176,7 +180,7 @@ impl Config {
         let mut weights = BASE_WEIGHTS;
         // A kind with a base weight of 0 (Pass) is never taken and draws nothing, so that adding
         // it left every seed's game as it was.
-        for w in weights.iter_mut().filter(|w| **w > 0) {
+        for w in weights.iter_mut().take(PRE_HERO_KINDS).filter(|w| **w > 0) {
             // Between half and twice the base weight, so games lean different ways.
             *w = (*w * (2 + rng.below(7) as u32) / 4).max(1);
         }
@@ -208,6 +212,18 @@ impl Config {
                 }
             }
         }
+        // Heroes come from an RNG of their own, so that adding them left every seed's other
+        // choices as they were: in half the games, every player gets a random implemented hero.
+        let mut hero_rng = Rng::new(seed ^ 0x4E20_E5ED_0000_0001);
+        let heroes = if hero_rng.below(2) == 0 {
+            let duos = catalog.starts_with("duos");
+            heroes::draw_offers(players, 1, duos, &mut hero_rng)
+                .into_iter()
+                .map(|offer| offer.first().copied())
+                .collect()
+        } else {
+            vec![None; players]
+        };
         Self {
             players,
             catalog,
@@ -219,6 +235,7 @@ impl Config {
             deities,
             rich,
             gifts,
+            heroes,
         }
     }
 }
@@ -245,12 +262,20 @@ enum Kind {
     Discover,
     /// A Duos Pass, which a Solo game never allows.
     Pass,
+    /// Using the Hero Power (`docs/heroes.md` §5).
+    HeroPower,
+    /// Choosing a hero (`docs/heroes.md` §6).
+    ChooseHero,
 }
 
-const KINDS: usize = 14;
+const KINDS: usize = 16;
+
+/// The kinds there were before heroes: only their weights vary per game, so that adding heroes
+/// left every seed's configuration as it was.
+const PRE_HERO_KINDS: usize = 14;
 
 /// Base weights, indexed by `Kind as usize`: mostly buying and playing, so games develop.
-const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0];
+const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0, 12, 1];
 
 fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
     match *action {
@@ -278,6 +303,8 @@ fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
         TavernAction::EndTurn => Kind::EndTurn,
         TavernAction::ChooseDiscover { .. } => Kind::Discover,
         TavernAction::Pass { .. } => Kind::Pass,
+        TavernAction::HeroPower { .. } => Kind::HeroPower,
+        TavernAction::ChooseHero { .. } => Kind::ChooseHero,
     }
 }
 
@@ -927,6 +954,13 @@ fn candidate_actions(s: &TavernState) -> Vec<TavernAction> {
     for hand_index in (0..=h).chain([far]) {
         out.push(TavernAction::Pass { hand_index });
     }
+    out.push(TavernAction::HeroPower { target: None });
+    for t in (0..=b.max(h).max(sh) + 1).chain([far]) {
+        out.push(TavernAction::HeroPower { target: Some(t) });
+    }
+    for option_index in (0..=s.hero_options.len() + 1).chain([far]) {
+        out.push(TavernAction::ChooseHero { option_index });
+    }
     out.extend([
         TavernAction::Refresh,
         TavernAction::UpgradeTavern,
@@ -1364,6 +1398,8 @@ enum Act {
     ChooseDiscover(usize),
     EndTurn,
     Pass(usize),
+    HeroPower(Option<usize>),
+    ChooseHero(usize),
 }
 
 impl From<TavernAction> for Act {
@@ -1390,6 +1426,8 @@ impl From<TavernAction> for Act {
             TavernAction::ChooseDiscover { option_index } => Act::ChooseDiscover(option_index),
             TavernAction::EndTurn => Act::EndTurn,
             TavernAction::Pass { hand_index } => Act::Pass(hand_index),
+            TavernAction::HeroPower { target } => Act::HeroPower(target),
+            TavernAction::ChooseHero { option_index } => Act::ChooseHero(option_index),
         }
     }
 }
@@ -1418,6 +1456,8 @@ impl From<Act> for TavernAction {
             Act::ChooseDiscover(option_index) => TavernAction::ChooseDiscover { option_index },
             Act::EndTurn => TavernAction::EndTurn,
             Act::Pass(hand_index) => TavernAction::Pass { hand_index },
+            Act::HeroPower(target) => TavernAction::HeroPower { target },
+            Act::ChooseHero(option_index) => TavernAction::ChooseHero { option_index },
         }
     }
 }
@@ -1523,6 +1563,9 @@ impl Game {
                 p.armor = cfg.armor[i];
                 p.auras.deity.kind = cfg.deities[i];
                 p.auras.base_max_gold_bonus = cfg.rich;
+                if let Some(hero) = cfg.heroes[i] {
+                    p.set_hero(hero).expect("an implemented hero");
+                }
                 p
             })
             .collect();

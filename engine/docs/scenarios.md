@@ -15,7 +15,8 @@ error (usually with a "did you mean" hint), never silently ignored.
 tests/scenarios/
 ├── catalog.yaml          # the expected card lists (§7)
 ├── combat/<card|topic>.yaml   # combat-phase minions and combat mechanics
-└── tavern/<card|topic>.yaml   # tavern-phase minions, spells, and Tavern mechanics
+├── tavern/<card|topic>.yaml   # tavern-phase minions, spells, and Tavern mechanics
+└── heroes/<hero>.yaml         # one hero and its Hero Power (docs/heroes.md)
 ```
 
 Every scenario is its own test, named `<dir>::<file>::<scenario>`:
@@ -35,7 +36,7 @@ not load is reported as the test `<dir>::<file>::<file>`.
 ## 2. Scenario files
 
 ```yaml
-card: Joyous                   # what the file is about: `card: <name>` or `topic: <text>`
+card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>` or `topic: <text>`
 defaults:                      # optional: merged into every scenario
   seed: 101
 scenarios:
@@ -176,6 +177,10 @@ step also has `player:` (§2.1).
 | `refresh`, `upgrade_tavern`, `toggle_freeze`, `end_turn` | The `TavernAction`s. |
 | `choose_discover: <option index>` | `TavernAction::ChooseDiscover` (indexes `discover_pending`). |
 | `pass: <hand index>` | `TavernAction::Pass`: pass the card to the teammate (a Solo Tavern never allows it). |
+| `hero_power` or `hero_power: <target index>` | `TavernAction::HeroPower` (`docs/heroes.md` §5); the target indexes the zone of the Hero Power's target (the board, the shop or the hand). |
+| `choose_hero: <option index or hero name>` | `TavernAction::ChooseHero` (indexes `hero_options`). |
+| `set_hero: <hero name>` | `TavernState::set_hero`: the hero, its Hero Power, Health and Armor (a Duos player's: the team's pool takes them). |
+| `offer_heroes: [<hero names>]` | `TavernState::offer_heroes`. |
 | `add_to_hand: <unit spec(s)>` | `TavernState::add_to_hand` for each card (as if it were gained: triples, hand limit). |
 | `push_board` / `push_hand` / `push_shop: <unit spec(s)>` | Append the cards directly: no triggers, no auras, no triples. |
 | `clear: <zone>` or `clear: [<zones>]` | Empty `board`, `hand` and/or `shop`. |
@@ -253,7 +258,11 @@ Duos team's `incoming` (also `{<player>: [<specs>]}`).
 - `counters: {<card>: [a, b] | n | null}`: the card's `card_counters` entry (`n` means
   `[n, 0]`, `null` removes it);
 - effects named by card: `effects: [{card: Gem Day, stacks: 2, duration: Turn}]` (`stacks`
-  defaults to 1, `duration` to `Game`; `{Refreshes: 3}` for a tagged duration).
+  defaults to 1, `duration` to `Game`; `{Refreshes: 3}` for a tagged duration);
+- `hero: <hero name>`: the player's hero (`docs/heroes.md` §2.2), fresh: its Hero Power with a
+  use left if it is active (it doesn't change the Health or Armor: use the `set_hero` step for
+  that). `{hero: <name>, power: {armed: 1}}` also patches its fields, a mapping without `hero:`
+  patches the current hero's, and `null` removes it.
 
 ---
 
@@ -277,7 +286,11 @@ Values are the engine's serde forms, with derived keys:
   (their card's name), and `battlecry`, `deathrattle`, `rally`, `choose_one` (card flags).
 - **Player auras** also have `counters` (card counters keyed by card name; `[0, 0]` for cards
   without one) and `effect_stacks` (total stacks of each card's effects; `0` for cards
-  without one). Each effect also has `card`.
+  without one). Each effect also has `card`. Their `hero` is `null` without a hero, and has
+  `name` (the hero's) besides its fields (`hero_id`, `power: {card_id, cost, uses_left, counter,
+  stacks, armed, stored}`).
+- Fields serde leaves out at their default are there anyway: a unit's `marked` and
+  `extra_deathrattles`, a Tavern's `hero_options`.
 - **`pool`** (Tavern, Duos Tavern): the remaining copies of each catalog card, by name (`null`
   for a card that isn't in the catalog: `pool: {Wanderer Cho: null}` in a Solo pool);
   **`pool_size`**: their total.
@@ -387,7 +400,8 @@ The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
 The `coverage` test checks that every
 `src/cards/minions/<card>.rs` has a `tests/scenarios/{combat,tavern}/<card>.yaml` and every
 `src/cards/spells/<card>.rs` has a `tests/scenarios/tavern/<card>.yaml`
-starting with `card: <Card Name>` (the file name is the card's slug: `Fandral's Fortune` ->
+starting with `card: <Card Name>`, that every `src/heroes/<hero>.rs` has a
+`tests/scenarios/heroes/<hero>.yaml` starting with `hero: <Hero Name>` (the file name is the card's slug: `Fandral's Fortune` ->
 `fandrals_fortune`), that every scenario file belongs to a card or a topic, and that
 `tests/scenarios/` holds nothing else.
 
@@ -396,7 +410,7 @@ starting with `card: <Card Name>` (the file name is the card's slug: `Fandral's 
 ## 8. Knockout
 
 A card's scenarios should fail without the card. With the `knockout` feature,
-`SEAGLASS_KNOCKOUT=<card id>` disables that card's hooks (`cards::registry::hooks` returns an
+`SEAGLASS_KNOCKOUT=<card id>` disables that card's hooks (a Hero Power's id is its dbfId) (`cards::registry::hooks` returns an
 empty table for it):
 
 ```sh

@@ -1,0 +1,33 @@
+hero: Deathwing
+scenarios:
+  - name: all_minions_gain_2_attack_the_players_first
+    combat:
+      board_a: ["1/9", "1/9"]
+      board_b: ["1/9"]
+      auras_a: {hero: Deathwing}
+    expect:
+      events:
+        where: {type: stat_buff, reason: ALL Will Burn!}
+        count: 3
+        0: {side: a, unit: 0, atk_delta: 2, hp_delta: 0}
+        1: {side: a, unit: 1}
+        2: {side: b, unit: 2, attack: 3}
+
+  - name: the_attack_is_permanent_for_both_players
+    description: >-
+      The player's 1/9 keeps the +2 Attack in the Tavern; the enemy's minion has it as a
+      permanent gain too (confirmed), which its own Tavern would keep.
+    tavern: {auras: {hero: Deathwing}, board: ["1/9"]}
+    steps:
+      - fight: {board: ["1/20"]}
+    expect:
+      board: ["3/9"]
+      combat: {survivors_b: [{perm_atk_gained: 2, attack: 3}]}
+
+  - name: minions_summoned_later_dont_get_it
+    combat:
+      board_a: ["Harmless Bonehead"]
+      board_b: ["5/5"]
+      auras_a: {hero: Deathwing}
+    expect:
+      events: {where: {type: stat_buff, reason: ALL Will Burn!}, count: 2}

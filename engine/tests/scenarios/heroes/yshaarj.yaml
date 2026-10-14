@@ -1,0 +1,71 @@
+hero: Y'Shaarj
+defaults:
+  tavern: {auras: {hero: Y'Shaarj}, gold: 10, tavern_tier: 2}
+scenarios:
+  - name: using_it_arms_the_next_combat_for_2_gold
+    steps:
+      - hero_power
+      - expect: {gold: 8, auras: {hero: {power: {armed: 1, uses_left: 0}}}}
+      - expect_illegal: hero_power
+    expect: {gold_spent_this_turn: 2}
+
+  - name: start_of_combat_summons_and_gets_a_minion_of_your_tier
+    steps:
+      - hero_power
+      - fight: {board: ["1/1"]}
+    expect:
+      combat:
+        events: {any: {type: unit_summoned, side: a, reason: Embrace Your Rage}}
+      hand: [{tavern_tier: 2}]
+      auras: {hero: {power: {armed: 0}}}
+
+  - name: without_using_it_nothing_happens
+    steps:
+      - fight: {board: ["1/1"]}
+    expect:
+      combat: {events: {none: {type: unit_summoned}}}
+      hand: []
+
+  - name: a_full_board_still_gets_the_card
+    description: (engine decision) The summon needs room, the card doesn't.
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - hero_power
+      - fight: {board: ["1/1"]}
+    expect:
+      combat: {events: {none: {type: unit_summoned}}}
+      hand: [{tavern_tier: 2}]
+
+  - name: the_minion_is_of_exactly_your_tier
+    seeds: "1..=8"
+    tavern: {tavern_tier: 5, board: []}
+    steps:
+      - hero_power
+      - fight: {board: []}
+    expect: {hand: [{tavern_tier: 5}], combat: {survivors_a: [{tavern_tier: 5}]}}
+
+  - name: once_per_turn_and_again_next_turn
+    tavern: {gold: 0}
+    steps:
+      - start_turn
+      - set: {gold: 10}
+      - hero_power
+      - expect_illegal: hero_power
+      - end_turn
+      - start_turn
+      - expect_legal: hero_power
+      - expect: {auras: {hero: {power: {armed: 1}}}}
+
+  - name: a_duos_warband_that_sat_out_keeps_it_armed
+    description: Player 0 wins alone; player 1's arm waits for its next combat.
+    duos_tavern:
+      catalog: duos
+      players:
+        - {board: ["20/20"], tavern_tier: 2, gold: 10}
+        - {auras: {hero: Y'Shaarj}, tavern_tier: 2, gold: 10}
+    steps:
+      - {player: 1, hero_power}
+      - fight: {team: [["1/1"], []]}
+    expect:
+      combat: {team_a: [{fought: true}, {fought: false}]}
+      players: {1: {auras: {hero: {power: {armed: 1}}}, hand: []}}

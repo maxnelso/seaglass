@@ -27,7 +27,8 @@ use serde_yaml::{Mapping, Value};
 
 use crate::cards;
 use crate::combat::{DuosTeam, Warband};
-use crate::model::{CardId, PlayerAuras, Unit};
+use crate::heroes;
+use crate::model::{CardId, HeroId, PlayerAuras, Unit};
 
 use super::matchup::Batch;
 use super::patch;
@@ -41,6 +42,8 @@ pub enum Header {
     Card(String),
     /// `topic: <text>`: an engine mechanic.
     Topic(String),
+    /// `hero: <name>`: one hero and its Hero Power (its canonical name; `docs/heroes.md`).
+    Hero(String),
 }
 
 /// A parsed scenario file.
@@ -109,6 +112,10 @@ pub(super) enum StepKind {
     TakeFromPool(Vec<CardId>),
     /// `Unit::play_blood_gems(count, auras)` on one card.
     PlayBloodGems(Zone, Index, u32),
+    /// `TavernState::set_hero` (`docs/heroes.md` §2.3).
+    SetHero(HeroId),
+    /// `TavernState::offer_heroes` (`docs/heroes.md` §6).
+    OfferHeroes(Vec<HeroId>),
     Fight(Box<FightPlan>),
     /// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
     DuosFight(Box<DuosFightPlan>),
@@ -191,6 +198,10 @@ pub(super) enum Action {
     EndTurn,
     /// Duos: Pass the hand card `hand` to the teammate.
     Pass(Index),
+    /// Use the Hero Power, on the target `target` (in the zone of its target kind).
+    HeroPower(Option<Index>),
+    /// Choose the hero offered at this index (or with this name).
+    ChooseHero(Index),
 }
 
 /// Either given in the scenario, or `tavern` (copied from the Tavern when the step runs).
@@ -355,17 +366,19 @@ const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, ref
     upgrade_tavern, toggle_freeze, choose_discover, end_turn, pass, add_to_hand, push_board, \
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
-    expect_legal, expect_illegal, if/then/else, repeat/steps";
+    expect_legal, expect_illegal, hero_power, choose_hero, set_hero, offer_heroes, if/then/else, \
+    repeat/steps";
 
 /// The steps that are only a name (`end_turn`); tagged with a player they are written
 /// `{player: 1, end_turn}`.
-const NAME_STEPS: [&str; 6] = [
+const NAME_STEPS: [&str; 7] = [
     "start_turn",
     "sync_all_auras",
     "refresh",
     "upgrade_tavern",
     "toggle_freeze",
     "end_turn",
+    "hero_power",
 ];
 
 impl ScenarioFile {
@@ -388,27 +401,38 @@ impl ScenarioFile {
         for key in top.keys() {
             if !matches!(
                 key.as_str(),
-                Some("card" | "topic" | "defaults" | "scenarios")
+                Some("card" | "topic" | "hero" | "defaults" | "scenarios")
             ) {
                 return Err(format!(
-                    "unknown top-level key {} (keys: card, topic, defaults, scenarios)",
+                    "unknown top-level key {} (keys: card, topic, hero, defaults, scenarios)",
                     show(key)
                 ));
             }
         }
-        let header = match (top.get("card"), top.get("topic")) {
-            (Some(card), None) => {
+        let header = match (top.get("card"), top.get("topic"), top.get("hero")) {
+            (Some(card), None, None) => {
                 let name = card.as_str().ok_or("`card:` must be a card name")?;
                 Header::Card(card_index().resolve(name)?.name.clone())
             }
-            (None, Some(topic)) => Header::Topic(
+            (None, Some(topic), None) => Header::Topic(
                 topic
                     .as_str()
                     .ok_or("`topic:` must be a string")?
                     .to_string(),
             ),
+            (None, None, Some(hero)) => {
+                let name = hero.as_str().ok_or("`hero:` must be a hero name")?;
+                Header::Hero(
+                    hero_id(name)
+                        .map(|id| heroes::data(id).expect("a hero").name)?
+                        .to_string(),
+                )
+            }
             _ => {
-                return Err("a scenario file needs exactly one of `card:` and `topic:`".to_string())
+                return Err(
+                    "a scenario file needs exactly one of `card:`, `topic:` and `hero:`"
+                        .to_string(),
+                )
             }
         };
         let defaults = match top.remove("defaults") {
@@ -954,6 +978,7 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 "upgrade_tavern" => Ok(StepKind::Action(Action::UpgradeTavern)),
                 "toggle_freeze" => Ok(StepKind::Action(Action::ToggleFreeze)),
                 "end_turn" => Ok(StepKind::Action(Action::EndTurn)),
+                "hero_power" => Ok(StepKind::Action(Action::HeroPower(None))),
                 other => Err(unknown_step(other)),
             };
         }
@@ -1014,6 +1039,26 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
         "sell" => StepKind::Action(Action::Sell(index(arg)?)),
         "pass" => StepKind::Action(Action::Pass(index(arg)?)),
         "choose_discover" => StepKind::Action(Action::ChooseDiscover(index(arg)?)),
+        "hero_power" => StepKind::Action(Action::HeroPower(match arg {
+            Value::Null => None,
+            target => Some(index(target)?),
+        })),
+        "choose_hero" => StepKind::Action(Action::ChooseHero(index(arg)?)),
+        "set_hero" => StepKind::SetHero(hero_id(
+            arg.as_str().ok_or("`set_hero` takes a hero name")?,
+        )?),
+        "offer_heroes" => StepKind::OfferHeroes(match arg {
+            Value::Sequence(names) => names
+                .iter()
+                .map(|n| hero_id(n.as_str().ok_or("`offer_heroes` takes hero names")?))
+                .collect::<Result<_, String>>()?,
+            other => {
+                return Err(format!(
+                    "`offer_heroes` takes a list of hero names, got {}",
+                    show(other)
+                ))
+            }
+        }),
         "play" => StepKind::Action(match arg.as_mapping() {
             Some(m) if m.contains_key("hand") && m.contains_key("shop") => {
                 only_keys(m, &["hand", "shop"])?;
@@ -1126,6 +1171,19 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
         "expect_legal" => StepKind::ExpectLegal(action(arg, prefix)?, true),
         "expect_illegal" => StepKind::ExpectLegal(action(arg, prefix)?, false),
         other => return Err(unknown_step(other)),
+    })
+}
+
+/// The hero named `name` (`docs/heroes.md` §2.1).
+pub(super) fn hero_id(name: &str) -> Result<HeroId, String> {
+    heroes::by_name(name).map(|h| h.id).ok_or_else(|| {
+        let names = heroes::table().iter().map(|h| h.name);
+        let close = super::units::closest(name, names);
+        if close.is_empty() {
+            format!("unknown hero {name:?}")
+        } else {
+            format!("unknown hero {name:?} (did you mean {}?)", close.join(", "))
+        }
     })
 }
 

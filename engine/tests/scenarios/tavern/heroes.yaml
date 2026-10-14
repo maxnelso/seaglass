@@ -1,0 +1,71 @@
+topic: Heroes in the Tavern (docs/heroes.md)
+scenarios:
+  - name: a_player_without_a_hero_has_no_hero_power
+    tavern: {gold: 10, board: ["1/1"]}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 0}
+      - expect_illegal: {choose_hero: 0}
+    expect: {health: 30, armor: 0, auras: {hero: null}, hero_options: []}
+
+  - name: a_hero_starts_with_its_solo_armor
+    steps:
+      - set_hero: Reno Jackson
+    expect:
+      health: 30
+      armor: 12
+      auras: {hero: {name: Reno Jackson, hero_id: 60212, power: {cost: 0, card_id: 60216, uses_left: 0}}}
+
+  - name: patchwerk_starts_with_60_health_and_no_armor
+    description: (confirmed)
+    steps:
+      - set_hero: Patchwerk
+    expect: {health: 60, armor: 0}
+
+  - name: another_hero_replaces_the_first_ones_health_and_armor
+    steps:
+      - set_hero: Patchwerk
+      - set_hero: Y'Shaarj
+    expect: {health: 30, armor: 20, auras: {hero: {name: Y'Shaarj}}}
+
+  - name: offered_heroes_are_the_only_choice
+    tavern: {gold: 10}
+    steps:
+      - offer_heroes: [Al'Akir, Y'Shaarj]
+      - expect_illegal: end_turn
+      - expect_illegal: {choose_hero: 2}
+      - expect_legal: {choose_hero: 1}
+      - choose_hero: Y'Shaarj
+    expect:
+      hero_options: []
+      armor: 20
+      auras: {hero: {name: Y'Shaarj}}
+
+  - name: a_passive_hero_power_is_never_an_action
+    tavern: {auras: {hero: Al'Akir}, gold: 10, board: ["1/1"]}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 0}
+
+  - name: an_active_hero_power_needs_its_gold
+    tavern: {auras: {hero: Y'Shaarj}, gold: 1}
+    steps:
+      - expect_illegal: hero_power
+      - set: {gold: 2}
+      - hero_power
+    expect: {gold: 0, gold_spent_this_turn: 2}
+
+  - name: a_hero_power_waits_for_a_pending_discover
+    tavern: {auras: {hero: Y'Shaarj}, gold: 10, hand: [Bramble Tunneler]}
+    steps:
+      - set: {discover_pending: ["1/1"]}
+      - expect_illegal: hero_power
+      - choose_discover: 0
+      - expect_legal: hero_power
+
+  - name: a_target_must_fit_the_hero_powers_target
+    tavern: {auras: {hero: Teron Gorefiend}, board: ["1/1"], hand: ["1/1"]}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 1}
+      - expect_legal: {hero_power: 0}

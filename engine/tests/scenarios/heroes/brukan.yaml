@@ -1,0 +1,95 @@
+hero: Bru'kan
+defaults:
+  tavern: {auras: {hero: Bru'kan}}
+scenarios:
+  - name: using_it_offers_the_four_elements
+    steps:
+      - hero_power
+      - expect:
+          discover_pending:
+            - {name: Earth Invocation}
+            - {name: Fire Invocation}
+            - {name: Water Invocation}
+            - {name: Lightning Invocation}
+      - choose_discover: 1
+    expect:
+      auras: {hero: {power: {card_id: 79722, uses_left: 0}}}
+      discover_pending: null
+
+  - name: fire_doubles_the_left_most_minions_attack
+    tavern: {board: ["3/3", "1/1"]}
+    steps:
+      - hero_power
+      - choose_discover: {name: Fire Invocation}
+      - fight: {board: ["0/30"]}
+    expect:
+      combat:
+        events:
+          where: {type: stat_buff, reason: Fire Invocation}
+          count: 1
+          0: {unit: 0, atk_delta: 3, attack: 6}
+      board: ["3/3", "1/1"]
+
+  - name: water_gives_the_right_most_minion_divine_shield_and_taunt
+    tavern: {board: ["1/1", "1/2"]}
+    steps:
+      - hero_power
+      - choose_discover: {name: Water Invocation}
+      - fight: {board: []}
+    expect: {combat: {survivors_a: ["1/1 -taunt", "1/2 divine_shield taunt"]}}
+
+  - name: lightning_hits_5_different_enemy_minions
+    seeds: "1..=4"
+    steps:
+      - hero_power
+      - choose_discover: {name: Lightning Invocation}
+      - fight: {board: ["0/9", "0/9", "0/9", "0/9", "0/9", "0/9", "0/9"]}
+    expect:
+      combat:
+        events:
+          where: {type: damage_dealt, from: 4294967295}
+          count: 5
+          all: {amount: 1}
+        survivors_b: {where: "0/8", count: 5}
+
+  - name: lightning_hits_fewer_if_there_are_fewer
+    steps:
+      - hero_power
+      - choose_discover: {name: Lightning Invocation}
+      - fight: {board: ["0/1", "0/2 divine_shield"]}
+    expect:
+      combat:
+        events:
+          contains: [{type: death}, {type: divine_shield_popped}]
+        survivors_b: ["0/2 -divine_shield"]
+
+  - name: earth_gives_4_different_minions_a_1_1_elemental_deathrattle
+    seeds: "1..=4"
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - hero_power
+      - choose_discover: {name: Earth Invocation}
+      - fight: {board: ["1/99"]}
+    expect:
+      combat:
+        events: {where: {type: unit_summoned, name: Stone Elemental}, count: 4}
+
+  - name: the_element_lasts_one_combat
+    description: (confirmed) At the start of the next turn the Hero Power is Embrace the Elements again.
+    tavern: {board: ["3/3"]}
+    steps:
+      - start_turn
+      - hero_power
+      - choose_discover: {name: Fire Invocation}
+      - end_turn
+      - fight: {board: []}
+      - start_turn
+      - expect: {auras: {hero: {power: {card_id: 79720, uses_left: 1}}}}
+      - fight: {board: []}
+    expect: {combat: {events: {none: {type: stat_buff}}}}
+
+  - name: before_choosing_nothing_happens
+    tavern: {board: ["3/3"]}
+    steps:
+      - fight: {board: []}
+    expect: {combat: {events: {none: {type: stat_buff}}}}

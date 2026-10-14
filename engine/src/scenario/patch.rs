@@ -11,7 +11,9 @@
 //! `board: {0: "Joyous 5/5"}`). A [`PlayerAuras`](crate::model::PlayerAuras) patch also takes
 //! `counters: {<card>: [a, b] | n | null}` (its `card_counters`, keyed by card name) and effects
 //! given as `{card: <name>, stacks: n, duration: ...}` (`stacks` defaults to 1, `duration` to
-//! `Game`). Enum variants with data are written as in the view: `duration: {Refreshes: 3}`.
+//! `Game`), and `hero: <name>` (a fresh hero, `docs/heroes.md` §2.2; `{hero: <name>, power: {...}}`
+//! patches its fields). Enum variants with data are written as in the view: `duration: {Refreshes:
+//! 3}`.
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -113,6 +115,10 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
         let field_path = join(path, &name);
         if is_auras && name == "counters" {
             set_counters(fields, change, &field_path)?;
+            continue;
+        }
+        if is_auras && name == "hero" {
+            set_hero(fields, change, &field_path)?;
             continue;
         }
         if open && change.is_null() {
@@ -234,6 +240,47 @@ fn set_counters(fields: &mut Mapping, change: &Value, path: &str) -> Result<(), 
             }
         }
     }
+    Ok(())
+}
+
+/// `hero: <name> | {hero: <name>, <field>: ...} | null`: the player's hero
+/// (`docs/heroes.md` §2.2), fresh (`heroes::new_state`), with the mapping's other keys patching
+/// its fields (`power: {armed: 1}`), or none.
+fn set_hero(fields: &mut Mapping, change: &Value, path: &str) -> Result<(), String> {
+    let (name, rest) = match change {
+        Value::Null => {
+            fields.remove("hero");
+            return Ok(());
+        }
+        Value::String(name) => (name.as_str(), None),
+        Value::Mapping(m) => match m.get("hero").and_then(Value::as_str) {
+            Some(name) => {
+                let mut rest = m.clone();
+                rest.remove("hero");
+                (name, Some(Value::Mapping(rest)))
+            }
+            None => {
+                // A patch of the current hero's fields.
+                let slot = fields
+                    .get_mut("hero")
+                    .ok_or_else(|| format!("`{path}`: no hero to patch (give `hero: <name>`)"))?;
+                return merge(slot, change, path);
+            }
+        },
+        other => {
+            return Err(format!(
+                "`{path}`: expected a hero name, {{hero: <name>, ...}} or null, got {}",
+                show(other)
+            ))
+        }
+    };
+    let id = super::spec::hero_id(name).map_err(|e| format!("`{path}`: {e}"))?;
+    let hero = crate::heroes::new_state(crate::heroes::data(id).expect("a hero"));
+    let mut value = serde_yaml::to_value(hero).map_err(|e| e.to_string())?;
+    if let Some(rest) = rest {
+        merge(&mut value, &rest, path)?;
+    }
+    fields.insert("hero".into(), value);
     Ok(())
 }
 

@@ -317,6 +317,28 @@ impl CombatCastCtx<'_> {
     }
 }
 
+/// A side as its Hero Power sees it at Start of Combat (`hero_start_of_combat` hooks;
+/// `docs/heroes.md` §7.2): the player's side, the enemy board, and the damage the Hero Power deals
+/// to enemy minions, which the engine resolves once the hook returns (each hit through the usual
+/// damage rules, then the minions `own.destroy` named, then the deaths and immediate attacks).
+pub struct HeroCombatCtx<'a> {
+    pub own: BoardCtx<'a>,
+    pub enemy_board: &'a mut [Unit],
+    /// `(enemy unit, amount)`, dealt in order.
+    pub enemy_damage: Vec<(UnitId, i32)>,
+}
+
+impl HeroCombatCtx<'_> {
+    /// Buff the enemy minion `enemy_board[idx]` by `(atk_delta, hp_delta)` and emit a `StatBuff`
+    /// event (of the enemy's side).
+    pub fn buff_enemy(&mut self, idx: usize, atk_delta: i32, hp_delta: i32, reason: &'static str) {
+        let side = self.own.side.other();
+        if let Some(u) = self.enemy_board.get_mut(idx) {
+            buff_logged(side, u, atk_delta, hp_delta, reason, self.own.events);
+        }
+    }
+}
+
 /// Duos: the teammate's warband as an `Effect` gift reaches it in combat (a
 /// `teammate_combat_gift` hook; `docs/duos.md` §2): its player's auras and its minions, a waiting
 /// warband's board or a done warband's survivors. It is not on the team's side: nothing is logged.
@@ -1629,10 +1651,11 @@ pub fn on_player_start_of_combat(
 }
 
 /// Summon what Start of Combat adds before any minion triggers (`docs/combat.md` §5.1.1
-/// step 2): the copies hand cards summon (`combat_copies_from_hand`), then the player effects
-/// that fill open board slots (`player_combat_space`).
+/// step 2): the copies hand cards summon (`combat_copies_from_hand`), then the effects that fill
+/// open board slots (the Hero Power's `hero_combat_space`, then `player_combat_space`).
 pub fn start_of_combat_summons(ctx: &mut BoardCtx<'_>) {
     summon_copies_from_hand(ctx);
+    crate::heroes::combat_space(ctx);
     effects::combat_space(ctx);
 }
 
@@ -1643,11 +1666,13 @@ pub fn has_start_of_combat(unit: &Unit) -> bool {
     card.start_of_combat.is_some() || card.start_of_combat_action.is_some()
 }
 
-/// `true` if the player has a Start-of-Combat effect of their own: a player effect that acts at
-/// Start of Combat (`player_start_of_combat`, `player_combat_space`) or a hand card that
+/// `true` if the player has a Start-of-Combat effect of their own: a Hero Power that acts at Start
+/// of Combat (`hero_start_of_combat`), a player effect that acts at Start of Combat (`player_start_of_combat`, `player_combat_space`) or a hand card that
 /// summons copies (`combat_copies_from_hand`).
 pub fn has_player_start_of_combat(hand: &[Unit], auras: &PlayerAuras) -> bool {
-    effects::has_start_of_combat(auras) || hand.iter().any(|card| combat_copies_from_hand(card) > 0)
+    crate::heroes::has_start_of_combat(auras)
+        || effects::has_start_of_combat(auras)
+        || hand.iter().any(|card| combat_copies_from_hand(card) > 0)
 }
 
 /// Resolve the `start_of_combat` hook of the friendly minion `id`, if it is alive and has one.
@@ -2090,7 +2115,13 @@ pub fn cast_tavern_spell_in_combat(
 /// right after it (logged as `Death Aura`), so the bonuses that count them (`Falling Sky Golem`)
 /// apply at once, even when no minion dies (`Deathstrider`; `docs/combat.md` §1).
 pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
-    if let Some(deathrattle) = hooks(dying.card_id).deathrattle {
+    let own = hooks(dying.card_id).deathrattle;
+    // Deathrattles an effect gave it resolve after its own (`docs/heroes.md` §4).
+    let extra = dying
+        .extra_deathrattles
+        .iter()
+        .filter_map(|&card_id| hooks(card_id).deathrattle);
+    for deathrattle in own.into_iter().chain(extra) {
         ctx.auras.deathrattles_triggered += 1;
         deathrattle(dying, ctx);
         let before = stat_snapshot(ctx.board);
@@ -2102,6 +2133,7 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
 /// Resolve effects that trigger after a round of combat deaths resolved for one side (player
 /// effects that fill open board slots, `player_combat_space`).
 pub fn after_combat_deaths(ctx: &mut BoardCtx<'_>) {
+    crate::heroes::combat_space(ctx);
     effects::combat_space(ctx);
 }
 

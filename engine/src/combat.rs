@@ -8,8 +8,9 @@ use std::ops::Range;
 
 use serde::Serialize;
 
-use crate::cards::{self, BoardCtx, Passive, SocAction};
+use crate::cards::{self, BoardCtx, HeroCombatCtx, Passive, SocAction};
 use crate::events::Event;
+use crate::heroes;
 use crate::model::{BattleOutcome, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
 use crate::rng::Rng;
 
@@ -839,8 +840,8 @@ fn resolve_entering_start_of_combat(
 }
 
 /// Resolve the Start-of-Combat effects of the sides in `order` (`docs/combat.md` §5.1.1 steps
-/// 2-4): each one's own effects and Start-of-Combat summons, in that order, then their minions'
-/// triggers, one minion per side in turn, `order[0]`'s first.
+/// 1b-4): each one's Hero Power, in that order, then each one's own effects and Start-of-Combat
+/// summons, then their minions' triggers, one minion per side in turn, `order[0]`'s first.
 fn resolve_start_of_combat_in_order(
     order: &[Side],
     side_a: &mut SideCombatState,
@@ -852,6 +853,11 @@ fn resolve_start_of_combat_in_order(
     let Some(&first) = order.first() else {
         return;
     };
+    // Hero Powers first, before every other Start of Combat effect (`docs/heroes.md` §7.2).
+    for &side in order {
+        let (own_side, opp_side) = sides_mut(side, side_a, side_b);
+        resolve_hero_start_of_combat(side, own_side, opp_side, next_id, rng, events);
+    }
     for &side in order {
         let (own_side, opp_side) = sides_mut(side, side_a, side_b);
         resolve_start_of_combat_effects(side, own_side, opp_side, rng, events);
@@ -967,6 +973,62 @@ fn resolve_effect_deaths(
     }
     resolve_deaths(side.other(), opp_side, own_side, next_id, rng, events);
     resolve_deaths(side, own_side, opp_side, next_id, rng, events);
+    resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
+}
+
+/// Resolve `side`'s Hero Power at Start of Combat (`docs/heroes.md` §7.2, `docs/combat.md`
+/// §5.1.1 step 1b): its `hero_start_of_combat` hook, then the damage it deals to enemy minions,
+/// the minions it destroys, the deaths, and its immediate attacks.
+fn resolve_hero_start_of_combat(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    let Some(start_of_combat) = heroes::start_of_combat_hook(&own_side.auras) else {
+        return;
+    };
+    let mut ctx = HeroCombatCtx {
+        own: own_side.ctx(side, next_id, rng, events),
+        enemy_board: &mut opp_side.board,
+        enemy_damage: Vec::new(),
+    };
+    start_of_combat(&mut ctx);
+    let destroys = std::mem::take(&mut ctx.own.destroys);
+    let damage = std::mem::take(&mut ctx.enemy_damage);
+    for (id, amount) in damage {
+        let Some(pos) = opp_side
+            .board
+            .iter()
+            .position(|u| u.id == id && u.health > 0)
+        else {
+            continue;
+        };
+        let (_, took) = apply_damage(
+            &mut opp_side.board,
+            pos,
+            amount,
+            heroes::HERO_SOURCE,
+            false,
+            events,
+        );
+        if took {
+            cards::on_damage_taken(&opp_side.board[pos], &mut opp_side.hand, rng);
+        }
+    }
+    for id in destroys {
+        let target = opp_side
+            .board
+            .iter_mut()
+            .chain(own_side.board.iter_mut())
+            .find(|u| u.id == id && u.health > 0);
+        if let Some(target) = target {
+            target.health = 0;
+        }
+    }
+    resolve_effect_deaths(side, own_side, opp_side, next_id, rng, events);
     resolve_pending_immediate_attacks(side, own_side, opp_side, next_id, rng, events);
 }
 
@@ -1887,6 +1949,10 @@ fn resolve_deaths(
     // Reborn summoned into its slot, to re-anchor the pointer (docs/combat.md §5.4).
     let old_ids: Vec<UnitId> = old_board.iter().map(|u| u.id).collect();
     let mut slot_summons: Vec<(UnitId, Range<UnitId>)> = Vec::new();
+    // The enemy minions these deaths' killers are, for their player's Hero Power
+    // (`docs/heroes.md` §7.3).
+    let watch_kills = heroes::has_enemy_killed(&opp_side.auras);
+    let mut kills: Vec<(UnitId, Unit)> = Vec::new();
 
     for unit in old_board {
         if unit.health > 0 {
@@ -1895,6 +1961,11 @@ fn resolve_deaths(
         }
 
         // Unit died.
+        if let Some(killer) = unit.killed_by.filter(|_| watch_kills) {
+            if opp_side.board.iter().any(|u| u.id == killer) {
+                kills.push((killer, unit.clone()));
+            }
+        }
         side_state.dead_units.push(unit.clone());
         cards::on_friendly_death(&mut side_state.ctx(side, next_id, rng, events), &unit);
 
@@ -1967,6 +2038,15 @@ fn resolve_deaths(
 
     // 6. Re-anchor the pointer if its unit died.
     side_state.ptr = reanchor_ptr(side_state.ptr, &old_ids, &slot_summons, &side_state.board);
+
+    // 7. The killers' player's Hero Power (`docs/heroes.md` §7.3).
+    for (killer, victim) in kills {
+        heroes::on_enemy_killed(
+            &mut opp_side.ctx(side.other(), next_id, rng, events),
+            killer,
+            &victim,
+        );
+    }
 
     if killed_own {
         resolve_deaths(side, side_state, opp_side, next_id, rng, events);

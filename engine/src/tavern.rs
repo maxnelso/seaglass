@@ -2,8 +2,10 @@
 
 use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
+use crate::heroes;
 use crate::model::{
-    BattleOutcome, CardId, CombatResult, GameState, PlayerAuras, Side, TeammateGift, Tribe, Unit,
+    BattleOutcome, CardId, CombatResult, GameState, HeroId, HeroState, PlayerAuras, Side,
+    TeammateGift, Tribe, Unit,
 };
 use crate::rng::Rng;
 
@@ -432,6 +434,14 @@ pub enum TavernAction {
     Pass {
         hand_index: usize,
     },
+    /// Use the player's Hero Power, on `target` if it needs one (`docs/heroes.md` §5).
+    HeroPower {
+        target: Option<usize>,
+    },
+    /// Choose the hero `hero_options[option_index]` (`docs/heroes.md` §6).
+    ChooseHero {
+        option_index: usize,
+    },
 }
 
 /// Complete state of a player during the Tavern Phase (`docs/tavern.md` §3).
@@ -478,6 +488,10 @@ pub struct TavernState {
     pub last_combat_lost: bool,
     pub include_shop_spells: bool,
     pub auras: PlayerAuras,
+    /// The heroes offered to the player (`docs/heroes.md` §6): while there are any, the only
+    /// legal action is `ChooseHero`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hero_options: Vec<HeroId>,
 }
 
 impl Default for TavernState {
@@ -518,7 +532,39 @@ impl TavernState {
             last_combat_lost: false,
             include_shop_spells: false,
             auras: PlayerAuras::default(),
+            hero_options: Vec::new(),
         }
+    }
+
+    /// The player's hero, if they have one (`docs/heroes.md` §2.2).
+    pub fn hero(&self) -> Option<&HeroState> {
+        self.auras.hero.as_ref()
+    }
+
+    /// Give the player the hero `id` (`docs/heroes.md` §2.3): its Hero Power, its Health beyond
+    /// 30 and its Armor (its Duos Armor in a Duos game, where the team's pool takes them), then
+    /// its start-of-game text. A previous hero's Health and Armor are taken back first.
+    pub fn set_hero(&mut self, id: HeroId) -> Result<(), String> {
+        let hero = heroes::data(id).ok_or_else(|| format!("unknown hero id {id}"))?;
+        let duos = self.auras.duos_game;
+        if let Some(old) = self.auras.hero.take().and_then(|h| heroes::data(h.hero_id)) {
+            let (health, armor) = heroes::starting_bonus(old, duos);
+            self.health -= health;
+            self.armor -= armor;
+        }
+        let (health, armor) = heroes::starting_bonus(hero, duos);
+        self.health += health;
+        self.armor += armor;
+        self.auras.hero = Some(heroes::new_state(hero));
+        self.hero_options.clear();
+        heroes::on_chosen(self);
+        self.sync_all_auras();
+        Ok(())
+    }
+
+    /// Offer the player the heroes `options` to choose from (`docs/heroes.md` §6).
+    pub fn offer_heroes(&mut self, options: Vec<HeroId>) {
+        self.hero_options = options;
     }
 
     /// Enable or disable automatic rolling of 1 Tavern Spell into `shop` on `start_turn` / `Refresh`.
@@ -535,6 +581,7 @@ impl TavernState {
         self.gold -= amount;
         self.gold_spent_this_turn += amount;
         cards::on_gold_spent(self, amount, pool, rng);
+        heroes::on_gold_spent(self, amount);
     }
 
     /// Enqueue a Discover or Choose-One prompt (`discover_pending`).
@@ -1058,6 +1105,7 @@ impl TavernState {
         self.gold_spent_this_turn = 0;
         self.elementals_played_this_turn = 0;
         self.auras.expire_turn_effects();
+        heroes::turn_reset(self);
         let turn_atk = std::mem::take(&mut self.auras.tavern_turn_atk);
         let turn_hp = std::mem::take(&mut self.auras.tavern_turn_hp);
         if (turn_atk != 0 || turn_hp != 0) && self.is_frozen {
@@ -1337,6 +1385,12 @@ impl TavernState {
 
     /// Check whether `action` is currently legal (`docs/tavern.md` §6).
     pub fn is_legal(&self, action: &TavernAction) -> bool {
+        if !self.hero_options.is_empty() {
+            return matches!(
+                action,
+                TavernAction::ChooseHero { option_index } if *option_index < self.hero_options.len()
+            );
+        }
         if let Some(ref opts) = self.discover_pending {
             return matches!(
                 action,
@@ -1478,12 +1532,19 @@ impl TavernState {
             TavernAction::EndTurn => true,
             // Solo has no teammate to Pass to.
             TavernAction::Pass { .. } => false,
+            TavernAction::HeroPower { target } => heroes::can_use(self, target),
+            TavernAction::ChooseHero { .. } => false,
         }
     }
 
     /// Return all currently legal `TavernAction`s.
     pub fn valid_actions(&self) -> Vec<TavernAction> {
         let mut actions = Vec::new();
+        if !self.hero_options.is_empty() {
+            return (0..self.hero_options.len())
+                .map(|option_index| TavernAction::ChooseHero { option_index })
+                .collect();
+        }
         if let Some(ref opts) = self.discover_pending {
             for i in 0..opts.len() {
                 actions.push(TavernAction::ChooseDiscover { option_index: i });
@@ -1660,6 +1721,11 @@ impl TavernState {
         }
         actions.push(TavernAction::ToggleFreeze);
         actions.push(TavernAction::EndTurn);
+        actions.extend(
+            heroes::valid_targets(self)
+                .into_iter()
+                .map(|target| TavernAction::HeroPower { target }),
+        );
         actions
     }
 
@@ -1856,6 +1922,15 @@ impl TavernState {
             TavernAction::Pass { .. } => Err(format!(
                 "illegal tavern action: {action:?} (a Pass needs a teammate)"
             )),
+            TavernAction::HeroPower { target } => {
+                heroes::use_power(self, target, pool, rng);
+                Ok(false)
+            }
+            TavernAction::ChooseHero { option_index } => {
+                let id = self.hero_options[option_index];
+                self.set_hero(id)?;
+                Ok(false)
+            }
         }
     }
 

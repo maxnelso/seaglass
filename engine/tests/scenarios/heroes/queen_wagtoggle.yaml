@@ -1,0 +1,37 @@
+hero: Queen Wagtoggle
+scenarios:
+  - name: a_friendly_minion_of_each_type_gains_1_1
+    combat:
+      board_a: ["1/1 beast", "1/1 beast", "1/1 demon", "1/1"]
+      board_b: ["0/30"]
+      auras_a: {hero: Queen Wagtoggle}
+    expect:
+      events:
+        where: {type: stat_buff, reason: Wax Warband}
+        count: 2
+        all: {atk_delta: 1, hp_delta: 1}
+        any: {unit: 2}
+
+  - name: two_types_each_take_one
+    combat:
+      board_a: ["1/1 beast_pirate", "1/1 pirate"]
+      board_b: ["0/30"]
+      auras_a: {hero: Queen Wagtoggle}
+    expect:
+      events: {where: {type: stat_buff, reason: Wax Warband}, count: 2}
+
+  - name: it_improves_after_you_spend_10_gold
+    tavern: {auras: {hero: Queen Wagtoggle}, gold: 13, board: ["1/1 murloc"]}
+    steps:
+      - upgrade_tavern        # 5 Gold
+      - expect: {auras: {hero: {power: {counter: 5, stacks: 0}}}}
+      - refresh
+      - refresh
+      - refresh
+      - refresh
+      - refresh               # 10 Gold spent
+      - expect: {auras: {hero: {power: {counter: 0, stacks: 1}}}}
+      - fight: {board: ["0/30"]}
+    expect:
+      combat: {events: {any: {type: stat_buff, reason: Wax Warband, atk_delta: 2, hp_delta: 2}}}
+      board: ["1/1 murloc"]

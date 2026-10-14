@@ -1,0 +1,56 @@
+topic: Hero Powers at Start of Combat (docs/heroes.md §7.2, docs/combat.md §5.1.1 step 1b)
+scenarios:
+  - name: hero_powers_resolve_before_the_player_effects
+    description: >-
+      (confirmed) B's Wax Warband gives its Beast +1/+1, then A's Upper Hand sets its Health to 1:
+      it ends a 2/1. Were Upper Hand first, it would be a 2/2.
+    combat:
+      board_a: ["0/5"]
+      board_b: ["1/5 beast"]
+      auras_a: {effects: [{card: Upper Hand, duration: Turn}]}
+      auras_b: {hero: Queen Wagtoggle}
+    expect: {outcome: b_win, survivors_b: ["2/1 beast"]}
+
+  - name: the_first_sides_hero_power_goes_first
+    description: A has more minions, so A's Deathwing buffs before B's.
+    combat:
+      board_a: ["1/9", "1/9"]
+      board_b: ["1/9"]
+      auras_a: {hero: Deathwing}
+      auras_b: {hero: Deathwing}
+    expect:
+      events:
+        where: {type: stat_buff}
+        count: 6
+        0: {side: a, unit: 0}
+        1: {side: a, unit: 1}
+        2: {side: b, unit: 2, attack: 3}
+        3: {side: b, unit: 2, attack: 5}
+        4: {side: a, unit: 0, attack: 5}
+
+  - name: hero_powers_resolve_before_the_minions_start_of_combat
+    description: Illidan's Wingmen attack before the Heroic Broodmother's Start of Combat attack.
+    combat:
+      board_a: ["1/9"]
+      board_b: [Heroic Broodmother]
+      auras_a: {hero: Illidan Stormrage}
+    expect:
+      events:
+        where: {type: attack_declared}
+        0: {side: a, attacker: 0}
+        1: {side: b, attacker: 1}
+
+  - name: a_duos_warband_stepping_in_resolves_its_hero_power
+    duos:
+      team_a:
+        - ["1/1"]
+        - {board: ["1/9"], auras: {hero: Al'Akir}}
+      team_b:
+        - ["5/50"]
+        - []
+    expect:
+      team_a: {1: {fought: true}}
+      events:
+        sequence:
+          - {type: warband_stepped_in, team: a, player: 1}
+          - {type: attack_declared}

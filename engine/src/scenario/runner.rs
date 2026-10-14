@@ -7,7 +7,9 @@
 use std::fmt::Write as _;
 use std::panic::{self, AssertUnwindSafe};
 
-use crate::cards::{self, CardTemplate};
+use serde_yaml::Value;
+
+use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::combat::{BattleResult, DuosResult};
 use crate::duos_tavern::DuosTavern;
 use crate::model::{GameState, Unit};
@@ -214,6 +216,49 @@ fn tavern_action(
         Action::Pass(i) => TavernAction::Pass {
             hand_index: position(&state.hand, i, "hand", captures)?,
         },
+        Action::HeroPower(target) => TavernAction::HeroPower {
+            target: match target {
+                None => None,
+                Some(i) => {
+                    let kind = state
+                        .hero()
+                        .map(|h| cards::hooks(h.power.card_id).activate_target);
+                    let (cards, what) = match kind {
+                        Some(ActivateTargetKind::ShopCard) => (&state.shop, "shop"),
+                        Some(ActivateTargetKind::HandCard) => (&state.hand, "hand"),
+                        _ => (&state.board, "board"),
+                    };
+                    Some(position(cards, i, what, captures)?)
+                }
+            },
+        },
+        Action::ChooseHero(i) => TavernAction::ChooseHero {
+            option_index: match i {
+                Index::At(n) => {
+                    let len = state.hero_options.len() as i64;
+                    let n = if *n < 0 { len + n } else { *n };
+                    usize::try_from(n).map_err(|_| {
+                        Failure::Mismatch(format!("hero_options[{n}]: {len} hero(es) offered"))
+                    })?
+                }
+                Index::Find(Value::String(name)) => {
+                    let id = super::spec::hero_id(name).map_err(Failure::Invalid)?;
+                    state
+                        .hero_options
+                        .iter()
+                        .position(|&h| h == id)
+                        .ok_or_else(|| {
+                            Failure::Mismatch(format!("{name} is not among the hero options"))
+                        })?
+                }
+                Index::Find(other) => {
+                    return Err(Failure::Invalid(format!(
+                        "`choose_hero` takes an index or a hero name, got {}",
+                        show(other)
+                    )))
+                }
+            },
+        },
     })
 }
 
@@ -252,6 +297,8 @@ fn tavern_step(
             zone_mut(state, *z)[i] = unit;
         }
         StepKind::TakeFromPool(ids) => take_from_pool(catalog, pool, ids)?,
+        StepKind::SetHero(id) => state.set_hero(*id).map_err(Failure::Invalid)?,
+        StepKind::OfferHeroes(ids) => state.offer_heroes(ids.clone()),
         StepKind::PlayBloodGems(z, index, count) => {
             let i = position(zone(state, *z), index, z.name(), captures)?;
             let auras = state.auras.clone();

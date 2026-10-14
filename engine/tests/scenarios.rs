@@ -4,7 +4,7 @@
 //! (`cargo test --test scenarios -- tavern::joyous::`). Scenarios marked `known_bug` must
 //! fail with a mismatch; they are listed after the run. Two more tests check the card data:
 //! `catalog` (against `tests/scenarios/catalog.yaml`) and `coverage` (every card source file
-//! has a scenario file in `combat/` or `tavern/`).
+//! has a scenario file in `combat/` or `tavern/`, every hero file one in `heroes/`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -501,12 +501,41 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
                         errors.push(format!("{file} must start with `card:`"));
                     }
                 }
+                Ok(Header::Hero(_)) => {
+                    errors.push(format!("{file}: hero scenarios belong in heroes/"));
+                }
                 Err(e) => errors.push(format!("{file}: {e}")),
             }
         }
     }
 
-    let known = ["combat", "tavern", "catalog.yaml"];
+    // Every hero file has its scenario file, `heroes/<hero>.yaml`, starting with `hero:`.
+    let mut heroes = stems(&src.join("../heroes"), "rs");
+    heroes.remove("mod");
+    heroes.remove("table");
+    let hero_files = stems(&root.join("heroes"), "yaml");
+    for stem in &heroes {
+        if !hero_files.contains(stem) {
+            errors.push(format!(
+                "heroes/{stem}.yaml is missing (for src/heroes/{stem}.rs)"
+            ));
+        }
+    }
+    for stem in &hero_files {
+        let file = format!("heroes/{stem}.yaml");
+        match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
+            Ok(Header::Hero(name)) if slug(&name) == *stem && heroes.contains(stem) => {}
+            Ok(Header::Hero(name)) => errors.push(format!(
+                "{file} is about {name}: it must be heroes/{}.yaml, for src/heroes/{}.rs",
+                slug(&name),
+                slug(&name)
+            )),
+            Ok(_) => errors.push(format!("{file} must start with `hero:`")),
+            Err(e) => errors.push(format!("{file}: {e}")),
+        }
+    }
+
+    let known = ["combat", "tavern", "heroes", "catalog.yaml"];
     for entry in fs::read_dir(root).map_err(|e| e.to_string())? {
         let name = entry
             .map_err(|e| e.to_string())?

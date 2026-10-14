@@ -1,0 +1,54 @@
+hero: Illidan Stormrage
+scenarios:
+  - name: the_left_and_right_most_minions_gain_2_1_and_attack_immediately
+    description: >-
+      Without the Hero Power, A (3 minions to 2) attacks first with its left-most minion, then B
+      attacks. With it, A's left-most and right-most attack first, one after the other.
+    combat:
+      board_a: ["1/1", "1/9", "1/1"]
+      board_b: ["1/20", "1/20"]
+      auras_a: {hero: Illidan Stormrage}
+    expect:
+      events:
+        sequence:
+          - {type: stat_buff, unit: 0, atk_delta: 2, hp_delta: 1, reason: Wingmen}
+          - {type: stat_buff, unit: 2, atk_delta: 2, hp_delta: 1, reason: Wingmen}
+          - {type: attack_declared, side: a, attacker: 0}
+          - {type: attack_declared, side: a, attacker: 2}
+          - {type: attack_declared}
+
+  - name: the_immediate_attacks_dont_move_the_pointer
+    description: After the Wingmen attacks, A's regular attacks still start from its left-most.
+    seed: 4
+    combat:
+      board_a: ["1/9", "1/9", "1/9"]
+      board_b: ["1/30", "1/30"]
+      auras_a: {hero: Illidan Stormrage}
+    expect:
+      events:
+        where: {type: attack_declared, side: a}
+        0: {attacker: 0}
+        1: {attacker: 2}
+        2: {attacker: 0}
+
+  - name: a_single_minion_gains_2_1_once_and_attacks_once
+    description: (confirmed) B has more minions, so without the Hero Power B would attack first.
+    combat:
+      board_a: ["1/5"]
+      board_b: ["1/9", "1/9"]
+      auras_a: {hero: Illidan Stormrage}
+    expect:
+      events:
+        all_of:
+          - sequence:
+              - {type: stat_buff, unit: 0, reason: Wingmen, attack: 3, health: 6}
+              - {type: attack_declared, side: a, attacker: 0}
+              - {type: attack_declared, side: b}
+          - {where: {type: stat_buff, reason: Wingmen}, count: 1}
+
+  - name: no_attack_without_enemy_minions
+    combat:
+      board_a: ["1/1"]
+      board_b: []
+      auras_a: {hero: Illidan Stormrage}
+    expect: {outcome: a_win, events: {none: {type: attack_declared}}}

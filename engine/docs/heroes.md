@@ -209,7 +209,7 @@ Each implemented hero has its own file, `src/heroes/<slug>.rs`, whose first line
 //! Hero Power: `Swatting Insects` (`TB_BaconShop_HP_086`), 0 Gold: Start of Combat: Give your left-most minion Windfury, Divine Shield, and Taunt.
 ```
 
-The `heroes` tests check that every hero file's header matches the table (name, card ID, Armor, Hero Power card ID, cost and text), that its `ID`/`POWER` constants are the table's dbfIds, and that every hero file has a scenario file `tests/scenarios/heroes/<slug>.yaml` starting with `hero: <Hero Name>`.
+A Duos-only hero's header says `— Duos Armor 15.` instead. The `heroes` tests check that every hero file's header matches the table (name, card ID, Armor, Hero Power card ID, cost and text), that its `ID`/`POWER` constants are the table's dbfIds, and that every hero file has a scenario file `tests/scenarios/heroes/<slug>.yaml` starting with `hero: <Hero Name>`.
 
 ---
 
@@ -236,7 +236,7 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Queen Wagtoggle` | *Wax Warband* (passive): Start of Combat: give a friendly minion of each type +1/+1. (Improves after you spend 10 Gold!) | Step 1b: a friendly minion of each type (`tavern.md` §7.8: the best assignment, as `Misplaced Tea Set`) gains `+N/+N`, `N = 1 + stacks`. Every 10 Gold the player spends (`hero_gold_spent`, `counter`) adds a stack. |
 | `Bru'kan` | *Embrace the Elements* (0 Gold, active): Choose an Element. Start of Combat: call upon that Element. | Using it offers a Choose One of the four Elements; the chosen one becomes the Hero Power (`card_id`) for the next combat only, and reverts at the start of the next turn **(confirmed)**. **Earth Invocation**: 4 different random friendly minions (fewer if fewer) gain "Deathrattle: summon a 1/1 Elemental" (`Stone Elemental`) **(confirmed)**. **Fire Invocation**: your left-most minion's Attack doubles. **Water Invocation**: your right-most minion gains Divine Shield and Taunt. **Lightning Invocation**: deal 1 damage to 5 different random enemy minions (fewer if fewer) **(confirmed)**. Once per turn. |
 | `Flobbidinous Floop` | *Glorious Gloop* (0 Gold, active, a friendly minion; Duos only): Start of Combat: transform it into your teammate's highest-Tier minion. | Using it marks the minion. Step 1b: the marked minion, if it is on the board, transforms into a copy of the minion with the highest Tier in the teammate's warband as it entered the combat (`duos.md` §2; a tie at random, one draw), as `Sandy` copies (`duos_tavern.md` §8.2): its current stats, keywords and Golden status, the marked minion's place and id, a `UnitTransformed` event. With no teammate minion, nothing happens. |
-| `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer, if it is still on the board, gains +1 Attack, permanently (§7.4). |
+| `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer, if it is still alive, gains +1 Attack, permanently (§7.4); a killer that died in the same exchange gains nothing **(engine decision)**. Each kill counts. |
 
 ---
 
@@ -254,3 +254,4 @@ Engine decisions, pending the user's confirmation:
 | Y'Shaarj | The summon and the card are independent (a full board still gets the card); arms stack and wait for the next combat fought. | `heroes/yshaarj.rs` |
 | Tamsin's ties and stats | The left-most lowest-Attack minion; its Attack and `max_health`. | `heroes/tamsin_roame.rs` |
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
+| Rokara's dead killers | A killer that died in the same exchange gains nothing. | `heroes/rokara.rs` |

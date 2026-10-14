@@ -2,12 +2,13 @@
 //!
 //! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`, and Duos Taverns:
 //! `docs/duos_tavern.md`) and the **Combat Phase** (`docs/combat.md`, and Duos combats:
-//! `docs/duos.md`).
+//! `docs/duos.md`), with heroes and their Hero Powers (`docs/heroes.md`).
 
 pub mod cards;
 pub mod combat;
 pub mod duos_tavern;
 pub mod events;
+pub mod heroes;
 pub mod model;
 pub mod rng;
 pub mod scenario;
@@ -29,8 +30,8 @@ pub use combat::{
 pub use duos_tavern::DuosTavern;
 pub use events::Event;
 pub use model::{
-    BattleOutcome, CardId, DeityKind, DeityState, GameState, Keyword, PlayerAuras, Side,
-    TeammateGift, Tribe, Unit, UnitId,
+    BattleOutcome, CardId, DeityKind, DeityState, GameState, HeroId, HeroPowerState, HeroState,
+    Keyword, PlayerAuras, Side, TeammateGift, Tribe, Unit, UnitId,
 };
 pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};

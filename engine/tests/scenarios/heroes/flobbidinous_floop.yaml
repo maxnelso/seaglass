@@ -1,0 +1,48 @@
+hero: Flobbidinous Floop
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: the_marked_minion_transforms_into_the_teammates_highest_tier_minion
+    duos_tavern:
+      players:
+        - {auras: {hero: Flobbidinous Floop}, board: ["1/1", "2/2"]}
+        - {board: ["Zoatroid +1/+1", "Wanderer Cho +2/+2"]}
+    steps:
+      - {player: 0, hero_power: 1}
+      - expect: {players: {0: {board: [{marked: false}, {marked: true}]}}}
+      - fight: {team: [[], []]}
+    expect:
+      combat:
+        events: {any: {type: unit_transformed, unit: 1, name: Wanderer Cho, attack: 6, health: 5}}
+        team_a: {0: {survivors: ["1/1", "Wanderer Cho 6/5"]}}
+      players: {0: {board: ["1/1", "2/2"]}}
+
+  - name: a_tie_is_broken_at_random
+    seeds: "1..=6"
+    duos_tavern:
+      players:
+        - {auras: {hero: Flobbidinous Floop}, board: ["1/1"]}
+        - {board: ["Zoatroid", "Joyous"]}
+    steps:
+      - {player: 0, hero_power: 0}
+      - fight: {team: [[], []]}
+    expect:
+      combat: {team_a: {0: {survivors: [{any_of: [Zoatroid, Joyous]}]}}}
+
+  - name: without_a_teammate_minion_nothing_happens
+    duos_tavern:
+      players:
+        - {auras: {hero: Flobbidinous Floop}, board: ["1/1"]}
+        - {}
+    steps:
+      - {player: 0, hero_power: 0}
+      - fight: {team: [[], []]}
+    expect:
+      combat: {events: {none: {type: unit_transformed}}, team_a: {0: {survivors: ["1/1"]}}}
+
+  - name: in_solo_it_does_nothing
+    tavern: {auras: {hero: Flobbidinous Floop}, board: ["1/1"]}
+    steps:
+      - hero_power: 0
+      - fight: {board: []}
+    expect: {combat: {events: {none: {type: unit_transformed}}}}

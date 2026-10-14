@@ -424,6 +424,24 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
                 .unwrap_or_else(|| format!("hand[{hand_index}]"));
             format!("Pass {card}")
         }
+        TavernAction::HeroPower { target } => {
+            let power = state
+                .hero()
+                .and_then(|h| seaglass::heroes::data(h.hero_id))
+                .map_or("?", |h| h.power.name);
+            match target {
+                Some(t) => format!("Hero Power {power} -> {t}"),
+                None => format!("Hero Power {power}"),
+            }
+        }
+        TavernAction::ChooseHero { option_index } => {
+            let hero = state
+                .hero_options
+                .get(option_index)
+                .and_then(|&id| seaglass::heroes::data(id))
+                .map_or("?", |h| h.name);
+            format!("Choose hero {hero}")
+        }
     }
 }
 

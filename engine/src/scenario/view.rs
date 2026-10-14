@@ -7,7 +7,10 @@
 //!   card's name) and `battlecry` / `deathrattle` / `rally` / `choose_one` (card flags);
 //! - player auras also have `counters` (`card_counters` keyed by card name, `[0, 0]` for cards
 //!   without one) and `effect_stacks` (total stacks of each card's player effects, 0 for
-//!   cards without one); each effect also has `card`.
+//!   cards without one); each effect also has `card`; their `hero` (`null` without one) also has
+//!   `name` (the hero's);
+//! - the fields serde leaves out while they have their default are there too: a unit's `marked`
+//!   and `extra_deathrattles`, the auras' `hero`, a Tavern's `hero_options`.
 //!
 //! Enum variants with data (YAML tags such as `!Refreshes 3`) become single-key maps
 //! (`{Refreshes: 3}`).
@@ -151,11 +154,25 @@ fn from_value(value: &Value) -> View {
         Value::Mapping(m) if m.contains_key("card_counters") && m.contains_key("effects") => {
             auras_view(value, m)
         }
+        Value::Mapping(m)
+            if m.contains_key("discover_pending") && m.contains_key("tavern_tier") =>
+        {
+            let mut view = fields(m);
+            with_default(&mut view, "hero_options", View::List(Vec::new()));
+            View::Map(view)
+        }
         Value::Mapping(m) => View::Map(fields(m)),
         Value::Tagged(tagged) => View::Map(vec![(
             tagged.tag.to_string().trim_start_matches('!').to_string(),
             from_value(&tagged.value),
         )]),
+    }
+}
+
+/// Add `key: default` to `view` if serde skipped it (a field left out while it has its default).
+fn with_default(view: &mut Vec<(String, View)>, key: &str, default: View) {
+    if !view.iter().any(|(k, _)| k == key) {
+        view.push((key.to_string(), default));
     }
 }
 
@@ -168,6 +185,8 @@ fn fields(m: &Mapping) -> Vec<(String, View)> {
 fn unit_view(value: &Value, m: &Mapping) -> View {
     let unit: Unit = serde_yaml::from_value(value.clone()).expect("units round-trip through serde");
     let mut view = fields(m);
+    with_default(&mut view, "marked", View::Bool(false));
+    with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));
     let id = unit.card_id;
     let keywords = KEYWORDS
         .iter()
@@ -207,6 +226,14 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
     let auras: PlayerAuras =
         serde_yaml::from_value(value.clone()).expect("player auras round-trip through serde");
     let mut view = fields(m);
+    with_default(&mut view, "hero", View::Null);
+    if let (Some((_, hero)), Some(state)) = (
+        view.iter_mut().find(|(k, _)| k == "hero"),
+        auras.hero.as_ref(),
+    ) {
+        let name = crate::heroes::data(state.hero_id).map_or("?", |h| h.name);
+        hero.push("name", View::Str(name.to_string()));
+    }
     if let Some((_, View::List(effects))) = view.iter_mut().find(|(k, _)| k == "effects") {
         for (effect, data) in effects.iter_mut().zip(&auras.effects) {
             effect.push("card", View::Str(card_name(data.card_id)));

@@ -19,11 +19,16 @@
 //! - **Duos hooks** fire when a card is Passed to the teammate (`passed`, `after_pass`,
 //!   `after_team_pass`), when the teammate sells (`after_teammate_sell`), and when a card's gift
 //!   reaches the teammate (`teammate_gift`, `teammate_combat_gift`; `docs/duos_tavern.md` §7).
+//! - **Hero Power hooks** fire for the player whose hero has the Hero Power: a Hero Power is a
+//!   card with hooks (`hero_power`, `hero_start_of_combat`, ...; `docs/heroes.md` §4).
 
 use crate::cards::{
-    ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, RallyCtx, TeammateWarband,
+    ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, HeroCombatCtx, RallyCtx,
+    TeammateWarband,
 };
-use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
+use crate::model::{
+    CardId, CombatResult, HeroState, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId,
+};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
 
@@ -212,6 +217,8 @@ pub type EffectSocFn = fn(&mut CombatSides<'_>, &mut PlayerEffect);
 pub type EffectAfterCombatFn = fn(&mut TavernState, &mut PlayerEffect, CombatResult);
 /// Observer of a card event (a Pass, a sale): `(state, self_idx, card, pool, rng)`.
 pub type CardObserverFn = fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng);
+/// The `HeroPower` action: `(state, target, pool, rng)` (`docs/heroes.md` §5).
+pub type HeroPowerFn = fn(&mut TavernState, Option<usize>, &mut CardPool, &mut Rng);
 
 macro_rules! card_hooks {
     ($( $(#[$meta:meta])* $field:ident($builder:ident): $ty:ty ),* $(,)?) => {
@@ -458,6 +465,25 @@ card_hooks! {
     /// (`docs/duos.md` §2): `(warband, amount, rng)`. Without it, the gift waits for the
     /// receiver's Tavern (`teammate_gift`).
     teammate_combat_gift(on_teammate_combat_gift): fn(&mut TeammateWarband<'_>, i32, &mut Rng),
+
+    // ---- Hero Powers (fire for the player whose hero has this Hero Power; `docs/heroes.md`
+    // §4) -----------------------------------------------------------------------------------
+    /// The `HeroPower` action: `(state, target, pool, rng)`. A Hero Power with this hook is active.
+    hero_power(on_hero_power): HeroPowerFn,
+    /// Extra conditions for the `HeroPower` action (unlock turns, once per game): `(state)`.
+    hero_power_usable(on_hero_power_usable): fn(&TavernState) -> bool,
+    /// Start of turn, after `uses_left` was reset: `(hero)`.
+    hero_turn_reset(on_hero_turn_reset): fn(&mut HeroState),
+    /// The player got this hero (its start-of-game text): `(state)`.
+    hero_chosen(on_hero_chosen): fn(&mut TavernState),
+    /// Gold was spent: `(state, amount)`.
+    hero_gold_spent(on_hero_gold_spent): fn(&mut TavernState, u32),
+    /// Start of Combat, before every other Start of Combat effect: `(ctx)`.
+    hero_start_of_combat(on_hero_start_of_combat): fn(&mut HeroCombatCtx<'_>),
+    /// Room may have opened on the board in combat (like `player_combat_space`): `(ctx)`.
+    hero_combat_space(on_hero_combat_space): fn(&mut BoardCtx<'_>),
+    /// A friendly minion killed an enemy minion in combat: `(ctx, killer_id, victim)`.
+    hero_enemy_killed(on_hero_enemy_killed): fn(&mut BoardCtx<'_>, UnitId, &Unit),
 }
 
 impl Default for CardHooks {
@@ -479,6 +505,13 @@ impl CardHooks {
 
     pub fn with_spell_target(mut self, target: SpellTarget) -> Self {
         self.spell_target = target;
+        self
+    }
+
+    /// The target domain of this card's `Activate` ability, or of this Hero Power
+    /// (`docs/heroes.md` §3.3).
+    pub fn with_activate_target(mut self, target: ActivateTargetKind) -> Self {
+        self.activate_target = target;
         self
     }
 

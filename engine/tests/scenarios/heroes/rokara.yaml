@@ -1,0 +1,44 @@
+hero: Rokara
+scenarios:
+  - name: a_minion_that_kills_an_enemy_gains_1_attack
+    seeds: "1..=4"
+    combat:
+      board_a: ["3/3"]
+      board_b: ["1/1"]
+      auras_a: {hero: Rokara}
+    expect:
+      outcome: a_win
+      events: {any: {type: stat_buff, side: a, unit: 0, atk_delta: 1, reason: Glory of Combat}}
+      survivors_a: ["4/2"]
+
+  - name: it_is_permanent
+    description: The Tavern copy keeps the +1 Attack, whoever attacked first.
+    seeds: "1..=4"
+    tavern: {auras: {hero: Rokara}, board: ["3/3"]}
+    steps:
+      - fight: {board: ["1/1"]}
+    expect: {board: ["4/3"]}
+
+  - name: a_killer_that_dies_in_the_same_exchange_gains_nothing
+    description: (engine decision) Only a killer still alive gains the Attack.
+    seeds: "1..=4"
+    tavern: {auras: {hero: Rokara}, board: ["2/2"]}
+    steps:
+      - fight: {board: ["2/2"]}
+    expect: {combat: {outcome: draw}, board: ["2/2"]}
+
+  - name: each_kill_counts
+    seed: 5
+    combat:
+      board_a: ["5/20"]
+      board_b: ["1/1", "1/1", "1/1"]
+      auras_a: {hero: Rokara}
+    expect: {outcome: a_win, survivors_a: ["8/17"]}
+
+  - name: the_enemys_kills_dont_count
+    seeds: "1..=4"
+    combat:
+      board_a: ["1/1"]
+      board_b: ["3/3"]
+      auras_a: {hero: Rokara}
+    expect: {outcome: b_win, events: {none: {type: stat_buff}}}

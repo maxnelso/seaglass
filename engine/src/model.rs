@@ -326,6 +326,46 @@ pub struct PlayerAuras {
     /// next delivery there (`docs/duos.md` §2). Nothing delivers it in Solo.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_teammate: Vec<TeammateGift>,
+    /// The player's hero and its Hero Power's state (`docs/heroes.md` §2.2), `None` for a player
+    /// without a hero. It lives in the auras so that it travels into combat and back with them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hero: Option<HeroState>,
+}
+
+/// A hero's identity: the hero card's dbfId (`64403` for `Al'Akir`; `docs/heroes.md` §2.1).
+pub type HeroId = u32;
+
+/// A player's hero (`docs/heroes.md` §2.2).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeroState {
+    pub hero_id: HeroId,
+    /// Its Hero Power's state.
+    pub power: HeroPowerState,
+}
+
+/// The state of a player's Hero Power (`docs/heroes.md` §3.2). The engine reads only `card_id`,
+/// `cost` and `uses_left`; the rest belongs to the Hero Power's own hooks.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeroPowerState {
+    /// The Hero Power card in use (its hooks): the hero's power, or a form it changed into (a
+    /// chosen Element, an upgrade).
+    pub card_id: CardId,
+    /// Its current Gold cost.
+    pub cost: u32,
+    /// Uses left this turn (reset at the start of each turn).
+    pub uses_left: u32,
+    /// Progress toward a threshold ("14 left!", Gold spent toward the next improvement).
+    #[serde(default)]
+    pub counter: i32,
+    /// Improvements so far.
+    #[serde(default)]
+    pub stacks: i32,
+    /// Next-combat effects paid for, used up by the player's next combat.
+    #[serde(default)]
+    pub armed: u32,
+    /// Cards the Hero Power keeps (a copy waiting for room in combat).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stored: Vec<Unit>,
 }
 
 /// Something a player's card gives their teammate (`docs/duos_tavern.md` §7.2), recorded in
@@ -563,6 +603,15 @@ pub struct Unit {
     /// back to the pool (`Bargain Bundle`, `docs/duos_tavern.md` §8.3).
     #[serde(default, skip_serializing_if = "is_false")]
     pub unchosen_to_teammate: bool,
+    /// Marked by its player's Hero Power, which acts on it at the next Start of Combat (Teron's
+    /// Rapid Reanimation, Floop's Glorious Gloop; `docs/heroes.md` §3.3).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub marked: bool,
+    /// Deathrattles an effect gave it in combat (Tamsin's Fragrant Phylactery, Bru'kan's Earth
+    /// Invocation): the `deathrattle` hooks of these cards resolve after its own
+    /// (`docs/heroes.md` §4).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_deathrattles: Vec<CardId>,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
@@ -640,6 +689,8 @@ impl Unit {
             stitched_stored: Vec::new(),
             pass_aura: 0,
             unchosen_to_teammate: false,
+            marked: false,
+            extra_deathrattles: Vec::new(),
         }
     }
 

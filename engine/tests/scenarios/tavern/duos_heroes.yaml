@@ -1,0 +1,47 @@
+topic: Heroes in a Duos team (docs/heroes.md §2.3)
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: the_team_starts_with_30_health_and_both_heroes_duos_armor
+    description: (confirmed) Reno Jackson's Duos Armor is 10, Y'Shaarj's 18.
+    steps:
+      - {player: 0, set_hero: Reno Jackson}
+      - {player: 1, set_hero: Y'Shaarj}
+    expect:
+      health: 30
+      armor: 28
+      players: [{health: 30, armor: 28}, {health: 30, armor: 28}]
+
+  - name: patchwerks_extra_health_goes_into_the_team_pool
+    description: (confirmed) 60 Health plus his teammate's Duos Armor.
+    steps:
+      - {player: 0, set_hero: Patchwerk}
+      - {player: 1, set_hero: Reno Jackson}
+    expect: {health: 60, armor: 10}
+
+  - name: choosing_a_hero_through_the_team
+    steps:
+      - {player: 1, offer_heroes: [Al'Akir, Flobbidinous Floop]}
+      - {player: 1, expect_illegal: end_turn}
+      - {player: 0, expect_legal: end_turn}
+      - {player: 1, choose_hero: Flobbidinous Floop}
+    expect: {armor: 15, players: {1: {auras: {hero: {name: Flobbidinous Floop}}}}}
+
+  - name: no_pass_while_choosing_a_hero
+    duos_tavern: {players: [{gold: 5, hand: ["1/1"]}, {}]}
+    steps:
+      - {player: 0, offer_heroes: [Al'Akir]}
+      - {player: 0, expect_illegal: {pass: 0}}
+
+  - name: each_player_uses_their_own_hero_power
+    duos_tavern:
+      players:
+        - {auras: {hero: Y'Shaarj}, gold: 10}
+        - {auras: {hero: Teron Gorefiend}, gold: 10, board: ["1/1"]}
+    steps:
+      - {player: 0, hero_power}
+      - {player: 1, hero_power: 0}
+    expect:
+      players:
+        - {gold: 8, auras: {hero: {power: {armed: 1}}}}
+        - {gold: 10, board: [{marked: true}]}

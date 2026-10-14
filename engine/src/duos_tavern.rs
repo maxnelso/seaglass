@@ -13,7 +13,7 @@ use crate::combat::{
     resolve_duos_battle, DuosResult, DuosTeam, Warband, WarbandResult, MAX_BOARD_SIZE,
 };
 use crate::model::{
-    BattleOutcome, CombatResult, EffectDuration, PlayerEffect, Side, TeammateGift, Unit,
+    BattleOutcome, CombatResult, EffectDuration, HeroId, PlayerEffect, Side, TeammateGift, Unit,
 };
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernAction, TavernState};
@@ -99,6 +99,29 @@ impl DuosTavern {
         self.armor = armor[0] + armor[1];
         self.mirror();
         self
+    }
+
+    /// Give the players their heroes (`docs/heroes.md` §2.3): each one's Hero Power, and the
+    /// team's pool their Duos Armor and their Health beyond 30.
+    pub fn with_heroes(mut self, heroes: [Option<HeroId>; 2]) -> Result<Self, String> {
+        for (player, hero) in heroes.into_iter().enumerate() {
+            if let Some(id) = hero {
+                self.set_hero(player, id)?;
+            }
+        }
+        Ok(self)
+    }
+
+    /// Give `player` the hero `id` (`docs/heroes.md` §2.3), the team's pool taking its Duos Armor
+    /// and its Health beyond 30.
+    pub fn set_hero(&mut self, player: usize, id: HeroId) -> Result<(), String> {
+        self.mirror();
+        self.players
+            .get_mut(player)
+            .ok_or_else(|| format!("a Duos team's players are 0 and 1, got {player}"))?
+            .set_hero(id)?;
+        self.settle();
+        Ok(())
     }
 
     /// Enable or disable Tavern spells in both players' shops (`TavernState::with_shop_spells`).
@@ -220,7 +243,7 @@ impl DuosTavern {
     /// isn't locked, and a free Pass or 1 Gold.
     fn can_pass(&self, player: usize, hand_index: usize) -> bool {
         let state = &self.players[player];
-        if state.discover_pending.is_some() {
+        if state.discover_pending.is_some() || !state.hero_options.is_empty() {
             return false;
         }
         let Some(card) = state.hand.get(hand_index) else {

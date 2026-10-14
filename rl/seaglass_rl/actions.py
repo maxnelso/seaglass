@@ -9,6 +9,7 @@ MAX_BOARD = 7
 MAX_HAND = 10
 MAX_SHOP = 7
 MAX_DISCOVER = 4
+MAX_HERO_OPTIONS = 4
 
 
 def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, int | None, int | None], int]]:
@@ -67,6 +68,17 @@ def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, 
     for h_idx in range(MAX_HAND):
         register(seaglass.TavernAction.pass_card(h_idx))
 
+    # 10. Use the Hero Power: untargeted, then on a target index in 0..10 (a board, shop or hand
+    #     index, depending on the Hero Power; `engine/docs/heroes.md` §5). Last, so the indices
+    #     above are unchanged; a player without a hero never lists them as legal.
+    register(seaglass.TavernAction.hero_power(None))
+    for t_pos in range(MAX_HAND):
+        register(seaglass.TavernAction.hero_power(t_pos))
+
+    # 11. Choose an offered hero: option_index in 0..4 (`engine/docs/heroes.md` §6).
+    for opt_idx in range(MAX_HERO_OPTIONS):
+        register(seaglass.TavernAction.choose_hero(opt_idx))
+
     return actions, lookup
 
 
@@ -74,6 +86,10 @@ ACTIONS, ACTION_TO_INDEX = _build_action_table()
 ACTION_SPACE_SIZE = len(ACTIONS)
 END_TURN_INDEX = ACTION_TO_INDEX[("end_turn", None, None)]
 PASS_INDICES = [ACTION_TO_INDEX[("pass", h_idx, None)] for h_idx in range(MAX_HAND)]
+HERO_POWER_INDICES = [ACTION_TO_INDEX[("hero_power", None, None)]] + [
+    ACTION_TO_INDEX[("hero_power", t_pos, None)] for t_pos in range(MAX_HAND)
+]
+CHOOSE_HERO_INDICES = [ACTION_TO_INDEX[("choose_hero", i, None)] for i in range(MAX_HERO_OPTIONS)]
 
 
 def action_from_index(index: int) -> seaglass.TavernAction:

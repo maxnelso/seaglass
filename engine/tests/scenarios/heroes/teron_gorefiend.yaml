@@ -1,0 +1,81 @@
+hero: Teron Gorefiend
+defaults:
+  tavern: {auras: {hero: Teron Gorefiend}}
+scenarios:
+  - name: using_it_marks_a_friendly_minion
+    tavern: {board: ["1/1", "2/2"]}
+    steps:
+      - hero_power: 1
+      - expect: {board: [{marked: false}, {marked: true}]}
+      - expect_illegal: {hero_power: 0}
+    expect: {gold: 0}
+
+  - name: it_needs_a_friendly_minion
+    tavern: {board: []}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 0}
+
+  - name: start_of_combat_destroys_it_and_resummons_an_exact_copy
+    description: >-
+      The buffed Zoatroid is destroyed at Start of Combat and an exact copy (5/4) takes the
+      right end of the board.
+    tavern: {board: ["Zoatroid +2/+2", "1/1"]}
+    steps:
+      - hero_power: 0
+      - fight: {board: ["0/30"]}
+    expect:
+      combat:
+        events:
+          sequence:
+            - {type: death, unit: 0}
+            - {type: unit_summoned, side: a, name: Zoatroid, attack: 5, health: 4, reason: Rapid Reanimation}
+      board: ["Zoatroid 5/4", "1/1"]
+
+  - name: its_deathrattle_resolves_first
+    tavern: {board: ["Harmless Bonehead"]}
+    steps:
+      - hero_power: 0
+      - fight: {board: ["0/30"]}
+    expect:
+      combat:
+        events:
+          where: {type: unit_summoned}
+          count: 3
+          0: {name: Skeleton}
+          1: {name: Skeleton}
+          2: {name: Harmless Bonehead, reason: Rapid Reanimation}
+
+  - name: the_copy_waits_for_room
+    description: >-
+      With 7 minions the copy can't come back at once: the destroyed Bonehead's two Skeletons
+      fill its slot. It is summoned once a minion dies.
+    seed: 2
+    tavern:
+      board: ["Harmless Bonehead", "1/9", "1/9", "1/9", "1/9", "1/9", "1/1"]
+    steps:
+      - hero_power: 0
+      - fight: {board: ["9/99"]}
+    expect:
+      combat:
+        events:
+          sequence:
+            - {type: death, unit: 0}
+            - {type: unit_summoned, name: Skeleton}
+            - {type: death}
+            - {type: unit_summoned, name: Harmless Bonehead, reason: Rapid Reanimation}
+
+  - name: the_mark_lasts_until_the_next_turn
+    tavern: {board: ["1/1"], gold: 0}
+    steps:
+      - start_turn
+      - hero_power: 0
+      - end_turn
+      - start_turn
+    expect: {board: [{marked: false}], auras: {hero: {power: {uses_left: 1}}}}
+
+  - name: without_a_marked_minion_nothing_happens
+    tavern: {board: ["1/1"]}
+    steps:
+      - fight: {board: ["0/30"]}
+    expect: {combat: {events: {none: {type: death, unit: 0}}}}

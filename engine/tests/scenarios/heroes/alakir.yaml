@@ -1,0 +1,39 @@
+hero: Al'Akir
+scenarios:
+  - name: the_left_most_minion_gains_windfury_divine_shield_and_taunt
+    description: >-
+      The 2/1 gets Windfury, Divine Shield and Taunt at Start of Combat, so it beats the 2/2
+      whoever attacks first (its shield takes the 2/2's hit, and Windfury gives it a second
+      strike). Without the Hero Power it can't win.
+    seeds: "1..=4"
+    combat:
+      board_a: ["2/1", "0/5"]
+      board_b: ["2/2"]
+      auras_a: {hero: Al'Akir}
+    expect:
+      outcome: a_win
+      survivors_a: ["2/1 taunt windfury -divine_shield", "0/5 -taunt -windfury"]
+
+  - name: it_works_for_side_b_too
+    seed: 3
+    combat:
+      board_a: ["1/1"]
+      board_b: ["1/1"]
+      auras_b: {hero: Al'Akir}
+    expect: {outcome: b_win, survivors_b: ["1/1 taunt windfury -divine_shield"]}
+
+  - name: nothing_happens_without_a_minion
+    combat:
+      board_a: []
+      board_b: ["1/1"]
+      auras_a: {hero: Al'Akir}
+    expect: {outcome: b_win}
+
+  - name: the_tavern_minion_keeps_nothing
+    description: The keywords are given to the combat copy only.
+    tavern: {auras: {hero: Al'Akir}, board: ["2/1"]}
+    steps:
+      - fight: {board: []}
+    expect:
+      combat: {survivors_a: ["2/1 taunt windfury divine_shield"]}
+      board: ["2/1 -taunt -windfury -divine_shield"]

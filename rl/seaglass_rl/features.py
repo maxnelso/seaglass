@@ -14,7 +14,7 @@ CARD_ID_TO_IDX: dict[int, int] = {cid: i + 1 for i, cid in enumerate(_ALL_IDS)}
 VOCAB_SIZE: int = len(_ALL_IDS) + 1
 
 NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER  # 7 + 10 + 7 + 4 = 28
-PLAYER_DIM: int = 9
+PLAYER_DIM: int = 15
 SLOT_NUM_DIM: int = 12
 
 
@@ -54,6 +54,13 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             obs.upgrade_cost / 10.0,
             obs.free_refreshes / 5.0,
             1.0 if obs.discover_pending is not None else 0.0,
+            # The hero and its Hero Power (`engine/docs/heroes.md` §8); all 0 without a hero.
+            1.0 if obs.hero_id else 0.0,
+            1.0 if obs.hero_power_usable else 0.0,
+            obs.hero_power_cost / 10.0,
+            float(obs.hero_power_uses_left),
+            obs.hero_power_armed / 3.0,
+            1.0 if obs.hero_options else 0.0,
         ],
         dtype=np.float32,
     )

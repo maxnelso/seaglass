@@ -11,7 +11,8 @@ use pyo3::prelude::*;
 use crate::cards::{self, CardTemplate};
 use crate::combat::{DuosResult, DuosTeam, Warband};
 use crate::duos_tavern::DuosTavern;
-use crate::model::{BattleOutcome, DeityKind, GameState, Keyword, Unit};
+use crate::heroes;
+use crate::model::{BattleOutcome, DeityKind, GameState, HeroId, Keyword, Unit};
 use crate::rng::Rng;
 use crate::scenario::{parse_unit as rust_parse_unit, Defaults};
 use crate::sim::{
@@ -411,6 +412,23 @@ impl PyTavernAction {
         }
     }
 
+    /// Use the Hero Power, on `target` if it needs one (`docs/heroes.md` §5).
+    #[staticmethod]
+    #[pyo3(signature = (target=None))]
+    fn hero_power(target: Option<usize>) -> Self {
+        Self {
+            inner: TavernAction::HeroPower { target },
+        }
+    }
+
+    /// Choose the offered hero `hero_options[option_index]` (`docs/heroes.md` §6).
+    #[staticmethod]
+    fn choose_hero(option_index: usize) -> Self {
+        Self {
+            inner: TavernAction::ChooseHero { option_index },
+        }
+    }
+
     #[getter]
     fn kind(&self) -> &'static str {
         match self.inner {
@@ -426,6 +444,8 @@ impl PyTavernAction {
             TavernAction::ChooseDiscover { .. } => "choose_discover",
             TavernAction::EndTurn => "end_turn",
             TavernAction::Pass { .. } => "pass",
+            TavernAction::HeroPower { .. } => "hero_power",
+            TavernAction::ChooseHero { .. } => "choose_hero",
         }
     }
 
@@ -449,6 +469,8 @@ impl PyTavernAction {
             } => (Some(board_pos), target_pos),
             TavernAction::ChooseDiscover { option_index } => (Some(option_index), None),
             TavernAction::Pass { hand_index } => (Some(hand_index), None),
+            TavernAction::HeroPower { target } => (target, None),
+            TavernAction::ChooseHero { option_index } => (Some(option_index), None),
             TavernAction::Refresh
             | TavernAction::UpgradeTavern
             | TavernAction::ToggleFreeze
@@ -499,6 +521,28 @@ pub struct PyTavernObservation {
     pub deity_attack: i32,
     #[pyo3(get)]
     pub deity_health: i32,
+    /// The hero's id (its dbfId), 0 without a hero (`docs/heroes.md` §8).
+    #[pyo3(get)]
+    pub hero_id: u32,
+    /// The Hero Power card in use (its dbfId), 0 without a hero.
+    #[pyo3(get)]
+    pub hero_power_id: u32,
+    #[pyo3(get)]
+    pub hero_power_cost: u32,
+    #[pyo3(get)]
+    pub hero_power_uses_left: u32,
+    #[pyo3(get)]
+    pub hero_power_counter: i32,
+    #[pyo3(get)]
+    pub hero_power_stacks: i32,
+    #[pyo3(get)]
+    pub hero_power_armed: u32,
+    /// `true` if some `HeroPower` action is legal now.
+    #[pyo3(get)]
+    pub hero_power_usable: bool,
+    /// The heroes offered to choose from (their ids).
+    #[pyo3(get)]
+    pub hero_options: Vec<u32>,
 }
 
 impl From<&TavernState> for PyTavernObservation {
@@ -539,8 +583,37 @@ impl From<&TavernState> for PyTavernObservation {
             deity: deity_kind_str(s.auras.deity.kind).to_string(),
             deity_attack: s.auras.deity.attack,
             deity_health: s.auras.deity.health,
+            hero_id: s.hero().map_or(0, |h| h.hero_id),
+            hero_power_id: s.hero().map_or(0, |h| h.power.card_id),
+            hero_power_cost: s.hero().map_or(0, |h| h.power.cost),
+            hero_power_uses_left: s.hero().map_or(0, |h| h.power.uses_left),
+            hero_power_counter: s.hero().map_or(0, |h| h.power.counter),
+            hero_power_stacks: s.hero().map_or(0, |h| h.power.stacks),
+            hero_power_armed: s.hero().map_or(0, |h| h.power.armed),
+            hero_power_usable: s.discover_pending.is_none()
+                && s.hero_options.is_empty()
+                && !heroes::valid_targets(s).is_empty(),
+            hero_options: s.hero_options.clone(),
         }
     }
+}
+
+/// Each Duos player's hero, as given to `DuosTavernGame` (a name, an id or `None`).
+type HeroPair<'py> = (Option<Bound<'py, PyAny>>, Option<Bound<'py, PyAny>>);
+
+/// A hero given as its id (dbfId) or its name (`docs/heroes.md` §2.1).
+fn parse_hero(hero: Option<&Bound<'_, PyAny>>) -> PyResult<Option<HeroId>> {
+    let Some(hero) = hero.filter(|h| !h.is_none()) else {
+        return Ok(None);
+    };
+    let found = if let Ok(id) = hero.extract::<u32>() {
+        heroes::data(id)
+    } else {
+        heroes::by_name(&hero.extract::<String>()?)
+    };
+    found
+        .map(|h| Some(h.id))
+        .ok_or_else(|| PyValueError::new_err(format!("unknown hero {hero}")))
 }
 
 /// Stateful handle wrapping [`TavernState`], [`CardPool`], and [`Rng`].
@@ -554,21 +627,27 @@ pub struct PyTavernGame {
 
 #[pymethods]
 impl PyTavernGame {
+    /// `hero` (a name or id; `docs/heroes.md`) gives the player that hero: its Health, Armor and
+    /// Hero Power. Without one (the default) the player has `armor` and no Hero Power.
     #[new]
-    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5))]
+    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None))]
     fn new(
         seed: u64,
         catalog: &str,
         deity: Option<&str>,
         shop_spells: bool,
         armor: i32,
+        hero: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let templates = cards::catalog_for(catalog).map_err(PyValueError::new_err)?;
         let pool = CardPool::new(templates);
         let rng = Rng::new(seed);
         let mut state = TavernState::new().with_shop_spells(shop_spells);
-        state.armor = armor;
         state.auras.deity.kind = parse_deity_kind(deity)?;
+        match parse_hero(hero)? {
+            Some(id) => state.set_hero(id).map_err(PyValueError::new_err)?,
+            None => state.armor = armor,
+        }
         Ok(Self { state, pool, rng })
     }
 
@@ -872,6 +951,28 @@ pub struct PyDuosObservation {
     pub deity_attack: i32,
     #[pyo3(get)]
     pub deity_health: i32,
+    /// This player's hero and Hero Power (`docs/heroes.md` §8), as in `TavernObservation`.
+    #[pyo3(get)]
+    pub hero_id: u32,
+    #[pyo3(get)]
+    pub hero_power_id: u32,
+    #[pyo3(get)]
+    pub hero_power_cost: u32,
+    #[pyo3(get)]
+    pub hero_power_uses_left: u32,
+    #[pyo3(get)]
+    pub hero_power_counter: i32,
+    #[pyo3(get)]
+    pub hero_power_stacks: i32,
+    #[pyo3(get)]
+    pub hero_power_armed: u32,
+    #[pyo3(get)]
+    pub hero_power_usable: bool,
+    #[pyo3(get)]
+    pub hero_options: Vec<u32>,
+    /// The teammate's hero's id, 0 without one.
+    #[pyo3(get)]
+    pub teammate_hero_id: u32,
     /// `true` once this player has ended their turn.
     #[pyo3(get)]
     pub ended: bool,
@@ -939,6 +1040,16 @@ impl PyDuosObservation {
             deity: own.deity,
             deity_attack: own.deity_attack,
             deity_health: own.deity_health,
+            hero_id: own.hero_id,
+            hero_power_id: own.hero_power_id,
+            hero_power_cost: own.hero_power_cost,
+            hero_power_uses_left: own.hero_power_uses_left,
+            hero_power_counter: own.hero_power_counter,
+            hero_power_stacks: own.hero_power_stacks,
+            hero_power_armed: own.hero_power_armed,
+            hero_power_usable: own.hero_power_usable && !team.ended[player],
+            hero_options: own.hero_options,
+            teammate_hero_id: other.hero().map_or(0, |h| h.hero_id),
             ended: team.ended[player],
             incoming: py_units(&team.incoming[player]),
             free_passes: team.free_passes(player),
@@ -983,9 +1094,11 @@ impl PyDuosTavernGame {
 
 #[pymethods]
 impl PyDuosTavernGame {
-    /// `armor` is each hero's starting Armor: the team starts with their sum (§3).
+    /// `armor` is each hero's starting Armor: the team starts with their sum (§3). `heroes` (a
+    /// name or id for each player, or `None`; `docs/heroes.md`) gives the players heroes instead:
+    /// the team gets their Duos Armor (and Patchwerk's extra Health) and each its Hero Power.
     #[new]
-    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None))]
+    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None))]
     fn new(
         seed: u64,
         catalog: &str,
@@ -993,6 +1106,7 @@ impl PyDuosTavernGame {
         first_fighter_switch_chance: f64,
         shop_spells: bool,
         deity: Option<&str>,
+        heroes: Option<HeroPair<'_>>,
     ) -> PyResult<Self> {
         if !(0.0..=1.0).contains(&first_fighter_switch_chance) {
             return Err(PyValueError::new_err(format!(
@@ -1002,11 +1116,17 @@ impl PyDuosTavernGame {
         let templates = cards::catalog_for(catalog).map_err(PyValueError::new_err)?;
         let kind = parse_deity_kind(deity)?;
         let mut team = DuosTavern::new()
-            .with_armor([armor.0, armor.1])
             .with_shop_spells(shop_spells)
             .with_first_fighter_switch_chance(first_fighter_switch_chance);
         for state in &mut team.players {
             state.auras.deity.kind = kind;
+        }
+        match heroes {
+            Some((h0, h1)) => {
+                let ids = [parse_hero(h0.as_ref())?, parse_hero(h1.as_ref())?];
+                team = team.with_heroes(ids).map_err(PyValueError::new_err)?;
+            }
+            None => team = team.with_armor([armor.0, armor.1]),
         }
         Ok(Self {
             team,
@@ -1277,6 +1397,15 @@ fn all_card_ids() -> Vec<u32> {
     ids
 }
 
+/// The hero pool (`docs/heroes.md` §2.1): `(id, name, implemented)` for every hero, by name.
+#[pyfunction]
+fn heroes_table() -> Vec<(u32, &'static str, bool)> {
+    heroes::table()
+        .iter()
+        .map(|h| (h.id, h.name, heroes::is_implemented(h.id)))
+        .collect()
+}
+
 #[pyfunction]
 fn parse_unit(spec: &str) -> PyResult<PyUnit> {
     let inner = rust_parse_unit(spec, &Defaults::default()).map_err(PyValueError::new_err)?;
@@ -1301,6 +1430,7 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simulate_duos_batch, m)?)?;
     m.add_function(wrap_pyfunction!(catalog, m)?)?;
     m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
+    m.add_function(wrap_pyfunction!(heroes_table, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
     Ok(())
 }
