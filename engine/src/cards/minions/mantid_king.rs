@@ -55,7 +55,10 @@ fn expire_keywords(king: &mut Unit) {
         }
         match keyword {
             Keyword::Venomous => king.venomous = false,
-            Keyword::Taunt => king.taunt = false,
+            Keyword::Taunt => {
+                king.taunt = false;
+                king.granted_taunt = false;
+            }
             _ => {
                 king.divine_shield = false;
                 king.temp_divine_shield = false;

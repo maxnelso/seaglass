@@ -339,7 +339,10 @@ fn parse_mod(tok: &str) -> Result<Mod, String> {
 
 fn remove_keyword(unit: &mut Unit, kw: Keyword) {
     match kw {
-        Keyword::Taunt => unit.taunt = false,
+        Keyword::Taunt => {
+            unit.taunt = false;
+            unit.granted_taunt = false;
+        }
         Keyword::DivineShield => {
             unit.divine_shield = false;
             unit.inherent_divine_shield = false;
@@ -405,7 +408,11 @@ fn build_str(spec: &str) -> Result<Unit, String> {
                 unit.health = health;
             }
             Mod::Buff(attack, health) => unit.add_stats(attack, health),
-            Mod::Keyword(kw, true) => unit.apply_keyword(kw, true),
+            Mod::Keyword(kw, true) => {
+                unit.apply_keyword(kw, true);
+                // A Taunt the unit is set up with was given to it (`Relentless Deflector` keeps it).
+                unit.granted_taunt |= kw == Keyword::Taunt;
+            }
             Mod::Keyword(kw, false) => remove_keyword(&mut unit, kw),
             Mod::Tribe(tribe) => unit.tribe = tribe,
             Mod::Tier(tier) => unit.tavern_tier = tier,

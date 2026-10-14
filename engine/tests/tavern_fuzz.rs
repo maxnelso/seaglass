@@ -2308,16 +2308,6 @@ fn snapshot_pool(snap: &Snapshot) -> (CardPool, Vec<CardTemplate>) {
 /// `SEAGLASS_FUZZ_STRICT=1`, so that `cargo test` stays green until they are fixed.
 const KNOWN_BUGS: &[(&str, &str)] = &[
     (
-        "re-synced: Relentless Deflector",
-        "Relentless Deflector's sync wipes a Taunt given by a spell \
-         (fuzz_findings::relentless_deflector_loses_the_taunt_a_spell_gave_it)",
-    ),
-    (
-        "re-synced: Golden Relentless Deflector",
-        "Relentless Deflector's sync wipes a Taunt given by a spell \
-         (fuzz_findings::relentless_deflector_loses_the_taunt_a_spell_gave_it)",
-    ),
-    (
         "transient state set: pending_choice_target",
         "a Choose One followed by a Triple Reward leaves pending_choice_target set \
          (fuzz_findings::a_choose_one_before_a_triple_reward_leaves_its_target_set)",

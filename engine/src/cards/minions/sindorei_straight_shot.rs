@@ -21,5 +21,6 @@ pub fn on_rally(target: Option<&mut Unit>) {
     if let Some(t) = target {
         t.reborn = false;
         t.taunt = false;
+        t.granted_taunt = false;
     }
 }

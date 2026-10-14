@@ -11,3 +11,35 @@ scenarios:
       - play: {hand: Butchering, pos: 1}
     expect:
       board: ["Relentless Deflector -divine_shield -taunt"]
+
+  - name: a_taunt_given_while_its_divine_shield_is_up_outlives_the_shield
+    description: >-
+      Sacred Gift gives the Deflector Divine Shield, and with it Taunt; Fortify then gives it a Taunt
+      of its own. When its Divine Shield pops in combat, it keeps the Taunt Fortify gave it
+      (confirmed: it has Taunt from a spell or while it has Divine Shield).
+    tavern:
+      board: [Relentless Deflector]
+      hand: [Sacred Gift, Fortify]
+    steps:
+      - play: {hand: Sacred Gift, pos: 0}
+      - sync_all_auras   # its Taunt while it has Divine Shield
+      - expect: {board: ["Relentless Deflector divine_shield taunt"]}
+      - play: {hand: Fortify, pos: 0}
+      - fight: {board: [Patient Scout]}   # a 1/1: it pops the Divine Shield
+    expect:
+      combat:
+        outcome: a_win
+        survivors_a: ["Relentless Deflector -divine_shield taunt"]
+
+  - name: it_keeps_the_taunt_a_spell_gave_it
+    description: >-
+      Fortify gives it Taunt; an aura sync (at the latest, when a combat starts) used to take it
+      away (its Taunt was its Divine Shield's). It keeps it (confirmed).
+    tavern:
+      board: [Relentless Deflector]
+      hand: [Fortify]
+    steps:
+      - play: {hand: Fortify, pos: 0}
+      - expect: {board: ["Relentless Deflector 5/7 taunt"]}
+      - sync_all_auras
+    expect: {board: ["Relentless Deflector 5/7 taunt"]}

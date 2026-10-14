@@ -1,7 +1,8 @@
 //! `Relentless Deflector` (`BG34_405`) — Tier 3 Mech (`5/4`).
 //! Has **Taunt** while this has **Divine Shield**. **Avenge (3):** Gain **Divine Shield**.
 //!
-//! It loses Taunt the moment its Divine Shield pops.
+//! It loses Taunt the moment its Divine Shield pops, unless an effect gave it Taunt
+//! (`granted_taunt`: `Fortify`, `Defender's Rites`, `Tricky Trousers`, ...), which it keeps.
 
 use crate::cards::{BoardCtx, CardTemplate};
 use crate::model::{CardId, Keyword, Tribe, Unit};
@@ -17,9 +18,10 @@ pub fn template() -> CardTemplate {
         .on_friendly_divine_shield_lost(sync_taunt)
 }
 
-/// Has Taunt while this has Divine Shield (re-synced as soon as a friendly Divine Shield pops).
+/// Has Taunt while this has Divine Shield, or if an effect gave it Taunt (re-synced as soon as a
+/// friendly Divine Shield pops).
 pub fn sync_taunt(unit: &mut Unit) {
-    unit.taunt = unit.divine_shield;
+    unit.taunt = unit.granted_taunt || unit.divine_shield;
 }
 
 /// Avenge (3): gain Divine Shield (and with it Taunt).

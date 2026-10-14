@@ -1041,6 +1041,7 @@ pub fn trigger_board_battlecry(
             state.board[board_pos].add_stats(d_atk, d_hp);
         }
         state.board[board_pos].taunt |= unit.taunt;
+        state.board[board_pos].granted_taunt |= unit.granted_taunt;
         state.board[board_pos].divine_shield |= unit.divine_shield;
         state.board[board_pos].windfury |= unit.windfury;
         state.board[board_pos].reborn |= unit.reborn;
@@ -1165,6 +1166,7 @@ pub fn apply_magnetization(
 pub fn merge_magnetization(target: &mut Unit, card: &Unit) {
     target.add_stats(card.attack, card.health);
     target.taunt |= card.taunt;
+    target.granted_taunt |= card.taunt;
     target.divine_shield |= card.divine_shield;
     target.inherent_divine_shield |= card.inherent_divine_shield;
     target.windfury |= card.windfury;

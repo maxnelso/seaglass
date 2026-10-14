@@ -459,6 +459,11 @@ pub struct Unit {
     pub tavern_tier: u32,
     pub tribe: Tribe,
     pub taunt: bool,
+    /// Taunt an effect gave it (a spell, a Magnetization, ...: `apply_keyword(Taunt)` from outside
+    /// its card), which a conditional Taunt doesn't take away: `Relentless Deflector` keeps it
+    /// whatever its Divine Shield (`docs/tavern.md` §7.4).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub granted_taunt: bool,
     pub divine_shield: bool,
     /// True if Divine Shield is printed on the card (so Reborn restores it).
     pub inherent_divine_shield: bool,
@@ -586,6 +591,7 @@ impl Unit {
             tavern_tier: 1,
             tribe: Tribe::None,
             taunt: false,
+            granted_taunt: false,
             divine_shield: false,
             inherent_divine_shield: false,
             windfury: false,
@@ -666,7 +672,12 @@ impl Unit {
     /// also sets `inherent_divine_shield = true`.
     pub fn apply_keyword(&mut self, kw: Keyword, inherent: bool) {
         match kw {
-            Keyword::Taunt => self.taunt = true,
+            Keyword::Taunt => {
+                self.taunt = true;
+                if !inherent {
+                    self.granted_taunt = true;
+                }
+            }
             Keyword::DivineShield => {
                 self.divine_shield = true;
                 if inherent {

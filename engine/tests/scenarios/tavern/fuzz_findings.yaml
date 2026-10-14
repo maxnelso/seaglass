@@ -1,20 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: relentless_deflector_loses_the_taunt_a_spell_gave_it
-    known_bug: Relentless Deflector's sync sets taunt = divine_shield, wiping a Taunt from a spell
-    description: >-
-      Relentless Deflector re-syncs its Taunt to its Divine Shield (taunt = divine_shield), so a
-      Taunt that a spell gives it (Fortify, Tricky Trousers, ...) is gone at the next aura sync, at
-      the latest when a combat starts (SideCombatState::new syncs every unit).
-    tavern:
-      board: [Relentless Deflector]
-      hand: [Fortify]
-    steps:
-      - play: {hand: Fortify, pos: 0}
-      - expect: {board: ["Relentless Deflector 5/7 taunt"]}
-      - sync_all_auras
-    expect: {board: ["Relentless Deflector 5/7 taunt"]}
-
   - name: robust_evolution_counts_the_undead_bonus_twice
     known_bug: Robust Evolution copies aura-inflated stats but resets aura_applied
     description: >-

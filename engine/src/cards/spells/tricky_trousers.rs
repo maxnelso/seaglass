@@ -19,5 +19,6 @@ pub fn cast(state: &mut TavernState, _: &Unit, target: MinionSlot, _: &mut CardP
     if let Some(target) = state.minion_mut(target) {
         target.add_stats(atk, hp);
         target.taunt = !target.taunt;
+        target.granted_taunt = target.taunt;
     }
 }
