@@ -22,3 +22,29 @@ scenarios:
       board:
         - "Wolf Pup 10/12"   # +2/+1 (Gnawer) +5/+5 (Fishbait)
         - "Cage Gnawer 8/9"   # +4/+1 (Rally) +2/+1
+
+  - name: at_tier_6_the_refresh_leaves_room_for_the_fishbait
+    description: >-
+      Bob's Tavern holds 7 cards: at Tier 6 the Refresh draws 5 minions instead of 6, so that the
+      Fishbait joins its spell and minions (confirmed). Wolf Pup attacks and kills it.
+    seed: 454
+    tavern:
+      tavern_tier: 6
+      include_shop_spells: true
+      board: [Wolf Pup, Snarky Shark]
+    steps:
+      - sell: Snarky Shark
+    expect:
+      board: ["Wolf Pup 8/11"]
+      shop: {all_of: [{count: 6}, {where: {is_spell: true}, count: 1}]}   # 5 minions, the spell
+
+  - name: at_tier_6_a_fishbait_no_beast_attacks_stays_in_a_full_tavern
+    seed: 454
+    tavern:
+      tavern_tier: 6
+      include_shop_spells: true
+      board: [Snarky Shark]
+    steps:
+      - sell: Snarky Shark
+    expect:
+      shop: {all_of: [{count: 7}, {where: Fishbait, count: 1}, {where: {is_spell: true}, count: 1}]}

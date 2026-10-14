@@ -82,7 +82,7 @@ use seaglass::model::TeammateGift;
 use seaglass::{
     base_copies_for_tier, base_upgrade_cost, catalog_for, shop_capacity, BattleOutcome,
     BattleResult, CardPool, CardTemplate, DeityKind, Event, PlayerAuras, Rng, Side, TavernAction,
-    TavernState, Unit, UnitId,
+    TavernState, Unit, UnitId, MAX_SHOP_SIZE,
 };
 use serde::{Deserialize, Serialize};
 
@@ -485,17 +485,12 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
             units_desc(&s.hand),
         ));
     }
-    // A rolled shop holds `shop_capacity` minions (`check_refilled_shop`); the tokens effects add
-    // to the Tavern (`Demon Fodder`, `Fishbait`) come on top, and an effect can turn one into a
-    // pool minion (`Robust Evolution`), so the bound here is loose.
-    let cap = shop_capacity(s.tavern_tier);
-    if s.shop.len() > cap + 1 + 8 {
+    // Bob's Tavern holds at most 7 cards, the tokens effects add to it included (`Demon Fodder`,
+    // `Fishbait`; `docs/tavern.md` §3.2). A rolled shop holds `shop_capacity` minions
+    // (`check_refilled_shop`).
+    if s.shop.len() > MAX_SHOP_SIZE {
         return Err(broken(
-            format!(
-                "shop has {} cards at Tier {} (capacity {cap})",
-                s.shop.len(),
-                s.tavern_tier
-            ),
+            format!("shop has {} cards", s.shop.len()),
             units_desc(&s.shop),
         ));
     }
@@ -2306,10 +2301,7 @@ fn snapshot_pool(snap: &Snapshot) -> (CardPool, Vec<CardTemplate>) {
 
 /// Failures already reported (by a substring of their signature), tolerated unless
 /// `SEAGLASS_FUZZ_STRICT=1`, so that `cargo test` stays green until they are fixed.
-const KNOWN_BUGS: &[(&str, &str)] = &[(
-    "shop has # cards",
-    "Demon Fodder Refreshes have no cap on the Tavern's size (rule question)",
-)];
+const KNOWN_BUGS: &[(&str, &str)] = &[];
 
 fn known_bug(failure: &Failure) -> Option<&'static str> {
     KNOWN_BUGS

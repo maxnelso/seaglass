@@ -39,5 +39,5 @@ pub use sim::{
 };
 pub use tavern::{
     base_copies_for_tier, base_upgrade_cost, shop_capacity, CardPool, MinionSlot, TavernAction,
-    TavernState,
+    TavernState, MAX_SHOP_SIZE,
 };

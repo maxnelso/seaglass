@@ -4,7 +4,7 @@ use crate::cards::hooks::CardEventFn;
 use crate::cards::{self, minions, spells, BoardCtx, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, TavernState, MAX_SHOP_SIZE};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -223,14 +223,18 @@ pub fn add_fodder_to_refreshes(auras: &mut PlayerAuras, count: u32, refreshes: u
     auras.add_effect(TOKEN_DEMON_FODDER, count, duration);
 }
 
-/// Demon Fodders the player's next 3 shop Refreshes will add.
+/// Demon Fodders the player's next 3 shop Refreshes will add (the waiting ones on the next).
 pub fn fodder_per_refresh(auras: &PlayerAuras) -> [u32; 3] {
     let mut per_refresh = [0; 3];
     for e in &auras.effects {
-        if let (TOKEN_DEMON_FODDER, EffectDuration::Refreshes(n)) = (e.card_id, e.duration) {
-            for slot in per_refresh.iter_mut().take(n as usize) {
-                *slot += e.stacks;
+        match (e.card_id, e.duration) {
+            (TOKEN_DEMON_FODDER, EffectDuration::Refreshes(n)) => {
+                for slot in per_refresh.iter_mut().take(n as usize) {
+                    *slot += e.stacks;
+                }
             }
+            (TOKEN_DEMON_FODDER, EffectDuration::Game) => per_refresh[0] += e.stacks,
+            _ => {}
         }
     }
     per_refresh
@@ -238,8 +242,11 @@ pub fn fodder_per_refresh(auras: &PlayerAuras) -> [u32; 3] {
 
 /// The Demon Fodder player effect (`Laboratory Assistant`, `Trapped Clapper`, `Twisted
 /// Wrathguard`): on each Refresh it lasts, add a Demon Fodder per stack to the Tavern, or give
-/// its stats to a random friendly Demon instead.
+/// its stats to a random friendly Demon instead. Bob's Tavern holds 7 cards: a Fodder that
+/// doesn't fit waits for a later Refresh with room, in a Demon Fodder effect lasting the game
+/// whose stacks are the waiting Fodders (`docs/tavern.md` §3.2, confirmed).
 fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &mut Rng) {
+    let mut waiting = 0;
     for _ in 0..effect.stacks {
         let mut fodder = make_demon_fodder(false);
         state.apply_shop_auras(&mut fodder);
@@ -263,9 +270,19 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
                 demon_indices[rng.below(demon_indices.len())]
             };
             state.board[idx].add_stats(fodder.attack, fodder.health);
-        } else {
+        } else if state.shop.len() < MAX_SHOP_SIZE {
             state.shop.push(fodder);
+        } else {
+            waiting += 1;
         }
+    }
+    if effect.duration == EffectDuration::Game {
+        // The waiting Fodders: the ones added are used up.
+        effect.stacks = waiting;
+    } else if waiting > 0 {
+        state
+            .auras
+            .add_effect(TOKEN_DEMON_FODDER, waiting, EffectDuration::Game);
     }
 }
 

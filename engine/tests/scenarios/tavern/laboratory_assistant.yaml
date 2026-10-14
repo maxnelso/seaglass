@@ -45,3 +45,60 @@ scenarios:
     expect:
       board: ["Demon Fodder 2/2 t1"]
       combat: {outcome: a_win, hero_damage: 2}   # Tier 1 + the Fodder's Tier 1
+
+  - name: a_fodder_that_does_not_fit_in_a_full_tavern_waits
+    description: >-
+      Bob's Tavern holds 7 cards (confirmed). A Demon Fodder that doesn't fit isn't lost: it waits
+      for a later Refresh (a Demon Fodder effect lasting the game, used up as its Fodders are
+      added), and the Refresh it didn't fit in doesn't use it up (confirmed).
+    seed: 216
+    tavern:
+      tavern_tier: 6
+      include_shop_spells: true
+      gold: 1
+      auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}
+    steps:
+      - refresh   # 6 minions and a spell: the Tavern is full
+    expect:
+      shop: {count: 7, none: Demon Fodder}
+      auras: {effects: [{card: Demon Fodder, stacks: 1, duration: Game}]}
+
+  - name: a_waiting_fodder_joins_the_next_refresh_with_room
+    seed: 216
+    tavern:
+      tavern_tier: 5
+      include_shop_spells: true
+      gold: 2
+      auras: {effects: [{card: Demon Fodder, stacks: 2, duration: {Refreshes: 1}}]}
+    steps:
+      - refresh   # 5 minions and a spell: room for 1 of the 2 Fodders
+      - expect:
+          shop: {all_of: [{count: 7}, {where: Demon Fodder, count: 1}]}
+          auras: {effects: [{card: Demon Fodder, stacks: 1, duration: Game}]}
+      - refresh   # the waiting one
+    expect:
+      shop: {all_of: [{count: 7}, {where: Demon Fodder, count: 1}]}
+      auras: {effects: []}
+
+  - name: several_fodders_only_partly_fit
+    description: >-
+      3 Fodders for each of 2 Refreshes, with room for 1 each time: the others wait, and keep
+      waiting once the effect's Refreshes are over.
+    seed: 216
+    tavern:
+      tavern_tier: 4
+      include_shop_spells: true
+      gold: 2
+      auras: {effects: [{card: Demon Fodder, stacks: 3, duration: {Refreshes: 2}}]}
+    steps:
+      - refresh   # 5 minions and a spell: room for 1
+      - expect:
+          shop: {all_of: [{count: 7}, {where: Demon Fodder, count: 1}]}
+          auras:
+            effects:
+              - {card: Demon Fodder, stacks: 3, duration: {Refreshes: 1}}
+              - {card: Demon Fodder, stacks: 2, duration: Game}
+      - refresh   # room for 1 of the 3 new and 2 waiting
+    expect:
+      shop: {all_of: [{count: 7}, {where: Demon Fodder, count: 1}]}
+      auras: {effects: [{card: Demon Fodder, stacks: 4, duration: Game}]}

@@ -10,6 +10,10 @@ use crate::rng::Rng;
 /// Maximum number of minions allowed on a player's board.
 pub const MAX_BOARD_SIZE: usize = 7;
 
+/// Maximum number of cards in Bob's Tavern: a card an effect would add beyond it isn't added
+/// (`docs/tavern.md` §3.2).
+pub const MAX_SHOP_SIZE: usize = 7;
+
 /// Base copies per unique minion in the shared pool by Tavern Tier (`docs/tavern.md` §2).
 pub fn base_copies_for_tier(tier: u32) -> u32 {
     match tier {

@@ -4,12 +4,13 @@
 //! Your left-most Beast attacks it.
 //!
 //! The Fishbait joins the refreshed Tavern, and the Beast's attack is a regular attack
-//! (`docs/tavern.md` §7.7), as for `Lurking Lionfish`.
+//! (`docs/tavern.md` §7.7), as for `Lurking Lionfish`. Bob's Tavern holds 7 cards: when the
+//! Refresh fills it, it has drawn one minion fewer, for the Fishbait (confirmed).
 
 use crate::cards::{tokens, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, TavernState, MAX_SHOP_SIZE};
 
 pub const ID: CardId = 454;
 
@@ -21,6 +22,14 @@ pub fn template() -> CardTemplate {
 
 pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     state.refresh_shop_free(pool, rng);
+    // A full Tavern: the Refresh draws one minion fewer, for the Fishbait (`docs/tavern.md` §3.2).
+    if state.shop.len() >= MAX_SHOP_SIZE {
+        let drawn = |u: &Unit| !u.is_spell && u.card_id != tokens::TOKEN_DEMON_FODDER;
+        if let Some(idx) = state.shop.iter().rposition(drawn) {
+            let minion = state.shop.remove(idx);
+            pool.return_unit(&minion);
+        }
+    }
     state.shop.push(tokens::make_fishbait(sold.is_golden));
     let bait_idx = state.shop.len() - 1;
     tokens::left_most_beast_attacks_fishbait(state, bait_idx, pool, rng);
