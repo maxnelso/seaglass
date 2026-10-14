@@ -38,6 +38,66 @@ scenarios:
       players: {1: {hand: {count: 10, contains: Blood Gem}}}
       incoming: [[], []]
 
+  - name: the_teammates_gem_reaches_their_combat_hand_at_once
+    description: >-
+      Player 1's warband is waiting when player 0's Geomancer dies: the Blood Gem goes into
+      player 1's combat hand at once, and comes back with it. The Tavern doesn't give it a second
+      time.
+    duos_tavern:
+      players: [{board: [Generous Geomancer]}, {}]
+    steps:
+      - fight: {team: [["5/5"], []]}
+    expect:
+      combat: {team_a: {1: {fought: true, hand: [Blood Gem]}}}
+      players: [{hand: [Blood Gem]}, {hand: [Blood Gem]}]
+      incoming: [[], []]
+
+  - name: the_teammates_observers_see_the_gem_arrive
+    description: >-
+      The Blood Gem reaching player 1's waiting warband is a card added to their hand: their
+      Shadow of Doubt gives their Deity +4/+5 in the combat, once.
+    duos_tavern:
+      players: [{board: [Generous Geomancer]}, {board: [The Shadow of Doubt]}]
+    steps:
+      - fight: {team: [["5/5"], []]}
+    expect:
+      combat:
+        outcome: a_win
+        team_a: {1: {fought: true, hand: [Blood Gem], auras: {deity: {attack: 5, health: 6}}}}
+      players: {1: {hand: [Blood Gem], auras: {deity: {attack: 5, health: 6}}}}
+
+  - name: a_teammate_who_already_fought_gets_it_in_their_hand
+    description: >-
+      Player 0's warband fights first and is out; player 1's Geomancer dies after it, and player
+      0's Blood Gem comes back with player 0's hand.
+    seeds: "1..=4"
+    duos_tavern:
+      players: [{board: ["1/1"]}, {board: [Generous Geomancer]}]
+    steps:
+      - fight: {team: [["5/5"], []]}
+    expect:
+      combat: {outcome: b_win, team_a: [{fought: true, hand: [Blood Gem]}, {fought: true}]}
+      players: [{hand: [Blood Gem]}, {hand: [Blood Gem]}]
+      incoming: [[], []]
+
+  - name: a_full_combat_hand_takes_no_more_and_the_rest_waits
+    description: >-
+      The Golden Geomancer gives player 1 two Blood Gems while their hand holds 9 cards: the first
+      fills their combat hand, the second waits for their Tavern, where it queues.
+    duos_tavern:
+      players:
+        - {board: ["golden Generous Geomancer 2/2"]}
+        - hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - fight: {team: [["5/5"], []]}
+    expect:
+      combat:
+        team_a:
+          1: {hand: {all_of: [{count: 10, -1: Blood Gem}, {where: Blood Gem, count: 1}]}}
+      players:
+        1: {hand: {all_of: [{count: 10, -1: Blood Gem}, {where: Blood Gem, count: 1}]}}
+      incoming: [[], [Blood Gem]]
+
   - name: in_solo_the_player_still_gets_theirs
     description: Solo has no teammate, so the gift stays undelivered in the player's auras.
     tavern: {board: [Generous Geomancer]}

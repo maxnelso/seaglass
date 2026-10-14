@@ -322,22 +322,27 @@ pub struct PlayerAuras {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub teammate_counters: BTreeMap<CardId, (i32, i32)>,
     /// Duos: what this player's cards gave their teammate, in order, waiting for the team's
-    /// Tavern to deliver it (`docs/duos_tavern.md` §7.2). Nothing delivers it in Solo.
+    /// Tavern to deliver it (`docs/duos_tavern.md` §7.2), or in a Duos combat for the team's
+    /// next delivery there (`docs/duos.md` §2). Nothing delivers it in Solo.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_teammate: Vec<TeammateGift>,
 }
 
 /// Something a player's card gives their teammate (`docs/duos_tavern.md` §7.2), recorded in
-/// [`PlayerAuras::to_teammate`] and delivered by the team's Tavern.
+/// [`PlayerAuras::to_teammate`] and delivered by the team's Tavern, or in a Duos combat by the
+/// combat, but for what needs the Tavern (`docs/duos.md` §2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TeammateGift {
-    /// The teammate gets this card: it arrives in their hand like a passed card.
+    /// The teammate gets this card: it arrives in their hand like a passed card (in a Duos
+    /// combat, in their combat hand if it has room).
     Card(Unit),
     /// The player's card effect Passes this card to the teammate: a Pass without its payment.
     Pass(Unit),
     /// The giving card's `teammate_gift` hook runs on the teammate's Tavern with `amount`, or
-    /// on both players' Taverns if `team` (the giver's first).
+    /// on both players' Taverns if `team` (the giver's first). In a Duos combat, its
+    /// `teammate_combat_gift` hook runs on the teammate's warband instead, if it has one and
+    /// the gift is not the team's.
     Effect {
         card_id: CardId,
         amount: i32,

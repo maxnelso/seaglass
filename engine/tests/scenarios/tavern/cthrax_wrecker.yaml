@@ -53,6 +53,35 @@ scenarios:
             - {type: stat_buff, reason: C'Thrax Wrecker, atk_delta: 4, hp_delta: 4}
       players: {1: {auras: {deity: {attack: "> 1"}}}}
 
+  - name: the_teammates_deity_awakens_with_the_buff
+    description: >-
+      The 8/1 attacks first (two minions against one) and trades with the Wrecker, whose
+      Deathrattle gives the Deity of player 1's waiting warband +4/+4 at once. Player 1's warband
+      steps in, the 1/1 kills its four 0/1 Aberrations, and its C'Thun awakens as a 5/5: it kills
+      the 1/1 and survives. Player 1's Deity comes back 5/5, and the Tavern doesn't give the buff
+      a second time.
+    duos_tavern:
+      players:
+        - {board: [C'Thrax Wrecker]}
+        - {board: ["0/1 aberration", "0/1 aberration", "0/1 aberration", "0/1 aberration"]}
+    steps:
+      - fight: {team: [["8/1", "1/1"], []]}
+    expect:
+      combat:
+        outcome: a_win
+        events:
+          sequence:
+            - {type: warband_stepped_in, team: a, player: 1}
+            - {type: deity_awakened, side: a}
+        team_a:
+          1:
+            fought: true
+            survivors: [{name: C'Thun, attack: 5, health: 4}]
+            auras: {deity: {attack: 5, health: 5}}
+      players:
+        - {auras: {deity: {attack: 5, health: 5}}}
+        - {auras: {deity: {attack: 5, health: 5}}}
+
   - name: golden_gives_8_8
     duos_tavern:
       players: [{hand: ["golden C'Thrax Wrecker 16/16"]}, {}]

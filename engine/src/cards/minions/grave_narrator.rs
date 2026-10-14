@@ -5,8 +5,8 @@
 //! Combat deaths only, like every Avenge. "Their most common type" is read from the teammate's
 //! warband as it entered the combat (`BoardCtx::teammate_board`), as `Friendly Bounty` reads a
 //! board (`docs/tavern.md` §7.8); the minions are of that type and of this player's Tavern Tier
-//! or lower, from the game's catalog (`cards::game_templates`), and are gifts: they reach the
-//! teammate's hand after the combat (`docs/duos_tavern.md` §8.2).
+//! or lower, from the game's catalog (`cards::game_templates`), and are gifts: they go into the
+//! teammate's combat hand at once (`docs/duos.md` §2, `docs/duos_tavern.md` §8.2).
 
 use crate::cards::{self, spells, BoardCtx, CardTemplate};
 use crate::model::{CardId, TeammateGift, Tribe, Unit};

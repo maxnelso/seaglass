@@ -2,8 +2,8 @@
 //! **Deathrattle:** You and your teammate each get a **Blood Gem** (Golden `BGDUO_111_G`, `2/2`:
 //! `2` Blood Gems each).
 //!
-//! The teammate's Blood Gems are gifts (`docs/duos_tavern.md` §7.2): in combat they reach the
-//! teammate's hand after the combat.
+//! The teammate's Blood Gems are gifts (`docs/duos_tavern.md` §7.2): in combat they go into the
+//! teammate's combat hand at once (`docs/duos.md` §2).
 
 use crate::cards::{tokens, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, TeammateGift, Tribe, Unit};

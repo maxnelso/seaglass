@@ -346,13 +346,19 @@ fn run_attack_turns(
     false
 }
 
+/// The most cards a hand holds: a card given to a teammate whose combat hand is full waits for
+/// their Tavern (`docs/duos.md` §2).
+const MAX_HAND_SIZE: usize = 10;
+
 /// One team during a Duos combat (`docs/duos.md`): each player's warband, the one on the team's
 /// side, and the ones that stepped in.
 struct DuosTeamState {
     /// Each player's warband as given, with its combat ids (the result of a warband that never
-    /// fights, and the teammate's minions that fill out the board for the damage).
+    /// fights, its hand with the cards its teammate gave it, and the teammate's minions that
+    /// fill out the board for the damage).
     given: [Warband; 2],
-    /// Each player's combat state (a waiting warband's never changes: no effect reaches it).
+    /// Each player's combat state (a waiting warband's changes only with its teammate's gifts:
+    /// no attack or trigger reaches it).
     warbands: [SideCombatState; 2],
     /// The minions of each warband that left the fight after a stall: alive, out of the fight.
     departed: [Vec<Unit>; 2],
@@ -446,6 +452,95 @@ impl DuosTeamState {
         }
     }
 
+    /// Deliver the gifts the team's warbands gave their teammate since the last delivery
+    /// (`docs/duos.md` §2), in order. A card goes into the teammate's combat hand while it has
+    /// room; an effect whose card has a `teammate_combat_gift` hook acts on the teammate's
+    /// warband. The other gifts need the Tavern: they wait in the giver's auras for the team's
+    /// Tavern, with the cards from the first one a full hand didn't take on.
+    fn deliver_gifts(&mut self, rng: &mut Rng) {
+        use crate::model::TeammateGift;
+        for giver in 0..2 {
+            let mate = 1 - giver;
+            let gifts = std::mem::take(&mut self.warbands[giver].auras.to_teammate);
+            if gifts.is_empty() {
+                continue;
+            }
+            let mut waiting = Vec::new();
+            // Once a card finds the hand full, the cards given after it wait too, in order.
+            let mut card_waits = false;
+            for gift in gifts {
+                match gift {
+                    TeammateGift::Card(card)
+                        if !card_waits && self.warbands[mate].hand.len() < MAX_HAND_SIZE =>
+                    {
+                        self.receive_card(mate, card);
+                    }
+                    TeammateGift::Card(card) => {
+                        card_waits = true;
+                        waiting.push(TeammateGift::Card(card));
+                    }
+                    TeammateGift::Effect {
+                        card_id,
+                        amount,
+                        team: false,
+                    } => {
+                        if !self.receive_effect(mate, card_id, amount, rng) {
+                            waiting.push(gift);
+                        }
+                    }
+                    gift => waiting.push(gift),
+                }
+            }
+            self.warbands[giver].auras.to_teammate = waiting;
+        }
+    }
+
+    /// `card`, a gift of `player`'s teammate, is added to `player`'s combat hand (their "a card
+    /// is added to your hand" observers see it). A waiting warband steps in with it, and one that
+    /// never steps in brings it back with its hand as given.
+    fn receive_card(&mut self, player: usize, mut card: Unit) {
+        if !self.fought[player] {
+            self.given[player].hand.push(card.clone());
+        }
+        let warband = &mut self.warbands[player];
+        cards::sync_unit_auras(&mut card, &warband.auras);
+        warband.hand.push(card);
+        warband.hand_summoned.push(false);
+        warband.hand_given_by.push(None);
+        cards::on_card_added_to_hand(&warband.board, &mut warband.auras);
+    }
+
+    /// The `Effect` gift of the card `card_id`, from `player`'s teammate, acts on `player`'s
+    /// warband with `amount`: its auras and its minions, the board and those that left the
+    /// fight, whose auras then resync. Returns `false`, doing nothing, if the card has no
+    /// `teammate_combat_gift` hook.
+    fn receive_effect(
+        &mut self,
+        player: usize,
+        card_id: crate::model::CardId,
+        amount: i32,
+        rng: &mut Rng,
+    ) -> bool {
+        let warband = &mut self.warbands[player];
+        let departed = &mut self.departed[player];
+        let mut receiver = cards::TeammateWarband {
+            auras: &mut warband.auras,
+            minions: warband
+                .board
+                .iter_mut()
+                .chain(departed.iter_mut())
+                .collect(),
+        };
+        if !cards::apply_teammate_combat_gift(&mut receiver, card_id, amount, rng) {
+            return false;
+        }
+        cards::sync_combat_auras(&mut warband.board, &mut warband.hand, &warband.auras);
+        for unit in departed.iter_mut() {
+            cards::sync_unit_auras(unit, &warband.auras);
+        }
+        true
+    }
+
     /// The damage the team deals if it won (`docs/duos.md` §4): the fighting warband's player's
     /// Tavern Tier plus the tiers of its survivors, then of its teammate's minions if the
     /// teammate never fought, up to the board cap.
@@ -484,11 +579,12 @@ impl DuosTeamState {
                     dead_units: side.dead_units,
                 }
             } else {
+                // Its auras changed only with its teammate's gifts (docs/duos.md §2).
                 WarbandResult {
                     fought,
                     survivors: given.board,
                     hand: given.hand,
-                    auras: given.auras,
+                    auras: side.auras,
                     dead_units: Vec::new(),
                 }
             }
@@ -617,8 +713,9 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
 
 /// Step in the waiting warband of each team whose fighting warband has no minions left, then
 /// resolve their Start of Combat; again while a Start of Combat leaves a fighting warband with no
-/// minions and a teammate waiting (`docs/duos.md` §3.2). Returns the indices of the
-/// `WarbandSteppedIn` events, whose `first_attacker` the caller records.
+/// minions and a teammate waiting (`docs/duos.md` §3.2). Each check comes after the teams'
+/// gifts are delivered (§2). Returns the indices of the `WarbandSteppedIn` events, whose
+/// `first_attacker` the caller records.
 fn step_in_duos_warbands(
     teams: &mut [DuosTeamState; 2],
     next_id: &mut UnitId,
@@ -627,6 +724,10 @@ fn step_in_duos_warbands(
 ) -> Vec<usize> {
     let mut entered = Vec::new();
     loop {
+        // The gifts given since the last check reach their warband first (docs/duos.md §2).
+        for team in teams.iter_mut() {
+            team.deliver_gifts(rng);
+        }
         let mut stepping = Vec::new();
         for (side, team) in [Side::A, Side::B].into_iter().zip(teams.iter_mut()) {
             if !team.is_empty() {

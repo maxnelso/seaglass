@@ -34,8 +34,8 @@ const READY_SALTS: [[u64; 2]; 2] = [
     [0x8CB9_2BA7_2F3D_8DD7, 0xDB4F_0B91_75AE_2165],
 ];
 
-/// Salts of the RNGs of the gifts the players' cards gave in combat (`docs/duos_tavern.md`
-/// §7.2), by team (side A, side B).
+/// Salts of the RNGs of the gifts the players' cards gave in combat that the team's Tavern
+/// delivers (`docs/duos_tavern.md` §7.2), by team (side A, side B).
 const GIFT_SALTS: [u64; 2] = [0x9FB2_1C65_1E98_DF25, 0xC2B2_AE3D_27D4_EB4F];
 
 /// The most rounds of gifts delivered at once (§7.2): a gift's hooks may give more gifts, but
@@ -517,7 +517,9 @@ impl DuosTavern {
             self.sat_out[player] = !warband_result.fought;
         }
         self.settle();
-        // The gifts the players' cards gave in combat reach the teammate's Tavern (§7.2).
+        // The gifts the players' cards gave in combat that still wait reach the teammate's
+        // Tavern (§7.2): those that need it, the team's, the Passes and the cards a full combat
+        // hand didn't take. The others reached the teammate in the combat (`docs/duos.md` §2).
         let mut gift_rng = Rng::new(seed ^ gift_salt);
         self.deliver_gifts(0, None, &mut gift_rng);
         self.deliver();
@@ -675,7 +677,7 @@ mod tests {
     }
 
     #[test]
-    fn combat_gifts_reach_the_teammate_after_the_combat_and_passes_wait_for_a_pool() {
+    fn a_gift_card_reaches_the_teammate_in_the_combat_and_a_pass_waits_for_a_pool() {
         let mut team = DuosTavern::new();
         team.players[0].board = vec![unit(10, 10)];
         team.players[0]
@@ -685,8 +687,11 @@ mod tests {
             .auras
             .give_teammate(TeammateGift::Pass(unit(3, 3)));
         let opponent = DuosTeam::default();
-        team.resolve_combat_against(&opponent, 1);
+        let res = team.resolve_combat_against(&opponent, 1);
+        // Player 1's warband never fought: the card comes back with its hand, once.
+        assert_eq!(res.team_a[1].hand, vec![unit(2, 2)]);
         assert_eq!(team.players[1].hand, vec![unit(2, 2)]);
+        assert!(team.incoming[1].is_empty());
         assert_eq!(
             team.players[0].auras.to_teammate,
             vec![TeammateGift::Pass(unit(3, 3))]

@@ -3,8 +3,8 @@
 //! `12/2`: `2` random Deathrattle minions).
 //!
 //! The minions are of this player's Tavern Tier or lower, from the game's catalog (the Duos one
-//! in a Duos game: `cards::game_templates`), and are gifts: in combat they reach the teammate's
-//! hand after the combat (`docs/duos_tavern.md` §8.2).
+//! in a Duos game: `cards::game_templates`), and are gifts: in combat they go into the teammate's
+//! combat hand at once (`docs/duos.md` §2, `docs/duos_tavern.md` §8.2).
 
 use crate::cards::{self, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, TeammateGift, Tribe, Unit};

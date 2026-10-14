@@ -28,3 +28,33 @@ scenarios:
       - {player: 1, refresh}
     expect:
       players: {1: {gold: 3, auras: {free_refreshes: 0}}}
+
+  - name: a_teammate_who_never_fights_brings_them_back
+    description: >-
+      The Freshwater attacks first (two minions against one) and dies; player 0's 20/20 wins
+      alone, so player 1's warband never fights. The free Refreshes reached it at once: they come
+      back with its auras, and the Tavern doesn't give them a second time.
+    duos_tavern:
+      players: [{board: [Feisty Freshwater, "20/20"]}, {}]
+    steps:
+      - fight: {team: [["10/10"], []]}
+    expect:
+      combat:
+        outcome: a_win
+        team_a: [{auras: {free_refreshes: 2}}, {fought: false, auras: {free_refreshes: 2}}]
+      players: [{auras: {free_refreshes: 2}}, {auras: {free_refreshes: 2}}]
+
+  - name: a_teammate_who_already_fought_gets_them_too
+    description: >-
+      Player 0's warband fights first and is out; player 1's Freshwater dies after it, and player
+      0's free Refreshes come back with player 0's auras.
+    seeds: "1..=4"
+    duos_tavern:
+      players: [{board: ["1/1"]}, {board: [Feisty Freshwater]}]
+    steps:
+      - fight: {team: [["10/10"], []]}
+    expect:
+      combat:
+        outcome: b_win
+        team_a: [{fought: true, auras: {free_refreshes: 2}}, {auras: {free_refreshes: 2}}]
+      players: [{auras: {free_refreshes: 2}}, {auras: {free_refreshes: 2}}]

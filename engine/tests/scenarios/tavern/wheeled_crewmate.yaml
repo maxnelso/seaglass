@@ -34,3 +34,17 @@ scenarios:
       - start_turn
     expect:
       players: [{turn: 2, upgrade_cost: 3}, {turn: 2, upgrade_cost: 3}]
+
+  - name: in_combat_it_waits_for_the_tavern
+    description: >-
+      Upgrade costs need the Tavern: the team gift comes back in player 0's result, still
+      waiting, and the team's Tavern delivers it after the combat, once.
+    duos_tavern:
+      players:
+        - {board: [Wheeled Crewmate], upgrade_cost: 5}
+        - {upgrade_cost: 7}
+    steps:
+      - fight: {team: [["10/10"], []]}
+    expect:
+      combat: {team_a: {0: {auras: {to_teammate: {count: 1}}}}}
+      players: [{upgrade_cost: 4}, {upgrade_cost: 6}]

@@ -36,3 +36,25 @@ scenarios:
       - fight: {team: [["5/100"], []]}
     expect:
       players: {1: {hand: []}}
+
+  - name: the_minion_reaches_a_waiting_teammate_at_once
+    description: >-
+      Player 1's warband is waiting when the Narrator's Avenge gives them a Murloc of player 0's
+      Tier 1, here a Flighty Scout. It goes into player 1's combat hand at once: once player 0's
+      warband is out, player 1's steps in with it, and the Scout summons its copy. It comes back
+      with player 1's hand, and the Tavern doesn't give it a second time.
+    duos_tavern:
+      players:
+        - {tavern_tier: 1, board: ["1/1", "1/1", "1/1", Grave Narrator stealth]}
+        - {board: ["1/1 murloc"]}
+    steps:
+      - fight: {team: [["5/100"], []], seed: 11}
+    expect:
+      combat:
+        events:
+          sequence:
+            - {type: warband_stepped_in, team: a, player: 1}
+            - {type: unit_summoned, side: a, name: Flighty Scout}
+        team_a: {1: {fought: true, hand: [Flighty Scout]}}
+      players: {1: {hand: [Flighty Scout]}}
+      incoming: [[], []]

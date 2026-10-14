@@ -18,9 +18,11 @@
 //!   (`player_turn_start`, `player_start_of_combat`, ...).
 //! - **Duos hooks** fire when a card is Passed to the teammate (`passed`, `after_pass`,
 //!   `after_team_pass`), when the teammate sells (`after_teammate_sell`), and when a card's gift
-//!   reaches the teammate (`teammate_gift`; `docs/duos_tavern.md` §7).
+//!   reaches the teammate (`teammate_gift`, `teammate_combat_gift`; `docs/duos_tavern.md` §7).
 
-use crate::cards::{ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, RallyCtx};
+use crate::cards::{
+    ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, RallyCtx, TeammateWarband,
+};
 use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
@@ -452,6 +454,10 @@ card_hooks! {
     /// This card's `Effect` gift (`TeammateGift::Effect`), on a receiving Tavern: `(state,
     /// amount, rng)`. Returns the cards the receiver gets (they arrive like passed cards).
     teammate_gift(on_teammate_gift): fn(&mut TavernState, i32, &mut Rng) -> Vec<Unit>,
+    /// This card's `Effect` gift given in a Duos combat, on the receiving warband, at once
+    /// (`docs/duos.md` §2): `(warband, amount, rng)`. Without it, the gift waits for the
+    /// receiver's Tavern (`teammate_gift`).
+    teammate_combat_gift(on_teammate_combat_gift): fn(&mut TeammateWarband<'_>, i32, &mut Rng),
 }
 
 impl Default for CardHooks {

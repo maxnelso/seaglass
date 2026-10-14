@@ -317,6 +317,14 @@ impl CombatCastCtx<'_> {
     }
 }
 
+/// Duos: the teammate's warband as an `Effect` gift reaches it in combat (a
+/// `teammate_combat_gift` hook; `docs/duos.md` §2): its player's auras and its minions, a waiting
+/// warband's board or a done warband's survivors. It is not on the team's side: nothing is logged.
+pub struct TeammateWarband<'a> {
+    pub auras: &'a mut PlayerAuras,
+    pub minions: Vec<&'a mut Unit>,
+}
+
 /// Static definition of a purchasable minion in the shared card pool.
 #[derive(Clone, Debug)]
 pub struct CardTemplate {
@@ -2289,5 +2297,23 @@ pub fn apply_teammate_gift(
     match hooks(card_id).teammate_gift {
         Some(gift) => gift(state, amount, rng),
         None => Vec::new(),
+    }
+}
+
+/// The `Effect` gift of the card `card_id` reaches the teammate's `warband` in a Duos combat
+/// with `amount` (its `teammate_combat_gift` hook; `docs/duos.md` §2). Returns `false`, doing
+/// nothing, if the card has no such hook: the gift waits for the teammate's Tavern.
+pub fn apply_teammate_combat_gift(
+    warband: &mut TeammateWarband<'_>,
+    card_id: CardId,
+    amount: i32,
+    rng: &mut Rng,
+) -> bool {
+    match hooks(card_id).teammate_combat_gift {
+        Some(gift) => {
+            gift(warband, amount, rng);
+            true
+        }
+        None => false,
     }
 }
