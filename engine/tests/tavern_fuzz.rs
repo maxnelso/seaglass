@@ -55,6 +55,8 @@
 //!   (a combat's events too).
 //! - `SEAGLASS_FUZZ_STRICT=1`: fail on the known bugs too.
 //! - `SEAGLASS_FUZZ_STOP_AT_KNOWN=1`: end a game at a known bug instead of going on.
+//! - `SEAGLASS_FUZZ_CATALOG=<name>`: play every game on that catalog (`duos`: the Duos catalog, in
+//!   Solo Taverns of a Duos game), instead of `full` or a smaller one.
 //!
 //! A big run, in release with the debug assertions and overflow checks on:
 //!
@@ -76,6 +78,7 @@ use std::sync::{Mutex, Once};
 use std::time::{Duration, Instant};
 
 use seaglass::cards::{self, CardFlags};
+use seaglass::model::TeammateGift;
 use seaglass::{
     base_copies_for_tier, base_upgrade_cost, catalog_for, shop_capacity, BattleOutcome,
     BattleResult, CardPool, CardTemplate, DeityKind, Event, PlayerAuras, Rng, Side, TavernAction,
@@ -111,6 +114,8 @@ struct Settings {
     strict: bool,
     /// Go on past the failures of known bugs (`SEAGLASS_FUZZ_STOP_AT_KNOWN=1` stops there).
     continue_known: bool,
+    /// The catalog of every game (`SEAGLASS_FUZZ_CATALOG`), instead of a random one.
+    catalog: Option<&'static str>,
 }
 
 impl Settings {
@@ -124,6 +129,9 @@ impl Settings {
             out: std::env::var("SEAGLASS_FUZZ_OUT").ok(),
             strict: std::env::var("SEAGLASS_FUZZ_STRICT").is_ok_and(|v| v == "1"),
             continue_known: !std::env::var("SEAGLASS_FUZZ_STOP_AT_KNOWN").is_ok_and(|v| v == "1"),
+            catalog: std::env::var("SEAGLASS_FUZZ_CATALOG")
+                .ok()
+                .map(|c| &*Box::leak(c.into_boxed_str())),
         }
     }
 }
@@ -1066,7 +1074,19 @@ fn check_pool_leaks(
     let mut held: BTreeMap<u32, u32> = BTreeMap::new();
     for s in players {
         let prompts = s.discover_pending.iter().chain(&s.discover_queue).flatten();
-        for u in s.board.iter().chain(&s.hand).chain(&s.shop).chain(prompts) {
+        // A Duos card's gift waiting for the teammate (there is none in a Solo game).
+        let gifts = s.auras.to_teammate.iter().filter_map(|g| match g {
+            TeammateGift::Card(u) | TeammateGift::Pass(u) => Some(u),
+            TeammateGift::Effect { .. } => None,
+        });
+        for u in s
+            .board
+            .iter()
+            .chain(&s.hand)
+            .chain(&s.shop)
+            .chain(prompts)
+            .chain(gifts)
+        {
             if !u.is_spell {
                 let copies = if u.is_golden && !u.intrinsic_golden && !u.golden_from_effect {
                     3
@@ -1493,12 +1513,18 @@ struct Game {
 
 impl Game {
     fn new(seed: u64, settings: &Settings) -> Self {
-        let cfg = Config::random(seed, settings.turns);
+        let mut cfg = Config::random(seed, settings.turns);
+        if let Some(catalog) = settings.catalog {
+            cfg.catalog = catalog;
+        }
         let catalog = catalog_for(cfg.catalog).expect("known catalog");
         let pool = CardPool::new(catalog.clone());
+        // The Duos catalog's games are Solo games of a Duos match (`docs/duos_tavern.md` §8).
+        let duos_game = cfg.catalog.starts_with("duos");
         let mut players: Vec<TavernState> = (0..cfg.players)
             .map(|i| {
                 let mut p = TavernState::new().with_shop_spells(cfg.shop_spells);
+                p.auras.duos_game = duos_game;
                 p.armor = cfg.armor[i];
                 p.auras.deity.kind = cfg.deities[i];
                 p.auras.base_max_gold_bonus = cfg.rich;
