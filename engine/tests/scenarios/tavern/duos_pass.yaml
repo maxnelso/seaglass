@@ -1,0 +1,244 @@
+topic: Duos Tavern - Pass
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: a_pass_moves_a_hand_card_to_the_teammate_for_1_gold
+    duos_tavern:
+      players:
+        - {gold: 5, hand: [Joyous, Zoatroid]}
+        - {gold: 3}
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players:
+        - {gold: 4, gold_spent_this_turn: 1, hand: [Zoatroid]}
+        - {gold: 3, hand: [Joyous]}
+      passes_this_turn: 1
+      passes_this_game: 1
+      incoming: [[], []]
+
+  - name: a_pass_needs_1_gold
+    duos_tavern:
+      players: [{gold: 0, hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, expect_illegal: {pass: Joyous}}
+      - {player: 0, expect_error: {pass: Joyous}}
+      - {player: 0, set: {gold: 1}}
+      - {player: 0, expect_legal: {pass: Joyous}}
+    expect:
+      players: [{gold: 1, hand: [Joyous]}, {hand: []}]
+      passes_this_turn: 0
+
+  - name: there_is_no_limit_per_turn
+    duos_tavern:
+      players:
+        - {gold: 4, hand: [Joyous, Zoatroid, Flittering Bat, Wrath Weaver]}
+        - {}
+    steps:
+      - repeat: 4
+        steps: [{player: 0, pass: 0}]
+    expect:
+      players:
+        - {gold: 0, hand: []}
+        - {hand: [Joyous, Zoatroid, Flittering Bat, Wrath Weaver]}
+      passes_this_turn: 4
+
+  - name: both_teammates_can_pass
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [Joyous]}
+        - {gold: 1, hand: [Zoatroid]}
+    steps:
+      - {player: 1, pass: Zoatroid}
+      - {player: 0, pass: Joyous}
+    expect:
+      players:
+        - {gold: 0, hand: [Zoatroid]}
+        - {gold: 0, hand: [Joyous]}
+      passes_this_turn: 2
+
+  - name: a_passed_spell_arrives
+    duos_tavern:
+      players: [{gold: 1, hand: [Fortify]}, {}]   # a Tier 1 Tavern spell
+    steps:
+      - {player: 0, pass: Fortify}
+    expect:
+      players: [{hand: []}, {hand: [{card: Fortify, is_spell: true}]}]
+
+  - name: a_passed_golden_minion_arrives_golden_and_its_triple_reward_is_the_receivers
+    description: >-
+      Whoever plays a Golden gets its Triple Reward: the receiver, at Tavern Tier 3, Discovers a
+      Tier 4 minion.
+    duos_tavern:
+      players:
+        - {gold: 1, tavern_tier: 1, hand: ["golden Zoatroid 6/4"]}
+        - {tavern_tier: 3}
+    steps:
+      - {player: 0, pass: Zoatroid}
+      - expect: {players: {1: {hand: ["golden Zoatroid 6/4"]}}}
+      - {player: 1, play: Zoatroid}
+    expect:
+      players:
+        - {discover_pending: null}
+        - board: ["golden Zoatroid 6/4"]
+          discover_pending: {count: 3, all: {tavern_tier: 4}}
+
+  - name: the_receiver_can_play_the_passed_card_the_same_turn
+    duos_tavern:
+      players: [{gold: 1, hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 1, play: Joyous}
+    expect:
+      players: [{hand: []}, {hand: [], board: [Joyous]}]
+
+  - name: a_card_passed_after_the_receiver_ended_their_turn_waits_in_their_hand
+    duos_tavern:
+      players: [{gold: 1, hand: [Joyous]}, {}]
+    steps:
+      - {player: 1, end_turn}
+      - {player: 0, pass: Joyous}
+      - expect: {players: {1: {hand: [Joyous]}}, ended: [false, true]}
+      - {player: 1, expect_illegal: {play: Joyous}}
+      - {player: 0, end_turn}
+      - start_turn
+      - {player: 1, play: Joyous}
+    expect:
+      players: {1: {board: [Joyous], hand: []}}
+
+  - name: a_locked_card_cannot_be_passed_until_it_unlocks
+    description: The minion Search Through Time Discovered is locked until next turn.
+    seed: 813
+    duos_tavern:
+      players: [{gold: 5, tavern_tier: 3, hand: [Search Through Time]}, {}]
+    steps:
+      - {player: 0, play: Search Through Time}
+      - {player: 0, choose_discover: 0}
+      - expect: {players: {0: {hand: [{locked_turns: 1}]}}}
+      - {player: 0, expect_illegal: {pass: 0}}
+      - start_turn   # unlocks it
+      - {player: 0, pass: 0}
+    expect:
+      players: [{hand: []}, {hand: [{locked_turns: 0, is_spell: false}]}]
+
+  - name: a_lockbox_can_be_passed_and_opens_for_the_receiver
+    description: >-
+      A Lockbox isn't locked, only unplayable: it keeps counting down in the receiver's hand and
+      opens there.
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [{card: Lockbox, lockbox_turns_left: 1}]}
+        - {tavern_tier: 2}
+    steps:
+      - {player: 0, pass: Lockbox}
+      - expect: {players: {1: {hand: [{card: Lockbox, lockbox_turns_left: 1}]}}}
+      - start_turn   # it opens: a random Golden minion of the receiver's Tier with a type
+    expect:
+      players:
+        - {hand: []}
+        - hand: [{is_golden: true, tavern_tier: 2, tribe: {not: none}}]
+
+  - name: no_pass_while_the_passer_has_a_discover_pending
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [Joyous], discover_pending: [Zoatroid, Flittering Bat, Wrath Weaver]}
+        - {}
+    steps:
+      - {player: 0, expect_illegal: {pass: Joyous}}
+      - {player: 0, choose_discover: Zoatroid}
+      - {player: 0, pass: Joyous}
+    expect:
+      players: [{hand: [Zoatroid]}, {hand: [Joyous]}]
+
+  - name: the_receivers_pending_discover_does_not_stop_a_pass
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [Joyous]}
+        - {discover_pending: [Zoatroid, Flittering Bat, Wrath Weaver]}
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players: [{hand: []}, {hand: [Joyous], discover_pending: {count: 3}}]
+
+  - name: a_paid_pass_counts_as_gold_spent
+    description: >-
+      Lovesick Balladist's Battlecry is improved by each Gold spent this turn: the Pass's 1 Gold
+      makes it +2 +1 = +3 Health.
+    duos_tavern:
+      players:
+        - {gold: 1, board: [Southsea Busker], hand: [Joyous, Lovesick Balladist]}   # a 3/1 Pirate
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, play: Lovesick Balladist}
+    expect:
+      players:
+        - {gold: 0, gold_spent_this_turn: 1, board: ["Southsea Busker 3/4", Lovesick Balladist]}
+        - {hand: [Joyous]}
+
+  - name: a_free_pass_spends_no_gold
+    description: With Wanderer Cho's free Pass, Lovesick Balladist only gives its base +2 Health.
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Southsea Busker, Wanderer Cho], hand: [Joyous, Lovesick Balladist]}
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, play: Lovesick Balladist}
+    expect:
+      players:
+        - {gold: 0, gold_spent_this_turn: 0, board: ["Southsea Busker 3/3", Wanderer Cho, Lovesick Balladist]}
+        - {hand: [Joyous]}
+
+  - name: a_pass_is_not_a_discard
+    description: Cutthroat K'Thir grows whenever you discard a card; a Pass isn't one.
+    duos_tavern:
+      players: [{gold: 1, board: [Cutthroat K'Thir], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players:
+        - {auras: {cards_discarded: 0}, board: ["Cutthroat K'Thir 4/4"]}
+        - {hand: [Joyous]}
+
+  - name: the_passers_auras_come_off_and_the_receivers_go_on
+    description: >-
+      The Undead Attack bonus is a player's: Risen Rider has the passer's +3 in their hand and the
+      receiver's +1 in theirs.
+    duos_tavern:
+      players:
+        - {gold: 1, auras: {undead_bonus_attack: 3}, hand: [Risen Rider]}   # a 2/1 Undead
+        - {auras: {undead_bonus_attack: 1}}
+    steps:
+      - {player: 0, sync_all_auras}
+      - expect: {players: {0: {hand: ["Risen Rider 5/1"]}}}
+      - {player: 0, pass: Risen Rider}
+    expect:
+      players: {1: {hand: ["Risen Rider 3/1"]}}
+
+  - name: a_passed_card_leaves_its_group
+    description: >-
+      The receiver has a pair of their own (group 1: playing one discards the other). The passed
+      card was in the passer's group 1; in the receiver's hand it is a group of its own, so it
+      stays when their pair is used up.
+    duos_tavern:
+      players:
+        - gold: 1
+          hand: [{card: Joyous, willbreaker_group: 1, willbreaker_remaining: 1}]
+        - next_willbreaker_group: 2
+          hand:
+            - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
+            - {card: Tavern Coin, willbreaker_group: 1, willbreaker_remaining: 1}
+    steps:
+      - {player: 0, pass: Joyous}
+      - expect: {players: {1: {hand: {-1: {card: Joyous, willbreaker_group: 2}}}}}
+      - {player: 1, play: Tavern Coin}   # the other Coin is discarded
+    expect:
+      players: {1: {hand: [Joyous]}}
+
+  - name: a_solo_tavern_never_allows_a_pass
+    tavern: {gold: 10, hand: [Joyous]}
+    steps:
+      - expect_illegal: {pass: Joyous}
+      - expect_error: {pass: Joyous}
+    expect: {gold: 10, hand: [Joyous]}

@@ -1,0 +1,24 @@
+topic: Duos catalog
+scenarios:
+  - name: the_full_solo_pool_has_no_duos_exclusive_minion
+    tavern: {catalog: full}
+    expect: {pool: {Wanderer Cho: null, Joyous: 15}}
+
+  - name: the_tier_2_solo_pool_has_no_duos_exclusive_minion
+    tavern: {catalog: tier2}
+    expect: {pool: {Wanderer Cho: null, Brain Rotter: 15}}
+
+  - name: the_duos_pool_adds_the_duos_exclusive_minions
+    description: Wanderer Cho has a Tier 2 minion's 15 copies, on top of the full Solo pool.
+    duos_tavern: {catalog: duos}
+    steps:
+      - expect: {pool: {Wanderer Cho: 15, Joyous: 15}, pool_size: {capture: duos}}
+      - take_from_pool: Wanderer Cho
+    expect: {pool: {Wanderer Cho: 14}, pool_size: "$duos - 1"}
+
+  - name: a_duos_shop_can_offer_wanderer_cho
+    seed: 1
+    duos_tavern:
+      players: [{tavern_tier: 2}, {tavern_tier: 2}]
+    steps: [start_turn]
+    expect: {players: {0: {shop: {any: Wanderer Cho}}}}

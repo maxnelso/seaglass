@@ -1,0 +1,95 @@
+topic: Duos Tavern - triples with passed cards
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: a_passed_copy_triples_with_two_on_the_receivers_board
+    description: >-
+      The receiver gets the Golden in their hand, and playing it gives them the Triple Reward: a
+      Discover of their Tavern Tier + 1.
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [Zoatroid]}
+        - {tavern_tier: 2, board: [Zoatroid, Zoatroid]}
+    steps:
+      - {player: 0, pass: Zoatroid}
+      - expect: {players: {1: {board: [], hand: ["golden Zoatroid 6/4"]}}}
+      - {player: 1, play: Zoatroid}
+    expect:
+      players:
+        - {hand: [], discover_pending: null}
+        - board: ["golden Zoatroid 6/4"]
+          discover_pending: {count: 3, all: {tavern_tier: 3}}
+
+  - name: a_passed_copy_triples_with_one_on_the_board_and_one_in_hand
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [Zoatroid]}
+        - {board: [Zoatroid], hand: [Zoatroid]}
+    steps:
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: {1: {board: [], hand: ["golden Zoatroid 6/4"]}}
+
+  - name: a_passed_copy_triples_with_two_in_hand
+    duos_tavern:
+      players:
+        - {gold: 1, hand: [Zoatroid]}
+        - {hand: [Zoatroid, Joyous, Zoatroid]}
+    steps:
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: {1: {hand: [Joyous, "golden Zoatroid 6/4"]}}
+
+  - name: the_triple_reward_is_of_the_receivers_tier
+    description: The passer is at Tier 5, the receiver at Tier 1, so the Triple Reward is Tier 2.
+    duos_tavern:
+      players:
+        - {gold: 1, tavern_tier: 5, hand: [Zoatroid]}
+        - {tavern_tier: 1, board: [Zoatroid, Zoatroid]}
+    steps:
+      - {player: 0, pass: Zoatroid}
+      - {player: 1, play: Zoatroid}
+    expect:
+      players: {1: {discover_pending: {count: 3, all: {tavern_tier: 2}}}}
+
+  - name: the_golden_sums_the_buffs_of_all_three_copies
+    duos_tavern:
+      players:
+        - {gold: 1, hand: ["Zoatroid +2/+2"]}
+        - {board: ["Zoatroid +1/+0", Zoatroid]}
+    steps:
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: {1: {hand: ["golden Zoatroid 9/6"]}}   # 2 x 3/2, + 2/2 + 1/0
+
+  - name: the_passers_own_copies_do_not_count
+    description: The passer's two Zoatroids are theirs; the receiver has only the passed one.
+    duos_tavern:
+      players:
+        - {gold: 1, board: [Zoatroid, Zoatroid], hand: [Zoatroid]}
+        - {}
+    steps:
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players:
+        - {board: [Zoatroid, Zoatroid], hand: []}
+        - {hand: ["Zoatroid -golden"]}
+
+  - name: a_triple_completed_by_a_passed_card_frees_room_for_the_queue
+    description: >-
+      The receiver's full hand holds two Zoatroids. The first passed Zoatroid is queued, then
+      arrives when they play a card and triples: three cards become one Golden, so the next queued
+      card arrives at once.
+    duos_tavern:
+      players:
+        - {gold: 2, hand: [Zoatroid, Joyous]}
+        - {hand: [Zoatroid, Zoatroid, Wrath Weaver, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+                  Blood Gem, Blood Gem, Blood Gem]}
+    steps:
+      - {player: 0, pass: Zoatroid}
+      - {player: 0, pass: Joyous}
+      - expect: {incoming: [[], [Zoatroid, Joyous]]}
+      - {player: 1, play: Wrath Weaver}
+    expect:
+      incoming: [[], []]
+      players: {1: {hand: {count: 9, contains: ["golden Zoatroid 6/4", Joyous]}}}

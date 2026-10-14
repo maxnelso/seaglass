@@ -1,0 +1,92 @@
+topic: Duos Tavern - the incoming queue
+defaults:
+  duos_tavern:
+    catalog: duos
+    players:
+      - {gold: 3, hand: [Joyous, Zoatroid, Flittering Bat]}
+      # A full hand: two minions to play, then Blood Gems.
+      - {hand: [Wrath Weaver, Cord Puller, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+                Blood Gem, Blood Gem, Blood Gem]}
+scenarios:
+  - name: a_pass_to_a_full_hand_queues
+    description: The passer pays and loses the card at once; it waits in the receiver's queue.
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players:
+        - {gold: 2, hand: [Zoatroid, Flittering Bat]}
+        - {hand: {count: 10, none: Joyous}}
+      incoming: [[], [Joyous]]
+      passes_this_turn: 1
+
+  - name: the_queued_card_arrives_when_the_receiver_plays_a_card
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 1, play: Wrath Weaver}
+    expect:
+      players: {1: {board: [Wrath Weaver], hand: {count: 10, -1: Joyous}}}
+      incoming: [[], []]
+
+  - name: the_receiver_can_play_a_queued_card_once_it_arrives
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 1, play: Wrath Weaver}
+      - {player: 1, play: Joyous}
+    expect:
+      players: {1: {board: [Wrath Weaver, Joyous], hand: {count: 9}}}
+
+  - name: queued_cards_arrive_in_order_as_room_opens
+    steps:
+      - repeat: 3
+        steps: [{player: 0, pass: 0}]
+      - expect: {incoming: [[], [Joyous, Zoatroid, Flittering Bat]]}
+      - {player: 1, play: Wrath Weaver}
+      - expect:
+          incoming: [[], [Zoatroid, Flittering Bat]]
+          players: {1: {hand: {-1: Joyous}}}
+      - {player: 1, play: Cord Puller}
+    expect:
+      incoming: [[], [Flittering Bat]]
+      players: {1: {hand: {count: 10, sequence: [Joyous, Zoatroid]}}}
+
+  - name: a_queued_card_completes_a_triple_on_arrival
+    description: >-
+      The receiver has two Zoatroids on their board. The passed one waits in the queue, where it
+      doesn't count, and completes the triple when it arrives.
+    duos_tavern:
+      players:   # (lists replace the defaults')
+        - {gold: 1, hand: [Zoatroid]}
+        - board: [Zoatroid, Zoatroid]
+          hand: [Wrath Weaver, Cord Puller, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+                 Blood Gem, Blood Gem, Blood Gem]
+    steps:
+      - {player: 0, pass: Zoatroid}
+      - expect:
+          incoming: [[], [Zoatroid]]
+          players: {1: {board: [Zoatroid, Zoatroid], hand: {none: {is_golden: true}}}}
+      - {player: 1, play: Wrath Weaver}
+    expect:
+      incoming: [[], []]
+      players: {1: {board: [Wrath Weaver], hand: {count: 10, -1: "golden Zoatroid 6/4"}}}
+
+  - name: the_queue_lasts_into_the_next_turn
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, end_turn}
+      - {player: 1, end_turn}
+      - start_turn   # the hand is still full: Joyous stays queued
+      - expect: {incoming: [[], [Joyous]]}
+      - {player: 1, play: Wrath Weaver}
+    expect:
+      incoming: [[], []]
+      players: {1: {hand: {-1: Joyous}}}
+
+  - name: the_queue_delivers_at_the_start_of_the_turn
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 1, clear: hand}   # setup: room without an action, so nothing arrives yet
+      - expect: {incoming: [[], [Joyous]], players: {1: {hand: []}}}
+      - start_turn
+    expect:
+      incoming: [[], []]
+      players: {1: {hand: [Joyous]}}

@@ -1,0 +1,160 @@
+topic: Duos Tavern - the team's combat
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: a_lost_combat_damages_the_teams_pool_armor_first
+    description: >-
+      The opponent's first warband kills both of the team's: its player's Tier 5 plus its
+      survivors' Tiers 4 and 3 is 12 damage, 3 of it to the team's Armor.
+    duos_tavern:
+      armor: 3
+      players: [{board: ["1/1"]}, {board: ["1/1"]}]
+    steps:
+      - fight:
+          team: [{board: ["5/5 t4", "5/5 t3"], hero_tier: 5}, []]
+    expect:
+      combat: {outcome: b_win, hero_damage: 12}
+      armor: 0
+      health: 21
+      players:
+        - {health: 21, armor: 0, last_combat_lost: true}
+        - {health: 21, armor: 0, last_combat_lost: true}
+
+  - name: a_won_combat_costs_the_team_nothing
+    description: The team's result is both players', even the one whose warband sat out.
+    duos_tavern:
+      players: [{board: ["10/10"]}, {board: ["1/1"]}]
+    steps:
+      - fight: {team: [["2/2"], []]}
+    expect:
+      combat: {outcome: a_win, team_a: [{fought: true}, {fought: false}]}
+      health: 30
+      players: [{last_combat_won: true}, {last_combat_won: true}]
+
+  - name: the_first_fighter_fights_first
+    duos_tavern:
+      first_fighter: 1
+      players: [{board: ["1/1"]}, {board: ["2/2"]}]
+    steps:
+      - fight: {team: [["1/1"], []]}
+    expect:
+      combat:
+        events: {where: {type: warband_stepped_in}, 0: {team: a, player: 1}}
+
+  - name: a_card_gained_in_combat_goes_to_its_player
+    description: Player 0's Roadboar attacks once and gets a Blood Gem for player 0 only.
+    seeds: "1..=4"
+    duos_tavern:
+      players:
+        - {board: [Roadboar]}   # a 2/4: Rally: get a Blood Gem
+        - {board: [Roadboar]}
+    steps:
+      - fight: {team: [["1/3"], []]}
+    expect:
+      combat: {outcome: a_win, team_a: [{fought: true}, {fought: false}]}
+      players: [{hand: [Blood Gem]}, {hand: []}]
+
+  - name: a_hand_buff_from_combat_stays_with_its_player
+    description: >-
+      Player 0's Very Hungry Winterfinner buffs a minion in player 0's hand whenever it takes
+      damage; player 1's hand keeps its Zoatroid as it was, though player 1's warband fought too.
+    seeds: "1..=4"
+    duos_tavern:
+      players:
+        - {board: [Very Hungry Winterfinner], hand: [Zoatroid]}   # a 2/6 Taunt
+        - {board: ["10/10"], hand: [Zoatroid]}
+    steps:
+      - fight: {team: [["3/3"], []]}
+    expect:
+      combat: {outcome: a_win, team_a: [{fought: true}, {fought: true}]}
+      players:
+        - {hand: [{card: Zoatroid, attack: "> 3"}]}
+        - {hand: ["Zoatroid 3/2"]}
+
+  - name: each_warband_keeps_its_own_combat_stats
+    description: >-
+      In both warbands, Hopebringer gives Tarecgosa +4/+3 at Start of Combat, and each player's
+      Tarecgosa permanently keeps what it gained (player 1's when its warband steps in).
+    duos_tavern:
+      players:
+        - {board: [Hopebringer, Tarecgosa]}
+        - {board: [Hopebringer, Tarecgosa]}
+    steps:
+      - fight: {team: [["12/60"], []]}
+    expect:
+      combat: {outcome: b_win, team_a: [{fought: true}, {fought: true}]}
+      players:
+        - {board: ["Hopebringer 4/3", "Tarecgosa 8/7"]}
+        - {board: ["Hopebringer 4/3", "Tarecgosa 8/7"]}
+
+  - name: a_warband_that_sat_out_keeps_its_next_combat_effects
+    description: >-
+      Player 1's Upper Hand ("at the start of your next combat") doesn't trigger while player 1's
+      warband sits out, and it outlasts the start of the turn; it triggers in the next combat
+      player 1's warband fights.
+    duos_tavern:
+      first_fighter: 0
+      players:
+        - {board: ["10/10"]}
+        - {board: ["1/1"], auras: {effects: [{card: Upper Hand, duration: Turn}]}}
+    steps:
+      - fight: {team: [["2/2"], []]}
+      - expect:
+          combat: {team_a: [{fought: true}, {fought: false}]}
+          sat_out: [false, true]
+          players: {1: {auras: {effect_stacks: {Upper Hand: 1}}}}
+      - start_turn
+      - expect:
+          sat_out: [false, false]
+          players: {1: {auras: {effect_stacks: {Upper Hand: 1}}}}
+      - set: {first_fighter: 1}
+      - fight: {team: [["2/2"], []]}
+    expect:
+      combat: {outcome: a_win, team_a: {1: {fought: true}}}
+      players: {1: {auras: {effect_stacks: {Upper Hand: 0}}}}
+
+  - name: a_fighting_warband_uses_its_next_combat_effects
+    duos_tavern:
+      players:
+        - {board: ["10/10"], auras: {effects: [{card: Upper Hand, duration: Turn}]}}
+        - {board: ["1/1"]}
+    steps:
+      - fight: {team: [["2/2"], []]}
+    expect:
+      players: {0: {auras: {effect_stacks: {Upper Hand: 0}}}}
+
+  - name: combat_damage_triggers_both_players_hero_damage_minions
+    description: >-
+      Both players' heroes take the team's 12 damage, so both Eredar Escapists get three
+      Corrupted Cupcakes.
+    duos_tavern:
+      players: [{board: [Eredar Escapist]}, {board: [Eredar Escapist]}]
+    steps:
+      - fight: {team: [{board: ["50/50 t6"], hero_tier: 6}, []]}
+    expect:
+      combat: {outcome: b_win, hero_damage: 12}
+      health: 18
+      players:
+        - {hand: {count: 3, all: Corrupted Cupcakes}}
+        - {hand: {count: 3, all: Corrupted Cupcakes}}
+
+  - name: a_team_knocked_to_0_by_a_combat_is_out
+    duos_tavern:
+      health: 5
+      players: [{board: ["1/1"]}, {}]
+    steps:
+      - fight: {team: [{board: ["5/5 t4"], hero_tier: 3}, []]}
+    expect: {health: -2, out: true}
+
+  - name: queued_cards_are_not_in_the_warbands_hand
+    duos_tavern:
+      players:
+        - {gold: 1, board: ["10/10"], hand: [Joyous]}
+        - {hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+                  Blood Gem, Blood Gem, Blood Gem]}
+    steps:
+      - {player: 0, pass: Joyous}
+      - fight: {team: [["2/2"], []]}
+    expect:
+      combat: {team_a: {1: {hand: {count: 10, none: Joyous}}}}
+      incoming: [[], [Joyous]]

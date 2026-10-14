@@ -1,4 +1,6 @@
 card: Wanderer Cho
+defaults:
+  duos_tavern: {catalog: duos}
 scenarios:
   # Its free Passes are charges (docs/duos_tavern.md §5.2); Passes themselves need a Duos team.
   - name: has_one_free_pass_each_turn
@@ -18,3 +20,146 @@ scenarios:
       - set: {board: {0: {charges: 0}}}
       - start_turn
     expect: {board: [{card: Wanderer Cho, is_golden: true, charges: 2}]}
+
+  # In a Duos team (docs/duos_tavern.md §5.2).
+  - name: one_pass_each_turn_is_free
+    description: With Wanderer Cho on the board, the first Pass costs no Gold; the second costs 1.
+    duos_tavern:
+      players:
+        - {gold: 1, board: [Wanderer Cho], hand: [Joyous, Zoatroid]}
+        - {}
+    steps:
+      - expect: {free_passes: [1, 0]}
+      - {player: 0, pass: Joyous}
+      - expect:
+          free_passes: [0, 0]
+          players: {0: {gold: 1, gold_spent_this_turn: 0}}
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players:
+        - {gold: 0, gold_spent_this_turn: 1, hand: [], board: [{card: Wanderer Cho, charges: 0}]}
+        - {hand: [Joyous, Zoatroid]}
+      passes_this_turn: 2
+
+  - name: a_free_pass_needs_no_gold
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Wanderer Cho], hand: [Joyous, Zoatroid]}
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, expect_illegal: {pass: Zoatroid}}   # no free Pass left, no Gold
+    expect:
+      players: [{gold: 0, hand: [Zoatroid]}, {hand: [Joyous]}]
+
+  - name: a_free_pass_is_used_before_gold
+    duos_tavern:
+      players: [{gold: 5, board: [Wanderer Cho], hand: [Joyous]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}
+    expect:
+      players: [{gold: 5, gold_spent_this_turn: 0}, {hand: [Joyous]}]
+      free_passes: [0, 0]
+
+  - name: two_chos_give_two_free_passes
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Wanderer Cho, Wanderer Cho], hand: [Joyous, Zoatroid, Flittering Bat]}
+        - {}
+    steps:
+      - expect: {free_passes: [2, 0]}
+      - {player: 0, pass: Joyous}
+      - {player: 0, pass: Zoatroid}
+      - {player: 0, expect_illegal: {pass: Flittering Bat}}
+    expect:
+      players:
+        - {gold: 0, hand: [Flittering Bat], board: [{charges: 0}, {charges: 0}]}
+        - {hand: [Joyous, Zoatroid]}
+
+  - name: a_golden_cho_is_8_6_and_gives_two_free_passes
+    description: The third copy triples into an 8/6 Golden Wanderer Cho, whose two free Passes are there at once.
+    duos_tavern:
+      players:
+        - {gold: 0, hand: [Wanderer Cho, Wanderer Cho, Joyous, Zoatroid, Flittering Bat]}
+        - {}
+    steps:
+      - {player: 0, add_to_hand: Wanderer Cho}
+      - expect: {players: {0: {hand: {-1: "golden Wanderer Cho 8/6"}}}}
+      - {player: 0, play: Wanderer Cho}
+      - expect: {free_passes: [2, 0]}
+      - {player: 0, choose_discover: 0}   # its Triple Reward first
+      - {player: 0, pass: Joyous}
+      - {player: 0, pass: Zoatroid}
+      - {player: 0, expect_illegal: {pass: Flittering Bat}}
+    expect:
+      players:
+        - {gold: 0, board: ["golden Wanderer Cho 8/6"], hand: {count: 2, 0: Flittering Bat}}
+        - {hand: [Joyous, Zoatroid]}
+
+  - name: the_free_passes_come_back_each_turn
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Wanderer Cho, "golden Wanderer Cho 8/6"], hand: [Joyous, Zoatroid, Flittering Bat, Wrath Weaver]}
+        - {}
+    steps:
+      - {player: 0, set: {board: {0: {charges: 0}, 1: {charges: 0}}}}   # used this turn
+      - expect: {free_passes: [0, 0]}
+      - start_turn   # 3 Gold; the Cho has 1 free Pass again, the Golden Cho 2
+      - expect: {free_passes: [3, 0], players: {0: {gold: 3}}}
+      - {player: 0, pass: Joyous}
+      - {player: 0, pass: Zoatroid}
+      - {player: 0, pass: Flittering Bat}
+      - expect: {free_passes: [0, 0], players: {0: {gold: 3, gold_spent_this_turn: 0}}}
+      - {player: 0, pass: Wrath Weaver}
+    expect:
+      players:
+        - {gold: 2, gold_spent_this_turn: 1, hand: []}
+        - {hand: [Joyous, Zoatroid, Flittering Bat, Wrath Weaver]}
+
+  - name: a_cho_played_this_turn_gives_its_free_pass_at_once
+    duos_tavern:
+      players: [{gold: 0, hand: [Wanderer Cho, Joyous]}, {}]
+    steps:
+      - {player: 0, play: Wanderer Cho}
+      - {player: 0, pass: Joyous}
+    expect:
+      players: [{gold: 0, board: [Wanderer Cho], hand: []}, {hand: [Joyous]}]
+
+  - name: a_cho_made_golden_this_turn_gains_its_second_free_pass
+    description: >-
+      Its free Pass is used; Captain Sanders makes it Golden, which gives it the second one at
+      once.
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Wanderer Cho], hand: [Joyous, Captain Sanders, Zoatroid]}
+        - {}
+    steps:
+      - {player: 0, pass: Joyous}
+      - {player: 0, play: Captain Sanders}
+      - expect: {free_passes: [1, 0], players: {0: {board: {0: "golden Wanderer Cho 8/6"}}}}
+      - {player: 0, pass: Zoatroid}
+    expect:
+      players: [{gold: 0, hand: []}, {hand: [Joyous, Zoatroid]}]
+
+  - name: a_sold_cho_takes_its_free_pass_with_it
+    duos_tavern:
+      players: [{gold: 0, board: [Wanderer Cho], hand: [Joyous]}, {}]
+    steps:
+      - expect: {free_passes: [1, 0]}
+      - {player: 0, sell: Wanderer Cho}   # +1 Gold
+      - expect: {free_passes: [0, 0]}
+      - {player: 0, pass: Joyous}
+    expect:
+      players: [{gold: 0, gold_spent_this_turn: 1}, {hand: [Joyous]}]
+
+  - name: a_teammates_cho_does_not_make_your_passes_free
+    description: Teammates' minions are not friendly to each other.
+    duos_tavern:
+      players:
+        - {gold: 0, hand: [Joyous]}
+        - {board: [Wanderer Cho]}
+    steps:
+      - expect: {free_passes: [0, 1]}
+      - {player: 0, expect_illegal: {pass: Joyous}}
+    expect:
+      players: [{hand: [Joyous]}, {hand: []}]
