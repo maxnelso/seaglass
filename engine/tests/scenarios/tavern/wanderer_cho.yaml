@@ -125,6 +125,18 @@ scenarios:
     expect:
       players: [{gold: 0, board: [Wanderer Cho], hand: []}, {hand: [Joyous]}]
 
+  - name: a_cho_played_after_a_paid_pass_still_gives_its_free_pass
+    duos_tavern:
+      players: [{gold: 1, hand: [Joyous, Wanderer Cho, Zoatroid]}, {}]
+    steps:
+      - {player: 0, pass: Joyous}   # paid: no Cho yet
+      - {player: 0, play: Wanderer Cho}
+      - {player: 0, pass: Zoatroid}   # free
+    expect:
+      players:
+        - {gold: 0, gold_spent_this_turn: 1, hand: [], board: [{card: Wanderer Cho, charges: 0}]}
+        - {hand: [Joyous, Zoatroid]}
+
   - name: a_cho_made_golden_this_turn_gains_its_second_free_pass
     description: >-
       Its free Pass is used; Captain Sanders makes it Golden, which gives it the second one at

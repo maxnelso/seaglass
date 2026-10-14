@@ -123,20 +123,46 @@ scenarios:
     expect:
       players: {0: {auras: {effect_stacks: {Upper Hand: 0}}}}
 
-  - name: combat_damage_triggers_both_players_hero_damage_minions
+  - name: combat_damage_triggers_no_hero_damage_minions
     description: >-
-      Both players' heroes take the team's 12 damage, so both Eredar Escapists get three
-      Corrupted Cupcakes.
+      Losing a fight takes the team's 12 damage without any "your hero takes damage" minion
+      reacting, for either player: Soul Rewinder doesn't rewind it, Ashen Corruptor and
+      Tichondrius don't trigger, and Eredar Escapist doesn't count it (pending).
     duos_tavern:
-      players: [{board: [Eredar Escapist]}, {board: [Eredar Escapist]}]
+      players:
+        - {board: [Soul Rewinder, Eredar Escapist]}
+        - {board: [Tichondrius, Ashen Corruptor]}
     steps:
       - fight: {team: [{board: ["50/50 t6"], hero_tier: 6}, []]}
     expect:
       combat: {outcome: b_win, hero_damage: 12}
       health: 18
       players:
-        - {hand: {count: 3, all: Corrupted Cupcakes}}
-        - {hand: {count: 3, all: Corrupted Cupcakes}}
+        - {board: ["Soul Rewinder 4/2", {card: Eredar Escapist, counter: 0}], hand: []}
+        - {board: ["Tichondrius 4/4", "Ashen Corruptor 6/6"], hand: []}
+
+  - name: a_warband_that_sat_out_takes_the_teams_result_after_combat
+    description: >-
+      Player 1's warband sits out while player 0's wins: player 1's Overconfidence ("after your
+      next combat, get 3 Gold next turn if you won") and Winner's Bread ("if you win your next
+      combat") count the team's win.
+    duos_tavern:
+      players:
+        - {board: ["10/10"]}
+        - board: [{card: Zoatroid, winners_bread_stacks: 1}]
+          auras: {effects: [{card: Overconfidence, duration: Turn}]}
+    steps:
+      - fight: {team: [["2/2"], []]}
+      - expect:
+          combat: {outcome: a_win, team_a: [{fought: true}, {fought: false}]}
+          players:
+            1:
+              last_combat_won: true
+              bonus_gold_next_turn: 3
+              auras: {effect_stacks: {Overconfidence: 0}}
+      - start_turn
+    expect:
+      players: {1: {gold: 6, board: ["Zoatroid 4/3"]}}   # 3 + 3 Gold; a Blood Gem
 
   - name: a_team_knocked_to_0_by_a_combat_is_out
     duos_tavern:

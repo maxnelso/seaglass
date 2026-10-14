@@ -25,6 +25,11 @@ pub const DEFAULT_FIRST_FIGHTER_SWITCH_CHANCE: f64 = 0.75;
 /// A player's hand limit (`docs/tavern.md` §3.2).
 const MAX_HAND_SIZE: usize = 10;
 
+/// Whether the team's combat damage counts for the players' "after your hero takes damage"
+/// minions (`Eredar Escapist`): not yet, pending the user's answer for Solo
+/// (`docs/duos_tavern.md` §3.5).
+const COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE: bool = false;
+
 /// Salts of the RNGs that resolve each player's hand cards that became ready in combat
 /// (`docs/duos_tavern.md` §6.2), by team (side A, side B) and player.
 const READY_SALTS: [[u64; 2]; 2] = [
@@ -218,10 +223,10 @@ impl DuosTavern {
         !Self::is_locked(card) && (self.free_passes(player) > 0 || state.gold >= 1)
     }
 
-    /// A locked card can't be passed (§5.3): one locked until next turn (`Search Through
-    /// Time`). A `Lockbox` waiting to open isn't locked.
+    /// A locked card can't be passed (§5.3): one locked until next turn (`Search Through Time`)
+    /// or still in a `Lockbox`.
     fn is_locked(card: &Unit) -> bool {
-        card.locked_turns > 0
+        card.locked_turns > 0 || card.lockbox_turns_left > 0
     }
 
     /// `player` takes `action` (§4.2): a Pass, or an action of their own Tavern. Returns
@@ -429,22 +434,30 @@ impl DuosTavern {
         }
         self.settle();
         if result == CombatResult::Lost {
-            let dmg = res.hero_damage as i32;
-            let absorbed = dmg.min(self.armor.max(0));
-            self.armor -= absorbed;
-            let net_dmg = dmg - absorbed;
-            self.health -= net_dmg;
-            self.mirror();
-            // Both players' heroes took the team's damage (§3.5).
-            if net_dmg > 0 {
-                for state in &mut self.players {
-                    cards::after_hero_damage(state, net_dmg);
-                }
-                self.settle();
-            }
+            self.take_combat_damage(res.hero_damage);
         }
         for state in &mut self.players {
             state.sync_all_auras();
+        }
+    }
+
+    /// The team lost a combat: its pool takes `damage`, Armor first (§3.5). No "your hero takes
+    /// damage" minion reacts to combat damage (`Soul Rewinder` doesn't rewind it, `Ashen
+    /// Corruptor` and `Tichondrius` don't trigger), and whether the "after your hero takes
+    /// damage" ones count it (`Eredar Escapist`) is decided here, once:
+    /// [`COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE`].
+    fn take_combat_damage(&mut self, damage: u32) {
+        let dmg = damage as i32;
+        let absorbed = dmg.min(self.armor.max(0));
+        self.armor -= absorbed;
+        let net_dmg = dmg - absorbed;
+        self.health -= net_dmg;
+        self.mirror();
+        if COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE && net_dmg > 0 {
+            for state in &mut self.players {
+                cards::after_hero_damage(state, net_dmg);
+            }
+            self.settle();
         }
     }
 }

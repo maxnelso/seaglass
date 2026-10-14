@@ -54,7 +54,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
    - "Set your Armor to 5" (`Armor Stash`) sets the team's Armor **(engine decision)**.
    - "If you have 15 or less Health" (`Holy Vanguard`) reads the team's Health, for both players.
 4. **Per-player triggers** **(confirmed)**. When a player pays Health or takes hero damage in the Tavern, the pool goes down, but only **that player's** "your hero takes damage" minions trigger (`Soul Rewinder`, `Ashen Corruptor`, `Tichondrius` rewind or react; `Eredar Escapist` counts it). The teammate's don't. A rewind (`Soul Rewinder`) gives the pool its Health back.
-5. **Combat damage** goes to the losing team's pool **(confirmed)**, once (§6.2). Both players' heroes take it, so both players' "after your hero takes damage" minions see it (`Eredar Escapist`) **(engine decision)**.
+5. **Combat damage** goes to the losing team's pool **(confirmed)**, once (§6.2), Armor first. As in Solo, no "your hero takes damage" minion reacts to it: `Soul Rewinder` doesn't rewind it, `Ashen Corruptor` and `Tichondrius` don't trigger, for either player **(confirmed)**. Whether the "after your hero takes damage" ones count it (`Eredar Escapist`, which counts Solo combat damage) is pending; for now they don't, for either player **(engine decision)**, decided in one place (`DuosTavern::take_combat_damage`).
 6. **A team at 0** (or less) Health is out **(confirmed)**: `DuosTavern::is_out()`. Ending the match is the caller's job (§1).
 
 ---
@@ -103,14 +103,15 @@ Any card can be passed: a minion or a spell, Golden or not **(confirmed)**. Ther
 ### 5.2 Cost and Free Passes
 
 - A Pass costs **1 Gold** **(confirmed)**, paid like any Gold cost (`TavernState::spend_gold`): it counts as Gold spent this turn (`gold_spent_this_turn`, `Lovesick Balladist`) and for the minions that react to spent Gold **(confirmed)**.
-- **Free Passes** **(confirmed)**: each `Wanderer Cho` on the board makes one Pass each turn free (a Golden one, two). Two Chos make two free Passes, and they come back each turn. A free Pass costs nothing and spends no Gold **(confirmed)**.
-- The engine sees a free Pass as a charge: a minion with `CardFlags::FREE_PASS` and `charges` left (`Wanderer Cho`: `1` each turn, `2` if Golden, reset at the start of the turn by its `reset_turn_charges`). A Pass uses a charge of the left-most such minion if there is one, else costs 1 Gold: a free Pass is always used first **(engine decision)**. So a Cho played mid-turn has its free Pass at once, a Cho made Golden mid-turn gains its second one, and a sold Cho takes its unused one with it (as `Thorned Trailblazer`'s charges do) **(engine decision)**.
+- **Free Passes** **(confirmed)**: each `Wanderer Cho` on the board makes one Pass each turn free (a Golden one, two). Two Chos make two free Passes, and they come back each turn. A free Pass costs nothing and spends no Gold.
+- Each Cho tracks its own free Pass, and a free Pass is always used before paying **(confirmed)**. So a Cho played mid-turn gives its free Pass at once, even after Passes were paid for this turn; a Cho made Golden mid-turn gains its second one; a sold Cho loses its unused one **(confirmed)**.
+- The engine sees a free Pass as a charge: a minion with `CardFlags::FREE_PASS` and `charges` left (`Wanderer Cho`: `1` each turn, `2` if Golden, reset at the start of the turn by its `reset_turn_charges`, `+1` when made Golden, as `Thorned Trailblazer`'s charges). A Pass uses a charge of the left-most such minion if there is one, else costs 1 Gold.
 
 ### 5.3 What Moves
 
 - The card leaves the passer's hand at once **(confirmed)**. A Pass is neither a play nor a discard: no Battlecry, no "whenever you discard" trigger **(engine decision)**.
 - It keeps its stats, buffs, keywords and Golden status **(confirmed: a passed Golden arrives Golden)**. A player's "wherever this is" auras come off as it arrives and the receiver's go on: they are player effects, and teammates are not friendly **(engine decision)**.
-- **Locked cards can't be passed** **(confirmed)**. A card is locked while `locked_turns > 0`: a minion `Search Through Time` Discovered is locked until the next turn. A `Lockbox` (`lockbox_turns_left`, `Bilgewater Breakout`) is not locked: it is a card waiting to open, so it can be passed and keeps counting down in the receiver's hand, where it opens for them **(engine decision)**.
+- **Locked cards can't be passed** **(confirmed)**: a card locked until the next turn (`locked_turns > 0`: the minion `Search Through Time` Discovered), and a card still in a `Lockbox` (`lockbox_turns_left > 0`, `Bilgewater Breakout`).
 - A card of a group (the spells of a `Wandering Willbreaker`, the Aberrations of a `Faceless Operative`: `tavern.md` §6, card groups) leaves its group: the rest stay with the passer, and the passed card is a group of its own in the receiver's hand **(engine decision)**.
 
 ### 5.4 Arrival and the Queue
@@ -156,13 +157,13 @@ Each player's `WarbandResult` comes back to **their own** Tavern exactly as a So
 4. their hand cards that became ready (a sped-up `Lockbox`), with an RNG derived from the seed and the player;
 5. what their minions keep from combat (`Tarecgosa`, permanent gains, improvements), matched by unit id;
 6. their triple check;
-7. `last_combat_won` / `last_combat_lost`: the team's result, for both players (`Winner's Bread`, `Tortollan Blue Shell`) **(engine decision for a warband that sat out: the team's combat is its combat)**.
+7. `last_combat_won` / `last_combat_lost`: the team's result, for both players (`Winner's Bread`, `Tortollan Blue Shell`), even one whose warband sat out: the team's combat is its combat **(confirmed)**.
 
-Then the **damage**: if the team lost, its pool takes `hero_damage` once, Armor first **(confirmed)**; both players' "after your hero takes damage" minions see it (§3.5).
+Then the **damage**: if the team lost, its pool takes `hero_damage` once, Armor first **(confirmed)**; no "your hero takes damage" minion reacts to it (§3.5).
 
 ### 6.3 A Warband That Sat Out
 
-A warband that never fought (its teammate won alone, or it had nothing to fight with) comes back unchanged (`duos.md` §6). It **keeps its next-combat effects** **(confirmed)**: its player's Start of Combat effects (`Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`: "at the start of your next combat") never triggered, so they wait for the next combat it fights. They last until the start of the turn (`EffectDuration::Turn`), so at the next start of turn the team keeps that player's unused Start of Combat effects (those whose card has a `player_start_of_combat` or `player_combat_space` hook) instead of letting them expire **(engine decision: how)**. Its after-combat effects (`Overconfidence`) resolve with the team's result like its teammate's (§6.2) **(engine decision)**.
+A warband that never fought (its teammate won alone, or it had nothing to fight with) comes back unchanged (`duos.md` §6). It **keeps its next-combat effects** **(confirmed)**: its player's Start of Combat effects (`Upper Hand`, `Brood of Nozdormu`, `Sharing is Caring`: "at the start of your next combat") never triggered, so they wait for the next combat it fights. They last until the start of the turn (`EffectDuration::Turn`), so at the next start of turn the team keeps that player's unused Start of Combat effects (those whose card has a `player_start_of_combat` or `player_combat_space` hook) instead of letting them expire **(engine decision: how)**. Its "after your next combat" effects (`Overconfidence`) and `Winner's Bread` use the team's result, like its teammate's (§6.2) **(confirmed)**.
 
 ---
 
@@ -208,7 +209,7 @@ The Python bindings (`DuosTavernGame`, `TavernAction.pass_card`, `simulate_duos`
 
 ## 11. Decisions
 
-The rules the user settled are marked **(confirmed)** above: 4 teams of 2, separate Taverns and one pool, teammates not friendly and effects per player; one Health pool of 30 plus both heroes' Armor; per-player hero-damage triggers; simultaneous turns, arrival at once, the turn ending when both have ended; the random first fighter that usually switches; Pass from hand to hand for 1 Gold (Gold spent), with no limit, any card but locked ones; the free Passes of `Wanderer Cho`; the unbounded incoming queue; triples completed by passed cards, with the receiver's Golden and Triple Reward; combat damage to the losing team's pool; a sat-out warband keeping its next-combat effects; Duos-exclusive cards only in Duos pools.
+The rules the user settled are marked **(confirmed)** above: 4 teams of 2, separate Taverns and one pool, teammates not friendly and effects per player; one Health pool of 30 plus both heroes' Armor; per-player hero-damage triggers, and none for combat damage; simultaneous turns, arrival at once, the turn ending when both have ended; the random first fighter that usually switches; Pass from hand to hand for 1 Gold (Gold spent), with no limit, any card but locked ones (`Search Through Time`, a `Lockbox`); the free Passes of `Wanderer Cho`, one per Cho, used before paying; the unbounded incoming queue; triples completed by passed cards, with the receiver's Golden and Triple Reward; combat damage to the losing team's pool; the team's result for both players; a sat-out warband keeping its next-combat effects; Duos-exclusive cards only in Duos pools.
 
 Engine decisions, pending the user's confirmation (each is one place in `src/duos_tavern.rs` unless noted):
 
@@ -216,26 +217,20 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 | :--- | :--- | :--- |
 | Mirrored Health | Each player's `health`/`armor` hold the team's, copied in and out around each action (§3.3). | `DuosTavern::mirror`, `settle` |
 | Team Armor | "Set your Armor" sets the team's (§3.3). | (falls out of the mirror) |
-| Combat damage triggers | Both players' "after your hero takes damage" minions see the team's combat damage (§3.5). | `DuosTavern::apply_results` |
+| Combat damage and `Eredar Escapist` | The "after your hero takes damage" minions don't count the team's combat damage, for either player (§3.5), pending the Solo answer. | `COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE`, `DuosTavern::take_combat_damage` |
 | Start-of-turn order | Player 0's start of turn, then player 1's (§4.1). | `DuosTavern::start_turn` |
 | After `EndTurn` | No more actions that turn; passed cards still arrive (§4.2). | `DuosTavern::is_legal` |
 | First fighter | A fair coin on turn 1, then switching with `first_fighter_switch_chance` (default `0.75`), one RNG draw per turn (§4.3). | `DuosTavern::draw_first_fighter` |
 | Pass with a pending Discover | Not legal for the passer; the receiver's doesn't matter (§5.1). | `DuosTavern::can_pass` |
-| Free Pass first | A Pass uses a free Pass whenever one is left; charges per Cho, like other "each turn" minions (§5.2). | `DuosTavern::pass` |
 | Not a play or discard | A Pass triggers no Battlecry or discard effect (§5.3). | `DuosTavern::pass` |
-| Lockbox | Not locked: it can be passed and opens for the receiver (§5.3). | `DuosTavern::is_locked` |
 | Card groups | A passed group card leaves its group (§5.3). | `DuosTavern::pass` |
 | Queued cards in combat | Not in the warband's hand (§5.4). | `DuosTavern::warband` |
-| Team result for all | Both players take the team's result: after-combat effects, `last_combat_won` / `lost` (§6.2). | `DuosTavern::apply_results` |
 | Keeping next-combat effects | The unused Start of Combat effects (`Turn`) of a warband that sat out survive the next start of turn (§6.3). | `DuosTavern::start_turn` |
 | Random minions | `Lockbox` and `Deathly Striker` draw from the Solo catalog even in Duos (§8). | `cards::all_templates` |
 
 ### Open Questions
 
-1. Does the team's combat damage trigger both players' "after your hero takes damage" minions, or neither, or only the warband that lost?
-2. A warband that sat out: do its "after your next combat" effects (`Overconfidence`) resolve with the team's result, or wait like its Start of Combat ones? Does `Winner's Bread` ("if you win your next combat") count the team's win?
-3. Can a `Lockbox` be passed (and open for the receiver)?
-4. What is the real chance that the first fighter switches? (To be measured from game logs.)
-5. With `Wanderer Cho` on the board, can a player choose to pay for a Pass and keep the free one for later? Does a Cho played, sold or made Golden mid-turn give its free Pass(es) as modeled?
-6. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
-7. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?
+1. Does `Eredar Escapist` ("after your hero takes 4 damage") count combat damage, in Solo (where it does today) and in Duos?
+2. What is the real chance that the first fighter switches? (To be measured from game logs.)
+3. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
+4. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?

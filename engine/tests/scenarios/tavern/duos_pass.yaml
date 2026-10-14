@@ -121,18 +121,19 @@ scenarios:
     expect:
       players: [{hand: []}, {hand: [{locked_turns: 0, is_spell: false}]}]
 
-  - name: a_lockbox_can_be_passed_and_opens_for_the_receiver
+  - name: a_card_in_a_lockbox_cannot_be_passed_until_it_opens
     description: >-
-      A Lockbox isn't locked, only unplayable: it keeps counting down in the receiver's hand and
-      opens there.
+      A Lockbox is locked like the minion Search Through Time Discovered; the Golden minion it
+      opens into can be passed.
     duos_tavern:
       players:
-        - {gold: 1, hand: [{card: Lockbox, lockbox_turns_left: 1}]}
-        - {tavern_tier: 2}
+        - {gold: 1, tavern_tier: 2, hand: [{card: Lockbox, lockbox_turns_left: 1}]}
+        - {}
     steps:
-      - {player: 0, pass: Lockbox}
-      - expect: {players: {1: {hand: [{card: Lockbox, lockbox_turns_left: 1}]}}}
-      - start_turn   # it opens: a random Golden minion of the receiver's Tier with a type
+      - {player: 0, expect_illegal: {pass: Lockbox}}
+      - {player: 0, expect_error: {pass: Lockbox}}
+      - start_turn   # it opens: a random Golden minion of the player's Tier with a type
+      - {player: 0, pass: 0}
     expect:
       players:
         - {hand: []}
