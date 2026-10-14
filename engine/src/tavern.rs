@@ -1677,6 +1677,9 @@ impl TavernState {
         }
         let ended = self.apply_action(action, pool, rng)?;
         self.resolve_triples();
+        // The minions' "wherever this is" auras and conditional keywords are up to date between
+        // actions (a Divine Shield a spell gave a `Relentless Deflector` gives it Taunt at once).
+        self.sync_all_auras();
         Ok(ended)
     }
 

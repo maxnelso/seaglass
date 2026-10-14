@@ -43,3 +43,14 @@ scenarios:
       - expect: {board: ["Relentless Deflector 5/7 taunt"]}
       - sync_all_auras
     expect: {board: ["Relentless Deflector 5/7 taunt"]}
+
+  - name: a_divine_shield_a_spell_gives_it_gives_it_taunt_at_once
+    description: >-
+      The auras and conditional keywords are re-synced once each action resolves: Sacred Gift's
+      Divine Shield gives it Taunt right away (it used to wait for the next aura sync).
+    tavern:
+      board: [Relentless Deflector]
+      hand: [Sacred Gift]
+    steps:
+      - play: {hand: Sacred Gift, pos: 0}
+    expect: {board: ["Relentless Deflector divine_shield taunt"]}

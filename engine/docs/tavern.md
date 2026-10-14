@@ -175,6 +175,8 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 
 **Card groups** (the spells of a `Wandering Willbreaker`, the Aberrations of a `Faceless Operative`: `willbreaker_group`): playing one of the cards counts the play down for the rest of its group (`willbreaker_remaining`), and once that play has resolved (the spell cast, or the minion played with its Battlecry and the observers of its play), the rest of a used-up group is discarded. So the discarded cards still take their hand slots while the spell is cast, and the played minion sees them discarded (a `Mindbender Ghur'sha` played from a `Faceless Operative` pair triggers).
 
+**After each action** (`step`), once its Triples are checked (§5), the minions' "wherever this is" auras and conditional keywords are re-synced, so whatever they depend on shows at once: a Divine Shield a spell gives a `Relentless Deflector` gives it Taunt right away.
+
 ---
 
 ## 7. General Tavern Trigger Hooks & Subsystems
