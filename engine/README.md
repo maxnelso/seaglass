@@ -38,8 +38,10 @@ The engine contains **only game rules and simulation**. All reinforcement learni
   - `ToggleFreeze`
   - `ChooseDiscover { option_index }`
   - `EndTurn`
+  - `Pass { hand_index }` (Duos only: passes a hand card to the teammate)
 - **Triples & Discover Sub-State**: Automatic combination of 3 non-golden copies across `board` and `hand` into a Golden minion with summed buffs, plus a `discover_pending` sub-state when playing a Golden minion.
 - **Spellcraft & Persistent Auras**: Turn-temporary and permanent (`Lava Lurker`) Spellcraft buffs, full-hand pending queue (`pending_spellcrafts`), and game-long scaling counters (`PlayerAuras`).
+- **Duos Taverns (`docs/duos_tavern.md`)**: A team of two players (`DuosTavern`), each with their own Tavern, sharing one Health pool and the card pool, acting in the same turn: `Pass` moves a hand card to the teammate for 1 Gold (free with `Wanderer Cho`), into an unbounded queue if their hand is full, and completes their triples; the team's combat brings each player's result back to their own Tavern.
 
 ### Combat Phase (`docs/combat.md`)
 - **Core Loop**: First-attacker determination (minion count after Start of Combat, then coin flip), alternating turns with identity-tracked attack pointers, Taunt-aware target selection, simultaneous damage, and hero damage (`hero_tier + sum(survivor_tiers)`).

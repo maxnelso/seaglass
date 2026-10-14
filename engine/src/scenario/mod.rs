@@ -1,10 +1,11 @@
 //! YAML scenarios: the engine's test format (`docs/scenarios.md`, `tests/scenarios/`).
 //!
 //! A scenario file holds scenarios for one card (`card:`) or one topic (`topic:`). Each
-//! scenario sets up a Tavern (or a standalone combat), runs steps through the public engine API
-//! (`TavernState::step`, `add_to_hand`, `resolve_combat_against`, `simulate`, ...), and checks
-//! expectations against a serde view of the resulting state. Nothing here knows about specific
-//! cards: units are named by card name, and expectations are generic structural matches.
+//! scenario sets up a Tavern, a Duos team's Tavern, or a standalone combat, runs steps through
+//! the public engine API (`TavernState::step`, `DuosTavern::step`, `add_to_hand`,
+//! `resolve_combat_against`, `simulate`, ...), and checks expectations against a serde view of
+//! the resulting state. Nothing here knows about specific cards: units are named by card name,
+//! and expectations are generic structural matches.
 //!
 //! - [`ScenarioFile::load`] parses and validates a file.
 //! - [`Scenario::run`] runs one scenario (twice per seed: the runs must be identical).

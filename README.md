@@ -32,7 +32,7 @@ seaglass/
 ├── engine/            # Rust crate (`seaglass`): Tavern + Combat engine & PyO3 bindings
 │   ├── README.md
 │   ├── Cargo.toml
-│   ├── docs/          # Pinned specifications (combat.md, duos.md, tavern.md, scenarios.md)
+│   ├── docs/          # Pinned specifications (combat.md, duos.md, duos_tavern.md, tavern.md, scenarios.md)
 │   ├── src/
 │   └── tests/         # YAML scenario suite (one file per card, plus combat & Tavern topics)
 └── rl/                # Python package (`seaglass-rl`): RL env, Transformer policy, PPO trainer
