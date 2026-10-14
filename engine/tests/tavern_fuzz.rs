@@ -11,9 +11,10 @@
 //!
 //! After every action, start of turn and combat it checks:
 //! - [`check_legality`]: `valid_actions()` lists each legal action once, `is_legal` agrees with it
-//!   on every candidate action (each index up to one past its zone, and a huge one), a pending
-//!   Discover allows only `ChooseDiscover`, and `step()` accepts every listed action (all of them,
-//!   on copies of the game, at `SEAGLASS_FUZZ_LOOKAHEAD` of the decision points);
+//!   on every candidate action (each index up to one past its zone, and a huge one; a Duos `Pass`
+//!   too, which Solo never allows), a pending Discover allows only `ChooseDiscover`, and `step()`
+//!   accepts every listed action (all of them, on copies of the game, at
+//!   `SEAGLASS_FUZZ_LOOKAHEAD` of the decision points);
 //! - [`check_tavern`]: at most 7 minions on the board and 10 cards in hand, a Tier in 1..=6,
 //!   minions in the Tavern with at least 1 Health and no negative Attack, no spell on the board,
 //!   no empty or orphaned Discover, `max_gold`, `upgrade_cost` and Armor as specified, no three
@@ -165,7 +166,9 @@ impl Config {
         let shop_spells = rng.below(10) != 0;
         let action_cap = 30 + rng.below(50);
         let mut weights = BASE_WEIGHTS;
-        for w in &mut weights {
+        // A kind with a base weight of 0 (Pass) is never taken and draws nothing, so that adding
+        // it left every seed's game as it was.
+        for w in weights.iter_mut().filter(|w| **w > 0) {
             // Between half and twice the base weight, so games lean different ways.
             *w = (*w * (2 + rng.below(7) as u32) / 4).max(1);
         }
@@ -232,12 +235,14 @@ enum Kind {
     Freeze,
     EndTurn,
     Discover,
+    /// A Duos Pass, which a Solo game never allows.
+    Pass,
 }
 
-const KINDS: usize = 13;
+const KINDS: usize = 14;
 
 /// Base weights, indexed by `Kind as usize`: mostly buying and playing, so games develop.
-const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1];
+const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0];
 
 fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
     match *action {
@@ -264,6 +269,7 @@ fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
         TavernAction::ToggleFreeze => Kind::Freeze,
         TavernAction::EndTurn => Kind::EndTurn,
         TavernAction::ChooseDiscover { .. } => Kind::Discover,
+        TavernAction::Pass { .. } => Kind::Pass,
     }
 }
 
@@ -900,6 +906,9 @@ fn candidate_actions(s: &TavernState) -> Vec<TavernAction> {
     for option_index in (0..=opts + 1).chain([far]) {
         out.push(TavernAction::ChooseDiscover { option_index });
     }
+    for hand_index in (0..=h).chain([far]) {
+        out.push(TavernAction::Pass { hand_index });
+    }
     out.extend([
         TavernAction::Refresh,
         TavernAction::UpgradeTavern,
@@ -1324,6 +1333,7 @@ enum Act {
     ToggleFreeze,
     ChooseDiscover(usize),
     EndTurn,
+    Pass(usize),
 }
 
 impl From<TavernAction> for Act {
@@ -1349,6 +1359,7 @@ impl From<TavernAction> for Act {
             TavernAction::ToggleFreeze => Act::ToggleFreeze,
             TavernAction::ChooseDiscover { option_index } => Act::ChooseDiscover(option_index),
             TavernAction::EndTurn => Act::EndTurn,
+            TavernAction::Pass { hand_index } => Act::Pass(hand_index),
         }
     }
 }
@@ -1376,6 +1387,7 @@ impl From<Act> for TavernAction {
             Act::ToggleFreeze => TavernAction::ToggleFreeze,
             Act::ChooseDiscover(option_index) => TavernAction::ChooseDiscover { option_index },
             Act::EndTurn => TavernAction::EndTurn,
+            Act::Pass(hand_index) => TavernAction::Pass { hand_index },
         }
     }
 }
