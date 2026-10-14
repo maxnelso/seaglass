@@ -1,0 +1,38 @@
+hero: Vanndar Stormpike
+scenarios:
+  - name: from_turn_7_it_summons_a_copy_of_the_highest_health_minion
+    tavern: {auras: {hero: {hero: Vanndar Stormpike, power: {counter: 6}}}, board: ["1/5", "2/9", "3/3"]}
+    steps:
+      - start_turn
+      - expect: {auras: {hero: {power: {counter: 7, armed: 1}}}}
+      - fight: {board: ["0/50"]}
+    expect:
+      combat:
+        events:
+          where: {type: unit_summoned, reason: Stormpike Strength}
+          count: 1
+          0: {name: "2/9", attack: 2, health: 9}
+      auras: {hero: {power: {armed: 0}}}
+
+  - name: locked_before_turn_7
+    tavern: {auras: {hero: Vanndar Stormpike}, board: ["2/9"]}
+    steps:
+      - start_turn
+      - fight: {board: ["0/50"]}
+    expect: {combat: {events: {none: {type: unit_summoned}}}}
+
+  - name: it_waits_for_room_and_happens_once
+    description: >-
+      With a full board the copy waits; once a minion dies there is room, and the copy comes, once.
+    seed: 3
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/20"]
+      board_b: ["5/80"]
+      auras_a: {hero: {hero: Vanndar Stormpike, power: {armed: 1}}}
+    expect:
+      events:
+        all_of:
+          - {where: {type: unit_summoned, reason: Stormpike Strength}, count: 1}
+          - sequence:
+              - {type: death}
+              - {type: unit_summoned, name: "1/20", reason: Stormpike Strength}

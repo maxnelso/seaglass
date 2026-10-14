@@ -13,17 +13,19 @@ mod table;
 pub mod alakir;
 pub mod brukan;
 pub mod deathwing;
+pub mod drekthar;
 pub mod flobbidinous_floop;
 pub mod illidan_stormrage;
 pub mod queen_wagtoggle;
 pub mod rokara;
 pub mod tamsin_roame;
 pub mod teron_gorefiend;
+pub mod vanndar_stormpike;
 pub mod yshaarj;
 
 pub use table::{CARD_DEFS_BUILD, HEROES};
 
-use crate::cards::{hooks, ActivateTargetKind, BoardCtx, CardHooks, HeroCombatCtx};
+use crate::cards::{hooks, ActivateTargetKind, BoardCtx, CardHooks, HeroCombatCtx, Played};
 use crate::model::{CardId, HeroId, HeroPowerState, HeroState, PlayerAuras, Unit, UnitId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -85,12 +87,14 @@ const IMPLEMENTED: &[Implemented] = &[
     (alakir::ID, alakir::behaviors),
     (brukan::ID, brukan::behaviors),
     (deathwing::ID, deathwing::behaviors),
+    (drekthar::ID, drekthar::behaviors),
     (flobbidinous_floop::ID, flobbidinous_floop::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
     (rokara::ID, rokara::behaviors),
     (tamsin_roame::ID, tamsin_roame::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
+    (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
 ];
 
@@ -326,6 +330,63 @@ pub fn combat_space(ctx: &mut BoardCtx<'_>) {
     }
 }
 
+/// Start of turn, once the shop is filled: the Hero Power's `hero_turn_start` hook.
+pub fn on_turn_start(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(turn_start) = power_hooks(&state.auras).and_then(|c| c.hero_turn_start) {
+        turn_start(state, pool, rng);
+    }
+}
+
+/// After a card was bought: the Hero Power's `hero_after_buy` hook.
+pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(after_buy) = power_hooks(&state.auras).and_then(|c| c.hero_after_buy) {
+        after_buy(state, bought, pool, rng);
+    }
+}
+
+/// After a minion was sold: the Hero Power's `hero_after_sell` hook.
+pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(after_sell) = power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
+        after_sell(state, sold, pool, rng);
+    }
+}
+
+/// After a minion was played or Magnetized: the Hero Power's `hero_after_play` hook.
+pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(after_play) = power_hooks(&state.auras).and_then(|c| c.hero_after_play) {
+        after_play(state, played, pool, rng);
+    }
+}
+
+/// After the Tavern was upgraded: the Hero Power's `hero_after_upgrade` hook.
+pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(after_upgrade) = power_hooks(&state.auras).and_then(|c| c.hero_after_upgrade) {
+        after_upgrade(state, pool, rng);
+    }
+}
+
+/// A friendly minion is being summoned in combat: the Hero Power's `hero_combat_summon` hook.
+pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
+    let Some(hero) = auras.hero.as_ref() else {
+        return;
+    };
+    if let Some(combat_summon) = hooks(hero.power.card_id).hero_combat_summon {
+        combat_summon(hero, summoned);
+    }
+}
+
+/// `true` if the player's Hero Power reacts to their minions' deaths in combat.
+pub fn has_friendly_death(auras: &PlayerAuras) -> bool {
+    power_hooks(auras).is_some_and(|c| c.hero_friendly_death.is_some())
+}
+
+/// A friendly minion died in combat: the Hero Power's `hero_friendly_death` hook.
+pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
+    if let Some(friendly_death) = power_hooks(ctx.auras).and_then(|c| c.hero_friendly_death) {
+        friendly_death(ctx, dying);
+    }
+}
+
 /// `true` if the player's Hero Power reacts to their minions' kills (`hero_enemy_killed`).
 pub fn has_enemy_killed(auras: &PlayerAuras) -> bool {
     power_hooks(auras).is_some_and(|c| c.hero_enemy_killed.is_some())
@@ -347,6 +408,44 @@ pub fn mark_minion(state: &mut TavernState, target: Option<usize>, _: &mut CardP
     if let Some(unit) = target.and_then(|t| state.board.get_mut(t)) {
         unit.marked = true;
     }
+}
+
+/// The turn the Hero Powers that "unlock on Turn N" unlock (`docs/heroes.md` §11).
+pub const UNLOCK_TURN: i32 = 7;
+
+/// `hero_turn_reset` of the Hero Powers that act once per combat once unlocked (Vanndar,
+/// Drek'Thar): count the turn (`counter`), and from `UNLOCK_TURN` on arm the coming combat.
+pub fn count_turn_and_arm(hero: &mut HeroState) {
+    hero.power.counter += 1;
+    hero.power.armed = u32::from(hero.power.counter >= UNLOCK_TURN);
+}
+
+/// Once per combat, if armed and there is room: summon a copy of the friendly minion with the
+/// most `key` (a tie at random, one draw) at the right end of the board, using up the arm
+/// (Vanndar's highest-Health, Drek'Thar's highest-Attack).
+pub fn summon_copy_of_best(ctx: &mut BoardCtx<'_>, key: fn(&Unit) -> i32, reason: &'static str) {
+    if power_mut(ctx.auras).is_none_or(|p| p.armed == 0)
+        || ctx.board.len() >= crate::combat::MAX_BOARD_SIZE
+    {
+        return;
+    }
+    let Some(best) = ctx.board.iter().filter(|u| u.health > 0).map(key).max() else {
+        return;
+    };
+    let tied: Vec<usize> = (0..ctx.board.len())
+        .filter(|&i| ctx.board[i].health > 0 && key(&ctx.board[i]) == best)
+        .collect();
+    let pick = match tied.len() {
+        1 => tied[0],
+        k => tied[ctx.rng.below(k)],
+    };
+    let mut copy = ctx.board[pick].clone();
+    copy.marked = false;
+    if let Some(power) = power_mut(ctx.auras) {
+        power.armed = 0;
+    }
+    ctx.cursor = ctx.board.len();
+    ctx.summon_as(HERO_SOURCE, copy, reason);
 }
 
 /// The player's Hero Power state (for hooks that know the player has a hero).

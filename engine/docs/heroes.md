@@ -119,6 +119,13 @@ Hero Powers reuse the card hook system (`src/cards/hooks.rs`): a Hero Power is a
 | `hero_start_of_combat` | Start of Combat (§7): `(ctx)`, a `HeroCombatCtx` (the player's side as a `BoardCtx`, the enemy board, damage to enemy minions). | Al'Akir, Deathwing, Illidan, Y'Shaarj, Teron, Tamsin, Wagtoggle, Bru'kan, Floop. |
 | `hero_combat_space` | Room may have opened on the board in combat (after Start of Combat summons and each round of deaths, like `player_combat_space`): `(ctx)`. | Teron's resummon. |
 | `hero_enemy_killed` | A friendly minion killed an enemy minion in combat: `(ctx, killer_id, victim)`. | Rokara. |
+| `hero_friendly_death` | A friendly minion died in combat, once its side's round of deaths resolved (summons go to the right end): `(ctx, dying)`. | Onyxia's Avenge. |
+| `hero_combat_summon` | A friendly minion is being summoned in combat (every summon on the player's side: Deathrattles, Reborn copies, hand copies, the Deity): `(hero, summoned)`. | Greybough. |
+| `hero_turn_start` | Start of turn, once the shop is filled (before the Spellcraft spells): `(state, pool, rng)`. | Nozdormu. |
+| `hero_after_buy` | After a card is bought, once its own text and the `after_buy` observers resolved: `(state, bought, pool, rng)`. | Cap'n Hoggarr, Kael'thas. |
+| `hero_after_sell` | After a minion is sold, once its sell triggers resolved: `(state, sold, pool, rng)`. | Gallywix, Ozumat, Flurgl. |
+| `hero_after_play` | After a minion is played or Magnetized, once the `after_friendly_play` observers resolved: `(state, played, pool, rng)`. | Chenvaala. |
+| `hero_after_upgrade` | After the Tavern is upgraded: `(state, pool, rng)`. | Forest Warden Omu. |
 
 Extra Deathrattles a Hero Power gives a minion in combat (Tamsin's Fragrant Phylactery, Bru'kan's Earth Invocation) are cards too: `Unit::extra_deathrattles` lists their card ids, and their `deathrattle` hooks resolve after the minion's own Deathrattle, each counting as a Deathrattle triggered and repeated by `Titus Rivendare` like it.
 
@@ -215,7 +222,7 @@ A Duos-only hero's header says `— Duos Armor 15.` instead. The `heroes` tests 
 
 ## 10. Replay
 
-The Power.log validator (`replay/src/{reconstruct,validate,diagnose}.rs`) maps each player's hero, Hero Power and Armor from the log into the reconstruction: the hero's card ID (or skin) to its `HeroId`, the Hero Power's card ID (any form: an Element, another hero's power on Master Nguyen) to its engine `CardId`, and the power's combat state from the log (Teron's and Floop's marked minion from their enchantment, Y'Shaarj's `armed` from the power's activation in the Tavern). `replay_cli validate` then simulates the implemented combat Hero Powers instead of reporting them as gaps.
+The Power.log validator (`replay/src/{reconstruct,validate,diagnose}.rs`) maps each player's hero, Hero Power and Armor from the log into the reconstruction: the hero's card ID (or skin) to its `HeroId`, the Hero Power's card ID (any form: an Element, another hero's power on Master Nguyen) to its engine `CardId`, and the power's combat state from the log: Teron's and Floop's marked minion from their enchantment on it (`BG25_HERO_103pe`, `BGDUO_HERO_101pe2`), Y'Shaarj's `armed` from the power's `BACON_HERO_POWER_ACTIVATED` at the start of combat, Vanndar's and Drek'Thar's from their `START_OF_COMBAT` (set once they are unlocked). `replay_cli validate` then simulates the implemented combat Hero Powers instead of reporting them as gaps.
 
 ---
 
@@ -236,6 +243,8 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Queen Wagtoggle` | *Wax Warband* (passive): Start of Combat: give a friendly minion of each type +1/+1. (Improves after you spend 10 Gold!) | Step 1b: a friendly minion of each type (`tavern.md` §7.8: the best assignment, as `Misplaced Tea Set`) gains `+N/+N`, `N = 1 + stacks`. Every 10 Gold the player spends (`hero_gold_spent`, `counter`) adds a stack. |
 | `Bru'kan` | *Embrace the Elements* (0 Gold, active): Choose an Element. Start of Combat: call upon that Element. | Using it offers a Choose One of the four Elements; the chosen one becomes the Hero Power (`card_id`) for the next combat only, and reverts at the start of the next turn **(confirmed)**. **Earth Invocation**: 4 different random friendly minions (fewer if fewer) gain "Deathrattle: summon a 1/1 Elemental" (`Stone Elemental`) **(confirmed)**. **Fire Invocation**: your left-most minion's Attack doubles. **Water Invocation**: your right-most minion gains Divine Shield and Taunt. **Lightning Invocation**: deal 1 damage to 5 different random enemy minions (fewer if fewer) **(confirmed)**. Once per turn. |
 | `Flobbidinous Floop` | *Glorious Gloop* (0 Gold, active, a friendly minion; Duos only): Start of Combat: transform it into your teammate's highest-Tier minion. | Using it marks the minion. Step 1b: the marked minion, if it is on the board, transforms into a copy of the minion with the highest Tier in the teammate's warband as it entered the combat (`duos.md` §2; a tie at random, one draw), as `Sandy` copies (`duos_tavern.md` §8.2): its current stats, keywords and Golden status, the marked minion's place and id, a `UnitTransformed` event. With no teammate minion, nothing happens. |
+| `Vanndar Stormpike` | *Stormpike Strength* (passive): When you have space in combat, summon a copy of your highest-Health minion. (Unlocks on Turn 7.) | It counts the turns (`counter`); from the 7th on, each combat is armed. Once per combat **(engine decision)**, as soon as there is room (`hero_combat_space`: at Start of Combat or after a round of deaths), a copy of the friendly minion with the most Health (a tie at random, one draw) is summoned at the right end: its current stats, keywords and state. |
+| `Drek'Thar` | *Frostwolf Fervor* (passive): When you have space in combat, summon a copy of your highest-Attack minion. (Unlocks on Turn 7.) | As Vanndar's, with the most Attack. |
 | `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer, if it is still alive, gains +1 Attack, permanently (§7.4); a killer that died in the same exchange gains nothing **(engine decision)**. Each kill counts. |
 
 ---
@@ -254,4 +263,5 @@ Engine decisions, pending the user's confirmation:
 | Y'Shaarj | The summon and the card are independent (a full board still gets the card); arms stack and wait for the next combat fought. | `heroes/yshaarj.rs` |
 | Tamsin's ties and stats | The left-most lowest-Attack minion; its Attack and `max_health`. | `heroes/tamsin_roame.rs` |
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
+| Vanndar and Drek'Thar | Once per combat; a tie at random. | `heroes::summon_copy_of_best` |
 | Rokara's dead killers | A killer that died in the same exchange gains nothing. | `heroes/rokara.rs` |

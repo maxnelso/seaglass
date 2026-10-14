@@ -968,7 +968,7 @@ pub fn on_tavern_summon(board: &mut [Unit], pos: usize) {
 }
 
 /// Apply all combat summon modifiers (persistent auras, the player effects'
-/// `player_combat_summon` hooks, the combat Beast bonus, `friendly_summon` observers, stat
+/// `player_combat_summon` hooks, the Hero Power's `hero_combat_summon`, the combat Beast bonus, `friendly_summon` observers, stat
 /// thresholds) to `token` before it joins `board`.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],
@@ -978,6 +978,7 @@ pub fn apply_combat_summon_modifiers(
 ) {
     sync_unit_auras(token, auras);
     effects::combat_summon(auras, token);
+    crate::heroes::combat_summon(auras, token);
     if token.tribe.matches(Tribe::Beast) && combat_beast_bonus_atk != 0 {
         token.add_stats(combat_beast_bonus_atk, 0);
     }
@@ -1248,8 +1249,8 @@ fn magnetize_card(
 
 /// Apply board-wide observers after a minion is played (and thereby summoned) or Magnetized onto
 /// `state.board[played.board_pos]`: summon observers (plays only), `after_friendly_play`
-/// observers left to right (a played minion does not observe its own play), hand observers,
-/// then a board spell-aura resync.
+/// observers left to right (a played minion does not observe its own play), hand observers, the
+/// Hero Power's `hero_after_play`, then a board spell-aura resync.
 pub fn after_play_minion(
     state: &mut TavernState,
     played: &Played,
@@ -1273,6 +1274,7 @@ pub fn after_play_minion(
             after_play_in_hand(unit, played);
         }
     }
+    crate::heroes::after_play(state, played, pool, rng);
     sync_board_spell_auras(&state.board, &mut state.auras);
 }
 

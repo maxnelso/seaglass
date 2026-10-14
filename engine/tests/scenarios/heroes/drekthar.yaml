@@ -1,0 +1,29 @@
+hero: Drek'Thar
+scenarios:
+  - name: from_turn_7_it_summons_a_copy_of_the_highest_attack_minion
+    tavern: {auras: {hero: {hero: Drek'Thar, power: {counter: 6}}}, board: ["1/5", "4/2", "3/3"]}
+    steps:
+      - start_turn
+      - fight: {board: ["0/50"]}
+    expect:
+      combat:
+        events:
+          where: {type: unit_summoned, reason: Frostwolf Fervor}
+          count: 1
+          0: {name: "4/2", attack: 4, health: 2}
+
+  - name: locked_before_turn_7
+    tavern: {auras: {hero: Drek'Thar}, board: ["4/2"]}
+    steps:
+      - start_turn
+      - fight: {board: ["0/50"]}
+    expect: {combat: {events: {none: {type: unit_summoned}}}}
+
+  - name: a_tie_is_broken_at_random
+    seeds: "1..=6"
+    combat:
+      board_a: ["4/2", "4/3"]
+      board_b: ["0/50"]
+      auras_a: {hero: {hero: Drek'Thar, power: {armed: 1}}}
+    expect:
+      events: {any: {type: unit_summoned, reason: Frostwolf Fervor, attack: 4}}

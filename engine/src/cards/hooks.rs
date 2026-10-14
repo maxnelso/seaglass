@@ -217,6 +217,8 @@ pub type EffectSocFn = fn(&mut CombatSides<'_>, &mut PlayerEffect);
 pub type EffectAfterCombatFn = fn(&mut TavernState, &mut PlayerEffect, CombatResult);
 /// Observer of a card event (a Pass, a sale): `(state, self_idx, card, pool, rng)`.
 pub type CardObserverFn = fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng);
+/// A Tavern event for the player's Hero Power: `(state, pool, rng)`.
+pub type TavernEventFn = fn(&mut TavernState, &mut CardPool, &mut Rng);
 /// The `HeroPower` action: `(state, target, pool, rng)` (`docs/heroes.md` §5).
 pub type HeroPowerFn = fn(&mut TavernState, Option<usize>, &mut CardPool, &mut Rng);
 
@@ -484,6 +486,23 @@ card_hooks! {
     hero_combat_space(on_hero_combat_space): fn(&mut BoardCtx<'_>),
     /// A friendly minion killed an enemy minion in combat: `(ctx, killer_id, victim)`.
     hero_enemy_killed(on_hero_enemy_killed): fn(&mut BoardCtx<'_>, UnitId, &Unit),
+    /// A friendly minion died in combat, once its side's round of deaths resolved (summons go
+    /// to the right end): `(ctx, dying)`.
+    hero_friendly_death(on_hero_friendly_death): fn(&mut BoardCtx<'_>, &Unit),
+    /// A friendly minion is being summoned in combat: `(hero, summoned)`.
+    hero_combat_summon(on_hero_combat_summon): fn(&HeroState, &mut Unit),
+    /// Start of turn, once the shop is filled: `(state, pool, rng)`.
+    hero_turn_start(on_hero_turn_start): TavernEventFn,
+    /// After a card is bought (once its own text and the `after_buy` observers resolved):
+    /// `(state, bought, pool, rng)`.
+    hero_after_buy(on_hero_after_buy): CardEventFn,
+    /// After a minion is sold (once its sell triggers resolved): `(state, sold, pool, rng)`.
+    hero_after_sell(on_hero_after_sell): CardEventFn,
+    /// After a minion is played or Magnetized (once the `after_friendly_play` observers
+    /// resolved): `(state, played, pool, rng)`.
+    hero_after_play(on_hero_after_play): fn(&mut TavernState, &Played, &mut CardPool, &mut Rng),
+    /// After the Tavern is upgraded: `(state, pool, rng)`.
+    hero_after_upgrade(on_hero_after_upgrade): TavernEventFn,
 }
 
 impl Default for CardHooks {

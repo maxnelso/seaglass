@@ -1186,6 +1186,7 @@ impl TavernState {
             }
             cards::after_shop_refresh(self, rng);
         }
+        heroes::on_turn_start(self, pool, rng);
         cards::on_start_turn_spellcrafts(self);
         self.sync_all_auras();
         self.resolve_triples();
@@ -1786,6 +1787,7 @@ impl TavernState {
                 }
                 cards::on_obtained(self, &obtained, pool, rng);
                 cards::after_buy_card(self, &bought_snapshot, pool, rng);
+                heroes::after_buy(self, &bought_snapshot, pool, rng);
                 Ok(false)
             }
             TavernAction::Play {
@@ -1818,6 +1820,7 @@ impl TavernState {
                 pool.return_unit(&sold);
                 self.gold += 1;
                 cards::on_sell(self, &sold, pool, rng);
+                heroes::after_sell(self, &sold, pool, rng);
                 Ok(false)
             }
             TavernAction::Reposition { from_pos, to_pos } => {
@@ -1855,6 +1858,7 @@ impl TavernState {
                 self.spend_gold(cost, pool, rng);
                 self.tavern_tier += 1;
                 self.upgrade_cost = base_upgrade_cost(self.tavern_tier);
+                heroes::after_upgrade(self, pool, rng);
                 Ok(false)
             }
             TavernAction::ToggleFreeze => {
