@@ -54,7 +54,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
    - "Set your Armor to 5" (`Armor Stash`) sets the team's Armor **(engine decision)**.
    - "If you have 15 or less Health" (`Holy Vanguard`) reads the team's Health, for both players.
 4. **Per-player triggers** **(confirmed)**. When a player pays Health or takes hero damage in the Tavern, the pool goes down, but only **that player's** "your hero takes damage" minions trigger (`Soul Rewinder`, `Ashen Corruptor`, `Tichondrius` rewind or react; `Eredar Escapist` counts it). The teammate's don't. A rewind (`Soul Rewinder`) gives the pool its Health back.
-5. **Combat damage** goes to the losing team's pool **(confirmed)**, once (§6.2), Armor first. As in Solo, no "your hero takes damage" minion reacts to it: `Soul Rewinder` doesn't rewind it, `Ashen Corruptor` and `Tichondrius` don't trigger, for either player **(confirmed)**. Whether the "after your hero takes damage" ones count it (`Eredar Escapist`, which counts Solo combat damage) is pending; for now they don't, for either player **(engine decision)**, decided in one place (`DuosTavern::take_combat_damage`).
+5. **Combat damage** goes to the losing team's pool **(confirmed)**, once (§6.2), Armor first. As in Solo (`tavern.md` §7.2), it triggers no hero-damage minion, for either player **(confirmed)**: `Soul Rewinder` doesn't rewind it, `Ashen Corruptor` and `Tichondrius` don't trigger, and `Eredar Escapist` doesn't count it (`DuosTavern::take_combat_damage`).
 6. **A team at 0** (or less) Health is out **(confirmed)**: `DuosTavern::is_out()`. Ending the match is the caller's job (§1).
 
 ---
@@ -217,7 +217,6 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 | :--- | :--- | :--- |
 | Mirrored Health | Each player's `health`/`armor` hold the team's, copied in and out around each action (§3.3). | `DuosTavern::mirror`, `settle` |
 | Team Armor | "Set your Armor" sets the team's (§3.3). | (falls out of the mirror) |
-| Combat damage and `Eredar Escapist` | The "after your hero takes damage" minions don't count the team's combat damage, for either player (§3.5), pending the Solo answer. | `COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE`, `DuosTavern::take_combat_damage` |
 | Start-of-turn order | Player 0's start of turn, then player 1's (§4.1). | `DuosTavern::start_turn` |
 | After `EndTurn` | No more actions that turn; passed cards still arrive (§4.2). | `DuosTavern::is_legal` |
 | First fighter | A fair coin on turn 1, then switching with `first_fighter_switch_chance` (default `0.75`), one RNG draw per turn (§4.3). | `DuosTavern::draw_first_fighter` |
@@ -230,7 +229,6 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 
 ### Open Questions
 
-1. Does `Eredar Escapist` ("after your hero takes 4 damage") count combat damage, in Solo (where it does today) and in Duos?
-2. What is the real chance that the first fighter switches? (To be measured from game logs.)
-3. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
-4. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?
+1. What is the real chance that the first fighter switches? (To be measured from game logs.)
+2. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
+3. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?

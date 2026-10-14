@@ -357,7 +357,8 @@ card_hooks! {
     /// Hero is about to take Tavern damage: `(state, self_idx, amount)`. Whether the damage is
     /// rewound is decided by [`CardFlags::REWINDS_HERO_DAMAGE`].
     hero_damage(on_hero_damage): fn(&mut TavernState, usize, i32),
-    /// After the hero took damage: `(state, self_idx, amount)`.
+    /// After the hero took Tavern damage: `(state, self_idx, amount)`. Combat damage triggers
+    /// no hero-damage hook (`docs/tavern.md` §7.2).
     after_hero_damage(on_after_hero_damage): fn(&mut TavernState, usize, i32),
     /// Numeric contribution to a board-wide [`Passive`] (0 = none).
     passive(with_passive): fn(&Unit, Passive) -> u32,

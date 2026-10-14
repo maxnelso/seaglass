@@ -17,3 +17,16 @@ scenarios:
     steps:
       - deal_hero_damage: 4   # rewound, but taken first
     expect: {health: 30, hand: [Corrupted Cupcakes]}
+
+  - name: ignores_combat_damage
+    description: >-
+      Losing a fight costs the hero 7 Health (tier 1 + the 50/50's tier 6), but combat damage
+      triggers no hero-damage minion: Eredar Escapist doesn't count it.
+    tavern: {board: [Eredar Escapist]}
+    steps:
+      - fight: {board: ["50/50 t6"]}
+    expect:
+      combat: {outcome: b_win, hero_damage: 7}
+      health: 23
+      board: [{card: Eredar Escapist, counter: 0}]
+      hand: []

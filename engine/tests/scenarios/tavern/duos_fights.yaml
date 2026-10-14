@@ -125,9 +125,9 @@ scenarios:
 
   - name: combat_damage_triggers_no_hero_damage_minions
     description: >-
-      Losing a fight takes the team's 12 damage without any "your hero takes damage" minion
-      reacting, for either player: Soul Rewinder doesn't rewind it, Ashen Corruptor and
-      Tichondrius don't trigger, and Eredar Escapist doesn't count it (pending).
+      Losing a fight takes the team's 12 damage without any hero-damage minion reacting, for
+      either player: Soul Rewinder doesn't rewind it, Ashen Corruptor and Tichondrius don't
+      trigger, and Eredar Escapist doesn't count it.
     duos_tavern:
       players:
         - {board: [Soul Rewinder, Eredar Escapist]}

@@ -1117,14 +1117,11 @@ impl TavernState {
         );
 
         if lost {
+            // Combat damage triggers no hero-damage minion (`docs/tavern.md` §7.2).
             let dmg = res.hero_damage as i32;
             let absorbed = dmg.min(self.armor.max(0));
             self.armor -= absorbed;
-            let net_dmg = dmg - absorbed;
-            self.health -= net_dmg;
-            if net_dmg > 0 {
-                cards::after_hero_damage(self, net_dmg);
-            }
+            self.health -= dmg - absorbed;
         }
         self.sync_all_auras();
     }

@@ -25,11 +25,6 @@ pub const DEFAULT_FIRST_FIGHTER_SWITCH_CHANCE: f64 = 0.75;
 /// A player's hand limit (`docs/tavern.md` §3.2).
 const MAX_HAND_SIZE: usize = 10;
 
-/// Whether the team's combat damage counts for the players' "after your hero takes damage"
-/// minions (`Eredar Escapist`): not yet, pending the user's answer for Solo
-/// (`docs/duos_tavern.md` §3.5).
-const COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE: bool = false;
-
 /// Salts of the RNGs that resolve each player's hand cards that became ready in combat
 /// (`docs/duos_tavern.md` §6.2), by team (side A, side B) and player.
 const READY_SALTS: [[u64; 2]; 2] = [
@@ -441,24 +436,16 @@ impl DuosTavern {
         }
     }
 
-    /// The team lost a combat: its pool takes `damage`, Armor first (§3.5). No "your hero takes
-    /// damage" minion reacts to combat damage (`Soul Rewinder` doesn't rewind it, `Ashen
-    /// Corruptor` and `Tichondrius` don't trigger), and whether the "after your hero takes
-    /// damage" ones count it (`Eredar Escapist`) is decided here, once:
-    /// [`COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE`].
+    /// The team lost a combat: its pool takes `damage`, Armor first (§3.5). As in Solo
+    /// (`docs/tavern.md` §7.2), combat damage triggers no hero-damage minion, for either player:
+    /// `Soul Rewinder` doesn't rewind it, `Ashen Corruptor` and `Tichondrius` don't trigger,
+    /// `Eredar Escapist` doesn't count it.
     fn take_combat_damage(&mut self, damage: u32) {
         let dmg = damage as i32;
         let absorbed = dmg.min(self.armor.max(0));
         self.armor -= absorbed;
-        let net_dmg = dmg - absorbed;
-        self.health -= net_dmg;
+        self.health -= dmg - absorbed;
         self.mirror();
-        if COMBAT_DAMAGE_TRIGGERS_AFTER_HERO_DAMAGE && net_dmg > 0 {
-            for state in &mut self.players {
-                cards::after_hero_damage(state, net_dmg);
-            }
-            self.settle();
-        }
     }
 }
 

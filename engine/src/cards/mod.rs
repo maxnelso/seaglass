@@ -1464,7 +1464,7 @@ pub fn on_hero_damage(state: &mut TavernState, amount: i32) -> bool {
     rewound
 }
 
-/// Apply `after_hero_damage` observers (left to right) after the hero took `amount` damage.
+/// Apply `after_hero_damage` observers (left to right) after the hero took `amount` Tavern damage.
 pub fn after_hero_damage(state: &mut TavernState, amount: i32) {
     notify_tavern(
         state,

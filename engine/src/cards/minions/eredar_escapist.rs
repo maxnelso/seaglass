@@ -3,6 +3,7 @@
 //! After your hero takes 4 damage, get a copy (`two` copies if Golden) of `Corrupted Cupcakes`.
 //!
 //! Damage that `Soul Rewinder` or `Ashen Corruptor` rewinds counts: the hero took it first.
+//! Combat damage doesn't count (`docs/tavern.md` §7.2).
 
 use crate::cards::{spells, CardTemplate};
 use crate::model::{CardId, Tribe};
