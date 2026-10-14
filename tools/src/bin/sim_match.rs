@@ -416,6 +416,14 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
             }
         }
         TavernAction::EndTurn => "End Turn".to_string(),
+        TavernAction::Pass { hand_index } => {
+            let card = state
+                .hand
+                .get(hand_index)
+                .map(format_unit_inline)
+                .unwrap_or_else(|| format!("hand[{hand_index}]"));
+            format!("Pass {card}")
+        }
     }
 }
 

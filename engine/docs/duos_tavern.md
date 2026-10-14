@@ -214,13 +214,13 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 
 | Decision | Rule | Where |
 | :--- | :--- | :--- |
-| Mirrored Health | Each player's `health`/`armor` hold the team's, copied in and out around each action (§3.3). | `DuosTavern::mirror`, `take_health_from` |
+| Mirrored Health | Each player's `health`/`armor` hold the team's, copied in and out around each action (§3.3). | `DuosTavern::mirror`, `settle` |
 | Team Armor | "Set your Armor" sets the team's (§3.3). | (falls out of the mirror) |
 | Combat damage triggers | Both players' "after your hero takes damage" minions see the team's combat damage (§3.5). | `DuosTavern::apply_results` |
 | Start-of-turn order | Player 0's start of turn, then player 1's (§4.1). | `DuosTavern::start_turn` |
 | After `EndTurn` | No more actions that turn; passed cards still arrive (§4.2). | `DuosTavern::is_legal` |
 | First fighter | A fair coin on turn 1, then switching with `first_fighter_switch_chance` (default `0.75`), one RNG draw per turn (§4.3). | `DuosTavern::draw_first_fighter` |
-| Pass with a pending Discover | Not legal for the passer; the receiver's doesn't matter (§5.1). | `DuosTavern::is_legal` |
+| Pass with a pending Discover | Not legal for the passer; the receiver's doesn't matter (§5.1). | `DuosTavern::can_pass` |
 | Free Pass first | A Pass uses a free Pass whenever one is left; charges per Cho, like other "each turn" minions (§5.2). | `DuosTavern::pass` |
 | Not a play or discard | A Pass triggers no Battlecry or discard effect (§5.3). | `DuosTavern::pass` |
 | Lockbox | Not locked: it can be passed and opens for the receiver (§5.3). | `DuosTavern::is_locked` |
@@ -235,8 +235,7 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 1. Does the team's combat damage trigger both players' "after your hero takes damage" minions, or neither, or only the warband that lost?
 2. A warband that sat out: do its "after your next combat" effects (`Overconfidence`) resolve with the team's result, or wait like its Start of Combat ones? Does `Winner's Bread` ("if you win your next combat") count the team's win?
 3. Can a `Lockbox` be passed (and open for the receiver)?
-4. Can a player pass while they have a Discover pending, or after they ended their turn?
-5. What is the real chance that the first fighter switches?
-6. With `Wanderer Cho` on the board, can a player choose to pay for a Pass and keep the free one for later? Does a Cho played, sold or made Golden mid-turn give its free Pass(es) as modeled?
-7. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
-8. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?
+4. What is the real chance that the first fighter switches? (To be measured from game logs.)
+5. With `Wanderer Cho` on the board, can a player choose to pay for a Pass and keep the free one for later? Does a Cho played, sold or made Golden mid-turn give its free Pass(es) as modeled?
+6. Does a passed `Wandering Willbreaker` spell or `Faceless Operative` Aberration stay linked to the rest of its group in the passer's hand?
+7. Can effects that generate random minions (`Lockbox`, `Deathly Striker`) give a Duos-exclusive minion in Duos?

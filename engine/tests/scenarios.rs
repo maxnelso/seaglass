@@ -120,6 +120,7 @@ fn yaml_files(dir: &Path) -> Vec<PathBuf> {
 struct Catalog {
     minions: BTreeMap<u32, Vec<String>>,
     minion_ids: BTreeMap<u32, [u32; 2]>,
+    duos_minions: BTreeMap<u32, Vec<String>>,
     tiers: BTreeMap<u32, TierRow>,
     spells: BTreeMap<u32, Vec<String>>,
     not_in_pool: Vec<String>,
@@ -282,6 +283,35 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
         &all_minions,
     ));
 
+    // Duos-exclusive minions: only in the Duos catalog, after the full Solo catalog.
+    let duos_exclusive = seaglass::duos_exclusive_catalog();
+    let duos_minions: Vec<String> = want.duos_minions.values().flatten().cloned().collect();
+    check(list_diff(
+        "duos_exclusive_catalog()",
+        &template_names(&duos_exclusive),
+        &duos_minions,
+    ));
+    for (tier, names) in &want.duos_minions {
+        for card in duos_exclusive.iter().filter(|c| names.contains(&c.name)) {
+            if card.tavern_tier != *tier {
+                check(Some(format!(
+                    "{} is a Tier {tier} Duos minion in catalog.yaml but has tavern_tier {}",
+                    card.name, card.tavern_tier
+                )));
+            }
+        }
+    }
+    let mut duos_all = all_minions.clone();
+    duos_all.extend(duos_minions);
+    for name in ["duos", "duos_full"] {
+        let by_name = seaglass::catalog_for(name).map_err(|e| e.to_string())?;
+        check(list_diff(
+            &format!("catalog_for(\"{name}\")"),
+            &template_names(&by_name),
+            &duos_all,
+        ));
+    }
+
     let tavern_spells = spells::spells_up_to_tier(7);
     let not_in_pool: Vec<Unit> = tavern_spells
         .iter()
@@ -314,6 +344,7 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
     let mut names: BTreeMap<String, String> = BTreeMap::new();
     let everything = seaglass::full_catalog()
         .into_iter()
+        .chain(duos_exclusive)
         .map(|t| (t.card_id, t.name))
         .chain(
             all_spells

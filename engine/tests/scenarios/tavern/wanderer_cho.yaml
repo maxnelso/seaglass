@@ -1,0 +1,20 @@
+card: Wanderer Cho
+scenarios:
+  # Its free Passes are charges (docs/duos_tavern.md §5.2); Passes themselves need a Duos team.
+  - name: has_one_free_pass_each_turn
+    tavern: {board: [Wanderer Cho]}
+    steps:
+      - set: {board: {0: {charges: 0}}}   # used this turn
+      - start_turn
+    expect: {board: [{card: Wanderer Cho, stats: 4/3, tavern_tier: 2, tribe: none, charges: 1}]}
+
+  - name: a_golden_one_is_8_6_with_two_free_passes_each_turn
+    tavern: {hand: [Wanderer Cho, Wanderer Cho]}
+    steps:
+      - add_to_hand: Wanderer Cho
+      - expect: {hand: [{card: Wanderer Cho, is_golden: true, stats: 8/6, charges: 2}]}
+      - play: Wanderer Cho
+      - choose_discover: 0   # its Triple Reward
+      - set: {board: {0: {charges: 0}}}
+      - start_turn
+    expect: {board: [{card: Wanderer Cho, is_golden: true, charges: 2}]}

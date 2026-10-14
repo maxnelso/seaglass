@@ -1,5 +1,5 @@
-//! Minion card definitions: every active Solo minion (Tavern Tiers 1-7, Patch 36.6.3), one
-//! module per card.
+//! Minion card definitions: every active Solo minion (Tavern Tiers 1-7, Patch 36.6.3), and the
+//! implemented Duos-exclusive minions ([`duos_catalog`]), one module per card.
 //!
 //! Each module declares its card's `ID`, `NAME` and `template()` (stats, tribe, keywords and
 //! [`CardHooks`](crate::cards::CardHooks)) plus the functions implementing its effects. All
@@ -250,6 +250,7 @@ pub mod very_hungry_winterfinner;
 pub mod veteran_brigand;
 pub mod vicious_mindslasher;
 pub mod victorious_geomant;
+pub mod wanderer_cho;
 pub mod wandering_willbreaker;
 pub mod waveling;
 pub mod wildfire_elemental;
@@ -525,5 +526,15 @@ pub fn catalog() -> Vec<CardTemplate> {
         stitched_salvager::template(),
         stone_age_slab::template(),
         the_last_one_standing::template(),
+    ]
+}
+
+/// The implemented Duos-exclusive minions, grouped by Tavern Tier (`docs/duos_tavern.md` §8):
+/// only in the Duos catalog, after every Solo minion. Add new cards at the end of their tier's
+/// group.
+pub fn duos_catalog() -> Vec<CardTemplate> {
+    vec![
+        // Tier 2
+        wanderer_cho::template(),
     ]
 }

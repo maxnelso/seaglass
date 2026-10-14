@@ -16,6 +16,8 @@
 //! - **Player-effect hooks** fire for each of the player's
 //!   [`PlayerEffect`](crate::model::PlayerEffect)s of the card, in the order they were recorded
 //!   (`player_turn_start`, `player_start_of_combat`, ...).
+//! - **Duos Pass hooks** fire when a card is Passed to the teammate (`passed`, `after_pass`,
+//!   `after_team_pass`; `docs/duos_tavern.md` §7).
 
 use crate::cards::{ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, RallyCtx};
 use crate::model::{CardId, CombatResult, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId};
@@ -56,6 +58,9 @@ impl CardFlags {
     /// A Blood Gem: played from your hand, it is cast [`Passive::ExtraHandBloodGemCasts`] more
     /// times, each a cast of its own.
     pub const BLOOD_GEM: CardFlags = CardFlags(1 << 12);
+    /// Duos: while this has `charges` left, a Pass is free, using a charge
+    /// (`docs/duos_tavern.md` §5.2).
+    pub const FREE_PASS: CardFlags = CardFlags(1 << 13);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -412,6 +417,17 @@ card_hooks! {
     player_combat_summon(on_player_combat_summon): fn(&PlayerEffect, &mut Unit),
     /// After combat.
     player_after_combat(on_player_after_combat): EffectAfterCombatFn,
+
+    // ---- Duos: Passes (`docs/duos_tavern.md` §7) -----------------------------------------
+    /// This card was Passed to the teammate (its own text: "After this is Passed"), as it leaves
+    /// the passer's hand.
+    passed(on_passed): UnitFn,
+    /// Observer on the passer's board: after the player Passes a card: `(state, self_idx,
+    /// passed_card, pool, rng)`.
+    after_pass(on_after_pass): fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng),
+    /// Observer on both teammates' boards: after the team Passes a card (either teammate); the
+    /// team's counters are in `auras.team_passes_this_turn` / `team_passes_this_game`.
+    after_team_pass(on_after_team_pass): TavernFn,
 }
 
 impl Default for CardHooks {

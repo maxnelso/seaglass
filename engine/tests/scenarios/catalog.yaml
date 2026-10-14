@@ -2,6 +2,8 @@
 #
 # - minions: every shop minion by Tavern Tier, in catalog order (`tier<N>_catalog()`; together
 #   they are `full_catalog()`), and minion_ids: each tier's card id range.
+# - duos_minions: the Duos-exclusive minions by Tavern Tier (`duos_exclusive_catalog()`): only in
+#   the Duos catalog (`catalog_for("duos")` = `full_catalog()` + these), never in a Solo one.
 # - tiers: per Tavern Tier, the pool copies of each minion (`base_copies_for_tier`), the shop
 #   capacity (`shop_capacity`) and the cost to upgrade from it (`base_upgrade_cost`).
 # - spells: every Tavern spell by tier (`spells::tier<N>_spells()`), and not_in_pool: the Tavern
@@ -279,6 +281,10 @@ minion_ids:
   5: [501, 552]
   6: [601, 632]
   7: [701, 712]
+
+duos_minions:
+  2:  # 1
+    - Wanderer Cho
 
 tiers:
   1: {copies: 15, shop_capacity: 3, upgrade_cost: 5}

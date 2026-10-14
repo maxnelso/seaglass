@@ -1,10 +1,12 @@
 //! `seaglass`: Deterministic headless Hearthstone Battlegrounds game engine.
 //!
-//! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`) and the
-//! **Combat Phase** (`docs/combat.md`, and Duos combats: `docs/duos.md`).
+//! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`, and Duos Taverns:
+//! `docs/duos_tavern.md`) and the **Combat Phase** (`docs/combat.md`, and Duos combats:
+//! `docs/duos.md`).
 
 pub mod cards;
 pub mod combat;
+pub mod duos_tavern;
 pub mod events;
 pub mod model;
 pub mod rng;
@@ -16,13 +18,15 @@ pub mod tavern;
 pub mod python;
 
 pub use cards::{
-    catalog_for, full_catalog, solo_tier_3_catalog, solo_tier_4_catalog, solo_tier_5_catalog,
-    solo_tier_6_catalog, solo_tier_7_catalog, tier1_catalog, tier2_catalog, tier3_catalog,
-    tier4_catalog, tier5_catalog, tier6_catalog, tier7_catalog, ActivateTargetKind, CardTemplate,
+    catalog_for, duos_catalog, duos_exclusive_catalog, full_catalog, solo_tier_3_catalog,
+    solo_tier_4_catalog, solo_tier_5_catalog, solo_tier_6_catalog, solo_tier_7_catalog,
+    tier1_catalog, tier2_catalog, tier3_catalog, tier4_catalog, tier5_catalog, tier6_catalog,
+    tier7_catalog, ActivateTargetKind, CardTemplate,
 };
 pub use combat::{
     resolve_battle, resolve_duos_battle, BattleResult, DuosResult, DuosTeam, Warband, WarbandResult,
 };
+pub use duos_tavern::DuosTavern;
 pub use events::Event;
 pub use model::{
     BattleOutcome, CardId, DeityKind, DeityState, GameState, Keyword, PlayerAuras, Side, Tribe,

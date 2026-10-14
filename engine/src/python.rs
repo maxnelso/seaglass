@@ -396,6 +396,15 @@ impl PyTavernAction {
         }
     }
 
+    /// Duos: Pass `hand[hand_index]` to the teammate (`docs/duos_tavern.md` §5). A Solo
+    /// `TavernGame` never allows it.
+    #[staticmethod]
+    fn pass_card(hand_index: usize) -> Self {
+        Self {
+            inner: TavernAction::Pass { hand_index },
+        }
+    }
+
     #[getter]
     fn kind(&self) -> &'static str {
         match self.inner {
@@ -410,6 +419,7 @@ impl PyTavernAction {
             TavernAction::ToggleFreeze => "toggle_freeze",
             TavernAction::ChooseDiscover { .. } => "choose_discover",
             TavernAction::EndTurn => "end_turn",
+            TavernAction::Pass { .. } => "pass",
         }
     }
 
@@ -432,6 +442,7 @@ impl PyTavernAction {
                 target_pos,
             } => (Some(board_pos), target_pos),
             TavernAction::ChooseDiscover { option_index } => (Some(option_index), None),
+            TavernAction::Pass { hand_index } => (Some(hand_index), None),
             TavernAction::Refresh
             | TavernAction::UpgradeTavern
             | TavernAction::ToggleFreeze

@@ -19,14 +19,15 @@ pub mod volumizers;
 
 pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
 pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
-pub use registry::{all_templates, hooks, template};
+pub use registry::{all_templates, duos_exclusive_templates, hooks, template};
 
 use registry::plain_instance;
 
 use crate::combat::MAX_BOARD_SIZE;
 use crate::events::Event;
 use crate::model::{
-    CardId, CombatResult, Keyword, PlayerAuras, Side, Tribe, Unit, UnitId, BONUS_KEYWORDS,
+    CardId, CombatResult, Keyword, PlayerAuras, PlayerEffect, Side, Tribe, Unit, UnitId,
+    BONUS_KEYWORDS,
 };
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
@@ -492,6 +493,15 @@ pub fn use_charge(board: &mut [Unit], flag: CardFlags) -> bool {
     true
 }
 
+/// The `charges` left on the minions on `board` whose card has `flag`, in total.
+pub fn charges_left(board: &[Unit], flag: CardFlags) -> u32 {
+    board
+        .iter()
+        .filter(|u| hooks(u.card_id).has(flag))
+        .map(|u| u.charges)
+        .sum()
+}
+
 /// Set `unit`'s board-aura spell bonus from its card's `spell_aura` (doubled when Golden).
 pub fn init_spell_aura(unit: &mut Unit) {
     set_spell_aura(unit, hooks(unit.card_id).spell_aura);
@@ -612,6 +622,19 @@ pub fn solo_full_catalog() -> Vec<CardTemplate> {
     full_catalog()
 }
 
+/// The implemented Duos-exclusive minions, in catalog order (`docs/duos_tavern.md` §8): only in
+/// the Duos catalog, never in a Solo one.
+pub fn duos_exclusive_catalog() -> Vec<CardTemplate> {
+    minions::duos_catalog()
+}
+
+/// The Duos catalog: the full Solo catalog, then the implemented Duos-exclusive minions.
+pub fn duos_catalog() -> Vec<CardTemplate> {
+    let mut c = full_catalog();
+    c.extend(duos_exclusive_catalog());
+    c
+}
+
 /// Minimal test catalog for generic economy scenarios.
 pub fn default_test_catalog() -> Vec<CardTemplate> {
     tier1_catalog()
@@ -663,8 +686,9 @@ pub fn catalog_for(name: &str) -> Result<Vec<CardTemplate>, String> {
             Ok(c)
         }
         "full" | "solo_full" | "tier1_7" => Ok(full_catalog()),
+        "duos" | "duos_full" => Ok(duos_catalog()),
         other => Err(format!(
-            "unknown catalog {other:?}; expected one of: tier1, solo_tier_1, tier2, solo_tier_2, tier3, solo_tier_3, tier4, solo_tier_4, tier5, solo_tier_5, tier6, solo_tier_6, tier7, solo_tier_7, tier1_2, tier1_3, tier1_4, tier1_5, tier1_6, tier1_7, full, solo_full, test"
+            "unknown catalog {other:?}; expected one of: tier1, solo_tier_1, tier2, solo_tier_2, tier3, solo_tier_3, tier4, solo_tier_4, tier5, solo_tier_5, tier6, solo_tier_6, tier7, solo_tier_7, tier1_2, tier1_3, tier1_4, tier1_5, tier1_6, tier1_7, full, solo_full, test, duos, duos_full"
         )),
     }
 }
@@ -2110,4 +2134,41 @@ pub fn on_post_combat_unit(
 /// `player_after_combat` hooks.
 pub fn on_player_after_combat(state: &mut TavernState, result: CombatResult) {
     effects::after_combat(state, result);
+}
+
+/// `true` if the player effect `effect` acts at Start of Combat (its card has a
+/// `player_start_of_combat` or `player_combat_space` hook): a "next combat" effect such as
+/// `Upper Hand`.
+pub fn is_start_of_combat_effect(effect: &PlayerEffect) -> bool {
+    effects::acts_at_start_of_combat(effect)
+}
+
+// ---------------------------------------------------------------------------
+// Duos: Passes (`docs/duos_tavern.md` §5.6, §7)
+// ---------------------------------------------------------------------------
+
+/// `card` is being Passed to the teammate: its own `passed` hook ("After this is Passed").
+pub fn on_passed(card: &mut Unit) {
+    if let Some(passed) = hooks(card.card_id).passed {
+        passed(card);
+    }
+}
+
+/// The player Passed `passed`: their `after_pass` observers, left to right.
+pub fn after_pass(state: &mut TavernState, passed: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    notify_tavern(
+        state,
+        |h| h.after_pass,
+        |s, idx, f| f(s, idx, passed, pool, rng),
+    );
+}
+
+/// The player's team Passed a card (either teammate): their `after_team_pass` observers, left to
+/// right.
+pub fn after_team_pass(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    notify_tavern(
+        state,
+        |h| h.after_team_pass,
+        |s, idx, f| f(s, idx, pool, rng),
+    );
 }

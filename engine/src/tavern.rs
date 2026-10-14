@@ -367,7 +367,8 @@ pub enum MinionSlot {
     Shop(usize),
 }
 
-/// Discrete player actions during the Tavern Phase (`docs/tavern.md` §6).
+/// Discrete player actions during the Tavern Phase (`docs/tavern.md` §6). New variants go at the
+/// end, so the earlier ones keep their places.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TavernAction {
     Buy {
@@ -401,6 +402,11 @@ pub enum TavernAction {
         option_index: usize,
     },
     EndTurn,
+    /// Duos: Pass `hand[hand_index]` to the teammate (`docs/duos_tavern.md` §5). Only a team's
+    /// Tavern ([`crate::duos_tavern::DuosTavern`]) allows it: a Solo `TavernState` never does.
+    Pass {
+        hand_index: usize,
+    },
 }
 
 /// Complete state of a player during the Tavern Phase (`docs/tavern.md` §3).
@@ -1086,7 +1092,61 @@ impl TavernState {
                 res.outcome == BattleOutcome::AWin,
             ),
         };
+        let result = if won {
+            CombatResult::Won
+        } else if lost {
+            CombatResult::Lost
+        } else {
+            CombatResult::Tied
+        };
+        // Hand cards that became ready during combat (e.g. a sped-up `Lockbox`) resolve with a
+        // per-side RNG derived from the battle seed.
+        let ready_salt = match side {
+            Side::A => 0x9E37_79B9_7F4A_7C15,
+            Side::B => 0xBF58_476D_1CE4_E5B9,
+        };
+        let mut ready_rng = Rng::new(seed ^ ready_salt);
+        self.apply_combat_return(
+            pre_combat_snapshot,
+            new_auras,
+            new_hand,
+            survivors,
+            dead_units,
+            result,
+            &mut ready_rng,
+        );
 
+        if lost {
+            let dmg = res.hero_damage as i32;
+            let absorbed = dmg.min(self.armor.max(0));
+            self.armor -= absorbed;
+            let net_dmg = dmg - absorbed;
+            self.health -= net_dmg;
+            if net_dmg > 0 {
+                cards::after_hero_damage(self, net_dmg);
+            }
+        }
+        self.sync_all_auras();
+    }
+
+    /// Bring back what a combat gives this player's Tavern (Combat-to-Tavern Persistence,
+    /// `docs/combat.md` §1), but not the hero damage: their auras after the combat (Tavern auras
+    /// gained in combat also buff the shop), their after-combat player effects with `result`,
+    /// their hand after the combat, the hand cards that became ready (resolved with `ready_rng`),
+    /// what their minions keep from combat (`survivors` and `dead_units`, matched to
+    /// `pre_combat_snapshot` by unit id), triples in hand, and the result. A Solo side's result
+    /// and a Duos player's (`docs/duos_tavern.md` §6.2) both come back through here.
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_combat_return(
+        &mut self,
+        pre_combat_snapshot: &[Unit],
+        new_auras: PlayerAuras,
+        new_hand: Vec<Unit>,
+        survivors: &[Unit],
+        dead_units: &[Unit],
+        result: CombatResult,
+        ready_rng: &mut Rng,
+    ) {
         // Tavern auras gained in combat also buff the minions already in the Tavern
         // (`docs/combat.md` §1, Combat-to-Tavern Persistence).
         let d_tavern_atk = new_auras.tavern_all_atk - self.auras.tavern_all_atk;
@@ -1109,25 +1169,11 @@ impl TavernState {
             }
         }
 
-        let result = if won {
-            CombatResult::Won
-        } else if lost {
-            CombatResult::Lost
-        } else {
-            CombatResult::Tied
-        };
         cards::on_player_after_combat(self, result);
         self.hand = new_hand;
-        // Hand cards that became ready during combat (e.g. a sped-up `Lockbox`) resolve with a
-        // per-side RNG derived from the battle seed.
-        let ready_salt = match side {
-            Side::A => 0x9E37_79B9_7F4A_7C15,
-            Side::B => 0xBF58_476D_1CE4_E5B9,
-        };
-        let mut ready_rng = Rng::new(seed ^ ready_salt);
-        cards::resolve_ready_hand_cards(self, &mut ready_rng);
+        cards::resolve_ready_hand_cards(self, ready_rng);
 
-        let mut post_units = survivors.clone();
+        let mut post_units = survivors.to_vec();
         post_units.extend_from_slice(dead_units);
         for (idx, tavern_unit) in self.board.iter_mut().enumerate() {
             cards::on_post_combat_unit(pre_combat_snapshot, idx, &post_units, tavern_unit);
@@ -1143,19 +1189,8 @@ impl TavernState {
             self.check_and_resolve_triple(cid);
         }
 
-        self.last_combat_won = won;
-        self.last_combat_lost = lost;
-        if lost {
-            let dmg = res.hero_damage as i32;
-            let absorbed = dmg.min(self.armor.max(0));
-            self.armor -= absorbed;
-            let net_dmg = dmg - absorbed;
-            self.health -= net_dmg;
-            if net_dmg > 0 {
-                cards::after_hero_damage(self, net_dmg);
-            }
-        }
-        self.sync_all_auras();
+        self.last_combat_won = result == CombatResult::Won;
+        self.last_combat_lost = result == CombatResult::Lost;
     }
 
     /// Run a combat phase against an opponent and apply all Combat-to-Tavern persistence.
@@ -1369,6 +1404,8 @@ impl TavernState {
             TavernAction::ToggleFreeze => true,
             TavernAction::ChooseDiscover { .. } => false,
             TavernAction::EndTurn => true,
+            // Solo has no teammate to Pass to.
+            TavernAction::Pass { .. } => false,
         }
     }
 
@@ -1706,6 +1743,9 @@ impl TavernState {
                 cards::on_end_turn(self, pool, rng);
                 Ok(true)
             }
+            TavernAction::Pass { .. } => Err(format!(
+                "illegal tavern action: {action:?} (a Pass needs a teammate)"
+            )),
         }
     }
 

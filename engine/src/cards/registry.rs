@@ -1,18 +1,20 @@
 //! Global card registry: `CardId` → [`CardTemplate`] and [`CardHooks`].
 //!
-//! Built once from the full minion catalog plus the behaviour tables exported by the
-//! token, spell, and Deity modules.
+//! Built once from the full minion catalog and the Duos-exclusive minions, plus the behaviour
+//! tables exported by the token, spell, and Deity modules.
 
 use std::sync::OnceLock;
 
 use super::hooks::CardHooks;
-use super::{deities, full_catalog, spells, tokens, CardTemplate};
+use super::{deities, duos_exclusive_catalog, full_catalog, spells, tokens, CardTemplate};
 use crate::model::{CardId, PlayerAuras, Unit};
 
 const NO_SLOT: u16 = u16::MAX;
 
 struct Registry {
+    /// The full Solo catalog, then the Duos-exclusive minions (from `solo_len` on).
     templates: Vec<CardTemplate>,
+    solo_len: usize,
     template_slot: Vec<u16>,
     hooks: Vec<CardHooks>,
     hook_slot: Vec<u16>,
@@ -34,7 +36,9 @@ fn set_slot(slots: &mut Vec<u16>, card_id: CardId, idx: usize, what: &str) {
 }
 
 fn build() -> Registry {
-    let templates = full_catalog();
+    let mut templates = full_catalog();
+    let solo_len = templates.len();
+    templates.extend(duos_exclusive_catalog());
     let mut template_slot = Vec::new();
     let mut hooks = Vec::new();
     let mut hook_slot = Vec::new();
@@ -53,6 +57,7 @@ fn build() -> Registry {
     }
     Registry {
         templates,
+        solo_len,
         template_slot,
         hooks,
         hook_slot,
@@ -91,7 +96,7 @@ fn knocked_out() -> Option<CardId> {
     })
 }
 
-/// Catalog template for the minion `card_id`, if it is a shop minion.
+/// Catalog template for the minion `card_id`, if it is a shop minion (Solo or Duos-exclusive).
 #[inline]
 pub fn template(card_id: CardId) -> Option<&'static CardTemplate> {
     let r = registry();
@@ -110,7 +115,15 @@ pub fn plain_instance(unit: &Unit) -> Option<Unit> {
     }
 }
 
-/// All catalog templates (Tier 1..=7), in catalog order.
+/// All Solo catalog templates (Tier 1..=7), in catalog order: what effects that generate random
+/// minions draw from (`docs/duos_tavern.md` §8).
 pub fn all_templates() -> &'static [CardTemplate] {
-    &registry().templates
+    let r = registry();
+    &r.templates[..r.solo_len]
+}
+
+/// The Duos-exclusive minion templates, in catalog order (`docs/duos_tavern.md` §8).
+pub fn duos_exclusive_templates() -> &'static [CardTemplate] {
+    let r = registry();
+    &r.templates[r.solo_len..]
 }

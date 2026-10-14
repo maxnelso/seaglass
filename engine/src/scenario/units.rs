@@ -46,8 +46,8 @@ pub struct Card {
     pub proto: Unit,
 }
 
-/// Every card that unit specs can name: catalog minions, spells (Tavern and token spells),
-/// token minions and the deities.
+/// Every card that unit specs can name: catalog minions (Solo and Duos-exclusive), spells (Tavern
+/// and token spells), token minions and the deities.
 pub struct CardIndex {
     cards: Vec<Card>,
     /// Lowercase name -> indices into `cards` (more than one: an ambiguous name).
@@ -64,7 +64,10 @@ pub fn card_index() -> &'static CardIndex {
 impl CardIndex {
     fn build() -> Self {
         let mut list = Vec::new();
-        for tpl in cards::all_templates() {
+        for tpl in cards::all_templates()
+            .iter()
+            .chain(cards::duos_exclusive_templates())
+        {
             list.push(Card {
                 name: tpl.name.clone(),
                 card_id: tpl.card_id,
@@ -109,7 +112,8 @@ impl CardIndex {
         }
     }
 
-    /// Every card, in index order (minions in catalog order, then spells, tokens, deities).
+    /// Every card, in index order (Solo minions in catalog order, then the Duos-exclusive
+    /// minions, spells, tokens, deities).
     pub fn cards(&self) -> &[Card] {
         &self.cards
     }

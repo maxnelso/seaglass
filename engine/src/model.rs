@@ -308,6 +308,10 @@ pub struct PlayerAuras {
     /// Player-level effects recorded by card text, in the order they were recorded (see
     /// [`PlayerEffect`] and [`Self::add_effect`]).
     pub effects: Vec<PlayerEffect>,
+    /// Duos: the team's Passes this turn and this game, either teammate's, mirrored into both
+    /// teammates' auras by the team's Tavern (`docs/duos_tavern.md` §7). Always 0 in Solo.
+    pub team_passes_this_turn: u32,
+    pub team_passes_this_game: u32,
 }
 
 impl PlayerAuras {
