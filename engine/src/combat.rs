@@ -1,6 +1,7 @@
 //! Card-agnostic combat resolution loop (`docs/combat.md`), and Duos combats built on it
 //! (`docs/duos.md`).
 
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::ops::Range;
@@ -1082,7 +1083,8 @@ fn perform_one_strike(
         return;
     };
     break_stealth_if_all_hidden(&mut def_side.board);
-    let Some(initial_def_pos) = choose_target(&def_side.board, rng) else {
+    let attacker = &atk_side.board[initial_atk_pos];
+    let Some(initial_def_pos) = choose_target(side, attacker, &def_side.board, rng) else {
         return;
     };
     let target_id = def_side.board[initial_def_pos].id;
@@ -1584,7 +1586,7 @@ fn break_stealth_if_all_hidden(defenders: &mut [Unit]) {
     }
 }
 
-fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
+fn choose_target(side: Side, attacker: &Unit, defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
     // Stealthed minions cannot be attacked (an all-Stealth side has already lost it).
     let visible: Vec<usize> = defenders
         .iter()
@@ -1601,11 +1603,49 @@ fn choose_target(defenders: &[Unit], rng: &mut Rng) -> Option<usize> {
 
     let candidates = if !taunts.is_empty() { taunts } else { visible };
 
-    match candidates.len() {
-        0 => None,
-        1 => Some(candidates[0]),
-        n => Some(candidates[rng.below(n)]),
+    let drawn = match candidates.len() {
+        0 => return None,
+        1 => candidates[0],
+        n => candidates[rng.below(n)],
+    };
+    let chosen = TARGET_CHOOSER.with(|chooser| {
+        chooser
+            .borrow_mut()
+            .as_mut()
+            .and_then(|choose| choose(side, attacker, defenders, &candidates))
+    });
+    Some(chosen.filter(|i| candidates.contains(i)).unwrap_or(drawn))
+}
+
+/// Picks a strike's target: `(attacking side, attacker, defending board, candidate indices)` →
+/// the index in the defending board to attack, or `None` for the usual draw.
+type TargetChooser = Box<dyn FnMut(Side, &Unit, &[Unit], &[usize]) -> Option<usize>>;
+
+thread_local! {
+    static TARGET_CHOOSER: RefCell<Option<TargetChooser>> = const { RefCell::new(None) };
+}
+
+/// Analysis tooling (the replay validator replays a real combat's targets with it): runs `f`
+/// with `chooser` picking the target of every strike resolved on this thread
+/// (`docs/combat.md` §4.2). `chooser(side, attacker, defenders, candidates)` gets the attacking
+/// side, the attacker, the defending board and the indices of the units it may attack, and
+/// returns one of the candidates (anything else, or `None`, keeps the drawn target). The draw is
+/// made either way, so the PRNG stream is the same as without a chooser. Without a chooser,
+/// combat is unchanged.
+pub fn with_target_chooser<R>(
+    chooser: impl FnMut(Side, &Unit, &[Unit], &[usize]) -> Option<usize> + 'static,
+    f: impl FnOnce() -> R,
+) -> R {
+    struct Restore(Option<TargetChooser>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            let previous = self.0.take();
+            TARGET_CHOOSER.with(|chooser| *chooser.borrow_mut() = previous);
+        }
     }
+    let previous = TARGET_CHOOSER.with(|c| c.borrow_mut().replace(Box::new(chooser)));
+    let _restore = Restore(previous);
+    f()
 }
 
 /// Apply `amount` damage from `source_id` to `board[pos]`.
