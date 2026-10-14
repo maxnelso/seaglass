@@ -47,7 +47,7 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
    - One copy is sampled uniformly across all remaining individual copies (a card with 15 copies remaining is $15\times$ as likely to be drawn as a card with 1 copy remaining).
    - The drawn card's remaining count in `CardPool` is decremented by `1`.
 2. **Discover Draw (`draw_discover_options(exact_tier, count, rng)`)**:
-   - Draws up to `count` (`3`) **distinct `card_id`s** of exact tier `exact_tier`, weighted by remaining copies, decrementing each drawn card's remaining count by `1`.
+   - Draws up to `count` (`3`) **distinct `card_id`s** of exact tier `exact_tier`, weighted by remaining copies, decrementing each drawn card's remaining count by `1`. If no copy of that tier is left, it draws them from the highest lower tier that has copies left.
 3. **Returning to Pool (`return_unit(unit)`)**:
    - **Shop Refresh / Unfrozen Turn Start**: Every minion currently in `shop` returns its copies to the pool (`1` copy, or as a sold Golden below) *before* drawing the new shop.
    - **Selling a Non-Golden Minion**: Returns **`1` copy** of its `card_id` to the pool (capped at the tier's base copy limit).
@@ -142,7 +142,7 @@ When a Golden minion is played from `hand` to `board`:
 1. The Golden minion is inserted at `board[board_pos]`, running its on-play Battlecries and board triggers (doubled for Golden).
 2. Unless the Golden doesn't give a Triple Reward (`intrinsic_golden`: only cards whose text says so, `Aureate Laureate` and the Golden minions `Silent Deliverer` gives), whether it was formed by a Triple or made Golden by an effect (`Golden Touch`, a `Lockbox`):
    - Let `reward_tier = min(6, tavern_tier + 1)`.
-   - Draw up to 3 distinct `card_id`s of exact tier `reward_tier` from `CardPool`. If non-empty, set `discover_pending = Some(options)`.
+   - Draw up to 3 distinct `card_id`s of exact tier `reward_tier` from `CardPool` (or of the highest lower tier with copies left, if none of `reward_tier` is: §2). If non-empty, set `discover_pending = Some(options)`.
 3. While `discover_pending.is_some()`, only `ChooseDiscover { option_index }` (`0..options.len()`) is legal.
 4. Executing `ChooseDiscover { option_index }` appends `options[option_index]` to `hand` (with a full hand, it is lost and returns to `CardPool`, §2), returns unchosen options to `CardPool`, sets `discover_pending = None`, and runs `check_and_resolve_triple`.
 
@@ -154,17 +154,17 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 
 | Action | Preconditions | Effect |
 | :--- | :--- | :--- |
-| `Buy { shop_index }` | `gold >= 3`, `shop_index < shop.len()`, `hand.len() < 10` | Move `shop[shop_index]` to `hand`, then `gold -= 3` (the card takes its hand slot before the Gold is spent, below); check for Triple. |
+| `Buy { shop_index }` | `gold >= 3`, `shop_index < shop.len()`, `hand.len() < 10`, the card can be bought (not `UNBUYABLE`: a `Fishbait`) | Move `shop[shop_index]` to `hand`, then `gold -= 3` (the card takes its hand slot before the Gold is spent, below); check for Triple. |
 | `Play { hand_index, board_pos }` (Minion) | `hand_index < hand.len()`, card is a minion, `board.len() < 7`, `board_pos <= board.len()` | Remove from `hand`, apply on-play Battlecries/auras, insert at `board[board_pos]`, run post-play triggers, trigger Discover if tripled Golden. |
 | `Play { hand_index, board_pos }` (Targeted Spell) | `hand_index < hand.len()`, card is a targeted spell, `board_pos < board.len()`, `board[board_pos]` is a valid target (§7.4: e.g. an Undead for `Butchering`, a minion with a type for `Chef's Choice`) | Remove spell from `hand`, cast it on `board[board_pos]` (§7.4). |
 | `PlayOnShop { hand_index, shop_index }` (Spell on a Tavern minion) | `hand_index < hand.len()`, card is a spell that can target a minion in the Tavern (its text says "a minion", §7.4), `shop[shop_index]` is a minion | Remove spell from `hand`, cast it once on `shop[shop_index]` (§7.4). |
 | `Play { hand_index, board_pos: 0 }` (Untargeted Spell) | `hand_index < hand.len()`, card is an untargeted spell (e.g. gold coin) | Remove spell from `hand`, cast it (§7.4: apply player/board effect). |
-| `Sell { board_pos }` | `board_pos < board.len()` | Remove `board[board_pos]`, return copies to `CardPool`, `gold = min(10, gold + 1)`, run on-sell triggers. |
+| `Sell { board_pos }` | `board_pos < board.len()` | Remove `board[board_pos]`, return copies to `CardPool`, `gold += 1` (no cap: Gold can exceed `10`, §3.1), run on-sell triggers. |
 | `Reposition { from_pos, to_pos }` | `from_pos < board.len()`, `to_pos < board.len()`, `from_pos != to_pos` | Move `board[from_pos]` to `board[to_pos]`. Costs `0` gold. |
 | `Refresh` | `gold >= 1`, `auras.free_refreshes > 0`, or a Health Refresh (`has_health_refresh`: a `HEALTH_REFRESHES` minion has `charges` left and `health + armor > 1` or hero damage is rewound) | Pay: if `free_refreshes > 0`, `free_refreshes -= 1` (a free Refresh still uses a `HEALTH_REFRESHES` charge if there is one: it costs 0 Health instead of 0 Gold); else if a Health Refresh is available, use a charge (left-most minion first) and deal 1 damage to the hero; else `gold -= 1`. Then `is_frozen = false`, return current `shop` to `CardPool`, draw `shop_capacity(tavern_tier)` new minions. |
 | `UpgradeTavern` | `tavern_tier < 6`, `gold >= upgrade_cost` | `gold -= upgrade_cost`, `tavern_tier += 1`, `upgrade_cost = base_upgrade_cost(tavern_tier)`. |
 | `ToggleFreeze` | Always legal | `is_frozen = !is_frozen`. Costs `0` gold. |
-| `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand` (with a full hand it is lost and returns to `CardPool`, §2), return others to `CardPool` (Duos: those marked `unchosen_to_teammate` go to the teammate instead, `docs/duos_tavern.md` §8.3), clear `discover_pending`, check for Triple, then the chosen card's "when you Discover this" text (`obtained`, if it reached the hand) and the `discover` observers. A Choose-One option takes effect instead (once per cast of the spell that offered it, §7.4). |
+| `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand` (with a full hand it is lost and returns to `CardPool`, §2), return others to `CardPool` (Duos: those marked `unchosen_to_teammate` go to the teammate instead, `docs/duos_tavern.md` §8.3), clear `discover_pending`, check for Triple, then the chosen card's "when you Discover this" text (`obtained`, only if it reached the hand **(confirmed)**: a `Mirror Monster` Discovered into a full hand gives no copy) and the `discover` observers. A Choose-One option takes effect instead (once per cast of the spell that offered it, §7.4). |
 | `EndTurn` | Always legal when `discover_pending.is_none()` | Run end-of-turn triggers, discard the temporary cards still in `hand` (Spellcraft spells, §7.4) without discard effects, and conclude the Tavern turn. |
 
 **Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.
