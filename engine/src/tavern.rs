@@ -1814,14 +1814,15 @@ impl TavernState {
                     }
                 }
                 chosen.unchosen_to_teammate = false;
-                if chosen.discover_deals_tier_damage {
-                    chosen.discover_deals_tier_damage = false;
-                    let dmg = chosen.tavern_tier as i32;
-                    self.deal_hero_damage(dmg);
-                }
+                // The card reaches the hand before its Tier damage (`docs/tavern.md` §7.2).
+                let tier_damage = std::mem::take(&mut chosen.discover_deals_tier_damage)
+                    .then_some(chosen.tavern_tier as i32);
                 let obtained = chosen.clone();
                 if self.add_pool_card_to_hand(chosen, pool) {
                     cards::on_obtained(self, &obtained, pool, rng);
+                }
+                if let Some(dmg) = tier_damage {
+                    self.deal_hero_damage(dmg);
                 }
                 cards::on_card_discovered(self, pool, rng);
                 Ok(false)

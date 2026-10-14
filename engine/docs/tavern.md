@@ -199,6 +199,7 @@ When a Tavern trigger would deal damage to the friendly hero:
 - If the board contains any friendly damage-prevention observer, the hero takes `0` damage and each such observer applies its on-prevent buff instead.
 - Otherwise, `state.health` is reduced by the damage amount. Triggered self-damage can kill: at `1` Health, `Wrath Weaver`'s 1 damage takes the hero to `0` (the hero dies). Only Health costs (Health Refreshes, Health-cost spells) must leave the hero above `0` to be payable.
 - Each damage instance is resolved on its own: an effect that deals `1` damage twice (Golden `Wrath Weaver`) triggers the hero-damage observers (`Ashen Corruptor`, `Tichondrius`, ...) twice.
+- A Discover that deals the chosen card's Tier as damage (`Imposing Percussionist`) deals it once the card is in the hand **(confirmed)**: with 9 cards, the Discovered card takes the 10th slot, and a card the damage gives (`Eredar Escapist`'s `Corrupted Cupcakes`) meets a full hand and is lost.
 - Combat damage (the hero damage of a lost combat, taken by Armor first, then Health) triggers no hero-damage observers: `Soul Rewinder` and `Ashen Corruptor` don't rewind it, `Tichondrius` doesn't trigger, and `Eredar Escapist` ("after your hero takes 4 damage") doesn't count it.
 
 ### 7.3 On-Sell Triggers

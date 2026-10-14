@@ -2,7 +2,8 @@
 //!
 //! Battlecry: Discover a (`2` if Golden) Demon(s). Deal damage to your hero equal to its Tier.
 //!
-//! It never Discovers an `Imposing Percussionist` (Golden or not).
+//! It never Discovers an `Imposing Percussionist` (Golden or not). The damage comes once the
+//! chosen Demon is in the hand (`ChooseDiscover`, `docs/tavern.md` §7.2).
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe, Unit};

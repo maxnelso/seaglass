@@ -2318,11 +2318,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
          (fuzz_findings::relentless_deflector_loses_the_taunt_a_spell_gave_it)",
     ),
     (
-        "the Discover card did not reach the hand",
-        "ChooseDiscover deals its Tier damage before adding the card \
-         (fuzz_findings::a_discovered_card_is_lost_to_the_cards_its_damage_gives)",
-    ),
-    (
         "transient state set: pending_choice_target",
         "a Choose One followed by a Triple Reward leaves pending_choice_target set \
          (fuzz_findings::a_choose_one_before_a_triple_reward_leaves_its_target_set)",

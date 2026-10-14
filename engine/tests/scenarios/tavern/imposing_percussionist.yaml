@@ -21,3 +21,22 @@ scenarios:
     expect:
       discover_pending: {count: 3, none: {card: Imposing Percussionist}}
       discover_queue: {count: 2, all: {none: {card: Imposing Percussionist}}}
+
+  - name: the_discovered_demon_reaches_the_hand_before_its_tier_damage
+    description: >-
+      With 9 cards, the Discovered Demon takes the 10th slot, then its Tier is dealt as damage
+      (confirmed): Eredar Escapist's Corrupted Cupcakes for that damage meet a full hand and are
+      lost (the damage used to come first, and the Demon was lost instead).
+    tavern:
+      tavern_tier: 4
+      board: [Eredar Escapist]   # after 4 damage: a Corrupted Cupcakes
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem]   # 9 cards
+      discover_pending:
+        - {card: Imp-lusionist, discover_deals_tier_damage: true}   # a Tier 4 Demon
+        - {card: Soul Rewinder, discover_deals_tier_damage: true}
+    steps:
+      - choose_discover: 0
+    expect:
+      health: 26
+      hand: {count: 10, any: Imp-lusionist, none: Corrupted Cupcakes}

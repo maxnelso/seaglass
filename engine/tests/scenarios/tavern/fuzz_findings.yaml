@@ -1,25 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: a_discovered_card_is_lost_to_the_cards_its_damage_gives
-    known_bug: ChooseDiscover deals the Tier damage before adding the chosen card, which a full hand then drops
-    description: >-
-      ChooseDiscover deals an Imposing Percussionist option's Tier as damage before the card goes
-      to the hand: Eredar Escapist's Corrupted Cupcakes take the last free slot and add_to_hand
-      silently drops the chosen card (its pool copy is never returned).
-    tavern:
-      tavern_tier: 4
-      board: [Eredar Escapist]   # after 4 damage: a Corrupted Cupcakes
-      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
-             Blood Gem]   # 9 cards
-      discover_pending:
-        - {card: Imp-lusionist, discover_deals_tier_damage: true}   # a Tier 4 Demon
-        - {card: Soul Rewinder, discover_deals_tier_damage: true}
-    steps:
-      - choose_discover: 0
-    expect:
-      health: 26
-      hand: {count: 10, any: Imp-lusionist}
-
   - name: relentless_deflector_loses_the_taunt_a_spell_gave_it
     known_bug: Relentless Deflector's sync sets taunt = divine_shield, wiping a Taunt from a spell
     description: >-
