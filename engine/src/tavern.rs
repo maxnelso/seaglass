@@ -704,6 +704,18 @@ impl TavernState {
         }
     }
 
+    /// Add `card`, drawn from `pool`, to `hand`, and return whether it got there. A full hand can't
+    /// take it: it is lost, and its copy returns to `pool` (`docs/tavern.md` §2).
+    pub fn add_pool_card_to_hand(&mut self, card: Unit, pool: &mut CardPool) -> bool {
+        if self.hand.len() >= 10 {
+            pool.return_unit(&card);
+            false
+        } else {
+            self.add_to_hand(card);
+            true
+        }
+    }
+
     /// Discard the card at `hand[hand_idx]`, returning non-spells to `pool` and firing `cards::on_discard_hand_card`.
     pub fn discard_hand_card(
         &mut self,
@@ -1808,8 +1820,9 @@ impl TavernState {
                     self.deal_hero_damage(dmg);
                 }
                 let obtained = chosen.clone();
-                self.add_to_hand(chosen);
-                cards::on_obtained(self, &obtained, pool, rng);
+                if self.add_pool_card_to_hand(chosen, pool) {
+                    cards::on_obtained(self, &obtained, pool, rng);
+                }
                 cards::on_card_discovered(self, pool, rng);
                 Ok(false)
             }

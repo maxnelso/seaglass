@@ -69,23 +69,6 @@ scenarios:
       - start_turn
     expect: {board: [Ichoron the Protector, "Dune Dweller divine_shield"]}
 
-  - name: a_card_discovered_with_a_full_hand_leaves_the_pool_for_good
-    known_bug: a card Discovered with a full hand is dropped without returning to the pool (rule question)
-    description: >-
-      Rule question. With a full hand (a Patient Scout sold, a Golden played), the chosen Discover
-      card is silently dropped by add_to_hand and never returned to the pool, while the unchosen
-      options are: each such Discover loses a copy of the pool for the rest of the game.
-    tavern:
-      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
-             Blood Gem, Blood Gem]   # 10 cards
-      discover_pending: [Imp-lusionist, Soul Rewinder]
-    steps:
-      - take_from_pool: [Imp-lusionist, Soul Rewinder]   # the Discover drew them
-      - choose_discover: 0
-    expect:
-      hand: {count: 10, none: Imp-lusionist}
-      pool: {Imp-lusionist: 11, Soul Rewinder: 15}
-
   - name: a_choose_one_before_a_triple_reward_leaves_its_target_set
     known_bug: ChooseDiscover clears pending_choice_target only after a Choose One option with no prompt left
     description: >-

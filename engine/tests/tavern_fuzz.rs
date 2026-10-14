@@ -2302,11 +2302,6 @@ const KNOWN_BUGS: &[(&str, &str)] = &[
          (fuzz_findings::a_choose_one_before_a_triple_reward_leaves_its_target_set)",
     ),
     (
-        "left the pool for nowhere",
-        "a card Discovered with a full hand is dropped without returning to the pool \
-         (fuzz_findings::a_card_discovered_with_a_full_hand_leaves_the_pool_for_good)",
-    ),
-    (
         "shop has # cards",
         "Demon Fodder Refreshes have no cap on the Tavern's size (rule question)",
     ),

@@ -18,7 +18,7 @@ pub fn cast(state: &mut TavernState, _: &Unit, _: usize, pool: &mut CardPool, rn
     if let Some(mut drawn) = pool.draw_by_tribe(Tribe::Murloc, None, state.tavern_tier, rng) {
         state.apply_global_unit_auras(&mut drawn);
         let copy = drawn.clone();
-        state.add_to_hand(drawn);
+        state.add_pool_card_to_hand(drawn, pool);
         state.add_to_hand(copy);
     }
 }

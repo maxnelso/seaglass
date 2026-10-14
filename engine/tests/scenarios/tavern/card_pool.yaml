@@ -12,3 +12,18 @@ scenarios:
       - buy: 0
       - play: 0
     expect: {board: [{card_id: {same_as: bought}}]}
+
+  - name: a_card_discovered_with_a_full_hand_is_lost_and_returns_to_the_pool
+    description: >-
+      A Discover still happens with a full hand: the chosen card is lost and its copy returns to
+      the pool, like the unchosen options (confirmed; it used to leave the pool for good).
+    tavern:
+      hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem, Blood Gem]   # 10 cards
+      discover_pending: [Imp-lusionist, Soul Rewinder]
+    steps:
+      - take_from_pool: [Imp-lusionist, Soul Rewinder]   # the Discover drew them
+      - choose_discover: 0
+    expect:
+      hand: {count: 10, none: Imp-lusionist}
+      pool: {Imp-lusionist: 11, Soul Rewinder: 15}

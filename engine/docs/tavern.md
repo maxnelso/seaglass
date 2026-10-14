@@ -53,6 +53,7 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
    - **Selling a Non-Golden Minion**: Returns **`1` copy** of its `card_id` to the pool (capped at the tier's base copy limit).
    - **Selling a Golden Minion**: Returns **`3` copies** of its `card_id` to the pool if it was formed by a Triple. A Golden that an effect made from a single copy (`Golden Touch`, `Captain Sanders`, a `Lockbox`, ...; `golden_from_effect`) or that is always Golden (`Aureate Laureate`, `intrinsic_golden`) returns `1` copy, even though the former still gives a Triple Reward (§5.2).
    - **Unchosen Discover Options**: When 1 of the offered Discover options is chosen, the unchosen options return `1` copy each to the pool.
+   - **A Drawn Card the Hand Can't Take**: a card drawn from the pool for the hand that meets a full hand (the chosen card of a Discover, a `Cloning Conch` Murloc cast by a minion) is lost, and its copy returns to the pool **(confirmed)**. A Discover still happens with a full hand. A card that wasn't drawn (a copy an effect made) returns nothing.
    - Generated tokens (minions not in the purchasable catalog) do not add copies to `CardPool` when sold.
 
 ---
@@ -143,7 +144,7 @@ When a Golden minion is played from `hand` to `board`:
    - Let `reward_tier = min(6, tavern_tier + 1)`.
    - Draw up to 3 distinct `card_id`s of exact tier `reward_tier` from `CardPool`. If non-empty, set `discover_pending = Some(options)`.
 3. While `discover_pending.is_some()`, only `ChooseDiscover { option_index }` (`0..options.len()`) is legal.
-4. Executing `ChooseDiscover { option_index }` appends `options[option_index]` to `hand`, returns unchosen options to `CardPool`, sets `discover_pending = None`, and runs `check_and_resolve_triple`.
+4. Executing `ChooseDiscover { option_index }` appends `options[option_index]` to `hand` (with a full hand, it is lost and returns to `CardPool`, §2), returns unchosen options to `CardPool`, sets `discover_pending = None`, and runs `check_and_resolve_triple`.
 
 ---
 
@@ -163,7 +164,7 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 | `Refresh` | `gold >= 1`, `auras.free_refreshes > 0`, or a Health Refresh (`has_health_refresh`: a `HEALTH_REFRESHES` minion has `charges` left and `health + armor > 1` or hero damage is rewound) | Pay: if `free_refreshes > 0`, `free_refreshes -= 1` (a free Refresh still uses a `HEALTH_REFRESHES` charge if there is one: it costs 0 Health instead of 0 Gold); else if a Health Refresh is available, use a charge (left-most minion first) and deal 1 damage to the hero; else `gold -= 1`. Then `is_frozen = false`, return current `shop` to `CardPool`, draw `shop_capacity(tavern_tier)` new minions. |
 | `UpgradeTavern` | `tavern_tier < 6`, `gold >= upgrade_cost` | `gold -= upgrade_cost`, `tavern_tier += 1`, `upgrade_cost = base_upgrade_cost(tavern_tier)`. |
 | `ToggleFreeze` | Always legal | `is_frozen = !is_frozen`. Costs `0` gold. |
-| `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand`, return others to `CardPool` (Duos: those marked `unchosen_to_teammate` go to the teammate instead, `docs/duos_tavern.md` §8.3), clear `discover_pending`, check for Triple, then the chosen card's "when you Discover this" text (`obtained`) and the `discover` observers. A Choose-One option takes effect instead (once per cast of the spell that offered it, §7.4). |
+| `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand` (with a full hand it is lost and returns to `CardPool`, §2), return others to `CardPool` (Duos: those marked `unchosen_to_teammate` go to the teammate instead, `docs/duos_tavern.md` §8.3), clear `discover_pending`, check for Triple, then the chosen card's "when you Discover this" text (`obtained`, if it reached the hand) and the `discover` observers. A Choose-One option takes effect instead (once per cast of the spell that offered it, §7.4). |
 | `EndTurn` | Always legal when `discover_pending.is_none()` | Run end-of-turn triggers, discard the temporary cards still in `hand` (Spellcraft spells, §7.4) without discard effects, and conclude the Tavern turn. |
 
 **Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.
