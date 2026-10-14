@@ -36,8 +36,8 @@
 //! from its seed to check that it is deterministic. Failures are grouped by signature; the
 //! earliest one of each group is kept as its repro (with `SEAGLASS_FUZZ_OUT`, written as a
 //! snapshot of the state just before the failing call, which `SEAGLASS_FUZZ_REPRO` replays).
-//! Games go on past the failures of known bugs ([`KNOWN_BUGS`], reported in
-//! `tests/scenarios/tavern/fuzz_findings.yaml`), and `cargo test` fails only on new ones.
+//! Games go on past the failures of known bugs ([`KNOWN_BUGS`], each kept as a `known_bug`
+//! scenario until it is fixed), and `cargo test` fails only on new ones.
 //! [`random_battles_keep_the_invariants`] checks the same combat invariants over random boards.
 //!
 //! - `SEAGLASS_FUZZ_GAMES`: the number of games (default 12).
@@ -2306,17 +2306,10 @@ fn snapshot_pool(snap: &Snapshot) -> (CardPool, Vec<CardTemplate>) {
 
 /// Failures already reported (by a substring of their signature), tolerated unless
 /// `SEAGLASS_FUZZ_STRICT=1`, so that `cargo test` stays green until they are fixed.
-const KNOWN_BUGS: &[(&str, &str)] = &[
-    (
-        "transient state set: pending_choice_target",
-        "a Choose One followed by a Triple Reward leaves pending_choice_target set \
-         (fuzz_findings::a_choose_one_before_a_triple_reward_leaves_its_target_set)",
-    ),
-    (
-        "shop has # cards",
-        "Demon Fodder Refreshes have no cap on the Tavern's size (rule question)",
-    ),
-];
+const KNOWN_BUGS: &[(&str, &str)] = &[(
+    "shop has # cards",
+    "Demon Fodder Refreshes have no cap on the Tavern's size (rule question)",
+)];
 
 fn known_bug(failure: &Failure) -> Option<&'static str> {
     KNOWN_BUGS

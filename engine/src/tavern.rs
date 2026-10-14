@@ -924,6 +924,15 @@ impl TavernState {
         }
     }
 
+    /// Whether a Choose One (an option card prompt) is still to be chosen, pending or queued: one
+    /// that may need `pending_choice_target`.
+    fn choice_prompt_left(&self) -> bool {
+        self.discover_pending
+            .iter()
+            .chain(&self.discover_queue)
+            .any(|opts| opts.iter().any(|o| cards::is_option_card(o.card_id)))
+    }
+
     /// The board slot targeted by the Choose One being resolved (`pending_choice_target`), if it
     /// still holds a minion.
     pub fn choice_target(&self) -> Option<usize> {
@@ -1799,10 +1808,15 @@ impl TavernState {
                         cards::apply_chosen_option(self, &chosen, pool, rng);
                     }
                     cards::after_choose_one(self, &chosen, pool, rng);
-                    if self.discover_pending.is_none() {
+                    if !self.choice_prompt_left() {
                         self.pending_choice_target = None;
                     }
                     return Ok(false);
+                }
+                // Another prompt after a Choose One (a Triple Reward): its target is done with,
+                // unless a Choose One is still to come.
+                if !self.choice_prompt_left() {
+                    self.pending_choice_target = None;
                 }
 
                 for mut unchosen in opts {
