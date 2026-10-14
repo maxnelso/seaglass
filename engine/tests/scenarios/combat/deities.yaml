@@ -54,3 +54,27 @@ scenarios:
         sequence:
           - {type: deity_awakened, side: a, deity: cthun}
           - {type: unit_summoned, side: a, reason: Reborn, name: Drifting Sacrifice}
+
+  # Unit ids: A's Drifting Sacrifice 0 (its Reborn already used), Zoatroids 1-3; B's
+  # Boom-in-a-Box 4, 20/30 5; Y'Shaarj 6.
+  - name: yshaarj_resummons_copies_of_the_original_with_their_reborn
+    description: >-
+      Boom-in-a-Box's Start of Combat kills the four Aberrations and Y'Shaarj awakens. When it
+      dies, its Deathrattle summons the first two: the Drifting Sacrifice comes back as a copy of
+      the original card, with its Reborn, although the one that died had already used it. So it
+      is Reborn once more when it dies again.
+    seeds: "1..=4"
+    combat:
+      board_a: [Drifting Sacrifice -reborn, Zoatroid, Zoatroid, Zoatroid]
+      board_b: [Boom-in-a-Box, "20/30"]
+      auras_a: {deity: {kind: yshaarj, attack: 1, health: 1}}
+    expect:
+      outcome: b_win
+      events:
+        all_of:
+          - {where: {type: unit_summoned, reason: Reborn}, count: 1, all: {name: Drifting Sacrifice}}
+          - sequence:
+              - {type: deity_awakened, side: a, deity: yshaarj}
+              - {type: death, unit: 6}
+              - {type: unit_summoned, side: a, name: Drifting Sacrifice}
+              - {type: unit_summoned, side: a, reason: Reborn, name: Drifting Sacrifice}

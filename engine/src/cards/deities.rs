@@ -83,6 +83,9 @@ pub fn on_cthun_awaken(board: &mut [Unit], cthun_idx: usize, rng: &mut Rng) {
 /// Build the resummoned minions for `Y'Shaarj`'s Deathrattle:
 /// "Deathrattle: Summon your first 2 Aberrations that died this combat with their maximum stats (except Deities)."
 /// (Golden: first 4 Aberrations.)
+///
+/// Each comes back as a copy of the original card: with its printed Divine Shield and Reborn,
+/// even if the minion that died had already used them.
 pub fn yshaarj_deathrattle_summons(is_golden: bool, dead_aberrations: &[Unit]) -> Vec<Unit> {
     let limit = if is_golden { 4 } else { 2 };
     dead_aberrations
@@ -94,6 +97,7 @@ pub fn yshaarj_deathrattle_summons(is_golden: bool, dead_aberrations: &[Unit]) -
             copy.attack = orig.max_attack.max(orig.base_attack);
             copy.health = orig.max_health.max(1);
             copy.divine_shield = orig.inherent_divine_shield;
+            copy.reborn = crate::cards::template(orig.card_id).map_or(orig.reborn, |t| t.reborn);
             copy
         })
         .collect()
