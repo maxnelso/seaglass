@@ -1,0 +1,30 @@
+hero: Arch-Villain Rafaam
+defaults:
+  tavern: {auras: {hero: Arch-Villain Rafaam}, gold: 5}
+scenarios:
+  - name: next_combat_the_first_kill_gives_a_plain_copy
+    tavern: {board: ["Zoatroid +5/+5"]}
+    steps:
+      - hero_power
+      - expect: {gold: 4, auras: {hero: {power: {armed: 1}}}}
+      - fight: {board: ["Joyous +3/+0", "Joyous +3/+0"]}
+    expect:
+      hand: ["Joyous 2/3"]
+      auras: {hero: {power: {armed: 0}}}
+
+  - name: without_using_it_nothing
+    tavern: {board: ["Zoatroid +5/+5"]}
+    steps:
+      - fight: {board: [Joyous]}
+    expect: {hand: []}
+
+  - name: an_unused_arm_is_gone_next_turn
+    tavern: {board: ["1/1"], gold: 0}
+    steps:
+      - start_turn
+      - hero_power
+      - end_turn
+      - fight: {board: []}
+      - expect: {auras: {hero: {power: {armed: 1}}}}
+      - start_turn
+    expect: {auras: {hero: {power: {armed: 0, uses_left: 1}}}}

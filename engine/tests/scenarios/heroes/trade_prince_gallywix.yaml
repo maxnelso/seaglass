@@ -1,0 +1,15 @@
+hero: Trade Prince Gallywix
+scenarios:
+  - name: selling_a_minion_gives_1_gold_next_turn
+    tavern: {auras: {hero: Trade Prince Gallywix}, board: ["1/1", "1/1"]}
+    steps:
+      - sell: 0
+      - sell: 0
+      - expect: {gold: 2, bonus_gold_next_turn: 2}
+      - start_turn
+    expect: {gold: 5}
+
+  - name: it_is_never_an_action
+    tavern: {auras: {hero: Trade Prince Gallywix}, gold: 5}
+    steps:
+      - expect_illegal: hero_power

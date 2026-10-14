@@ -245,7 +245,24 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Flobbidinous Floop` | *Glorious Gloop* (0 Gold, active, a friendly minion; Duos only): Start of Combat: transform it into your teammate's highest-Tier minion. | Using it marks the minion. Step 1b: the marked minion, if it is on the board, transforms into a copy of the minion with the highest Tier in the teammate's warband as it entered the combat (`duos.md` §2; a tie at random, one draw), as `Sandy` copies (`duos_tavern.md` §8.2): its current stats, keywords and Golden status, the marked minion's place and id, a `UnitTransformed` event. With no teammate minion, nothing happens. |
 | `Vanndar Stormpike` | *Stormpike Strength* (passive): When you have space in combat, summon a copy of your highest-Health minion. (Unlocks on Turn 7.) | It counts the turns (`counter`); from the 7th on, each combat is armed. Once per combat **(engine decision)**, as soon as there is room (`hero_combat_space`: at Start of Combat or after a round of deaths), a copy of the friendly minion with the most Health (a tie at random, one draw) is summoned at the right end: its current stats, keywords and state. |
 | `Drek'Thar` | *Frostwolf Fervor* (passive): When you have space in combat, summon a copy of your highest-Attack minion. (Unlocks on Turn 7.) | As Vanndar's, with the most Attack. |
+| `Greybough` | *Sprout It Out!* (passive): Give +1/+2 and Taunt to minions you summon during combat. | `hero_combat_summon`: every minion summoned on the player's side in combat (Deathrattle and Rally summons, Reborn copies, hand copies, the Deity, Hero Power summons) **(engine decision)** gains +1/+2 and Taunt. |
+| `Ozumat` | *Tentacular* (passive): When you have space in combat, summon a 2/2 Tentacle with Taunt. (Gains +1/+1 after you sell a minion!) | Once per combat **(engine decision)**, as soon as there is room (`hero_combat_space`), an `Ozumat's Tentacle` (a Beast with Taunt) of `2 + stacks` at the right end; each minion sold adds a stack. |
+| `Onyxia` | *Broodmother* (passive): Avenge (4): Summon a 1/1 Whelp that attacks immediately. Improve this by +1/+1. | `hero_friendly_death`: every 4th friendly minion that dies in combat (the count starts again each turn, so each combat: **engine decision**) summons an `Onyxian Whelp` (a Dragon) of `1 + stacks` at the right end, which attacks immediately; each Whelp adds a stack for the rest of the game. |
+| `Arch-Villain Rafaam` | *I'll Take That!* (1 Gold, active): Next combat, get a plain copy of the first minion you kill. | Using it arms the next combat; there the first enemy minion a friendly minion kills gives a plain copy of it (`cards::plain_instance`) to the hand. An unused arm is gone at the start of the next turn. Once per turn. |
 | `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer, if it is still alive, gains +1 Attack, permanently (§7.4); a killer that died in the same exchange gains nothing **(engine decision)**. Each kill counts. |
+
+### 11.2 Tavern Hero Powers
+
+| Hero | Hero Power | How the engine reads it |
+| :--- | :--- | :--- |
+| `Patchwerk` | *All Patched Up*: Start the game with 30 extra Health. | No hooks: his data (60 Health, 0 Armor) does it (§2.3). |
+| `Cap'n Hoggarr` | *I'm the Cap'n Now*: After you buy a Pirate, gain 1 Gold. | `hero_after_buy`: a bought minion with the Pirate type gives 1 Gold. |
+| `Forest Warden Omu` | *Everbloom*: After you upgrade the Tavern, gain 2 Gold. | `hero_after_upgrade`: 2 Gold. |
+| `Trade Prince Gallywix` | *Smart Savings*: After you sell a minion, gain 1 Gold next turn. | Passive (its data cost is never paid). `hero_after_sell`: `bonus_gold_next_turn += 1`. |
+| `Nozdormu` | *Clairvoyance*: At the start of your turn, gain a free Refresh. | `hero_turn_start`: `free_refreshes += 1`; an unused one carries over like any free Refresh **(engine decision)**. |
+| `Kael'thas Sunstrider` | *Verdant Spheres*: After you buy 3 minions, get a Tavern Coin. | `hero_after_buy`: every 3rd minion bought (counted across turns, `counter`) gives a `Tavern Coin`. |
+| `Chenvaala` | *Avalanche*: After you play 3 Elementals, reduce the Cost of upgrading the Tavern by (3). | `hero_after_play`: every 3rd Elemental played from hand (counted across turns) makes the upgrade 3 cheaper, never below 0. |
+| `Fungalmancer Flurgl` | *Gone Fishing*: After you sell 5 minions, get a random Murloc. | `hero_after_sell`: every 5th minion sold (counted across turns) gives a random Murloc of the player's Tier or lower from the game's catalog **(engine decision)**. |
 
 ---
 
@@ -264,4 +281,7 @@ Engine decisions, pending the user's confirmation:
 | Tamsin's ties and stats | The left-most lowest-Attack minion; its Attack and `max_health`. | `heroes/tamsin_roame.rs` |
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
 | Vanndar and Drek'Thar | Once per combat; a tie at random. | `heroes::summon_copy_of_best` |
+| Greybough's summons | Every minion summoned on the player's side in combat, Reborn copies and Deities included. | `heroes/greybough.rs` |
+| Ozumat, Onyxia | The Tentacle once per combat; Onyxia's Avenge count per combat. | `heroes/ozumat.rs`, `heroes/onyxia.rs` |
+| Counters across turns | Kael'thas, Chenvaala and Flurgl count across turns; Nozdormu's free Refresh carries over; Flurgl's Murloc is of the player's Tier or lower. | their files |
 | Rokara's dead killers | A killer that died in the same exchange gains nothing. | `heroes/rokara.rs` |

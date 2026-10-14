@@ -1,0 +1,41 @@
+hero: Onyxia
+scenarios:
+  - name: every_4th_friendly_death_summons_a_whelp_that_attacks_immediately
+    seed: 1
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1"]
+      board_b: ["1/50"]
+      auras_a: {hero: Onyxia}
+    expect:
+      events:
+        sequence:
+          - {type: unit_summoned, side: a, name: Onyxian Whelp, attack: 1, health: 1, reason: Broodmother}
+          - {type: attack_declared, side: a}
+      auras_a: {hero: {power: {stacks: 1, counter: 1}}}   # the Whelp died too
+
+  - name: it_improves_by_1_1_each_time
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1"]
+      board_b: ["1/50"]
+      auras_a: {hero: {hero: Onyxia, power: {stacks: 3}}}
+    expect:
+      events: {any: {type: unit_summoned, name: Onyxian Whelp, attack: 4, health: 4}}
+
+  - name: three_deaths_arent_enough
+    combat:
+      board_a: ["1/1", "1/1", "1/1"]
+      board_b: ["1/50"]
+      auras_a: {hero: Onyxia}
+    expect: {events: {none: {type: unit_summoned}}, auras_a: {hero: {power: {counter: 3}}}}
+
+  - name: the_count_starts_again_each_turn
+    tavern: {auras: {hero: {hero: Onyxia, power: {counter: 3}}}, gold: 0}
+    steps:
+      - start_turn
+    expect: {auras: {hero: {power: {counter: 0}}}}
+
+  - name: the_improvement_lasts_the_game
+    tavern: {auras: {hero: Onyxia}, board: ["1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - fight: {board: ["1/50"]}
+    expect: {auras: {hero: {power: {stacks: 1}}}}

@@ -11,15 +11,27 @@
 mod table;
 
 pub mod alakir;
+pub mod arch_villain_rafaam;
 pub mod brukan;
+pub mod capn_hoggarr;
+pub mod chenvaala;
 pub mod deathwing;
 pub mod drekthar;
 pub mod flobbidinous_floop;
+pub mod forest_warden_omu;
+pub mod fungalmancer_flurgl;
+pub mod greybough;
 pub mod illidan_stormrage;
+pub mod kaelthas_sunstrider;
+pub mod nozdormu;
+pub mod onyxia;
+pub mod ozumat;
+pub mod patchwerk;
 pub mod queen_wagtoggle;
 pub mod rokara;
 pub mod tamsin_roame;
 pub mod teron_gorefiend;
+pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
 pub mod yshaarj;
 
@@ -82,18 +94,30 @@ const BASE_HEALTH: i32 = 30;
 /// An implemented hero: its id and its Hero Power cards' hooks.
 type Implemented = (HeroId, fn() -> Vec<(CardId, CardHooks)>);
 
-/// Every implemented hero, by name.
+/// Every implemented hero, by file name.
 const IMPLEMENTED: &[Implemented] = &[
     (alakir::ID, alakir::behaviors),
+    (arch_villain_rafaam::ID, arch_villain_rafaam::behaviors),
     (brukan::ID, brukan::behaviors),
+    (capn_hoggarr::ID, capn_hoggarr::behaviors),
+    (chenvaala::ID, chenvaala::behaviors),
     (deathwing::ID, deathwing::behaviors),
     (drekthar::ID, drekthar::behaviors),
     (flobbidinous_floop::ID, flobbidinous_floop::behaviors),
+    (forest_warden_omu::ID, forest_warden_omu::behaviors),
+    (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
+    (greybough::ID, greybough::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
+    (kaelthas_sunstrider::ID, kaelthas_sunstrider::behaviors),
+    (nozdormu::ID, nozdormu::behaviors),
+    (onyxia::ID, onyxia::behaviors),
+    (ozumat::ID, ozumat::behaviors),
+    (patchwerk::ID, patchwerk::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
     (rokara::ID, rokara::behaviors),
     (tamsin_roame::ID, tamsin_roame::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
+    (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
 ];

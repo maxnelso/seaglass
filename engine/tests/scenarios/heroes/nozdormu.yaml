@@ -1,0 +1,9 @@
+hero: Nozdormu
+scenarios:
+  - name: each_turn_starts_with_a_free_refresh
+    tavern: {auras: {hero: Nozdormu}}
+    steps:
+      - start_turn
+      - expect: {auras: {free_refreshes: 1}, gold: 3}
+      - refresh
+    expect: {gold: 3, auras: {free_refreshes: 0}}

@@ -1,0 +1,11 @@
+hero: Cap'n Hoggarr
+scenarios:
+  - name: buying_a_pirate_gives_1_gold
+    tavern: {auras: {hero: Cap'n Hoggarr}, gold: 7, shop: ["1/1 pirate", "1/1 beast_pirate", "1/1 beast"]}
+    steps:
+      - buy: 0
+      - expect: {gold: 5}
+      - buy: "1/1 beast_pirate"
+      - expect: {gold: 3}
+      - buy: 0
+    expect: {gold: 0}

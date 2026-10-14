@@ -1,0 +1,23 @@
+hero: Chenvaala
+scenarios:
+  - name: every_third_elemental_played_makes_the_upgrade_3_cheaper
+    tavern:
+      auras: {hero: Chenvaala}
+      upgrade_cost: 7
+      hand: ["1/1 elemental", "1/1 elemental", "1/1", "1/1 elemental_demon"]
+    steps:
+      - play: 0
+      - play: 0
+      - play: 0
+      - expect: {upgrade_cost: 7}
+      - play: 0
+    expect: {upgrade_cost: 4, auras: {hero: {power: {counter: 0}}}}
+
+  - name: never_below_0
+    tavern:
+      auras: {hero: {hero: Chenvaala, power: {counter: 2}}}
+      upgrade_cost: 1
+      hand: ["1/1 elemental"]
+    steps:
+      - play: 0
+    expect: {upgrade_cost: 0}

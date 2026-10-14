@@ -1,0 +1,7 @@
+hero: Forest Warden Omu
+scenarios:
+  - name: upgrading_the_tavern_gives_2_gold
+    tavern: {auras: {hero: Forest Warden Omu}, gold: 5}
+    steps:
+      - upgrade_tavern
+    expect: {gold: 2, tavern_tier: 2}

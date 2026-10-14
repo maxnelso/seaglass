@@ -1,0 +1,29 @@
+hero: Greybough
+scenarios:
+  - name: minions_summoned_in_combat_gain_1_2_and_taunt
+    combat:
+      board_a: [Harmless Bonehead]
+      board_b: ["5/30"]
+      auras_a: {hero: Greybough}
+    expect:
+      events:
+        where: {type: unit_summoned, side: a}
+        count: 2
+        all: {name: Skeleton, attack: 2, health: 3}
+
+  - name: the_minions_on_the_board_dont_get_it
+    combat:
+      board_a: ["1/1"]
+      board_b: []
+      auras_a: {hero: Greybough}
+    expect: {survivors_a: ["1/1 -taunt"]}
+
+  - name: a_reborn_copy_gets_it
+    description: (engine decision) Every minion summoned on the player's side, Reborn copies too.
+    seeds: "1..=3"
+    combat:
+      board_a: ["1/1 reborn"]
+      board_b: ["0/30", "1/30"]
+      auras_a: {hero: Greybough}
+    expect:
+      events: {any: {type: unit_summoned, side: a, attack: 2, health: 3}}

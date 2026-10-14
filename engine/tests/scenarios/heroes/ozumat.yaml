@@ -1,0 +1,47 @@
+hero: Ozumat
+scenarios:
+  - name: summons_a_2_2_tentacle_with_taunt_when_there_is_room
+    combat:
+      board_a: ["1/1"]
+      board_b: ["0/30"]
+      auras_a: {hero: Ozumat}
+    expect:
+      events:
+        where: {type: unit_summoned, reason: Tentacular}
+        count: 1
+        0: {name: Ozumat's Tentacle, attack: 2, health: 2}
+      survivors_a: ["1/1", {name: Ozumat's Tentacle, stats: 2/2, taunt: true, tribe: beast}]
+
+  - name: once_per_combat_when_room_opens
+    seed: 2
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+      board_b: ["5/80"]
+      auras_a: {hero: Ozumat}
+    expect:
+      events:
+        all_of:
+          - {where: {type: unit_summoned, reason: Tentacular}, count: 1}
+          - sequence: [{type: death}, {type: unit_summoned, reason: Tentacular}]
+
+  - name: it_grows_after_you_sell_a_minion
+    tavern: {auras: {hero: Ozumat}, board: ["1/1", "1/1"], gold: 0}
+    steps:
+      - start_turn
+      - sell: 0
+      - sell: 0
+      - expect: {auras: {hero: {power: {stacks: 2}}}}
+      - fight: {board: ["0/30"]}
+    expect:
+      combat: {events: {any: {type: unit_summoned, reason: Tentacular, attack: 4, health: 4}}}
+
+  - name: every_combat_has_its_tentacle
+    tavern: {auras: {hero: Ozumat}, board: ["1/1"], gold: 0}
+    steps:
+      - start_turn
+      - fight: {board: ["0/30"]}
+      - end_turn
+      - start_turn
+      - fight: {board: ["0/30"]}
+    expect:
+      combat: {events: {where: {type: unit_summoned, reason: Tentacular}, count: 1}}

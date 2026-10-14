@@ -1,0 +1,19 @@
+hero: Patchwerk
+scenarios:
+  - name: starts_with_60_health_and_no_armor
+    description: (confirmed)
+    steps:
+      - set_hero: Patchwerk
+    expect: {health: 60, armor: 0, auras: {hero: {name: Patchwerk}}}
+
+  - name: in_duos_his_extra_health_goes_into_the_team_pool
+    duos_tavern: {catalog: duos}
+    steps:
+      - {player: 1, set_hero: Patchwerk}
+      - {player: 0, set_hero: Al'Akir}
+    expect: {health: 60, armor: 13}
+
+  - name: his_hero_power_is_never_an_action
+    tavern: {auras: {hero: Patchwerk}, gold: 10}
+    steps:
+      - expect_illegal: hero_power

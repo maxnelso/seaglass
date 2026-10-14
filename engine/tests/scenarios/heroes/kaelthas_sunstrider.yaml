@@ -1,0 +1,23 @@
+hero: Kael'thas Sunstrider
+scenarios:
+  - name: every_third_minion_bought_gives_a_tavern_coin
+    tavern:
+      auras: {hero: Kael'thas Sunstrider}
+      gold: 12
+      shop: ["1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - buy: 0
+      - buy: 0
+      - expect: {hand: {count: 2}}
+      - buy: 0
+      - expect: {hand: {count: 4, any: Tavern Coin}, auras: {hero: {power: {counter: 0}}}}
+      - buy: 0
+    expect: {auras: {hero: {power: {counter: 1}}}}
+
+  - name: spells_dont_count
+    tavern: {auras: {hero: Kael'thas Sunstrider}, gold: 10, shop: [Tavern Coin, Tavern Coin, Tavern Coin]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {auras: {hero: {power: {counter: 0}}}, hand: {count: 3}}

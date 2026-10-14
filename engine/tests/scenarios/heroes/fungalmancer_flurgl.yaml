@@ -1,0 +1,15 @@
+hero: Fungalmancer Flurgl
+scenarios:
+  - name: every_fifth_sale_gives_a_random_murloc
+    seeds: "1..=4"
+    tavern:
+      auras: {hero: {hero: Fungalmancer Flurgl, power: {counter: 3}}}
+      tavern_tier: 2
+      board: ["1/1", "1/1"]
+    steps:
+      - sell: 0
+      - expect: {hand: []}
+      - sell: 0
+    expect:
+      hand: [{tribe: murloc, tavern_tier: "<= 2"}]
+      auras: {hero: {power: {counter: 0}}}
