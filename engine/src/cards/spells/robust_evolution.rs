@@ -2,7 +2,8 @@
 //!
 //! Transform a minion into a random minion of the next Tier, keeping its stats. The new minion is
 //! never Golden (a Golden target keeps its doubled stats), and a Tier 6 target becomes a random
-//! Tier 6 minion.
+//! Tier 6 minion. It keeps the stats without the auras on them: it gets the auras it qualifies for
+//! itself (an Undead gets the Undead Attack once, a non-Undead loses it).
 
 use super::targeted_minion;
 use crate::cards::CardHooks;
@@ -28,10 +29,12 @@ pub fn cast(
         let mut opts = pool.draw_discover_options(target_tier, 1, rng);
         if let Some(mut evolved) = opts.pop() {
             pool.return_unit(&old);
-            evolved.attack = old.attack;
-            evolved.health = old.health;
-            evolved.max_attack = old.attack.max(evolved.base_attack);
-            evolved.max_health = old.health.max(evolved.base_health);
+            // The stats without the auras on them: the sync below gives the new minion its own.
+            let (aura_atk, aura_hp) = old.aura_applied;
+            evolved.attack = old.attack - aura_atk;
+            evolved.health = (old.health - aura_hp).max(1);
+            evolved.max_attack = evolved.attack.max(evolved.base_attack);
+            evolved.max_health = evolved.health.max(evolved.base_health);
             crate::cards::check_stat_thresholds(&mut evolved);
             if let Some(target) = state.minion_mut(target) {
                 *target = evolved;

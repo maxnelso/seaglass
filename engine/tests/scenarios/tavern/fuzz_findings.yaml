@@ -1,24 +1,5 @@
 topic: Engine bugs found by the Tavern fuzzer (tests/tavern_fuzz.rs), kept as known bugs
 scenarios:
-  - name: robust_evolution_counts_the_undead_bonus_twice
-    known_bug: Robust Evolution copies aura-inflated stats but resets aura_applied
-    description: >-
-      Robust Evolution copies its target's stats, the Undead Attack bonus included, onto a new
-      minion whose applied aura is reset to zero: if the new minion is an Undead, the next aura
-      sync adds the bonus again (a 4/1 Bonehead with +3 becomes a 7/1 Eternal Knight).
-    seeds: "1..=30"
-    tavern:
-      board: [Harmless Bonehead]
-      hand: [Robust Evolution]
-      auras: {undead_bonus_attack: 3}
-    steps:
-      - sync_all_auras
-      - expect: {board: ["Harmless Bonehead 4/1"]}
-      - play: {hand: Robust Evolution, pos: 0}
-      - if: {board: {0: {tribe: undead}}}
-        then:
-          - expect: {board: [{attack: 4}]}
-
   - name: a_divine_shield_given_over_ichorons_still_expires
     known_bug: a Divine Shield a spell gives a minion with a temporary one stays temporary
     description: >-

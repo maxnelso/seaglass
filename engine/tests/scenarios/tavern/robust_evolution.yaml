@@ -34,3 +34,23 @@ scenarios:
     steps:
       - play: {hand: Robust Evolution, shop: Glim Guardian}
     expect: {shop: ["1/4 t2", "Lullabot 2/2"]}
+
+  - name: the_undead_attack_is_counted_once
+    description: >-
+      It keeps the stats without the auras on them, and the new minion gets its own: a 4/1
+      Harmless Bonehead (1/1 and the Undead +3 Attack) becomes a 4/1 Undead (it used to count the
+      +3 twice: 7/1) or a 1/1 minion of another type.
+    seeds: "1..=30"
+    tavern:
+      board: [Harmless Bonehead]
+      hand: [Robust Evolution]
+      auras: {undead_bonus_attack: 3}
+    steps:
+      - sync_all_auras
+      - expect: {board: ["Harmless Bonehead 4/1"]}
+      - play: {hand: Robust Evolution, pos: 0}
+      - if: {board: {0: {tribe: undead}}}
+        then:
+          - expect: {board: [{attack: 4}]}
+        else:
+          - expect: {board: [{attack: 1}]}
