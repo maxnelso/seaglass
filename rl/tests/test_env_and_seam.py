@@ -108,6 +108,32 @@ def test_encode_observation_shapes_and_vocab() -> None:
     assert np.all((slot_card_ids >= 0) & (slot_card_ids < VOCAB_SIZE))
 
 
+def test_cards_waiting_for_room_are_encoded_last() -> None:
+    # `engine/docs/tavern.md` §7.4: a Spellcraft spell given to a full hand waits for room.
+    game = seaglass.TavernGame(seed=11, catalog="full")
+    game.start_turn()
+    obs = game.observe()
+    assert obs.waiting_for_hand == []
+    player_vec, slot_card_ids, _ = encode_observation(obs)
+    assert player_vec[-1] == 0.0 and not slot_card_ids[-3:].any()
+
+    spell = next(u for u in obs.shop if u.is_spell)
+
+    class Waiting:
+        waiting_for_hand = [spell]
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(obs, name)
+
+    player_vec, slot_card_ids, slot_num_feats = encode_observation(Waiting())
+    assert player_vec[-1] == np.float32(1.0 / 3.0)
+    assert slot_card_ids[-3] != 0 and slot_num_feats[-3, 4] == 1.0  # a spell
+    assert not slot_card_ids[-2:].any()
+    duos = seaglass.DuosTavernGame(seed=3)
+    duos.start_turn()
+    assert duos.observe(0).waiting_for_hand == []
+
+
 def test_heuristic_bot_beats_random_bot() -> None:
     heuristic = HeuristicBot()
     h_wins = 0

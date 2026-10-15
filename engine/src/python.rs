@@ -559,6 +559,10 @@ pub struct PyTavernObservation {
     /// The heroes offered to choose from (their ids).
     #[pyo3(get)]
     pub hero_options: Vec<u32>,
+    /// The cards waiting for room in the hand, first in first out (`docs/tavern.md` §7.4:
+    /// Spellcraft spells given to a full hand; discarded at the end of the turn).
+    #[pyo3(get)]
+    pub waiting_for_hand: Vec<PyUnit>,
 }
 
 impl From<&TavernState> for PyTavernObservation {
@@ -611,6 +615,7 @@ impl From<&TavernState> for PyTavernObservation {
                 && s.hero_options.is_empty()
                 && !heroes::valid_targets(s).is_empty(),
             hero_options: s.hero_options.clone(),
+            waiting_for_hand: py_units(&s.waiting_for_hand),
         }
     }
 }
@@ -990,6 +995,10 @@ pub struct PyDuosObservation {
     pub hero_power_usable: bool,
     #[pyo3(get)]
     pub hero_options: Vec<u32>,
+    /// The cards waiting for room in this player's hand (Spellcraft spells; see
+    /// `TavernObservation.waiting_for_hand`).
+    #[pyo3(get)]
+    pub waiting_for_hand: Vec<PyUnit>,
     /// The teammate's hero's id, 0 without one.
     #[pyo3(get)]
     pub teammate_hero_id: u32,
@@ -1070,6 +1079,7 @@ impl PyDuosObservation {
             hero_power_armed: own.hero_power_armed,
             hero_power_usable: own.hero_power_usable && !team.ended[player],
             hero_options: own.hero_options,
+            waiting_for_hand: own.waiting_for_hand,
             teammate_hero_id: other.hero().map_or(0, |h| h.hero_id),
             ended: team.ended[player],
             incoming: py_units(&team.incoming[player]),

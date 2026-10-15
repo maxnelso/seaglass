@@ -13,8 +13,10 @@ _ALL_IDS = seaglass.all_card_ids()
 CARD_ID_TO_IDX: dict[int, int] = {cid: i + 1 for i, cid in enumerate(_ALL_IDS)}
 VOCAB_SIZE: int = len(_ALL_IDS) + 1
 
-NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER  # 7 + 10 + 7 + 4 = 28
-PLAYER_DIM: int = 17
+# The cards waiting for room in the hand (`engine/docs/tavern.md` §7.4), appended last.
+MAX_WAITING: int = 3
+NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING  # 7 + 10 + 7 + 4 + 3 = 31
+PLAYER_DIM: int = 18
 SLOT_NUM_DIM: int = 13
 
 
@@ -66,6 +68,9 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             1.0 if obs.is_frozen else 0.0,
             # The next minion's discount (`engine/docs/tavern.md` §6): Aranna's free minion.
             obs.next_minion_discount / 3.0,
+            # The cards waiting for room in the hand (Spellcraft spells, `engine/docs/tavern.md`
+            # §7.4); the first `MAX_WAITING` are also the last slots.
+            len(obs.waiting_for_hand) / MAX_WAITING,
         ],
         dtype=np.float32,
     )
@@ -89,5 +94,9 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
     if obs.discover_pending is not None:
         for i, u in enumerate(obs.discover_pending[:MAX_DISCOVER]):
             slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
+
+    offset += MAX_DISCOVER
+    for i, u in enumerate(obs.waiting_for_hand[:MAX_WAITING]):
+        slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
 
     return player_vec, slot_card_ids, slot_num_feats
