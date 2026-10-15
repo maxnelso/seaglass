@@ -639,10 +639,19 @@ pub struct Unit {
     /// at the start of the next turn (`docs/tavern.md` §4).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub until_next_turn_atk: i32,
+    /// Number of +1/+1 hats on this minion (`Dancin' Deryl`'s Hat Trick; `docs/heroes.md` §11.2),
+    /// passed to random friendly board minions when sold.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub hats: u32,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
 fn is_zero_u8(n: &u8) -> bool {
+    *n == 0
+}
+
+/// `true` if `n` is 0 (serde: a field skipped while it is 0).
+fn is_zero_u32(n: &u32) -> bool {
     *n == 0
 }
 
@@ -728,6 +737,7 @@ impl Unit {
             to_hero_power: false,
             golden_copies: 0,
             until_next_turn_atk: 0,
+            hats: 0,
         }
     }
 

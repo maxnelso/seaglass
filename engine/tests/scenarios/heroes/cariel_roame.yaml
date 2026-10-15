@@ -1,0 +1,48 @@
+hero: Cariel Roame
+defaults:
+  tavern: {auras: {hero: Cariel Roame}, gold: 10}
+scenarios:
+  - name: conviction_buffs_random_friendly_minions_and_improves_after_each_combat
+    tavern:
+      board: ["2/2"]
+    steps:
+      - hero_power
+      - expect:
+          gold: 10
+          auras: {hero: {power: {uses_left: 0}}}
+          board: ["3/3"]
+      - fight: {board: []}
+      - expect:
+          discover_pending:
+            - {name: Offensive Stance}
+            - {name: Defensive Stance}
+            - {name: United Stance}
+      - choose_discover: {name: Offensive Stance}
+      - expect:
+          auras: {hero: {power: {counter: 1, stacks: 0, armed: 0}}}
+      - start_turn
+      - hero_power
+      - expect:
+          board: ["5/4"]
+      - push_board: ["1/1"]
+      - fight: {board: []}
+      - choose_discover: {name: United Stance}
+      - expect:
+          auras: {hero: {power: {counter: 1, stacks: 0, armed: 1}}}
+      - start_turn
+      - hero_power
+    expect:
+      board: ["7/5", "3/2"]
+
+  - name: defensive_stance_increases_health_buff_and_requires_board_minion
+    tavern:
+      board: []
+    steps:
+      - expect_illegal: hero_power
+      - push_board: ["2/2"]
+      - fight: {board: []}
+      - choose_discover: {name: Defensive Stance}
+      - start_turn
+      - hero_power
+    expect:
+      board: ["3/4"]

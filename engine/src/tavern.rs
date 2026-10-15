@@ -284,6 +284,57 @@ impl CardPool {
         options
     }
 
+    /// Draw up to `tribes.len()` distinct `card_id`s with `tavern_tier <= max_tier`, one matching
+    /// each tribe in `tribes` in order (`Cookie the Cook`'s Stir the Pot).
+    pub fn draw_discover_by_tribes(
+        &mut self,
+        tribes: &[Tribe],
+        max_tier: u32,
+        rng: &mut Rng,
+    ) -> Vec<Unit> {
+        let mut options = Vec::with_capacity(tribes.len());
+        let mut chosen_ids: Vec<CardId> = Vec::with_capacity(tribes.len());
+
+        for &tribe in tribes {
+            if tribe == Tribe::None {
+                continue;
+            }
+            let total_copies: u32 = self
+                .entries
+                .iter()
+                .filter(|e| {
+                    e.template.tavern_tier <= max_tier
+                        && e.remaining > 0
+                        && e.template.tribe.matches(tribe)
+                        && !chosen_ids.contains(&e.template.card_id)
+                })
+                .map(|e| e.remaining)
+                .sum();
+
+            if total_copies == 0 {
+                continue;
+            }
+
+            let mut pick = rng.below(total_copies as usize) as u32;
+            for entry in &mut self.entries {
+                if entry.template.tavern_tier <= max_tier
+                    && entry.remaining > 0
+                    && entry.template.tribe.matches(tribe)
+                    && !chosen_ids.contains(&entry.template.card_id)
+                {
+                    if pick < entry.remaining {
+                        entry.remaining -= 1;
+                        chosen_ids.push(entry.template.card_id);
+                        options.push(entry.template.instantiate());
+                        break;
+                    }
+                    pick -= entry.remaining;
+                }
+            }
+        }
+        options
+    }
+
     /// Draw up to `count` distinct `card_id`s matching `predicate` with `tavern_tier <= max_tier` (`Contracted Corpse`, `Hired Headhunter`).
     pub fn draw_discover_filtered<F>(
         &mut self,
@@ -652,6 +703,7 @@ impl TavernState {
         for u in &mut self.shop {
             cards::sync_unit_auras(u, &self.auras);
         }
+        heroes::on_board_changed(self);
     }
 
     /// Remove the board minions `remove` picks (left to right), keeping `play_slot` between the
@@ -1496,6 +1548,7 @@ impl TavernState {
 
         self.last_combat_won = result == CombatResult::Won;
         self.last_combat_lost = result == CombatResult::Lost;
+        self.sync_all_auras();
     }
 
     /// Run a combat phase against an opponent and apply all Combat-to-Tavern persistence.
@@ -2413,6 +2466,7 @@ impl TavernState {
         golden.sot_gold_bonus = copies.iter().map(|u| u.sot_gold_bonus).sum();
         golden.pass_aura = copies.iter().map(|u| u.pass_aura).sum();
         golden.until_next_turn_atk = copies.iter().map(|u| u.until_next_turn_atk).sum();
+        golden.hats = copies.iter().map(|u| u.hats).sum();
         cards::init_unit_turn_charges(&mut golden);
         // The Golden's own spell aura comes from its card; what the copies gained on top of
         // theirs carries over.

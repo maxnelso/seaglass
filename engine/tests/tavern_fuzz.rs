@@ -1690,7 +1690,7 @@ impl Expect {
     ) -> Vec<Result<(), Violation>> {
         let (action, kind, tier, gold) = (self.action, self.kind, self.tier, self.gold);
         let mut checks = Vec::new();
-        if self.health_cost && self.before_hp > 0 && s.health <= 0 {
+        if self.health_cost && self.before_hp > 0 && hit_points(s) <= 0 {
             checks.push(Err(violation(
                 FailureKind::IllegalActionAccepted,
                 format!("a Health cost ({:?}) killed the hero", kind),

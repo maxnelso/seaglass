@@ -18,7 +18,7 @@
 //! candidates left, once per pick.
 
 use crate::cards::{tokens, BoardCtx, CardHooks, HeroCombatCtx};
-use crate::heroes::power_mut;
+use crate::heroes::power_mut_for;
 use crate::model::{CardId, HeroId, HeroState, Keyword, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -79,7 +79,7 @@ fn offer_elements(state: &mut TavernState, _: Option<usize>, _: &mut CardPool, _
 
 /// The chosen Element becomes the Hero Power.
 fn become_element(state: &mut TavernState, element: CardId) {
-    if let Some(power) = power_mut(&mut state.auras) {
+    if let Some(power) = power_mut_for(&mut state.auras, POWER) {
         power.card_id = element;
     }
 }

@@ -1154,6 +1154,7 @@ pub fn on_magnetize_transfer(source: &Unit, target: &mut Unit) {
     target.blood_gems_played += source.blood_gems_played;
     target.blood_gem_stats_applied.0 += source.blood_gem_stats_applied.0;
     target.blood_gem_stats_applied.1 += source.blood_gem_stats_applied.1;
+    target.hats += source.hats;
     if let Some(transfer) = hooks(source.card_id).magnetize_transfer {
         transfer(source, target);
     }
@@ -2060,6 +2061,7 @@ pub fn on_damage_dealt(ctx: &mut BoardCtx<'_>, source_id: UnitId, amount: i32) {
             }
         },
     );
+    crate::heroes::on_friendly_damage_dealt(ctx, source_id, amount);
 }
 
 /// Resolve `unit`'s own `damage_taken` hook after it took damage (`hand` is its owner's hand).

@@ -1,0 +1,25 @@
+hero: Dancin' Deryl
+defaults:
+  tavern: {auras: {hero: Dancin' Deryl}, gold: 10}
+scenarios:
+  - name: playing_a_minion_gives_a_hat_that_passes_when_sold
+    tavern:
+      board: ["2/2"]
+      hand: ["3/3", "4/4"]
+    steps:
+      - play: {hand: 0, pos: 1}
+      - expect:
+          board:
+            0: {stats: "2/2", hats: 0}
+            1: {stats: "4/4", hats: 1}
+      - play: {hand: 0, pos: 2}
+      - expect:
+          board:
+            0: {stats: "2/2", hats: 0}
+            1: {stats: "4/4", hats: 1}
+            2: {stats: "5/5", hats: 1}
+      - sell: 1
+      - sell: 1
+    expect:
+      board:
+        0: {stats: "4/4", hats: 2}

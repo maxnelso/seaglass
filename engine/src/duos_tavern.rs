@@ -409,6 +409,7 @@ impl DuosTavern {
                 let card = self.incoming[player].remove(0);
                 self.players[player].add_to_hand(card);
             }
+            self.players[player].sync_all_auras();
         }
     }
 

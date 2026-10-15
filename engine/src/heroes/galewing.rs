@@ -15,7 +15,7 @@
 //! A card needs room in the hand.
 
 use crate::cards::{spells, tokens, CardHooks};
-use crate::heroes::power_mut;
+use crate::heroes::{power_mut, power_mut_for};
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -64,7 +64,7 @@ fn offer_paths(state: &mut TavernState, _: Option<usize>, _: &mut CardPool, _: &
 /// The chosen flightpath becomes the Hero Power, with its turns left.
 fn take_path(state: &mut TavernState, path: CardId) {
     let turns = PATHS.iter().find(|p| p.0 == path).map_or(1, |p| p.2);
-    if let Some(power) = power_mut(&mut state.auras) {
+    if let Some(power) = power_mut_for(&mut state.auras, POWER) {
         power.card_id = path;
         power.counter = turns;
     }

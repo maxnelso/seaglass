@@ -20,9 +20,12 @@ pub mod brukan;
 pub mod capn_hoggarr;
 pub mod captain_eudora;
 pub mod captain_hooktusk;
+pub mod cariel_roame;
 pub mod chenvaala;
 pub mod cho;
+pub mod cookie_the_cook;
 pub mod cthun;
+pub mod dancin_deryl;
 pub mod death_speaker_blackthorn;
 pub mod deathwing;
 pub mod dinotamer_brann;
@@ -56,6 +59,7 @@ pub mod kithix;
 pub mod kurtrus_ashfallen;
 pub mod lich_bazhial;
 pub mod loh_the_living_legend;
+pub mod lord_jaraxxus;
 pub mod madam_goya;
 pub mod maiev_shadowsong;
 pub mod malygos;
@@ -72,6 +76,7 @@ pub mod ozumat;
 pub mod patches_the_pirate;
 pub mod patchwerk;
 pub mod pyramad;
+pub mod queen_azshara;
 pub mod queen_wagtoggle;
 pub mod ragnaros_the_firelord;
 pub mod rakanishu;
@@ -182,9 +187,12 @@ const IMPLEMENTED: &[Implemented] = &[
     (capn_hoggarr::ID, capn_hoggarr::behaviors),
     (captain_eudora::ID, captain_eudora::behaviors),
     (captain_hooktusk::ID, captain_hooktusk::behaviors),
+    (cariel_roame::ID, cariel_roame::behaviors),
     (chenvaala::ID, chenvaala::behaviors),
     (cho::ID, cho::behaviors),
+    (cookie_the_cook::ID, cookie_the_cook::behaviors),
     (cthun::ID, cthun::behaviors),
+    (dancin_deryl::ID, dancin_deryl::behaviors),
     (
         death_speaker_blackthorn::ID,
         death_speaker_blackthorn::behaviors,
@@ -221,6 +229,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (kurtrus_ashfallen::ID, kurtrus_ashfallen::behaviors),
     (lich_bazhial::ID, lich_bazhial::behaviors),
     (loh_the_living_legend::ID, loh_the_living_legend::behaviors),
+    (lord_jaraxxus::ID, lord_jaraxxus::behaviors),
     (madam_goya::ID, madam_goya::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
     (malygos::ID, malygos::behaviors),
@@ -237,6 +246,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (patches_the_pirate::ID, patches_the_pirate::behaviors),
     (patchwerk::ID, patchwerk::behaviors),
     (pyramad::ID, pyramad::behaviors),
+    (queen_azshara::ID, queen_azshara::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
     (ragnaros_the_firelord::ID, ragnaros_the_firelord::behaviors),
     (rakanishu::ID, rakanishu::behaviors),
@@ -783,11 +793,20 @@ pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rn
 
 /// After a minion was sold: the Hero Power's `hero_after_sell` hook.
 pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    let has_deryl = state.auras.hero.as_ref().is_some_and(|h| {
+        h.power.card_id == dancin_deryl::POWER
+            || h.second_power
+                .as_ref()
+                .is_some_and(|sp| sp.card_id == dancin_deryl::POWER)
+    });
     if let Some(after_sell) = power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
         after_sell(state, sold, pool, rng);
     }
     if let Some(after_sell) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
         with_second_power(state, |s| after_sell(s, sold, pool, rng));
+    }
+    if sold.hats > 0 && !has_deryl && hooks(dancin_deryl::POWER).hero_after_sell.is_some() {
+        dancin_deryl::pass_hats(state, sold.hats, rng);
     }
 }
 
@@ -857,6 +876,41 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
                 std::mem::swap(&mut hero.power, second);
             }
         }
+    }
+}
+
+/// A friendly minion dealt damage: the Hero Power's `hero_friendly_damage_dealt` hook
+/// (`docs/heroes.md` §4).
+pub fn on_friendly_damage_dealt(ctx: &mut BoardCtx<'_>, dealer_id: UnitId, amount: i32) {
+    if let Some(dmg_dealt) = power_hooks(ctx.auras).and_then(|c| c.hero_friendly_damage_dealt) {
+        dmg_dealt(ctx, dealer_id, amount);
+    }
+    if let Some(dmg_dealt) =
+        second_power_hooks(ctx.auras).and_then(|c| c.hero_friendly_damage_dealt)
+    {
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+        dmg_dealt(ctx, dealer_id, amount);
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+    }
+}
+
+/// The player's board stats or minions changed (`TavernState::sync_all_auras`): the Hero Power's
+/// `hero_board_changed` hook (`docs/heroes.md` §4).
+pub fn on_board_changed(state: &mut TavernState) {
+    if let Some(board_changed) = power_hooks(&state.auras).and_then(|c| c.hero_board_changed) {
+        board_changed(state);
+    }
+    if let Some(board_changed) = second_power_hooks(&state.auras).and_then(|c| c.hero_board_changed)
+    {
+        with_second_power(state, board_changed);
     }
 }
 
@@ -1044,6 +1098,23 @@ pub fn power_mut(auras: &mut PlayerAuras) -> Option<&mut HeroPowerState> {
     auras.hero.as_mut().map(|h| &mut h.power)
 }
 
+/// The player's Hero Power state matching `card_id` (`power` or `second_power`), falling back to
+/// `power` (`docs/heroes.md` §2.2).
+pub fn power_mut_for(auras: &mut PlayerAuras, card_id: CardId) -> Option<&mut HeroPowerState> {
+    let hero = auras.hero.as_mut()?;
+    if hero.power.card_id == card_id {
+        return Some(&mut hero.power);
+    }
+    if hero
+        .second_power
+        .as_ref()
+        .is_some_and(|sp| sp.card_id == card_id)
+    {
+        return hero.second_power.as_mut();
+    }
+    Some(&mut hero.power)
+}
+
 /// The Hero Powers a Discover can offer (`Sir Finley Mrrgglton`, `Master Nguyen`,
 /// `Genn, Worgen King`; `docs/heroes.md` §11.2).
 pub fn offerable_powers(
@@ -1121,6 +1192,10 @@ pub fn offerable_powers(
                     | enhance_o_mechano::ID
                     | silas_darkmoon::ID
                     | galewing::ID
+                    | lord_jaraxxus::ID
+                    | queen_azshara::ID
+                    | cariel_roame::ID
+                    | cookie_the_cook::ID
             )
         })
         .collect()

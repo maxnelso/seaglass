@@ -1,0 +1,28 @@
+hero: Lord Jaraxxus
+defaults:
+  tavern: {auras: {hero: Lord Jaraxxus}, gold: 10}
+scenarios:
+  - name: friendly_minion_damage_advances_bloodfury_and_transforms_into_nether_portal
+    tavern:
+      auras: {hero: {hero: Lord Jaraxxus, power: {counter: 120}}}
+      board: ["35/35"]
+    steps:
+      - fight: {board: ["0/40"]}
+      - expect:
+          auras: {hero: {power: {card_id: 123087, cost: 0, uses_left: 0, counter: 0}}}
+      - start_turn
+    expect:
+      hand:
+        count: 2
+        all: "demon"
+
+  - name: damage_below_threshold_accumulates_across_combats
+    tavern:
+      board: ["40/40"]
+    steps:
+      - fight: {board: ["50/10"]}
+      - expect:
+          auras: {hero: {power: {card_id: 59808, counter: 40}}}
+      - start_turn
+    expect:
+      hand: []

@@ -1,0 +1,32 @@
+hero: Queen Azshara
+defaults:
+  tavern: {auras: {hero: Queen Azshara}, gold: 10, tavern_tier: 6}
+scenarios:
+  - name: reaching_30_total_attack_begins_naga_conquest_and_discovers_a_naga
+    tavern:
+      board: ["15/10", "14/10"]
+      hand: ["2/2"]
+    steps:
+      - expect:
+          auras: {hero: {power: {card_id: 79619, uses_left: 0}}}
+      - play: {hand: 0, pos: 2}
+      - expect:
+          auras: {hero: {power: {card_id: 80007, cost: 1, uses_left: 1}}}
+      - hero_power
+      - expect:
+          gold: 9
+          auras: {hero: {power: {card_id: 80007, uses_left: 0}}}
+          discover_pending:
+            all: "naga"
+      - choose_discover: 0
+    expect:
+      discover_pending: null
+      hand: ["naga"]
+
+  - name: below_30_attack_stays_azsharas_ambition
+    tavern:
+      board: ["15/10", "14/10"]
+    steps:
+      - expect_illegal: hero_power
+    expect:
+      auras: {hero: {power: {card_id: 79619, uses_left: 0}}}

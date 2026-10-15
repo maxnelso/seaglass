@@ -526,6 +526,11 @@ card_hooks! {
     /// A friendly minion attacks (in combat or in the Tavern), once the friendly-attack
     /// observers resolved: `(ctx, attacker_id)`.
     hero_friendly_attack(on_hero_friendly_attack): fn(&mut BoardCtx<'_>, UnitId),
+    /// A friendly minion dealt damage (in combat or in the Tavern), after the cards'
+    /// `on_damage_dealt` observers: `(ctx, dealer_id, amount)`.
+    hero_friendly_damage_dealt(on_hero_friendly_damage_dealt): fn(&mut BoardCtx<'_>, UnitId, i32),
+    /// The player's board stats or minions changed (`TavernState::sync_all_auras`): `(state)`.
+    hero_board_changed(on_hero_board_changed): fn(&mut TavernState),
     /// The Tavern's prices and rules the Hero Power changes, whenever they are read:
     /// `(rules)` (`docs/tavern.md` §3.3).
     hero_tavern_rules(on_hero_tavern_rules): fn(&mut crate::heroes::TavernRules),
