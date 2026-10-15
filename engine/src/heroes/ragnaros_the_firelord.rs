@@ -5,7 +5,7 @@
 //! Passive. Every card bought counts (`hero_after_buy`, `counter`, across turns); the 12th turns
 //! the Hero Power into *Sulfuras* (`TB_BaconShop_HP_087t`; its `card_id` changes, as Bru'kan's
 //! Elements do): "At the end of your turn, give your left and right-most minions +8/+8"
-//! (`hero_end_turn`; a single minion gains it once: engine decision).
+//! (`hero_end_turn`; a single minion gains it once: confirmed).
 
 use crate::cards::CardHooks;
 use crate::heroes::power_mut;

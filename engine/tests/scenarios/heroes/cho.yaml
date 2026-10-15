@@ -5,14 +5,14 @@ scenarios:
     duos_tavern:
       players:
         - {auras: {hero: Cho}, hand: ["golden Zoatroid"], tavern_tier: 3}
-        - {}
+        - {tavern_tier: 5}
     steps:
       - {player: 0, play: 0}
     expect:
       players:
         - hand: [{card: Triple Reward, counter: 4}, {card: Triple Reward, counter: 4}]   # its own, then the Hero Power's
           auras: {hero: {power: {stacks: 1}}}
-        - {hand: [{card: Triple Reward, counter: 4}]}   # the giver's Tier (engine decision)
+        - {hand: [{card: Triple Reward, counter: 6}]}   # (confirmed) the receiver's Tier, locked in as it arrives
 
   - name: three_times_per_game
     seeds: "1..=2"

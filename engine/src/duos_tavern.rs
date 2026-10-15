@@ -356,8 +356,10 @@ impl DuosTavern {
                                 continue;
                             }
                         },
-                        TeammateGift::Card(card) => {
-                            self.incoming[Self::teammate(player)].push(card)
+                        TeammateGift::Card(mut card) => {
+                            let mate = Self::teammate(player);
+                            cards::on_received(&mut card, self.players[mate].tavern_tier);
+                            self.incoming[mate].push(card)
                         }
                         TeammateGift::Effect {
                             card_id,

@@ -18,8 +18,13 @@ scenarios:
     steps:
       - expect_illegal: {hero_power: 0}
 
-  - name: a_tier_6_minion_is_not_a_target
-    description: (engine decision)
+  - name: a_tier_6_minion_is_replaced_by_another_tier_6_one
+    description: (confirmed) The Discover's Tier is min(6, Tier + 1).
+    seeds: "1..=4"
     tavern: {tavern_tier: 6, shop: ["9/9 t6"]}
     steps:
-      - expect_illegal: {hero_power: 0}
+      - hero_power: 0
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 6}}}
+      - choose_discover: 0
+    expect:
+      shop: [{all_of: [{tavern_tier: 6}, {not: "9/9 t6"}]}]

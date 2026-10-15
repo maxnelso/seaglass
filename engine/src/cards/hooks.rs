@@ -292,6 +292,9 @@ card_hooks! {
     /// "When you buy or Discover this": this card was bought (it is in the hand, its triple
     /// checked) or Discovered (added to the hand); `card` is the card as it reached the hand.
     obtained(on_obtained): CardEventFn,
+    /// This card, given by the teammate (a `TeammateGift::Card`), arrives: in their Tavern (its
+    /// incoming queue) or their combat hand, `(card, receiver's Tavern Tier)`.
+    received(on_received): fn(&mut Unit, u32),
     /// Spellcraft: the spell this minion gives its player when it is played and at the start of
     /// each turn (a [`CardFlags::TEMPORARY`] card; `docs/tavern.md` §7.4).
     spellcraft(on_spellcraft): fn(&Unit) -> Unit,

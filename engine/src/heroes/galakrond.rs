@@ -2,8 +2,8 @@
 //!
 //! Hero Power: `Galakrond's Greed` (`TB_BaconShop_HP_011`), 1 Gold: Choose a minion in the Tavern. Then choose a higher Tier minion to replace it.
 //!
-//! Active, a minion in the Tavern below Tier 6 (a Tier 6 one has no higher Tier: engine
-//! decision), once per turn: a Discover among 3 minions of exactly the next Tier from the pool (as
+//! Active, a minion in the Tavern, once per turn: a Discover among 3 minions of exactly the next
+//! Tier, `min(6, tier + 1)` (a Tier 6 one is offered Tier 6 minions: confirmed), from the pool (as
 //! a Triple Reward's), kept by the Hero Power (`to_hero_power`). The chosen one replaces the
 //! Tavern minion in its slot (`hero_option_chosen`, with the shop's auras), whose copies go back
 //! to the pool with the other options'.
@@ -29,9 +29,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         POWER,
         CardHooks::EMPTY
             .on_hero_power(greed)
-            .on_hero_power_target(|state, t| {
-                !state.shop[t].is_spell && state.shop[t].tavern_tier < MAX_TIER
-            })
+            .on_hero_power_target(|state, t| !state.shop[t].is_spell)
             .on_hero_option_chosen(replace)
             .with_activate_target(ActivateTargetKind::ShopCard),
     )]

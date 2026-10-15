@@ -19,7 +19,7 @@ scenarios:
     expect: {board: ["9/9", "1/1", "9/9"]}
 
   - name: a_single_minion_gains_it_once
-    description: (engine decision)
+    description: (confirmed)
     tavern:
       auras: {hero: {hero: Ragnaros the Firelord, power: {card_id: 64426}}}
       board: ["1/1"]

@@ -1439,6 +1439,14 @@ pub fn on_obtained(state: &mut TavernState, card: &Unit, pool: &mut CardPool, rn
     }
 }
 
+/// `card`, a teammate's gift, arrives for a player at Tavern Tier `tavern_tier` (its own
+/// `received` hook).
+pub fn on_received(card: &mut Unit, tavern_tier: u32) {
+    if let Some(received) = hooks(card.card_id).received {
+        received(card, tavern_tier);
+    }
+}
+
 /// Apply `discover` observers (left to right) after a card is Discovered.
 pub fn on_card_discovered(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     notify_tavern(state, |h| h.discover, |s, idx, f| f(s, idx, pool, rng));

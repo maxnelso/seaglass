@@ -293,6 +293,7 @@ A Pass by one of these cards takes the card out of wherever it was (the board fo
 | Addition | What it does | For |
 | :--- | :--- | :--- |
 | `obtained` hook | The card's own text, once it is bought (in the hand, after its triple check) or Discovered (after it is added to the hand). | "When you buy or Discover this" (`Mirror Monster`). |
+| `received` hook | A teammate's gift card (`TeammateGift::Card`) as it arrives, with the receiver's Tavern Tier: in their Tavern (joining the incoming queue) or their combat hand. | A Cho or Gall `Triple Reward` locks in the receiver's Tier (`tavern.md` §5.2). |
 | `spellcraft` hook, `CardFlags::TEMPORARY` | The Spellcraft spell a minion gives; temporary cards are discarded at `EndTurn` (and at the start of the turn). | `Private Chef`, `Well Wisher`. |
 | `after_friendly_discard` sees the card | The observers get the discarded card (`CardObserverFn`, like `after_pass`). | `Voidpriest Cloner`. |
 | `SpellTarget::TavernMinion`, `spell_target_filter` hook | A spell cast only on a minion in the Tavern; which minions a targeted spell can be cast on, on top of its `spell_target`. | `Portal in a Fountain`; non-Golden targets. |

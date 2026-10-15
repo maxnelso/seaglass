@@ -505,6 +505,7 @@ impl DuosTeamState {
     /// is added to your hand" observers see it). A waiting warband steps in with it, and one that
     /// never steps in brings it back with its hand as given.
     fn receive_card(&mut self, player: usize, mut card: Unit) {
+        cards::on_received(&mut card, self.warbands[player].hero_tier);
         if !self.fought[player] {
             self.given[player].hand.push(card.clone());
         }

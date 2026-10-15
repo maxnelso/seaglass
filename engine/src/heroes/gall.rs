@@ -6,7 +6,7 @@
 //! played from the hand that give a Triple Reward (not `intrinsic_golden`; `stacks` counts them)
 //! each give the player a `Triple Reward` card (if the hand has room) and their teammate one (a
 //! teammate `Card` gift, whatever the teammate's hero: engine decision), on top of the Golden's own
-//! Discover.
+//! card. The teammate's locks in their own Tier as it arrives (confirmed).
 
 use crate::cards::{tokens, CardHooks, Played};
 use crate::heroes::power_mut;
@@ -38,10 +38,9 @@ fn after_play(state: &mut TavernState, played: &Played, _: &mut CardPool, _: &mu
         return;
     };
     power.stacks += 1;
-    // The teammate's card has the giver's Tier too (engine decision).
-    let tier = state.tavern_tier;
-    state.add_to_hand(tokens::make_triple_reward(tier));
+    state.add_to_hand(tokens::make_triple_reward(state.tavern_tier));
+    // The teammate's locks in their own Tier as it arrives (confirmed).
     state
         .auras
-        .give_teammate(TeammateGift::Card(tokens::make_triple_reward(tier)));
+        .give_teammate(TeammateGift::Card(tokens::make_triple_reward(0)));
 }
