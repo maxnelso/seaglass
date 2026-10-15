@@ -186,6 +186,7 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     let unit: Unit = serde_yaml::from_value(value.clone()).expect("units round-trip through serde");
     let mut view = fields(m);
     with_default(&mut view, "marked", View::Bool(false));
+    with_default(&mut view, "frozen", View::Bool(false));
     with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));
     let id = unit.card_id;
     let keywords = KEYWORDS

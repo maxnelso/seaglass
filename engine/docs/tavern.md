@@ -69,6 +69,7 @@ All players in a match draw from a shared `CardPool`. Each unique purchasable mi
 - `bonus_gold_next_turn: u32` — Extra gold queued for next turn's `start_turn`.
 - `upgrade_cost: u32` — Current gold cost to upgrade to `tavern_tier + 1` (`0` when `tavern_tier == 6`).
 - `is_frozen: bool` — Whether Bob's shop is frozen for the next `start_turn`.
+- A card in `shop` can also be frozen on its own (`Unit::frozen`: Varden Dawngrasp's copies, `heroes.md` §11.2) **(confirmed**: a real game mechanic**)**. It stays through the next `start_turn` even if the shop isn't frozen (§4 step 4); a Refresh replaces it like any card **(engine decision)**, and it loses the flag once it leaves the shop (bought, stolen, Passed, swapped). `ToggleFreeze` unfreezes the shop and every frozen card when anything in it is frozen, and freezes the shop otherwise (§6). Without frozen cards, all of this is the whole-shop freeze as before.
 - `discover_pending: Option<Vec<Unit>>` — When `Some(options)`, the player must take `ChooseDiscover { option_index }` before any other action is legal.
 - `auras: PlayerAuras` — Persistent game-long scaling counters (§7.5).
 
@@ -112,8 +113,11 @@ At the beginning of Turn `t`:
      - Fill the other free slots (`cap + 1 - shop.len()` with shop spells, `cap - shop.len()` without, less a free spell slot) with new minions from `CardPool` (`tier <= tavern_tier`), appended to `shop`; then append a random Tavern spell (`tier <= tavern_tier`) for a free spell slot. So in a Tavern of spells (`Saloon's Finest`), each slot bought from refills with a minion, and the spell slot refills with a spell only once no spell is left.
      - Set `is_frozen = false`.
    - **If `is_frozen == false`**:
-     - Return all minions currently in `shop` to `CardPool`.
-     - Draw `cap` new minions from `CardPool` (`tier <= tavern_tier`), then a random Tavern spell if the shop offers spells.
+     - Return all minions currently in `shop` to `CardPool`, except the cards frozen on their own (`Unit::frozen`), which stay in their order and are unfrozen.
+     - Without such cards: draw `cap` new minions from `CardPool` (`tier <= tavern_tier`), then a random Tavern spell if the shop offers spells.
+     - With them: each kept card fills a slot, and the free slots fill as for a frozen shop above (a free spell slot only if no spell was kept).
+     - Either way it is a Refresh: the after-Refresh effects run (the Hero Power's `hero_after_refresh`, then the cards'), with the kept cards in the shop **(engine decision)**.
+   - In both cases every card left in `shop` is unfrozen (`Unit::frozen = false`).
 5. **Spellcraft**:
    - Each Spellcraft minion on `board` (left $\to$ right) gives its Spellcraft spell, if there is room in `hand` (§7.4).
 
@@ -163,7 +167,7 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 | `Reposition { from_pos, to_pos }` | `from_pos < board.len()`, `to_pos < board.len()`, `from_pos != to_pos` | Move `board[from_pos]` to `board[to_pos]`. Costs `0` gold. |
 | `Refresh` | `gold >= 1`, `auras.free_refreshes > 0`, or a Health Refresh (`has_health_refresh`: a `HEALTH_REFRESHES` minion has `charges` left and `health + armor > 1` or hero damage is rewound) | Pay: if `free_refreshes > 0`, `free_refreshes -= 1` (a free Refresh still uses a `HEALTH_REFRESHES` charge if there is one: it costs 0 Health instead of 0 Gold); else if a Health Refresh is available, use a charge (left-most minion first) and deal 1 damage to the hero; else `gold -= 1`. Then `is_frozen = false`, return current `shop` to `CardPool`, draw `shop_capacity(tavern_tier)` new minions. |
 | `UpgradeTavern` | `tavern_tier < 6`, `gold >= upgrade_cost` | `gold -= upgrade_cost`, `tavern_tier += 1`, `upgrade_cost = base_upgrade_cost(tavern_tier)`. |
-| `ToggleFreeze` | Always legal | `is_frozen = !is_frozen`. Costs `0` gold. |
+| `ToggleFreeze` | Always legal | If `is_frozen` or a card in `shop` is frozen on its own: `is_frozen = false` and every card is unfrozen. Else `is_frozen = true`. Without cards frozen on their own this is `is_frozen = !is_frozen`. Costs `0` gold. |
 | `ChooseDiscover { option_index }` | `discover_pending == Some(opts)`, `option_index < opts.len()` | Move `opts[option_index]` to `hand` (with a full hand it is lost and returns to `CardPool`, §2), return others to `CardPool` (Duos: those marked `unchosen_to_teammate` go to the teammate instead, `docs/duos_tavern.md` §8.3), clear `discover_pending`, check for Triple, then the chosen card's "when you Discover this" text (`obtained`, only if it reached the hand **(confirmed)**: a `Mirror Monster` Discovered into a full hand gives no copy) and the `discover` observers. A Choose-One option takes effect instead (once per cast of the spell that offered it, §7.4). |
 | `HeroPower { target }` | The player's hero has an active Hero Power with uses left, `gold >= cost`, a valid target ([`heroes.md`](heroes.md) §5) | Use the Hero Power. |
 | `ChooseHero { option_index }` | `hero_options` is non-empty (then it is the only legal action), `option_index < hero_options.len()` | Get that hero ([`heroes.md`](heroes.md) §6). |

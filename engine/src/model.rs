@@ -616,6 +616,10 @@ pub struct Unit {
     /// `docs/heroes.md` §11), as `temp_divine_shield` for Divine Shield.
     #[serde(default, skip_serializing_if = "is_false")]
     pub temp_reborn: bool,
+    /// True if this card in the shop is frozen on its own (Varden Dawngrasp's copies;
+    /// `docs/tavern.md` §3.1): it stays through the next turn start.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub frozen: bool,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
@@ -696,6 +700,7 @@ impl Unit {
             marked: false,
             extra_deathrattles: Vec::new(),
             temp_reborn: false,
+            frozen: false,
         }
     }
 

@@ -14,8 +14,8 @@ CARD_ID_TO_IDX: dict[int, int] = {cid: i + 1 for i, cid in enumerate(_ALL_IDS)}
 VOCAB_SIZE: int = len(_ALL_IDS) + 1
 
 NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER  # 7 + 10 + 7 + 4 = 28
-PLAYER_DIM: int = 15
-SLOT_NUM_DIM: int = 12
+PLAYER_DIM: int = 16
+SLOT_NUM_DIM: int = 13
 
 
 def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
@@ -32,6 +32,7 @@ def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
     out_num[9] = 1.0 if u.reborn else 0.0
     out_num[10] = 1.0 if u.venomous else 0.0
     out_num[11] = 1.0 if u.magnetic else 0.0
+    out_num[12] = 1.0 if u.frozen else 0.0  # a shop card frozen on its own
     return CARD_ID_TO_IDX.get(u.card_id, 0)
 
 
@@ -61,6 +62,8 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             float(obs.hero_power_uses_left),
             obs.hero_power_armed / 3.0,
             1.0 if obs.hero_options else 0.0,
+            # Freezing (`engine/docs/tavern.md` §3.1): the shop as a whole.
+            1.0 if obs.is_frozen else 0.0,
         ],
         dtype=np.float32,
     )

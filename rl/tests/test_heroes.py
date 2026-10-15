@@ -96,3 +96,19 @@ def test_the_hero_table() -> None:
     assert len(table) == 123
     implemented = {name for _, name, done in table if done}
     assert {"Al'Akir", "Y'Shaarj", "Teron Gorefiend"} <= implemented
+
+
+def test_cards_frozen_on_their_own_are_in_the_observation_encoding() -> None:
+    from seaglass_rl.features import MAX_BOARD, MAX_HAND
+
+    game = seaglass.TavernGame(seed=3, hero="Varden Dawngrasp")
+    game.start_turn()
+    obs = game.observe()
+    frozen = [u.frozen for u in obs.shop]
+    assert frozen.count(True) == 2  # the highest-Tier minion and its copy
+    _, _, slot_num_feats = encode_observation(obs)
+    shop = slot_num_feats[MAX_BOARD + MAX_HAND :][: len(frozen)]
+    assert [bool(f[12]) for f in shop] == frozen
+    game.step(seaglass.TavernAction.toggle_freeze())
+    assert not any(u.frozen for u in game.observe().shop)
+    assert not game.observe().is_frozen

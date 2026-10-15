@@ -159,6 +159,12 @@ impl PyUnit {
         self.inner.magnetic
     }
 
+    /// A card in the shop frozen on its own (`docs/tavern.md` §3.1).
+    #[getter]
+    fn frozen(&self) -> bool {
+        self.inner.frozen
+    }
+
     #[getter]
     fn activated_this_turn(&self) -> bool {
         self.inner.activated_this_turn

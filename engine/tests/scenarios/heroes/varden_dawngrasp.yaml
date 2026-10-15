@@ -1,0 +1,41 @@
+hero: Varden Dawngrasp
+defaults:
+  tavern: {auras: {hero: Varden Dawngrasp}, gold: 10}
+scenarios:
+  - name: a_refresh_copies_the_highest_tier_minion_and_freezes_both
+    seeds: "1..=4"
+    tavern: {tavern_tier: 2}
+    steps:
+      - refresh
+      - expect:
+          shop:
+            where: {frozen: true}
+            count: 2
+            0: {all_of: [{capture: original}, {tavern_tier: {capture: tier}}]}
+    expect:
+      shop:
+        all_of:
+          - {count: 5}
+          - {where: {frozen: true}, 1: {same_as: original}}
+          - {where: {frozen: false}, all: {tavern_tier: "<= $tier"}}
+
+  - name: the_frozen_pair_stays_through_the_turn_start
+    seeds: "1..=4"
+    tavern: {gold: 0}
+    steps:
+      - start_turn
+      - expect: {shop: {where: {frozen: true}, 0: {name: {capture: copied}}}}
+      - end_turn
+      - start_turn
+    expect:
+      shop: {where: {name: {same_as: copied}}, count: ">= 2"}
+
+  - name: a_full_tavern_has_no_room_for_the_copy
+    tavern: {tavern_tier: 6, include_shop_spells: true}
+    steps:
+      - refresh
+    expect: {shop: {count: 7, none: {frozen: true}}}
+
+  - name: it_is_never_an_action
+    steps:
+      - expect_illegal: hero_power

@@ -294,6 +294,7 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Heistbaron Togwaggle` | *The Perfect Crime* (11 Gold): Steal all cards from the Tavern. Each turn, your next Hero Power costs (1) less. | Every shop card goes to the hand while it has room, left to right (not a buy); the rest stay. At the start of each turn, the first included, it gets 1 cheaper (never below 0) **(engine decision)**; using it puts the cost back to 11. It needs a card in the shop and room in the hand. |
 | `Ysera` | *Dream Portal*: The Tavern offers an extra Dragon whenever it is Refreshed. | `hero_after_refresh`: a Dragon of the player's Tier or lower from the pool (`CardPool::draw_by_tribe`) joins the shop after its minions (before its spell), beyond its usual size, if the Tavern has room (it holds 7 cards, `tavern.md` §3.2). |
 | `Enhance-o Mechano` | *Enhancification*: After the Tavern is Refreshed, give a random minion in it a random Bonus Keyword, twice. | `hero_after_refresh`, twice: a random minion in the shop that lacks one of the Bonus Keywords (Taunt, Divine Shield, Windfury, Venomous, Reborn: **engine decision**) gains one it lacks, at random (one `rng.below(k)` for the minion, one for the keyword); the two can be the same minion. |
+| `Varden Dawngrasp` | *Twice as Nice*: After the Tavern is Refreshed, copy its highest-Tier minion and Freeze them both. | `hero_after_refresh`: if the Tavern has room (7 cards), an exact copy of the shop minion with the highest Tier (a tie at random: one `rng.below(k)`; **engine decision**) joins the shop to its right (not from the pool), and both are frozen on their own (`Unit::frozen`, `tavern.md` §3.1): they stay through the next turn start. |
 | `Infinite Toki` | *Temporal Tavern* (1 Gold): Refresh the Tavern. Include two minions from a Tier higher than yours. | A Refresh (`TavernState::refresh_shop_with_tier_minions`) whose last 2 minions are of exactly the next Tier (Tier 6 at Tier 6; from the pool, falling back to the highest Tier below with copies left, as a Triple Reward's Discover) **(engine decision)**; the rest as any Refresh, its after-Refresh effects included. |
 
 ---
@@ -327,4 +328,6 @@ Engine decisions, pending the user's confirmation:
 | Mutanus' target | Only with another friendly minion. | `heroes/mutanus_the_devourer.rs` |
 | Togwaggle's discount | From the first turn's start on. | `heroes/heistbaron_togwaggle.rs` |
 | Enhance-o's Bonus Keywords | Taunt, Divine Shield, Windfury, Venomous and Reborn; only a minion that lacks one is picked. | `heroes/enhance_o_mechano.rs` |
+| Varden's tie | The highest-Tier minion is picked at random among ties. | `heroes/varden_dawngrasp.rs` |
+| A partly frozen turn start | Counts as a Refresh (its after-Refresh effects run, Varden's included). | `tavern.rs` |
 | Toki's minions | Exactly the next Tier (Tier 6 at Tier 6), the last 2 of the shop's minions. | `heroes/infinite_toki.rs` |

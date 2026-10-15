@@ -51,3 +51,36 @@ scenarios:
         all_of:
           - {count: 6}   # Tier 4: 5 minion slots and the spell slot
           - {where: {is_spell: true}, count: 1}
+
+  # A card frozen on its own (`Unit::frozen`: Varden Dawngrasp's copies; docs/tavern.md §3.1).
+  - name: a_card_frozen_on_its_own_stays_through_the_turn_start
+    description: >-
+      (confirmed) The shop isn't frozen: the 9/9 frozen on its own stays (unfrozen) and the two
+      other minion slots refill.
+    tavern: {shop: ["1/1", {card: "9/9", frozen: true}, "2/2"]}
+    steps:
+      - start_turn
+    expect:
+      is_frozen: false
+      shop: {all_of: [{count: 3}, {0: {attack: 9, frozen: false}}, {where: "1/1", count: 0}]}
+
+  - name: a_refresh_replaces_a_card_frozen_on_its_own
+    tavern: {gold: 5, shop: [{card: "9/9", frozen: true}, "1/1"]}
+    steps:
+      - refresh
+    expect: {shop: {count: 3, none: {attack: 9}}}
+
+  - name: toggle_freeze_unfreezes_a_card_frozen_on_its_own
+    description: With anything frozen in the shop, Toggle Freeze unfreezes it all, and the shop.
+    tavern: {shop: [{card: "9/9", frozen: true}, "1/1"]}
+    steps:
+      - toggle_freeze
+      - expect: {is_frozen: false, shop: [{frozen: false}, {frozen: false}]}
+      - toggle_freeze
+    expect: {is_frozen: true}
+
+  - name: a_bought_card_loses_its_freeze
+    tavern: {gold: 5, shop: [{card: "9/9", frozen: true}]}
+    steps:
+      - buy: 0
+    expect: {hand: [{attack: 9, frozen: false}]}

@@ -751,6 +751,7 @@ impl TavernState {
         if self.hand.len() >= 10 {
             return;
         }
+        card.frozen = false;
         self.apply_global_unit_auras(&mut card);
         let cid = card.card_id;
         let is_spell = card.is_spell;
@@ -1154,6 +1155,25 @@ impl TavernState {
         cards::after_shop_refresh(self, rng);
     }
 
+    /// Fill the free slots of a shop whose cards were kept (`docs/tavern.md` §4 step 4): every
+    /// kept card fills a slot (`cap`, plus the spell slot); the spell slot refills with a spell
+    /// only if no spell is left, the other free slots with minions.
+    fn fill_kept_shop(&mut self, cap: usize, pool: &mut CardPool, rng: &mut Rng) {
+        let slots = cap + usize::from(self.include_shop_spells);
+        let new_spell = self.include_shop_spells && !self.shop.iter().any(|u| u.is_spell);
+        let needed = slots.saturating_sub(self.shop.len() + usize::from(new_spell));
+        for _ in 0..needed {
+            if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
+                self.apply_shop_auras(&mut drawn);
+                self.shop.push(drawn);
+            }
+        }
+        if new_spell {
+            let spell = self.draw_shop_spell(rng);
+            self.shop.push(spell);
+        }
+    }
+
     /// Execute the start-of-turn sequence (`docs/tavern.md` §4).
     pub fn start_turn(&mut self, pool: &mut CardPool, rng: &mut Rng) {
         self.discard_temporary_cards();
@@ -1165,9 +1185,12 @@ impl TavernState {
         heroes::turn_reset(self);
         let turn_atk = std::mem::take(&mut self.auras.tavern_turn_atk);
         let turn_hp = std::mem::take(&mut self.auras.tavern_turn_hp);
-        if (turn_atk != 0 || turn_hp != 0) && self.is_frozen {
+        // The cards the turn start keeps lose this turn's Tavern buffs: a frozen shop's, and the
+        // cards frozen on their own.
+        let shop_frozen = self.is_frozen;
+        if turn_atk != 0 || turn_hp != 0 {
             for s in &mut self.shop {
-                if !s.is_spell {
+                if !s.is_spell && (shop_frozen || s.frozen) {
                     s.attack = (s.attack - turn_atk).max(0);
                     s.health = (s.health - turn_hp).max(1);
                     s.max_attack = s.attack;
@@ -1212,21 +1235,26 @@ impl TavernState {
         let cap = shop_capacity(self.tavern_tier);
         if self.is_frozen {
             self.is_frozen = false;
-            // Every kept card fills a slot (`cap`, plus the spell slot); the spell slot refills
-            // with a spell only if no spell is left, the other free slots with minions.
-            let slots = cap + usize::from(self.include_shop_spells);
-            let new_spell = self.include_shop_spells && !self.shop.iter().any(|u| u.is_spell);
-            let needed = slots.saturating_sub(self.shop.len() + usize::from(new_spell));
-            for _ in 0..needed {
-                if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
-                    self.apply_shop_auras(&mut drawn);
-                    self.shop.push(drawn);
+            for card in &mut self.shop {
+                card.frozen = false;
+            }
+            self.fill_kept_shop(cap, pool, rng);
+        } else if self.shop.iter().any(|u| u.frozen) {
+            // The cards frozen on their own stay, unfrozen; the rest go back (`docs/tavern.md`
+            // §4 step 4). It is a Refresh.
+            let mut kept = Vec::new();
+            for mut old in std::mem::take(&mut self.shop) {
+                if old.frozen {
+                    old.frozen = false;
+                    kept.push(old);
+                } else {
+                    pool.return_unit(&old);
                 }
             }
-            if new_spell {
-                let spell = self.draw_shop_spell(rng);
-                self.shop.push(spell);
-            }
+            self.shop = kept;
+            self.fill_kept_shop(cap, pool, rng);
+            heroes::after_refresh(self, pool, rng);
+            cards::after_shop_refresh(self, rng);
         } else {
             for old in self.shop.drain(..) {
                 pool.return_unit(&old);
@@ -1802,6 +1830,10 @@ impl TavernState {
         }
         self.sold_this_step.clear();
         let ended = self.apply_action(action, pool, rng)?;
+        // Only a card in the shop is frozen on its own (`docs/tavern.md` §3.1).
+        for card in self.board.iter_mut().chain(&mut self.hand) {
+            card.frozen = false;
+        }
         self.resolve_triples();
         // The minions' "wherever this is" auras and conditional keywords are up to date between
         // actions (a Divine Shield a spell gave a `Relentless Deflector` gives it Taunt at once).
@@ -1821,6 +1853,7 @@ impl TavernState {
                 // The bought card takes its hand slot before its price is paid, so the triggers
                 // of the payment see it there (`docs/tavern.md` §6).
                 let mut unit = self.shop.remove(shop_index);
+                unit.frozen = false;
                 let bought_snapshot = unit.clone();
                 let obtained;
                 if unit.is_spell {
@@ -1917,7 +1950,15 @@ impl TavernState {
                 Ok(false)
             }
             TavernAction::ToggleFreeze => {
-                self.is_frozen = !self.is_frozen;
+                // Anything frozen: unfreeze it all (`docs/tavern.md` §6).
+                if self.shop.iter().any(|u| u.frozen) {
+                    self.is_frozen = false;
+                    for card in &mut self.shop {
+                        card.frozen = false;
+                    }
+                } else {
+                    self.is_frozen = !self.is_frozen;
+                }
                 Ok(false)
             }
             TavernAction::ChooseDiscover { option_index } => {

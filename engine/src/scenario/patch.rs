@@ -38,6 +38,10 @@ const UNIT_LISTS: [&str; 7] = [
 /// queues): patches give each list as unit specs. `incoming` also takes `{<player>: [...]}`.
 const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
+/// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
+/// can still set them.
+const SKIPPED_UNIT_FIELDS: [&str; 4] = ["marked", "extra_deathrattles", "temp_reborn", "frozen"];
+
 /// Patch `target` with `patch`, a mapping of field names to new values.
 pub fn apply<T: Serialize + DeserializeOwned>(target: &mut T, patch: &Value) -> Result<(), String> {
     if !patch.is_mapping() {
@@ -108,6 +112,7 @@ fn merge(base: &mut Value, patch: &Value, path: &str) -> Result<(), String> {
 
 fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(), String> {
     let is_auras = fields.contains_key("card_counters") && fields.contains_key("effects");
+    let is_unit = fields.contains_key("card_id") && fields.contains_key("is_spell");
     // A map field (`card_counters`) takes any key; a struct only takes its own fields.
     let open = fields.is_empty() || fields.keys().any(|k| !k.is_string());
     for (key, change) in changes {
@@ -150,7 +155,7 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
                 }
             }
             Some(slot) => merge(slot, change, &field_path)?,
-            None if open => {
+            None if open || (is_unit && SKIPPED_UNIT_FIELDS.contains(&name.as_str())) => {
                 fields.insert(key.clone(), change.clone());
             }
             None => return Err(unknown_field(&field_path, &name, fields)),

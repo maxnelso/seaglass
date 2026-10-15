@@ -59,6 +59,7 @@ pub mod teron_gorefiend;
 pub mod the_lich_king;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
+pub mod varden_dawngrasp;
 pub mod xyrella;
 pub mod ysera;
 pub mod yshaarj;
@@ -180,6 +181,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (the_lich_king::ID, the_lich_king::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
+    (varden_dawngrasp::ID, varden_dawngrasp::behaviors),
     (xyrella::ID, xyrella::behaviors),
     (ysera::ID, ysera::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
