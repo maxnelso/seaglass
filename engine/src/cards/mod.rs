@@ -1340,11 +1340,11 @@ pub fn spellcraft_spell(unit: &Unit) -> Option<Unit> {
 }
 
 /// Start of turn, once the shop is filled: each Spellcraft minion on the board gives its spell,
-/// left to right, while the hand has room (`docs/tavern.md` §4).
+/// left to right; with a full hand it waits for room (`docs/tavern.md` §4, §7.4).
 pub fn on_start_turn_spellcrafts(state: &mut TavernState) {
     let spells: Vec<Unit> = state.board.iter().filter_map(spellcraft_spell).collect();
     for spell in spells {
-        state.add_to_hand(spell);
+        state.add_to_hand_or_wait(spell);
     }
 }
 

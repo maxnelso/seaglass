@@ -392,9 +392,11 @@ impl DuosTavern {
 
     /// Move queued passed cards into their receivers' hands while they have room (§5.4): player
     /// 0's queue, then player 1's. Each card goes through the receiver's `add_to_hand` (their
-    /// auras, observers and triple check).
+    /// auras, observers and triple check). A player's own cards waiting for room (a Spellcraft
+    /// spell, §8.3) go first.
     fn deliver(&mut self) {
         for player in 0..2 {
+            self.players[player].deliver_waiting_for_hand();
             while self.players[player].hand.len() < MAX_HAND_SIZE
                 && !self.incoming[player].is_empty()
             {

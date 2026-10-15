@@ -46,10 +46,57 @@ scenarios:
     expect:
       players: {0: {hand: {any: {card: Private Selection, is_golden: true}}}}
 
-  - name: no_spell_with_a_full_hand
+  - name: with_a_full_hand_at_the_start_of_the_turn_the_spell_waits
+    description: (confirmed) docs/tavern.md §7.4.
     duos_tavern:
       players: [{board: [Private Chef], hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}, {}]
     steps:
       - start_turn
     expect:
-      players: {0: {hand: {count: 10, none: {card: Private Selection}}}}
+      players: {0: {hand: {count: 10, none: {card: Private Selection}}, waiting_for_hand: [Private Selection]}}
+
+  - name: a_waiting_spell_reaches_the_hand_once_a_card_played_made_room
+    duos_tavern:
+      players: [{board: [Private Chef], hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}, {}]
+    steps:
+      - start_turn
+      - {player: 0, play: Joyous}
+    expect:
+      players: {0: {hand: {count: 10, -1: Private Selection}, waiting_for_hand: []}}
+
+  - name: a_pass_makes_room_for_a_waiting_spell
+    duos_tavern:
+      players: [{gold: 10, board: [Private Chef], hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}, {}]
+    steps:
+      - start_turn
+      - {player: 0, pass: Joyous}
+    expect:
+      players:
+        0: {hand: {count: 10, -1: Private Selection}, waiting_for_hand: []}
+        1: {hand: [Joyous]}
+
+  - name: waiting_spells_reach_the_hand_in_order_one_per_free_slot
+    description: A Golden Private Chef's spell waits behind a Private Chef's.
+    duos_tavern:
+      players: [{board: [Private Chef, "golden Private Chef 10/8"], hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}, {}]
+    steps:
+      - start_turn
+      - {player: 0, play: Joyous}
+    expect:
+      players:
+        0:
+          hand: {count: 10, -1: {card: Private Selection, is_golden: false}}
+          waiting_for_hand: [{card: Private Selection, is_golden: true}]
+
+  - name: a_spell_still_waiting_at_the_end_of_the_turn_is_discarded
+    duos_tavern:
+      players: [{board: [Private Chef, Cutthroat K'Thir], hand: [Joyous, Joyous, Zoatroid, Zoatroid, Flittering Bat, Flittering Bat, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian]}, {}]
+    steps:
+      - start_turn
+      - {player: 0, end_turn}
+    expect:
+      players:
+        0:
+          hand: {count: 10, none: {card: Private Selection}}
+          waiting_for_hand: []
+          auras: {cards_discarded: 0}

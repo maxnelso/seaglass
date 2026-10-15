@@ -496,6 +496,11 @@ pub struct TavernState {
     /// §7.3): a Duos team shows each sale to the teammate's observers once the step resolved.
     #[serde(skip)]
     pub sold_this_step: Vec<Unit>,
+    /// The cards waiting for room in `hand` (`docs/tavern.md` §7.4: Spellcraft spells given to a
+    /// full hand), in order: [`deliver_waiting_for_hand`](Self::deliver_waiting_for_hand) moves
+    /// them in after each action; still waiting at the end of the turn, they are discarded.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub waiting_for_hand: Vec<Unit>,
 }
 
 impl Default for TavernState {
@@ -538,6 +543,7 @@ impl TavernState {
             auras: PlayerAuras::default(),
             hero_options: Vec::new(),
             sold_this_step: Vec::new(),
+            waiting_for_hand: Vec::new(),
         }
     }
 
@@ -762,6 +768,25 @@ impl TavernState {
         }
     }
 
+    /// Add `card` to `hand`, or with a full hand (or cards already waiting) queue it behind them
+    /// until there is room (`waiting_for_hand`, `docs/tavern.md` §7.4: Spellcraft spells).
+    pub fn add_to_hand_or_wait(&mut self, card: Unit) {
+        if self.hand.len() < 10 && self.waiting_for_hand.is_empty() {
+            self.add_to_hand(card);
+        } else {
+            self.waiting_for_hand.push(card);
+        }
+    }
+
+    /// Move the cards waiting for room into `hand`, in order, while it has room
+    /// (`docs/tavern.md` §7.4).
+    pub fn deliver_waiting_for_hand(&mut self) {
+        while self.hand.len() < 10 && !self.waiting_for_hand.is_empty() {
+            let card = self.waiting_for_hand.remove(0);
+            self.add_to_hand(card);
+        }
+    }
+
     /// Add `card`, drawn from `pool`, to `hand`, and return whether it got there. A full hand can't
     /// take it: it is lost, and its copy returns to `pool` (`docs/tavern.md` §2).
     pub fn add_pool_card_to_hand(&mut self, card: Unit, pool: &mut CardPool) -> bool {
@@ -891,7 +916,7 @@ impl TavernState {
             };
             cards::after_play_minion(self, &played, pool, rng);
             if let Some(spell) = spellcraft {
-                self.add_to_hand(spell);
+                self.add_to_hand_or_wait(spell);
             }
             if should_die_on_play
                 && insert_idx < self.board.len()
@@ -1070,9 +1095,11 @@ impl TavernState {
     }
 
     /// Discard the temporary cards still in the hand ([`CardFlags::TEMPORARY`]: Spellcraft
-    /// spells), without discard effects (`docs/tavern.md` §7.4).
+    /// spells) and the cards still waiting for room, without discard effects
+    /// (`docs/tavern.md` §7.4).
     fn discard_temporary_cards(&mut self) {
         self.hand.retain(|card| !cards::is_temporary(card));
+        self.waiting_for_hand.clear();
     }
 
     /// Sell the minion at `board[board_pos]` (`docs/tavern.md` §7.3): the one path of every sale
@@ -1859,6 +1886,7 @@ impl TavernState {
         }
         self.sold_this_step.clear();
         let ended = self.apply_action(action, pool, rng)?;
+        self.deliver_waiting_for_hand();
         // Only a card in the shop is frozen on its own (`docs/tavern.md` §3.1).
         for card in self.board.iter_mut().chain(&mut self.hand) {
             card.frozen = false;

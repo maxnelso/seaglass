@@ -10,7 +10,8 @@
 //!   cards without one); each effect also has `card`; their `hero` (`null` without one) also has
 //!   `name` (the hero's);
 //! - the fields serde leaves out while they have their default are there too: a unit's `marked`
-//!   and `extra_deathrattles`, the auras' `hero`, a Tavern's `hero_options`.
+//!   and `extra_deathrattles`, the auras' `hero`, a Tavern's `hero_options` and
+//!   `waiting_for_hand`.
 //!
 //! Enum variants with data (YAML tags such as `!Refreshes 3`) become single-key maps
 //! (`{Refreshes: 3}`).
@@ -159,6 +160,7 @@ fn from_value(value: &Value) -> View {
         {
             let mut view = fields(m);
             with_default(&mut view, "hero_options", View::List(Vec::new()));
+            with_default(&mut view, "waiting_for_hand", View::List(Vec::new()));
             View::Map(view)
         }
         Value::Mapping(m) => View::Map(fields(m)),

@@ -251,7 +251,7 @@ Fields that hold units (`board`, `hand`, `shop`, `discover_pending`, `stitched_s
 `hand_a`, `hand_b`) take unit specs: a list (or a single spec) replaces the field,
 `{<index>: <spec>}` replaces one unit, `{<index>: {<field>: ...}}` patches one unit, and
 `null` sets the field to null. `discover_queue` takes a list of lists of specs, and so does a
-Duos team's `incoming` (also `{<player>: [<specs>]}`). A unit patch can also set the fields its serde form leaves out while they are false or empty (`marked`, `extra_deathrattles`, `temp_reborn`, `frozen`): `{card: "9/9", frozen: true}`.
+Duos team's `incoming` (also `{<player>: [<specs>]}`). A Tavern's `waiting_for_hand` takes a list of specs even while it is empty (serde leaves it out). A unit patch can also set the fields its serde form leaves out while they are false or empty (`marked`, `extra_deathrattles`, `temp_reborn`, `frozen`): `{card: "9/9", frozen: true}`.
 
 `PlayerAuras` patches also take:
 
@@ -290,7 +290,7 @@ Values are the engine's serde forms, with derived keys:
   `name` (the hero's) besides its fields (`hero_id`, `power: {card_id, cost, uses_left, counter,
   stacks, armed, stored}`).
 - Fields serde leaves out at their default are there anyway: a unit's `marked` and
-  `extra_deathrattles`, a Tavern's `hero_options`.
+  `extra_deathrattles`, a Tavern's `hero_options` and `waiting_for_hand`.
 - **`pool`** (Tavern, Duos Tavern): the remaining copies of each catalog card, by name (`null`
   for a card that isn't in the catalog: `pool: {Wanderer Cho: null}` in a Solo pool);
   **`pool_size`**: their total.

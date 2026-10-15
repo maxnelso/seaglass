@@ -24,7 +24,7 @@ use super::units::{self, card_index};
 use super::view::show;
 
 /// Fields that hold a list of units: patches give them as unit specs.
-const UNIT_LISTS: [&str; 7] = [
+const UNIT_LISTS: [&str; 8] = [
     "board",
     "hand",
     "shop",
@@ -32,6 +32,7 @@ const UNIT_LISTS: [&str; 7] = [
     "stitched_stored",
     "hand_a",
     "hand_b",
+    "waiting_for_hand",
 ];
 
 /// Fields that hold a list of lists of units (`discover_queue`, a Duos team's `incoming`
@@ -50,6 +51,9 @@ const SKIPPED_UNIT_FIELDS: [&str; 5] = [
 
 /// `PlayerAuras` fields serde leaves out while they are 0: a patch can still set them.
 const SKIPPED_AURAS_FIELDS: [&str; 1] = ["next_minion_discount"];
+
+/// `TavernState` unit lists serde leaves out while they are empty: a patch can still set them.
+const SKIPPED_TAVERN_UNIT_LISTS: [&str; 1] = ["waiting_for_hand"];
 
 /// Patch `target` with `patch`, a mapping of field names to new values.
 pub fn apply<T: Serialize + DeserializeOwned>(target: &mut T, patch: &Value) -> Result<(), String> {
@@ -124,6 +128,13 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
     let is_unit = fields.contains_key("card_id") && fields.contains_key("is_spell");
     // A map field (`card_counters`) takes any key; a struct only takes its own fields.
     let open = fields.is_empty() || fields.keys().any(|k| !k.is_string());
+    if fields.contains_key("discover_pending") && fields.contains_key("tavern_tier") {
+        for name in SKIPPED_TAVERN_UNIT_LISTS {
+            if !fields.contains_key(name) {
+                fields.insert(Value::from(name), Value::Sequence(Vec::new()));
+            }
+        }
+    }
     for (key, change) in changes {
         let name = key_name(key);
         let field_path = join(path, &name);
