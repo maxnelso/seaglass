@@ -150,7 +150,7 @@ When a Golden minion is played from `hand` to `board`:
 3. While `discover_pending.is_some()`, only `ChooseDiscover { option_index }` (`0..options.len()`) is legal.
 4. Executing `ChooseDiscover { option_index }` appends `options[option_index]` to `hand` (with a full hand, it is lost and returns to `CardPool`, §2), returns unchosen options to `CardPool`, sets `discover_pending = None`, and runs `check_and_resolve_triple`.
 
-**Discover options a Hero Power keeps** (`Unit::to_hero_power`): a Discover a Hero Power offers can mark its options so that the chosen card goes to the Hero Power (its `stored` cards: Thorim, Stormlord's Tier 7 minion, given later) instead of the hand; the other options are discarded (they never came from the pool).
+**Discover options a Hero Power keeps** (`Unit::to_hero_power`): a Discover a Hero Power offers can mark its options so that the chosen card goes to the Hero Power (its `stored` cards: Thorim, Stormlord's Tier 7 minion, given later) instead of the hand; the other options are discarded (they never came from the pool). A Hero Power with a `hero_option_chosen` hook decides instead what the chosen card and the other options become (Galakrond: the chosen minion replaces the Tavern minion it was offered for, and the other options go back to the pool).
 
 **The `Triple Reward` card** (`TB_BaconShop_Triples_01`, a token spell, `0` Gold, not a Tavern spell): cast, it offers the same Discover as step 2, with the Tier when it is cast: `min(6, tavern_tier + 1)` **(confirmed)** (`TavernState::offer_triple_reward`). Hero Powers give it (Guff Runetotem, `heroes.md` §11.2). A Golden played from the hand still offers its Discover at once, as above.
 

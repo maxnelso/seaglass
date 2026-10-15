@@ -1,0 +1,25 @@
+hero: Galakrond
+defaults:
+  tavern: {auras: {hero: Galakrond}, gold: 10}
+scenarios:
+  - name: a_tavern_minion_is_replaced_by_a_chosen_higher_tier_one
+    seeds: "1..=4"
+    tavern: {shop: ["1/1 t1", Strike Oil, "2/2 t1"]}
+    steps:
+      - hero_power: 0
+      - expect: {gold: 9, discover_pending: {count: 3, all: {tavern_tier: 2}}}
+      - choose_discover: 0
+    expect:
+      hand: []
+      shop: {all_of: [{count: 3}, {0: {tavern_tier: 2}}, {1: Strike Oil}, {2: "2/2 t1"}]}
+
+  - name: a_spell_is_not_a_target
+    tavern: {shop: [Strike Oil]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: a_tier_6_minion_is_not_a_target
+    description: (engine decision)
+    tavern: {tavern_tier: 6, shop: ["9/9 t6"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

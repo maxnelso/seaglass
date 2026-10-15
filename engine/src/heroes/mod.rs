@@ -36,6 +36,7 @@ pub mod flobbidinous_floop;
 pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
 pub mod fungalmancer_flurgl;
+pub mod galakrond;
 pub mod gall;
 pub mod george_the_fallen;
 pub mod greybough;
@@ -64,6 +65,7 @@ pub mod patches_the_pirate;
 pub mod patchwerk;
 pub mod pyramad;
 pub mod queen_wagtoggle;
+pub mod ragnaros_the_firelord;
 pub mod rakanishu;
 pub mod reno_jackson;
 pub mod rock_master_voone;
@@ -184,6 +186,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (forest_lord_cenarius::ID, forest_lord_cenarius::behaviors),
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
     (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
+    (galakrond::ID, galakrond::behaviors),
     (gall::ID, gall::behaviors),
     (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
@@ -212,6 +215,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (patchwerk::ID, patchwerk::behaviors),
     (pyramad::ID, pyramad::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
+    (ragnaros_the_firelord::ID, ragnaros_the_firelord::behaviors),
     (rakanishu::ID, rakanishu::behaviors),
     (reno_jackson::ID, reno_jackson::behaviors),
     (rock_master_voone::ID, rock_master_voone::behaviors),
@@ -516,9 +520,17 @@ pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng
 }
 
 /// The player chose an option of a Discover their Hero Power keeps (`Unit::to_hero_power`,
-/// `docs/tavern.md` §5.2): it goes to the Hero Power's `stored` cards.
-pub fn keep_chosen(state: &mut TavernState, chosen: Unit) {
-    if let Some(power) = power_mut(&mut state.auras) {
+/// `docs/tavern.md` §5.2): its `hero_option_chosen` hook, or else the chosen card goes to the Hero
+/// Power's `stored` cards and the others are discarded.
+pub fn keep_chosen(
+    state: &mut TavernState,
+    chosen: Unit,
+    unchosen: Vec<Unit>,
+    pool: &mut CardPool,
+) {
+    if let Some(option_chosen) = power_hooks(&state.auras).and_then(|c| c.hero_option_chosen) {
+        option_chosen(state, chosen, unchosen, pool);
+    } else if let Some(power) = power_mut(&mut state.auras) {
         power.stored.push(chosen);
     }
 }

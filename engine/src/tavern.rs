@@ -2007,7 +2007,7 @@ impl TavernState {
                     if !self.choice_prompt_left() {
                         self.pending_choice_target = None;
                     }
-                    heroes::keep_chosen(self, chosen);
+                    heroes::keep_chosen(self, chosen, opts, pool);
                     return Ok(false);
                 }
 

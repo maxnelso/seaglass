@@ -514,6 +514,9 @@ card_hooks! {
     hero_after_refresh(on_hero_after_refresh): TavernEventFn,
     /// The player ends their turn, after the cards' end-of-turn triggers: `(state, pool, rng)`.
     hero_end_turn(on_hero_end_turn): TavernEventFn,
+    /// The player chose an option of a Discover the Hero Power keeps (`Unit::to_hero_power`):
+    /// `(state, chosen, unchosen, pool)`.
+    hero_option_chosen(on_hero_option_chosen): fn(&mut TavernState, Unit, Vec<Unit>, &mut CardPool),
     /// The combat's results are back in the Tavern: `(state, dead)`, the player's minions that
     /// died in it.
     hero_after_combat(on_hero_after_combat): fn(&mut TavernState, &[Unit]),

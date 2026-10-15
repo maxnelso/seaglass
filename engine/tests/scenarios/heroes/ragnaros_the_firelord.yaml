@@ -1,0 +1,34 @@
+hero: Ragnaros the Firelord
+defaults:
+  tavern: {auras: {hero: Ragnaros the Firelord}, gold: 30}
+scenarios:
+  - name: the_twelfth_card_bought_gives_sulfuras
+    tavern:
+      auras: {hero: {hero: Ragnaros the Firelord, power: {counter: 11}}}
+      shop: ["1/1"]
+    steps:
+      - buy: 0
+    expect: {auras: {hero: {power: {card_id: 64426}}}}
+
+  - name: sulfuras_buffs_the_left_and_right_most_minions_at_end_of_turn
+    tavern:
+      auras: {hero: {hero: Ragnaros the Firelord, power: {card_id: 64426}}}
+      board: ["1/1", "1/1", "1/1"]
+    steps:
+      - end_turn
+    expect: {board: ["9/9", "1/1", "9/9"]}
+
+  - name: a_single_minion_gains_it_once
+    description: (engine decision)
+    tavern:
+      auras: {hero: {hero: Ragnaros the Firelord, power: {card_id: 64426}}}
+      board: ["1/1"]
+    steps:
+      - end_turn
+    expect: {board: ["9/9"]}
+
+  - name: before_sulfuras_nothing_at_end_of_turn
+    tavern: {board: ["1/1", "1/1"]}
+    steps:
+      - end_turn
+    expect: {board: ["1/1", "1/1"]}
