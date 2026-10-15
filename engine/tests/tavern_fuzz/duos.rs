@@ -37,7 +37,8 @@
 //!   change of the team's Health or counters, the teammate's Tavern doesn't change);
 //! - [`check_free_passes`] (a `Wanderer Cho`'s free Passes: at most 1, or 2 if Golden, reset at
 //!   the start of the turn), the first fighter's switch chance, a warband that sat out keeping its
-//!   next-combat effects, `EndTurn` discarding the temporary cards, and no minion of no pool;
+//!   next-combat effects, `EndTurn` discarding the temporary cards, and no minion of no pool
+//!   coming into the shop ([`check_shop_offers`]; a player's own can: `Jandice Barov`);
 //! - the pool, across every team's players, queues and gifts ([`check_pool_leaks_with`]);
 //! - per combat: [`check_duos_battle`] (the outcome and `hero_damage` as specified, the events
 //!   framed by `BattleStart` / `BattleEnd`, the warbands that stepped in, every unit accounted
@@ -694,6 +695,24 @@ fn check_team_health_kept(before: i32, team: &DuosTavern) -> Result<(), Violatio
             "the team's Health went up",
             format!("{before} -> {}", team.health),
         ));
+    }
+    Ok(())
+}
+
+/// No minion of no pool (the Naga-only ones) comes into a Duos shop (`docs/duos_tavern.md` §8):
+/// the shop holds no more copies of one than the player had in their shop, on their board and in
+/// their hand before (`Jandice Barov` swaps a friendly minion into the shop as it is).
+fn check_shop_offers(before: &TavernState, after: &TavernState) -> Result<(), Violation> {
+    let copies = |units: &[Unit], id: u32| units.iter().filter(|u| u.card_id == id).count();
+    for u in &after.shop {
+        let id = u.card_id;
+        let had = copies(&before.shop, id) + copies(&before.board, id) + copies(&before.hand, id);
+        if out_of_pool_ids().contains(&id) && copies(&after.shop, id) > had {
+            return Err(broken(
+                format!("a minion of no pool is offered in the shop: {}", u.name),
+                unit_desc(u),
+            ));
+        }
     }
     Ok(())
 }
@@ -1765,6 +1784,7 @@ impl DuosGame {
                 ));
             }
             checks.push(check_free_passes(s, true));
+            checks.push(check_shop_offers(b, s));
             checks.push(check_synced(s));
             checks.push(check_tavern(s));
         }
@@ -1946,7 +1966,8 @@ impl DuosGame {
                 None => check_team_health_kept(before.health, team),
             },
         ]);
-        for s in &team.players {
+        for (s, b) in team.players.iter().zip(&before.players) {
+            checks.push(check_shop_offers(b, s));
             checks.push(check_synced(s));
             checks.push(check_tavern(s));
             checks.push(check_free_passes(s, false));

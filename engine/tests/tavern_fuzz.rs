@@ -21,7 +21,7 @@
 //!   no empty or orphaned Discover, `max_gold`, `upgrade_cost` and Armor as specified, no three
 //!   non-Golden copies left untripled, each unit matching its card (Tier, type, name, base
 //!   stats), no leftover marker id or transient state, no Duos card or team counter in a Solo
-//!   game and no minion of no pool offered in a Duos one ([`check_game_cards`]);
+//!   game and no minion of no pool offered by a Duos one's Discovers ([`check_game_cards`]);
 //! - [`check_synced`]: re-syncing the auras changes nothing; [`check_round_trip`]: the state
 //!   survives a serde round trip; [`check_pool_leaks`]: the pool holds at most the base copies
 //!   and no copy leaves it for nowhere;
@@ -770,7 +770,8 @@ fn out_of_pool_ids() -> &'static BTreeSet<u32> {
 
 /// The cards come from the game's catalog (`docs/duos_tavern.md` §8): no Duos card in a Solo game
 /// (its pool, its random cards and its shop spells are Solo ones), and no minion of no pool (the
-/// Naga-only ones) offered by a Duos game's shop or Discovers.
+/// Naga-only ones) offered by a Duos game's Discovers. (Nor by its shop, `duos::check_shop_offers`,
+/// where a player's own minion can go: `Jandice Barov` swaps one there.)
 fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
     let prompts = s.discover_pending.iter().chain(&s.discover_queue).flatten();
     if !s.auras.duos_game {
@@ -805,15 +806,10 @@ fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
             }
         }
     } else {
-        let offered = s
-            .shop
-            .iter()
-            .map(|u| ("shop", u))
-            .chain(prompts.map(|u| ("Discover", u)));
-        for (zone, u) in offered {
+        for u in prompts {
             if out_of_pool_ids().contains(&u.card_id) {
                 return Err(broken(
-                    format!("a minion of no pool is offered in the {zone}: {}", u.name),
+                    format!("a minion of no pool is offered in the Discover: {}", u.name),
                     unit_desc(u),
                 ));
             }
