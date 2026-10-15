@@ -26,9 +26,9 @@
 //!   survives a serde round trip; [`check_pool_leaks`]: the pool holds at most the base copies
 //!   and no copy leaves it for nowhere;
 //! - per action: a rolled shop holds `shop_capacity` minions and one spell, prices are paid in
-//!   Gold, a Health cost never kills, Upgrade goes up one Tier, a bought or Discovered card
-//!   reaches the hand, a Golden played from hand offers a Triple Reward of the next Tier, a
-//!   Tavern spell counts as cast, the hero is never healed;
+//!   Gold (less what the Hero Power gives back), a Health cost never kills, Upgrade goes up one
+//!   Tier, a bought or Discovered card reaches the hand, a Golden played from hand offers a
+//!   Triple Reward of the next Tier, a Tavern spell counts as cast, the hero is never healed;
 //! - per combat: [`check_battle`] (at most 7 survivors, all alive, outcome and `hero_damage` as
 //!   specified, events framed by `BattleStart` / `BattleEnd`), [`check_battle_units`] (every unit
 //!   accounted for by the events), the hero loses exactly the damage, and the Tavern keeps its
@@ -1482,6 +1482,41 @@ struct Expect {
     gold: u32,
     /// What the action costs in Gold, when nothing else changes the Gold.
     cost: Option<u32>,
+    /// The Gold the player's Hero Power gives back for it ([`hero_gold_back`]).
+    gold_back: u32,
+}
+
+/// The Gold the player's Hero Power gives back for `action`, which costs `cost` Gold: what its
+/// `hero_gold_spent`, `hero_after_buy` and `hero_after_upgrade` hooks give (`Cap'n Hoggarr`'s
+/// 1 Gold after buying a Pirate, `Forest Warden Omu`'s 2 Gold after an upgrade), run on a copy
+/// of the state with no Gold.
+fn hero_gold_back(s: &TavernState, action: TavernAction, cost: u32, pool: &CardPool) -> u32 {
+    let Some(power) = s.hero().map(|h| cards::hooks(h.power.card_id)) else {
+        return 0;
+    };
+    let bought = match action {
+        TavernAction::Buy { shop_index } if power.hero_after_buy.is_some() => {
+            s.shop.get(shop_index)
+        }
+        _ => None,
+    };
+    let upgrade = action == TavernAction::UpgradeTavern && power.hero_after_upgrade.is_some();
+    let spent = cost > 0 && power.hero_gold_spent.is_some();
+    if bought.is_none() && !upgrade && !spent {
+        return 0;
+    }
+    let (mut probe, mut pool, mut rng) = (s.clone(), pool.clone(), Rng::new(0));
+    probe.gold = 0;
+    if spent {
+        heroes::on_gold_spent(&mut probe, cost);
+    }
+    if let Some(bought) = bought {
+        heroes::after_buy(&mut probe, bought, &mut pool, &mut rng);
+    }
+    if upgrade {
+        heroes::after_upgrade(&mut probe, &mut pool, &mut rng);
+    }
+    probe.gold
 }
 
 impl Expect {
@@ -1534,6 +1569,7 @@ impl Expect {
             casts_tavern_spell: false,
             gold: s.gold,
             cost,
+            gold_back: cost.map_or(0, |cost| hero_gold_back(s, action, cost, pool)),
         };
         match action {
             TavernAction::Buy { shop_index } => {
@@ -1572,8 +1608,9 @@ impl Expect {
 
     /// The checks of `s`, the state just after the action, in order: a Health cost never kills,
     /// Upgrade goes up one Tier, a bought or Discovered card reaches the hand, a Golden played
-    /// from hand offers a Triple Reward of the next Tier, prices are paid in Gold, a Sell gives
-    /// 1 Gold, a Tavern spell counts as cast, and a Refresh rolls a full shop.
+    /// from hand offers a Triple Reward of the next Tier, prices are paid in Gold (less what the
+    /// Hero Power gives back), a Sell gives 1 Gold, a Tavern spell counts as cast, and a Refresh
+    /// rolls a full shop.
     fn check(
         &self,
         s: &TavernState,
@@ -1622,10 +1659,15 @@ impl Expect {
             }
         }
         if let Some(cost) = self.cost {
-            if s.gold + cost != gold {
+            let back = self.gold_back;
+            if s.gold + cost != gold + back {
+                let back = match back {
+                    0 => String::new(),
+                    _ => format!(" less {back} back from the Hero Power"),
+                };
                 checks.push(Err(broken(
                     format!("a {:?} did not cost its price in Gold", kind),
-                    format!("{gold} -> {} Gold for a cost of {cost}", s.gold),
+                    format!("{gold} -> {} Gold for a cost of {cost}{back}", s.gold),
                 )));
             }
         }
