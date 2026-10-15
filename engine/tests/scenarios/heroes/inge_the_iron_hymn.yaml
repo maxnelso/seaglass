@@ -1,0 +1,23 @@
+hero: Inge, the Iron Hymn
+defaults:
+  tavern: {auras: {hero: "Inge, the Iron Hymn"}, gold: 0, tavern_tier: 2}
+scenarios:
+  - name: twice_per_turn_attack_equal_to_your_tier
+    tavern: {board: ["1/1"]}
+    steps:
+      - hero_power: 0
+      - hero_power: 0
+      - expect_illegal: {hero_power: 0}
+    expect: {board: ["5/1"]}
+
+  - name: it_swaps_to_health_next_turn
+    description: (engine decision) Attack on odd turns, Health on even ones.
+    tavern: {board: ["1/1"]}
+    steps:
+      - start_turn
+      - hero_power: 0
+      - expect: {board: ["3/1"]}
+      - end_turn
+      - start_turn
+      - hero_power: 0
+    expect: {board: ["3/3"]}

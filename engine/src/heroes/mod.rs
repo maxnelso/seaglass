@@ -16,15 +16,19 @@ pub mod arch_villain_rafaam;
 pub mod brukan;
 pub mod capn_hoggarr;
 pub mod captain_eudora;
+pub mod captain_hooktusk;
 pub mod chenvaala;
 pub mod death_speaker_blackthorn;
 pub mod deathwing;
 pub mod dinotamer_brann;
 pub mod doctor_hollidae;
 pub mod drekthar;
+pub mod drestagath;
 pub mod edwin_vancleef;
 pub mod elise_starseeker;
 pub mod enhance_o_mechano;
+pub mod exarch_othaar;
+pub mod farseer_nobundo;
 pub mod flobbidinous_floop;
 pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
@@ -34,12 +38,15 @@ pub mod greybough;
 pub mod heistbaron_togwaggle;
 pub mod illidan_stormrage;
 pub mod infinite_toki;
+pub mod inge_the_iron_hymn;
 pub mod ini_stormcoil;
 pub mod jandice_barov;
 pub mod kaelthas_sunstrider;
+pub mod kithix;
 pub mod kurtrus_ashfallen;
 pub mod lich_bazhial;
 pub mod maiev_shadowsong;
+pub mod malygos;
 pub mod mutanus_the_devourer;
 pub mod nozdormu;
 pub mod onyxia;
@@ -51,11 +58,15 @@ pub mod pyramad;
 pub mod queen_wagtoggle;
 pub mod rakanishu;
 pub mod reno_jackson;
+pub mod rock_master_voone;
 pub mod rokara;
+pub mod shudderwock;
 pub mod skycapn_kragg;
 pub mod snake_eyes;
+pub mod taethelan_bloodwatcher;
 pub mod tamsin_roame;
 pub mod teron_gorefiend;
+pub mod the_jailer;
 pub mod the_lich_king;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
@@ -63,6 +74,7 @@ pub mod varden_dawngrasp;
 pub mod xyrella;
 pub mod ysera;
 pub mod yshaarj;
+pub mod zephrys_the_great;
 pub mod zerek_master_cloner;
 
 pub use table::{CARD_DEFS_BUILD, HEROES};
@@ -135,6 +147,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (brukan::ID, brukan::behaviors),
     (capn_hoggarr::ID, capn_hoggarr::behaviors),
     (captain_eudora::ID, captain_eudora::behaviors),
+    (captain_hooktusk::ID, captain_hooktusk::behaviors),
     (chenvaala::ID, chenvaala::behaviors),
     (
         death_speaker_blackthorn::ID,
@@ -144,9 +157,12 @@ const IMPLEMENTED: &[Implemented] = &[
     (dinotamer_brann::ID, dinotamer_brann::behaviors),
     (doctor_hollidae::ID, doctor_hollidae::behaviors),
     (drekthar::ID, drekthar::behaviors),
+    (drestagath::ID, drestagath::behaviors),
     (edwin_vancleef::ID, edwin_vancleef::behaviors),
     (elise_starseeker::ID, elise_starseeker::behaviors),
     (enhance_o_mechano::ID, enhance_o_mechano::behaviors),
+    (exarch_othaar::ID, exarch_othaar::behaviors),
+    (farseer_nobundo::ID, farseer_nobundo::behaviors),
     (flobbidinous_floop::ID, flobbidinous_floop::behaviors),
     (forest_lord_cenarius::ID, forest_lord_cenarius::behaviors),
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
@@ -156,12 +172,15 @@ const IMPLEMENTED: &[Implemented] = &[
     (heistbaron_togwaggle::ID, heistbaron_togwaggle::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
     (infinite_toki::ID, infinite_toki::behaviors),
+    (inge_the_iron_hymn::ID, inge_the_iron_hymn::behaviors),
     (ini_stormcoil::ID, ini_stormcoil::behaviors),
     (jandice_barov::ID, jandice_barov::behaviors),
     (kaelthas_sunstrider::ID, kaelthas_sunstrider::behaviors),
+    (kithix::ID, kithix::behaviors),
     (kurtrus_ashfallen::ID, kurtrus_ashfallen::behaviors),
     (lich_bazhial::ID, lich_bazhial::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
+    (malygos::ID, malygos::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (onyxia::ID, onyxia::behaviors),
@@ -173,11 +192,18 @@ const IMPLEMENTED: &[Implemented] = &[
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
     (rakanishu::ID, rakanishu::behaviors),
     (reno_jackson::ID, reno_jackson::behaviors),
+    (rock_master_voone::ID, rock_master_voone::behaviors),
     (rokara::ID, rokara::behaviors),
+    (shudderwock::ID, shudderwock::behaviors),
     (skycapn_kragg::ID, skycapn_kragg::behaviors),
     (snake_eyes::ID, snake_eyes::behaviors),
+    (
+        taethelan_bloodwatcher::ID,
+        taethelan_bloodwatcher::behaviors,
+    ),
     (tamsin_roame::ID, tamsin_roame::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
+    (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
@@ -185,6 +211,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (xyrella::ID, xyrella::behaviors),
     (ysera::ID, ysera::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
+    (zephrys_the_great::ID, zephrys_the_great::behaviors),
     (zerek_master_cloner::ID, zerek_master_cloner::behaviors),
 ];
 
@@ -457,6 +484,13 @@ pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool,
 pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(after_upgrade) = power_hooks(&state.auras).and_then(|c| c.hero_after_upgrade) {
         after_upgrade(state, pool, rng);
+    }
+}
+
+/// The player ends their turn: the Hero Power's `hero_end_turn` hook (`docs/heroes.md` §4).
+pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(end_turn) = power_hooks(&state.auras).and_then(|c| c.hero_end_turn) {
+        end_turn(state, pool, rng);
     }
 }
 

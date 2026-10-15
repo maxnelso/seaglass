@@ -1,0 +1,31 @@
+hero: Rock Master Voone
+defaults:
+  tavern: {auras: {hero: Rock Master Voone}, gold: 0}
+scenarios:
+  - name: every_third_turn_end_gives_a_plain_copy_of_the_left_most_card
+    tavern: {hand: ["Zoatroid +5/+5", Strike Oil]}
+    steps:
+      - end_turn
+      - start_turn
+      - end_turn
+      - start_turn
+      - expect: {hand: {count: 2}, auras: {hero: {power: {counter: 2}}}}
+      - end_turn
+    expect: {hand: ["Zoatroid 8/7", Strike Oil, "Zoatroid 3/2"], auras: {hero: {power: {counter: 0}}}}
+
+  - name: a_spell_is_copied_too
+    tavern: {hand: [Strike Oil], auras: {hero: {hero: Rock Master Voone, power: {counter: 2}}}}
+    steps:
+      - end_turn
+    expect: {hand: [Strike Oil, Strike Oil]}
+
+  - name: an_empty_hand_gets_nothing
+    description: (engine decision)
+    tavern: {hand: [], auras: {hero: {hero: Rock Master Voone, power: {counter: 2}}}}
+    steps:
+      - end_turn
+    expect: {hand: [], auras: {hero: {power: {counter: 0}}}}
+
+  - name: it_is_never_an_action
+    steps:
+      - expect_illegal: hero_power

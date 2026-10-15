@@ -1,0 +1,19 @@
+hero: Shudderwock
+defaults:
+  tavern: {auras: {hero: Shudderwock}, gold: 0, turn: 3}
+scenarios:
+  - name: it_triggers_a_friendly_minions_battlecry
+    tavern: {board: [Razorfen Geomancer]}
+    steps:
+      - hero_power: 0
+    expect: {hand: [Blood Gem, Blood Gem]}
+
+  - name: only_a_battlecry_minion
+    tavern: {board: [Zoatroid]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_unlocks_on_turn_3
+    tavern: {turn: 2, board: [Razorfen Geomancer]}
+    steps:
+      - expect_illegal: {hero_power: 0}

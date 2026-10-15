@@ -1,0 +1,24 @@
+hero: Malygos
+defaults:
+  tavern: {auras: {hero: Malygos}, gold: 0}
+scenarios:
+  - name: it_replaces_a_tavern_minion_with_one_of_its_tier
+    seeds: "1..=4"
+    tavern: {shop: ["Zoatroid +5/+5", Strike Oil]}
+    steps:
+      - hero_power: 0
+    expect: {shop: [{all_of: [{tavern_tier: 1}, {not: "Zoatroid 8/7"}]}, Strike Oil]}
+
+  - name: a_spell_by_a_spell_of_its_tier
+    seeds: "1..=4"
+    tavern: {shop: ["1/1", Strike Oil]}
+    steps:
+      - hero_power: 1
+    expect: {shop: ["1/1", {is_spell: true, tavern_tier: 2}]}
+
+  - name: twice_per_turn
+    tavern: {shop: [Zoatroid, Zoatroid]}
+    steps:
+      - hero_power: 0
+      - hero_power: 1
+      - expect_illegal: {hero_power: 0}

@@ -1,0 +1,25 @@
+hero: The Jailer
+defaults:
+  tavern: {auras: {hero: The Jailer}, gold: 10, tavern_tier: 2}
+scenarios:
+  - name: it_destroys_a_friendly_undead_for_a_random_undead
+    seeds: "1..=4"
+    tavern: {board: ["2/2 undead", "1/1"]}
+    steps:
+      - hero_power: 0
+    expect: {gold: 9, board: ["1/1"], hand: [{all_of: ["undead", {tavern_tier: "<= 2"}]}]}
+
+  - name: only_an_undead
+    tavern: {board: ["2/2 beast"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_unlocks_at_tier_2
+    tavern: {tavern_tier: 1, board: ["2/2 undead"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {board: ["2/2 undead"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

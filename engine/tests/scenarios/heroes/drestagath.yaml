@@ -1,0 +1,21 @@
+hero: Drest'agath
+defaults:
+  tavern: {auras: {hero: Drest'agath}, gold: 10}
+scenarios:
+  - name: it_discards_a_card_for_a_random_aberration
+    seeds: "1..=4"
+    tavern: {hand: ["1/1", Strike Oil]}
+    steps:
+      - hero_power: 0
+    expect: {gold: 9, hand: [Strike Oil, {all_of: ["aberration", {tavern_tier: 1}]}]}
+
+  - name: a_locked_card_is_not_a_target
+    tavern: {hand: [{card: "1/1", locked_turns: 1}]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_needs_a_card
+    tavern: {hand: []}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 0}

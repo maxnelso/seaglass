@@ -1,0 +1,29 @@
+hero: Farseer Nobundo
+defaults:
+  tavern: {auras: {hero: Farseer Nobundo}, gold: 20, tavern_tier: 2}
+scenarios:
+  - name: it_gets_a_copy_of_the_last_tavern_spell_cast
+    tavern: {hand: [Strike Oil]}
+    steps:
+      - play: 0
+      - hero_power
+    expect: {gold: 17, hand: [Strike Oil], auras: {hero: {power: {cost: 3}}}}
+
+  - name: it_needs_a_spell_cast
+    steps:
+      - expect_illegal: hero_power
+
+  - name: each_turn_it_costs_1_less
+    tavern: {gold: 0}
+    steps:
+      - start_turn
+      - end_turn
+      - start_turn
+    expect: {auras: {hero: {power: {cost: 1}}}}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {hand: [Strike Oil, "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - play: 0
+      - add_to_hand: "1/1"
+      - expect_illegal: hero_power

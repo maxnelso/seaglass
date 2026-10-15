@@ -512,6 +512,8 @@ card_hooks! {
     /// The Tavern was Refreshed (not a frozen shop kept), before the cards' after-Refresh
     /// effects: `(state, pool, rng)`.
     hero_after_refresh(on_hero_after_refresh): TavernEventFn,
+    /// The player ends their turn, after the cards' end-of-turn triggers: `(state, pool, rng)`.
+    hero_end_turn(on_hero_end_turn): TavernEventFn,
 }
 
 impl Default for CardHooks {

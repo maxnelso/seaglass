@@ -1,0 +1,21 @@
+hero: Kith'ix
+defaults:
+  tavern: {auras: {hero: Kith'ix}, gold: 10}
+scenarios:
+  - name: it_gets_2_random_minions
+    seeds: "1..=4"
+    steps:
+      - hero_power
+    expect: {gold: 8, hand: {count: 2, all: {is_spell: false, tavern_tier: 1, willbreaker_remaining: 1}}}
+
+  - name: playing_one_discards_the_other
+    seeds: "1..=4"
+    steps:
+      - hero_power
+      - play: 0
+    expect: {hand: [], board: {count: 1}}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: hero_power

@@ -1,0 +1,24 @@
+hero: Tae'thelan Bloodwatcher
+defaults:
+  tavern: {auras: {hero: Tae'thelan Bloodwatcher}, gold: 10, tavern_tier: 2}
+scenarios:
+  - name: every_third_tavern_spell_bought_costs_0
+    tavern: {shop: [Strike Oil, Strike Oil, Strike Oil]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - expect: {gold: 4, auras: {next_spell_discount: ">= 3"}}
+      - buy: 0
+    expect: {gold: 4, auras: {hero: {power: {counter: 0}}, next_spell_discount: 0}}
+
+  - name: minions_dont_count
+    tavern: {shop: ["1/1", "1/1", "1/1"]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {auras: {hero: {power: {counter: 0}}}}
+
+  - name: it_is_never_an_action
+    steps:
+      - expect_illegal: hero_power

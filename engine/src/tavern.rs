@@ -2016,6 +2016,7 @@ impl TavernState {
             }
             TavernAction::EndTurn => {
                 cards::on_end_turn(self, pool, rng);
+                heroes::end_turn(self, pool, rng);
                 self.discard_temporary_cards();
                 Ok(true)
             }

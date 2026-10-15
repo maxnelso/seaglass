@@ -1,0 +1,25 @@
+hero: Captain Hooktusk
+defaults:
+  tavern: {auras: {hero: Captain Hooktusk}, gold: 0}
+scenarios:
+  - name: it_removes_a_minion_for_a_discover_from_a_tier_lower
+    seeds: "1..=4"
+    tavern: {board: ["5/5 t3", "1/1"]}
+    steps:
+      - hero_power: 0
+      - expect: {board: ["1/1"], discover_pending: {count: 3, all: {tavern_tier: 2}}}
+      - choose_discover: 0
+    expect: {hand: [{tavern_tier: 2}]}
+
+  - name: a_tier_1_minion_gives_a_tier_1_discover
+    description: (engine decision)
+    seeds: "1..=2"
+    tavern: {board: [Zoatroid]}
+    steps:
+      - hero_power: 0
+    expect: {board: [], discover_pending: {count: 3, all: {tavern_tier: 1}}}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {board: [Zoatroid], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

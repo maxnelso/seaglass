@@ -1,0 +1,21 @@
+hero: Zephrys, the Great
+defaults:
+  tavern: {auras: {hero: "Zephrys, the Great"}, gold: 10}
+scenarios:
+  - name: two_copies_get_the_third
+    tavern: {board: [Zoatroid, "1/1"], hand: [Zoatroid]}
+    steps:
+      - hero_power
+    expect: {gold: 7, board: ["1/1"], hand: ["golden Zoatroid"], auras: {hero: {power: {stacks: 1}}}}
+
+  - name: it_needs_two_copies
+    tavern: {board: [Zoatroid], hand: [Dune Dweller]}
+    steps:
+      - expect_illegal: hero_power
+
+  - name: three_wishes_per_game
+    tavern:
+      auras: {hero: {hero: "Zephrys, the Great", power: {stacks: 3}}}
+      board: [Zoatroid, Zoatroid]
+    steps:
+      - expect_illegal: hero_power

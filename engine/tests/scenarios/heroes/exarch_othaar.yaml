@@ -1,0 +1,21 @@
+hero: Exarch Othaar
+defaults:
+  tavern: {auras: {hero: Exarch Othaar}, gold: 10, turn: 3, tavern_tier: 2}
+scenarios:
+  - name: the_next_tavern_spell_costs_1_less
+    tavern: {shop: [Strike Oil]}
+    steps:
+      - hero_power
+      - expect: {auras: {next_spell_discount: 1}}
+      - buy: 0
+    expect: {gold: 8}
+
+  - name: it_unlocks_on_turn_3
+    tavern: {turn: 2}
+    steps:
+      - expect_illegal: hero_power
+
+  - name: once_per_turn
+    steps:
+      - hero_power
+      - expect_illegal: hero_power
