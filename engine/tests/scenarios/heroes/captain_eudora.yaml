@@ -1,0 +1,22 @@
+hero: Captain Eudora
+defaults:
+  tavern: {auras: {hero: Captain Eudora}, gold: 10, tavern_tier: 2}
+scenarios:
+  - name: the_fourth_dig_gives_a_golden_minion_of_your_tier
+    seeds: "1..=4"
+    tavern: {auras: {hero: {hero: Captain Eudora, power: {counter: 3}}}}
+    steps:
+      - hero_power
+    expect: {gold: 9, hand: [{is_golden: true, tavern_tier: 2}], auras: {hero: {power: {counter: 0}}}}
+
+  - name: a_dig_counts
+    steps:
+      - hero_power
+    expect: {gold: 9, hand: [], auras: {hero: {power: {counter: 1}}}}
+
+  - name: the_fourth_dig_needs_room_in_the_hand
+    tavern:
+      auras: {hero: {hero: Captain Eudora, power: {counter: 3}}}
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - expect_illegal: hero_power

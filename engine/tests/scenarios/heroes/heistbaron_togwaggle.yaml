@@ -1,0 +1,29 @@
+hero: Heistbaron Togwaggle
+defaults:
+  tavern: {auras: {hero: Heistbaron Togwaggle}, gold: 11}
+scenarios:
+  - name: it_steals_every_card_in_the_tavern_for_11_gold
+    tavern: {shop: ["1/1", Tavern Coin, "2/2"]}
+    steps:
+      - hero_power
+    expect: {gold: 0, hand: ["1/1", Tavern Coin, "2/2"], shop: [], auras: {hero: {power: {cost: 11}}}}
+
+  - name: the_hand_takes_what_it_has_room_for
+    tavern: {shop: ["1/1", "2/2"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - hero_power
+    expect: {hand: {count: 10}, shop: ["2/2"]}
+
+  - name: each_turn_it_costs_1_less
+    tavern: {gold: 0}
+    steps:
+      - start_turn
+      - expect: {auras: {hero: {power: {cost: 10}}}}
+      - end_turn
+      - start_turn
+    expect: {auras: {hero: {power: {cost: 9}}}}
+
+  - name: it_needs_a_card_in_the_tavern
+    tavern: {shop: []}
+    steps:
+      - expect_illegal: hero_power

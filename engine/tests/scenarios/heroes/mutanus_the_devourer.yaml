@@ -1,0 +1,22 @@
+hero: Mutanus the Devourer
+defaults:
+  tavern: {auras: {hero: Mutanus the Devourer}, gold: 0}
+scenarios:
+  - name: it_sells_a_minion_and_spits_its_stats_onto_another
+    tavern: {board: ["3/4", "1/1"]}
+    steps:
+      - hero_power: 0
+    expect: {gold: 1, board: ["4/5"]}
+
+  - name: the_other_minion_is_random
+    seeds: "1..=4"
+    tavern: {board: ["3/4", "1/1", "1/1"]}
+    steps:
+      - hero_power: 0
+    expect: {board: {all_of: [{count: 2}, {where: "4/5", count: 1}]}}
+
+  - name: it_needs_another_friendly_minion
+    description: (engine decision)
+    tavern: {board: ["3/4"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

@@ -1,0 +1,26 @@
+hero: Ini Stormcoil
+scenarios:
+  - name: the_ninth_friendly_death_gives_a_random_mech
+    description: (engine decision) Of the player's Tier or lower, from the catalog.
+    seeds: "1..=4"
+    tavern:
+      auras: {hero: {hero: Ini Stormcoil, power: {counter: 7}}}
+      tavern_tier: 2
+      board: ["1/1", "1/1"]
+    steps:
+      - fight: {board: ["5/30"]}
+    expect:
+      hand: [{tribe: mech, tavern_tier: "<= 2"}]
+      auras: {hero: {power: {counter: 0}}}
+
+  - name: deaths_count_across_combats
+    tavern: {auras: {hero: Ini Stormcoil}, board: ["1/1", "1/1", "1/1"]}
+    steps:
+      - fight: {board: ["5/30"]}
+      - expect: {auras: {hero: {power: {counter: 3}}}, hand: []}
+
+  - name: enemy_deaths_dont_count
+    tavern: {auras: {hero: Ini Stormcoil}, board: ["10/10"]}
+    steps:
+      - fight: {board: ["1/1", "1/1"]}
+    expect: {auras: {hero: {power: {counter: 0}}}}

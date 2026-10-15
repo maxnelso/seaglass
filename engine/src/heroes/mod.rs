@@ -11,28 +11,39 @@
 mod table;
 
 pub mod alakir;
+pub mod alexstrasza;
 pub mod arch_villain_rafaam;
 pub mod brukan;
 pub mod capn_hoggarr;
+pub mod captain_eudora;
 pub mod chenvaala;
 pub mod death_speaker_blackthorn;
 pub mod deathwing;
+pub mod dinotamer_brann;
 pub mod doctor_hollidae;
 pub mod drekthar;
 pub mod edwin_vancleef;
+pub mod elise_starseeker;
 pub mod flobbidinous_floop;
 pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
 pub mod fungalmancer_flurgl;
 pub mod george_the_fallen;
 pub mod greybough;
+pub mod heistbaron_togwaggle;
 pub mod illidan_stormrage;
+pub mod ini_stormcoil;
+pub mod jandice_barov;
 pub mod kaelthas_sunstrider;
+pub mod kurtrus_ashfallen;
 pub mod lich_bazhial;
+pub mod maiev_shadowsong;
+pub mod mutanus_the_devourer;
 pub mod nozdormu;
 pub mod onyxia;
 pub mod overlord_saurfang;
 pub mod ozumat;
+pub mod patches_the_pirate;
 pub mod patchwerk;
 pub mod pyramad;
 pub mod queen_wagtoggle;
@@ -115,31 +126,42 @@ type Implemented = (HeroId, fn() -> Vec<(CardId, CardHooks)>);
 /// Every implemented hero, by file name.
 const IMPLEMENTED: &[Implemented] = &[
     (alakir::ID, alakir::behaviors),
+    (alexstrasza::ID, alexstrasza::behaviors),
     (arch_villain_rafaam::ID, arch_villain_rafaam::behaviors),
     (brukan::ID, brukan::behaviors),
     (capn_hoggarr::ID, capn_hoggarr::behaviors),
+    (captain_eudora::ID, captain_eudora::behaviors),
     (chenvaala::ID, chenvaala::behaviors),
     (
         death_speaker_blackthorn::ID,
         death_speaker_blackthorn::behaviors,
     ),
     (deathwing::ID, deathwing::behaviors),
+    (dinotamer_brann::ID, dinotamer_brann::behaviors),
     (doctor_hollidae::ID, doctor_hollidae::behaviors),
     (drekthar::ID, drekthar::behaviors),
     (edwin_vancleef::ID, edwin_vancleef::behaviors),
+    (elise_starseeker::ID, elise_starseeker::behaviors),
     (flobbidinous_floop::ID, flobbidinous_floop::behaviors),
     (forest_lord_cenarius::ID, forest_lord_cenarius::behaviors),
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
     (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
     (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
+    (heistbaron_togwaggle::ID, heistbaron_togwaggle::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
+    (ini_stormcoil::ID, ini_stormcoil::behaviors),
+    (jandice_barov::ID, jandice_barov::behaviors),
     (kaelthas_sunstrider::ID, kaelthas_sunstrider::behaviors),
+    (kurtrus_ashfallen::ID, kurtrus_ashfallen::behaviors),
     (lich_bazhial::ID, lich_bazhial::behaviors),
+    (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
+    (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (onyxia::ID, onyxia::behaviors),
     (overlord_saurfang::ID, overlord_saurfang::behaviors),
     (ozumat::ID, ozumat::behaviors),
+    (patches_the_pirate::ID, patches_the_pirate::behaviors),
     (patchwerk::ID, patchwerk::behaviors),
     (pyramad::ID, pyramad::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),

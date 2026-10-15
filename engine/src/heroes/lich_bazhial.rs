@@ -5,7 +5,8 @@
 //! Active, a card in the Tavern (minion or spell), once per turn: the card leaves the shop for the
 //! hand (not a buy: no buy triggers), then the hero takes 2 damage (`deal_hero_damage`: Armor
 //! first). It needs room in the hand, and can't be used if the damage would bring Health and Armor
-//! to 0 (engine decision).
+//! to 0 (engine decision). A card the hand has no room for by then (a Gold-spent effect filled it)
+//! stays in the Tavern (engine decision).
 
 use crate::cards::{ActivateTargetKind, CardHooks};
 use crate::model::{CardId, HeroId};
@@ -36,7 +37,7 @@ fn usable(state: &TavernState) -> bool {
 
 /// Using it: the shop card to the hand, then 2 damage.
 fn graveyard_shift(state: &mut TavernState, target: Option<usize>, _: &mut CardPool, _: &mut Rng) {
-    if let Some(t) = target.filter(|&t| t < state.shop.len()) {
+    if let Some(t) = target.filter(|&t| t < state.shop.len() && super::hand_has_room(state)) {
         let card = state.shop.remove(t);
         state.add_to_hand(card);
     }

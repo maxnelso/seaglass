@@ -1,0 +1,46 @@
+hero: Maiev Shadowsong
+defaults:
+  tavern: {auras: {hero: Maiev Shadowsong}, gold: 10}
+scenarios:
+  - name: it_locks_a_tavern_card_in_your_hand
+    tavern: {shop: ["3/3", Tavern Coin]}
+    steps:
+      - hero_power: 0
+    expect: {gold: 9, hand: [{attack: 3, locked_turns: 2}], shop: [Tavern Coin]}
+
+  - name: after_2_turns_it_unlocks
+    tavern: {shop: ["3/3"], gold: 10}
+    steps:
+      - hero_power: 0
+      - end_turn
+      - start_turn
+      - expect: {hand: [{locked_turns: 1}]}
+      - expect_illegal: {play: 0}
+      - end_turn
+      - start_turn
+      - expect: {hand: [{locked_turns: 0}]}
+      - play: 0
+    expect: {board: ["3/3"]}
+
+  - name: spells_too
+    tavern: {shop: [Tavern Coin]}
+    steps:
+      - hero_power: 0
+    expect: {hand: [{name: Tavern Coin, locked_turns: 2}]}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {shop: ["3/3"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: a_card_the_hand_filled_up_for_stays_in_the_tavern
+    description: >-
+      (engine decision) Paying the 1 Gold gives Enterprising Escapee's Lockbox (5 Gold spent
+      before).
+    tavern:
+      board: [{card: Enterprising Escapee, counter: 5}]
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+      shop: ["3/3"]
+    steps:
+      - hero_power: 0
+    expect: {hand: {count: 10, any: Lockbox}, shop: ["3/3"]}

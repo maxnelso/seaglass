@@ -252,6 +252,7 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Onyxia` | *Broodmother* (passive): Avenge (4): Summon a 1/1 Whelp that attacks immediately. Improve this by +1/+1. | `hero_friendly_death`: every 4th friendly minion that dies in combat (the count starts again each combat **(confirmed)**) summons an `Onyxian Whelp` (a Dragon) of `1 + stacks` at the right end, which attacks immediately; each Whelp adds a stack for the rest of the game **(confirmed)**. |
 | `Arch-Villain Rafaam` | *I'll Take That!* (1 Gold, active): Next combat, get a plain copy of the first minion you kill. | Using it arms the next combat; there the first enemy minion a friendly minion kills gives a plain copy of it (`cards::plain_instance`) to the hand. An unused arm is gone at the start of the next turn. Once per turn. |
 | `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer gains +1 Attack, permanently (§7.4), even if it died in the same exchange: its Tavern copy keeps it **(confirmed)**. Each kill counts. |
+| `Ini Stormcoil` | *MechGyver* (passive): After 9 friendly minions die, get a random Mech. | `hero_friendly_death`: every 9th friendly minion that dies in combat (counted across combats, `counter`) gives the player a random Mech of their Tier or lower from the game's catalog **(engine decision)** in their combat hand (it comes back with the hand, under the usual full-hand rule). One `rng.below(k)`. |
 
 ### 11.2 Tavern Hero Powers
 
@@ -280,6 +281,16 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `The Lich King` | *Reborn Rites* (0 Gold, a friendly minion without Reborn): Give a minion Reborn until next turn. | The minion gains Reborn, temporary (`Unit::temp_reborn`, like `temp_divine_shield`): it ends at the start of the next turn, unless a lasting Reborn was given since. A minion that has Reborn is not a target **(engine decision)**. |
 | `Overlord Saurfang` | *For the Horde!* (passive): Minions in the Tavern have +1/+1. Improves after you buy 3 minions. | When the player gets the hero (`hero_chosen`), the Tavern's minions get +1/+1 (`tavern_all_atk` / `tavern_all_hp`, the shop's minions too). Every 3rd minion bought (counted across turns) adds +1/+1 more. |
 | `Rakanishu` | *Tavern Lighting* (passive): Your Tavern spells give an extra +1/+1. At the start of every 3 turns, improve this. | When the player gets the hero (`hero_chosen`), spell power +1/+1 (`spell_bonus_atk` / `spell_bonus_hp`). Every 3rd turn start (`hero_turn_start`, `counter`) adds +1/+1 more. |
+| `Dinotamer Brann` | *Battle Brand*: After you buy 4 Battlecry minions, get a Brann Bronzebeard. (Once per game.) | `hero_after_buy`: every bought minion with a Battlecry counts (across turns); the 4th gives a `Brann Bronzebeard` (a plain one from the catalog, not the pool: **engine decision**), once per game (`stacks`). |
+| `Kurtrus Ashfallen` | *Glaive Ricochet*: Once per turn, after you buy 3 minions, get a plain copy of one of them. | `hero_after_buy`: the minions bought this turn count (the count starts again each turn: **engine decision**) and are remembered (`stored`); the 3rd gives a plain copy (`cards::plain_instance`) of one of the 3, at random (one `rng.below(3)`), once per turn (`armed`). |
+| `Patches the Pirate` | *Pirate Parrrrty!* (3 Gold): Get a Pirate. After you buy a Pirate, your next Hero Power costs (1) less. | A random Pirate of the player's Tier or lower from the pool **(engine decision)** goes to the hand; it needs room in the hand. Each Pirate bought makes the power 1 cheaper (never below 0); using it puts the cost back to 3. |
+| `Elise Starseeker` | *Lead Explorer* (1 Gold): Discover a minion from your Tier. Costs (1) more after each use. | Discovers among 3 minions of exactly the player's Tier from the pool (`CardPool::draw_discover_options`, as a Triple Reward); it needs room in the hand. Each use makes it 1 more expensive for the rest of the game. |
+| `Alexstrasza` | *Queen of Dragons* (1 Gold): Discover a Dragon. (Unlocks at Tier 4.) | From Tavern Tier 4 on: Discovers among 3 Dragons of the player's Tier or lower from the pool; it needs room in the hand. |
+| `Maiev Shadowsong` | *Imprison* (1 Gold, a card in the Tavern): Choose a card in the Tavern to lock in your hand. After 2 turns, unlock it. | The card leaves the shop for the hand (not a buy) locked for 2 turns (`locked_turns = 2`: it can't be played or sold until the start of the second turn after). It needs room in the hand. |
+| `Captain Eudora` | *Buried Treasure* (1 Gold): Dig for a Golden minion! (4 Digs left.) | Each use is a Dig (`counter`); the 4th gives a Golden minion of exactly the player's Tier from the pool (`Unit::make_golden`), and the count starts again **(engine decision)**. The 4th Dig needs room in the hand. |
+| `Jandice Barov` | *Swap, Lock, & Shop It* (0 Gold, a friendly non-Golden minion): Swap a friendly non-Golden minion with a random one in the Tavern. | A random minion in the shop (one `rng.below(k)`) takes the friendly minion's board slot, and the friendly minion takes its shop slot, each as it is (not a buy, a sale or a summon). It needs a minion in the shop. |
+| `Mutanus the Devourer` | *Devour* (0 Gold, a friendly minion): Sell a friendly minion. Spit its stats onto another. | The minion is sold (1 Gold, its sell triggers and the sell observers, as the `Sell` action), then a random other friendly minion (one `rng.below(k)`) gains its Attack and Health. It needs another friendly minion **(engine decision)**. |
+| `Heistbaron Togwaggle` | *The Perfect Crime* (11 Gold): Steal all cards from the Tavern. Each turn, your next Hero Power costs (1) less. | Every shop card goes to the hand while it has room, left to right (not a buy); the rest stay. At the start of each turn, the first included, it gets 1 cheaper (never below 0) **(engine decision)**; using it puts the cost back to 11. It needs a card in the shop and room in the hand. |
 
 ---
 
@@ -298,10 +309,15 @@ Engine decisions, pending the user's confirmation:
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
 | Vanndar and Drek'Thar | A tie at random. | `heroes::summon_copy_of_best` |
 | Flurgl's Murloc | Of the player's Tier or lower. | `heroes/fungalmancer_flurgl.rs` |
-| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella and Pyramad need room in the hand; a Blood Gem that doesn't fit is lost. | their files |
+| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella, Pyramad, Maiev, Patches, Elise, Alexstrasza and Togwaggle need room in the hand; a Blood Gem that doesn't fit is lost. A Tavern card Baz'hial, Xyrella, Pyramad or Maiev would take stays in the Tavern if the hand filled up as the cost was paid (a Gold-spent effect: `Enterprising Escapee`'s Lockbox). | their files |
 | Targets | George's and The Lich King's minion doesn't already have the keyword. | their files |
 | Holli'dae's spell | Drawn as the shop draws a spell: the player's Tier or lower. | `heroes/doctor_hollidae.rs` |
 | Edwin's improvement | +1/+1 per 4 cards bought, spells included. | `heroes/edwin_vancleef.rs` |
 | Baz'hial's damage | Not usable if it would bring Health and Armor to 0. | `heroes/lich_bazhial.rs` |
 | Kragg's Gold | 2 on the first turn, +1 per turn started since. | `heroes/skycapn_kragg.rs` |
 | Rakanishu's improvement | Every 3rd turn start, counting the first. | `heroes/rakanishu.rs` |
+| Cards from the catalog or the pool | Ini's Mech and Brann's Brann come from the catalog (not the pool); Patches' Pirate (Tier or lower), Elise's, Alexstrasza's and Eudora's minions from the pool. | their files |
+| Kurtrus' count | It starts again each turn. | `heroes/kurtrus_ashfallen.rs` |
+| Eudora's Digs | The 4th gives a Golden minion of the player's Tier; the count starts again. | `heroes/captain_eudora.rs` |
+| Mutanus' target | Only with another friendly minion. | `heroes/mutanus_the_devourer.rs` |
+| Togwaggle's discount | From the first turn's start on. | `heroes/heistbaron_togwaggle.rs` |

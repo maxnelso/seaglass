@@ -1,0 +1,42 @@
+hero: Kurtrus Ashfallen
+defaults:
+  tavern: {auras: {hero: Kurtrus Ashfallen}, gold: 30}
+scenarios:
+  - name: the_third_minion_bought_gives_a_plain_copy_of_one_of_them
+    seeds: "1..=4"
+    tavern: {shop: ["Zoatroid +5/+5", "Bubble Gunner +5/+5", "Dune Dweller +5/+5"]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {hand: {all_of: [{count: 4}, {where: {attack: "<= 3"}, count: 1}]}}
+
+  - name: once_per_turn
+    tavern: {shop: [Zoatroid, Bubble Gunner, Dune Dweller, Joyous, Ominous Seer, Razorfen Geomancer]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {hand: {count: 7}}
+
+  - name: the_count_starts_again_each_turn
+    description: (engine decision)
+    tavern: {shop: [Zoatroid, Joyous], gold: 30}
+    steps:
+      - buy: 0
+      - buy: 0
+      - expect: {auras: {hero: {power: {counter: 2}}}}
+      - end_turn
+      - start_turn
+    expect: {auras: {hero: {power: {counter: 0}}}}
+
+  - name: spells_dont_count
+    tavern: {shop: [Tavern Coin, Tavern Coin, Tavern Coin]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {hand: {count: 3}}

@@ -24,3 +24,13 @@ scenarios:
     tavern: {shop: ["1/1"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
     steps:
       - expect_illegal: hero_power
+
+  - name: nothing_happens_if_the_hand_filled_up
+    description: (engine decision) Paying the 2 Gold gives Enterprising Escapee's Lockbox.
+    tavern:
+      board: [{card: Enterprising Escapee, counter: 4}]
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+      shop: ["3/4"]
+    steps:
+      - hero_power
+    expect: {hand: {count: 10, any: Lockbox}, shop: ["3/4"]}

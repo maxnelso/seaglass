@@ -1,0 +1,33 @@
+hero: Patches the Pirate
+defaults:
+  tavern: {auras: {hero: Patches the Pirate}, gold: 10, tavern_tier: 2}
+scenarios:
+  - name: it_gets_a_pirate_for_3_gold
+    seeds: "1..=4"
+    steps:
+      - hero_power
+    expect: {gold: 7, hand: [{tribe: pirate, tavern_tier: "<= 2"}]}
+
+  - name: each_pirate_bought_makes_it_1_cheaper_until_used
+    tavern: {shop: ["1/1 pirate", "1/1 pirate", "1/1"]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - expect: {auras: {hero: {power: {cost: 1}}}}
+      - hero_power
+      - expect: {gold: 0}
+    expect: {auras: {hero: {power: {cost: 3}}}}
+
+  - name: never_below_0
+    tavern:
+      auras: {hero: {hero: Patches the Pirate, power: {cost: 0}}}
+      shop: ["1/1 pirate"]
+    steps:
+      - buy: 0
+    expect: {auras: {hero: {power: {cost: 0}}}}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: hero_power

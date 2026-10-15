@@ -1,0 +1,26 @@
+hero: Jandice Barov
+defaults:
+  tavern: {auras: {hero: Jandice Barov}, gold: 0}
+scenarios:
+  - name: it_swaps_a_friendly_minion_with_a_tavern_minion
+    tavern: {board: ["1/1", "2/2"], shop: [Tavern Coin, "9/9"]}
+    steps:
+      - hero_power: 1
+    expect: {board: ["1/1", "9/9"], shop: [Tavern Coin, "2/2"]}
+
+  - name: the_tavern_minion_is_random
+    seeds: "1..=4"
+    tavern: {board: ["2/2"], shop: ["7/7", "8/8", "9/9"]}
+    steps:
+      - hero_power: 0
+    expect: {board: [{attack: ">= 7"}], shop: {count: 3, any: "2/2"}}
+
+  - name: a_golden_minion_is_not_a_target
+    tavern: {board: ["golden Zoatroid"], shop: ["9/9"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_needs_a_tavern_minion
+    tavern: {board: ["2/2"], shop: [Tavern Coin]}
+    steps:
+      - expect_illegal: {hero_power: 0}

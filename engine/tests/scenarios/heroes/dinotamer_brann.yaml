@@ -1,0 +1,33 @@
+hero: Dinotamer Brann
+defaults:
+  tavern: {auras: {hero: Dinotamer Brann}, gold: 30}
+scenarios:
+  - name: the_fourth_battlecry_minion_bought_gives_a_brann
+    tavern: {shop: [Bubble Gunner, Dune Dweller, Joyous, Ominous Seer]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - expect: {hand: {count: 3}, auras: {hero: {power: {counter: 3}}}}
+      - buy: 0
+    expect: {hand: {count: 5, any: Brann Bronzebeard}, auras: {hero: {power: {stacks: 1}}}}
+
+  - name: other_minions_dont_count
+    tavern: {shop: ["1/1", "1/1", Tavern Coin]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {auras: {hero: {power: {counter: 0}}}}
+
+  - name: once_per_game
+    tavern:
+      auras: {hero: {hero: Dinotamer Brann, power: {counter: 3, stacks: 1}}}
+      shop: [Bubble Gunner]
+    steps:
+      - buy: 0
+    expect: {hand: {count: 1, none: Brann Bronzebeard}}
+
+  - name: it_is_never_an_action
+    steps:
+      - expect_illegal: hero_power
