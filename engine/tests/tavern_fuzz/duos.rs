@@ -759,7 +759,10 @@ fn check_shop_offers(before: &TavernState, after: &TavernState) -> Result<(), Vi
     let copies = |units: &[Unit], id: u32| units.iter().filter(|u| u.card_id == id).count();
     for u in &after.shop {
         let id = u.card_id;
-        let had = copies(&before.shop, id) + copies(&before.board, id) + copies(&before.hand, id);
+        let had = copies(&before.shop, id)
+            + copies(&before.board, id)
+            + copies(&before.hand, id)
+            + copies(before.last_opponent_warband(), id);
         if out_of_pool_ids().contains(&id) && copies(&after.shop, id) > had {
             return Err(broken(
                 format!("a minion of no pool is offered in the shop: {}", u.name),

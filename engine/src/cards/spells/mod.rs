@@ -444,6 +444,9 @@ pub fn all_spells() -> Vec<Unit> {
         tokens::make_arcane_absorption(),
         tokens::make_conflagration(),
         tokens::make_triple_reward(0),
+        tokens::make_bananas(),
+        tokens::make_big_banana(),
+        tokens::make_consolation_coin(),
     ]);
     list
 }

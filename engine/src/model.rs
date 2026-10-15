@@ -961,6 +961,56 @@ pub enum BattleOutcome {
     Draw,
 }
 
+fn default_true() -> bool {
+    true
+}
+
+/// Caller-supplied snapshot of one opponent in the lobby (`docs/tavern.md` §3.1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpponentView {
+    #[serde(default = "default_true")]
+    pub alive: bool,
+    #[serde(default)]
+    pub died_last_combat: bool,
+    #[serde(default)]
+    pub last_warband: Vec<Unit>,
+}
+
+impl Default for OpponentView {
+    fn default() -> Self {
+        Self {
+            alive: true,
+            died_last_combat: false,
+            last_warband: Vec::new(),
+        }
+    }
+}
+
+/// Caller-supplied snapshot of the other players in the lobby (`docs/tavern.md` §3.1).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LobbyView {
+    #[serde(default)]
+    pub opponents: Vec<OpponentView>,
+    #[serde(default)]
+    pub next_opponent: Option<usize>,
+    #[serde(default)]
+    pub last_opponent: Option<usize>,
+    #[serde(default)]
+    pub featured_pair: Option<(usize, usize)>,
+    #[serde(default)]
+    pub last_pair_outcome: Option<BattleOutcome>,
+}
+
+impl LobbyView {
+    pub fn is_empty(&self) -> bool {
+        self.opponents.is_empty()
+            && self.next_opponent.is_none()
+            && self.last_opponent.is_none()
+            && self.featured_pair.is_none()
+            && self.last_pair_outcome.is_none()
+    }
+}
+
 /// Pre-battle game state for both sides (hero tiers, persistent player auras/deities, and hands).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GameState {

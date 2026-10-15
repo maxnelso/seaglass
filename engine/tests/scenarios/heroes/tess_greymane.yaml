@@ -1,0 +1,50 @@
+hero: Tess Greymane
+scenarios:
+  - name: bobs_burgles_refreshes_shop_with_plain_copies_of_last_opponent_warband
+    steps:
+      - set_hero: Tess Greymane
+      - set:
+          gold: 5
+          tavern_tier: 2
+          include_shop_spells: true
+          shop: [Lullabot, Cord Puller]
+          lobby:
+            opponents:
+              - last_warband: ["golden Joyous 10/10", "Zoatroid 9/9", "Wrath Weaver 7/7"]
+            last_opponent: 0
+      - expect: {health: 30, armor: 17}
+      - hero_power
+      - expect:
+          gold: 4
+          shop:
+            count: 4
+            0: "Joyous 2/3 -golden"
+            1: "Zoatroid 3/2"
+            2: "Wrath Weaver 1/3"
+            3: {is_spell: true}
+
+  - name: bobs_burgles_caps_at_shop_minion_slots_and_allows_empty_warband
+    steps:
+      - set_hero: Tess Greymane
+      - set:
+          gold: 5
+          tavern_tier: 1
+          include_shop_spells: true
+          lobby:
+            opponents:
+              - last_warband: [Joyous, Zoatroid, Wrath Weaver, Lullabot, Cord Puller]
+              - last_warband: []
+            last_opponent: 0
+      - hero_power
+      - expect:
+          shop:
+            count: 4
+            3: {is_spell: true}
+      - start_turn
+      - set:
+          lobby: {last_opponent: 1}
+      - hero_power
+      - expect:
+          shop:
+            count: 1
+            0: {is_spell: true}

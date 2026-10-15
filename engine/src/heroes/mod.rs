@@ -55,10 +55,12 @@ pub mod inge_the_iron_hymn;
 pub mod ini_stormcoil;
 pub mod jandice_barov;
 pub mod kaelthas_sunstrider;
+pub mod king_mukla;
 pub mod kithix;
 pub mod kurtrus_ashfallen;
 pub mod lich_bazhial;
 pub mod loh_the_living_legend;
+pub mod lord_barov;
 pub mod lord_jaraxxus;
 pub mod madam_goya;
 pub mod maiev_shadowsong;
@@ -67,6 +69,8 @@ pub mod master_nguyen;
 pub mod millhouse_manastorm;
 pub mod millificent_manastorm;
 pub mod mister_clocksworth;
+pub mod mr_bigglesworth;
+pub mod murloc_holmes;
 pub mod mutanus_the_devourer;
 pub mod nozdormu;
 pub mod nzoth;
@@ -83,6 +87,7 @@ pub mod rakanishu;
 pub mod reno_jackson;
 pub mod rock_master_voone;
 pub mod rokara;
+pub mod scabbs_cutterbutter;
 pub mod shudderwock;
 pub mod silas_darkmoon;
 pub mod sindragosa;
@@ -95,6 +100,7 @@ pub mod taethelan_bloodwatcher;
 pub mod tamsin_roame;
 pub mod tavish_stormpike;
 pub mod teron_gorefiend;
+pub mod tess_greymane;
 pub mod the_curator;
 pub mod the_jailer;
 pub mod the_lich_king;
@@ -225,10 +231,12 @@ const IMPLEMENTED: &[Implemented] = &[
     (ini_stormcoil::ID, ini_stormcoil::behaviors),
     (jandice_barov::ID, jandice_barov::behaviors),
     (kaelthas_sunstrider::ID, kaelthas_sunstrider::behaviors),
+    (king_mukla::ID, king_mukla::behaviors),
     (kithix::ID, kithix::behaviors),
     (kurtrus_ashfallen::ID, kurtrus_ashfallen::behaviors),
     (lich_bazhial::ID, lich_bazhial::behaviors),
     (loh_the_living_legend::ID, loh_the_living_legend::behaviors),
+    (lord_barov::ID, lord_barov::behaviors),
     (lord_jaraxxus::ID, lord_jaraxxus::behaviors),
     (madam_goya::ID, madam_goya::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
@@ -237,6 +245,8 @@ const IMPLEMENTED: &[Implemented] = &[
     (millhouse_manastorm::ID, millhouse_manastorm::behaviors),
     (millificent_manastorm::ID, millificent_manastorm::behaviors),
     (mister_clocksworth::ID, mister_clocksworth::behaviors),
+    (mr_bigglesworth::ID, mr_bigglesworth::behaviors),
+    (murloc_holmes::ID, murloc_holmes::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (nzoth::ID, nzoth::behaviors),
@@ -253,6 +263,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (reno_jackson::ID, reno_jackson::behaviors),
     (rock_master_voone::ID, rock_master_voone::behaviors),
     (rokara::ID, rokara::behaviors),
+    (scabbs_cutterbutter::ID, scabbs_cutterbutter::behaviors),
     (shudderwock::ID, shudderwock::behaviors),
     (silas_darkmoon::ID, silas_darkmoon::behaviors),
     (sindragosa::ID, sindragosa::behaviors),
@@ -268,6 +279,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (tamsin_roame::ID, tamsin_roame::behaviors),
     (tavish_stormpike::ID, tavish_stormpike::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
+    (tess_greymane::ID, tess_greymane::behaviors),
     (the_curator::ID, the_curator::behaviors),
     (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
@@ -498,6 +510,7 @@ fn target_ok(state: &TavernState, kind: ActivateTargetKind, target: Option<usize
         (ActivateTargetKind::BoardOrShopMinion, Some(t)) if (7..14).contains(&t) => {
             state.shop.get(t - 7).is_some_and(|u| !u.is_spell)
         }
+        (ActivateTargetKind::PairSide, Some(0 | 1)) => true,
         _ => false,
     }
 }
@@ -517,6 +530,7 @@ fn targets(state: &TavernState, kind: ActivateTargetKind) -> Vec<Option<usize>> 
             )
             .map(Some)
             .collect(),
+        ActivateTargetKind::PairSide => vec![Some(0), Some(1)],
         _ => Vec::new(),
     }
 }
@@ -845,6 +859,20 @@ pub fn keep_chosen(
     if chosen.counter == 1 && HEROES.iter().any(|h| h.power.id == chosen.card_id) {
         install_power(state, chosen.card_id, true, pool, rng);
         return;
+    }
+    let for_second = state
+        .auras
+        .hero
+        .as_ref()
+        .and_then(|h| h.second_power.as_ref())
+        .is_some_and(|sp| chosen.taught_spell_id == Some(sp.card_id));
+    if for_second {
+        if let Some(option_chosen) =
+            second_power_hooks(&state.auras).and_then(|c| c.hero_option_chosen)
+        {
+            with_second_power(state, |s| option_chosen(s, chosen, unchosen, pool, rng));
+            return;
+        }
     }
     if let Some(option_chosen) = power_hooks(&state.auras).and_then(|c| c.hero_option_chosen) {
         option_chosen(state, chosen, unchosen, pool, rng);
@@ -1196,6 +1224,9 @@ pub fn offerable_powers(
                     | queen_azshara::ID
                     | cariel_roame::ID
                     | cookie_the_cook::ID
+                    | mr_bigglesworth::ID
+                    | lord_barov::ID
+                    | king_mukla::ID
             )
         })
         .collect()

@@ -1503,6 +1503,7 @@ fn all_card_ids() -> Vec<u32> {
         .cards()
         .iter()
         .map(|c| c.card_id)
+        .filter(|&id| !(961..=963).contains(&id))
         .collect();
     ids.sort_unstable();
     ids.dedup();
@@ -1518,6 +1519,16 @@ fn all_card_ids() -> Vec<u32> {
     extra.dedup();
     for id in extra {
         if id != 0 && ids[..base_len].binary_search(&id).is_err() {
+            ids.push(id);
+        }
+    }
+    for id in [
+        cards::tokens::SPELL_BANANAS,
+        cards::tokens::SPELL_BIG_BANANA,
+        cards::tokens::SPELL_CONSOLATION_COIN,
+        heroes::murloc_holmes::NO_MINIONS,
+    ] {
+        if !ids.contains(&id) {
             ids.push(id);
         }
     }

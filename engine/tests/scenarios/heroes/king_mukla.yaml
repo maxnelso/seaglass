@@ -1,0 +1,45 @@
+hero: King Mukla
+scenarios:
+  - name: bananarama_gives_2_bananas_and_1_per_living_opponent
+    steps:
+      - set_hero: King Mukla
+      - set:
+          board: ["Joyous 2/1"]
+          lobby:
+            opponents:
+              - {alive: true}
+              - {alive: true}
+              - {alive: false}
+      - expect: {health: 30, armor: 16}
+      - start_turn
+      - expect:
+          hand: {count: 2}
+          lobby_gifts: {count: 2}
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 0}
+      - expect:
+          hand: []
+          board:
+            0: {attack: ">= 4", health: ">= 3"}
+          auras: {tavern_spells_cast: 0}
+
+  - name: bananas_and_big_banana_buff_stats
+    steps:
+      - set_hero: King Mukla
+      - set:
+          board: ["Joyous 2/1"]
+          hand: [Bananas, Big Banana]
+          lobby:
+            opponents:
+              - {alive: true}
+      - start_turn
+      - expect:
+          hand: {count: 4}
+          lobby_gifts: {count: 1}
+      - play: {hand: 0, pos: 0}
+      - expect:
+          board: ["Joyous 3/2"]
+      - play: {hand: 0, pos: 0}
+      - expect:
+          board: ["Joyous 5/4"]
+          auras: {tavern_spells_cast: 0}

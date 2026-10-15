@@ -57,6 +57,8 @@ pub enum ActivateTargetKind {
     /// Requires a minion on `board` (`0..7`) or in `shop` (`7..14`: `shop[target - 7]`)
     /// (`Vol'jin`, `Cookie the Cook`; `docs/heroes.md` §3.3).
     BoardOrShopMinion,
+    /// Requires a side (`0` or `1`) of a featured combat pair (`Lord Barov`; `docs/heroes.md` §3.3).
+    PairSide,
 }
 
 /// One side's board plus everything a combat-style hook may touch (Deathrattles,
@@ -759,15 +761,26 @@ pub fn catalog_for(name: &str) -> Result<Vec<CardTemplate>, String> {
 
 /// Instantiate a plain (non-Golden, unbuffed) copy of `unit`.
 pub fn instantiate_plain_copy(unit: &Unit) -> Unit {
-    if let Some(tpl) = template(unit.card_id) {
-        tpl.instantiate()
+    if let Some(u) = plain_instance(unit) {
+        u
     } else {
         let mut copy = unit.clone();
+        copy.id = 0;
         copy.is_golden = copy.intrinsic_golden;
+        copy.golden_from_effect = false;
+        copy.golden_copies = 0;
         copy.attack = copy.base_attack;
         copy.health = copy.base_health;
         copy.max_attack = copy.base_attack;
         copy.max_health = copy.base_health;
+        copy.aura_applied = (0, 0);
+        copy.marked = false;
+        copy.frozen = false;
+        copy.hats = 0;
+        copy.until_next_turn_atk = 0;
+        copy.temp_divine_shield = false;
+        copy.temp_reborn = false;
+        copy.extra_deathrattles.clear();
         copy
     }
 }
@@ -1126,8 +1139,29 @@ fn trigger_battlecry(
         );
     }
     if let Some(id) = target_id {
-        // Unmark the target (and any copy of it that went to the hand).
-        for u in state.board.iter_mut().chain(state.hand.iter_mut()) {
+        // Unmark the target (and any copy of it that went to the hand, shop, a prompt, or the
+        // teammate via a Pass spell taught to a `Magicfin Apprentice`).
+        let prompts = state
+            .discover_pending
+            .iter_mut()
+            .chain(&mut state.discover_queue)
+            .flatten();
+        let gifts = state
+            .auras
+            .to_teammate
+            .iter_mut()
+            .filter_map(|gift| match gift {
+                TeammateGift::Card(unit) | TeammateGift::Pass(unit) => Some(unit),
+                TeammateGift::Effect { .. } => None,
+            });
+        for u in state
+            .board
+            .iter_mut()
+            .chain(&mut state.hand)
+            .chain(&mut state.shop)
+            .chain(prompts)
+            .chain(gifts)
+        {
             if u.id == BATTLECRY_TARGET_ID {
                 u.id = id;
             }

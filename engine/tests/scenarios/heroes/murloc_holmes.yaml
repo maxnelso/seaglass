@@ -1,0 +1,36 @@
+hero: Murloc Holmes
+scenarios:
+  - name: detective_for_hire_offers_opponent_minion_and_gives_tavern_coin
+    steps:
+      - set_hero: Murloc Holmes
+      - set:
+          lobby:
+            opponents:
+              - last_warband: ["Joyous 7/7"]
+            next_opponent: 0
+      - expect: {health: 30, armor: 12}
+      - hero_power
+      - expect:
+          discover_pending: ["Joyous 2/3"]
+      - choose_discover: 0
+      - expect:
+          discover_pending: null
+          hand: [Tavern Coin]
+
+  - name: detective_for_hire_offers_no_minions_when_next_opponent_warband_is_empty
+    steps:
+      - set_hero: Murloc Holmes
+      - set:
+          lobby:
+            opponents:
+              - last_warband: []
+            next_opponent: 0
+      - hero_power
+      - expect:
+          discover_pending:
+            count: 1
+            0: {card_id: 92974}
+      - choose_discover: 0
+      - expect:
+          discover_pending: null
+          hand: [Tavern Coin]

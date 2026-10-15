@@ -31,7 +31,7 @@ pub use duos_tavern::DuosTavern;
 pub use events::Event;
 pub use model::{
     BattleOutcome, CardId, DeityKind, DeityState, GameState, HeroId, HeroPowerState, HeroState,
-    Keyword, PlayerAuras, Side, TeammateGift, Tribe, Unit, UnitId,
+    Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe, Unit, UnitId,
 };
 pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};

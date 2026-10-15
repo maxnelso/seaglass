@@ -24,7 +24,7 @@ use super::units::{self, card_index};
 use super::view::show;
 
 /// Fields that hold a list of units: patches give them as unit specs.
-const UNIT_LISTS: [&str; 9] = [
+const UNIT_LISTS: [&str; 11] = [
     "board",
     "hand",
     "shop",
@@ -34,6 +34,8 @@ const UNIT_LISTS: [&str; 9] = [
     "hand_b",
     "waiting_for_hand",
     "stored",
+    "lobby_gifts",
+    "last_warband",
 ];
 
 /// Fields that hold a list of lists of units (`discover_queue`, a Duos team's `incoming`
@@ -56,7 +58,7 @@ const SKIPPED_UNIT_FIELDS: [&str; 7] = [
 const SKIPPED_AURAS_FIELDS: [&str; 1] = ["next_minion_discount"];
 
 /// `TavernState` unit lists serde leaves out while they are empty: a patch can still set them.
-const SKIPPED_TAVERN_UNIT_LISTS: [&str; 1] = ["waiting_for_hand"];
+const SKIPPED_TAVERN_UNIT_LISTS: [&str; 2] = ["waiting_for_hand", "lobby_gifts"];
 
 /// Patch `target` with `patch`, a mapping of field names to new values.
 pub fn apply<T: Serialize + DeserializeOwned>(target: &mut T, patch: &Value) -> Result<(), String> {
@@ -137,6 +139,11 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
                 fields.insert(Value::from(name), Value::Sequence(Vec::new()));
             }
         }
+        if !fields.contains_key("lobby") {
+            let lobby = serde_yaml::to_value(crate::model::LobbyView::default())
+                .map_err(|e| e.to_string())?;
+            fields.insert(Value::from("lobby"), lobby);
+        }
     }
     // A Hero Power's kept cards, left out while there are none.
     if fields.contains_key("uses_left")
@@ -195,6 +202,16 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
                     let i = index(key, items.len(), &field_path)?;
                     items[i] = units_value(list, &format!("{field_path}[{}]", show(key)))?;
                 }
+            }
+            Some(slot) if name == "opponents" && change.is_sequence() => {
+                let mut opps = Vec::new();
+                for (i, item) in change.as_sequence().into_iter().flatten().enumerate() {
+                    let mut opp = serde_yaml::to_value(crate::model::OpponentView::default())
+                        .map_err(|e| e.to_string())?;
+                    merge(&mut opp, item, &format!("{field_path}[{i}]"))?;
+                    opps.push(opp);
+                }
+                *slot = Value::Sequence(opps);
             }
             Some(slot) => merge(slot, change, &field_path)?,
             None if open

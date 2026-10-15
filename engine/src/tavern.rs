@@ -4,8 +4,8 @@ use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, 
 use crate::combat::{resolve_battle, BattleResult};
 use crate::heroes;
 use crate::model::{
-    BattleOutcome, CardId, CombatResult, GameState, HeroId, HeroState, PlayerAuras, Side,
-    TeammateGift, Tribe, Unit,
+    BattleOutcome, CardId, CombatResult, GameState, HeroId, HeroState, LobbyView, PlayerAuras,
+    Side, TeammateGift, Tribe, Unit,
 };
 use crate::rng::Rng;
 
@@ -552,6 +552,13 @@ pub struct TavernState {
     /// them in after each action; still waiting at the end of the turn, they are discarded.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waiting_for_hand: Vec<Unit>,
+    /// Caller-supplied snapshot of the other players in the lobby (`docs/tavern.md` §3.1).
+    #[serde(default, skip_serializing_if = "LobbyView::is_empty")]
+    pub lobby: LobbyView,
+    /// Cards produced for other players in the lobby (`King Mukla`'s Bananas; `docs/tavern.md`
+    /// §3.1).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lobby_gifts: Vec<Unit>,
 }
 
 impl Default for TavernState {
@@ -595,7 +602,36 @@ impl TavernState {
             hero_options: Vec::new(),
             sold_this_step: Vec::new(),
             waiting_for_hand: Vec::new(),
+            lobby: LobbyView::default(),
+            lobby_gifts: Vec::new(),
         }
+    }
+
+    /// Set the caller-supplied lobby snapshot (`docs/tavern.md` §3.1).
+    pub fn set_lobby_view(&mut self, lobby: LobbyView) {
+        self.lobby = lobby;
+    }
+
+    /// Drain and return all cards produced for other players in the lobby (`King Mukla`'s
+    /// Bananas; `docs/tavern.md` §3.1).
+    pub fn take_lobby_gifts(&mut self) -> Vec<Unit> {
+        std::mem::take(&mut self.lobby_gifts)
+    }
+
+    /// Last known warband of the player's next opponent, if any (`docs/tavern.md` §3.1).
+    pub fn next_opponent_warband(&self) -> &[Unit] {
+        self.lobby
+            .next_opponent
+            .and_then(|idx| self.lobby.opponents.get(idx))
+            .map_or(&[], |opp| &opp.last_warband)
+    }
+
+    /// Last known warband of the player's last opponent, if any (`docs/tavern.md` §3.1).
+    pub fn last_opponent_warband(&self) -> &[Unit] {
+        self.lobby
+            .last_opponent
+            .and_then(|idx| self.lobby.opponents.get(idx))
+            .map_or(&[], |opp| &opp.last_warband)
     }
 
     /// The player's hero, if they have one (`docs/heroes.md` §2.2).
@@ -1303,6 +1339,46 @@ impl TavernState {
         cards::after_shop_refresh(self, rng);
     }
 
+    /// Refresh the Tavern with plain copies of minions from `warband` (`Tess Greymane`'s Bob's
+    /// Burgles; `docs/heroes.md` §11.2), without drawing from `pool`.
+    pub fn refresh_shop_with_warband(
+        &mut self,
+        warband: &[Unit],
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) {
+        self.is_frozen = false;
+        for old in self.shop.drain(..) {
+            pool.return_unit(&old);
+        }
+        let cap = self.shop_minion_slots();
+        let chosen: Vec<&Unit> = if warband.len() <= cap {
+            warband.iter().collect()
+        } else {
+            let mut candidates: Vec<&Unit> = warband.iter().collect();
+            (0..cap)
+                .map(|_| {
+                    let pick = match candidates.len() {
+                        1 => 0,
+                        k => rng.below(k),
+                    };
+                    candidates.remove(pick)
+                })
+                .collect()
+        };
+        for unit in chosen {
+            let mut copy = cards::instantiate_plain_copy(unit);
+            self.apply_shop_auras(&mut copy);
+            self.shop.push(copy);
+        }
+        if self.include_shop_spells {
+            let spell = self.draw_shop_spell(rng);
+            self.shop.push(spell);
+        }
+        heroes::after_refresh(self, pool, rng);
+        cards::after_shop_refresh(self, rng);
+    }
+
     /// Fill the free slots of a shop whose cards were kept (`docs/tavern.md` §4 step 4): every
     /// kept card fills a slot (`cap`, plus the spell slot); the spell slot refills with a spell
     /// only if no spell is left, the other free slots with minions.
@@ -1763,7 +1839,7 @@ impl TavernState {
                     ActivateTargetKind::ShopCard => {
                         matches!(target_pos, Some(t) if t < self.shop.len())
                     }
-                    ActivateTargetKind::BoardOrShopMinion => false,
+                    ActivateTargetKind::BoardOrShopMinion | ActivateTargetKind::PairSide => false,
                 }
             }
             TavernAction::Refresh => {
@@ -1958,7 +2034,8 @@ impl TavernState {
                                     });
                                 }
                             }
-                            ActivateTargetKind::BoardOrShopMinion => {}
+                            ActivateTargetKind::BoardOrShopMinion
+                            | ActivateTargetKind::PairSide => {}
                         }
                     }
                 }

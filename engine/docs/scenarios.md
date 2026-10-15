@@ -252,7 +252,7 @@ Fields that hold units (`board`, `hand`, `shop`, `discover_pending`, `stitched_s
 `hand_a`, `hand_b`) take unit specs: a list (or a single spec) replaces the field,
 `{<index>: <spec>}` replaces one unit, `{<index>: {<field>: ...}}` patches one unit, and
 `null` sets the field to null. `discover_queue` takes a list of lists of specs, and so does a
-Duos team's `incoming` (also `{<player>: [<specs>]}`). A Tavern's `waiting_for_hand` and a Hero Power's `stored` take a list of specs even while they are empty (serde leaves them out). A unit patch can also set the fields its serde form leaves out while they are false or empty (`marked`, `extra_deathrattles`, `temp_reborn`, `until_next_turn_atk`, `frozen`): `{card: "9/9", frozen: true}`.
+Duos team's `incoming` (also `{<player>: [<specs>]}`). A Tavern's `waiting_for_hand` and `lobby_gifts`, an opponent's `last_warband` in `lobby.opponents`, and a Hero Power's `stored` take a list of specs even while they are empty (serde leaves them out). A unit patch can also set the fields its serde form leaves out while they are false or empty (`marked`, `extra_deathrattles`, `temp_reborn`, `until_next_turn_atk`, `frozen`): `{card: "9/9", frozen: true}`.
 
 `PlayerAuras` patches also take:
 

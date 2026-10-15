@@ -735,7 +735,7 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
     }
     for opts in s.discover_pending.iter().chain(&s.discover_queue) {
         for (i, u) in opts.iter().enumerate() {
-            if opts[..i].iter().any(|o| o.card_id == u.card_id) {
+            if !u.to_hero_power && opts[..i].iter().any(|o| o.card_id == u.card_id) {
                 return Err(broken(
                     format!("a Discover offers the same card twice: {}", u.name),
                     units_desc(opts),
@@ -821,7 +821,7 @@ fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
             })
         };
         for u in prompts {
-            if out_of_pool_ids().contains(&u.card_id) && !kept(u.card_id) {
+            if out_of_pool_ids().contains(&u.card_id) && !u.to_hero_power && !kept(u.card_id) {
                 return Err(broken(
                     format!("a minion of no pool is offered in the Discover: {}", u.name),
                     unit_desc(u),

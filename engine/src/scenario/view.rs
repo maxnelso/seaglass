@@ -161,6 +161,12 @@ fn from_value(value: &Value) -> View {
             let mut view = fields(m);
             with_default(&mut view, "hero_options", View::List(Vec::new()));
             with_default(&mut view, "waiting_for_hand", View::List(Vec::new()));
+            with_default(&mut view, "lobby_gifts", View::List(Vec::new()));
+            with_default(
+                &mut view,
+                "lobby",
+                View::of(&crate::model::LobbyView::default()),
+            );
             View::Map(view)
         }
         Value::Mapping(m) => View::Map(fields(m)),

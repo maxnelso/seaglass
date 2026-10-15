@@ -51,6 +51,9 @@ pub const SPELL_POINTY_ARROW: CardId = 957;
 pub const SPELL_ARCANE_ABSORPTION: CardId = 958;
 pub const SPELL_CONFLAGRATION: CardId = 959;
 pub const SPELL_TRIPLE_REWARD: CardId = 960;
+pub const SPELL_BANANAS: CardId = 961;
+pub const SPELL_BIG_BANANA: CardId = 962;
+pub const SPELL_CONSOLATION_COIN: CardId = 963;
 
 // Choose-One / Hero Power sub-option cards (presented via `discover_pending`).
 pub const CHOICE_BRIGAND_GEMS: CardId = 973;
@@ -363,6 +366,36 @@ pub fn make_triple_reward(tavern_tier: u32) -> Unit {
         reward.counter = (tavern_tier + 1).min(6) as i32;
     }
     reward
+}
+
+/// `Bananas` (`BG_Bananas` — 1-Gold token spell: Give a minion +1/+1; `King Mukla`).
+pub fn make_bananas() -> Unit {
+    let mut spell = Unit::new("Bananas", 1, 1)
+        .with_card_id(SPELL_BANANAS)
+        .with_tavern_tier(1);
+    spell.is_spell = true;
+    spell.spell_cost = 1;
+    spell
+}
+
+/// `Big Banana` (`BG_Bananas_Big` — 1-Gold token spell: Give a minion +2/+2; `King Mukla`).
+pub fn make_big_banana() -> Unit {
+    let mut spell = Unit::new("Big Banana", 2, 2)
+        .with_card_id(SPELL_BIG_BANANA)
+        .with_tavern_tier(1);
+    spell.is_spell = true;
+    spell.spell_cost = 1;
+    spell
+}
+
+/// `Consolation Coin` (`TB_BaconShop_HP_080t` — 0-Gold token spell: Gain 1 Gold; `Mr. Bigglesworth`).
+pub fn make_consolation_coin() -> Unit {
+    let mut spell = Unit::new("Consolation Coin", 0, 0)
+        .with_card_id(SPELL_CONSOLATION_COIN)
+        .with_tavern_tier(1);
+    spell.is_spell = true;
+    spell.spell_cost = 0;
+    spell
 }
 
 /// `Lockbox` (`BG36_520t` — Unplayable spell in hand that opens in 5 turns for a Golden minion with a type).

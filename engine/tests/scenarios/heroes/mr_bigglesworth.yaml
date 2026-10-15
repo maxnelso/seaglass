@@ -1,0 +1,44 @@
+hero: Mr. Bigglesworth
+scenarios:
+  - name: kelthuzads_kitty_discovers_enchanted_minion_from_dead_hero
+    steps:
+      - set_hero: Mr. Bigglesworth
+      - set:
+          lobby:
+            opponents:
+              - alive: false
+                died_last_combat: true
+                last_warband:
+                  - "golden Joyous 12/14 divine_shield taunt"
+                  - "Zoatroid 8/9 windfury"
+      - expect: {health: 30, armor: 19}
+      - start_turn
+      - expect:
+          discover_pending:
+            count: 2
+            contains:
+              - "golden Joyous 12/14 divine_shield taunt"
+              - "Zoatroid 8/9 windfury"
+      - choose_discover: "golden Joyous"
+      - expect:
+          discover_pending: null
+          hand: ["golden Joyous 12/14 divine_shield taunt"]
+
+  - name: kelthuzads_kitty_gives_consolation_coin_when_dead_hero_warband_is_empty
+    steps:
+      - set_hero: Mr. Bigglesworth
+      - set:
+          lobby:
+            opponents:
+              - alive: false
+                died_last_combat: true
+                last_warband: []
+      - start_turn
+      - expect:
+          discover_pending: null
+          hand: [Consolation Coin]
+      - play: 0
+      - expect:
+          gold: 4
+          hand: []
+          auras: {tavern_spells_cast: 0}

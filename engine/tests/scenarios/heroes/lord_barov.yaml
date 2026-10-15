@@ -1,0 +1,46 @@
+hero: Lord Barov
+scenarios:
+  - name: friendly_wager_correct_guess_gives_3_tavern_coins
+    steps:
+      - set_hero: Lord Barov
+      - set:
+          gold: 4
+          lobby:
+            opponents: [{}, {}]
+            featured_pair: [0, 1]
+      - expect: {health: 30, armor: 14}
+      - expect_legal: {hero_power: 0}
+      - expect_legal: {hero_power: 1}
+      - expect_illegal: {hero_power: 2}
+      - hero_power: 0
+      - expect:
+          gold: 3
+          auras: {hero: {power: {armed: 1, uses_left: 0}}}
+      - set:
+          lobby: {last_pair_outcome: a_win}
+      - start_turn
+      - expect:
+          auras: {hero: {power: {armed: 0}}}
+          hand: [Tavern Coin, Tavern Coin, Tavern Coin]
+
+  - name: friendly_wager_draw_refunds_1_coin_and_wrong_guess_gives_none
+    steps:
+      - set_hero: Lord Barov
+      - set:
+          gold: 5
+          lobby:
+            opponents: [{}, {}]
+            featured_pair: [0, 1]
+      - hero_power: 1
+      - expect: {auras: {hero: {power: {armed: 2}}}}
+      - set:
+          lobby: {last_pair_outcome: draw}
+      - start_turn
+      - expect:
+          hand: [Tavern Coin]
+      - hero_power: 0
+      - set:
+          lobby: {last_pair_outcome: b_win}
+      - start_turn
+      - expect:
+          hand: [Tavern Coin]
