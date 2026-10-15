@@ -26,9 +26,9 @@
 //!   decision points) `step` rejects illegal actions, leaving the game as it was;
 //! - per Pass ([`check_pass`], [`check_pass_keeps_pool`]): its price (a free Pass's charge, else
 //!   1 Gold, spent), the card reaches the teammate's hand or, if it is full, their queue, with its
-//!   Golden status and in no group, and the pool is left as it was;
+//!   Golden status and in no group, and the pool is left as it was (unless observers act on it);
 //! - [`check_counters`]: the team's Passes this turn and this game go up together, by 1 for a
-//!   Pass, and only for a Pass or with a card that Passes;
+//!   Pass, and only for a Pass, with a card that Passes, or with a Pass gift the action made;
 //! - [`check_queues`]: the queues are first in, first out, a queued card is unchanged while it
 //!   waits, and the cards that leave a queue reach their receiver's hand;
 //! - per action but a Pass, two metamorphic checks: [`check_like_solo`] (the player's Tavern is
@@ -502,8 +502,31 @@ fn pool_counts(pool: &CardPool, catalog: &[CardTemplate]) -> Vec<u32> {
         .collect()
 }
 
+/// Whether observers act on `p`'s Pass (`docs/duos_tavern.md` §5.6): the Gold-spent ones of a
+/// Pass paid in Gold (the passer's minions' `gold_spent`, their Hero Power's `hero_gold_spent`),
+/// and the `after_pass` and `after_team_pass` ones. They can reach the pool: a Pass's Gold that
+/// has an `Air Revenant` cast `Easterly Winds` can have a `Felboar` consume a minion in the
+/// Tavern.
+fn observers_act_on_the_pass(before: &DuosTavern, p: usize) -> bool {
+    let passer = &before.players[p];
+    let paid = before.free_passes(p) == 0;
+    let board = |s: &TavernState, has: fn(&cards::CardHooks) -> bool| {
+        s.board.iter().any(|u| has(cards::hooks(u.card_id)))
+    };
+    let hero_spends = passer
+        .hero()
+        .is_some_and(|h| cards::hooks(h.power.card_id).hero_gold_spent.is_some());
+    (paid && (board(passer, |h| h.gold_spent.is_some()) || hero_spends))
+        || board(passer, |h| h.after_pass.is_some())
+        || before
+            .players
+            .iter()
+            .any(|s| board(s, |h| h.after_team_pass.is_some()))
+}
+
 /// A Pass moves a card from hand to hand (`docs/duos_tavern.md` §5.3): it leaves the pool as it
-/// was (`before`, [`pool_counts`]), unless the card was in a group, whose rest is then discarded.
+/// was (`before`, [`pool_counts`]), unless the card was in a group, whose rest is then discarded,
+/// or observers act on it ([`observers_act_on_the_pass`]).
 fn check_pass_keeps_pool(
     card: &Unit,
     before: &[u32],
@@ -608,6 +631,15 @@ fn check_pass(
     Ok(())
 }
 
+/// The Pass gifts `s`'s player has for their teammate (`TeammateGift::Pass`).
+fn pass_gifts(s: &TavernState) -> usize {
+    s.auras
+        .to_teammate
+        .iter()
+        .filter(|g| matches!(g, TeammateGift::Pass(_)))
+        .count()
+}
+
 /// Whether a card of the team can Pass a card by its effect this step, or a Pass waits.
 fn could_pass_by_effect(team: &DuosTavern) -> bool {
     team.players.iter().any(|s| {
@@ -626,9 +658,16 @@ fn could_pass_by_effect(team: &DuosTavern) -> bool {
 }
 
 /// The team counters (`docs/duos_tavern.md` §7.1): the Passes this turn and this game go up
-/// together, by 1 for a player's Pass, and only with a Pass, the player's or a card's (one that
-/// Passes, in the team's Taverns before or after the step).
-fn check_counters(before: &DuosTavern, after: &DuosTavern, pass: bool) -> Result<(), Violation> {
+/// together, by 1 for a player's Pass, and only with a Pass, the player's or a card effect's: a
+/// card that Passes, in the team's Taverns before or after the step, or a Pass gift the action
+/// itself made (`gift_passes`, read from the action on the player's Tavern alone: Madam Goya's
+/// Hero Power).
+fn check_counters(
+    before: &DuosTavern,
+    after: &DuosTavern,
+    pass: bool,
+    gift_passes: usize,
+) -> Result<(), Violation> {
     let d_turn = i64::from(after.passes_this_turn) - i64::from(before.passes_this_turn);
     let d_game = i64::from(after.passes_this_game) - i64::from(before.passes_this_game);
     let detail = format!(
@@ -646,7 +685,7 @@ fn check_counters(before: &DuosTavern, after: &DuosTavern, pass: bool) -> Result
     }
     // (A card can Pass by its effect in the step it arrives: a minion transformed into a
     // `Voidpriest Cloner` sees the rest of a used-up card group discarded.)
-    let by_effect = could_pass_by_effect(before) || could_pass_by_effect(after);
+    let by_effect = gift_passes > 0 || could_pass_by_effect(before) || could_pass_by_effect(after);
     let by_player = i64::from(pass);
     if d_game < by_player || (d_game > by_player && !by_effect) {
         return Err(broken(
@@ -1800,7 +1839,7 @@ impl DuosGame {
                     format!("player {p}: {} -> {}", b.upgrade_cost, s.upgrade_cost),
                 )));
             }
-            if !b.is_frozen {
+            if !b.is_frozen && !hero_acts_after_the_roll(s) {
                 checks.push(check_refilled_shop(
                     s,
                     &self.pool,
@@ -1974,7 +2013,8 @@ impl DuosGame {
         }
         if let Some(hand_index) = pass {
             checks.push(check_pass(&before, team, p, hand_index));
-            if let Some(counts) = &pool_before {
+            let quiet = !observers_act_on_the_pass(&before, p);
+            if let Some(counts) = pool_before.as_ref().filter(|_| quiet) {
                 let card = &before.players[p].hand[hand_index];
                 checks.push(check_pass_keeps_pool(
                     card,
@@ -1984,8 +2024,12 @@ impl DuosGame {
                 ));
             }
         }
+        // The Pass gifts the action made on the player's Tavern alone.
+        let gift_passes = solo.as_ref().map_or(0, |solo| {
+            pass_gifts(solo).saturating_sub(pass_gifts(&before.players[p]))
+        });
         checks.extend([
-            check_counters(&before, team, pass.is_some()),
+            check_counters(&before, team, pass.is_some(), gift_passes),
             check_queues(&before, team),
             check_team(team, true),
             match chosen {
@@ -2663,7 +2707,12 @@ fn replay_a_duos_snapshot() {
             format!(
                 "legality {legality:?}; step {result:?}; pass {pass}; counters {:?}; queues {:?}; \
                  team {:?}; players {:?} / {:?}",
-                check_counters(&before, &team, matches!(action, TavernAction::Pass { .. })),
+                check_counters(
+                    &before,
+                    &team,
+                    matches!(action, TavernAction::Pass { .. }),
+                    pass_gifts(&solo).saturating_sub(pass_gifts(&before.players[p]))
+                ),
                 check_queues(&before, &team),
                 check_team(&team, true),
                 check_tavern(&team.players[0]),

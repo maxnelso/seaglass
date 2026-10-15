@@ -1270,6 +1270,14 @@ fn check_pool_leaks_with(
     Ok(())
 }
 
+/// Whether the player's Hero Power acts at the start of the turn once the shop is rolled
+/// (`hero_turn_start`): the shop may no longer be as rolled (Yogg-Saron's random Tavern spell
+/// can take a minion from it).
+fn hero_acts_after_the_roll(s: &TavernState) -> bool {
+    s.hero()
+        .is_some_and(|h| cards::hooks(h.power.card_id).hero_turn_start.is_some())
+}
+
 /// A shop just rolled (unfrozen `start_turn`, `Refresh`) holds `shop_capacity` minions from the
 /// pool (fewer only if the pool has run out of them) and, with shop spells, one spell
 /// (`docs/tavern.md` §4, §6).
@@ -2046,7 +2054,7 @@ impl Game {
                     )
                     .into());
                 }
-                let refilled = if was_frozen {
+                let refilled = if was_frozen || hero_acts_after_the_roll(s) {
                     Ok(())
                 } else {
                     check_refilled_shop(s, &self.pool, &self.catalog, "start_turn")
