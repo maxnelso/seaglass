@@ -21,3 +21,29 @@ scenarios:
     steps:
       - play: {hand: Perfect Vision, shop: 0}
     expect: {shop: ["Lullabot 20/20"]}
+
+  - name: the_stats_are_set_net_of_the_minions_auras
+    description: >-
+      (engine decision) The Blue Volumizer has the +0/+3 all Volumizers have (1/6): it is set to
+      20/20 without it, and the aura then applies again: 20/23.
+    tavern:
+      auras: {counters: {Blue Volumizer: [0, 3]}}
+      board: [{card: Blue Volumizer, health: 6, max_health: 6, aura_applied: [0, 3]}]
+      hand: [Perfect Vision]
+    steps:
+      - play: {hand: Perfect Vision, pos: 0}
+    expect: {board: [{card: Blue Volumizer, attack: 20, health: 23}]}
+
+  - name: a_tavern_minion_set_net_of_its_auras_gets_them_in_the_hand
+    description: >-
+      (engine decision) Set to 20/20 in the Tavern without the +0/+3, the Blue Volumizer gets it
+      again when bought: 20/23.
+    tavern:
+      gold: 10
+      auras: {counters: {Blue Volumizer: [0, 3]}}
+      shop: [{card: Blue Volumizer, health: 6, max_health: 6, aura_applied: [0, 3]}]
+      hand: [Perfect Vision]
+    steps:
+      - play: {hand: Perfect Vision, shop: 0}
+      - buy: 0
+    expect: {hand: [{card: Blue Volumizer, attack: 20, health: 23}]}

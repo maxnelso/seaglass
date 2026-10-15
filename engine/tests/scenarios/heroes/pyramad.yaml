@@ -25,12 +25,13 @@ scenarios:
     steps:
       - expect_illegal: hero_power
 
-  - name: nothing_happens_if_the_hand_filled_up
-    description: (engine decision) Paying the 2 Gold gives Enterprising Escapee's Lockbox.
+  - name: the_minion_reaches_the_hand_before_the_gold_is_paid
+    description: >-
+      (confirmed, as a Buy) The minion fills the hand; the Lockbox paying the 2 Gold gives is lost.
     tavern:
       board: [{card: Enterprising Escapee, counter: 4}]
       hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
       shop: ["3/4"]
     steps:
       - hero_power
-    expect: {hand: {count: 10, any: Lockbox}, shop: ["3/4"]}
+    expect: {hand: {count: 10, none: Lockbox, any: "3/8"}, shop: []}

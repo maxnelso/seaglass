@@ -5,3 +5,15 @@ scenarios:
     steps:
       - activate: {pos: Tyrael, target: 1}
     expect: {board: [Tyrael, "Patient Scout 50/50"]}
+
+  - name: the_stats_are_set_net_of_the_minions_auras
+    description: >-
+      (engine decision) The Blue Volumizer has the +0/+3 all Volumizers have (1/6): it is set to
+      50/50 without it, and the aura then applies again: 50/53.
+    tavern:
+      gold: 10
+      auras: {counters: {Blue Volumizer: [0, 3]}}
+      board: [Tyrael, {card: Blue Volumizer, health: 6, max_health: 6, aura_applied: [0, 3]}]
+    steps:
+      - activate: {pos: Tyrael, target: 1}
+    expect: {board: [Tyrael, {card: Blue Volumizer, attack: 50, health: 53}]}

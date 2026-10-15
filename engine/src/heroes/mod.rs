@@ -350,8 +350,8 @@ pub fn valid_targets(state: &TavernState) -> Vec<Option<usize>> {
         .collect()
 }
 
-/// Use the player's Hero Power on `target` (legal, `docs/heroes.md` §5): a use, its cost (Gold
-/// spent), then its `hero_power` hook.
+/// Use the player's Hero Power on `target` (legal, `docs/heroes.md` §5): a use, its `hero_power`
+/// hook, then its cost as it was when used (Gold spent).
 pub fn use_power(
     state: &mut TavernState,
     target: Option<usize>,
@@ -363,10 +363,11 @@ pub fn use_power(
     };
     hero.power.uses_left -= 1;
     let (cost, card_id) = (hero.power.cost, hero.power.card_id);
-    state.spend_gold(cost, pool, rng);
+    // As a Buy, what the power gives arrives before the Gold is paid (`docs/heroes.md` §5).
     if let Some(hero_power) = hooks(card_id).hero_power {
         hero_power(state, target, pool, rng);
     }
+    state.spend_gold(cost, pool, rng);
 }
 
 /// Start of turn (`docs/heroes.md` §3.3, §3.4): the board's marks clear, and the Hero Power's

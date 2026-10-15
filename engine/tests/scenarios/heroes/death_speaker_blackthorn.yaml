@@ -44,3 +44,14 @@ scenarios:
     steps:
       - hero_power
     expect: {hand: {all_of: [{count: 10}, {where: Blood Gem, count: 1}]}}
+
+  - name: the_gems_reach_the_hand_before_the_gold_is_paid
+    description: >-
+      (confirmed, as a Buy) The 2 Blood Gems fill the hand; the Lockbox paying the 1 Gold gives
+      (5 Gold spent before) is lost.
+    tavern:
+      board: [{card: Enterprising Escapee, counter: 5}]
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - hero_power
+    expect: {hand: {all_of: [{count: 10, none: Lockbox}, {where: Blood Gem, count: 2}]}}

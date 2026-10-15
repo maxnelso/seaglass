@@ -4,8 +4,7 @@
 //!
 //! Active, a card in the Tavern (minion or spell), once per turn: the card leaves the shop for the
 //! hand (not a buy) locked for 2 turns (`locked_turns = 2`: it can't be played or sold until the
-//! start of the second turn after). It needs room in the hand; a card the hand has no room for by
-//! then (a Gold-spent effect filled it) stays in the Tavern (engine decision).
+//! start of the second turn after). It needs room in the hand.
 
 use crate::cards::{ActivateTargetKind, CardHooks};
 use crate::model::{CardId, HeroId};
@@ -31,7 +30,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 
 /// Using it: the shop card to the hand, locked.
 fn imprison(state: &mut TavernState, target: Option<usize>, _: &mut CardPool, _: &mut Rng) {
-    let Some(t) = target.filter(|&t| t < state.shop.len() && super::hand_has_room(state)) else {
+    let Some(t) = target.filter(|&t| t < state.shop.len()) else {
         return;
     };
     let mut card = state.shop.remove(t);

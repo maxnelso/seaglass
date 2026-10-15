@@ -147,7 +147,7 @@ It is legal when:
 4. its `hero_power_usable` hook (if any) allows it;
 5. `target` fits the power's target domain (§3.3): `None` for an untargeted power, a valid index otherwise, which its `hero_power_target` hook (if any) allows.
 
-Effect, in order: `uses_left -= 1`; the cost is spent (`spend_gold`, §3.5); the `hero_power` hook resolves. Then the action ends like any other (Triples, aura sync: `tavern.md` §6).
+Effect, in order: `uses_left -= 1`; the `hero_power` hook resolves; then the cost it had when used is spent (`spend_gold`, §3.5). As for a `Buy`, whose card reaches the hand before its Gold is paid, what the power gives arrives first: a card a Gold-spent effect gives as the cost is paid (`Enterprising Escapee`'s Lockbox) meets the hand the power filled, and is lost if it is full **(confirmed**, by analogy with `Buy`**)**. Then the action ends like any other (Triples, aura sync: `tavern.md` §6).
 
 In Duos, `DuosTavern::is_legal` / `step` allow it for the player's own Tavern like every action but Pass (`duos_tavern.md` §4.2).
 
@@ -309,7 +309,7 @@ Engine decisions, pending the user's confirmation:
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
 | Vanndar and Drek'Thar | A tie at random. | `heroes::summon_copy_of_best` |
 | Flurgl's Murloc | Of the player's Tier or lower. | `heroes/fungalmancer_flurgl.rs` |
-| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella, Pyramad, Maiev, Patches, Elise, Alexstrasza and Togwaggle need room in the hand; a Blood Gem that doesn't fit is lost. A Tavern card Baz'hial, Xyrella, Pyramad or Maiev would take stays in the Tavern if the hand filled up as the cost was paid (a Gold-spent effect: `Enterprising Escapee`'s Lockbox). | their files |
+| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella, Pyramad, Maiev, Patches, Elise, Alexstrasza and Togwaggle need room in the hand; a Blood Gem that doesn't fit is lost. | their files |
 | Targets | George's and The Lich King's minion doesn't already have the keyword. | their files |
 | Holli'dae's spell | Drawn as the shop draws a spell: the player's Tier or lower. | `heroes/doctor_hollidae.rs` |
 | Edwin's improvement | +1/+1 per 4 cards bought, spells included. | `heroes/edwin_vancleef.rs` |

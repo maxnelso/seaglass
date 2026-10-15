@@ -25,17 +25,17 @@ scenarios:
     steps:
       - expect_illegal: {hero_power: 0}
 
-  - name: a_minion_the_hand_filled_up_for_stays_in_the_tavern
+  - name: the_minion_reaches_the_hand_before_the_gold_is_paid
     description: >-
-      (engine decision) Paying the 2 Gold gives Enterprising Escapee's Lockbox, which fills the
-      hand: the minion stays in the Tavern as it is.
+      (confirmed, as a Buy) The minion fills the hand; then paying the 2 Gold gives Enterprising
+      Escapee's Lockbox, which a full hand loses.
     tavern:
       board: [{card: Enterprising Escapee, counter: 4}]
       hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
       shop: ["5/7"]
     steps:
       - hero_power: 0
-    expect: {gold: 8, hand: {count: 10, any: Lockbox}, shop: ["5/7"]}
+    expect: {gold: 8, hand: {count: 10, none: Lockbox, any: "2/2"}, shop: []}
 
   - name: the_stats_are_set_net_of_the_minions_auras
     description: >-

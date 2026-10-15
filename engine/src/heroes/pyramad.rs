@@ -4,8 +4,7 @@
 //!
 //! Active, untargeted, once per turn: a random minion in the shop (one `rng.below(k)`) gets twice
 //! its Health and goes to the hand (not a buy). It needs a minion in the shop and room in the
-//! hand; with no room left by then (a Gold-spent effect filled it), nothing happens (engine
-//! decision).
+//! hand.
 
 use crate::cards::CardHooks;
 use crate::model::{CardId, HeroId};
@@ -33,7 +32,6 @@ fn brick_by_brick(state: &mut TavernState, _: Option<usize>, _: &mut CardPool, r
         .filter(|&i| !state.shop[i].is_spell)
         .collect();
     let pick = match minions.len() {
-        _ if !super::hand_has_room(state) => return,
         0 => return,
         1 => minions[0],
         k => minions[rng.below(k)],

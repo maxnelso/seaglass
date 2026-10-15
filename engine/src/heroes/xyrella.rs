@@ -5,9 +5,7 @@
 //! Active, a minion in the Tavern, once per turn: its Attack and Health (and their maximums)
 //! become 2, net of the auras on it (`aura_applied` clears, as for `Robust Evolution`), and it goes
 //! to the hand (not a buy), where the auras it has apply again (a +0/+3 Volumizer bonus makes it
-//! 2/5; engine decision). It needs room in the hand; a minion the hand has
-//! no room for by then (a Gold-spent effect filled it) stays in the Tavern as it is (engine
-//! decision).
+//! 2/5; engine decision). It needs room in the hand.
 
 use crate::cards::{ActivateTargetKind, CardHooks};
 use crate::model::{CardId, HeroId};
@@ -34,7 +32,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 
 /// Using it: the minion, set to 2/2, to the hand.
 fn see_the_light(state: &mut TavernState, target: Option<usize>, _: &mut CardPool, _: &mut Rng) {
-    let Some(t) = target.filter(|&t| t < state.shop.len() && super::hand_has_room(state)) else {
+    let Some(t) = target.filter(|&t| t < state.shop.len()) else {
         return;
     };
     let mut minion = state.shop.remove(t);

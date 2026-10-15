@@ -1,6 +1,9 @@
 //! `Tyrael` (`BG36_356`) — Tier 6 Neutral (`10/10`).
 //!
 //! Activate (1): Set another minion's stats to `50/50` (`100/100` if Golden).
+//!
+//! Set net of the auras on it (`aura_applied` clears), which then apply again on top: a Volumizer
+//! with a +0/+3 bonus becomes 50/53 (engine decision).
 
 use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::model::CardId;
@@ -34,5 +37,8 @@ pub fn on_activate(state: &mut TavernState, source_pos: usize, target_pos: Optio
     target.attack = stat;
     target.health = stat;
     target.sync_max_stats();
+    // Set net of its auras: they apply again on top (as `Robust Evolution`).
+    target.aura_applied = (0, 0);
     cards::check_stat_thresholds(target);
+    state.sync_all_auras();
 }
