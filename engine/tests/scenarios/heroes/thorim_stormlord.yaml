@@ -1,0 +1,37 @@
+hero: Thorim, Stormlord
+defaults:
+  tavern: {auras: {hero: "Thorim, Stormlord"}}
+scenarios:
+  - name: the_first_turn_starts_with_a_discover_of_tier_7_minions
+    seeds: "1..=4"
+    steps:
+      - start_turn
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 7}}}
+      - choose_discover: 0
+    expect: {hand: [], discover_pending: null}
+
+  - name: after_60_gold_spent_the_minion_arrives
+    seed: 1
+    tavern: {gold: 100}
+    steps:
+      - start_turn
+      - choose_discover: 0
+      - set: {gold: 100, shop: ["1/1"]}
+      - set: {auras: {hero: {power: {counter: 57}}}}
+      - buy: 0
+    expect: {hand: {count: 2, any: {tavern_tier: 7}}}
+
+  - name: before_60_nothing
+    seed: 1
+    steps:
+      - start_turn
+      - choose_discover: 0
+      - set: {gold: 100, shop: ["1/1"]}
+      - buy: 0
+    expect: {hand: ["1/1"], auras: {hero: {power: {counter: 3}}}}
+
+  - name: it_is_never_an_action
+    steps:
+      - start_turn
+      - choose_discover: 0
+      - expect_illegal: hero_power

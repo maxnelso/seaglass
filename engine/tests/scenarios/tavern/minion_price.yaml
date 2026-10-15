@@ -1,0 +1,28 @@
+topic: "A minion costs 3 Gold, less the next-minion discount the purchase uses up"
+scenarios:
+  - name: a_minion_costs_3
+    tavern: {gold: 3, shop: ["1/1"]}
+    steps:
+      - buy: 0
+    expect: {gold: 0}
+
+  - name: the_next_minion_discount_makes_it_cheaper_once
+    tavern: {gold: 5, shop: ["1/1", "1/1"], auras: {next_minion_discount: 2}}
+    steps:
+      - buy: 0
+      - expect: {gold: 4, auras: {next_minion_discount: 0}}
+      - buy: 0
+    expect: {gold: 1}
+
+  - name: a_free_minion_needs_no_gold
+    tavern: {gold: 0, shop: ["1/1"], auras: {next_minion_discount: 3}}
+    steps:
+      - expect_legal: {buy: 0}
+      - buy: 0
+    expect: {gold: 0, hand: ["1/1"]}
+
+  - name: buying_a_spell_keeps_it
+    tavern: {gold: 5, tavern_tier: 2, shop: [Strike Oil], auras: {next_minion_discount: 3}}
+    steps:
+      - buy: 0
+    expect: {gold: 2, auras: {next_minion_discount: 3}}

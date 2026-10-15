@@ -2019,6 +2019,7 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
         |c, idx, f| f(c, idx, attacker_id),
     );
     resolve_pending_effects(ctx.board, ctx.auras, ctx.rng);
+    crate::heroes::on_friendly_attack(ctx, attacker_id);
 }
 
 /// Resolve damage-dealt triggers after the friendly unit `source_id` dealt `amount` damage: its

@@ -150,6 +150,8 @@ When a Golden minion is played from `hand` to `board`:
 3. While `discover_pending.is_some()`, only `ChooseDiscover { option_index }` (`0..options.len()`) is legal.
 4. Executing `ChooseDiscover { option_index }` appends `options[option_index]` to `hand` (with a full hand, it is lost and returns to `CardPool`, §2), returns unchosen options to `CardPool`, sets `discover_pending = None`, and runs `check_and_resolve_triple`.
 
+**Discover options a Hero Power keeps** (`Unit::to_hero_power`): a Discover a Hero Power offers can mark its options so that the chosen card goes to the Hero Power (its `stored` cards: Thorim, Stormlord's Tier 7 minion, given later) instead of the hand; the other options are discarded (they never came from the pool).
+
 **The `Triple Reward` card** (`TB_BaconShop_Triples_01`, a token spell, `0` Gold, not a Tavern spell): cast, it offers the same Discover as step 2, with the Tier when it is cast: `min(6, tavern_tier + 1)` **(confirmed)** (`TavernState::offer_triple_reward`). Hero Powers give it (Guff Runetotem, `heroes.md` §11.2). A Golden played from the hand still offers its Discover at once, as above.
 
 ---
@@ -160,7 +162,7 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 
 | Action | Preconditions | Effect |
 | :--- | :--- | :--- |
-| `Buy { shop_index }` | `gold >= 3`, `shop_index < shop.len()`, `hand.len() < 10`, the card can be bought (not `UNBUYABLE`: a `Fishbait`) | Move `shop[shop_index]` to `hand`, then `gold -= 3` (the card takes its hand slot before the Gold is spent, below); check for Triple. |
+| `Buy { shop_index }` | `gold >= minion_buy_cost()` for a minion (`3 - auras.next_minion_discount`, never below 0), `shop_index < shop.len()`, `hand.len() < 10`, the card can be bought (not `UNBUYABLE`: a `Fishbait`) | Move `shop[shop_index]` to `hand`, then pay its price (the card takes its hand slot before the Gold is spent, below); a minion's purchase uses up `next_minion_discount` (it goes back to 0); check for Triple. |
 | `Play { hand_index, board_pos }` (Minion) | `hand_index < hand.len()`, card is a minion, `board.len() < 7`, `board_pos <= board.len()` | Remove from `hand`, apply on-play Battlecries/auras, insert at `board[board_pos]`, run post-play triggers, trigger Discover if tripled Golden. |
 | `Play { hand_index, board_pos }` (Targeted Spell) | `hand_index < hand.len()`, card is a targeted spell, `board_pos < board.len()`, `board[board_pos]` is a valid target (§7.4: e.g. an Undead for `Butchering`, a minion with a type for `Chef's Choice`) | Remove spell from `hand`, cast it on `board[board_pos]` (§7.4). |
 | `PlayOnShop { hand_index, shop_index }` (Spell on a Tavern minion) | `hand_index < hand.len()`, card is a spell that can target a minion in the Tavern (its text says "a minion", §7.4), `shop[shop_index]` is a minion | Remove spell from `hand`, cast it once on `shop[shop_index]` (§7.4). |
@@ -174,6 +176,8 @@ If `discover_pending.is_some()`, **only `ChooseDiscover` is legal**. Otherwise:
 | `HeroPower { target }` | The player's hero has an active Hero Power with uses left, `gold >= cost`, a valid target ([`heroes.md`](heroes.md) §5) | Use the Hero Power. |
 | `ChooseHero { option_index }` | `hero_options` is non-empty (then it is the only legal action), `option_index < hero_options.len()` | Get that hero ([`heroes.md`](heroes.md) §6). |
 | `EndTurn` | Always legal when `discover_pending.is_none()` | Run end-of-turn triggers, discard the temporary cards still in `hand` (Spellcraft spells, §7.4) without discard effects, and conclude the Tavern turn. |
+
+**Buying a minion** costs 3 Gold, less `auras.next_minion_discount` (never below 0), which the purchase uses up: an effect that makes "the next minion you buy" cheaper or free adds to it (Aranna Starseeker, `heroes.md` §11.2). Without such an effect it is 0 and a minion costs 3.
 
 **Buying a spell** costs its `spell_cost` in Gold, or in Health if it `costs_health` (`Hasty Excavation`; legal while `health + armor` stays above the cost, or hero damage is prevented), less `auras.next_spell_discount` (`Ominous Seer`, never below `0`). Buying any spell uses up the whole discount; until then it carries over to later turns.
 

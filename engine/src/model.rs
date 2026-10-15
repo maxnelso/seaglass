@@ -277,6 +277,10 @@ pub struct PlayerAuras {
     pub tavern_spells_cast: u32,
     /// Cost reduction on the next Tavern spell bought (`Ominous Seer`).
     pub next_spell_discount: i32,
+    /// Cost reduction on the next minion bought (Aranna Starseeker; `docs/tavern.md` §6): the
+    /// purchase uses it up.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub next_minion_discount: i32,
     /// Per-tribe Tavern shop buffs (`Eonar's Favor`).
     pub tavern_tribe_buffs: Vec<(Tribe, i32, i32)>,
     /// Buffs given to a random minion in the Tavern after each `Refresh`, in the order they were
@@ -620,6 +624,10 @@ pub struct Unit {
     /// `docs/tavern.md` §3.1): it stays through the next turn start.
     #[serde(default, skip_serializing_if = "is_false")]
     pub frozen: bool,
+    /// A Discover option a Hero Power keeps (`docs/tavern.md` §5.2): chosen, it goes to the Hero
+    /// Power's `stored` cards instead of the hand (Thorim, Stormlord).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub to_hero_power: bool,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
@@ -701,6 +709,7 @@ impl Unit {
             extra_deathrattles: Vec::new(),
             temp_reborn: false,
             frozen: false,
+            to_hero_power: false,
         }
     }
 

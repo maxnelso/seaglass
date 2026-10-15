@@ -1,0 +1,34 @@
+hero: Aranna Starseeker
+scenarios:
+  - name: the_fourteenth_friendly_attack_unlocks_it
+    tavern:
+      auras: {hero: {hero: Aranna Starseeker, power: {counter: 12}}}
+      board: ["1/1"]
+    steps:
+      - fight: {board: ["0/3"]}
+    expect: {auras: {hero: {power: {stacks: 1}}}}
+
+  - name: unlocked_the_first_minion_bought_each_turn_is_free
+    tavern:
+      auras: {hero: {hero: Aranna Starseeker, power: {stacks: 1}}}
+      gold: 0
+      turn: 4
+    steps:
+      - start_turn
+      - expect: {gold: 7, auras: {next_minion_discount: 3}}
+      - buy: 0
+      - expect: {gold: 7, auras: {next_minion_discount: 0}}
+      - buy: 0
+    expect: {gold: 4}
+
+  - name: locked_minions_cost_3
+    tavern: {auras: {hero: Aranna Starseeker}, gold: 0, turn: 4}
+    steps:
+      - start_turn
+      - buy: 0
+    expect: {gold: 4}
+
+  - name: it_is_never_an_action
+    tavern: {auras: {hero: Aranna Starseeker}, gold: 5}
+    steps:
+      - expect_illegal: hero_power

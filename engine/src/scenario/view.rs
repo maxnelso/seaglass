@@ -228,6 +228,7 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
         serde_yaml::from_value(value.clone()).expect("player auras round-trip through serde");
     let mut view = fields(m);
     with_default(&mut view, "hero", View::Null);
+    with_default(&mut view, "next_minion_discount", View::Int(0));
     if let (Some((_, hero)), Some(state)) = (
         view.iter_mut().find(|(k, _)| k == "hero"),
         auras.hero.as_ref(),

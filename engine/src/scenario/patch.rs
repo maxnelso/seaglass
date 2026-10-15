@@ -40,7 +40,16 @@ const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
 /// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
 /// can still set them.
-const SKIPPED_UNIT_FIELDS: [&str; 4] = ["marked", "extra_deathrattles", "temp_reborn", "frozen"];
+const SKIPPED_UNIT_FIELDS: [&str; 5] = [
+    "marked",
+    "extra_deathrattles",
+    "temp_reborn",
+    "frozen",
+    "to_hero_power",
+];
+
+/// `PlayerAuras` fields serde leaves out while they are 0: a patch can still set them.
+const SKIPPED_AURAS_FIELDS: [&str; 1] = ["next_minion_discount"];
 
 /// Patch `target` with `patch`, a mapping of field names to new values.
 pub fn apply<T: Serialize + DeserializeOwned>(target: &mut T, patch: &Value) -> Result<(), String> {
@@ -155,7 +164,10 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
                 }
             }
             Some(slot) => merge(slot, change, &field_path)?,
-            None if open || (is_unit && SKIPPED_UNIT_FIELDS.contains(&name.as_str())) => {
+            None if open
+                || (is_unit && SKIPPED_UNIT_FIELDS.contains(&name.as_str()))
+                || (is_auras && SKIPPED_AURAS_FIELDS.contains(&name.as_str())) =>
+            {
                 fields.insert(key.clone(), change.clone());
             }
             None => return Err(unknown_field(&field_path, &name, fields)),

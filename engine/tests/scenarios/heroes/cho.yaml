@@ -1,0 +1,40 @@
+hero: Cho
+scenarios:
+  - name: a_golden_played_gives_both_teammates_a_triple_reward
+    seeds: "1..=2"
+    duos_tavern:
+      players:
+        - {auras: {hero: Cho}, hand: ["golden Zoatroid"]}
+        - {}
+    steps:
+      - {player: 0, play: 0}
+    expect:
+      players:
+        - {hand: [Triple Reward], auras: {hero: {power: {stacks: 1}}}}
+        - {hand: [Triple Reward]}
+
+  - name: three_times_per_game
+    seeds: "1..=2"
+    duos_tavern:
+      players:
+        - auras: {hero: {hero: Cho, power: {stacks: 3}}}
+          hand: ["golden Zoatroid"]
+        - {}
+    steps:
+      - {player: 0, play: 0}
+    expect:
+      players:
+        - {hand: []}
+        - {hand: []}
+
+  - name: a_plain_minion_gives_nothing
+    duos_tavern:
+      players:
+        - {auras: {hero: Cho}, hand: [Zoatroid]}
+        - {}
+    steps:
+      - {player: 0, play: 0}
+    expect:
+      players:
+        - {hand: [], auras: {hero: {power: {stacks: 0}}}}
+        - {hand: []}

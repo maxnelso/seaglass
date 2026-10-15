@@ -906,6 +906,11 @@ impl TavernState {
         }
     }
 
+    /// The Gold a minion costs to buy now (`docs/tavern.md` §6): 3, less `next_minion_discount`.
+    pub fn minion_buy_cost(&self) -> u32 {
+        (3 - self.auras.next_minion_discount).max(0) as u32
+    }
+
     /// Offer a Triple Reward's Discover (`docs/tavern.md` §5.2): up to 3 minions of exactly
     /// `min(6, tavern_tier + 1)` from the pool (or of the highest lower Tier with copies left).
     /// A Golden played from the hand and the `Triple Reward` card offer it.
@@ -1509,7 +1514,7 @@ impl TavernState {
                         self.gold >= cost
                     }
                 } else {
-                    self.gold >= 3
+                    self.gold >= self.minion_buy_cost()
                 }
             }
             TavernAction::Play {
@@ -1876,13 +1881,15 @@ impl TavernState {
                         self.spend_gold(cost, pool, rng);
                     }
                 } else {
+                    let cost = self.minion_buy_cost();
+                    self.auras.next_minion_discount = 0;
                     cards::on_minion_bought(self, &mut unit);
                     let cid = unit.card_id;
                     obtained = unit.clone();
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
-                    self.spend_gold(3, pool, rng);
+                    self.spend_gold(cost, pool, rng);
                 }
                 cards::on_obtained(self, &obtained, pool, rng);
                 cards::after_buy_card(self, &bought_snapshot, pool, rng);
@@ -1977,6 +1984,14 @@ impl TavernState {
                     self.discover_pending = Some(self.discover_queue.remove(0));
                 }
                 let mut chosen = opts.remove(option_index);
+                // An option a Hero Power keeps goes to it; the others weren't from the pool.
+                if std::mem::take(&mut chosen.to_hero_power) {
+                    if !self.choice_prompt_left() {
+                        self.pending_choice_target = None;
+                    }
+                    heroes::keep_chosen(self, chosen);
+                    return Ok(false);
+                }
 
                 if cards::is_option_card(chosen.card_id) {
                     // A Choose One spell cast several times was chosen once: once per cast.

@@ -112,3 +112,12 @@ def test_cards_frozen_on_their_own_are_in_the_observation_encoding() -> None:
     game.step(seaglass.TavernAction.toggle_freeze())
     assert not any(u.frozen for u in game.observe().shop)
     assert not game.observe().is_frozen
+
+
+def test_the_next_minion_discount_is_in_the_observation() -> None:
+    game = seaglass.TavernGame(seed=1, hero="Aranna Starseeker")
+    game.start_turn()
+    obs = game.observe()
+    assert obs.next_minion_discount == 0
+    player_vec, _, _ = encode_observation(obs)
+    assert player_vec.shape == (PLAYER_DIM,) and player_vec[-1] == 0.0

@@ -12,12 +12,14 @@ mod table;
 
 pub mod alakir;
 pub mod alexstrasza;
+pub mod aranna_starseeker;
 pub mod arch_villain_rafaam;
 pub mod brukan;
 pub mod capn_hoggarr;
 pub mod captain_eudora;
 pub mod captain_hooktusk;
 pub mod chenvaala;
+pub mod cho;
 pub mod death_speaker_blackthorn;
 pub mod deathwing;
 pub mod dinotamer_brann;
@@ -33,6 +35,7 @@ pub mod flobbidinous_floop;
 pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
 pub mod fungalmancer_flurgl;
+pub mod gall;
 pub mod george_the_fallen;
 pub mod greybough;
 pub mod guff_runetotem;
@@ -46,6 +49,7 @@ pub mod kaelthas_sunstrider;
 pub mod kithix;
 pub mod kurtrus_ashfallen;
 pub mod lich_bazhial;
+pub mod loh_the_living_legend;
 pub mod maiev_shadowsong;
 pub mod malygos;
 pub mod mutanus_the_devourer;
@@ -69,6 +73,7 @@ pub mod tamsin_roame;
 pub mod teron_gorefiend;
 pub mod the_jailer;
 pub mod the_lich_king;
+pub mod thorim_stormlord;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
 pub mod varden_dawngrasp;
@@ -144,12 +149,14 @@ type Implemented = (HeroId, fn() -> Vec<(CardId, CardHooks)>);
 const IMPLEMENTED: &[Implemented] = &[
     (alakir::ID, alakir::behaviors),
     (alexstrasza::ID, alexstrasza::behaviors),
+    (aranna_starseeker::ID, aranna_starseeker::behaviors),
     (arch_villain_rafaam::ID, arch_villain_rafaam::behaviors),
     (brukan::ID, brukan::behaviors),
     (capn_hoggarr::ID, capn_hoggarr::behaviors),
     (captain_eudora::ID, captain_eudora::behaviors),
     (captain_hooktusk::ID, captain_hooktusk::behaviors),
     (chenvaala::ID, chenvaala::behaviors),
+    (cho::ID, cho::behaviors),
     (
         death_speaker_blackthorn::ID,
         death_speaker_blackthorn::behaviors,
@@ -168,6 +175,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (forest_lord_cenarius::ID, forest_lord_cenarius::behaviors),
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
     (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
+    (gall::ID, gall::behaviors),
     (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
     (guff_runetotem::ID, guff_runetotem::behaviors),
@@ -181,6 +189,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (kithix::ID, kithix::behaviors),
     (kurtrus_ashfallen::ID, kurtrus_ashfallen::behaviors),
     (lich_bazhial::ID, lich_bazhial::behaviors),
+    (loh_the_living_legend::ID, loh_the_living_legend::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
     (malygos::ID, malygos::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
@@ -207,6 +216,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
     (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
+    (thorim_stormlord::ID, thorim_stormlord::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (varden_dawngrasp::ID, varden_dawngrasp::behaviors),
@@ -486,6 +496,21 @@ pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool,
 pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(after_upgrade) = power_hooks(&state.auras).and_then(|c| c.hero_after_upgrade) {
         after_upgrade(state, pool, rng);
+    }
+}
+
+/// The player chose an option of a Discover their Hero Power keeps (`Unit::to_hero_power`,
+/// `docs/tavern.md` §5.2): it goes to the Hero Power's `stored` cards.
+pub fn keep_chosen(state: &mut TavernState, chosen: Unit) {
+    if let Some(power) = power_mut(&mut state.auras) {
+        power.stored.push(chosen);
+    }
+}
+
+/// A friendly minion attacks: the Hero Power's `hero_friendly_attack` hook (`docs/heroes.md` §4).
+pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
+    if let Some(friendly_attack) = power_hooks(ctx.auras).and_then(|c| c.hero_friendly_attack) {
+        friendly_attack(ctx, attacker_id);
     }
 }
 

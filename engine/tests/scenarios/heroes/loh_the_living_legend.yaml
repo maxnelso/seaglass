@@ -1,0 +1,25 @@
+hero: Loh, the Living Legend
+scenarios:
+  - name: every_fifteenth_friendly_attack_gives_a_triple_reward
+    description: >-
+      The 1/1 attacks the 0/30 30 times (from 14: the 15th and the 30th give one, 14 left over);
+      the cards come back with the hand.
+    tavern:
+      auras: {hero: {hero: "Loh, the Living Legend", power: {counter: 14}}}
+      board: ["1/1"]
+    steps:
+      - fight: {board: ["0/30"]}
+    expect: {hand: [Triple Reward, Triple Reward], auras: {hero: {power: {counter: 14}}}}
+
+  - name: every_attack_counts_across_combats
+    seed: 1
+    tavern: {auras: {hero: "Loh, the Living Legend"}, board: ["1/30"]}
+    steps:
+      - fight: {board: ["0/3"]}
+    expect: {auras: {hero: {power: {counter: 3}}}, hand: []}
+
+  - name: enemy_attacks_dont_count
+    tavern: {auras: {hero: "Loh, the Living Legend"}, board: ["0/30"]}
+    steps:
+      - fight: {board: ["1/2"]}
+    expect: {auras: {hero: {power: {counter: 0}}}}

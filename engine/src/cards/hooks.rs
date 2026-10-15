@@ -514,6 +514,9 @@ card_hooks! {
     hero_after_refresh(on_hero_after_refresh): TavernEventFn,
     /// The player ends their turn, after the cards' end-of-turn triggers: `(state, pool, rng)`.
     hero_end_turn(on_hero_end_turn): TavernEventFn,
+    /// A friendly minion attacks (in combat or in the Tavern), once the friendly-attack
+    /// observers resolved: `(ctx, attacker_id)`.
+    hero_friendly_attack(on_hero_friendly_attack): fn(&mut BoardCtx<'_>, UnitId),
 }
 
 impl Default for CardHooks {

@@ -14,7 +14,7 @@ CARD_ID_TO_IDX: dict[int, int] = {cid: i + 1 for i, cid in enumerate(_ALL_IDS)}
 VOCAB_SIZE: int = len(_ALL_IDS) + 1
 
 NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER  # 7 + 10 + 7 + 4 = 28
-PLAYER_DIM: int = 16
+PLAYER_DIM: int = 17
 SLOT_NUM_DIM: int = 13
 
 
@@ -64,6 +64,8 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             1.0 if obs.hero_options else 0.0,
             # Freezing (`engine/docs/tavern.md` §3.1): the shop as a whole.
             1.0 if obs.is_frozen else 0.0,
+            # The next minion's discount (`engine/docs/tavern.md` §6): Aranna's free minion.
+            obs.next_minion_discount / 3.0,
         ],
         dtype=np.float32,
     )

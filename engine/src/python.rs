@@ -513,6 +513,9 @@ pub struct PyTavernObservation {
     pub upgrade_cost: u32,
     #[pyo3(get)]
     pub is_frozen: bool,
+    /// The next minion bought costs this much less (`docs/tavern.md` §6).
+    #[pyo3(get)]
+    pub next_minion_discount: i32,
     #[pyo3(get)]
     pub board: Vec<PyUnit>,
     #[pyo3(get)]
@@ -564,6 +567,7 @@ impl From<&TavernState> for PyTavernObservation {
             free_refreshes: s.auras.free_refreshes,
             upgrade_cost: s.upgrade_cost,
             is_frozen: s.is_frozen,
+            next_minion_discount: s.auras.next_minion_discount,
             board: s
                 .board
                 .iter()
@@ -943,6 +947,9 @@ pub struct PyDuosObservation {
     pub upgrade_cost: u32,
     #[pyo3(get)]
     pub is_frozen: bool,
+    /// The next minion bought costs this much less (`docs/tavern.md` §6).
+    #[pyo3(get)]
+    pub next_minion_discount: i32,
     #[pyo3(get)]
     pub board: Vec<PyUnit>,
     #[pyo3(get)]
@@ -1039,6 +1046,7 @@ impl PyDuosObservation {
             free_refreshes: own.free_refreshes,
             upgrade_cost: own.upgrade_cost,
             is_frozen: own.is_frozen,
+            next_minion_discount: own.next_minion_discount,
             board: own.board,
             hand: own.hand,
             shop: own.shop,
