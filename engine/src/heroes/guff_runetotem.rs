@@ -35,6 +35,6 @@ fn after_buy(state: &mut TavernState, bought: &Unit, _: &mut CardPool, _: &mut R
         rewards += 1;
     }
     for _ in 0..rewards {
-        state.add_to_hand(tokens::make_triple_reward());
+        state.add_to_hand(tokens::make_triple_reward(state.tavern_tier));
     }
 }

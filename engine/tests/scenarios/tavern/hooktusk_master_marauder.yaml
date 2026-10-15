@@ -6,7 +6,8 @@ scenarios:
       board: ["Hooktusk, Master Marauder", Southsea Busker]   # Southsea Busker: 3/1 Pirate
       hand: [golden Cord Puller]
     steps:
-      - play: golden Cord Puller   # 1 Golden minion played (+1/+1 -> +2/+2) and Triple Reward Discover
+      - play: golden Cord Puller   # 1 Golden minion played (+1/+1 -> +2/+2) and a Triple Reward
+      - play: {hand: Triple Reward, pos: 0}
       - choose_discover: 0
     expect:
       board: {any: "Southsea Busker 5/3"}
@@ -18,7 +19,8 @@ scenarios:
       hand: [Aureate Laureate, golden Cord Puller]
     steps:
       - play: Aureate Laureate   # always Golden, without a Triple Reward
-      - play: golden Cord Puller   # its Triple Reward Discover
+      - play: golden Cord Puller   # and its Triple Reward
+      - play: {hand: Triple Reward, pos: 0}
       - choose_discover: 0
     expect:
       auras: {golden_minions_played: 2}

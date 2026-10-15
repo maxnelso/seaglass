@@ -21,7 +21,7 @@ scenarios:
     seeds: "1..41"
     tavern: {tavern_tier: 5, board: [Bubble Gunner], hand: [golden Primalfin Lookout]}
     steps:
-      - play: golden Primalfin Lookout   # 2 Discovers, then its Triple Reward
+      - play: golden Primalfin Lookout   # 2 Discovers (its Triple Reward is a card)
     expect:
       discover_pending: {count: 3, none: {card: Primalfin Lookout}}
-      discover_queue: {count: 2, all: {none: {card: Primalfin Lookout}}}
+      discover_queue: {count: 1, all: {none: {card: Primalfin Lookout}}}

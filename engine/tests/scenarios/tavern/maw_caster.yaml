@@ -55,7 +55,7 @@ scenarios:
     tavern: {tavern_tier: 4, board: [Risen Rider]}   # an Undead to destroy
     steps:
       - add_to_hand: golden Maw Caster
-      - play: {hand: golden Maw Caster, pos: 0}   # 2 Discovers, then its Triple Reward
+      - play: {hand: golden Maw Caster, pos: 0}   # 2 Discovers (its Triple Reward is a card)
     expect:
       discover_pending: {count: 3, none: {card: Maw Caster}}
-      discover_queue: {count: 2, all: {none: {card: Maw Caster}}}
+      discover_queue: {count: 1, all: {none: {card: Maw Caster}}}

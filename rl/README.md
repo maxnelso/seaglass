@@ -42,7 +42,7 @@ At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_
 ### 2. Action Space & Legality Mask
 During a Tavern turn, the agent repeatedly takes discrete micro-actions until selecting `EndTurn`.
 - Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, and the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
-- The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Triple Reward Discover is pending, all actions except `ChooseDiscover` are masked out.
+- The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Discover is pending (the `Triple Reward` card cast, a Discover effect), all actions except `ChooseDiscover` are masked out. A Golden played from the hand gives a `Triple Reward` card (a 0-Gold spell in the hand, `engine/docs/tavern.md` §5.2); its locked-in Discover Tier is the card's `counter` (`seaglass.Unit.counter`), and casting it is a `Play`.
 
 ### 3. Reward Function
 Default potential-based reward shaping over turn boundaries:

@@ -443,7 +443,7 @@ pub fn all_spells() -> Vec<Unit> {
         tokens::make_pointy_arrow(),
         tokens::make_arcane_absorption(),
         tokens::make_conflagration(),
-        tokens::make_triple_reward(),
+        tokens::make_triple_reward(0),
     ]);
     list
 }

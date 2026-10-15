@@ -13,6 +13,8 @@ scenarios:
       - add_to_hand: {card: Lockbox, lockbox_turns_left: 1}
       - start_turn
       - play: 0
+      - expect: {hand: [{card: Triple Reward, counter: 2}]}   # Tavern Tier + 1
+      - play: {hand: Triple Reward, pos: 0}
     expect:
       board: [{is_golden: true}]
-      discover_pending: {count: 3, all: {tavern_tier: 2}}   # the Triple Reward: Tavern Tier + 1
+      discover_pending: {count: 3, all: {tavern_tier: 2}}

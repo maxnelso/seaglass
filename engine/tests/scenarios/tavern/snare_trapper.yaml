@@ -24,4 +24,4 @@ scenarios:
       - add_to_hand: golden Snare Trapper
       - play: golden Snare Trapper
       - choose_discover: 0   # Ensnare the Target: get 2 random Quilboar
-    expect: {hand: {count: 2, none: {card: Snare Trapper}}}
+    expect: {hand: {count: 3, any: Triple Reward, none: {card: Snare Trapper}}}

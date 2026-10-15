@@ -43,7 +43,6 @@ scenarios:
       players: [{hand: ["golden Private Chef 10/8"]}, {}]
     steps:
       - {player: 0, play: Private Chef}
-      - {player: 0, choose_discover: 0}   # its Triple Reward
     expect:
       players: {0: {hand: {any: {card: Private Selection, is_golden: true}}}}
 

@@ -4,8 +4,8 @@ defaults:
 scenarios:
   - name: a_passed_copy_triples_with_two_on_the_receivers_board
     description: >-
-      The receiver gets the Golden in their hand, and playing it gives them the Triple Reward: a
-      Discover of their Tavern Tier + 1.
+      The receiver gets the Golden in their hand, and playing it gives them the Triple Reward card:
+      a Discover of their Tavern Tier + 1.
     duos_tavern:
       players:
         - {gold: 1, hand: [Zoatroid]}
@@ -14,6 +14,7 @@ scenarios:
       - {player: 0, pass: Zoatroid}
       - expect: {players: {1: {board: [], hand: ["golden Zoatroid 6/4"]}}}
       - {player: 1, play: Zoatroid}
+      - {player: 1, play: {hand: Triple Reward, pos: 0}}
     expect:
       players:
         - {hand: [], discover_pending: null}
@@ -49,6 +50,8 @@ scenarios:
     steps:
       - {player: 0, pass: Zoatroid}
       - {player: 1, play: Zoatroid}
+      - expect: {players: {1: {hand: [{card: Triple Reward, counter: 2}]}}}
+      - {player: 1, play: {hand: Triple Reward, pos: 0}}
     expect:
       players: {1: {discover_pending: {count: 3, all: {tavern_tier: 2}}}}
 

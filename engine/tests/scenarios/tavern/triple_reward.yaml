@@ -1,24 +1,76 @@
 card: Triple Reward
 scenarios:
-  - name: cast_it_discovers_a_minion_of_the_next_tier
-    description: (confirmed) The Tier when it is cast; it costs 0 Gold.
+  - name: cast_it_discovers_a_minion_of_its_tier
+    description: It costs 0 Gold; a card made at Tier 3 Discovers Tier 3.
     seeds: "1..=4"
-    tavern: {gold: 0, tavern_tier: 2, hand: [Triple Reward]}
+    tavern: {gold: 0, tavern_tier: 2, hand: [{card: Triple Reward, counter: 3}]}
     steps:
       - play: 0
       - expect: {discover_pending: {count: 3, all: {tavern_tier: 3}}}
       - choose_discover: 0
     expect: {gold: 0, hand: [{tavern_tier: 3}]}
 
-  - name: at_tier_6_tier_6
-    seeds: "1..=2"
-    tavern: {tavern_tier: 6, hand: [Triple Reward]}
+  - name: its_tier_is_locked_in_when_received
+    description: >-
+      (confirmed) Guff gives it at Tier 2 (Tier 3); the Tavern is upgraded to Tier 4 before it is
+      cast: it still Discovers Tier 3.
+    seeds: "1..=4"
+    tavern:
+      auras: {hero: {hero: Guff Runetotem, power: {counter: 19}}}
+      gold: 20
+      tavern_tier: 2
+      shop: ["1/1 t1"]
     steps:
-      - play: 0
+      - buy: 0
+      - expect: {hand: {any: {card: Triple Reward, counter: 3}}}
+      - set: {tavern_tier: 4}
+      - play: {hand: Triple Reward}
+    expect: {discover_pending: {count: 3, all: {tavern_tier: 3}}}
+
+  - name: received_at_tier_6_it_is_tier_6
+    seeds: "1..=2"
+    tavern:
+      auras: {hero: {hero: Guff Runetotem, power: {counter: 19}}}
+      gold: 20
+      tavern_tier: 6
+      shop: ["1/1 t1"]
+    steps:
+      - buy: 0
+      - play: {hand: Triple Reward}
     expect: {discover_pending: {count: 3, all: {tavern_tier: 6}}}
 
   - name: it_is_not_a_tavern_spell
-    tavern: {tavern_tier: 1, hand: [Triple Reward]}
+    tavern: {tavern_tier: 1, hand: [{card: Triple Reward, counter: 2}]}
     steps:
       - play: 0
     expect: {auras: {tavern_spells_cast: 0}}
+
+  - name: a_golden_played_gives_it_at_tavern_tier_plus_1
+    description: Playing a Golden gives the card, not the Discover at once.
+    tavern: {tavern_tier: 3, hand: [golden Zoatroid]}
+    steps:
+      - play: 0
+    expect:
+      discover_pending: null
+      hand: [{card: Triple Reward, counter: 4, is_spell: true}]
+
+  - name: an_always_golden_minion_gives_none
+    tavern: {hand: [Aureate Laureate]}
+    steps:
+      - play: 0
+    expect: {hand: []}
+
+  - name: with_a_full_hand_it_is_lost
+    description: >-
+      (confirmed) Golden Tavern Tempest's 2 Elementals fill the hand it left, so its Triple Reward
+      card has no room and is lost.
+    seed: 1
+    tavern:
+      tavern_tier: 4
+      hand: [golden Tavern Tempest, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
+             Blood Gem, Blood Gem, Blood Gem]
+    steps:
+      - play: 0
+    expect:
+      discover_pending: null
+      hand: {count: 10, none: {card: Triple Reward}}

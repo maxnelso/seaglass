@@ -124,7 +124,7 @@ Any card can be passed: a minion or a spell, Golden or not **(confirmed)**. Ther
 
 ### 5.5 Triples with a Passed Card
 
-**(confirmed)** A delivered card goes through the receiver's normal triple check (`tavern.md` §5): with two copies on the receiver's board and/or in their hand, it completes the triple. The receiver gets the Golden in their hand, and playing it gives **the receiver** the Triple Reward: a Discover of their Tavern Tier + 1. A passed Golden likewise gives its Triple Reward to whoever plays it.
+**(confirmed)** A delivered card goes through the receiver's normal triple check (`tavern.md` §5): with two copies on the receiver's board and/or in their hand, it completes the triple. The receiver gets the Golden in their hand, and playing it gives **the receiver** the `Triple Reward` card, locked in at their Tavern Tier + 1. A passed Golden likewise gives its Triple Reward to whoever plays it.
 
 ### 5.6 Order of a Pass
 

@@ -16,7 +16,6 @@ scenarios:
       - add_to_hand: Wanderer Cho
       - expect: {hand: [{card: Wanderer Cho, is_golden: true, stats: 8/6, charges: 2}]}
       - play: Wanderer Cho
-      - choose_discover: 0   # its Triple Reward
       - set: {board: {0: {charges: 0}}}
       - start_turn
     expect: {board: [{card: Wanderer Cho, is_golden: true, charges: 2}]}
@@ -87,7 +86,6 @@ scenarios:
       - expect: {players: {0: {hand: {-1: "golden Wanderer Cho 8/6"}}}}
       - {player: 0, play: Wanderer Cho}
       - expect: {free_passes: [2, 0]}
-      - {player: 0, choose_discover: 0}   # its Triple Reward first
       - {player: 0, pass: Joyous}
       - {player: 0, pass: Zoatroid}
       - {player: 0, expect_illegal: {pass: Flittering Bat}}

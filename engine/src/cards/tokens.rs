@@ -351,13 +351,17 @@ pub fn make_tavern_coin() -> Unit {
 }
 
 /// `Triple Reward` (`TB_BaconShop_Triples_01` — 0-Gold token spell: Discover a minion of the next
-/// Tier; `docs/tavern.md` §5.2).
-pub fn make_triple_reward() -> Unit {
+/// Tier; `docs/tavern.md` §5.2), given to a player at Tavern Tier `tavern_tier`: its Discover Tier
+/// (`counter`) is locked in now, `min(6, tavern_tier + 1)`; 0 leaves it to the cast.
+pub fn make_triple_reward(tavern_tier: u32) -> Unit {
     let mut reward = Unit::new("Triple Reward", 0, 0)
         .with_card_id(SPELL_TRIPLE_REWARD)
         .with_tavern_tier(1);
     reward.is_spell = true;
     reward.spell_cost = 0;
+    if tavern_tier > 0 {
+        reward.counter = (tavern_tier + 1).min(6) as i32;
+    }
     reward
 }
 

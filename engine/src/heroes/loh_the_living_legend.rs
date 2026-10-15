@@ -34,5 +34,6 @@ fn friendly_attack(ctx: &mut BoardCtx<'_>, _: UnitId) {
         return;
     }
     power.counter -= ATTACKS;
-    ctx.add_to_hand(tokens::make_triple_reward());
+    let tier = ctx.hero_tier;
+    ctx.add_to_hand(tokens::make_triple_reward(tier));
 }

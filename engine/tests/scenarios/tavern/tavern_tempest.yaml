@@ -13,5 +13,5 @@ scenarios:
     tavern: {tavern_tier: 4}
     steps:
       - add_to_hand: golden Tavern Tempest
-      - play: golden Tavern Tempest   # Battlecry: get 2 random Elementals
-    expect: {hand: {count: 2, all: elemental, none: {card: Tavern Tempest}}}
+      - play: golden Tavern Tempest   # Battlecry: get 2 random Elementals, then a Triple Reward
+    expect: {hand: {count: 3, 0: elemental, 1: elemental, 2: Triple Reward, none: {card: Tavern Tempest}}}

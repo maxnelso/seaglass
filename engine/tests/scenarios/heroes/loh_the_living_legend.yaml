@@ -9,7 +9,9 @@ scenarios:
       board: ["1/1"]
     steps:
       - fight: {board: ["0/30"]}
-    expect: {hand: [Triple Reward, Triple Reward], auras: {hero: {power: {counter: 14}}}}
+    expect:
+      hand: [{card: Triple Reward, counter: 2}, {card: Triple Reward, counter: 2}]
+      auras: {hero: {power: {counter: 14}}}
 
   - name: every_attack_counts_across_combats
     seed: 1

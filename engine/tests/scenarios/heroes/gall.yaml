@@ -4,14 +4,15 @@ scenarios:
     seeds: "1..=2"
     duos_tavern:
       players:
-        - {auras: {hero: Gall}, hand: ["golden Zoatroid"]}
+        - {auras: {hero: Gall}, hand: ["golden Zoatroid"], tavern_tier: 3}
         - {}
     steps:
       - {player: 0, play: 0}
     expect:
       players:
-        - {hand: [Triple Reward], auras: {hero: {power: {stacks: 1}}}}
-        - {hand: [Triple Reward]}
+        - hand: [{card: Triple Reward, counter: 4}, {card: Triple Reward, counter: 4}]   # its own, then the Hero Power's
+          auras: {hero: {power: {stacks: 1}}}
+        - {hand: [{card: Triple Reward, counter: 4}]}   # the giver's Tier (engine decision)
 
   - name: three_times_per_game
     seeds: "1..=2"
@@ -24,7 +25,7 @@ scenarios:
       - {player: 0, play: 0}
     expect:
       players:
-        - {hand: []}
+        - {hand: [{card: Triple Reward, counter: 2}]}   # only the Golden's own
         - {hand: []}
 
   - name: a_plain_minion_gives_nothing

@@ -31,6 +31,5 @@ scenarios:
       players: [{max_gold: 10, hand: ["golden Selfless Sightseer 12/4"]}, {max_gold: 10}]
     steps:
       - {player: 0, play: Selfless Sightseer}
-      - {player: 0, choose_discover: 0}   # its Triple Reward
     expect:
       players: [{max_gold: 12}, {max_gold: 12}]

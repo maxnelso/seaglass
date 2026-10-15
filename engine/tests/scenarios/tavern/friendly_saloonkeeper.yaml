@@ -21,7 +21,6 @@ scenarios:
       players: [{hand: ["golden Friendly Saloonkeeper 6/8"]}, {}]
     steps:
       - {player: 0, play: Friendly Saloonkeeper}
-      - {player: 0, choose_discover: 0}   # its Triple Reward
     expect:
       players: {1: {hand: [Tavern Coin, Tavern Coin]}}
 

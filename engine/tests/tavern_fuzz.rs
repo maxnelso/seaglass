@@ -27,8 +27,8 @@
 //!   and no copy leaves it for nowhere;
 //! - per action: a rolled shop holds `shop_capacity` minions and one spell, prices are paid in
 //!   Gold (less what the Hero Power gives back), a Health cost never kills, Upgrade goes up one
-//!   Tier, a bought or Discovered card reaches the hand, a Golden played from hand offers a
-//!   Triple Reward of the next Tier, a Tavern spell counts as cast, the hero is never healed;
+//!   Tier, a bought or Discovered card reaches the hand, a `Triple Reward` card cast offers
+//!   minions of its Tier, a Tavern spell counts as cast, the hero is never healed;
 //! - per combat: [`check_battle`] (at most 7 survivors, all alive, outcome and `hero_damage` as
 //!   specified, events framed by `BattleStart` / `BattleEnd`), [`check_battle_units`] (every unit
 //!   accounted for by the events), the hero loses exactly the damage, and the Tavern keeps its
@@ -1464,7 +1464,7 @@ fn hit_points(s: &TavernState) -> i32 {
 }
 
 /// What a Tavern action must do, from the state just before it (`docs/tavern.md` §6): its price
-/// in Gold, the card it puts in the hand, the Triple Reward of a Golden played from hand, and so
+/// in Gold, the card it puts in the hand, the Discover of a `Triple Reward` card cast, and so
 /// on. [`Expect::check`] checks the state after it.
 struct Expect {
     action: TavernAction,
@@ -1477,8 +1477,8 @@ struct Expect {
     tavern_spells_cast: u32,
     /// The card the action puts in the hand (a bought minion, a Discovered card).
     to_hand: Option<u32>,
-    /// A Golden played from hand must offer a Triple Reward (of `reward_tier`, if the pool has
-    /// copies of it: `reward_tier_left`).
+    /// A `Triple Reward` card cast must offer a Discover (of `reward_tier`, its locked-in Tier, if
+    /// the pool has copies of it: `reward_tier_left`).
     triple_reward: bool,
     reward_tier: u32,
     reward_tier_left: bool,
@@ -1597,9 +1597,12 @@ impl Expect {
             }
             TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } => {
                 if let Some(card) = s.hand.get(hand_index) {
-                    expect.triple_reward = !card.is_spell
-                        && card.is_golden
-                        && !card.intrinsic_golden
+                    // (`docs/tavern.md` §5.2: a card without a locked-in Tier uses the current.)
+                    if card.counter > 0 {
+                        expect.reward_tier = card.counter as u32;
+                    }
+                    let reward_tier = expect.reward_tier;
+                    expect.triple_reward = card.card_id == cards::tokens::SPELL_TRIPLE_REWARD
                         && pool_copies(pool, catalog, reward_tier) >= 3;
                     expect.reward_tier_left =
                         expect.triple_reward && exact_tier_copies(pool, catalog, reward_tier) > 0;
@@ -1613,8 +1616,8 @@ impl Expect {
     }
 
     /// The checks of `s`, the state just after the action, in order: a Health cost never kills,
-    /// Upgrade goes up one Tier, a bought or Discovered card reaches the hand, a Golden played
-    /// from hand offers a Triple Reward of the next Tier, prices are paid in Gold (less what the
+    /// Upgrade goes up one Tier, a bought or Discovered card reaches the hand, a `Triple Reward`
+    /// card cast offers minions of its Tier, prices are paid in Gold (less what the
     /// Hero Power gives back), a Sell gives 1 Gold, a Tavern spell counts as cast, and a Refresh
     /// rolls a full shop.
     fn check(
@@ -1652,7 +1655,7 @@ impl Expect {
             let last = s.discover_queue.last().or(s.discover_pending.as_ref());
             if s.discover_pending.iter().chain(&s.discover_queue).count() <= self.prompts {
                 checks.push(Err(broken(
-                    "a Golden played from hand offered no Triple Reward",
+                    "a Triple Reward card cast offered no Discover",
                     format!("board {}", units_desc(&s.board)),
                 )));
             } else if let Some(opts) = last.filter(|_| self.reward_tier_left) {

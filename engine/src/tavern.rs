@@ -834,7 +834,7 @@ impl TavernState {
 
     /// Play the minion `card` (taken from the hand) at `board_pos` (`docs/tavern.md` §7.1):
     /// Magnetize it onto `board[board_pos]` if it can, else resolve its Battlecry and insert it,
-    /// then run the play observers; a Golden that gives one offers its Triple Reward.
+    /// then run the play observers; a Golden that gives one gives a `Triple Reward` card.
     fn play_minion(
         &mut self,
         mut card: Unit,
@@ -901,8 +901,9 @@ impl TavernState {
             }
         }
 
+        // The Triple Reward is a card, its Tier locked in now (`docs/tavern.md` §5.2).
         if gives_triple_reward {
-            self.offer_triple_reward(pool, rng);
+            self.add_to_hand(cards::tokens::make_triple_reward(self.tavern_tier));
         }
     }
 
@@ -911,11 +912,9 @@ impl TavernState {
         (3 - self.auras.next_minion_discount).max(0) as u32
     }
 
-    /// Offer a Triple Reward's Discover (`docs/tavern.md` §5.2): up to 3 minions of exactly
-    /// `min(6, tavern_tier + 1)` from the pool (or of the highest lower Tier with copies left).
-    /// A Golden played from the hand and the `Triple Reward` card offer it.
-    pub fn offer_triple_reward(&mut self, pool: &mut CardPool, rng: &mut Rng) {
-        let reward_tier = std::cmp::min(6, self.tavern_tier + 1);
+    /// Offer a `Triple Reward` card's Discover (`docs/tavern.md` §5.2): up to 3 minions of exactly
+    /// `reward_tier` from the pool (or of the highest lower Tier with copies left).
+    pub fn offer_triple_reward_of(&mut self, reward_tier: u32, pool: &mut CardPool, rng: &mut Rng) {
         let mut opts = pool.draw_discover_options(reward_tier, 3, rng);
         for opt in &mut opts {
             self.apply_global_unit_auras(opt);

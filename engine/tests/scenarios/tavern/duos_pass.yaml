@@ -67,8 +67,8 @@ scenarios:
 
   - name: a_passed_golden_minion_arrives_golden_and_its_triple_reward_is_the_receivers
     description: >-
-      Whoever plays a Golden gets its Triple Reward: the receiver, at Tavern Tier 3, Discovers a
-      Tier 4 minion.
+      Whoever plays a Golden gets its Triple Reward: the receiver, at Tavern Tier 3, gets a Tier 4
+      Triple Reward card.
     duos_tavern:
       players:
         - {gold: 1, tavern_tier: 1, hand: ["golden Zoatroid 6/4"]}
@@ -77,6 +77,8 @@ scenarios:
       - {player: 0, pass: Zoatroid}
       - expect: {players: {1: {hand: ["golden Zoatroid 6/4"]}}}
       - {player: 1, play: Zoatroid}
+      - expect: {players: {1: {hand: [{card: Triple Reward, counter: 4}]}}}
+      - {player: 1, play: {hand: Triple Reward, pos: 0}}
     expect:
       players:
         - {discover_pending: null}

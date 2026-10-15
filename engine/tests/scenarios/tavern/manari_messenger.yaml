@@ -30,6 +30,5 @@ scenarios:
       players: [{hand: ["golden Man'ari Messenger 18/12"]}, {shop: ["2/2"]}]
     steps:
       - {player: 0, play: Man'ari Messenger}
-      - {player: 0, choose_discover: 0}   # its Triple Reward
     expect:
       players: {1: {shop: ["8/6"]}}

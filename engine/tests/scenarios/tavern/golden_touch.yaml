@@ -17,9 +17,11 @@ scenarios:
       - play: Golden Touch
       - buy: 0
       - play: {is_golden: true}
+      - expect: {hand: [{card: Triple Reward, counter: 2}]}   # Tavern Tier + 1
+      - play: {hand: Triple Reward, pos: 0}
     expect:
       board: ["golden Risen Rider 4/2"]
-      discover_pending: {count: 3, all: {tavern_tier: 2}}   # the Triple Reward: Tavern Tier + 1
+      discover_pending: {count: 3, all: {tavern_tier: 2}}
 
   - name: selling_the_golden_returns_one_copy_to_the_pool
     description: >-
@@ -33,7 +35,8 @@ scenarios:
       - play: Golden Touch
       - buy: 0
       - play: {is_golden: true}
-      - choose_discover: 0   # the Triple Reward
+      - play: {hand: Triple Reward, pos: 0}
+      - choose_discover: 0
       - expect: {pool: {Risen Rider: {capture: before}}}
       - sell: {is_golden: true}
     expect: {pool: {Risen Rider: "$before + 1"}}

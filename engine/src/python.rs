@@ -159,6 +159,13 @@ impl PyUnit {
         self.inner.magnetic
     }
 
+    /// The card's counter: a `Triple Reward` card's locked-in Discover Tier (`docs/tavern.md` §5.2),
+    /// and other cards' progress.
+    #[getter]
+    fn counter(&self) -> i32 {
+        self.inner.counter
+    }
+
     /// A card in the shop frozen on its own (`docs/tavern.md` §3.1).
     #[getter]
     fn frozen(&self) -> bool {

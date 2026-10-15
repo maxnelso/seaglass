@@ -38,8 +38,10 @@ fn after_play(state: &mut TavernState, played: &Played, _: &mut CardPool, _: &mu
         return;
     };
     power.stacks += 1;
-    state.add_to_hand(tokens::make_triple_reward());
+    // The teammate's card has the giver's Tier too (engine decision).
+    let tier = state.tavern_tier;
+    state.add_to_hand(tokens::make_triple_reward(tier));
     state
         .auras
-        .give_teammate(TeammateGift::Card(tokens::make_triple_reward()));
+        .give_teammate(TeammateGift::Card(tokens::make_triple_reward(tier)));
 }
