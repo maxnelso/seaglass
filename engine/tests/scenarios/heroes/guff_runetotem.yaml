@@ -1,0 +1,35 @@
+hero: Guff Runetotem
+defaults:
+  tavern: {auras: {hero: Guff Runetotem}, gold: 30}
+scenarios:
+  - name: twenty_tiers_bought_give_a_triple_reward
+    description: (confirmed) Each card bought adds its Tier.
+    tavern:
+      auras: {hero: {hero: Guff Runetotem, power: {counter: 17}}}
+      shop: ["1/1 t2", "1/1 t1"]
+    steps:
+      - buy: 0
+      - expect: {hand: {count: 1}, auras: {hero: {power: {counter: 19}}}}
+      - buy: 0
+    expect: {hand: {count: 3, any: Triple Reward}, auras: {hero: {power: {counter: 0}}}}
+
+  - name: spells_count_their_tier
+    tavern:
+      tavern_tier: 2
+      auras: {hero: {hero: Guff Runetotem, power: {counter: 18}}}
+      shop: [Strike Oil]
+    steps:
+      - buy: 0
+    expect: {hand: [Strike Oil, Triple Reward]}
+
+  - name: the_count_carries_over
+    tavern:
+      auras: {hero: {hero: Guff Runetotem, power: {counter: 19}}}
+      shop: ["1/1 t3"]
+    steps:
+      - buy: 0
+    expect: {auras: {hero: {power: {counter: 2}}}, hand: {any: Triple Reward}}
+
+  - name: it_is_never_an_action
+    steps:
+      - expect_illegal: hero_power

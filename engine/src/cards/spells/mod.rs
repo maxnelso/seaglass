@@ -74,6 +74,7 @@ pub mod sludge_corrosion;
 pub mod staff_of_enrichment;
 pub mod strike_oil;
 pub mod tavern_coin;
+pub mod triple_reward;
 pub mod tavern_dish_banana;
 pub mod temperature_shift;
 pub mod them_apples;
@@ -442,6 +443,7 @@ pub fn all_spells() -> Vec<Unit> {
         tokens::make_pointy_arrow(),
         tokens::make_arcane_absorption(),
         tokens::make_conflagration(),
+        tokens::make_triple_reward(),
     ]);
     list
 }
@@ -1189,6 +1191,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         (tokens::SPELL_POINTY_ARROW, pointy_arrow::hooks()),
         (tokens::SPELL_SLUDGE_CORROSION, sludge_corrosion::hooks()),
         (tokens::SPELL_TAVERN_COIN, tavern_coin::hooks()),
+        (tokens::SPELL_TRIPLE_REWARD, triple_reward::hooks()),
         // Duos spells
         (SPELL_PORTAL_IN_A_FOUNTAIN, portal_in_a_fountain::hooks()),
         (SPELL_BARGAIN_BUNDLE, bargain_bundle::hooks()),

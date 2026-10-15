@@ -35,6 +35,7 @@ pub mod forest_warden_omu;
 pub mod fungalmancer_flurgl;
 pub mod george_the_fallen;
 pub mod greybough;
+pub mod guff_runetotem;
 pub mod heistbaron_togwaggle;
 pub mod illidan_stormrage;
 pub mod infinite_toki;
@@ -169,6 +170,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
     (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
+    (guff_runetotem::ID, guff_runetotem::behaviors),
     (heistbaron_togwaggle::ID, heistbaron_togwaggle::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
     (infinite_toki::ID, infinite_toki::behaviors),

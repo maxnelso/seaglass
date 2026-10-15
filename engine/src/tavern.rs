@@ -902,14 +902,21 @@ impl TavernState {
         }
 
         if gives_triple_reward {
-            let reward_tier = std::cmp::min(6, self.tavern_tier + 1);
-            let mut opts = pool.draw_discover_options(reward_tier, 3, rng);
-            for opt in &mut opts {
-                self.apply_global_unit_auras(opt);
-            }
-            if !opts.is_empty() {
-                self.push_discover(opts);
-            }
+            self.offer_triple_reward(pool, rng);
+        }
+    }
+
+    /// Offer a Triple Reward's Discover (`docs/tavern.md` §5.2): up to 3 minions of exactly
+    /// `min(6, tavern_tier + 1)` from the pool (or of the highest lower Tier with copies left).
+    /// A Golden played from the hand and the `Triple Reward` card offer it.
+    pub fn offer_triple_reward(&mut self, pool: &mut CardPool, rng: &mut Rng) {
+        let reward_tier = std::cmp::min(6, self.tavern_tier + 1);
+        let mut opts = pool.draw_discover_options(reward_tier, 3, rng);
+        for opt in &mut opts {
+            self.apply_global_unit_auras(opt);
+        }
+        if !opts.is_empty() {
+            self.push_discover(opts);
         }
     }
 

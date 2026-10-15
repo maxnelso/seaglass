@@ -1,0 +1,24 @@
+card: Triple Reward
+scenarios:
+  - name: cast_it_discovers_a_minion_of_the_next_tier
+    description: (confirmed) The Tier when it is cast; it costs 0 Gold.
+    seeds: "1..=4"
+    tavern: {gold: 0, tavern_tier: 2, hand: [Triple Reward]}
+    steps:
+      - play: 0
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 3}}}
+      - choose_discover: 0
+    expect: {gold: 0, hand: [{tavern_tier: 3}]}
+
+  - name: at_tier_6_tier_6
+    seeds: "1..=2"
+    tavern: {tavern_tier: 6, hand: [Triple Reward]}
+    steps:
+      - play: 0
+    expect: {discover_pending: {count: 3, all: {tavern_tier: 6}}}
+
+  - name: it_is_not_a_tavern_spell
+    tavern: {tavern_tier: 1, hand: [Triple Reward]}
+    steps:
+      - play: 0
+    expect: {auras: {tavern_spells_cast: 0}}

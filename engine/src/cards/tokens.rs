@@ -45,6 +45,7 @@ pub const SPELL_GOLDEN_TOUCH: CardId = 956;
 pub const SPELL_POINTY_ARROW: CardId = 957;
 pub const SPELL_ARCANE_ABSORPTION: CardId = 958;
 pub const SPELL_CONFLAGRATION: CardId = 959;
+pub const SPELL_TRIPLE_REWARD: CardId = 960;
 
 // Choose-One / Hero Power sub-option cards (presented via `discover_pending`).
 pub const CHOICE_BRIGAND_GEMS: CardId = 973;
@@ -342,6 +343,17 @@ pub fn make_tavern_coin() -> Unit {
     coin.is_spell = true;
     coin.spell_cost = 1;
     coin
+}
+
+/// `Triple Reward` (`TB_BaconShop_Triples_01` — 0-Gold token spell: Discover a minion of the next
+/// Tier; `docs/tavern.md` §5.2).
+pub fn make_triple_reward() -> Unit {
+    let mut reward = Unit::new("Triple Reward", 0, 0)
+        .with_card_id(SPELL_TRIPLE_REWARD)
+        .with_tavern_tier(1);
+    reward.is_spell = true;
+    reward.spell_cost = 0;
+    reward
 }
 
 /// `Lockbox` (`BG36_520t` — Unplayable spell in hand that opens in 5 turns for a Golden minion with a type).

@@ -150,6 +150,8 @@ When a Golden minion is played from `hand` to `board`:
 3. While `discover_pending.is_some()`, only `ChooseDiscover { option_index }` (`0..options.len()`) is legal.
 4. Executing `ChooseDiscover { option_index }` appends `options[option_index]` to `hand` (with a full hand, it is lost and returns to `CardPool`, §2), returns unchosen options to `CardPool`, sets `discover_pending = None`, and runs `check_and_resolve_triple`.
 
+**The `Triple Reward` card** (`TB_BaconShop_Triples_01`, a token spell, `0` Gold, not a Tavern spell): cast, it offers the same Discover as step 2, with the Tier when it is cast: `min(6, tavern_tier + 1)` **(confirmed)** (`TavernState::offer_triple_reward`). Hero Powers give it (Guff Runetotem, `heroes.md` §11.2). A Golden played from the hand still offers its Discover at once, as above.
+
 ---
 
 ## 6. Tavern Actions & Legality Rules (`TavernAction`)
