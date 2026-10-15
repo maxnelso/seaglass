@@ -10,8 +10,10 @@
 
 mod table;
 
+pub mod a_f_kay;
 pub mod alakir;
 pub mod alexstrasza;
+pub mod ambassador_faelin;
 pub mod aranna_starseeker;
 pub mod arch_villain_rafaam;
 pub mod brukan;
@@ -37,6 +39,7 @@ pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
 pub mod fungalmancer_flurgl;
 pub mod galakrond;
+pub mod galewing;
 pub mod gall;
 pub mod george_the_fallen;
 pub mod greybough;
@@ -55,7 +58,9 @@ pub mod loh_the_living_legend;
 pub mod madam_goya;
 pub mod maiev_shadowsong;
 pub mod malygos;
+pub mod millhouse_manastorm;
 pub mod millificent_manastorm;
+pub mod mister_clocksworth;
 pub mod mutanus_the_devourer;
 pub mod nozdormu;
 pub mod nzoth;
@@ -72,12 +77,15 @@ pub mod reno_jackson;
 pub mod rock_master_voone;
 pub mod rokara;
 pub mod shudderwock;
+pub mod silas_darkmoon;
+pub mod sindragosa;
 pub mod skycapn_kragg;
 pub mod snake_eyes;
 pub mod sneed;
 pub mod sylvanas_windrunner;
 pub mod taethelan_bloodwatcher;
 pub mod tamsin_roame;
+pub mod tavish_stormpike;
 pub mod teron_gorefiend;
 pub mod the_curator;
 pub mod the_jailer;
@@ -159,8 +167,10 @@ type Implemented = (HeroId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented hero, by file name.
 const IMPLEMENTED: &[Implemented] = &[
+    (a_f_kay::ID, a_f_kay::behaviors),
     (alakir::ID, alakir::behaviors),
     (alexstrasza::ID, alexstrasza::behaviors),
+    (ambassador_faelin::ID, ambassador_faelin::behaviors),
     (aranna_starseeker::ID, aranna_starseeker::behaviors),
     (arch_villain_rafaam::ID, arch_villain_rafaam::behaviors),
     (brukan::ID, brukan::behaviors),
@@ -189,6 +199,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
     (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
     (galakrond::ID, galakrond::behaviors),
+    (galewing::ID, galewing::behaviors),
     (gall::ID, gall::behaviors),
     (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
@@ -207,7 +218,9 @@ const IMPLEMENTED: &[Implemented] = &[
     (madam_goya::ID, madam_goya::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
     (malygos::ID, malygos::behaviors),
+    (millhouse_manastorm::ID, millhouse_manastorm::behaviors),
     (millificent_manastorm::ID, millificent_manastorm::behaviors),
+    (mister_clocksworth::ID, mister_clocksworth::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (nzoth::ID, nzoth::behaviors),
@@ -224,6 +237,8 @@ const IMPLEMENTED: &[Implemented] = &[
     (rock_master_voone::ID, rock_master_voone::behaviors),
     (rokara::ID, rokara::behaviors),
     (shudderwock::ID, shudderwock::behaviors),
+    (silas_darkmoon::ID, silas_darkmoon::behaviors),
+    (sindragosa::ID, sindragosa::behaviors),
     (skycapn_kragg::ID, skycapn_kragg::behaviors),
     (snake_eyes::ID, snake_eyes::behaviors),
     (sneed::ID, sneed::behaviors),
@@ -233,6 +248,7 @@ const IMPLEMENTED: &[Implemented] = &[
         taethelan_bloodwatcher::behaviors,
     ),
     (tamsin_roame::ID, tamsin_roame::behaviors),
+    (tavish_stormpike::ID, tavish_stormpike::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
     (the_curator::ID, the_curator::behaviors),
     (the_jailer::ID, the_jailer::behaviors),
@@ -455,6 +471,54 @@ pub fn turn_reset(state: &mut TavernState) {
     if let Some(reset) = card.hero_turn_reset {
         reset(hero);
     }
+}
+
+/// The Tavern's prices and rules for a player (`docs/tavern.md` §3.3): as written there, unless
+/// their Hero Power's `hero_tavern_rules` hook changes them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TavernRules {
+    /// A minion's price in Gold, before `next_minion_discount`.
+    pub minion_cost: u32,
+    /// A paid Refresh's price in Gold.
+    pub refresh_cost: u32,
+    /// Gold an Upgrade costs on top of `upgrade_cost`.
+    pub upgrade_extra: u32,
+    /// Minions fewer than `shop_capacity` the shop holds.
+    pub fewer_shop_minions: usize,
+    /// The non-Golden copies a Triple takes.
+    pub triple_copies: usize,
+    /// Whether a Golden played from the hand gives a `Triple Reward` card (otherwise a
+    /// `Tavern Coin`).
+    pub golden_gives_triple_reward: bool,
+}
+
+impl Default for TavernRules {
+    fn default() -> Self {
+        Self {
+            minion_cost: 3,
+            refresh_cost: 1,
+            upgrade_extra: 0,
+            fewer_shop_minions: 0,
+            triple_copies: 3,
+            golden_gives_triple_reward: true,
+        }
+    }
+}
+
+/// The player's Tavern rules: the defaults, changed by their Hero Power's `hero_tavern_rules`.
+pub fn tavern_rules(auras: &PlayerAuras) -> TavernRules {
+    let mut rules = TavernRules::default();
+    if let Some(change) = power_hooks(auras).and_then(|c| c.hero_tavern_rules) {
+        change(&mut rules);
+    }
+    rules
+}
+
+/// `true` if the player's Hero Power skips their current turn (`hero_skips_turn`).
+pub fn skips_turn(state: &TavernState) -> bool {
+    power_hooks(&state.auras)
+        .and_then(|c| c.hero_skips_turn)
+        .is_some_and(|skips| skips(state))
 }
 
 /// The player got their hero: its Hero Power's `hero_chosen` hook (`docs/heroes.md` §2.3).

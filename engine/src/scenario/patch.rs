@@ -24,7 +24,7 @@ use super::units::{self, card_index};
 use super::view::show;
 
 /// Fields that hold a list of units: patches give them as unit specs.
-const UNIT_LISTS: [&str; 8] = [
+const UNIT_LISTS: [&str; 9] = [
     "board",
     "hand",
     "shop",
@@ -33,6 +33,7 @@ const UNIT_LISTS: [&str; 8] = [
     "hand_a",
     "hand_b",
     "waiting_for_hand",
+    "stored",
 ];
 
 /// Fields that hold a list of lists of units (`discover_queue`, a Duos team's `incoming`
@@ -134,6 +135,13 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
                 fields.insert(Value::from(name), Value::Sequence(Vec::new()));
             }
         }
+    }
+    // A Hero Power's kept cards, left out while there are none.
+    if fields.contains_key("uses_left")
+        && fields.contains_key("armed")
+        && !fields.contains_key("stored")
+    {
+        fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
     }
     for (key, change) in changes {
         let name = key_name(key);

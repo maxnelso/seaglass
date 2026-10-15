@@ -1,0 +1,39 @@
+hero: A. F. Kay
+defaults:
+  tavern: {auras: {hero: A. F. Kay}}
+scenarios:
+  - name: the_first_two_turns_are_skipped
+    steps:
+      - start_turn
+      - expect: {turn: 1}
+      - expect_illegal: {buy: 0}
+      - expect_illegal: refresh
+      - expect_illegal: upgrade_tavern
+      - end_turn
+      - start_turn
+      - expect: {turn: 2}
+      - expect_illegal: {buy: 0}
+      - end_turn
+      - start_turn
+    expect: {turn: 3}
+
+  - name: turn_3_gives_tier_3_and_tier_4_triple_reward_cards
+    description: (confirmed)
+    tavern: {turn: 2}
+    steps:
+      - start_turn
+    expect:
+      discover_pending: null
+      hand: [{card: Triple Reward, counter: 3}, {card: Triple Reward, counter: 4}]
+
+  - name: with_a_full_hand_they_are_lost
+    tavern: {turn: 2, hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - start_turn
+    expect: {hand: {count: 10, -1: {card: Triple Reward, counter: 3}}}
+
+  - name: from_turn_3_the_turn_is_played
+    tavern: {turn: 3, gold: 3, shop: ["1/1 t1"]}
+    steps:
+      - buy: 0
+    expect: {hand: ["1/1"]}

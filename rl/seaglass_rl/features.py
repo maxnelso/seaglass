@@ -16,8 +16,8 @@ VOCAB_SIZE: int = len(_ALL_IDS) + 1
 # The cards waiting for room in the hand (`engine/docs/tavern.md` §7.4), appended last.
 MAX_WAITING: int = 3
 NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING  # 7 + 10 + 7 + 4 + 3 = 31
-PLAYER_DIM: int = 18
-SLOT_NUM_DIM: int = 13
+PLAYER_DIM: int = 20
+SLOT_NUM_DIM: int = 14
 
 
 def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
@@ -35,6 +35,7 @@ def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
     out_num[10] = 1.0 if u.venomous else 0.0
     out_num[11] = 1.0 if u.magnetic else 0.0
     out_num[12] = 1.0 if u.frozen else 0.0  # a shop card frozen on its own
+    out_num[13] = 1.0 if u.marked else 0.0  # marked by the Hero Power (a Silas ticket, Vol'jin's pick)
     return CARD_ID_TO_IDX.get(u.card_id, 0)
 
 
@@ -71,6 +72,10 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             # The cards waiting for room in the hand (Spellcraft spells, `engine/docs/tavern.md`
             # §7.4); the first `MAX_WAITING` are also the last slots.
             len(obs.waiting_for_hand) / MAX_WAITING,
+            # The prices a Hero Power can change (`engine/docs/tavern.md` §3.3): Sindragosa,
+            # Millhouse.
+            obs.minion_cost / 3.0,
+            obs.refresh_cost / 2.0,
         ],
         dtype=np.float32,
     )

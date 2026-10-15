@@ -526,6 +526,12 @@ card_hooks! {
     /// A friendly minion attacks (in combat or in the Tavern), once the friendly-attack
     /// observers resolved: `(ctx, attacker_id)`.
     hero_friendly_attack(on_hero_friendly_attack): fn(&mut BoardCtx<'_>, UnitId),
+    /// The Tavern's prices and rules the Hero Power changes, whenever they are read:
+    /// `(rules)` (`docs/tavern.md` §3.3).
+    hero_tavern_rules(on_hero_tavern_rules): fn(&mut crate::heroes::TavernRules),
+    /// Whether the player skips the current turn (only `EndTurn` and `ChooseDiscover` are
+    /// legal): `(state)`.
+    hero_skips_turn(on_hero_skips_turn): fn(&TavernState) -> bool,
 }
 
 impl Default for CardHooks {

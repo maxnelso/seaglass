@@ -1,0 +1,43 @@
+hero: Mister Clocksworth
+defaults:
+  tavern: {auras: {hero: Mister Clocksworth}}
+scenarios:
+  - name: two_copies_make_a_golden
+    tavern: {board: ["Zoatroid +1/+0"]}
+    steps:
+      - add_to_hand: Zoatroid
+    expect:
+      board: []
+      hand: ["golden Zoatroid 7/4"]   # 2 x 3/2, + 1/0
+
+  - name: the_golden_gives_a_tavern_coin
+    description: (engine decision) Instead of a Triple Reward card.
+    tavern: {hand: ["golden Zoatroid"]}
+    steps:
+      - play: 0
+    expect: {hand: [{card: Tavern Coin, is_spell: true}]}
+
+  - name: a_golden_made_by_an_effect_gives_a_tavern_coin_too
+    tavern: {gold: 3, shop: [Risen Rider]}
+    steps:
+      - add_to_hand: Golden Touch
+      - play: Golden Touch
+      - buy: 0
+      - play: {is_golden: true}
+    expect: {hand: [Tavern Coin]}
+
+  - name: selling_its_golden_returns_2_copies
+    tavern: {hand: [Zoatroid]}
+    steps:
+      - take_from_pool: [Zoatroid, Zoatroid]
+      - add_to_hand: Zoatroid
+      - play: {hand: golden Zoatroid}
+      - expect: {pool: {Zoatroid: {capture: before}}}
+      - sell: {is_golden: true}
+    expect: {pool: {Zoatroid: "$before + 2"}}
+
+  - name: one_copy_stays_plain
+    tavern: {hand: [Joyous]}
+    steps:
+      - add_to_hand: Zoatroid
+    expect: {hand: [Joyous, Zoatroid]}

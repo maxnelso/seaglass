@@ -25,7 +25,7 @@
 //! - [`check_synced`]: re-syncing the auras changes nothing; [`check_round_trip`]: the state
 //!   survives a serde round trip; [`check_pool_leaks`]: the pool holds at most the base copies
 //!   and no copy leaves it for nowhere;
-//! - per action: a rolled shop holds `shop_capacity` minions and one spell, prices are paid in
+//! - per action: a rolled shop holds `shop_minion_slots` minions and one spell, prices are paid in
 //!   Gold (less what the Hero Power gives back), a Health cost never kills, Upgrade goes up one
 //!   Tier, a bought or Discovered card reaches the hand, a `Triple Reward` card cast offers
 //!   minions of its Tier, a Golden played from hand gives one of the next Tier (an intrinsic one
@@ -87,9 +87,9 @@ use seaglass::cards::{self, CardFlags};
 use seaglass::heroes;
 use seaglass::model::{HeroId, TeammateGift};
 use seaglass::{
-    base_copies_for_tier, base_upgrade_cost, catalog_for, shop_capacity, BattleOutcome,
-    BattleResult, CardPool, CardTemplate, DeityKind, Event, PlayerAuras, Rng, Side, TavernAction,
-    TavernState, Unit, UnitId, MAX_SHOP_SIZE,
+    base_copies_for_tier, catalog_for, BattleOutcome, BattleResult, CardPool, CardTemplate,
+    DeityKind, Event, PlayerAuras, Rng, Side, TavernAction, TavernState, Unit, UnitId,
+    MAX_SHOP_SIZE,
 };
 use serde::{Deserialize, Serialize};
 
@@ -540,7 +540,7 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
         ));
     }
     // Bob's Tavern holds at most 7 cards, the tokens effects add to it included (`Demon Fodder`,
-    // `Fishbait`; `docs/tavern.md` §3.2). A rolled shop holds `shop_capacity` minions
+    // `Fishbait`; `docs/tavern.md` §3.2). A rolled shop holds `shop_minion_slots` minions
     // (`check_refilled_shop`).
     if s.shop.len() > MAX_SHOP_SIZE {
         return Err(broken(
@@ -600,13 +600,13 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
             "",
         ));
     }
-    if s.tavern_tier < 6 && s.upgrade_cost > base_upgrade_cost(s.tavern_tier) {
+    if s.tavern_tier < 6 && s.upgrade_cost > s.base_upgrade_price() {
         return Err(broken(
             format!(
                 "upgrade_cost is {} at Tier {} (base {})",
                 s.upgrade_cost,
                 s.tavern_tier,
-                base_upgrade_cost(s.tavern_tier)
+                s.base_upgrade_price()
             ),
             "",
         ));
@@ -639,9 +639,11 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
             *if in_hand { held } else { on_board } += 1;
         }
     }
+    // (A Hero Power can change the copies a Triple takes: Mister Clocksworth's 2.)
+    let n = s.triple_copies();
     let untripled = copies.iter().find(|(_, &(on_board, held))| {
-        let from_hand = held.min(3 - on_board.min(3));
-        on_board + held >= 3 && s.hand.len() - from_hand < 10
+        let from_hand = held.min(n - on_board.min(n));
+        on_board + held >= n && s.hand.len() - from_hand < 10
     });
     if let Some((&cid, &(on_board, held))) = untripled {
         let n = on_board + held;
@@ -653,7 +655,7 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
             .map(|u| u.name.clone())
             .unwrap_or_default();
         return Err(broken(
-            "3 non-Golden copies of a minion did not form a Triple",
+            "enough non-Golden copies of a minion did not form a Triple",
             format!(
                 "{n} copies of {name}: board {} hand {}",
                 units_desc(&s.board),
@@ -1217,12 +1219,7 @@ fn check_pool_leaks_with(
     let mut held: BTreeMap<u32, u32> = BTreeMap::new();
     let mut hold = |u: &Unit| {
         if !u.is_spell {
-            let copies = if u.is_golden && !u.intrinsic_golden && !u.golden_from_effect {
-                3
-            } else {
-                1
-            };
-            *held.entry(u.card_id).or_default() += copies;
+            *held.entry(u.card_id).or_default() += u.pool_copies();
         }
     };
     queued.iter().for_each(&mut hold);
@@ -1233,12 +1230,15 @@ fn check_pool_leaks_with(
             TeammateGift::Card(u) | TeammateGift::Pass(u) => Some(u),
             TeammateGift::Effect { .. } => None,
         });
+        // The cards the Hero Power keeps (Tavish's loaded minion, Faelin's picks).
+        let kept = s.hero().into_iter().flat_map(|h| &h.power.stored);
         s.board
             .iter()
             .chain(&s.hand)
             .chain(&s.shop)
             .chain(prompts)
             .chain(gifts)
+            .chain(kept)
             .for_each(&mut hold);
     }
     for t in catalog {
@@ -1279,7 +1279,7 @@ fn hero_acts_after_the_roll(s: &TavernState) -> bool {
         .is_some_and(|h| cards::hooks(h.power.card_id).hero_turn_start.is_some())
 }
 
-/// A shop just rolled (unfrozen `start_turn`, `Refresh`) holds `shop_capacity` minions from the
+/// A shop just rolled (unfrozen `start_turn`, `Refresh`) holds `shop_minion_slots` minions from the
 /// pool (fewer only if the pool has run out of them) and, with shop spells, one spell
 /// (`docs/tavern.md` §4, §6).
 fn check_refilled_shop(
@@ -1288,7 +1288,7 @@ fn check_refilled_shop(
     catalog: &[CardTemplate],
     what: &str,
 ) -> Result<(), Violation> {
-    let cap = shop_capacity(s.tavern_tier);
+    let cap = s.shop_minion_slots();
     let minions = s
         .shop
         .iter()
@@ -1572,8 +1572,8 @@ impl Expect {
                     s.effective_spell_buy_cost(u)
                 }
             }),
-            TavernAction::Refresh => Some(if free_refresh { 0 } else { 1 }),
-            TavernAction::UpgradeTavern => Some(s.upgrade_cost),
+            TavernAction::Refresh => Some(if free_refresh { 0 } else { s.refresh_cost() }),
+            TavernAction::UpgradeTavern => Some(s.upgrade_price()),
             // (Not an Activate: its effect can give Gold, a Kelp Keeper triggering a Battlecry
             // that casts a Tavern Coin.)
             _ => None,
@@ -1632,8 +1632,10 @@ impl Expect {
                         reward_card && pool_copies(pool, catalog, reward_tier) >= 3;
                     expect.reward_tier_left =
                         expect.triple_reward && exact_tier_copies(pool, catalog, reward_tier) > 0;
-                    expect.golden_play =
-                        (!card.is_spell && card.is_golden).then_some(!card.intrinsic_golden);
+                    // (A Hero Power can make it a Tavern Coin instead: Mister Clocksworth.)
+                    let reward = heroes::tavern_rules(&s.auras).golden_gives_triple_reward;
+                    expect.golden_play = (!card.is_spell && card.is_golden)
+                        .then_some(!card.intrinsic_golden && reward);
                     expect.casts_tavern_spell =
                         card.is_spell && cards::spells::is_tavern_spell(card.card_id);
                 }
@@ -1665,7 +1667,7 @@ impl Expect {
             )));
         }
         if action == TavernAction::UpgradeTavern
-            && (s.tavern_tier != tier + 1 || s.upgrade_cost != base_upgrade_cost(s.tavern_tier))
+            && (s.tavern_tier != tier + 1 || s.upgrade_cost != s.base_upgrade_price())
         {
             checks.push(Err(broken(
                 "UpgradeTavern did not go up one Tier at its base upgrade cost",

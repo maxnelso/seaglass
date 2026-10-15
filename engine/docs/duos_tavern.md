@@ -282,7 +282,7 @@ A Pass by one of these cards takes the card out of wherever it was (the board fo
 
 **Spellcraft** (`Private Chef`, `Well Wisher`; no Solo minion of Patch 36.6.3 has it) **(engine decision)**:
 
-- A Spellcraft minion gives its player its Spellcraft spell (its `spellcraft` hook) when it is played, once its play has resolved, and at the start of each turn, after the shop is filled (left to right), if there is room in the hand. With a full hand the spell waits for room **(confirmed)** (`tavern.md` §7.4: the player's `waiting_for_hand` queue, delivered in order once an action, a Pass included, has made room; still waiting at `EndTurn`, it is discarded). It is the player's own queue, delivered before the teammate's passed cards (`incoming`) **(engine decision)**.
+- A Spellcraft minion gives its player its Spellcraft spell (its `spellcraft` hook) when it is played, once its play has resolved, and at the start of each turn, after the shop is filled (left to right), if there is room in the hand. With a full hand the spell waits for room **(confirmed)** (`tavern.md` §7.4: the player's `waiting_for_hand` queue, delivered in order once an action, a Pass included, has made room; still waiting at `EndTurn`, it is discarded). It is the player's own queue, delivered before the teammate's passed cards (`incoming`) **(confirmed)**.
 - The spell is temporary (`CardFlags::TEMPORARY`): still in the hand when the player ends their turn (`EndTurn`), it is discarded, without discard effects. One that reached the hand after that (a Pass) is discarded at the start of the next turn. A Golden minion's spell is Golden: it does what the Golden text says.
 - The spells are token spells, not Tavern spells (`NOT_TAVERN_SPELL`): casting one doesn't count as casting a Tavern spell, and `Storm Splitter` doesn't copy them. They can be Passed like any card.
 
@@ -352,7 +352,7 @@ Engine decisions, pending the user's confirmation (each is one place in `src/duo
 | Counters at a step-in | A warband stepping in takes its teammate's counts from this combat (§7.1). | `combat.rs` (`DuosTeamState::step_in`) |
 | `Orc-estra Conductor`'s target | The friendly minion at the play position, else to its left, else the left-most (§8.3). | `orc_estra_conductor.rs` |
 | `Mantid King` made Golden | The keywords it has until next turn stay temporary (§8.3). | `mantid_king.rs` |
-| Spellcraft | The spell on play and at the start of each turn; with a full hand it waits for room (confirmed), before the passed cards; temporary: discarded at `EndTurn` without discard effects, waiting or not (§8.3). | `tavern.rs` |
+| Spellcraft | The spell on play and at the start of each turn; with a full hand it waits for room, before the passed cards (both confirmed); temporary: discarded at `EndTurn` without discard effects, waiting or not (§8.3). | `tavern.rs` |
 | The Duos spells | Only in Duos shops, drawn uniformly with the Tavern spells; random Tavern spells stay Solo ones (§8.3). | `spells/mod.rs` |
 
 ### Open Questions

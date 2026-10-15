@@ -115,7 +115,7 @@ def test_cards_waiting_for_room_are_encoded_last() -> None:
     obs = game.observe()
     assert obs.waiting_for_hand == []
     player_vec, slot_card_ids, _ = encode_observation(obs)
-    assert player_vec[-1] == 0.0 and not slot_card_ids[-3:].any()
+    assert player_vec[-3] == 0.0 and not slot_card_ids[-3:].any()
 
     spell = next(u for u in obs.shop if u.is_spell)
 
@@ -126,7 +126,7 @@ def test_cards_waiting_for_room_are_encoded_last() -> None:
             return getattr(obs, name)
 
     player_vec, slot_card_ids, slot_num_feats = encode_observation(Waiting())
-    assert player_vec[-1] == np.float32(1.0 / 3.0)
+    assert player_vec[-3] == np.float32(1.0 / 3.0)
     assert slot_card_ids[-3] != 0 and slot_num_feats[-3, 4] == 1.0  # a spell
     assert not slot_card_ids[-2:].any()
     duos = seaglass.DuosTavernGame(seed=3)

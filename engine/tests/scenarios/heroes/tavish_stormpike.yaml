@@ -1,0 +1,86 @@
+hero: Tavish Stormpike
+defaults:
+  tavern: {auras: {hero: Tavish Stormpike}}
+scenarios:
+  - name: it_removes_a_minion_in_the_tavern
+    description: (confirmed) It leaves the Tavern; its copy stays out of the pool while it is kept.
+    tavern: {shop: ["Zoatroid +2/+2", Strike Oil]}
+    steps:
+      - take_from_pool: [Zoatroid]
+      - expect: {pool: {Zoatroid: {capture: before}}}
+      - hero_power: 0
+    expect:
+      shop: [Strike Oil]
+      pool: {Zoatroid: "$before"}
+      auras: {hero: {power: {stored: ["Zoatroid 5/4"]}}}
+
+  - name: a_spell_is_not_a_target
+    tavern: {shop: [Strike Oil]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: next_combat_it_joins_at_the_right_end_and_attacks_immediately
+    description: (confirmed) Start of Combat, in the Hero Power's slot.
+    tavern: {shop: ["Zoatroid +2/+2"], board: ["1/1", "1/1"]}
+    steps:
+      - hero_power: 0
+      - fight: {board: ["0/30"]}
+    expect:
+      combat:
+        events:
+          sequence:
+            - {type: unit_summoned, side: a, name: Zoatroid, attack: 5, health: 4, reason: Lock and Load}
+            - {type: attack_declared, side: a}
+        survivors_a: ["1/1", "1/1", "Zoatroid 5/4"]
+
+  - name: its_joining_is_a_summon
+    description: (confirmed) The summon observers trigger (Lurking Leviathan gives a Beast +3 Attack).
+    tavern: {shop: ["2/2 beast"], board: [Lurking Leviathan]}
+    steps:
+      - hero_power: 0
+      - fight: {board: ["0/30"]}
+    expect:
+      combat:
+        events: {any: {type: unit_summoned, reason: Lock and Load, attack: 5}}
+
+  - name: with_a_full_board_it_joins_once_a_slot_opens
+    description: (confirmed)
+    tavern:
+      shop: ["Zoatroid"]
+      board: ["1/1", "9/9", "9/9", "9/9", "9/9", "9/9", "9/9"]
+    steps:
+      - hero_power: 0
+      - fight: {board: ["1/1"]}
+    expect:
+      combat:
+        events: {any: {type: unit_summoned, reason: Lock and Load}}
+
+  - name: with_no_room_all_combat_it_is_lost
+    description: (confirmed) Its copy goes back to the pool at the next turn start (a Tier 5 minion, which the Tier 1 roll never draws).
+    tavern:
+      shop: [Lurking Leviathan]
+      board: ["9/9", "9/9", "9/9", "9/9", "9/9", "9/9", "9/9"]
+    steps:
+      - take_from_pool: [Lurking Leviathan]
+      - expect: {pool: {Lurking Leviathan: {capture: before}}}
+      - hero_power: 0
+      - fight: {board: []}
+      - expect: {combat: {events: {none: {type: unit_summoned}}}}
+      - start_turn
+    expect: {pool: {Lurking Leviathan: "$before + 1"}, auras: {hero: {power: {stored: []}}}}
+
+  - name: after_joining_its_copy_goes_back_to_the_pool
+    tavern: {shop: [Lurking Leviathan], board: ["1/1"]}
+    steps:
+      - take_from_pool: [Lurking Leviathan]
+      - expect: {pool: {Lurking Leviathan: {capture: before}}}
+      - hero_power: 0
+      - fight: {board: ["0/30"]}
+      - start_turn
+    expect: {pool: {Lurking Leviathan: "$before + 1"}, auras: {hero: {power: {stored: []}}}}
+
+  - name: once_per_turn
+    tavern: {shop: ["1/1 t1", "2/2 t1"]}
+    steps:
+      - hero_power: 0
+      - expect_illegal: {hero_power: 0}

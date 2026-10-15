@@ -120,4 +120,34 @@ def test_the_next_minion_discount_is_in_the_observation() -> None:
     obs = game.observe()
     assert obs.next_minion_discount == 0
     player_vec, _, _ = encode_observation(obs)
-    assert player_vec.shape == (PLAYER_DIM,) and player_vec[-1] == 0.0
+    assert player_vec.shape == (PLAYER_DIM,) and player_vec[-4] == 0.0
+
+
+def test_hero_prices_and_marks_are_in_the_observation() -> None:
+    # `engine/docs/tavern.md` §3.3: Millhouse's minions and Refreshes cost 2, his Upgrade 1 more.
+    game = seaglass.TavernGame(seed=1, hero="Millhouse Manastorm")
+    game.start_turn()
+    obs = game.observe()
+    assert (obs.minion_cost, obs.refresh_cost, obs.upgrade_cost) == (2, 2, 6)
+    player_vec, _, slot_num_feats = encode_observation(obs)
+    assert player_vec[-2] == np.float32(2 / 3) and player_vec[-1] == 1.0
+    plain = seaglass.TavernGame(seed=1)
+    plain.start_turn()
+    obs = plain.observe()
+    assert (obs.minion_cost, obs.refresh_cost, obs.upgrade_cost) == (3, 1, 5)
+    # A Silas Darkmoon ticket marks a minion in the Tavern.
+    silas = seaglass.TavernGame(seed=3, hero="Silas Darkmoon")
+    silas.start_turn()
+    shop = silas.observe().shop
+    marked = sum(u.marked for u in shop)
+    assert marked >= 1
+    _, _, slot_num_feats = encode_observation(silas.observe())
+    assert slot_num_feats[:, 13].sum() == float(marked)
+
+
+def test_a_skipped_turn_only_allows_ending_it() -> None:
+    game = seaglass.TavernGame(seed=1, hero="A. F. Kay")
+    game.start_turn()
+    assert [a.kind for a in game.legal_actions()] == ["end_turn"]
+    mask = action_mask(game, allow_reposition=True, allow_freeze=True)
+    assert mask.sum() == 1

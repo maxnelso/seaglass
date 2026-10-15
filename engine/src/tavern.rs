@@ -379,11 +379,7 @@ impl CardPool {
 
     /// The pool copies `unit` stands for (see [`return_unit`](Self::return_unit)).
     fn copies_of(unit: &Unit) -> u32 {
-        if unit.is_golden && !unit.intrinsic_golden && !unit.golden_from_effect {
-            3
-        } else {
-            1
-        }
+        unit.pool_copies()
     }
 }
 
@@ -926,15 +922,56 @@ impl TavernState {
             }
         }
 
-        // The Triple Reward is a card, its Tier locked in now (`docs/tavern.md` §5.2).
+        // The Triple Reward is a card, its Tier locked in now (`docs/tavern.md` §5.2); a Hero Power
+        // can make it a Tavern Coin (§3.3).
         if gives_triple_reward {
-            self.add_to_hand(cards::tokens::make_triple_reward(self.tavern_tier));
+            if heroes::tavern_rules(&self.auras).golden_gives_triple_reward {
+                self.add_to_hand(cards::tokens::make_triple_reward(self.tavern_tier));
+            } else {
+                self.add_to_hand(cards::tokens::make_tavern_coin());
+            }
         }
     }
 
-    /// The Gold a minion costs to buy now (`docs/tavern.md` §6): 3, less `next_minion_discount`.
+    /// The Gold a minion costs to buy now (`docs/tavern.md` §6): 3 (or the Hero Power's price,
+    /// §3.3), less `next_minion_discount`.
     pub fn minion_buy_cost(&self) -> u32 {
-        (3 - self.auras.next_minion_discount).max(0) as u32
+        let price = heroes::tavern_rules(&self.auras).minion_cost as i32;
+        (price - self.auras.next_minion_discount).max(0) as u32
+    }
+
+    /// The Gold a paid Refresh costs (`docs/tavern.md` §3.3, §6): 1, or the Hero Power's price.
+    pub fn refresh_cost(&self) -> u32 {
+        heroes::tavern_rules(&self.auras).refresh_cost
+    }
+
+    /// The Gold Upgrading costs now (`docs/tavern.md` §6): `upgrade_cost`; 0 at Tier 6.
+    pub fn upgrade_price(&self) -> u32 {
+        if self.tavern_tier >= 6 {
+            return 0;
+        }
+        self.upgrade_cost
+    }
+
+    /// What `upgrade_cost` starts at on reaching the current Tier (`docs/tavern.md` §3.3): the
+    /// base cost, plus the Hero Power's extra (Millhouse Manastorm); 0 at Tier 6.
+    pub fn base_upgrade_price(&self) -> u32 {
+        if self.tavern_tier >= 6 {
+            return 0;
+        }
+        base_upgrade_cost(self.tavern_tier) + heroes::tavern_rules(&self.auras).upgrade_extra
+    }
+
+    /// The minions a rolled shop holds (`docs/tavern.md` §3.3): `shop_capacity`, less the Hero
+    /// Power's fewer minions.
+    pub fn shop_minion_slots(&self) -> usize {
+        let fewer = heroes::tavern_rules(&self.auras).fewer_shop_minions;
+        shop_capacity(self.tavern_tier).saturating_sub(fewer)
+    }
+
+    /// The non-Golden copies a Triple takes (`docs/tavern.md` §5): 3, or the Hero Power's.
+    pub fn triple_copies(&self) -> usize {
+        heroes::tavern_rules(&self.auras).triple_copies
     }
 
     /// Offer a `Triple Reward` card's Discover (`docs/tavern.md` §5.2): up to 3 minions of exactly
@@ -1123,7 +1160,7 @@ impl TavernState {
         for old in self.shop.drain(..) {
             pool.return_unit(&old);
         }
-        let cap = shop_capacity(self.tavern_tier);
+        let cap = self.shop_minion_slots();
         for _ in 0..cap {
             if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
                 self.apply_shop_auras(&mut drawn);
@@ -1151,7 +1188,7 @@ impl TavernState {
         for old in self.shop.drain(..) {
             pool.return_unit(&old);
         }
-        let cap = shop_capacity(self.tavern_tier);
+        let cap = self.shop_minion_slots();
         for _ in 0..cap.saturating_sub(count) {
             if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
                 self.apply_shop_auras(&mut drawn);
@@ -1180,7 +1217,7 @@ impl TavernState {
         for old in self.shop.drain(..) {
             pool.return_unit(&old);
         }
-        let slots = shop_capacity(self.tavern_tier) + usize::from(self.include_shop_spells);
+        let slots = self.shop_minion_slots() + usize::from(self.include_shop_spells);
         for _ in 0..slots {
             let spell = self.draw_shop_spell(rng);
             self.shop.push(spell);
@@ -1195,7 +1232,7 @@ impl TavernState {
         for old in self.shop.drain(..) {
             pool.return_unit(&old);
         }
-        let cap = shop_capacity(self.tavern_tier);
+        let cap = self.shop_minion_slots();
         for _ in 0..cap {
             if let Some(mut drawn) = pool.draw_by_tribe(tribe, None, self.tavern_tier, rng) {
                 self.apply_shop_auras(&mut drawn);
@@ -1287,7 +1324,7 @@ impl TavernState {
             self.upgrade_cost = self.upgrade_cost.saturating_sub(1);
         }
 
-        let cap = shop_capacity(self.tavern_tier);
+        let cap = self.shop_minion_slots();
         if self.is_frozen {
             self.is_frozen = false;
             for card in &mut self.shop {
@@ -1540,6 +1577,10 @@ impl TavernState {
                 TavernAction::ChooseDiscover { option_index } if *option_index < opts.len()
             );
         }
+        // A turn the hero skips (`docs/tavern.md` §6): only `EndTurn`.
+        if heroes::skips_turn(self) {
+            return action == &TavernAction::EndTurn;
+        }
 
         match *action {
             TavernAction::Buy { shop_index } => {
@@ -1667,9 +1708,13 @@ impl TavernState {
                 }
             }
             TavernAction::Refresh => {
-                self.gold >= 1 || self.auras.free_refreshes > 0 || self.has_health_refresh()
+                self.gold >= self.refresh_cost()
+                    || self.auras.free_refreshes > 0
+                    || self.has_health_refresh()
             }
-            TavernAction::UpgradeTavern => self.tavern_tier < 6 && self.gold >= self.upgrade_cost,
+            TavernAction::UpgradeTavern => {
+                self.tavern_tier < 6 && self.gold >= self.upgrade_price()
+            }
             TavernAction::ToggleFreeze => true,
             TavernAction::ChooseDiscover { .. } => false,
             TavernAction::EndTurn => true,
@@ -1693,6 +1738,9 @@ impl TavernState {
                 actions.push(TavernAction::ChooseDiscover { option_index: i });
             }
             return actions;
+        }
+        if heroes::skips_turn(self) {
+            return vec![TavernAction::EndTurn];
         }
 
         if self.hand.len() < 10 {
@@ -1856,10 +1904,13 @@ impl TavernState {
             }
         }
 
-        if self.gold >= 1 || self.auras.free_refreshes > 0 || self.has_health_refresh() {
+        if self.gold >= self.refresh_cost()
+            || self.auras.free_refreshes > 0
+            || self.has_health_refresh()
+        {
             actions.push(TavernAction::Refresh);
         }
-        if self.tavern_tier < 6 && self.gold >= self.upgrade_cost {
+        if self.tavern_tier < 6 && self.gold >= self.upgrade_price() {
             actions.push(TavernAction::UpgradeTavern);
         }
         actions.push(TavernAction::ToggleFreeze);
@@ -1995,16 +2046,17 @@ impl TavernState {
                     cards::use_charge(&mut self.board, CardFlags::HEALTH_REFRESHES);
                     self.deal_hero_damage(1);
                 } else {
-                    self.spend_gold(1, pool, rng);
+                    let cost = self.refresh_cost();
+                    self.spend_gold(cost, pool, rng);
                 }
                 self.refresh_shop_free(pool, rng);
                 Ok(false)
             }
             TavernAction::UpgradeTavern => {
-                let cost = self.upgrade_cost;
+                let cost = self.upgrade_price();
                 self.spend_gold(cost, pool, rng);
                 self.tavern_tier += 1;
-                self.upgrade_cost = base_upgrade_cost(self.tavern_tier);
+                self.upgrade_cost = self.base_upgrade_price();
                 heroes::after_upgrade(self, pool, rng);
                 Ok(false)
             }
@@ -2161,6 +2213,7 @@ impl TavernState {
                 && !no_triple(u.card_id)
         };
 
+        let n = self.triple_copies();
         let exact_count = self
             .board
             .iter()
@@ -2168,7 +2221,7 @@ impl TavernState {
             .filter(|u| is_eligible(u) && u.card_id == card_id)
             .count();
 
-        let (target_cid, use_wildcard) = if exact_count >= 3 {
+        let (target_cid, use_wildcard) = if exact_count >= n {
             (card_id, false)
         } else {
             let wildcard_count = self
@@ -2189,7 +2242,7 @@ impl TavernState {
                         is_eligible(u) && u.card_id == card_id && u.tribe.matches(Tribe::Elemental)
                     })
                     .count();
-                if elem_count >= 1 && elem_count + wildcard_count >= 3 {
+                if elem_count >= 1 && elem_count + wildcard_count >= n {
                     (card_id, true)
                 } else {
                     return;
@@ -2213,7 +2266,7 @@ impl TavernState {
                         .chain(self.hand.iter())
                         .filter(|u| is_eligible(u) && u.card_id == cid)
                         .count();
-                    if cnt == 2 && cnt + wildcard_count >= 3 {
+                    if cnt == n - 1 && cnt + wildcard_count >= n {
                         found = Some(cid);
                         break;
                     }
@@ -2226,7 +2279,7 @@ impl TavernState {
                             .chain(self.hand.iter())
                             .filter(|u| is_eligible(u) && u.card_id == cid)
                             .count();
-                        if cnt >= 1 && cnt + wildcard_count >= 3 {
+                        if cnt >= 1 && cnt + wildcard_count >= n {
                             found = Some(cid);
                             break;
                         }
@@ -2244,43 +2297,43 @@ impl TavernState {
         // Triple wait for room (`docs/tavern.md` §5). The copies are taken from the board first,
         // then from the hand, exact copies before wildcards.
         let exact = |u: &&Unit| is_eligible(u) && u.card_id == target_cid;
-        let board_exact = self.board.iter().filter(exact).count().min(3);
-        let mut from_hand = self.hand.iter().filter(exact).count().min(3 - board_exact);
+        let board_exact = self.board.iter().filter(exact).count().min(n);
+        let mut from_hand = self.hand.iter().filter(exact).count().min(n - board_exact);
         if use_wildcard {
             let wildcard = |u: &&Unit| is_eligible(u) && is_wildcard(u.card_id);
-            let left = 3 - board_exact - from_hand;
+            let left = n - board_exact - from_hand;
             from_hand += left - self.board.iter().filter(wildcard).count().min(left);
         }
         if self.hand.len() - from_hand >= 10 {
             return;
         }
 
-        let mut copies = Vec::with_capacity(3);
+        let mut copies = Vec::with_capacity(n);
         self.remove_board_minions(|u| {
-            let take = copies.len() < 3 && is_eligible(u) && u.card_id == target_cid;
+            let take = copies.len() < n && is_eligible(u) && u.card_id == target_cid;
             if take {
                 copies.push(u.clone());
             }
             take
         });
         self.hand.retain(|u| {
-            if copies.len() < 3 && is_eligible(u) && u.card_id == target_cid {
+            if copies.len() < n && is_eligible(u) && u.card_id == target_cid {
                 copies.push(u.clone());
                 false
             } else {
                 true
             }
         });
-        if use_wildcard && copies.len() < 3 {
+        if use_wildcard && copies.len() < n {
             self.remove_board_minions(|u| {
-                let take = copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id);
+                let take = copies.len() < n && is_eligible(u) && is_wildcard(u.card_id);
                 if take {
                     copies.push(u.clone());
                 }
                 take
             });
             self.hand.retain(|u| {
-                if copies.len() < 3 && is_eligible(u) && is_wildcard(u.card_id) {
+                if copies.len() < n && is_eligible(u) && is_wildcard(u.card_id) {
                     copies.push(u.clone());
                     false
                 } else {
@@ -2289,7 +2342,7 @@ impl TavernState {
             });
         }
 
-        debug_assert_eq!(copies.len(), 3);
+        debug_assert_eq!(copies.len(), n);
         let primary = copies
             .iter()
             .find(|u| u.card_id == target_cid)
@@ -2360,6 +2413,9 @@ impl TavernState {
             copies.iter().map(|u| u.blood_gem_stats_applied.0).sum(),
             copies.iter().map(|u| u.blood_gem_stats_applied.1).sum(),
         );
+        if n != 3 {
+            golden.golden_copies = n as u8;
+        }
         cards::on_merge_golden(&copies, &mut golden);
         cards::check_stat_thresholds(&mut golden);
 

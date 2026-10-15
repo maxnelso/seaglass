@@ -1,0 +1,31 @@
+hero: Sindragosa
+defaults:
+  tavern: {auras: {hero: Sindragosa}}
+scenarios:
+  - name: minions_cost_2
+    tavern: {gold: 2, shop: ["1/1 t1"]}
+    steps:
+      - buy: 0
+    expect: {gold: 0, hand: ["1/1"]}
+
+  - name: a_discount_lowers_the_2
+    tavern: {gold: 1, shop: ["1/1 t1"], auras: {hero: Sindragosa, next_minion_discount: 1}}
+    steps:
+      - buy: 0
+    expect: {gold: 0}
+
+  - name: the_tavern_offers_one_fewer_minion
+    seeds: "1..=3"
+    tavern: {tavern_tier: 2, gold: 5}
+    steps:
+      - refresh
+    expect: {shop: {where: {is_spell: false}, count: 3}}   # Tier 2 holds 4
+
+  - name: it_freezes_at_the_end_of_each_turn
+    description: (engine decision) As the player's Freeze, so the next turn start keeps the shop.
+    tavern: {shop: ["1/1 t1", "2/2 t1"]}
+    steps:
+      - end_turn
+      - expect: {is_frozen: true}
+      - start_turn
+    expect: {shop: ["1/1", "2/2"]}

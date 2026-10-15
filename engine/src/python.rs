@@ -187,6 +187,13 @@ impl PyUnit {
         self.inner.costs_health
     }
 
+    /// Marked by the player's Hero Power (Teron's target, Vol'jin's first pick, a Silas Darkmoon
+    /// ticket on a minion in the shop; `docs/heroes.md` §3.3).
+    #[getter]
+    fn marked(&self) -> bool {
+        self.inner.marked
+    }
+
     #[getter]
     fn unplayable(&self) -> bool {
         self.inner.unplayable || self.inner.lockbox_turns_left > 0 || self.inner.locked_turns > 0
@@ -563,6 +570,12 @@ pub struct PyTavernObservation {
     /// Spellcraft spells given to a full hand; discarded at the end of the turn).
     #[pyo3(get)]
     pub waiting_for_hand: Vec<PyUnit>,
+    /// A minion's price and a paid Refresh's, which a Hero Power can change (`docs/tavern.md`
+    /// §3.3; `upgrade_cost` is the Upgrade's price, its extra included).
+    #[pyo3(get)]
+    pub minion_cost: u32,
+    #[pyo3(get)]
+    pub refresh_cost: u32,
 }
 
 impl From<&TavernState> for PyTavernObservation {
@@ -576,7 +589,7 @@ impl From<&TavernState> for PyTavernObservation {
             gold: s.gold,
             bonus_gold_next_turn: s.bonus_gold_next_turn,
             free_refreshes: s.auras.free_refreshes,
-            upgrade_cost: s.upgrade_cost,
+            upgrade_cost: s.upgrade_price(),
             is_frozen: s.is_frozen,
             next_minion_discount: s.auras.next_minion_discount,
             board: s
@@ -616,6 +629,8 @@ impl From<&TavernState> for PyTavernObservation {
                 && !heroes::valid_targets(s).is_empty(),
             hero_options: s.hero_options.clone(),
             waiting_for_hand: py_units(&s.waiting_for_hand),
+            minion_cost: s.minion_buy_cost(),
+            refresh_cost: s.refresh_cost(),
         }
     }
 }
@@ -999,6 +1014,11 @@ pub struct PyDuosObservation {
     /// `TavernObservation.waiting_for_hand`).
     #[pyo3(get)]
     pub waiting_for_hand: Vec<PyUnit>,
+    /// See `TavernObservation.minion_cost` and `refresh_cost`.
+    #[pyo3(get)]
+    pub minion_cost: u32,
+    #[pyo3(get)]
+    pub refresh_cost: u32,
     /// The teammate's hero's id, 0 without one.
     #[pyo3(get)]
     pub teammate_hero_id: u32,
@@ -1080,6 +1100,8 @@ impl PyDuosObservation {
             hero_power_usable: own.hero_power_usable && !team.ended[player],
             hero_options: own.hero_options,
             waiting_for_hand: own.waiting_for_hand,
+            minion_cost: own.minion_cost,
+            refresh_cost: own.refresh_cost,
             teammate_hero_id: other.hero().map_or(0, |h| h.hero_id),
             ended: team.ended[player],
             incoming: py_units(&team.incoming[player]),

@@ -628,6 +628,15 @@ pub struct Unit {
     /// Power's `stored` cards instead of the hand (Thorim, Stormlord).
     #[serde(default, skip_serializing_if = "is_false")]
     pub to_hero_power: bool,
+    /// The copies a Triple took to form this Golden, if not 3 (Mister Clocksworth's 2;
+    /// `docs/tavern.md` §5): selling it returns as many to the pool. 0 for 3.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub golden_copies: u8,
+}
+
+/// `true` if `n` is 0 (serde: a field skipped while it is 0).
+fn is_zero_u8(n: &u8) -> bool {
+    *n == 0
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
@@ -710,6 +719,23 @@ impl Unit {
             temp_reborn: false,
             frozen: false,
             to_hero_power: false,
+            golden_copies: 0,
+        }
+    }
+
+    /// The copies of its card this unit holds for the card pool (`docs/tavern.md` §2): 3 for a
+    /// Golden a Triple formed (or its `golden_copies`), 1 for any other minion (a Golden an effect
+    /// made from a single copy included), 0 for a spell.
+    pub fn pool_copies(&self) -> u32 {
+        if self.is_spell {
+            0
+        } else if self.is_golden && !self.intrinsic_golden && !self.golden_from_effect {
+            match self.golden_copies {
+                0 => 3,
+                n => u32::from(n),
+            }
+        } else {
+            1
         }
     }
 

@@ -1,0 +1,44 @@
+hero: Millhouse Manastorm
+defaults:
+  tavern: {auras: {hero: Millhouse Manastorm}}
+scenarios:
+  - name: minions_cost_2
+    tavern: {gold: 2, shop: ["1/1 t1"]}
+    steps:
+      - buy: 0
+    expect: {gold: 0}
+
+  - name: refreshes_cost_2
+    tavern: {gold: 3}
+    steps:
+      - refresh
+      - expect: {gold: 1}
+      - expect_illegal: refresh
+
+  - name: a_free_refresh_is_still_free
+    tavern: {gold: 0, auras: {hero: Millhouse Manastorm, free_refreshes: 1}}
+    steps:
+      - refresh
+    expect: {gold: 0, auras: {free_refreshes: 0}}
+
+  - name: each_tier_starts_1_gold_dearer
+    description: (confirmed) The next Upgrade costs 8 (7 + 1).
+    tavern: {gold: 6, tavern_tier: 1, upgrade_cost: 6}
+    steps:
+      - upgrade_tavern
+    expect: {gold: 0, tavern_tier: 2, upgrade_cost: 8}
+
+  - name: getting_the_hero_adds_the_1
+    tavern: {auras: {}, upgrade_cost: 5}
+    steps:
+      - set_hero: Millhouse Manastorm
+    expect: {upgrade_cost: 6}
+
+  - name: the_discounts_can_bring_it_to_0
+    description: (confirmed)
+    tavern: {turn: 3, tavern_tier: 2, upgrade_cost: 1}
+    steps:
+      - start_turn
+      - expect: {upgrade_cost: 0}
+      - upgrade_tavern
+    expect: {tavern_tier: 3}
