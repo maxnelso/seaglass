@@ -1,0 +1,65 @@
+hero: Vol'jin
+scenarios:
+  - name: spirit_swap_board_and_shop_gains_each_others_attack_until_next_turn
+    tavern:
+      gold: 10
+      board: ["2/5", "6/4"]
+      shop: ["10/3"]
+    steps:
+      - set_hero: Vol'jin
+      - expect:
+          health: 30
+          armor: 17
+          auras: {hero: {power: {cost: 0, uses_left: 1, armed: 0}}}
+      - hero_power: 0
+      - expect:
+          gold: 10
+          auras: {hero: {power: {uses_left: 1, armed: 1}}}
+      - expect_illegal: {hero_power: 0}
+      - hero_power: 7
+      - expect:
+          gold: 10
+          auras: {hero: {power: {uses_left: 0, armed: 0}}}
+          board:
+            0: {stats: "12/5", until_next_turn_atk: 10}
+            1: "6/4"
+          shop:
+            0: {stats: "12/3", until_next_turn_atk: 2}
+      - toggle_freeze
+      - end_turn
+      - start_turn
+      - expect:
+          auras: {hero: {power: {uses_left: 1, armed: 0}}}
+          board:
+            0: {stats: "2/5", until_next_turn_atk: 0}
+          shop:
+            0: {stats: "10/3", until_next_turn_atk: 0}
+
+  - name: spirit_swap_requires_two_minions_and_triples_keep_temporary_attack_for_the_turn
+    tavern:
+      gold: 10
+      board: [Joyous]
+      shop: []
+    steps:
+      - set_hero: Vol'jin
+      - expect_illegal: {hero_power: 0}
+      - push_board: [Joyous, "5/5"]
+      - expect_legal: {hero_power: 0}
+      - hero_power: 0
+      - hero_power: 2
+      - expect:
+          board:
+            0: {card: Joyous, stats: "7/3", until_next_turn_atk: 5}
+            1: {card: Joyous, stats: "2/3", until_next_turn_atk: 0}
+            2: {stats: "7/5", until_next_turn_atk: 2}
+      - add_to_hand: Joyous
+      - expect:
+          hand:
+            0: {card: Joyous, is_golden: true, stats: "9/6", until_next_turn_atk: 5}
+      - end_turn
+      - start_turn
+      - expect:
+          hand:
+            0: {card: Joyous, is_golden: true, stats: "4/6", until_next_turn_atk: 0}
+          board:
+            0: {stats: "5/5", until_next_turn_atk: 0}

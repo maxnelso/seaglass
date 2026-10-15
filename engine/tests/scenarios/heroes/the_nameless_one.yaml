@@ -1,0 +1,37 @@
+hero: The Nameless One
+scenarios:
+  - name: copies_teammates_hero_power_at_start_of_game
+    duos_tavern: {}
+    steps:
+      - {player: 0, set_hero: The Nameless One}
+      - {player: 1, set_hero: George the Fallen}
+      - expect:
+          health: 30
+          armor: 24
+          players:
+            0: {auras: {hero: {power: {card_id: 104569}}}}
+            1: {auras: {hero: {power: {card_id: 57562}}}}
+      - start_turn
+      - {player: 0, push_board: "2/2"}
+      - {player: 0, hero_power: 0}
+      - expect:
+          players:
+            0:
+              gold: 2
+              board: ["2/2 divine_shield"]
+              auras: {hero: {power: {card_id: 57562, uses_left: 0}}}
+
+  - name: copies_teammates_start_of_game_token_hero_power
+    duos_tavern: {}
+    steps:
+      - {player: 0, set_hero: The Nameless One}
+      - {player: 1, set_hero: N'Zoth}
+      - start_turn
+      - expect:
+          players:
+            0:
+              board: [Fish of N'Zoth]
+              auras: {hero: {power: {card_id: 66484}}}
+            1:
+              board: [Fish of N'Zoth]
+              auras: {hero: {power: {card_id: 66484}}}

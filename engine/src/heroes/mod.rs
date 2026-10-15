@@ -41,6 +41,7 @@ pub mod fungalmancer_flurgl;
 pub mod galakrond;
 pub mod galewing;
 pub mod gall;
+pub mod genn_worgen_king;
 pub mod george_the_fallen;
 pub mod greybough;
 pub mod guff_runetotem;
@@ -58,6 +59,7 @@ pub mod loh_the_living_legend;
 pub mod madam_goya;
 pub mod maiev_shadowsong;
 pub mod malygos;
+pub mod master_nguyen;
 pub mod millhouse_manastorm;
 pub mod millificent_manastorm;
 pub mod mister_clocksworth;
@@ -79,6 +81,7 @@ pub mod rokara;
 pub mod shudderwock;
 pub mod silas_darkmoon;
 pub mod sindragosa;
+pub mod sir_finley_mrrgglton;
 pub mod skycapn_kragg;
 pub mod snake_eyes;
 pub mod sneed;
@@ -90,12 +93,14 @@ pub mod teron_gorefiend;
 pub mod the_curator;
 pub mod the_jailer;
 pub mod the_lich_king;
+pub mod the_nameless_one;
 pub mod the_rat_king;
 pub mod thorim_stormlord;
 pub mod time_twister_chromie;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
 pub mod varden_dawngrasp;
+pub mod voljin;
 pub mod xyrella;
 pub mod yogg_saron_hopes_end;
 pub mod ysera;
@@ -201,6 +206,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (galakrond::ID, galakrond::behaviors),
     (galewing::ID, galewing::behaviors),
     (gall::ID, gall::behaviors),
+    (genn_worgen_king::ID, genn_worgen_king::behaviors),
     (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
     (guff_runetotem::ID, guff_runetotem::behaviors),
@@ -218,6 +224,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (madam_goya::ID, madam_goya::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
     (malygos::ID, malygos::behaviors),
+    (master_nguyen::ID, master_nguyen::behaviors),
     (millhouse_manastorm::ID, millhouse_manastorm::behaviors),
     (millificent_manastorm::ID, millificent_manastorm::behaviors),
     (mister_clocksworth::ID, mister_clocksworth::behaviors),
@@ -239,6 +246,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (shudderwock::ID, shudderwock::behaviors),
     (silas_darkmoon::ID, silas_darkmoon::behaviors),
     (sindragosa::ID, sindragosa::behaviors),
+    (sir_finley_mrrgglton::ID, sir_finley_mrrgglton::behaviors),
     (skycapn_kragg::ID, skycapn_kragg::behaviors),
     (snake_eyes::ID, snake_eyes::behaviors),
     (sneed::ID, sneed::behaviors),
@@ -253,12 +261,14 @@ const IMPLEMENTED: &[Implemented] = &[
     (the_curator::ID, the_curator::behaviors),
     (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
+    (the_nameless_one::ID, the_nameless_one::behaviors),
     (the_rat_king::ID, the_rat_king::behaviors),
     (thorim_stormlord::ID, thorim_stormlord::behaviors),
     (time_twister_chromie::ID, time_twister_chromie::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (varden_dawngrasp::ID, varden_dawngrasp::behaviors),
+    (voljin::ID, voljin::behaviors),
     (xyrella::ID, xyrella::behaviors),
     (yogg_saron_hopes_end::ID, yogg_saron_hopes_end::behaviors),
     (ysera::ID, ysera::behaviors),
@@ -329,7 +339,9 @@ pub fn offerable(duos: bool) -> Vec<HeroId> {
 
 /// Draw `per_player` distinct heroes for each of `players` players (`docs/heroes.md` §6): for
 /// each player in turn, uniformly among the offerable heroes not offered yet, one `rng.below(k)`
-/// per hero. A player gets fewer if the pool runs out.
+/// per hero. In Duos (`duos == true`), if a player's teammate (`player ^ 1`) was offered
+/// `The Nameless One`, `The Nameless One` is excluded from this player's pool so a team can never
+/// get two copies of `The Nameless One`. A player gets fewer if the pool runs out.
 pub fn draw_offers(
     players: usize,
     per_player: usize,
@@ -337,16 +349,41 @@ pub fn draw_offers(
     rng: &mut Rng,
 ) -> Vec<Vec<HeroId>> {
     let mut left = offerable(duos);
-    (0..players)
-        .map(|_| {
-            (0..per_player)
-                .filter_map(|_| match left.len() {
-                    0 => None,
-                    k => Some(left.remove(rng.below(k))),
-                })
-                .collect()
-        })
-        .collect()
+    let mut result: Vec<Vec<HeroId>> = Vec::with_capacity(players);
+    for player in 0..players {
+        let mate_has_nameless = duos
+            && player % 2 == 1
+            && result
+                .get(player - 1)
+                .is_some_and(|o| o.contains(&the_nameless_one::ID));
+        let mut offered = Vec::with_capacity(per_player);
+        for _ in 0..per_player {
+            let candidates: Vec<usize> = (0..left.len())
+                .filter(|&i| !(mate_has_nameless && left[i] == the_nameless_one::ID))
+                .collect();
+            if candidates.is_empty() {
+                break;
+            }
+            let idx = candidates[rng.below(candidates.len())];
+            offered.push(left.remove(idx));
+        }
+        result.push(offered);
+    }
+    result
+}
+
+/// A fresh state for the Hero Power `p` (`docs/heroes.md` §3.2): at its starting cost, with a use
+/// left if it is active.
+pub fn new_power_state(p: PowerData) -> HeroPowerState {
+    HeroPowerState {
+        card_id: p.id,
+        cost: p.cost,
+        uses_left: u32::from(hooks(p.id).hero_power.is_some()),
+        counter: 0,
+        stacks: 0,
+        armed: 0,
+        stored: Vec::new(),
+    }
 }
 
 /// A fresh state for the hero `h` (`docs/heroes.md` §3.2): its Hero Power at its starting cost,
@@ -354,15 +391,8 @@ pub fn draw_offers(
 pub fn new_state(h: &HeroData) -> HeroState {
     HeroState {
         hero_id: h.id,
-        power: HeroPowerState {
-            card_id: h.power.id,
-            cost: h.power.cost,
-            uses_left: u32::from(hooks(h.power.id).hero_power.is_some()),
-            counter: 0,
-            stacks: 0,
-            armed: 0,
-            stored: Vec::new(),
-        },
+        power: new_power_state(h.power),
+        second_power: None,
     }
 }
 
@@ -377,9 +407,72 @@ pub fn starting_bonus(h: &HeroData, duos: bool) -> (i32, i32) {
 // Dispatch: the player's Hero Power's hooks
 // ---------------------------------------------------------------------------------------------
 
+std::thread_local! {
+    /// True while checking legality of `second_power` (`can_use_2`), so [`active_power`] reads
+    /// `second_power` on `&TavernState`.
+    static CHECKING_SECOND_POWER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The Hero Power currently being checked or used (`power`, or `second_power` during `can_use_2`).
+pub fn active_power(state: &TavernState) -> Option<&HeroPowerState> {
+    let hero = state.auras.hero.as_ref()?;
+    if CHECKING_SECOND_POWER.with(std::cell::Cell::get) {
+        hero.second_power.as_ref()
+    } else {
+        Some(&hero.power)
+    }
+}
+
+/// Run `f` with `hero.power` and `hero.second_power` swapped if `second_power` is present.
+fn with_second_power<R>(
+    state: &mut TavernState,
+    f: impl FnOnce(&mut TavernState) -> R,
+) -> Option<R> {
+    {
+        let hero = state.auras.hero.as_mut()?;
+        let second = hero.second_power.as_mut()?;
+        std::mem::swap(&mut hero.power, second);
+    }
+    let out = f(state);
+    if let Some(hero) = state.auras.hero.as_mut() {
+        if let Some(second) = hero.second_power.as_mut() {
+            std::mem::swap(&mut hero.power, second);
+        }
+    }
+    Some(out)
+}
+
+/// Run `f` with `hero.power` and `hero.second_power` swapped on `auras` if `second_power` is present.
+fn with_second_power_auras<R>(
+    auras: &mut PlayerAuras,
+    f: impl FnOnce(&mut PlayerAuras) -> R,
+) -> Option<R> {
+    {
+        let hero = auras.hero.as_mut()?;
+        let second = hero.second_power.as_mut()?;
+        std::mem::swap(&mut hero.power, second);
+    }
+    let out = f(auras);
+    if let Some(hero) = auras.hero.as_mut() {
+        if let Some(second) = hero.second_power.as_mut() {
+            std::mem::swap(&mut hero.power, second);
+        }
+    }
+    Some(out)
+}
+
 /// The player's Hero Power's hooks, if they have a hero.
 fn power_hooks(auras: &PlayerAuras) -> Option<&'static CardHooks> {
     auras.hero.as_ref().map(|h| hooks(h.power.card_id))
+}
+
+/// The player's second Hero Power's hooks, if they have one (`Genn, Worgen King`).
+fn second_power_hooks(auras: &PlayerAuras) -> Option<&'static CardHooks> {
+    auras
+        .hero
+        .as_ref()
+        .and_then(|h| h.second_power.as_ref())
+        .map(|p| hooks(p.card_id))
 }
 
 /// `true` if `target` is a valid target of kind `kind` in `state` (`docs/heroes.md` §3.3).
@@ -391,20 +484,44 @@ fn target_ok(state: &TavernState, kind: ActivateTargetKind, target: Option<usize
         (ActivateTargetKind::HandCard, Some(t)) => {
             state.hand.get(t).is_some_and(|c| c.locked_turns == 0)
         }
+        (ActivateTargetKind::BoardOrShopMinion, Some(t)) if t < 7 => t < state.board.len(),
+        (ActivateTargetKind::BoardOrShopMinion, Some(t)) if (7..14).contains(&t) => {
+            state.shop.get(t - 7).is_some_and(|u| !u.is_spell)
+        }
         _ => false,
     }
 }
 
 /// The candidate targets of a Hero Power of target kind `kind` in `state`.
 fn targets(state: &TavernState, kind: ActivateTargetKind) -> Vec<Option<usize>> {
-    let n = match kind {
-        ActivateTargetKind::None => return vec![None],
-        ActivateTargetKind::BoardAny => state.board.len(),
-        ActivateTargetKind::ShopCard => state.shop.len(),
-        ActivateTargetKind::HandCard => state.hand.len(),
-        _ => 0,
-    };
-    (0..n).map(Some).collect()
+    match kind {
+        ActivateTargetKind::None => vec![None],
+        ActivateTargetKind::BoardAny => (0..state.board.len()).map(Some).collect(),
+        ActivateTargetKind::ShopCard => (0..state.shop.len()).map(Some).collect(),
+        ActivateTargetKind::HandCard => (0..state.hand.len()).map(Some).collect(),
+        ActivateTargetKind::BoardOrShopMinion => (0..state.board.len())
+            .chain(
+                (0..state.shop.len())
+                    .filter(|&i| !state.shop[i].is_spell)
+                    .map(|i| 7 + i),
+            )
+            .map(Some)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn can_use_power(state: &TavernState, power: &HeroPowerState, target: Option<usize>) -> bool {
+    let card = hooks(power.card_id);
+    card.hero_power.is_some()
+        && power.uses_left > 0
+        && state.gold >= power.cost
+        && card.hero_power_usable.is_none_or(|usable| usable(state))
+        && target_ok(state, card.activate_target, target)
+        && match (target, card.hero_power_target) {
+            (Some(t), Some(filter)) => filter(state, t),
+            _ => true,
+        }
 }
 
 /// `true` if the player can use their Hero Power on `target` now, apart from pending prompts
@@ -414,16 +531,23 @@ pub fn can_use(state: &TavernState, target: Option<usize>) -> bool {
     let Some(hero) = state.auras.hero.as_ref() else {
         return false;
     };
-    let card = hooks(hero.power.card_id);
-    card.hero_power.is_some()
-        && hero.power.uses_left > 0
-        && state.gold >= hero.power.cost
-        && card.hero_power_usable.is_none_or(|usable| usable(state))
-        && target_ok(state, card.activate_target, target)
-        && match (target, card.hero_power_target) {
-            (Some(t), Some(filter)) => filter(state, t),
-            _ => true,
-        }
+    can_use_power(state, &hero.power, target)
+}
+
+/// `true` if the player can use their second Hero Power (`HeroPower2`) on `target` now.
+pub fn can_use_2(state: &TavernState, target: Option<usize>) -> bool {
+    let Some(second) = state
+        .auras
+        .hero
+        .as_ref()
+        .and_then(|h| h.second_power.as_ref())
+    else {
+        return false;
+    };
+    CHECKING_SECOND_POWER.with(|c| c.set(true));
+    let ok = can_use_power(state, second, target);
+    CHECKING_SECOND_POWER.with(|c| c.set(false));
+    ok
 }
 
 /// The targets the player can use their Hero Power on now (empty if they can't use it).
@@ -434,6 +558,17 @@ pub fn valid_targets(state: &TavernState) -> Vec<Option<usize>> {
     targets(state, card.activate_target)
         .into_iter()
         .filter(|&t| can_use(state, t))
+        .collect()
+}
+
+/// The targets the player can use their second Hero Power (`HeroPower2`) on now.
+pub fn valid_targets_2(state: &TavernState) -> Vec<Option<usize>> {
+    let Some(card) = second_power_hooks(&state.auras) else {
+        return Vec::new();
+    };
+    targets(state, card.activate_target)
+        .into_iter()
+        .filter(|&t| can_use_2(state, t))
         .collect()
 }
 
@@ -457,6 +592,16 @@ pub fn use_power(
     state.spend_gold(cost, pool, rng);
 }
 
+/// Use the player's second Hero Power (`HeroPower2`) on `target`.
+pub fn use_power_2(
+    state: &mut TavernState,
+    target: Option<usize>,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    with_second_power(state, |state| use_power(state, target, pool, rng));
+}
+
 /// Start of turn (`docs/heroes.md` §3.3, §3.4): the board's marks clear, and the Hero Power's
 /// uses are reset (1 if it is active, 0 if passive) before its `hero_turn_reset` hook.
 pub fn turn_reset(state: &mut TavernState) {
@@ -466,10 +611,33 @@ pub fn turn_reset(state: &mut TavernState) {
     for unit in &mut state.board {
         unit.marked = false;
     }
-    let card = hooks(hero.power.card_id);
-    hero.power.uses_left = u32::from(card.hero_power.is_some());
-    if let Some(reset) = card.hero_turn_reset {
-        reset(hero);
+    if hero.hero_id == master_nguyen::ID && hooks(master_nguyen::POWER).hero_turn_start.is_some() {
+        let kept_stored = if hero.power.card_id == tavish_stormpike::POWER {
+            std::mem::take(&mut hero.power.stored)
+        } else {
+            Vec::new()
+        };
+        if let Some(nguyen) = data(master_nguyen::ID) {
+            hero.power = new_power_state(nguyen.power);
+            hero.power.stored = kept_stored;
+        }
+    } else {
+        let card = hooks(hero.power.card_id);
+        hero.power.uses_left = u32::from(card.hero_power.is_some());
+        if let Some(reset) = card.hero_turn_reset {
+            reset(hero);
+        }
+    }
+    if let Some(second) = hero.second_power.as_mut() {
+        std::mem::swap(&mut hero.power, second);
+        let card = hooks(hero.power.card_id);
+        hero.power.uses_left = u32::from(card.hero_power.is_some());
+        if let Some(reset) = card.hero_turn_reset {
+            reset(hero);
+        }
+        if let Some(second) = hero.second_power.as_mut() {
+            std::mem::swap(&mut hero.power, second);
+        }
     }
 }
 
@@ -511,6 +679,9 @@ pub fn tavern_rules(auras: &PlayerAuras) -> TavernRules {
     if let Some(change) = power_hooks(auras).and_then(|c| c.hero_tavern_rules) {
         change(&mut rules);
     }
+    if let Some(change) = second_power_hooks(auras).and_then(|c| c.hero_tavern_rules) {
+        change(&mut rules);
+    }
     rules
 }
 
@@ -519,12 +690,18 @@ pub fn skips_turn(state: &TavernState) -> bool {
     power_hooks(&state.auras)
         .and_then(|c| c.hero_skips_turn)
         .is_some_and(|skips| skips(state))
+        || second_power_hooks(&state.auras)
+            .and_then(|c| c.hero_skips_turn)
+            .is_some_and(|skips| skips(state))
 }
 
 /// The player got their hero: its Hero Power's `hero_chosen` hook (`docs/heroes.md` §2.3).
 pub fn on_chosen(state: &mut TavernState) {
     if let Some(chosen) = power_hooks(&state.auras).and_then(|c| c.hero_chosen) {
         chosen(state);
+    }
+    if let Some(chosen) = second_power_hooks(&state.auras).and_then(|c| c.hero_chosen) {
+        with_second_power(state, chosen);
     }
 }
 
@@ -533,22 +710,54 @@ pub fn on_gold_spent(state: &mut TavernState, amount: u32) {
     if let Some(gold_spent) = power_hooks(&state.auras).and_then(|c| c.hero_gold_spent) {
         gold_spent(state, amount);
     }
+    if let Some(gold_spent) = second_power_hooks(&state.auras).and_then(|c| c.hero_gold_spent) {
+        with_second_power(state, |s| gold_spent(s, amount));
+    }
 }
 
 /// `true` if the player's Hero Power acts at Start of Combat (`docs/combat.md` §5.1.1 step 1).
 pub fn has_start_of_combat(auras: &PlayerAuras) -> bool {
     power_hooks(auras).is_some_and(|c| c.hero_start_of_combat.is_some())
+        || second_power_hooks(auras).is_some_and(|c| c.hero_start_of_combat.is_some())
 }
 
-/// The player's Hero Power's `hero_start_of_combat` hook (`docs/heroes.md` §7.2).
-pub fn start_of_combat_hook(auras: &PlayerAuras) -> Option<fn(&mut HeroCombatCtx<'_>)> {
-    power_hooks(auras).and_then(|c| c.hero_start_of_combat)
+/// Run the player's Hero Power(s) `hero_start_of_combat` hook (`docs/heroes.md` §7.2).
+pub fn on_start_of_combat(ctx: &mut HeroCombatCtx<'_>) {
+    if let Some(soc) = power_hooks(ctx.own.auras).and_then(|c| c.hero_start_of_combat) {
+        soc(ctx);
+    }
+    if let Some(soc) = second_power_hooks(ctx.own.auras).and_then(|c| c.hero_start_of_combat) {
+        if let Some(hero) = ctx.own.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+        soc(ctx);
+        if let Some(hero) = ctx.own.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+    }
 }
 
 /// Room may have opened on the board in combat: the Hero Power's `hero_combat_space` hook.
 pub fn combat_space(ctx: &mut BoardCtx<'_>) {
     if let Some(combat_space) = power_hooks(ctx.auras).and_then(|c| c.hero_combat_space) {
         combat_space(ctx);
+    }
+    if let Some(combat_space) = second_power_hooks(ctx.auras).and_then(|c| c.hero_combat_space) {
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+        combat_space(ctx);
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
     }
 }
 
@@ -557,12 +766,18 @@ pub fn on_turn_start(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng
     if let Some(turn_start) = power_hooks(&state.auras).and_then(|c| c.hero_turn_start) {
         turn_start(state, pool, rng);
     }
+    if let Some(turn_start) = second_power_hooks(&state.auras).and_then(|c| c.hero_turn_start) {
+        with_second_power(state, |s| turn_start(s, pool, rng));
+    }
 }
 
 /// After a card was bought: the Hero Power's `hero_after_buy` hook.
 pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(after_buy) = power_hooks(&state.auras).and_then(|c| c.hero_after_buy) {
         after_buy(state, bought, pool, rng);
+    }
+    if let Some(after_buy) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_buy) {
+        with_second_power(state, |s| after_buy(s, bought, pool, rng));
     }
 }
 
@@ -571,12 +786,18 @@ pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng
     if let Some(after_sell) = power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
         after_sell(state, sold, pool, rng);
     }
+    if let Some(after_sell) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
+        with_second_power(state, |s| after_sell(s, sold, pool, rng));
+    }
 }
 
 /// After a minion was played or Magnetized: the Hero Power's `hero_after_play` hook.
 pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(after_play) = power_hooks(&state.auras).and_then(|c| c.hero_after_play) {
         after_play(state, played, pool, rng);
+    }
+    if let Some(after_play) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_play) {
+        with_second_power(state, |s| after_play(s, played, pool, rng));
     }
 }
 
@@ -585,19 +806,33 @@ pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng
     if let Some(after_upgrade) = power_hooks(&state.auras).and_then(|c| c.hero_after_upgrade) {
         after_upgrade(state, pool, rng);
     }
+    if let Some(after_upgrade) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_upgrade)
+    {
+        with_second_power(state, |s| after_upgrade(s, pool, rng));
+    }
 }
 
 /// The player chose an option of a Discover their Hero Power keeps (`Unit::to_hero_power`,
-/// `docs/tavern.md` §5.2): its `hero_option_chosen` hook, or else the chosen card goes to the Hero
-/// Power's `stored` cards and the others are discarded.
+/// `docs/tavern.md` §5.2): its `hero_option_chosen` hook (or installs `second_power` for Genn's
+/// second Discover, marked by `counter == 1` on a Hero Power option), or else the chosen card goes
+/// to the Hero Power's `stored` cards and the others are discarded.
 pub fn keep_chosen(
     state: &mut TavernState,
     chosen: Unit,
     unchosen: Vec<Unit>,
     pool: &mut CardPool,
+    rng: &mut Rng,
 ) {
+    if chosen.counter == 1 && HEROES.iter().any(|h| h.power.id == chosen.card_id) {
+        install_power(state, chosen.card_id, true, pool, rng);
+        return;
+    }
     if let Some(option_chosen) = power_hooks(&state.auras).and_then(|c| c.hero_option_chosen) {
-        option_chosen(state, chosen, unchosen, pool);
+        option_chosen(state, chosen, unchosen, pool, rng);
+    } else if let Some(option_chosen) =
+        second_power_hooks(&state.auras).and_then(|c| c.hero_option_chosen)
+    {
+        with_second_power(state, |s| option_chosen(s, chosen, unchosen, pool, rng));
     } else if let Some(power) = power_mut(&mut state.auras) {
         power.stored.push(chosen);
     }
@@ -608,12 +843,30 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
     if let Some(friendly_attack) = power_hooks(ctx.auras).and_then(|c| c.hero_friendly_attack) {
         friendly_attack(ctx, attacker_id);
     }
+    if let Some(friendly_attack) =
+        second_power_hooks(ctx.auras).and_then(|c| c.hero_friendly_attack)
+    {
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+        friendly_attack(ctx, attacker_id);
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+    }
 }
 
 /// The combat's results are back in the Tavern: the Hero Power's `hero_after_combat` hook.
 pub fn after_combat(state: &mut TavernState, dead: &[Unit]) {
     if let Some(after_combat) = power_hooks(&state.auras).and_then(|c| c.hero_after_combat) {
         after_combat(state, dead);
+    }
+    if let Some(after_combat) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_combat) {
+        with_second_power(state, |s| after_combat(s, dead));
     }
 }
 
@@ -622,12 +875,19 @@ pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(end_turn) = power_hooks(&state.auras).and_then(|c| c.hero_end_turn) {
         end_turn(state, pool, rng);
     }
+    if let Some(end_turn) = second_power_hooks(&state.auras).and_then(|c| c.hero_end_turn) {
+        with_second_power(state, |s| end_turn(s, pool, rng));
+    }
 }
 
 /// The Tavern was Refreshed: the Hero Power's `hero_after_refresh` hook (`docs/heroes.md` §4).
 pub fn after_refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(after_refresh) = power_hooks(&state.auras).and_then(|c| c.hero_after_refresh) {
         after_refresh(state, pool, rng);
+    }
+    if let Some(after_refresh) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_refresh)
+    {
+        with_second_power(state, |s| after_refresh(s, pool, rng));
     }
 }
 
@@ -639,11 +899,22 @@ pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
     if let Some(combat_summon) = hooks(hero.power.card_id).hero_combat_summon {
         combat_summon(hero, summoned);
     }
+    if let Some(second) = hero.second_power.as_ref() {
+        if let Some(combat_summon) = hooks(second.card_id).hero_combat_summon {
+            let swapped = HeroState {
+                hero_id: hero.hero_id,
+                power: second.clone(),
+                second_power: None,
+            };
+            combat_summon(&swapped, summoned);
+        }
+    }
 }
 
 /// `true` if the player's Hero Power reacts to their minions' deaths in combat.
 pub fn has_friendly_death(auras: &PlayerAuras) -> bool {
     power_hooks(auras).is_some_and(|c| c.hero_friendly_death.is_some())
+        || second_power_hooks(auras).is_some_and(|c| c.hero_friendly_death.is_some())
 }
 
 /// A friendly minion died in combat: the Hero Power's `hero_friendly_death` hook.
@@ -651,25 +922,60 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
     if let Some(friendly_death) = power_hooks(ctx.auras).and_then(|c| c.hero_friendly_death) {
         friendly_death(ctx, dying);
     }
+    if let Some(friendly_death) = second_power_hooks(ctx.auras).and_then(|c| c.hero_friendly_death)
+    {
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+        friendly_death(ctx, dying);
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+    }
 }
 
 /// Duos: the player's warband never stepped in (`docs/heroes.md` §7.1): the card their Hero
 /// Power's `hero_sat_out` hook gives, if any.
 pub fn on_sat_out(auras: &mut PlayerAuras, hero_tier: u32, rng: &mut Rng) -> Option<Unit> {
-    power_hooks(auras)
+    if let Some(card) = power_hooks(auras)
         .and_then(|c| c.hero_sat_out)
         .and_then(|sat_out| sat_out(auras, hero_tier, rng))
+    {
+        return Some(card);
+    }
+    if let Some(sat_out) = second_power_hooks(auras).and_then(|c| c.hero_sat_out) {
+        return with_second_power_auras(auras, |a| sat_out(a, hero_tier, rng)).flatten();
+    }
+    None
 }
 
 /// `true` if the player's Hero Power reacts to their minions' kills (`hero_enemy_killed`).
 pub fn has_enemy_killed(auras: &PlayerAuras) -> bool {
     power_hooks(auras).is_some_and(|c| c.hero_enemy_killed.is_some())
+        || second_power_hooks(auras).is_some_and(|c| c.hero_enemy_killed.is_some())
 }
 
 /// The player's minion `killer` killed the enemy minion `victim` (`docs/heroes.md` §7.3).
 pub fn on_enemy_killed(ctx: &mut BoardCtx<'_>, killer: UnitId, victim: &Unit) {
     if let Some(enemy_killed) = power_hooks(ctx.auras).and_then(|c| c.hero_enemy_killed) {
         enemy_killed(ctx, killer, victim);
+    }
+    if let Some(enemy_killed) = second_power_hooks(ctx.auras).and_then(|c| c.hero_enemy_killed) {
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
+        enemy_killed(ctx, killer, victim);
+        if let Some(hero) = ctx.auras.hero.as_mut() {
+            if let Some(second) = hero.second_power.as_mut() {
+                std::mem::swap(&mut hero.power, second);
+            }
+        }
     }
 }
 
@@ -730,16 +1036,206 @@ pub fn hand_has_room(state: &TavernState) -> bool {
 /// A `hero_power_usable` hook for once-per-game powers: not used yet (`stacks` is set to 1 by the
 /// use).
 pub fn unused_this_game(state: &TavernState) -> bool {
-    state
-        .auras
-        .hero
-        .as_ref()
-        .is_some_and(|h| h.power.stacks == 0)
+    active_power(state).is_some_and(|p| p.stacks == 0)
 }
 
 /// The player's Hero Power state (for hooks that know the player has a hero).
 pub fn power_mut(auras: &mut PlayerAuras) -> Option<&mut HeroPowerState> {
     auras.hero.as_mut().map(|h| &mut h.power)
+}
+
+/// The Hero Powers a Discover can offer (`Sir Finley Mrrgglton`, `Master Nguyen`,
+/// `Genn, Worgen King`; `docs/heroes.md` §11.2).
+pub fn offerable_powers(
+    state: &TavernState,
+    exclude: Option<CardId>,
+    temporary: bool,
+) -> Vec<&'static HeroData> {
+    let duos = state.auras.duos_game;
+    HEROES
+        .iter()
+        .filter(|h| is_implemented(h.id) && (duos || !h.duos_only))
+        .filter(|h| exclude != Some(h.power.id))
+        .filter(|h| {
+            !matches!(
+                h.id,
+                patchwerk::ID
+                    | nzoth::ID
+                    | sneed::ID
+                    | the_curator::ID
+                    | a_f_kay::ID
+                    | ambassador_faelin::ID
+                    | thorim_stormlord::ID
+                    | sir_finley_mrrgglton::ID
+                    | master_nguyen::ID
+                    | genn_worgen_king::ID
+                    | the_nameless_one::ID
+                    | cho::ID
+                    | gall::ID
+            )
+        })
+        .filter(|h| {
+            if !temporary {
+                return true;
+            }
+            if (h.id == alexstrasza::ID || h.id == millificent_manastorm::ID)
+                && state.tavern_tier < 4
+            {
+                return false;
+            }
+            if h.id == the_jailer::ID && state.tavern_tier < 2 {
+                return false;
+            }
+            if (h.id == exarch_othaar::ID || h.id == shudderwock::ID) && state.turn < 3 {
+                return false;
+            }
+            !matches!(
+                h.id,
+                reno_jackson::ID
+                    | skycapn_kragg::ID
+                    | zerek_master_cloner::ID
+                    | ragnaros_the_firelord::ID
+                    | aranna_starseeker::ID
+                    | loh_the_living_legend::ID
+                    | dinotamer_brann::ID
+                    | sylvanas_windrunner::ID
+                    | guff_runetotem::ID
+                    | ini_stormcoil::ID
+                    | kaelthas_sunstrider::ID
+                    | fungalmancer_flurgl::ID
+                    | rock_master_voone::ID
+                    | chenvaala::ID
+                    | overlord_saurfang::ID
+                    | rakanishu::ID
+                    | queen_wagtoggle::ID
+                    | ozumat::ID
+                    | onyxia::ID
+                    | vanndar_stormpike::ID
+                    | drekthar::ID
+                    | millhouse_manastorm::ID
+                    | sindragosa::ID
+                    | mister_clocksworth::ID
+                    | snake_eyes::ID
+                    | ysera::ID
+                    | varden_dawngrasp::ID
+                    | enhance_o_mechano::ID
+                    | silas_darkmoon::ID
+                    | galewing::ID
+            )
+        })
+        .collect()
+}
+
+/// Offer a Discover of `count` distinct Hero Powers (`Sir Finley`, `Master Nguyen`, `Genn`).
+pub fn offer_power_discover(
+    state: &mut TavernState,
+    count: usize,
+    exclude: Option<CardId>,
+    temporary: bool,
+    for_second_power: bool,
+    rng: &mut Rng,
+) {
+    let mut pool = offerable_powers(state, exclude, temporary);
+    let mut options = Vec::with_capacity(count);
+    for _ in 0..count {
+        if pool.is_empty() {
+            break;
+        }
+        let h = pool.remove(rng.below(pool.len()));
+        let mut opt = Unit::new(h.power.name, 0, 1).with_card_id(h.power.id);
+        opt.is_spell = true;
+        opt.spell_cost = h.power.cost;
+        opt.to_hero_power = true;
+        if for_second_power {
+            opt.counter = 1;
+        }
+        options.push(opt);
+    }
+    state.push_discover(options);
+}
+
+/// Install the Hero Power `power_card_id` into `hero.power` (or `hero.second_power` if
+/// `into_second`), running its `hero_chosen`, `hero_turn_reset`, and `hero_turn_start` hooks.
+pub fn install_power(
+    state: &mut TavernState,
+    power_card_id: CardId,
+    into_second: bool,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let Some(h) = HEROES.iter().find(|h| h.power.id == power_card_id) else {
+        return;
+    };
+    let p = new_power_state(h.power);
+    if into_second {
+        if let Some(hero) = state.auras.hero.as_mut() {
+            hero.second_power = Some(p);
+        }
+        with_second_power(state, |state| {
+            let card = hooks(power_card_id);
+            if let Some(chosen) = card.hero_chosen {
+                chosen(state);
+            }
+            if let Some(reset) = card.hero_turn_reset {
+                if let Some(hero) = state.auras.hero.as_mut() {
+                    reset(hero);
+                }
+            }
+            if let Some(turn_start) = card.hero_turn_start {
+                turn_start(state, pool, rng);
+            }
+        });
+    } else {
+        if let Some(hero) = state.auras.hero.as_mut() {
+            hero.power = p;
+        }
+        let card = hooks(power_card_id);
+        if let Some(chosen) = card.hero_chosen {
+            chosen(state);
+        }
+        if let Some(reset) = card.hero_turn_reset {
+            if let Some(hero) = state.auras.hero.as_mut() {
+                reset(hero);
+            }
+        }
+        if let Some(turn_start) = card.hero_turn_start {
+            turn_start(state, pool, rng);
+        }
+    }
+    state.sync_all_auras();
+}
+
+/// Duos (`The Nameless One`, `docs/heroes.md` §11.2): at the start of turn 1 (before either
+/// player's `start_turn` runs), if `players[player]` has `The Nameless One`'s Hero Power, replace
+/// it with a fresh copy of their teammate's Hero Power and run its `hero_chosen` hook.
+pub fn copy_teammate_power(players: &mut [TavernState; 2], player: usize) {
+    let is_nameless = players[player]
+        .auras
+        .hero
+        .as_ref()
+        .is_some_and(|h| h.power.card_id == the_nameless_one::POWER)
+        && hooks(the_nameless_one::POWER).hero_turn_reset.is_some();
+    if !is_nameless {
+        return;
+    }
+    let Some(mate_hero_id) = players[1 - player].auras.hero.as_ref().map(|h| h.hero_id) else {
+        return;
+    };
+    assert_ne!(
+        mate_hero_id,
+        the_nameless_one::ID,
+        "a Duos team cannot have two copies of The Nameless One"
+    );
+    let Some(mate_data) = data(mate_hero_id) else {
+        return;
+    };
+    if let Some(hero) = players[player].auras.hero.as_mut() {
+        hero.power = new_power_state(mate_data.power);
+    }
+    if let Some(chosen) = hooks(mate_data.power.id).hero_chosen {
+        chosen(&mut players[player]);
+    }
+    players[player].sync_all_auras();
 }
 
 #[cfg(test)]

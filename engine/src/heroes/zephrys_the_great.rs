@@ -26,11 +26,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         CardHooks::EMPTY
             .on_hero_power(three_wishes)
             .on_hero_power_usable(|state| {
-                state
-                    .auras
-                    .hero
-                    .as_ref()
-                    .is_some_and(|h| h.power.stacks < WISHES)
+                super::active_power(state).is_some_and(|p| p.stacks < WISHES)
                     && super::hand_has_room(state)
                     && pair(state).is_some()
             }),

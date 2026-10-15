@@ -52,7 +52,13 @@ fn greed(state: &mut TavernState, target: Option<usize>, pool: &mut CardPool, rn
 }
 
 /// The chosen minion replaces the Tavern minion; the rest go back to the pool.
-fn replace(state: &mut TavernState, mut chosen: Unit, unchosen: Vec<Unit>, pool: &mut CardPool) {
+fn replace(
+    state: &mut TavernState,
+    mut chosen: Unit,
+    unchosen: Vec<Unit>,
+    pool: &mut CardPool,
+    _: &mut Rng,
+) {
     for option in &unchosen {
         pool.return_unit(option);
     }

@@ -200,6 +200,8 @@ pub(super) enum Action {
     Pass(Index),
     /// Use the Hero Power, on the target `target` (in the zone of its target kind).
     HeroPower(Option<Index>),
+    /// Use the second Hero Power, on the target `target` (in the zone of its target kind).
+    HeroPower2(Option<Index>),
     /// Choose the hero offered at this index (or with this name).
     ChooseHero(Index),
 }
@@ -366,12 +368,12 @@ const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, ref
     upgrade_tavern, toggle_freeze, choose_discover, end_turn, pass, add_to_hand, push_board, \
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
-    expect_legal, expect_illegal, hero_power, choose_hero, set_hero, offer_heroes, if/then/else, \
-    repeat/steps";
+    expect_legal, expect_illegal, hero_power, hero_power_2, choose_hero, set_hero, offer_heroes, \
+    if/then/else, repeat/steps";
 
 /// The steps that are only a name (`end_turn`); tagged with a player they are written
 /// `{player: 1, end_turn}`.
-const NAME_STEPS: [&str; 7] = [
+const NAME_STEPS: [&str; 8] = [
     "start_turn",
     "sync_all_auras",
     "refresh",
@@ -379,6 +381,7 @@ const NAME_STEPS: [&str; 7] = [
     "toggle_freeze",
     "end_turn",
     "hero_power",
+    "hero_power_2",
 ];
 
 impl ScenarioFile {
@@ -979,6 +982,7 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 "toggle_freeze" => Ok(StepKind::Action(Action::ToggleFreeze)),
                 "end_turn" => Ok(StepKind::Action(Action::EndTurn)),
                 "hero_power" => Ok(StepKind::Action(Action::HeroPower(None))),
+                "hero_power_2" => Ok(StepKind::Action(Action::HeroPower2(None))),
                 other => Err(unknown_step(other)),
             };
         }
@@ -1040,6 +1044,10 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
         "pass" => StepKind::Action(Action::Pass(index(arg)?)),
         "choose_discover" => StepKind::Action(Action::ChooseDiscover(index(arg)?)),
         "hero_power" => StepKind::Action(Action::HeroPower(match arg {
+            Value::Null => None,
+            target => Some(index(target)?),
+        })),
+        "hero_power_2" => StepKind::Action(Action::HeroPower2(match arg {
             Value::Null => None,
             target => Some(index(target)?),
         })),

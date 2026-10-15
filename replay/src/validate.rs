@@ -66,6 +66,7 @@ fn hero_state(p: &PlayerSetup) -> Option<HeroState> {
                 armed: 0,
                 stored: Vec::new(),
             },
+            second_power: None,
         },
     };
     state.power.card_id = power;

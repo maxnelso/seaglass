@@ -42,10 +42,11 @@ const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
 /// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
 /// can still set them.
-const SKIPPED_UNIT_FIELDS: [&str; 5] = [
+const SKIPPED_UNIT_FIELDS: [&str; 6] = [
     "marked",
     "extra_deathrattles",
     "temp_reborn",
+    "until_next_turn_atk",
     "frozen",
     "to_hero_power",
 ];
@@ -142,6 +143,18 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
         && !fields.contains_key("stored")
     {
         fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
+    }
+    // A hero's second Hero Power, left out while there is none.
+    if fields.contains_key("hero_id") && fields.contains_key("power") {
+        let needs_default = changes.get("second_power").is_some_and(Value::is_mapping)
+            && fields.get("second_power").is_none_or(Value::is_null);
+        if needs_default {
+            let sp = serde_yaml::to_value(crate::model::HeroPowerState::default())
+                .map_err(|e| e.to_string())?;
+            fields.insert(Value::from("second_power"), sp);
+        } else if !fields.contains_key("second_power") {
+            fields.insert(Value::from("second_power"), Value::Null);
+        }
     }
     for (key, change) in changes {
         let name = key_name(key);

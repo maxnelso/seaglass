@@ -167,6 +167,10 @@ impl DuosTavern {
         self.ended = [false; 2];
         self.mirror();
         for player in 0..2 {
+            crate::heroes::copy_teammate_power(&mut self.players, player);
+        }
+        self.settle();
+        for player in 0..2 {
             // A warband that sat out the last combat keeps its unused next-combat effects (§6.3).
             let kept: Vec<PlayerEffect> = if std::mem::take(&mut self.sat_out[player]) {
                 self.players[player]

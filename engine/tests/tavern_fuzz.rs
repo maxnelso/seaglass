@@ -312,7 +312,7 @@ fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
         TavernAction::EndTurn => Kind::EndTurn,
         TavernAction::ChooseDiscover { .. } => Kind::Discover,
         TavernAction::Pass { .. } => Kind::Pass,
-        TavernAction::HeroPower { .. } => Kind::HeroPower,
+        TavernAction::HeroPower { .. } | TavernAction::HeroPower2 { .. } => Kind::HeroPower,
         TavernAction::ChooseHero { .. } => Kind::ChooseHero,
     }
 }
@@ -773,8 +773,10 @@ fn out_of_pool_ids() -> &'static BTreeSet<u32> {
 
 /// The cards come from the game's catalog (`docs/duos_tavern.md` §8): no Duos card in a Solo game
 /// (its pool, its random cards and its shop spells are Solo ones), and no minion of no pool (the
-/// Naga-only ones) offered by a Duos game's Discovers. (Nor by its shop, `duos::check_shop_offers`,
-/// where a player's own minion can go: `Jandice Barov` swaps one there.)
+/// Naga-only ones) offered by a Duos game's Discovers, unless the player's Hero Power kept it from
+/// their warband (`Sylvanas Windrunner` offers the minions that died last combat). (Nor by its
+/// shop, `duos::check_shop_offers`, where a player's own minion can go: `Jandice Barov` swaps one
+/// there.)
 fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
     let prompts = s.discover_pending.iter().chain(&s.discover_queue).flatten();
     if !s.auras.duos_game {
@@ -809,8 +811,17 @@ fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
             }
         }
     } else {
+        let kept = |id: u32| {
+            s.hero().is_some_and(|h| {
+                h.power
+                    .stored
+                    .iter()
+                    .chain(h.second_power.iter().flat_map(|sp| &sp.stored))
+                    .any(|u| u.card_id == id)
+            })
+        };
         for u in prompts {
-            if out_of_pool_ids().contains(&u.card_id) {
+            if out_of_pool_ids().contains(&u.card_id) && !kept(u.card_id) {
                 return Err(broken(
                     format!("a minion of no pool is offered in the Discover: {}", u.name),
                     unit_desc(u),
@@ -1060,8 +1071,10 @@ fn candidate_actions(s: &TavernState) -> Vec<TavernAction> {
         out.push(TavernAction::Pass { hand_index });
     }
     out.push(TavernAction::HeroPower { target: None });
-    for t in (0..=b.max(h).max(sh) + 1).chain([far]) {
+    out.push(TavernAction::HeroPower2 { target: None });
+    for t in (0..=b.max(h).max(sh + 7) + 1).chain([far]) {
         out.push(TavernAction::HeroPower { target: Some(t) });
+        out.push(TavernAction::HeroPower2 { target: Some(t) });
     }
     for option_index in (0..=s.hero_options.len() + 1).chain([far]) {
         out.push(TavernAction::ChooseHero { option_index });
@@ -1231,7 +1244,12 @@ fn check_pool_leaks_with(
             TeammateGift::Effect { .. } => None,
         });
         // The cards the Hero Power keeps (Tavish's loaded minion, Faelin's picks).
-        let kept = s.hero().into_iter().flat_map(|h| &h.power.stored);
+        let kept = s.hero().into_iter().flat_map(|h| {
+            h.power
+                .stored
+                .iter()
+                .chain(h.second_power.iter().flat_map(|sp| &sp.stored))
+        });
         s.board
             .iter()
             .chain(&s.hand)
@@ -1275,8 +1293,12 @@ fn check_pool_leaks_with(
 /// (`hero_turn_start`): the shop may no longer be as rolled (Yogg-Saron's random Tavern spell
 /// can take a minion from it).
 fn hero_acts_after_the_roll(s: &TavernState) -> bool {
-    s.hero()
-        .is_some_and(|h| cards::hooks(h.power.card_id).hero_turn_start.is_some())
+    s.hero().is_some_and(|h| {
+        cards::hooks(h.power.card_id).hero_turn_start.is_some()
+            || h.second_power
+                .as_ref()
+                .is_some_and(|sp| cards::hooks(sp.card_id).hero_turn_start.is_some())
+    })
 }
 
 /// A shop just rolled (unfrozen `start_turn`, `Refresh`) holds `shop_minion_slots` minions from the
@@ -1515,17 +1537,23 @@ fn reward_cards(hand: &[Unit]) -> Vec<i32> {
 /// 1 Gold after buying a Pirate, `Forest Warden Omu`'s 2 Gold after an upgrade), run on a copy
 /// of the state with no Gold.
 fn hero_gold_back(s: &TavernState, action: TavernAction, cost: u32, pool: &CardPool) -> u32 {
-    let Some(power) = s.hero().map(|h| cards::hooks(h.power.card_id)) else {
-        return 0;
+    let has_hook = |f: fn(&cards::CardHooks) -> bool| {
+        s.hero().is_some_and(|h| {
+            f(cards::hooks(h.power.card_id))
+                || h.second_power
+                    .as_ref()
+                    .is_some_and(|sp| f(cards::hooks(sp.card_id)))
+        })
     };
     let bought = match action {
-        TavernAction::Buy { shop_index } if power.hero_after_buy.is_some() => {
+        TavernAction::Buy { shop_index } if has_hook(|p| p.hero_after_buy.is_some()) => {
             s.shop.get(shop_index)
         }
         _ => None,
     };
-    let upgrade = action == TavernAction::UpgradeTavern && power.hero_after_upgrade.is_some();
-    let spent = cost > 0 && power.hero_gold_spent.is_some();
+    let upgrade =
+        action == TavernAction::UpgradeTavern && has_hook(|p| p.hero_after_upgrade.is_some());
+    let spent = cost > 0 && has_hook(|p| p.hero_gold_spent.is_some());
     if bought.is_none() && !upgrade && !spent {
         return 0;
     }
@@ -1592,9 +1620,12 @@ impl Expect {
             reward_tier_left: false,
             golden_play: None,
             reward_cards: reward_cards(&s.hand),
-            hero_after_play: s
-                .hero()
-                .is_some_and(|h| cards::hooks(h.power.card_id).hero_after_play.is_some()),
+            hero_after_play: s.hero().is_some_and(|h| {
+                cards::hooks(h.power.card_id).hero_after_play.is_some()
+                    || h.second_power
+                        .as_ref()
+                        .is_some_and(|sp| cards::hooks(sp.card_id).hero_after_play.is_some())
+            }),
             casts_tavern_spell: false,
             gold: s.gold,
             cost,
@@ -1828,6 +1859,7 @@ enum Act {
     EndTurn,
     Pass(usize),
     HeroPower(Option<usize>),
+    HeroPower2(Option<usize>),
     ChooseHero(usize),
 }
 
@@ -1856,6 +1888,7 @@ impl From<TavernAction> for Act {
             TavernAction::EndTurn => Act::EndTurn,
             TavernAction::Pass { hand_index } => Act::Pass(hand_index),
             TavernAction::HeroPower { target } => Act::HeroPower(target),
+            TavernAction::HeroPower2 { target } => Act::HeroPower2(target),
             TavernAction::ChooseHero { option_index } => Act::ChooseHero(option_index),
         }
     }
@@ -1886,6 +1919,7 @@ impl From<Act> for TavernAction {
             Act::EndTurn => TavernAction::EndTurn,
             Act::Pass(hand_index) => TavernAction::Pass { hand_index },
             Act::HeroPower(target) => TavernAction::HeroPower { target },
+            Act::HeroPower2(target) => TavernAction::HeroPower2 { target },
             Act::ChooseHero(option_index) => TavernAction::ChooseHero { option_index },
         }
     }
@@ -2240,20 +2274,30 @@ impl Game {
                 .map(|o| card(o, option_index))
                 .unwrap_or_default(),
             TavernAction::Pass { hand_index } => card(&s.hand, hand_index),
-            TavernAction::HeroPower { target } => {
+            TavernAction::HeroPower { target } | TavernAction::HeroPower2 { target } => {
                 let Some(hero) = s.hero() else {
                     return String::new();
                 };
-                let zone = match cards::hooks(hero.power.card_id).activate_target {
-                    cards::ActivateTargetKind::ShopCard => &s.shop,
-                    cards::ActivateTargetKind::HandCard => &s.hand,
-                    _ => &s.board,
+                let is_second = matches!(action, TavernAction::HeroPower2 { .. });
+                let cid = if is_second {
+                    hero.second_power.as_ref().map_or(0, |p| p.card_id)
+                } else {
+                    hero.power.card_id
+                };
+                let target_desc = match cards::hooks(cid).activate_target {
+                    cards::ActivateTargetKind::ShopCard => target.map(|t| card(&s.shop, t)),
+                    cards::ActivateTargetKind::HandCard => target.map(|t| card(&s.hand, t)),
+                    cards::ActivateTargetKind::BoardOrShopMinion => target.map(|t| {
+                        if t < 7 {
+                            card(&s.board, t)
+                        } else {
+                            card(&s.shop, t - 7)
+                        }
+                    }),
+                    _ => target.map(|t| card(&s.board, t)),
                 };
                 let name = heroes::data(hero.hero_id).map_or("", |h| h.name);
-                format!(
-                    "{name} -> {}",
-                    target.map(|t| card(zone, t)).unwrap_or_default()
-                )
+                format!("{name} -> {}", target_desc.unwrap_or_default())
             }
             _ => String::new(),
         }

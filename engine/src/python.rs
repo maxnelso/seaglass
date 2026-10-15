@@ -449,6 +449,15 @@ impl PyTavernAction {
         }
     }
 
+    /// Use the second Hero Power, on `target` if it needs one (`docs/heroes.md` §3).
+    #[staticmethod]
+    #[pyo3(signature = (target=None))]
+    fn hero_power_2(target: Option<usize>) -> Self {
+        Self {
+            inner: TavernAction::HeroPower2 { target },
+        }
+    }
+
     #[getter]
     fn kind(&self) -> &'static str {
         match self.inner {
@@ -466,6 +475,7 @@ impl PyTavernAction {
             TavernAction::Pass { .. } => "pass",
             TavernAction::HeroPower { .. } => "hero_power",
             TavernAction::ChooseHero { .. } => "choose_hero",
+            TavernAction::HeroPower2 { .. } => "hero_power_2",
         }
     }
 
@@ -491,6 +501,7 @@ impl PyTavernAction {
             TavernAction::Pass { hand_index } => (Some(hand_index), None),
             TavernAction::HeroPower { target } => (target, None),
             TavernAction::ChooseHero { option_index } => (Some(option_index), None),
+            TavernAction::HeroPower2 { target } => (target, None),
             TavernAction::Refresh
             | TavernAction::UpgradeTavern
             | TavernAction::ToggleFreeze
@@ -576,10 +587,27 @@ pub struct PyTavernObservation {
     pub minion_cost: u32,
     #[pyo3(get)]
     pub refresh_cost: u32,
+    /// The second Hero Power (`docs/heroes.md` §3, §8), 0 without one.
+    #[pyo3(get)]
+    pub second_hero_power_id: u32,
+    #[pyo3(get)]
+    pub second_hero_power_cost: u32,
+    #[pyo3(get)]
+    pub second_hero_power_uses_left: u32,
+    #[pyo3(get)]
+    pub second_hero_power_counter: i32,
+    #[pyo3(get)]
+    pub second_hero_power_stacks: i32,
+    #[pyo3(get)]
+    pub second_hero_power_armed: u32,
+    /// `true` if some `HeroPower2` action is legal now.
+    #[pyo3(get)]
+    pub second_hero_power_usable: bool,
 }
 
 impl From<&TavernState> for PyTavernObservation {
     fn from(s: &TavernState) -> Self {
+        let sp = s.hero().and_then(|h| h.second_power.as_ref());
         Self {
             turn: s.turn,
             health: s.health,
@@ -631,6 +659,15 @@ impl From<&TavernState> for PyTavernObservation {
             waiting_for_hand: py_units(&s.waiting_for_hand),
             minion_cost: s.minion_buy_cost(),
             refresh_cost: s.refresh_cost(),
+            second_hero_power_id: sp.map_or(0, |p| p.card_id),
+            second_hero_power_cost: sp.map_or(0, |p| p.cost),
+            second_hero_power_uses_left: sp.map_or(0, |p| p.uses_left),
+            second_hero_power_counter: sp.map_or(0, |p| p.counter),
+            second_hero_power_stacks: sp.map_or(0, |p| p.stacks),
+            second_hero_power_armed: sp.map_or(0, |p| p.armed),
+            second_hero_power_usable: s.discover_pending.is_none()
+                && s.hero_options.is_empty()
+                && !heroes::valid_targets_2(s).is_empty(),
         }
     }
 }
@@ -1019,6 +1056,21 @@ pub struct PyDuosObservation {
     pub minion_cost: u32,
     #[pyo3(get)]
     pub refresh_cost: u32,
+    /// See `TavernObservation.second_hero_power_*`.
+    #[pyo3(get)]
+    pub second_hero_power_id: u32,
+    #[pyo3(get)]
+    pub second_hero_power_cost: u32,
+    #[pyo3(get)]
+    pub second_hero_power_uses_left: u32,
+    #[pyo3(get)]
+    pub second_hero_power_counter: i32,
+    #[pyo3(get)]
+    pub second_hero_power_stacks: i32,
+    #[pyo3(get)]
+    pub second_hero_power_armed: u32,
+    #[pyo3(get)]
+    pub second_hero_power_usable: bool,
     /// The teammate's hero's id, 0 without one.
     #[pyo3(get)]
     pub teammate_hero_id: u32,
@@ -1102,6 +1154,13 @@ impl PyDuosObservation {
             waiting_for_hand: own.waiting_for_hand,
             minion_cost: own.minion_cost,
             refresh_cost: own.refresh_cost,
+            second_hero_power_id: own.second_hero_power_id,
+            second_hero_power_cost: own.second_hero_power_cost,
+            second_hero_power_uses_left: own.second_hero_power_uses_left,
+            second_hero_power_counter: own.second_hero_power_counter,
+            second_hero_power_stacks: own.second_hero_power_stacks,
+            second_hero_power_armed: own.second_hero_power_armed,
+            second_hero_power_usable: own.second_hero_power_usable && !team.ended[player],
             teammate_hero_id: other.hero().map_or(0, |h| h.hero_id),
             ended: team.ended[player],
             incoming: py_units(&team.incoming[player]),
@@ -1447,6 +1506,21 @@ fn all_card_ids() -> Vec<u32> {
         .collect();
     ids.sort_unstable();
     ids.dedup();
+    let base_len = ids.len();
+    let mut extra: Vec<u32> = Vec::new();
+    for h in heroes::table() {
+        extra.push(h.power.id);
+        for v in h.power_variants {
+            extra.push(v.1);
+        }
+    }
+    extra.sort_unstable();
+    extra.dedup();
+    for id in extra {
+        if id != 0 && ids[..base_len].binary_search(&id).is_err() {
+            ids.push(id);
+        }
+    }
     ids
 }
 

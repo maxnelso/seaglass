@@ -9,6 +9,8 @@ from seaglass_rl import PLAYER_DIM, encode_observation
 from seaglass_rl.actions import (
     ACTION_SPACE_SIZE,
     CHOOSE_HERO_INDICES,
+    HERO_POWER_2_INDICES,
+    HERO_POWER_EXTRA_INDICES,
     HERO_POWER_INDICES,
     action_from_index,
     action_mask,
@@ -17,13 +19,15 @@ from seaglass_rl.actions import (
 
 
 def test_hero_actions_are_appended_last() -> None:
-    assert HERO_POWER_INDICES + CHOOSE_HERO_INDICES == list(
-        range(ACTION_SPACE_SIZE - len(HERO_POWER_INDICES) - len(CHOOSE_HERO_INDICES), ACTION_SPACE_SIZE)
-    )
+    tail = HERO_POWER_INDICES + CHOOSE_HERO_INDICES + HERO_POWER_EXTRA_INDICES + HERO_POWER_2_INDICES
+    assert tail == list(range(ACTION_SPACE_SIZE - len(tail), ACTION_SPACE_SIZE))
     act = seaglass.TavernAction.hero_power(3)
     assert act.kind == "hero_power" and act.args == (3, None)
     assert index_from_action(seaglass.TavernAction.hero_power()) == HERO_POWER_INDICES[0]
     assert index_from_action(seaglass.TavernAction.choose_hero(1)) == CHOOSE_HERO_INDICES[1]
+    assert index_from_action(seaglass.TavernAction.hero_power(10)) == HERO_POWER_EXTRA_INDICES[0]
+    assert index_from_action(seaglass.TavernAction.hero_power_2()) == HERO_POWER_2_INDICES[0]
+    assert index_from_action(seaglass.TavernAction.hero_power_2(5)) == HERO_POWER_2_INDICES[6]
 
 
 def test_a_game_without_a_hero_is_unchanged() -> None:
@@ -120,7 +124,7 @@ def test_the_next_minion_discount_is_in_the_observation() -> None:
     obs = game.observe()
     assert obs.next_minion_discount == 0
     player_vec, _, _ = encode_observation(obs)
-    assert player_vec.shape == (PLAYER_DIM,) and player_vec[-4] == 0.0
+    assert player_vec.shape == (PLAYER_DIM,) and player_vec[16] == 0.0
 
 
 def test_hero_prices_and_marks_are_in_the_observation() -> None:
@@ -130,7 +134,7 @@ def test_hero_prices_and_marks_are_in_the_observation() -> None:
     obs = game.observe()
     assert (obs.minion_cost, obs.refresh_cost, obs.upgrade_cost) == (2, 2, 6)
     player_vec, _, slot_num_feats = encode_observation(obs)
-    assert player_vec[-2] == np.float32(2 / 3) and player_vec[-1] == 1.0
+    assert player_vec[18] == np.float32(2 / 3) and player_vec[19] == 1.0
     plain = seaglass.TavernGame(seed=1)
     plain.start_turn()
     obs = plain.observe()
@@ -151,3 +155,33 @@ def test_a_skipped_turn_only_allows_ending_it() -> None:
     assert [a.kind for a in game.legal_actions()] == ["end_turn"]
     mask = action_mask(game, allow_reposition=True, allow_freeze=True)
     assert mask.sum() == 1
+
+
+def test_second_hero_power_and_delegation_heroes_in_the_observation() -> None:
+    # Master Nguyen offers 2 Hero Power options at Turn 1 start, both in the vocabulary.
+    nguyen = seaglass.TavernGame(seed=7, hero="Master Nguyen")
+    nguyen.start_turn()
+    obs = nguyen.observe()
+    assert obs.discover_pending is not None and len(obs.discover_pending) == 2
+    _, slot_card_ids, _ = encode_observation(obs)
+    assert slot_card_ids[24] > 0 and slot_card_ids[25] > 0
+
+    # Genn, Worgen King triggers King of Duality on Turn 4 and gains a second Hero Power.
+    genn = seaglass.TavernGame(seed=5, hero="Genn, Worgen King")
+    for _ in range(3):
+        genn.start_turn()
+        genn.step(seaglass.TavernAction.end_turn())
+    genn.start_turn()
+    assert genn.observe().second_hero_power_id == 0
+    genn.step(seaglass.TavernAction.choose_discover(0))
+    genn.step(seaglass.TavernAction.choose_discover(0))
+    obs = genn.observe()
+    assert obs.second_hero_power_id != 0
+    player_vec, _, _ = encode_observation(obs)
+    assert player_vec[20] == 1.0
+
+    # The Nameless One copies its teammate's Hero Power on Turn 1 start in Duos.
+    duos = seaglass.DuosTavernGame(seed=3, heroes=("The Nameless One", "Y'Shaarj"))
+    duos.start_turn()
+    assert duos.observe(0).hero_power_id == duos.observe(1).hero_power_id
+

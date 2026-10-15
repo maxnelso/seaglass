@@ -189,6 +189,7 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     let mut view = fields(m);
     with_default(&mut view, "marked", View::Bool(false));
     with_default(&mut view, "frozen", View::Bool(false));
+    with_default(&mut view, "until_next_turn_atk", View::Int(0));
     with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));
     let id = unit.card_id;
     let keywords = KEYWORDS
@@ -239,8 +240,12 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
         hero.push("name", View::Str(name.to_string()));
         // The Hero Power's kept cards, left out while there are none.
         if let View::Map(fields) = hero {
+            with_default(fields, "second_power", View::Null);
             if let Some((_, View::Map(power))) = fields.iter_mut().find(|(k, _)| k == "power") {
                 with_default(power, "stored", View::List(Vec::new()));
+            }
+            if let Some((_, View::Map(sp))) = fields.iter_mut().find(|(k, _)| k == "second_power") {
+                with_default(sp, "stored", View::List(Vec::new()));
             }
         }
     }

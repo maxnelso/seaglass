@@ -438,6 +438,10 @@ pub enum TavernAction {
     ChooseHero {
         option_index: usize,
     },
+    /// Use the player's second Hero Power, on `target` if it needs one (`docs/heroes.md` §3).
+    HeroPower2 {
+        target: Option<usize>,
+    },
 }
 
 /// Complete state of a player during the Tavern Phase (`docs/tavern.md` §3).
@@ -1280,9 +1284,10 @@ impl TavernState {
         // The cards the turn start keeps lose this turn's Tavern buffs: a frozen shop's, and the
         // cards frozen on their own.
         let shop_frozen = self.is_frozen;
-        if turn_atk != 0 || turn_hp != 0 {
-            for s in &mut self.shop {
-                if !s.is_spell && (shop_frozen || s.frozen) {
+        for s in &mut self.shop {
+            if !s.is_spell && (shop_frozen || s.frozen) {
+                cards::expire_temp_divine_shield(s);
+                if turn_atk != 0 || turn_hp != 0 {
                     s.attack = (s.attack - turn_atk).max(0);
                     s.health = (s.health - turn_hp).max(1);
                     s.max_attack = s.attack;
@@ -1705,6 +1710,7 @@ impl TavernState {
                     ActivateTargetKind::ShopCard => {
                         matches!(target_pos, Some(t) if t < self.shop.len())
                     }
+                    ActivateTargetKind::BoardOrShopMinion => false,
                 }
             }
             TavernAction::Refresh => {
@@ -1722,6 +1728,7 @@ impl TavernState {
             TavernAction::Pass { .. } => false,
             TavernAction::HeroPower { target } => heroes::can_use(self, target),
             TavernAction::ChooseHero { .. } => false,
+            TavernAction::HeroPower2 { target } => heroes::can_use_2(self, target),
         }
     }
 
@@ -1898,6 +1905,7 @@ impl TavernState {
                                     });
                                 }
                             }
+                            ActivateTargetKind::BoardOrShopMinion => {}
                         }
                     }
                 }
@@ -1919,6 +1927,11 @@ impl TavernState {
             heroes::valid_targets(self)
                 .into_iter()
                 .map(|target| TavernAction::HeroPower { target }),
+        );
+        actions.extend(
+            heroes::valid_targets_2(self)
+                .into_iter()
+                .map(|target| TavernAction::HeroPower2 { target }),
         );
         actions
     }
@@ -2086,7 +2099,7 @@ impl TavernState {
                     if !self.choice_prompt_left() {
                         self.pending_choice_target = None;
                     }
-                    heroes::keep_chosen(self, chosen, opts, pool);
+                    heroes::keep_chosen(self, chosen, opts, pool, rng);
                     return Ok(false);
                 }
 
@@ -2149,6 +2162,10 @@ impl TavernState {
             TavernAction::ChooseHero { option_index } => {
                 let id = self.hero_options[option_index];
                 self.set_hero(id)?;
+                Ok(false)
+            }
+            TavernAction::HeroPower2 { target } => {
+                heroes::use_power_2(self, target, pool, rng);
                 Ok(false)
             }
         }
@@ -2395,6 +2412,7 @@ impl TavernState {
         golden.eot_health_bonus = copies.iter().map(|u| u.eot_health_bonus).sum();
         golden.sot_gold_bonus = copies.iter().map(|u| u.sot_gold_bonus).sum();
         golden.pass_aura = copies.iter().map(|u| u.pass_aura).sum();
+        golden.until_next_turn_atk = copies.iter().map(|u| u.until_next_turn_atk).sum();
         cards::init_unit_turn_charges(&mut golden);
         // The Golden's own spell aura comes from its card; what the copies gained on top of
         // theirs carries over.

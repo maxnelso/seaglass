@@ -424,7 +424,7 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
                 .unwrap_or_else(|| format!("hand[{hand_index}]"));
             format!("Pass {card}")
         }
-        TavernAction::HeroPower { target } => {
+        TavernAction::HeroPower { target } | TavernAction::HeroPower2 { target } => {
             let power = state
                 .hero()
                 .and_then(|h| seaglass::heroes::data(h.hero_id))

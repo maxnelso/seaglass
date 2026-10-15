@@ -1011,15 +1011,15 @@ fn resolve_hero_start_of_combat(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    let Some(start_of_combat) = heroes::start_of_combat_hook(&own_side.auras) else {
+    if !heroes::has_start_of_combat(&own_side.auras) {
         return;
-    };
+    }
     let mut ctx = HeroCombatCtx {
         own: own_side.ctx(side, next_id, rng, events),
         enemy_board: &mut opp_side.board,
         enemy_damage: Vec::new(),
     };
-    start_of_combat(&mut ctx);
+    heroes::on_start_of_combat(&mut ctx);
     let destroys = std::mem::take(&mut ctx.own.destroys);
     let damage = std::mem::take(&mut ctx.enemy_damage);
     for (id, amount) in damage {

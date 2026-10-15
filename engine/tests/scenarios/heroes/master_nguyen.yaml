@@ -1,0 +1,31 @@
+hero: Master Nguyen
+scenarios:
+  - name: chooses_from_two_new_hero_powers_at_the_start_of_every_turn
+    seed: 17
+    steps:
+      - set_hero: Master Nguyen
+      - expect:
+          health: 30
+          armor: 10
+          auras: {hero: {power: {card_id: 71909, uses_left: 0}}}
+      - start_turn
+      - expect:
+          discover_pending:
+            count: 2
+            none: {card_id: 71909}
+            0: {card_id: {capture: turn1_power}}
+      - choose_discover: 0
+      - expect:
+          discover_pending: null
+          auras: {hero: {power: {card_id: {same_as: turn1_power}}}}
+      - end_turn
+      - start_turn
+      - expect:
+          discover_pending:
+            count: 2
+            none: {card_id: 71909}
+            1: {card_id: {capture: turn2_power}}
+      - choose_discover: 1
+      - expect:
+          discover_pending: null
+          auras: {hero: {power: {card_id: {same_as: turn2_power}}}}

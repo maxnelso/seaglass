@@ -53,7 +53,13 @@ fn turn_start(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
 }
 
 /// A pick is kept; the other options go back to the pool.
-fn keep(state: &mut TavernState, mut chosen: Unit, unchosen: Vec<Unit>, pool: &mut CardPool) {
+fn keep(
+    state: &mut TavernState,
+    mut chosen: Unit,
+    unchosen: Vec<Unit>,
+    pool: &mut CardPool,
+    _: &mut Rng,
+) {
     for option in &unchosen {
         pool.return_unit(option);
     }

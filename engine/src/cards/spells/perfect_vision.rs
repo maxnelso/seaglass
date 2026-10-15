@@ -21,6 +21,7 @@ pub fn cast(state: &mut TavernState, _: &Unit, target: MinionSlot, _: &mut CardP
     if let Some(target) = state.minion_mut(target) {
         target.attack = atk;
         target.health = hp;
+        target.until_next_turn_atk = 0;
         target.sync_max_stats();
         // Set net of its auras: they apply again on top (as `Robust Evolution`).
         target.aura_applied = (0, 0);

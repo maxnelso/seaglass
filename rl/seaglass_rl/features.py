@@ -16,7 +16,7 @@ VOCAB_SIZE: int = len(_ALL_IDS) + 1
 # The cards waiting for room in the hand (`engine/docs/tavern.md` §7.4), appended last.
 MAX_WAITING: int = 3
 NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING  # 7 + 10 + 7 + 4 + 3 = 31
-PLAYER_DIM: int = 20
+PLAYER_DIM: int = 25
 SLOT_NUM_DIM: int = 14
 
 
@@ -76,6 +76,12 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             # Millhouse.
             obs.minion_cost / 3.0,
             obs.refresh_cost / 2.0,
+            # The second Hero Power (`engine/docs/heroes.md` §3, §8); all 0 without one.
+            1.0 if obs.second_hero_power_id else 0.0,
+            1.0 if obs.second_hero_power_usable else 0.0,
+            obs.second_hero_power_cost / 10.0,
+            float(obs.second_hero_power_uses_left),
+            obs.second_hero_power_armed / 3.0,
         ],
         dtype=np.float32,
     )

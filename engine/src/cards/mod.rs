@@ -54,6 +54,9 @@ pub enum ActivateTargetKind {
     HandCard,
     /// Requires a card in `shop` (`Lurking Lionfish`).
     ShopCard,
+    /// Requires a minion on `board` (`0..7`) or in `shop` (`7..14`: `shop[target - 7]`)
+    /// (`Vol'jin`, `Cookie the Cook`; `docs/heroes.md` §3.3).
+    BoardOrShopMinion,
 }
 
 /// One side's board plus everything a combat-style hook may touch (Deathrattles,
@@ -1304,9 +1307,9 @@ pub fn on_start_turn(unit: &mut Unit) {
     init_unit_turn_charges(unit);
 }
 
-/// End `unit`'s Divine Shield (and Reborn) if it only had it until this turn
-/// (`temp_divine_shield`, `temp_reborn`).
-fn expire_temp_divine_shield(unit: &mut Unit) {
+/// End `unit`'s Divine Shield, Reborn, and Attack if it only had them until this turn
+/// (`temp_divine_shield`, `temp_reborn`, `until_next_turn_atk`).
+pub(crate) fn expire_temp_divine_shield(unit: &mut Unit) {
     if unit.temp_divine_shield {
         unit.divine_shield = false;
         unit.temp_divine_shield = false;
@@ -1314,6 +1317,11 @@ fn expire_temp_divine_shield(unit: &mut Unit) {
     if unit.temp_reborn {
         unit.reborn = false;
         unit.temp_reborn = false;
+    }
+    if unit.until_next_turn_atk != 0 {
+        unit.attack = (unit.attack - unit.until_next_turn_atk).max(0);
+        unit.max_attack = unit.attack;
+        unit.until_next_turn_atk = 0;
     }
 }
 

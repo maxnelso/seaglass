@@ -31,11 +31,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             .on_hero_power_usable(|state| {
                 state.turn >= UNLOCK_TURN
                     && super::hand_has_room(state)
-                    && state
-                        .auras
-                        .hero
-                        .as_ref()
-                        .is_some_and(|h| !h.power.stored.is_empty())
+                    && super::active_power(state).is_some_and(|p| !p.stored.is_empty())
             })
             .on_hero_after_combat(after_combat),
     )]

@@ -79,6 +79,17 @@ def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, 
     for opt_idx in range(MAX_HERO_OPTIONS):
         register(seaglass.TavernAction.choose_hero(opt_idx))
 
+    # 12. Extra Hero Power target indices 10..14 (`BoardOrShopMinion` shop slots 3..7, `7 + s_idx`;
+    #     `engine/docs/heroes.md` §5), appended after `CHOOSE_HERO_INDICES`.
+    for t_pos in range(MAX_HAND, MAX_BOARD + MAX_SHOP):
+        register(seaglass.TavernAction.hero_power(t_pos))
+
+    # 13. Use the second Hero Power: untargeted, then on a target index in 0..14
+    #     (`engine/docs/heroes.md` §3).
+    register(seaglass.TavernAction.hero_power_2(None))
+    for t_pos in range(MAX_BOARD + MAX_SHOP):
+        register(seaglass.TavernAction.hero_power_2(t_pos))
+
     return actions, lookup
 
 
@@ -90,6 +101,12 @@ HERO_POWER_INDICES = [ACTION_TO_INDEX[("hero_power", None, None)]] + [
     ACTION_TO_INDEX[("hero_power", t_pos, None)] for t_pos in range(MAX_HAND)
 ]
 CHOOSE_HERO_INDICES = [ACTION_TO_INDEX[("choose_hero", i, None)] for i in range(MAX_HERO_OPTIONS)]
+HERO_POWER_EXTRA_INDICES = [
+    ACTION_TO_INDEX[("hero_power", t_pos, None)] for t_pos in range(MAX_HAND, MAX_BOARD + MAX_SHOP)
+]
+HERO_POWER_2_INDICES = [ACTION_TO_INDEX[("hero_power_2", None, None)]] + [
+    ACTION_TO_INDEX[("hero_power_2", t_pos, None)] for t_pos in range(MAX_BOARD + MAX_SHOP)
+]
 
 
 def action_from_index(index: int) -> seaglass.TavernAction:

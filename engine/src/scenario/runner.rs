@@ -174,6 +174,44 @@ fn position(
     }
 }
 
+/// Resolve the target of a Hero Power (`HeroPower` or `HeroPower2`) according to its card's
+/// `activate_target`.
+fn power_target(
+    state: &TavernState,
+    card_id: Option<crate::model::CardId>,
+    target: Option<&Index>,
+    captures: &Captures,
+) -> Result<Option<usize>, Failure> {
+    let Some(i) = target else {
+        return Ok(None);
+    };
+    let kind = card_id.map(|id| cards::hooks(id).activate_target);
+    if matches!(kind, Some(ActivateTargetKind::BoardOrShopMinion)) {
+        if let Index::Find(matcher) = i {
+            for (idx, card) in state.board.iter().enumerate() {
+                if matcher::probe(matcher, &View::of(card), captures)? {
+                    return Ok(Some(idx));
+                }
+            }
+            for (idx, card) in state.shop.iter().enumerate() {
+                if !card.is_spell && matcher::probe(matcher, &View::of(card), captures)? {
+                    return Ok(Some(7 + idx));
+                }
+            }
+            return Err(Failure::Mismatch(format!(
+                "no minion on the board or in the shop matches {}",
+                show(matcher),
+            )));
+        }
+    }
+    let (cards, what) = match kind {
+        Some(ActivateTargetKind::ShopCard) => (&state.shop, "shop"),
+        Some(ActivateTargetKind::HandCard) => (&state.hand, "hand"),
+        _ => (&state.board, "board"),
+    };
+    Ok(Some(position(cards, i, what, captures)?))
+}
+
 /// The engine action for `action` in `state`.
 fn tavern_action(
     state: &TavernState,
@@ -217,20 +255,23 @@ fn tavern_action(
             hand_index: position(&state.hand, i, "hand", captures)?,
         },
         Action::HeroPower(target) => TavernAction::HeroPower {
-            target: match target {
-                None => None,
-                Some(i) => {
-                    let kind = state
-                        .hero()
-                        .map(|h| cards::hooks(h.power.card_id).activate_target);
-                    let (cards, what) = match kind {
-                        Some(ActivateTargetKind::ShopCard) => (&state.shop, "shop"),
-                        Some(ActivateTargetKind::HandCard) => (&state.hand, "hand"),
-                        _ => (&state.board, "board"),
-                    };
-                    Some(position(cards, i, what, captures)?)
-                }
-            },
+            target: power_target(
+                state,
+                state.hero().map(|h| h.power.card_id),
+                target.as_ref(),
+                captures,
+            )?,
+        },
+        Action::HeroPower2(target) => TavernAction::HeroPower2 {
+            target: power_target(
+                state,
+                state
+                    .hero()
+                    .and_then(|h| h.second_power.as_ref())
+                    .map(|p| p.card_id),
+                target.as_ref(),
+                captures,
+            )?,
         },
         Action::ChooseHero(i) => TavernAction::ChooseHero {
             option_index: match i {

@@ -345,11 +345,14 @@ pub struct HeroState {
     pub hero_id: HeroId,
     /// Its Hero Power's state.
     pub power: HeroPowerState,
+    /// A second Hero Power (`Genn, Worgen King`'s King of Duality; `docs/heroes.md` §2.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub second_power: Option<HeroPowerState>,
 }
 
 /// The state of a player's Hero Power (`docs/heroes.md` §3.2). The engine reads only `card_id`,
 /// `cost` and `uses_left`; the rest belongs to the Hero Power's own hooks.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HeroPowerState {
     /// The Hero Power card in use (its hooks): the hero's power, or a form it changed into (a
     /// chosen Element, an upgrade).
@@ -632,6 +635,10 @@ pub struct Unit {
     /// `docs/tavern.md` §5): selling it returns as many to the pool. 0 for 3.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub golden_copies: u8,
+    /// Attack gained "until next turn" (`Vol'jin`'s Spirit Swap; `docs/heroes.md` §11.2): expires
+    /// at the start of the next turn (`docs/tavern.md` §4).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub until_next_turn_atk: i32,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
@@ -720,6 +727,7 @@ impl Unit {
             frozen: false,
             to_hero_power: false,
             golden_copies: 0,
+            until_next_turn_atk: 0,
         }
     }
 
@@ -829,6 +837,15 @@ impl Unit {
             self.max_health = self.health;
         }
         crate::cards::check_stat_thresholds(self);
+    }
+
+    /// Give this unit `atk` Attack until next turn (`Vol'jin`'s Spirit Swap).
+    pub fn add_temp_attack(&mut self, atk: i32) {
+        if atk <= 0 || self.cant_gain_stats {
+            return;
+        }
+        self.until_next_turn_atk += atk;
+        self.add_stats(atk, 0);
     }
 
     /// Play `count` Blood Gem(s) on this unit using the player's current `auras`.

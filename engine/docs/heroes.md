@@ -18,7 +18,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The Hero Powers implemented so far: §11.
 
 ### Deferred
-- Buddies (companions), Trinkets, Quests, Darkmoon Prizes, Anomalies, Dark Gifts, Timewarp, Spellcraft outside Duos: the heroes that need them (E.T.C.; Buttons, Marin; Sire Denathrius; Tickatus; Nightmare Lord Xavius, Tras'tath; Morchie, Murozond; Lady Vashj) are in the table but not implemented, and not offered (§6).
+- Buddies (companions), Trinkets, Quests, Darkmoon Prizes, Anomalies, Dark Gifts, Timewarp, Spellcraft outside Duos, Secrets, custom Undead creations, and StarCraft multi-piece boards/upgrade spells: the heroes that need them (E.T.C.; Buttons, Marin; Sire Denathrius; Tickatus; Nightmare Lord Xavius, Tras'tath; Morchie, Murozond; Lady Vashj; The Great Akazamzarak; Professor Putricide; Jim Raynor, Kerrigan, Queen of Blades, Artanis) **(confirmed)** are in the table but not implemented, and not offered (§6).
 - Hero Powers that need another player's state (Scabbs, Tess, Murloc Holmes, Lord Barov, Mr. Bigglesworth, King Mukla) wait for the lobby view the caller supplies.
 
 ---
@@ -51,6 +51,7 @@ A player's hero is `PlayerAuras::hero: Option<HeroState>` **(engine decision: wh
 | :--- | :--- |
 | `hero_id` | The hero (`HeroId`). |
 | `power` | Its Hero Power's state (`HeroPowerState`, §3.2). |
+| `second_power` | A second Hero Power (`Option<HeroPowerState>`, `None` unless Genn, Worgen King's *King of Duality* gives one, §11.2). Every Hero Power hook runs for `power`, then for `second_power` if present, and `HeroPower2` uses it (§5). |
 
 ### 2.3 Health and Armor at Game Start
 
@@ -91,7 +92,7 @@ All are generic: the engine never reads `counter`, `stacks`, `armed` or `stored`
 
 ### 3.3 Targets
 
-An active power's target domain is its hooks' `activate_target` (the `ActivateTargetKind` of minion Activates, `tavern.md` §7): `None` (untargeted), `BoardAny` (a friendly minion: Teron, Floop), `ShopCard` (a card in the Tavern, minion or spell), `HandCard`. `HeroPower { target }` names the index in that zone. Its `hero_power_target` hook narrows the domain (a non-Golden minion for Reno, a minion in the Tavern for Xyrella). A power that needs a choice among options (Bru'kan's Elements) is untargeted: its `hero_power` hook offers a Choose One (`discover_pending`), answered with `ChooseDiscover` like any Choose One (`tavern.md` §5.2).
+An active power's target domain is its hooks' `activate_target` (the `ActivateTargetKind` of minion Activates, `tavern.md` §7): `None` (untargeted), `BoardAny` (a friendly minion: Teron, Floop), `ShopCard` (a card in the Tavern, minion or spell), `HandCard`, or `BoardOrShopMinion` (`0..7` indexes a friendly minion at `board[target]`, `7..14` indexes a minion at `shop[target - 7]`: Vol'jin, Cookie the Cook). `HeroPower { target }` names the index in that zone. Its `hero_power_target` hook narrows the domain (a non-Golden minion for Reno, a minion in the Tavern for Xyrella). A power that needs a choice among options (Bru'kan's Elements) is untargeted: its `hero_power` hook offers a Choose One (`discover_pending`), answered with `ChooseDiscover` like any Choose One (`tavern.md` §5.2).
 
 A minion a power chose to act on later (Teron's Rapid Reanimation, Floop's Glorious Gloop) is **marked** (`Unit::marked`). Choosing again moves the mark. The mark lasts until the player's next combat, where the power acts on the marked minion, and it clears at the start of the next turn **(confirmed)**. It is part of the minion: it leaves with it (sold, Passed) and is not copied by a triple.
 
@@ -130,7 +131,7 @@ Hero Powers reuse the card hook system (`src/cards/hooks.rs`): a Hero Power is a
 | `hero_after_upgrade` | After the Tavern is upgraded: `(state, pool, rng)`. | Forest Warden Omu. |
 | `hero_friendly_attack` | A friendly minion attacks (in combat, or in the Tavern), once its friendly-attack observers resolved: `(ctx, attacker_id)`. | Loh, the Living Legend. |
 | `hero_after_combat` | The combat's results are back in the Tavern (`TavernState::apply_combat_return`, Solo and Duos): `(state, dead)`, the player's minions that died in it. | Sylvanas Windrunner. |
-| `hero_option_chosen` | The player chose an option of a Discover the Hero Power keeps (`Unit::to_hero_power`): `(state, chosen, unchosen, pool)`. Without it, the chosen card is kept (`stored`) and the others are discarded. | Galakrond. |
+| `hero_option_chosen` | The player chose an option of a Discover the Hero Power keeps (`Unit::to_hero_power`): `(state, chosen, unchosen, pool, rng)`. Without it, the chosen card is kept (`stored`) and the others are discarded. | Galakrond, Sir Finley, Master Nguyen, Genn. |
 | `hero_end_turn` | The player ends their turn (`EndTurn`), after the cards' end-of-turn triggers: `(state, pool, rng)`. | Rock Master Voone. |
 | `hero_tavern_rules` | Whenever a price or Tavern rule is read: `(rules)`, the `TavernRules` to change (the minion and Refresh prices, the Upgrade's extra, fewer shop minions, the copies a Triple takes, whether a Golden gives a `Triple Reward` card; `tavern.md` §3.3). | Sindragosa, Millhouse, Clocksworth. |
 | `hero_skips_turn` | Whether the player skips the current turn: `(state) -> bool`. While it is `true` only `EndTurn` and `ChooseDiscover` are legal (`tavern.md` §6). | A. F. Kay, Faelin. |
@@ -144,7 +145,7 @@ More hooks are added with the Tavern Hero Powers that need them (§11).
 
 ## 5. The `HeroPower` Action
 
-`TavernAction::HeroPower { target: Option<usize> }` uses the player's Hero Power. It comes after `Pass` in `TavernAction`, so the earlier variants keep their places; `ChooseHero` (§6) comes after it.
+`TavernAction::HeroPower { target: Option<usize> }` uses the player's Hero Power (`hero.power`). It comes after `Pass` in `TavernAction`, so the earlier variants keep their places; `ChooseHero` (§6) comes after it, and `TavernAction::HeroPower2 { target: Option<usize> }` (which uses the player's second Hero Power, `hero.second_power`, under the same rules) comes after `ChooseHero`.
 
 It is legal when:
 
@@ -163,7 +164,7 @@ In Duos, `DuosTavern::is_legal` / `step` allow it for the player's own Tavern li
 ## 6. Hero Selection
 
 - **Offers**: at the start of a game each player is offered heroes to choose from. The engine offers **2** heroes per player in both Solo and Duos **(confirmed; a parameter, `OFFER_COUNT`)**, with **no rerolls** **(engine decision)**, distinct across the lobby (no two players are offered the same hero) **(engine decision)**. Only implemented heroes are offered (`heroes::offerable`), and Duos-only heroes only in Duos.
-- `heroes::draw_offers(players, per_player, duos, rng)` draws them: for each player in turn, `per_player` distinct heroes uniformly at random among the offerable heroes no earlier player was offered (one `rng.below(k)` per hero). A match of several Taverns is the caller's job, as for combat pairings.
+- `heroes::draw_offers(players, per_player, duos, rng)` draws them: for each player in turn, `per_player` distinct heroes uniformly at random among the offerable heroes no earlier player was offered (one `rng.below(k)` per hero). In Duos (`duos == true`), if a player's teammate (`p ^ 1`) was already offered `The Nameless One`, `The Nameless One` is excluded from that player's pool so a team can never get two copies of `The Nameless One` **(confirmed)**. A match of several Taverns is the caller's job, as for combat pairings.
 - `TavernState::offer_heroes(options)` sets `hero_options`. While it is non-empty, **only** `ChooseHero { option_index }` is legal (`option_index < hero_options.len()`), as with a pending Discover.
 - `TavernAction::ChooseHero { option_index }` (the last variant) gives the player that hero (§2.3) and clears `hero_options`. In Duos it goes through `DuosTavern::step` like any action, and the team's pool gets the hero's Duos Armor (§2.3).
 
@@ -199,9 +200,9 @@ When a minion dies in combat and its `killed_by` is an enemy minion (it died fro
 ## 8. Python / RL
 
 - `TavernGame(..., hero=None)` and `DuosTavernGame(..., heroes=None)` (a hero per player, a name or a `HeroId`) give the players their heroes at creation. The default (`None`) is no hero, so existing code is unchanged.
-- `TavernAction.hero_power(target=None)` and `TavernAction.choose_hero(option_index)`; their `kind`s are `"hero_power"` and `"choose_hero"`.
-- The observation (`TavernObservation`, `DuosObservation`) has `hero_id` (0 without a hero), `hero_power_id`, `hero_power_cost`, `hero_power_uses_left`, `hero_power_counter`, `hero_power_stacks`, `hero_power_armed`, `hero_power_usable` (the untargeted or some targeted `HeroPower` is legal) and `hero_options`.
-- The RL action table (`rl/seaglass_rl/actions.py`) appends, at the end: `hero_power(None)`, `hero_power(t)` for `t` in `0..10`, then `choose_hero(i)` for `i` in `0..4` (room for more offers than the default 2).
+- `TavernAction.hero_power(target=None)`, `TavernAction.hero_power_2(target=None)` and `TavernAction.choose_hero(option_index)`; their `kind`s are `"hero_power"`, `"hero_power_2"` and `"choose_hero"`.
+- The observation (`TavernObservation`, `DuosObservation`) has `hero_id` (0 without a hero), `hero_power_id`, `hero_power_cost`, `hero_power_uses_left`, `hero_power_counter`, `hero_power_stacks`, `hero_power_armed`, `hero_power_usable` (the untargeted or some targeted `HeroPower` is legal), `second_hero_power_id` (0 without a second Hero Power), `second_hero_power_cost`, `second_hero_power_uses_left`, `second_hero_power_counter`, `second_hero_power_stacks`, `second_hero_power_armed`, `second_hero_power_usable`, and `hero_options`.
+- The RL action table (`rl/seaglass_rl/actions.py`) appends, at the end: `hero_power(None)`, `hero_power(t)` for `t` in `0..10`, then `choose_hero(i)` for `i` in `0..4`, then `hero_power(t)` for `t` in `10..14` (`BoardOrShopMinion` shop slots), then `hero_power_2(None)` and `hero_power_2(t)` for `t` in `0..14`.
 
 `rl/README.md` describes the encoding.
 
@@ -340,6 +341,11 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Farseer Nobundo` | *The Galaxy's Lens* (3 Gold): Get a copy of the last Tavern spell you cast. Each turn, your next Hero Power costs (1) less. | A fresh copy of `last_tavern_spell_cast` goes to the hand; it needs one and room in the hand. At each turn start, the first included, it gets 1 cheaper (never below 0); using it puts the cost back to 3, as Togwaggle's. |
 | `Zephrys, the Great` | *Three Wishes* (3 Gold): If you have two copies of a minion, find the third. (3 Wishes left!) | With two non-Golden copies of a minion on the board and in the hand (the first such pair, board then hand, left to right: **engine decision**), the third (from the pool if it has a copy, else a plain one from the catalog) goes to the hand, where they Triple. Three uses per game (`stacks`). It needs room in the hand. |
 | `Inge, the Iron Hymn` | *Major Hymn* (0 Gold, a friendly minion): Twice per turn, give a minion Attack equal to your Tier. (Swaps to Health next turn!) | Two uses per turn: the minion gains Attack equal to the Tavern Tier on odd turns (and before the first), Health on even turns (`armed`, set at each turn start) **(engine decision)**. |
+| `Vol'jin` | *Spirit Swap* (0 Gold, 2 minions): Choose 2 minions. They gain each other's Attack until next turn. | Targets any friendly board minion (`0..7`) or Tavern minion (`7..14`, `BoardOrShopMinion`); usable when at least 2 minions exist across `board` and `shop` **(confirmed)**. First `HeroPower { target: Some(i) }` records the first pick (`armed = i + 1`) and restores `uses_left = 1` without spending Gold; second `HeroPower { target: Some(j) }` (`j != i`, while the first pick is still a minion in its slot) clears `armed` and gives each minion the other's current Attack (`attack.max(0)`) until next turn (`Unit::until_next_turn_atk`: expires at the next turn start on `board`, `hand`, and kept/frozen `shop` minions; cleared if a minion's Attack is set by Xyrella or `Perfect Vision`; summed on a Triple) **(confirmed)**. Ending the turn after only the first pick resets `armed` at the next turn start. |
+| `Sir Finley Mrrgglton` | *Adventure!* (0 Gold, passive): At the start of the game, Discover a Hero Power. | At the start of turn 1 (`hero_turn_start`), offers a Discover among 3 distinct Hero Powers from `offerable_powers` (`heroes::offerable(duos)` excluding start-of-game/meta powers: Patchwerk, N'Zoth, Sneed, The Curator, A. F. Kay, Ambassador Faelin, Thorim, Sir Finley, Master Nguyen, Genn, The Nameless One; and excluding Cho/Gall unless the teammate is Gall/Cho) **(confirmed)**. Choosing one (`hero_option_chosen`) replaces `hero.power` for the rest of the game and runs its `hero_chosen`, `hero_turn_reset`, and `hero_turn_start` hooks **(confirmed)**. |
+| `Master Nguyen` | *Power of the Storm* (0 Gold, passive): At the start of every turn, choose from 2 new Hero Powers. | At the start of every turn, `heroes::turn_reset` restores `hero.power` to *Power of the Storm* (matched by `hero.hero_id == master_nguyen::ID`), and `hero_turn_start` offers a Discover of 2 distinct Hero Powers from `offerable_powers` (which on turns `>= 2` also excludes once-per-game powers — Reno, Kragg, Zerek — and long-progress passives like Ragnaros, Aranna, Loh, Brann, Sylvanas, Guff, Ini, Kael'thas, Flurgl, Voone, Chenvaala, Saurfang, Rakanishu, Wagtoggle, Ozumat, Onyxia, Vanndar, Drek'Thar) **(confirmed)**. Choosing one replaces `hero.power` for that turn and runs its `hero_chosen`, `hero_turn_reset`, and `hero_turn_start` hooks. |
+| `Genn, Worgen King` | *King of Duality* (0 Gold, passive): On Turn 4, Discover two Hero Powers to replace this. (3 turns left!) | Starts with `counter = 3`; on turns 1–3, `counter = 4 - turn`. On turn 4 (`hero_turn_start`), offers a Discover of 3 distinct Hero Powers from `offerable_powers` (turns `>= 2` pool, plus Ragnaros, Aranna, Loh, Brann, Sylvanas, Guff, Ini, Kael'thas, Flurgl, Voone, Chenvaala, Saurfang, Rakanishu, Wagtoggle, Ozumat, Onyxia, Vanndar, Drek'Thar, Reno, Kragg, Zerek are allowed since Genn keeps them for the rest of the game; only start-of-game/turn-1-only powers — Patchwerk, N'Zoth, Sneed, The Curator, A. F. Kay, Faelin, Thorim, Finley, Nguyen, Genn, The Nameless One — are excluded) **(confirmed)**. Choosing the first replaces `hero.power` and immediately offers a second Discover of 3 Hero Powers (excluding the first), whose choice is installed in `hero.second_power` (`HeroPower2`, §5) **(confirmed)**. |
+| `The Nameless One` | *(no name)* (`BGDUO_HERO_100p`, 0 Gold, passive; Duos only): Start of Game: Copy your teammate's Hero Power. | At the start of turn 1 in `DuosTavern::start_turn` (before either player's `start_turn` runs), replaces `hero.power` with a fresh copy of the teammate's Hero Power (`heroes::copy_teammate_power`) and runs its `hero_chosen` hook so start-of-game and turn-1 hooks fire normally **(confirmed)**. `draw_offers` never offers `The Nameless One` to both players on a team (§6) **(confirmed)**. |
 
 ---
 

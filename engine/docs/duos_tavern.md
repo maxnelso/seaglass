@@ -62,7 +62,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### 4.1 Start of Turn (`DuosTavern::start_turn`)
 
-1. `passes_this_turn = 0`, and no player has ended their turn.
+1. `passes_this_turn = 0`, and no player has ended their turn. On turn 1 (before either player's `start_turn` runs), if a player's hero is `The Nameless One`, their Hero Power copies their teammate's Hero Power (`heroes.md` §11.2).
 2. Player 0's start of turn (`tavern.md` §4), then player 1's, with the shared pool and RNG **(engine decision: the order)**. A player whose warband sat out the last combat keeps its next-combat effects (§6.3).
 3. The gifts deliver (§7.2), then the queues (§5.4): player 0's, then player 1's.
 4. The first fighter is drawn (§4.3).

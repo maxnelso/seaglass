@@ -513,9 +513,12 @@ fn observers_act_on_the_pass(before: &DuosTavern, p: usize) -> bool {
     let board = |s: &TavernState, has: fn(&cards::CardHooks) -> bool| {
         s.board.iter().any(|u| has(cards::hooks(u.card_id)))
     };
-    let hero_spends = passer
-        .hero()
-        .is_some_and(|h| cards::hooks(h.power.card_id).hero_gold_spent.is_some());
+    let hero_spends = passer.hero().is_some_and(|h| {
+        cards::hooks(h.power.card_id).hero_gold_spent.is_some()
+            || h.second_power
+                .as_ref()
+                .is_some_and(|sp| cards::hooks(sp.card_id).hero_gold_spent.is_some())
+    });
     (paid && (board(passer, |h| h.gold_spent.is_some()) || hero_spends))
         || board(passer, |h| h.after_pass.is_some())
         || before
@@ -1417,7 +1420,10 @@ impl DuosCoverage {
         let mate = 1 - p;
         let pass = matches!(action, TavernAction::Pass { .. });
         self.heroes_chosen += u64::from(matches!(action, TavernAction::ChooseHero { .. }));
-        self.hero_powers += u64::from(matches!(action, TavernAction::HeroPower { .. }));
+        self.hero_powers += u64::from(matches!(
+            action,
+            TavernAction::HeroPower { .. } | TavernAction::HeroPower2 { .. }
+        ));
         let added = |b: &[Unit], a: &[Unit]| a.len().saturating_sub(b.len()) as u64;
         let goldens = |s: &TavernState| s.hand.iter().filter(|u| u.is_golden).count();
         if pass {

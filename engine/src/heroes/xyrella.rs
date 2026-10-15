@@ -40,6 +40,7 @@ fn see_the_light(state: &mut TavernState, target: Option<usize>, _: &mut CardPoo
     minion.health = STATS;
     minion.max_attack = STATS;
     minion.max_health = STATS;
+    minion.until_next_turn_atk = 0;
     // Set net of its auras: they apply again as it reaches the hand, where it has them.
     minion.aura_applied = (0, 0);
     state.add_to_hand(minion);
