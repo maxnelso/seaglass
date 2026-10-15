@@ -1,0 +1,30 @@
+hero: Forest Lord Cenarius
+defaults:
+  tavern: {auras: {hero: Forest Lord Cenarius}}
+scenarios:
+  - name: it_raises_maximum_gold_by_1_for_3_gold
+    tavern: {gold: 5, max_gold: 5}
+    steps:
+      - hero_power
+    expect: {gold: 2, max_gold: 6, auras: {base_max_gold_bonus: 1}}
+
+  - name: the_next_turn_has_the_extra_gold
+    tavern: {gold: 3, turn: 2}
+    steps:
+      - hero_power
+      - end_turn
+      - start_turn
+    expect: {max_gold: 6, gold: 6}
+
+  - name: above_10
+    tavern: {gold: 3, turn: 9}
+    steps:
+      - hero_power
+      - end_turn
+      - start_turn
+    expect: {max_gold: 11}
+
+  - name: it_needs_3_gold
+    tavern: {gold: 2}
+    steps:
+      - expect_illegal: hero_power

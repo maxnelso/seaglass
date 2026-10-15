@@ -1,0 +1,26 @@
+hero: The Lich King
+defaults:
+  tavern: {auras: {hero: The Lich King}, gold: 0}
+scenarios:
+  - name: it_gives_a_minion_reborn_until_next_turn
+    tavern: {board: ["1/1", "2/2"]}
+    steps:
+      - hero_power: 1
+      - expect: {board: ["1/1 -reborn", {reborn: true, temp_reborn: true}]}
+      - start_turn
+    expect: {board: ["1/1 -reborn", "2/2 -reborn"]}
+
+  - name: the_minion_is_reborn_in_combat
+    tavern: {board: ["1/1"]}
+    steps:
+      - hero_power: 0
+      - fight: {board: ["5/5"]}
+    expect:
+      combat: {events: {any: {type: unit_summoned, side: a}}}
+      board: [{reborn: true}]
+
+  - name: a_minion_with_reborn_is_not_a_target
+    description: (engine decision)
+    tavern: {board: ["1/1 reborn"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

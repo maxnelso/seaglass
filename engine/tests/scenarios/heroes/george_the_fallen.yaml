@@ -1,0 +1,35 @@
+hero: George the Fallen
+defaults:
+  tavern: {auras: {hero: George the Fallen}, gold: 10}
+scenarios:
+  - name: it_gives_a_minion_divine_shield_for_1_gold
+    tavern: {board: ["1/1", "2/2"]}
+    steps:
+      - hero_power: 1
+    expect: {gold: 9, board: ["1/1 -divine_shield", "2/2 divine_shield"]}
+
+  - name: once_per_turn
+    tavern: {board: ["1/1", "2/2"]}
+    steps:
+      - hero_power: 0
+      - expect_illegal: {hero_power: 1}
+
+  - name: a_minion_with_divine_shield_is_not_a_target
+    description: (engine decision)
+    tavern: {board: ["2/2 divine_shield"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_needs_a_target
+    tavern: {board: []}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 0}
+
+  - name: the_shield_lasts
+    tavern: {board: ["1/1"]}
+    steps:
+      - hero_power: 0
+      - end_turn
+      - start_turn
+    expect: {board: ["1/1 divine_shield"]}

@@ -1,0 +1,29 @@
+hero: Zerek, Master Cloner
+defaults:
+  tavern: {auras: {hero: "Zerek, Master Cloner"}, gold: 0}
+scenarios:
+  - name: it_summons_an_exact_copy_to_the_right
+    tavern: {board: ["Zoatroid +2/+2 taunt", "1/1"]}
+    steps:
+      - hero_power: 0
+    expect: {board: ["Zoatroid 5/4 taunt", "Zoatroid 5/4 taunt", "1/1"]}
+
+  - name: once_per_game
+    tavern: {board: ["1/1", "2/2"]}
+    steps:
+      - hero_power: 0
+      - expect_illegal: {hero_power: 1}
+      - end_turn
+      - start_turn
+      - expect_illegal: {hero_power: 1}
+
+  - name: it_needs_room_on_the_board
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: the_copy_can_make_a_triple
+    tavern: {board: ["Zoatroid"], hand: ["Zoatroid"]}
+    steps:
+      - hero_power: 0
+    expect: {board: [], hand: ["golden Zoatroid"]}

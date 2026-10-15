@@ -96,7 +96,7 @@ At the beginning of Turn `t`:
 
 1. **Expire the Previous Turn's Temporary Effects**:
    - Discard the temporary cards still in `hand` (`CardFlags::TEMPORARY`: a Spellcraft spell that reached the hand after the player ended their turn, §7.4), without discard effects.
-   - On every minion on `board`: its start-of-turn upkeep (`turn_start_unit`: what lasted until next turn ends), the end of a Divine Shield "until next turn" (`temp_divine_shield`), and its per-turn charges reset. A Divine Shield "until next turn" also expires on minions in `hand`. A lasting Divine Shield given to a minion that has one until next turn makes it lasting (`Sacred Gift` on a minion `Ichoron the Protector` shielded) **(confirmed)**.
+   - On every minion on `board`: its start-of-turn upkeep (`turn_start_unit`: what lasted until next turn ends), the end of a Divine Shield or a Reborn "until next turn" (`temp_divine_shield`, `temp_reborn`), and its per-turn charges reset. A Divine Shield or Reborn "until next turn" also expires on minions in `hand`. A lasting Divine Shield given to a minion that has one until next turn makes it lasting (`Sacred Gift` on a minion `Ichoron the Protector` shielded) **(confirmed)**.
 2. **Increment Turn & Refill Gold**:
    - `turn += 1`
    - `max_gold = min(10, 2 + turn) + auras.base_max_gold_bonus`
@@ -134,7 +134,7 @@ If 3 non-golden copies exist:
 3. Sum all buffs accumulated across the 3 copies:
    $$\text{golden\_atk} = 2 \cdot \text{base\_atk} + \sum_{i=1}^{3} (\text{copy}_i.\text{attack} - \text{base\_atk})$$
    $$\text{golden\_hp} = 2 \cdot \text{base\_hp} + \sum_{i=1}^{3} (\text{copy}_i.\text{health} - \text{base\_hp})$$
-4. Union boolean keywords (`taunt`, `divine_shield`, `inherent_divine_shield`, `windfury`, `reborn`, `magnetic`) across the 3 copies, preserve triggers and tribe, and set `is_golden = true`. A Divine Shield that the copies only have until next turn (`temp_divine_shield`, `Ichoron the Protector`) stays temporary on the Golden: it expires at the start of the next turn, even in `hand`.
+4. Union boolean keywords (`taunt`, `divine_shield`, `inherent_divine_shield`, `windfury`, `reborn`, `magnetic`) across the 3 copies, preserve triggers and tribe, and set `is_golden = true`. A Divine Shield that the copies only have until next turn (`temp_divine_shield`, `Ichoron the Protector`) stays temporary on the Golden: it expires at the start of the next turn, even in `hand`. So does a Reborn they only have until next turn (`temp_reborn`, The Lich King's Reborn Rites: [`heroes.md`](heroes.md) §11.2).
 5. Append the Golden minion to `hand`.
 
 ### 5.2 Playing a Golden Minion (Triple Reward Discover)

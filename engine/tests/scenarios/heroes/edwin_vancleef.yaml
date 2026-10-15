@@ -1,0 +1,28 @@
+hero: Edwin VanCleef
+defaults:
+  tavern: {auras: {hero: Edwin VanCleef}, gold: 20}
+scenarios:
+  - name: it_gives_a_minion_2_2_for_1_gold
+    tavern: {board: ["1/1", "3/3"]}
+    steps:
+      - hero_power: 1
+    expect: {gold: 19, board: ["1/1", "5/5"]}
+
+  - name: every_4_cards_bought_improve_it_by_1_1
+    description: (engine decision) Spells count; each improvement is +1/+1.
+    tavern: {board: ["1/1"], shop: ["1/1", "1/1", "1/1", Tavern Coin]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - expect: {auras: {hero: {power: {counter: 3, stacks: 0}}}}
+      - buy: 0
+      - expect: {auras: {hero: {power: {counter: 0, stacks: 1}}}}
+      - hero_power: 0
+    expect: {board: ["4/4"]}
+
+  - name: it_needs_a_friendly_minion
+    tavern: {board: []}
+    steps:
+      - expect_illegal: hero_power
+      - expect_illegal: {hero_power: 0}

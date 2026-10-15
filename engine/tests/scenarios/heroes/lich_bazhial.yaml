@@ -1,0 +1,38 @@
+hero: Lich Baz'hial
+defaults:
+  tavern: {auras: {hero: Lich Baz'hial}, gold: 10, health: 30, armor: 0}
+scenarios:
+  - name: it_steals_a_card_and_deals_2_damage
+    tavern: {shop: ["3/3", Tavern Coin]}
+    steps:
+      - hero_power: 0
+    expect: {gold: 8, health: 28, hand: ["3/3"], shop: [Tavern Coin]}
+
+  - name: it_steals_spells_too
+    tavern: {shop: ["3/3", Tavern Coin]}
+    steps:
+      - hero_power: 1
+    expect: {hand: [Tavern Coin], shop: ["3/3"]}
+
+  - name: armor_takes_the_damage_first
+    tavern: {armor: 1, shop: ["3/3"]}
+    steps:
+      - hero_power: 0
+    expect: {armor: 0, health: 29}
+
+  - name: stealing_is_not_buying
+    tavern: {auras: {hero: Lich Baz'hial}, shop: ["3/3"]}
+    steps:
+      - hero_power: 0
+    expect: {gold_spent_this_turn: 2}
+
+  - name: it_cant_kill_the_hero
+    description: (engine decision)
+    tavern: {health: 2, shop: ["3/3"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {shop: ["3/3"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

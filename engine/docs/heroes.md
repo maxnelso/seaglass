@@ -91,7 +91,7 @@ All are generic: the engine never reads `counter`, `stacks`, `armed` or `stored`
 
 ### 3.3 Targets
 
-An active power's target domain is its hooks' `activate_target` (the `ActivateTargetKind` of minion Activates, `tavern.md` §7): `None` (untargeted), `BoardAny` (a friendly minion: Teron, Floop), `ShopCard` (a minion in the Tavern), `HandCard`. `HeroPower { target }` names the index in that zone. A power that needs a choice among options (Bru'kan's Elements) is untargeted: its `hero_power` hook offers a Choose One (`discover_pending`), answered with `ChooseDiscover` like any Choose One (`tavern.md` §5.2).
+An active power's target domain is its hooks' `activate_target` (the `ActivateTargetKind` of minion Activates, `tavern.md` §7): `None` (untargeted), `BoardAny` (a friendly minion: Teron, Floop), `ShopCard` (a card in the Tavern, minion or spell), `HandCard`. `HeroPower { target }` names the index in that zone. Its `hero_power_target` hook narrows the domain (a non-Golden minion for Reno, a minion in the Tavern for Xyrella). A power that needs a choice among options (Bru'kan's Elements) is untargeted: its `hero_power` hook offers a Choose One (`discover_pending`), answered with `ChooseDiscover` like any Choose One (`tavern.md` §5.2).
 
 A minion a power chose to act on later (Teron's Rapid Reanimation, Floop's Glorious Gloop) is **marked** (`Unit::marked`). Choosing again moves the mark. The mark lasts until the player's next combat, where the power acts on the marked minion, and it clears at the start of the next turn **(confirmed)**. It is part of the minion: it leaves with it (sold, Passed) and is not copied by a triple.
 
@@ -112,7 +112,8 @@ Hero Powers reuse the card hook system (`src/cards/hooks.rs`): a Hero Power is a
 | Hook | Fires | For |
 | :--- | :--- | :--- |
 | `hero_power` | The `HeroPower` action (§5): `(state, target, pool, rng)`. | Active powers. |
-| `hero_power_usable` | Extra conditions for the action (unlock turns, once per game): `(state) -> bool`. | "Unlocks on Turn 3". |
+| `hero_power_usable` | Extra conditions for the action (unlock turns, once per game): `(state) -> bool`. | Once per game (Reno, Kragg, Zerek), room in the hand. |
+| `hero_power_target` | Which targets in the domain the action can take (§3.3): `(state, target) -> bool`. | Reno's non-Golden minion, George's minion without Divine Shield. |
 | `hero_turn_reset` | Start of turn, after `uses_left` is reset (§3.4): `(hero)`. | Bru'kan's Element reverting, twice-per-turn powers. |
 | `hero_chosen` | The player gets this hero (§2.3): `(state, rng)`. | Start-of-game text. |
 | `hero_gold_spent` | Gold was spent: `(state, amount)`. | Wax Warband's improvement. |
@@ -144,7 +145,7 @@ It is legal when:
 2. the player has a hero whose current power is active (a `hero_power` hook);
 3. `uses_left > 0` and `gold >= cost`;
 4. its `hero_power_usable` hook (if any) allows it;
-5. `target` fits the power's target domain (§3.3): `None` for an untargeted power, a valid index otherwise.
+5. `target` fits the power's target domain (§3.3): `None` for an untargeted power, a valid index otherwise, which its `hero_power_target` hook (if any) allows.
 
 Effect, in order: `uses_left -= 1`; the cost is spent (`spend_gold`, §3.5); the `hero_power` hook resolves. Then the action ends like any other (Triples, aura sync: `tavern.md` §6).
 
@@ -264,6 +265,21 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Kael'thas Sunstrider` | *Verdant Spheres*: After you buy 3 minions, get a Tavern Coin. | `hero_after_buy`: every 3rd minion bought (counted across turns, `counter`, **(confirmed)**) gives a `Tavern Coin`. |
 | `Chenvaala` | *Avalanche*: After you play 3 Elementals, reduce the Cost of upgrading the Tavern by (3). | `hero_after_play`: every 3rd Elemental played from hand (counted across turns **(confirmed)**) makes the upgrade 3 cheaper, never below 0. |
 | `Fungalmancer Flurgl` | *Gone Fishing*: After you sell 5 minions, get a random Murloc. | `hero_after_sell`: every 5th minion sold (counted across turns **(confirmed)**) gives a random Murloc of the player's Tier or lower from the game's catalog **(engine decision)**. |
+| `Death Speaker Blackthorn` | *Bloodbound* (1 Gold): Get 2 Blood Gems. (Twice per turn.) | Two uses per turn: the first use gives a use back (`counter` counts the turn's uses; `hero_turn_reset` clears it). Each use adds 2 `Blood Gem`s to the hand; it needs room for one **(engine decision)**, and a Gem the hand has no room for is lost. |
+| `George the Fallen` | *Boon of Light* (1 Gold, a friendly minion): Give a minion Divine Shield. | The minion gains Divine Shield. A minion that has it is not a target **(engine decision)**. |
+| `Doctor Holli'dae` | *Blessing of the Nine Frogs* (1 Gold): Get a random Tavern spell. | A spell drawn as the shop draws one (`spells::draw_shop_spell`: of the player's Tier or lower, Duos spells too in Duos) **(engine decision)** goes to the hand; it needs room in the hand **(engine decision)**. One draw. |
+| `Forest Lord Cenarius` | *Wisdom of Ancients* (3 Gold): Increase your maximum Gold by 1. | As `Strike Oil`: `max_gold` and `base_max_gold_bonus` go up by 1 (above 10 too); the Gold itself doesn't. |
+| `Edwin VanCleef` | *Sharpen Blades* (1 Gold, a friendly minion): Give a minion +2/+2. Improves after you buy 4 cards. | The minion gains `+(2 + stacks)/+(2 + stacks)`. Every 4th card bought (minions and spells, counted across turns: `hero_after_buy`, `counter`) adds a stack: each improvement is +1/+1 **(engine decision)**. |
+| `Reno Jackson` | *Gonna Be Rich!* (0 Gold, a friendly non-Golden minion): Once per game, make a friendly minion Golden. | `Unit::make_golden` (as `Eyes of the Earth Mother`), then the auras resync. Once per game (`stacks` = 1 once used). |
+| `Skycap'n Kragg` | *Piggy Bank* (0 Gold): Gain 2 Gold. Increases by 1 each turn. (Once per game.) | Gains `2 + (turns started - 1)` Gold (`counter` counts the turns, `hero_turn_reset`; 2 before the first turn). Once per game. |
+| `Lich Baz'hial` | *Graveyard Shift* (2 Gold, a card in the Tavern): Steal a card from the Tavern. Take 2 damage. | The card leaves the shop for the hand (not a buy: no buy triggers), then the hero takes 2 damage (`deal_hero_damage`: Armor first). It needs room in the hand, and can't be used if the damage would bring Health and Armor to 0 **(engine decision)**. |
+| `Xyrella` | *See the Light* (2 Gold, a minion in the Tavern): Choose a minion in the Tavern. Set its stats to 2 and add it to your hand. | The minion's Attack and Health (and their maximums) become 2, and it goes to the hand (not a buy). It needs room in the hand. |
+| `Pyramad` | *Brick by Brick* (2 Gold): Steal a random minion from the Tavern. Double its Health. | A random minion in the shop (one `rng.below(k)`) gets twice its Health and goes to the hand (not a buy). It needs a minion in the shop and room in the hand. |
+| `Zerek, Master Cloner` | *Cloning Gallery* (0 Gold, a friendly minion): Once per game, summon an exact copy of a friendly minion. | An exact copy (stats, keywords, state; not its mark) is summoned to its right (`on_tavern_summon`: summon observers see it); it can make a triple. It needs room on the board. Once per game. |
+| `Snake Eyes` | *Lucky Roll* (1 Gold): Roll a 6-sided die. Gain that much Gold. (Cannot be used again for that many turns!) | Gains `1 + rng.below(6)` Gold. The roll is its cooldown (`counter`): at each turn start while it is above 0, the power has no use and the cooldown goes down by 1, so a 3 rolled on turn 5 makes it usable again on turn 9. |
+| `The Lich King` | *Reborn Rites* (0 Gold, a friendly minion without Reborn): Give a minion Reborn until next turn. | The minion gains Reborn, temporary (`Unit::temp_reborn`, like `temp_divine_shield`): it ends at the start of the next turn, unless a lasting Reborn was given since. A minion that has Reborn is not a target **(engine decision)**. |
+| `Overlord Saurfang` | *For the Horde!* (passive): Minions in the Tavern have +1/+1. Improves after you buy 3 minions. | When the player gets the hero (`hero_chosen`), the Tavern's minions get +1/+1 (`tavern_all_atk` / `tavern_all_hp`, the shop's minions too). Every 3rd minion bought (counted across turns) adds +1/+1 more. |
+| `Rakanishu` | *Tavern Lighting* (passive): Your Tavern spells give an extra +1/+1. At the start of every 3 turns, improve this. | When the player gets the hero (`hero_chosen`), spell power +1/+1 (`spell_bonus_atk` / `spell_bonus_hp`). Every 3rd turn start (`hero_turn_start`, `counter`) adds +1/+1 more. |
 
 ---
 
@@ -282,3 +298,10 @@ Engine decisions, pending the user's confirmation:
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
 | Vanndar and Drek'Thar | A tie at random. | `heroes::summon_copy_of_best` |
 | Flurgl's Murloc | Of the player's Tier or lower. | `heroes/fungalmancer_flurgl.rs` |
+| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella and Pyramad need room in the hand; a Blood Gem that doesn't fit is lost. | their files |
+| Targets | George's and The Lich King's minion doesn't already have the keyword. | their files |
+| Holli'dae's spell | Drawn as the shop draws a spell: the player's Tier or lower. | `heroes/doctor_hollidae.rs` |
+| Edwin's improvement | +1/+1 per 4 cards bought, spells included. | `heroes/edwin_vancleef.rs` |
+| Baz'hial's damage | Not usable if it would bring Health and Armor to 0. | `heroes/lich_bazhial.rs` |
+| Kragg's Gold | 2 on the first turn, +1 per turn started since. | `heroes/skycapn_kragg.rs` |
+| Rakanishu's improvement | Every 3rd turn start, counting the first. | `heroes/rakanishu.rs` |

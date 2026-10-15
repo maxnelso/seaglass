@@ -1,0 +1,20 @@
+hero: Doctor Holli'dae
+defaults:
+  tavern: {auras: {hero: Doctor Holli'dae}, gold: 10, tavern_tier: 2}
+scenarios:
+  - name: it_gives_a_random_tavern_spell_for_1_gold
+    seeds: "1..=6"
+    steps:
+      - hero_power
+    expect: {gold: 9, hand: [{is_spell: true}]}
+
+  - name: once_per_turn
+    steps:
+      - hero_power
+      - expect_illegal: hero_power
+
+  - name: it_needs_room_in_the_hand
+    description: (engine decision)
+    tavern: {hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: hero_power

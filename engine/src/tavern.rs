@@ -2168,6 +2168,8 @@ impl TavernState {
         golden.inherent_divine_shield = copies.iter().any(|u| u.inherent_divine_shield);
         golden.windfury = copies.iter().any(|u| u.windfury);
         golden.reborn = copies.iter().any(|u| u.reborn);
+        // So does a Reborn they only have until next turn (`docs/heroes.md` §11.2).
+        golden.temp_reborn = golden.reborn && copies.iter().all(|u| !u.reborn || u.temp_reborn);
         golden.venomous = copies.iter().any(|u| u.venomous);
         golden.stealth = copies.iter().any(|u| u.stealth);
         golden.magnetic = copies.iter().any(|u| u.magnetic);

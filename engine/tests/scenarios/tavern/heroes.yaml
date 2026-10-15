@@ -14,7 +14,7 @@ scenarios:
     expect:
       health: 30
       armor: 12
-      auras: {hero: {name: Reno Jackson, hero_id: 60212, power: {cost: 0, card_id: 60216, uses_left: 0}}}
+      auras: {hero: {name: Reno Jackson, hero_id: 60212, power: {cost: 0, card_id: 60216, uses_left: 1}}}
 
   - name: patchwerk_starts_with_60_health_and_no_armor
     description: (confirmed)

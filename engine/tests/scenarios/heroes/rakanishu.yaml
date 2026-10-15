@@ -1,0 +1,25 @@
+hero: Rakanishu
+scenarios:
+  - name: tavern_spells_give_an_extra_1_1
+    tavern: {}
+    steps:
+      - set_hero: Rakanishu
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}
+
+  - name: every_3_turns_improve_it
+    tavern: {gold: 0}
+    steps:
+      - set_hero: Rakanishu
+      - start_turn
+      - end_turn
+      - start_turn
+      - expect: {auras: {spell_bonus_atk: 1}}
+      - end_turn
+      - start_turn
+    expect: {auras: {spell_bonus_atk: 2, spell_bonus_hp: 2}}
+
+  - name: it_is_never_an_action
+    tavern: {gold: 10}
+    steps:
+      - set_hero: Rakanishu
+      - expect_illegal: hero_power

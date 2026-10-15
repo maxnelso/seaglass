@@ -1,0 +1,23 @@
+hero: Reno Jackson
+defaults:
+  tavern: {auras: {hero: Reno Jackson}, gold: 0}
+scenarios:
+  - name: it_makes_a_friendly_minion_golden
+    tavern: {board: ["1/1", "Zoatroid"]}
+    steps:
+      - hero_power: 1
+    expect: {board: ["1/1", "golden Zoatroid"], auras: {hero: {power: {stacks: 1}}}}
+
+  - name: once_per_game
+    tavern: {board: ["1/1", "2/2"]}
+    steps:
+      - hero_power: 0
+      - expect_illegal: {hero_power: 1}
+      - end_turn
+      - start_turn
+      - expect_illegal: {hero_power: 1}
+
+  - name: a_golden_minion_is_not_a_target
+    tavern: {board: ["golden Zoatroid"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

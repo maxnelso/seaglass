@@ -1,0 +1,26 @@
+hero: Xyrella
+defaults:
+  tavern: {auras: {hero: Xyrella}, gold: 10}
+scenarios:
+  - name: it_sets_a_tavern_minion_to_2_2_and_takes_it
+    tavern: {shop: ["5/7", "1/1"]}
+    steps:
+      - hero_power: 0
+    expect: {gold: 8, hand: [{attack: 2, health: 2, max_health: 2}], shop: ["1/1"]}
+
+  - name: it_raises_low_stats_too
+    tavern: {shop: ["1/1"]}
+    steps:
+      - hero_power: 0
+    expect: {hand: ["2/2"]}
+
+  - name: a_spell_is_not_a_target
+    tavern: {shop: [Tavern Coin, "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}
+      - expect_legal: {hero_power: 1}
+
+  - name: it_needs_room_in_the_hand
+    tavern: {shop: ["1/1"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: {hero_power: 0}

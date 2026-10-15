@@ -474,6 +474,9 @@ card_hooks! {
     hero_power(on_hero_power): HeroPowerFn,
     /// Extra conditions for the `HeroPower` action (unlock turns, once per game): `(state)`.
     hero_power_usable(on_hero_power_usable): fn(&TavernState) -> bool,
+    /// Which targets the `HeroPower` action can take, on top of its target domain
+    /// (`activate_target`): `(state, target)` ("a non-Golden minion", "a minion in the Tavern").
+    hero_power_target(on_hero_power_target): fn(&TavernState, usize) -> bool,
     /// Start of turn, after `uses_left` was reset: `(hero)`.
     hero_turn_reset(on_hero_turn_reset): fn(&mut HeroState),
     /// The player got this hero (its start-of-game text): `(state)`.

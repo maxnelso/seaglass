@@ -1295,7 +1295,7 @@ pub fn on_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &
 }
 
 /// Apply Start-of-Turn upkeep to a minion on `board`: its `turn_start_unit` hook, expiry of
-/// temporary Divine Shield, and per-turn charge resets.
+/// temporary Divine Shield and Reborn, and per-turn charge resets.
 pub fn on_start_turn(unit: &mut Unit) {
     if let Some(turn_start_unit) = hooks(unit.card_id).turn_start_unit {
         turn_start_unit(unit);
@@ -1304,11 +1304,16 @@ pub fn on_start_turn(unit: &mut Unit) {
     init_unit_turn_charges(unit);
 }
 
-/// End `unit`'s Divine Shield if it only had it until this turn (`temp_divine_shield`).
+/// End `unit`'s Divine Shield (and Reborn) if it only had it until this turn
+/// (`temp_divine_shield`, `temp_reborn`).
 fn expire_temp_divine_shield(unit: &mut Unit) {
     if unit.temp_divine_shield {
         unit.divine_shield = false;
         unit.temp_divine_shield = false;
+    }
+    if unit.temp_reborn {
+        unit.reborn = false;
+        unit.temp_reborn = false;
     }
 }
 

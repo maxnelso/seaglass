@@ -1,0 +1,23 @@
+hero: Snake Eyes
+defaults:
+  tavern: {auras: {hero: Snake Eyes}, gold: 10}
+scenarios:
+  - name: it_rolls_a_die_for_gold
+    description: For 1 Gold, the roll (1 to 6, kept as the cooldown) in Gold.
+    seeds: "1..=12"
+    steps:
+      - hero_power
+      - expect: {auras: {hero: {power: {counter: {all_of: ["1..=6", {capture: roll}]}}}}}
+    expect: {gold: "== 9 + $roll"}
+
+  - name: it_cant_be_used_for_that_many_turns
+    tavern: {auras: {hero: {hero: Snake Eyes, power: {counter: 2, uses_left: 0}}}}
+    steps:
+      - start_turn
+      - expect_illegal: hero_power
+      - end_turn
+      - start_turn
+      - expect_illegal: hero_power
+      - end_turn
+      - start_turn
+      - expect_legal: hero_power

@@ -1,0 +1,32 @@
+hero: Overlord Saurfang
+scenarios:
+  - name: tavern_minions_have_1_1
+    tavern: {shop: ["1/1", "2/2", Tavern Coin]}
+    steps:
+      - set_hero: Overlord Saurfang
+    expect: {shop: ["2/2", "3/3", Tavern Coin], auras: {tavern_all_atk: 1, tavern_all_hp: 1}}
+
+  - name: every_3_minions_bought_improve_it
+    tavern: {gold: 20, shop: ["1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - set_hero: Overlord Saurfang
+      - buy: 0
+      - buy: 0
+      - expect: {shop: ["2/2", "2/2"]}
+      - buy: 0
+    expect: {shop: ["3/3"], auras: {tavern_all_atk: 2, tavern_all_hp: 2}}
+
+  - name: spells_dont_count
+    tavern: {gold: 20, shop: [Tavern Coin, Tavern Coin, Tavern Coin, "1/1"]}
+    steps:
+      - set_hero: Overlord Saurfang
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect: {shop: ["2/2"], auras: {hero: {power: {counter: 0}}}}
+
+  - name: it_is_never_an_action
+    tavern: {gold: 10}
+    steps:
+      - set_hero: Overlord Saurfang
+      - expect_illegal: hero_power

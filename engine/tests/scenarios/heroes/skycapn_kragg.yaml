@@ -1,0 +1,29 @@
+hero: Skycap'n Kragg
+scenarios:
+  - name: it_gives_2_gold_on_the_first_turn
+    tavern: {auras: {hero: Skycap'n Kragg}, gold: 0}
+    steps:
+      - start_turn
+      - hero_power
+    expect: {gold: 5}
+
+  - name: it_gives_1_more_each_turn
+    tavern: {auras: {hero: Skycap'n Kragg}, gold: 0}
+    steps:
+      - start_turn
+      - end_turn
+      - start_turn
+      - end_turn
+      - start_turn
+      - expect: {gold: 5, auras: {hero: {power: {counter: 3}}}}
+      - hero_power
+    expect: {gold: 9}
+
+  - name: once_per_game
+    tavern: {auras: {hero: Skycap'n Kragg}, gold: 0}
+    steps:
+      - hero_power
+      - expect: {gold: 2}
+      - expect_illegal: hero_power
+      - start_turn
+      - expect_illegal: hero_power

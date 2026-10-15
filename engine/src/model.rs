@@ -612,6 +612,10 @@ pub struct Unit {
     /// (`docs/heroes.md` §4).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_deathrattles: Vec<CardId>,
+    /// True if this unit's Reborn is temporary until next turn (The Lich King's Reborn Rites;
+    /// `docs/heroes.md` §11), as `temp_divine_shield` for Divine Shield.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub temp_reborn: bool,
 }
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
@@ -691,6 +695,7 @@ impl Unit {
             unchosen_to_teammate: false,
             marked: false,
             extra_deathrattles: Vec::new(),
+            temp_reborn: false,
         }
     }
 
@@ -738,7 +743,11 @@ impl Unit {
                 }
             }
             Keyword::Windfury => self.windfury = true,
-            Keyword::Reborn => self.reborn = true,
+            Keyword::Reborn => {
+                self.reborn = true;
+                // A lasting Reborn over one until next turn makes it lasting.
+                self.temp_reborn = false;
+            }
             Keyword::Venomous => self.venomous = true,
             Keyword::Stealth => self.stealth = true,
             Keyword::Magnetic => self.magnetic = true,

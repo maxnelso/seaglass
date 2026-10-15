@@ -15,25 +15,40 @@ pub mod arch_villain_rafaam;
 pub mod brukan;
 pub mod capn_hoggarr;
 pub mod chenvaala;
+pub mod death_speaker_blackthorn;
 pub mod deathwing;
+pub mod doctor_hollidae;
 pub mod drekthar;
+pub mod edwin_vancleef;
 pub mod flobbidinous_floop;
+pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
 pub mod fungalmancer_flurgl;
+pub mod george_the_fallen;
 pub mod greybough;
 pub mod illidan_stormrage;
 pub mod kaelthas_sunstrider;
+pub mod lich_bazhial;
 pub mod nozdormu;
 pub mod onyxia;
+pub mod overlord_saurfang;
 pub mod ozumat;
 pub mod patchwerk;
+pub mod pyramad;
 pub mod queen_wagtoggle;
+pub mod rakanishu;
+pub mod reno_jackson;
 pub mod rokara;
+pub mod skycapn_kragg;
+pub mod snake_eyes;
 pub mod tamsin_roame;
 pub mod teron_gorefiend;
+pub mod the_lich_king;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
+pub mod xyrella;
 pub mod yshaarj;
+pub mod zerek_master_cloner;
 
 pub use table::{CARD_DEFS_BUILD, HEROES};
 
@@ -88,6 +103,9 @@ pub const MAX_OFFER_COUNT: usize = 4;
 /// The source of the damage a Hero Power deals in combat (it is not a minion).
 pub const HERO_SOURCE: UnitId = UnitId::MAX;
 
+/// The most cards a hand holds (`tavern.md` §2).
+const MAX_HAND_SIZE: usize = 10;
+
 /// The base Health a hero's `health` is counted from (`docs/heroes.md` §2.3).
 const BASE_HEALTH: i32 = 30;
 
@@ -101,25 +119,43 @@ const IMPLEMENTED: &[Implemented] = &[
     (brukan::ID, brukan::behaviors),
     (capn_hoggarr::ID, capn_hoggarr::behaviors),
     (chenvaala::ID, chenvaala::behaviors),
+    (
+        death_speaker_blackthorn::ID,
+        death_speaker_blackthorn::behaviors,
+    ),
     (deathwing::ID, deathwing::behaviors),
+    (doctor_hollidae::ID, doctor_hollidae::behaviors),
     (drekthar::ID, drekthar::behaviors),
+    (edwin_vancleef::ID, edwin_vancleef::behaviors),
     (flobbidinous_floop::ID, flobbidinous_floop::behaviors),
+    (forest_lord_cenarius::ID, forest_lord_cenarius::behaviors),
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
     (fungalmancer_flurgl::ID, fungalmancer_flurgl::behaviors),
+    (george_the_fallen::ID, george_the_fallen::behaviors),
     (greybough::ID, greybough::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
     (kaelthas_sunstrider::ID, kaelthas_sunstrider::behaviors),
+    (lich_bazhial::ID, lich_bazhial::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (onyxia::ID, onyxia::behaviors),
+    (overlord_saurfang::ID, overlord_saurfang::behaviors),
     (ozumat::ID, ozumat::behaviors),
     (patchwerk::ID, patchwerk::behaviors),
+    (pyramad::ID, pyramad::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
+    (rakanishu::ID, rakanishu::behaviors),
+    (reno_jackson::ID, reno_jackson::behaviors),
     (rokara::ID, rokara::behaviors),
+    (skycapn_kragg::ID, skycapn_kragg::behaviors),
+    (snake_eyes::ID, snake_eyes::behaviors),
     (tamsin_roame::ID, tamsin_roame::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
+    (the_lich_king::ID, the_lich_king::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
+    (xyrella::ID, xyrella::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
+    (zerek_master_cloner::ID, zerek_master_cloner::behaviors),
 ];
 
 /// The hooks of every implemented hero's Hero Power cards (and the cards they use: Choose One
@@ -242,7 +278,7 @@ fn target_ok(state: &TavernState, kind: ActivateTargetKind, target: Option<usize
     match (kind, target) {
         (ActivateTargetKind::None, None) => true,
         (ActivateTargetKind::BoardAny, Some(t)) => t < state.board.len(),
-        (ActivateTargetKind::ShopCard, Some(t)) => state.shop.get(t).is_some_and(|u| !u.is_spell),
+        (ActivateTargetKind::ShopCard, Some(t)) => t < state.shop.len(),
         (ActivateTargetKind::HandCard, Some(t)) => {
             state.hand.get(t).is_some_and(|c| c.locked_turns == 0)
         }
@@ -275,6 +311,10 @@ pub fn can_use(state: &TavernState, target: Option<usize>) -> bool {
         && state.gold >= hero.power.cost
         && card.hero_power_usable.is_none_or(|usable| usable(state))
         && target_ok(state, card.activate_target, target)
+        && match (target, card.hero_power_target) {
+            (Some(t), Some(filter)) => filter(state, t),
+            _ => true,
+        }
 }
 
 /// The targets the player can use their Hero Power on now (empty if they can't use it).
@@ -478,6 +518,21 @@ pub fn summon_copy_of_best(ctx: &mut BoardCtx<'_>, key: fn(&Unit) -> i32, reason
     }
     ctx.cursor = ctx.board.len();
     ctx.summon_as(HERO_SOURCE, copy, reason);
+}
+
+/// A `hero_power_usable` hook: the hand has room for a card (`docs/heroes.md` §11.2).
+pub fn hand_has_room(state: &TavernState) -> bool {
+    state.hand.len() < MAX_HAND_SIZE
+}
+
+/// A `hero_power_usable` hook for once-per-game powers: not used yet (`stacks` is set to 1 by the
+/// use).
+pub fn unused_this_game(state: &TavernState) -> bool {
+    state
+        .auras
+        .hero
+        .as_ref()
+        .is_some_and(|h| h.power.stacks == 0)
 }
 
 /// The player's Hero Power state (for hooks that know the player has a hero).

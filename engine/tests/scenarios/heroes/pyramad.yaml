@@ -1,0 +1,26 @@
+hero: Pyramad
+defaults:
+  tavern: {auras: {hero: Pyramad}, gold: 10}
+scenarios:
+  - name: it_steals_a_random_tavern_minion_with_double_health
+    tavern: {shop: [Tavern Coin, "3/4"]}
+    steps:
+      - hero_power
+    expect: {gold: 8, hand: ["3/8"], shop: [Tavern Coin]}
+
+  - name: the_minion_is_random
+    seeds: "1..=6"
+    tavern: {shop: ["1/1", "2/2", "3/3"]}
+    steps:
+      - hero_power
+    expect: {hand: {count: 1}, shop: {count: 2}}
+
+  - name: it_needs_a_minion_in_the_tavern
+    tavern: {shop: [Tavern Coin]}
+    steps:
+      - expect_illegal: hero_power
+
+  - name: it_needs_room_in_the_hand
+    tavern: {shop: ["1/1"], hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: hero_power
