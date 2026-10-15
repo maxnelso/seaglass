@@ -8,7 +8,9 @@
 //! ghost with `resolve_combat_against`), and teams at 0 Health or less are out, until one team is
 //! left or the turn cap. Some games give the players extra maximum Gold or cards first (Duos
 //! minions and spells among them, sometimes a full hand), some Pass a lot, and some players hoard
-//! cards (they buy and rarely play), so that every card gets played and Passes queue.
+//! cards (they buy and rarely play), so that every card gets played and Passes queue. Half of them
+//! give every player a random implemented hero (`docs/heroes.md`), or offer two to choose from,
+//! whose Hero Power the policy uses like any action.
 //!
 //! After every action, start of turn and combat it checks each team:
 //! - every Solo check of both players' Taverns (`check_tavern`, `check_synced`, and the actor's
@@ -126,6 +128,12 @@ struct DuosConfig {
     /// cards (they buy, and rarely play or Pass), so that their hands fill up and the cards
     /// passed to them queue.
     player_weights: Vec<[[u32; KINDS]; 2]>,
+    /// Each team's players' heroes (`docs/heroes.md`): in half the games, a random implemented
+    /// one each, given at the start (`DuosTavern::with_heroes`) or, in a third of those, offered
+    /// (2 each), so that the first action is `ChooseHero`.
+    heroes: Vec<[Vec<HeroId>; 2]>,
+    /// Whether the heroes are offered rather than given.
+    offer_heroes: bool,
 }
 
 impl DuosConfig {
@@ -215,6 +223,20 @@ impl DuosConfig {
                 })
             })
             .collect();
+        // Heroes come from an RNG of their own, so that they leave the rest of the setup as it is.
+        let mut hero_rng = Rng::new(seed ^ 0x4E20_E5ED_D005_0002);
+        let (heroes, offer_heroes) = if hero_rng.below(2) == 0 {
+            let offer = hero_rng.below(3) == 0;
+            let per_player = if offer { 2 } else { 1 };
+            let mut offers =
+                heroes::draw_offers(2 * teams, per_player, true, &mut hero_rng).into_iter();
+            let heroes = (0..teams)
+                .map(|_| [0, 1].map(|_| offers.next().unwrap_or_default()))
+                .collect();
+            (heroes, offer)
+        } else {
+            (vec![[Vec::new(), Vec::new()]; teams], false)
+        };
         Self {
             teams,
             shop_spells,
@@ -226,6 +248,8 @@ impl DuosConfig {
             first_fighter_switch_chance,
             gifts,
             player_weights,
+            heroes,
+            offer_heroes,
         }
     }
 }
@@ -398,7 +422,18 @@ fn check_duos_legality(
             ));
         }
     }
-    if let Some(opts) = &s.discover_pending {
+    if !s.hero_options.is_empty() {
+        // Choosing a hero comes first (`docs/heroes.md` §6).
+        let expected: Vec<TavernAction> = (0..s.hero_options.len())
+            .map(|option_index| TavernAction::ChooseHero { option_index })
+            .collect();
+        if valid != expected.as_slice() {
+            return Err(broken(
+                "a pending hero choice allows other actions",
+                format!("{valid:?}"),
+            ));
+        }
+    } else if let Some(opts) = &s.discover_pending {
         let expected: Vec<TavernAction> = (0..opts.len())
             .map(|option_index| TavernAction::ChooseDiscover { option_index })
             .collect();
@@ -415,6 +450,7 @@ fn check_duos_legality(
         let legal = team.is_legal(p, &a);
         if let TavernAction::Pass { hand_index } = a {
             let expected = s.discover_pending.is_none()
+                && s.hero_options.is_empty()
                 && s.hand
                     .get(hand_index)
                     .is_some_and(|card| card.locked_turns == 0 && card.lockbox_turns_left == 0)
@@ -430,10 +466,11 @@ fn check_duos_legality(
                     format!("is_legal says {legal} for a Pass"),
                     format!(
                         "Pass {{ hand_index: {hand_index} }} of {card}: gold {}, free Passes {}, \
-                         Discover pending {}",
+                         Discover pending {}, heroes offered {}",
                         s.gold,
                         team.free_passes(p),
-                        s.discover_pending.is_some()
+                        s.discover_pending.is_some(),
+                        s.hero_options.len()
                     ),
                 ));
             }
@@ -656,6 +693,51 @@ fn check_team_health_kept(before: i32, team: &DuosTavern) -> Result<(), Violatio
         return Err(broken(
             "the team's Health went up",
             format!("{before} -> {}", team.health),
+        ));
+    }
+    Ok(())
+}
+
+/// A hero's Health beyond 30 and Duos Armor (`heroes::starting_bonus`), `(0, 0)` for none.
+fn hero_bonus(s: &TavernState) -> (i32, i32) {
+    s.hero()
+        .and_then(|h| heroes::data(h.hero_id))
+        .map_or((0, 0), |h| heroes::starting_bonus(h, true))
+}
+
+/// `ChooseHero` gave player `p` the hero `id` (`docs/heroes.md` §2.3, §6): no option is left,
+/// and the team's pool took the hero's Health beyond 30 and Duos Armor (`Patchwerk`'s 30 extra
+/// Health), less a previous hero's.
+fn check_hero_chosen(
+    before: &DuosTavern,
+    team: &DuosTavern,
+    p: usize,
+    id: HeroId,
+) -> Result<(), Violation> {
+    let s = &team.players[p];
+    let hero = s.hero().map(|h| h.hero_id);
+    if hero != Some(id) || !s.hero_options.is_empty() {
+        return Err(broken(
+            "ChooseHero did not give the chosen hero",
+            format!(
+                "chose {id}, has {hero:?}, options left {:?}",
+                s.hero_options
+            ),
+        ));
+    }
+    let ((old_health, old_armor), (health, armor)) =
+        (hero_bonus(&before.players[p]), hero_bonus(s));
+    let expected = (
+        before.health - old_health + health,
+        before.armor - old_armor + armor,
+    );
+    if (team.health, team.armor) != expected {
+        return Err(broken(
+            "the team's pool did not take the chosen hero's Health and Armor",
+            format!(
+                "{} Health {} Armor -> {} Health {} Armor, expected {expected:?}",
+                before.health, before.armor, team.health, team.armor
+            ),
         ));
     }
     Ok(())
@@ -1229,8 +1311,8 @@ fn check_combat_applied(
 
 /// What Duos games did, for the fuzzer's own coverage: the players' Passes (free ones, ones that
 /// queued, ones that completed a Triple), the Passes by card effects, the cards the queues
-/// delivered, the warbands that stepped in for their teammate or sat out, and the card gifts a
-/// combat left for the Tavern.
+/// delivered, the warbands that stepped in for their teammate or sat out, the card gifts a
+/// combat left for the Tavern, and the heroes chosen and Hero Powers used.
 #[derive(Clone, Copy, Debug, Default)]
 struct DuosCoverage {
     passes: u64,
@@ -1242,12 +1324,17 @@ struct DuosCoverage {
     step_ins: u64,
     sat_out: u64,
     combat_card_gifts: u64,
+    heroes_chosen: u64,
+    hero_powers: u64,
 }
 
 impl DuosCoverage {
-    /// Count a step of `before`'s player `p` (`pass`: a Pass).
-    fn step(&mut self, before: &DuosTavern, after: &DuosTavern, p: usize, pass: bool) {
+    /// Count `before`'s player `p`'s `action`.
+    fn step(&mut self, before: &DuosTavern, after: &DuosTavern, p: usize, action: TavernAction) {
         let mate = 1 - p;
+        let pass = matches!(action, TavernAction::Pass { .. });
+        self.heroes_chosen += u64::from(matches!(action, TavernAction::ChooseHero { .. }));
+        self.hero_powers += u64::from(matches!(action, TavernAction::HeroPower { .. }));
         let added = |b: &[Unit], a: &[Unit]| a.len().saturating_sub(b.len()) as u64;
         let goldens = |s: &TavernState| s.hand.iter().filter(|u| u.is_golden).count();
         if pass {
@@ -1292,6 +1379,8 @@ impl DuosCoverage {
         self.step_ins += other.step_ins;
         self.sat_out += other.sat_out;
         self.combat_card_gifts += other.combat_card_gifts;
+        self.heroes_chosen += other.heroes_chosen;
+        self.hero_powers += other.hero_powers;
     }
 }
 
@@ -1375,6 +1464,16 @@ impl DuosGame {
                 for (p, s) in team.players.iter_mut().enumerate() {
                     s.auras.deity.kind = cfg.deities[t][p];
                     s.auras.base_max_gold_bonus = cfg.rich;
+                }
+                let heroes = &cfg.heroes[t];
+                if cfg.offer_heroes {
+                    for (p, options) in heroes.iter().enumerate() {
+                        team.players[p].offer_heroes(options.clone());
+                    }
+                } else {
+                    team = team
+                        .with_heroes([heroes[0].first().copied(), heroes[1].first().copied()])
+                        .expect("implemented heroes");
                 }
                 team
             })
@@ -1723,7 +1822,7 @@ impl DuosGame {
                 self.reject_on_copy(t)?;
             }
             let s = &self.teams[t].players[p];
-            let action = if s.discover_pending.is_some() {
+            let action = if s.discover_pending.is_some() || !s.hero_options.is_empty() {
                 discovers_in_a_row[p] += 1;
                 if discovers_in_a_row[p] > 50 {
                     return Err(broken("more than 50 Discovers in a row", "").into());
@@ -1776,6 +1875,11 @@ impl DuosGame {
             let _ = solo.step(action, &mut pool, &mut rng);
             solo
         });
+        // A chosen hero's Health beyond 30 goes into the team's pool (`check_hero_chosen`).
+        let chosen = match action {
+            TavernAction::ChooseHero { option_index } => s.hero_options.get(option_index).copied(),
+            _ => None,
+        };
         if let TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } =
             action
         {
@@ -1837,7 +1941,10 @@ impl DuosGame {
             check_counters(&before, team, pass.is_some()),
             check_queues(&before, team),
             check_team(team, true),
-            check_team_health_kept(before.health, team),
+            match chosen {
+                Some(id) => check_hero_chosen(&before, team, p, id),
+                None => check_team_health_kept(before.health, team),
+            },
         ]);
         for s in &team.players {
             checks.push(check_synced(s));
@@ -1849,8 +1956,7 @@ impl DuosGame {
             checks.push(self.check_pool());
         }
         if phase == Phase::Action {
-            self.coverage
-                .step(&before, &self.teams[t], p, pass.is_some());
+            self.coverage.step(&before, &self.teams[t], p, action);
         }
         self.tolerate(checks)?;
         Ok(ended)
@@ -2195,6 +2301,13 @@ impl DuosBattleCase {
                 .collect();
             let mut auras = random_auras(rng, &combat_spells);
             auras.duos_game = true;
+            // Half the warbands have a hero, whose combat Hero Power (if it has one) acts at its
+            // warband's Start of Combat, also when it steps in (`docs/heroes.md` §7).
+            if rng.below(2) == 0 {
+                let ids = heroes::offerable(true);
+                let hero = heroes::data(ids[rng.below(ids.len())]).expect("an offerable hero");
+                auras.hero = Some(heroes::new_state(hero));
+            }
             Warband {
                 board,
                 hand,
