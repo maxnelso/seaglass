@@ -19,13 +19,25 @@ scenarios:
       - fight: {board: ["1/1"]}
     expect: {board: ["4/3"]}
 
-  - name: a_killer_that_dies_in_the_same_exchange_gains_nothing
-    description: (engine decision) Only a killer still alive gains the Attack.
+  - name: a_killer_that_dies_in_the_same_exchange_still_gains_it
+    description: >-
+      (confirmed) The 2/2s trade; whichever side's deaths resolve first, the friendly one killed
+      the enemy, so its Tavern copy keeps the +1 Attack.
     seeds: "1..=4"
     tavern: {auras: {hero: Rokara}, board: ["2/2"]}
     steps:
       - fight: {board: ["2/2"]}
-    expect: {combat: {outcome: draw}, board: ["2/2"]}
+    expect: {combat: {outcome: draw}, board: ["3/2"]}
+
+  - name: every_minion_that_traded_gains_it
+    description: >-
+      (confirmed) All four 1/1s trade, attacking or attacked: each friendly one killed an enemy
+      as it died, so both Tavern copies keep the +1 Attack.
+    seeds: "1..=4"
+    tavern: {auras: {hero: Rokara}, board: ["1/1", "1/1"]}
+    steps:
+      - fight: {board: ["1/1", "1/1"]}
+    expect: {combat: {outcome: draw}, board: ["2/1", "2/1"]}
 
   - name: each_kill_counts
     seed: 5

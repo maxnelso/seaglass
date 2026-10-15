@@ -84,6 +84,8 @@ pub struct BoardCtx<'a> {
     /// [`add_to_hand_from`](Self::add_to_hand_from) (`None` for the other cards).
     pub hand_given_by: &'a mut Vec<Option<UnitId>>,
     pub dead_aberrations: &'a [Unit],
+    /// This side's minions that died this combat (empty outside combat).
+    pub dead: &'a mut Vec<Unit>,
     /// Temporary combat Attack bonus for friendly Beasts.
     pub beast_bonus_atk: &'a mut i32,
     pub hero_tier: u32,
@@ -1824,6 +1826,7 @@ fn with_tavern_ctx<R>(
         hand_summoned: &mut hand_summoned,
         hand_given_by: &mut hand_given_by,
         dead_aberrations: &[],
+        dead: &mut Vec::new(),
         beast_bonus_atk: &mut beast_bonus_atk,
         hero_tier: state.tavern_tier,
         pending_attacks: &mut pending_attacks,

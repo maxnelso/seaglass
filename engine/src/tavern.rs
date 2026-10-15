@@ -692,6 +692,7 @@ impl TavernState {
             hand_summoned: &mut hand_summoned,
             hand_given_by: &mut hand_given_by,
             dead_aberrations: &[],
+            dead: &mut Vec::new(),
             beast_bonus_atk: &mut beast_bonus_atk,
             hero_tier: self.tavern_tier,
             pending_attacks: &mut pending_attacks,

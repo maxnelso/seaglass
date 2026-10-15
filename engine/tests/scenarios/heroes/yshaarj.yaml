@@ -27,7 +27,7 @@ scenarios:
       hand: []
 
   - name: a_full_board_still_gets_the_card
-    description: (engine decision) The summon needs room, the card doesn't.
+    description: (confirmed) The summon needs room, the card doesn't.
     tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
     steps:
       - hero_power
@@ -56,8 +56,24 @@ scenarios:
       - expect_legal: hero_power
       - expect: {auras: {hero: {power: {armed: 1}}}}
 
-  - name: a_duos_warband_that_sat_out_keeps_it_armed
-    description: Player 0 wins alone; player 1's arm waits for its next combat.
+  - name: arming_twice_gives_one_card_and_one_summon
+    description: (confirmed) Arming again before the combat doesn't stack.
+    steps:
+      - hero_power
+      - set: {auras: {hero: {hero: Y'Shaarj, power: {uses_left: 1, armed: 1}}}}
+      - hero_power
+      - expect: {gold: 6, auras: {hero: {power: {armed: 1}}}}
+      - fight: {board: ["1/1"]}
+    expect:
+      combat:
+        events: {where: {type: unit_summoned, reason: Embrace Your Rage}, count: 1}
+      hand: [{tavern_tier: 2}]
+      auras: {hero: {power: {armed: 0}}}
+
+  - name: a_duos_warband_that_sat_out_still_gets_the_card
+    description: >-
+      (confirmed) Player 0 wins alone; player 1's warband never steps in, so nothing is summoned,
+      but it gets the card and the arm is used up.
     duos_tavern:
       catalog: duos
       players:
@@ -67,5 +83,23 @@ scenarios:
       - {player: 1, hero_power}
       - fight: {team: [["1/1"], []]}
     expect:
-      combat: {team_a: [{fought: true}, {fought: false}]}
-      players: {1: {auras: {hero: {power: {armed: 1}}}, hand: []}}
+      combat:
+        team_a: [{fought: true}, {fought: false}]
+        events: {none: {type: unit_summoned}}
+      players: {1: {auras: {hero: {power: {armed: 0}}}, hand: [{tavern_tier: 2}]}}
+
+  - name: a_sat_out_warband_with_a_full_hand_gets_nothing
+    description: (confirmed) The usual full-hand rule.
+    duos_tavern:
+      catalog: duos
+      players:
+        - {board: ["20/20"], tavern_tier: 2, gold: 10}
+        - auras: {hero: Y'Shaarj}
+          tavern_tier: 2
+          gold: 10
+          hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - {player: 1, hero_power}
+      - fight: {team: [["1/1"], []]}
+    expect:
+      players: {1: {auras: {hero: {power: {armed: 0}}}, hand: {count: 10}}}

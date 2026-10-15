@@ -128,7 +128,7 @@ A Duos combat (`simulate_duos`) returns a `DuosResult`:
 - `team_a`, `team_b` — Each player's `WarbandResult`, in player order (`0`, `1`), so that each player's Tavern can apply its own result (Combat-to-Tavern Persistence, `combat.md` §1):
   - `fought` — `true` if the warband stepped in.
   - `survivors`, `hand`, `auras`, `dead_units` — As in a Solo `BattleResult`, for this player alone. The minions of a warband that left the fight after a stall (§3.5) are its survivors. The `hand` holds the cards its teammate gave it during the combat, and the `auras` what its teammate's effects gave it (§2). The `auras` also hold the gifts its cards gave the teammate that the team's Tavern still has to deliver (`to_teammate`, §2): those that need the Tavern, and the cards the teammate's full hand didn't take. The gifts that reached the teammate in the combat are not in it, so they are not delivered twice.
-  - A warband that never fought comes back unchanged: its whole board as `survivors`, its hand and auras as given (its player effects keep their stacks) plus what its teammate's gifts gave them (§2), no dead units.
+  - A warband that never fought comes back unchanged: its whole board as `survivors`, its hand and auras as given (its player effects keep their stacks) plus what its teammate's gifts gave them (§2) and what its Hero Power gives a warband that sat out (`hero_sat_out`: Y'Shaarj's card, [`heroes.md`](heroes.md) §7.1), no dead units.
 
 ---
 

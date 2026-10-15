@@ -84,7 +84,7 @@ A Hero Power is a **card with hooks** (§4), registered in the card registry und
 | `uses_left` | Uses left this turn: set at the start of each turn (§3.4). |
 | `counter` | Progress toward a threshold (Gold spent toward Wax Warband's next improvement, "14 left!"). |
 | `stacks` | Improvements so far (Wax Warband's level). |
-| `armed` | A next-combat effect the player paid for (Y'Shaarj's Embrace Your Rage: one per use). It lasts until the player's next combat, where the power uses it up. |
+| `armed` | A next-combat effect the player paid for (Y'Shaarj's Embrace Your Rage). It lasts until the player's next combat, where the power uses it up. |
 | `stored` | Cards the power keeps (Teron's exact copy waiting for room in combat). |
 
 All are generic: the engine never reads `counter`, `stacks`, `armed` or `stored`; the power's own hooks do.
@@ -118,8 +118,9 @@ Hero Powers reuse the card hook system (`src/cards/hooks.rs`): a Hero Power is a
 | `hero_gold_spent` | Gold was spent: `(state, amount)`. | Wax Warband's improvement. |
 | `hero_start_of_combat` | Start of Combat (§7): `(ctx)`, a `HeroCombatCtx` (the player's side as a `BoardCtx`, the enemy board, damage to enemy minions). | Al'Akir, Deathwing, Illidan, Y'Shaarj, Teron, Tamsin, Wagtoggle, Bru'kan, Floop. |
 | `hero_combat_space` | Room may have opened on the board in combat (after Start of Combat summons and each round of deaths, like `player_combat_space`): `(ctx)`. | Teron's resummon. |
-| `hero_enemy_killed` | A friendly minion killed an enemy minion in combat: `(ctx, killer_id, victim)`. | Rokara. |
+| `hero_enemy_killed` | A friendly minion killed an enemy minion in combat: `(ctx, killer_id, victim)`. The killer may have died in the same exchange: it is then in `ctx.dead` (`BoardCtx::dead`, the side's minions that died this combat) or still on the board with no Health left. | Rokara, Arch-Villain Rafaam. |
 | `hero_friendly_death` | A friendly minion died in combat, once its side's round of deaths resolved (summons go to the right end): `(ctx, dying)`. | Onyxia's Avenge. |
+| `hero_sat_out` | Duos: the player's warband never stepped in, once the combat is over: `(auras, hero_tier, rng) -> card`; a card it returns goes to the warband's hand if it has room (10 cards). | Y'Shaarj. |
 | `hero_combat_summon` | A friendly minion is being summoned in combat (every summon on the player's side: Deathrattles, Reborn copies, hand copies, the Deity): `(hero, summoned)`. | Greybough. |
 | `hero_turn_start` | Start of turn, once the shop is filled (before the Spellcraft spells): `(state, pool, rng)`. | Nozdormu. |
 | `hero_after_buy` | After a card is bought, once its own text and the `after_buy` observers resolved: `(state, bought, pool, rng)`. | Cap'n Hoggarr, Kael'thas. |
@@ -164,7 +165,7 @@ In Duos, `DuosTavern::is_legal` / `step` allow it for the player's own Tavern li
 
 ### 7.1 The Hero Power in Combat
 
-The player's `HeroState` travels in their `PlayerAuras`: the Solo `GameState`'s `auras_a` / `auras_b`, a Duos `Warband`'s `auras`. Its combat hooks act for that side, and what they change in the state (Y'Shaarj's `armed`, Teron's `stored`) comes back in the result's auras. A Duos warband that never fought comes back unchanged, so its armed power waits for its next combat.
+The player's `HeroState` travels in their `PlayerAuras`: the Solo `GameState`'s `auras_a` / `auras_b`, a Duos `Warband`'s `auras`. Its combat hooks act for that side, and what they change in the state (Y'Shaarj's `armed`, Teron's `stored`) comes back in the result's auras. A Duos warband that never fought comes back unchanged, except for its Hero Power's `hero_sat_out` hook (Y'Shaarj's card, §11.1), which runs once the combat is over.
 
 ### 7.2 Where Hero Powers Fall in Start of Combat
 
@@ -179,7 +180,7 @@ In Duos, a warband stepping in resolves step 1b for its own Hero Power, then its
 
 ### 7.3 Kills
 
-When a minion dies in combat and its `killed_by` is an enemy minion (it died from that minion's damage), the killer's player's `hero_enemy_killed` hook fires with the killer's id and the dead minion, after the dead minion's side has resolved that round of deaths' Deathrattles (`combat.md` §5.3.1 step 9), before the killer's side's deaths. A minion destroyed by an effect (Venomous counts as the attacker's damage) is killed by whoever dealt the damage.
+When a minion dies in combat and its `killed_by` is an enemy minion (it died from that minion's damage), the killer's player's `hero_enemy_killed` hook fires with the killer's id and the dead minion, whether the killer is still alive or died in the same exchange **(confirmed)**, after the dead minion's side has resolved that round of deaths' Deathrattles (`combat.md` §5.3.1 step 9), before the killer's side's deaths. A minion destroyed by an effect (Venomous counts as the attacker's damage) is killed by whoever dealt the damage.
 
 ### 7.4 Permanent Combat Gains
 
@@ -237,19 +238,19 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Al'Akir` | *Swatting Insects* (passive): Start of Combat: give your left-most minion Windfury, Divine Shield, and Taunt. | Step 1b. Nothing without a minion. |
 | `Deathwing` | *ALL Will Burn!* (passive): Start of Combat: give ALL minions +2 Attack permanently. | Step 1b: every minion on both boards, the player's left to right, then the enemy's; permanent (§7.4) on both sides **(confirmed)**. Only the minions on the boards then: later summons don't get it. |
 | `Illidan Stormrage` | *Wingmen* (passive): Start of Combat: your left- and right-most minions gain +2/+1 and attack immediately. | Step 1b: the left-most gains +2/+1, then the right-most; then the left-most attacks, then the right-most (immediate attacks, `combat.md` §5.4: they don't move the pointer). With one minion, it gains +2/+1 once and attacks once **(confirmed)**. |
-| `Y'Shaarj` | *Embrace Your Rage* (2 Gold, active): Start of Combat: summon and get a minion of your Tier. | Using it arms the next combat (`armed += 1`). Step 1b, once per arm: a random minion of exactly your Tier from the game's catalog (`cards::game_templates`; Duos-exclusive minions in Duos) is summoned at the right end of the board (if there is room) and a plain copy goes to your hand (if it has room) **(engine decision: both independent)**. One `rng.below(k)` per minion. The arms are used up. Once per turn. |
+| `Y'Shaarj` | *Embrace Your Rage* (2 Gold, active): Start of Combat: summon and get a minion of your Tier. | Using it arms the next combat only (`armed = 1`): using it again before that combat doesn't stack **(confirmed)**. Step 1b: a random minion of exactly your Tier from the game's catalog (`cards::game_templates`; Duos-exclusive minions in Duos) is summoned at the right end of the board if there is room, and a plain copy goes to your hand under the usual full-hand rule; a full board still gets the card **(confirmed)**. A Duos warband that never steps in still gets the card, once the combat is over (`hero_sat_out`), with no summon **(confirmed)**. One `rng.below(k)`. That combat uses the arm up either way. Once per turn. |
 | `Teron Gorefiend` | *Rapid Reanimation* (0 Gold, active, a friendly minion): Start of Combat: destroy it. When you have space, resummon an exact copy. | Using it marks the minion (§3.3). Step 1b: the marked minion, if it is on the board, is destroyed (its Deathrattles and Reborn resolve) and an exact copy of it as it was (stats, keywords, state; full Health) is stored; the copy is summoned at the right end as soon as there is room (`hero_combat_space`: right after the destroy's deaths, or after a later round of deaths). |
-| `Tamsin Roame` | *Fragrant Phylactery* (passive): Start of Combat: give your lowest-Attack minion "Deathrattle: give your other minions this minion's stats." | Step 1b: the left-most of the minions with the lowest Attack gains the extra Deathrattle **(engine decision: ties)**. When it dies, the player's other minions on the board gain its Attack and its Health (`max_health`, the Health it had before damage) **(engine decision)**. |
+| `Tamsin Roame` | *Fragrant Phylactery* (passive): Start of Combat: give your lowest-Attack minion "Deathrattle: give your other minions this minion's stats." | Step 1b: one of the minions with the lowest Attack, at random if they tie (one `rng.below(k)`), gains the extra Deathrattle **(confirmed)**. When it dies, the player's other minions on the board gain its Attack and its Health (`max_health`, the Health it had before damage) **(engine decision)**. |
 | `Queen Wagtoggle` | *Wax Warband* (passive): Start of Combat: give a friendly minion of each type +1/+1. (Improves after you spend 10 Gold!) | Step 1b: a friendly minion of each type (`tavern.md` §7.8: the best assignment, as `Misplaced Tea Set`) gains `+N/+N`, `N = 1 + stacks`. Every 10 Gold the player spends (`hero_gold_spent`, `counter`) adds a stack. |
 | `Bru'kan` | *Embrace the Elements* (0 Gold, active): Choose an Element. Start of Combat: call upon that Element. | Using it offers a Choose One of the four Elements; the chosen one becomes the Hero Power (`card_id`) for the next combat only, and reverts at the start of the next turn **(confirmed)**. **Earth Invocation**: 4 different random friendly minions (fewer if fewer) gain "Deathrattle: summon a 1/1 Elemental" (`Stone Elemental`) **(confirmed)**. **Fire Invocation**: your left-most minion's Attack doubles. **Water Invocation**: your right-most minion gains Divine Shield and Taunt. **Lightning Invocation**: deal 1 damage to 5 different random enemy minions (fewer if fewer) **(confirmed)**. Once per turn. |
 | `Flobbidinous Floop` | *Glorious Gloop* (0 Gold, active, a friendly minion; Duos only): Start of Combat: transform it into your teammate's highest-Tier minion. | Using it marks the minion. Step 1b: the marked minion, if it is on the board, transforms into a copy of the minion with the highest Tier in the teammate's warband as it entered the combat (`duos.md` §2; a tie at random, one draw), as `Sandy` copies (`duos_tavern.md` §8.2): its current stats, keywords and Golden status, the marked minion's place and id, a `UnitTransformed` event. With no teammate minion, nothing happens. |
-| `Vanndar Stormpike` | *Stormpike Strength* (passive): When you have space in combat, summon a copy of your highest-Health minion. (Unlocks on Turn 7.) | It counts the turns (`counter`); from the 7th on, each combat is armed. Once per combat **(engine decision)**, as soon as there is room (`hero_combat_space`: at Start of Combat or after a round of deaths), a copy of the friendly minion with the most Health (a tie at random, one draw) is summoned at the right end: its current stats, keywords and state. |
+| `Vanndar Stormpike` | *Stormpike Strength* (passive): When you have space in combat, summon a copy of your highest-Health minion. (Unlocks on Turn 7.) | It counts the turns (`counter`); from the 7th on, each combat is armed. Once per combat **(confirmed)**, as soon as there is room (`hero_combat_space`: at Start of Combat or after a round of deaths), a copy of the friendly minion with the most Health (a tie at random, one draw) is summoned at the right end: its current stats, keywords and state. |
 | `Drek'Thar` | *Frostwolf Fervor* (passive): When you have space in combat, summon a copy of your highest-Attack minion. (Unlocks on Turn 7.) | As Vanndar's, with the most Attack. |
-| `Greybough` | *Sprout It Out!* (passive): Give +1/+2 and Taunt to minions you summon during combat. | `hero_combat_summon`: every minion summoned on the player's side in combat (Deathrattle and Rally summons, Reborn copies, hand copies, the Deity, Hero Power summons) **(engine decision)** gains +1/+2 and Taunt. |
-| `Ozumat` | *Tentacular* (passive): When you have space in combat, summon a 2/2 Tentacle with Taunt. (Gains +1/+1 after you sell a minion!) | Once per combat **(engine decision)**, as soon as there is room (`hero_combat_space`), an `Ozumat's Tentacle` (a Beast with Taunt) of `2 + stacks` at the right end; each minion sold adds a stack. |
-| `Onyxia` | *Broodmother* (passive): Avenge (4): Summon a 1/1 Whelp that attacks immediately. Improve this by +1/+1. | `hero_friendly_death`: every 4th friendly minion that dies in combat (the count starts again each turn, so each combat: **engine decision**) summons an `Onyxian Whelp` (a Dragon) of `1 + stacks` at the right end, which attacks immediately; each Whelp adds a stack for the rest of the game. |
+| `Greybough` | *Sprout It Out!* (passive): Give +1/+2 and Taunt to minions you summon during combat. | `hero_combat_summon`: every minion summoned on the player's side in combat (Deathrattle and Rally summons, Reborn copies, hand copies, the awakened Deity, Hero Power summons) **(confirmed)** gains +1/+2 and Taunt. |
+| `Ozumat` | *Tentacular* (passive): When you have space in combat, summon a 2/2 Tentacle with Taunt. (Gains +1/+1 after you sell a minion!) | Once per combat **(confirmed)**, as soon as there is room (`hero_combat_space`), an `Ozumat's Tentacle` (a Beast with Taunt) of `2 + stacks` at the right end; each minion sold adds a stack. |
+| `Onyxia` | *Broodmother* (passive): Avenge (4): Summon a 1/1 Whelp that attacks immediately. Improve this by +1/+1. | `hero_friendly_death`: every 4th friendly minion that dies in combat (the count starts again each combat **(confirmed)**) summons an `Onyxian Whelp` (a Dragon) of `1 + stacks` at the right end, which attacks immediately; each Whelp adds a stack for the rest of the game **(confirmed)**. |
 | `Arch-Villain Rafaam` | *I'll Take That!* (1 Gold, active): Next combat, get a plain copy of the first minion you kill. | Using it arms the next combat; there the first enemy minion a friendly minion kills gives a plain copy of it (`cards::plain_instance`) to the hand. An unused arm is gone at the start of the next turn. Once per turn. |
-| `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer, if it is still alive, gains +1 Attack, permanently (§7.4); a killer that died in the same exchange gains nothing **(engine decision)**. Each kill counts. |
+| `Rokara` | *Glory of Combat* (passive): After a friendly minion kills an enemy, give it +1 Attack permanently. | `hero_enemy_killed` (§7.3): the killer gains +1 Attack, permanently (§7.4), even if it died in the same exchange: its Tavern copy keeps it **(confirmed)**. Each kill counts. |
 
 ### 11.2 Tavern Hero Powers
 
@@ -259,16 +260,16 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Cap'n Hoggarr` | *I'm the Cap'n Now*: After you buy a Pirate, gain 1 Gold. | `hero_after_buy`: a bought minion with the Pirate type gives 1 Gold. |
 | `Forest Warden Omu` | *Everbloom*: After you upgrade the Tavern, gain 2 Gold. | `hero_after_upgrade`: 2 Gold. |
 | `Trade Prince Gallywix` | *Smart Savings*: After you sell a minion, gain 1 Gold next turn. | Passive (its data cost is never paid). `hero_after_sell`: `bonus_gold_next_turn += 1`. |
-| `Nozdormu` | *Clairvoyance*: At the start of your turn, gain a free Refresh. | `hero_turn_start`: `free_refreshes += 1`; an unused one carries over like any free Refresh **(engine decision)**. |
-| `Kael'thas Sunstrider` | *Verdant Spheres*: After you buy 3 minions, get a Tavern Coin. | `hero_after_buy`: every 3rd minion bought (counted across turns, `counter`) gives a `Tavern Coin`. |
-| `Chenvaala` | *Avalanche*: After you play 3 Elementals, reduce the Cost of upgrading the Tavern by (3). | `hero_after_play`: every 3rd Elemental played from hand (counted across turns) makes the upgrade 3 cheaper, never below 0. |
-| `Fungalmancer Flurgl` | *Gone Fishing*: After you sell 5 minions, get a random Murloc. | `hero_after_sell`: every 5th minion sold (counted across turns) gives a random Murloc of the player's Tier or lower from the game's catalog **(engine decision)**. |
+| `Nozdormu` | *Clairvoyance*: At the start of your turn, gain a free Refresh. | `hero_turn_start`: `free_refreshes += 1`; an unused one carries over like any free Refresh **(confirmed)**. |
+| `Kael'thas Sunstrider` | *Verdant Spheres*: After you buy 3 minions, get a Tavern Coin. | `hero_after_buy`: every 3rd minion bought (counted across turns, `counter`, **(confirmed)**) gives a `Tavern Coin`. |
+| `Chenvaala` | *Avalanche*: After you play 3 Elementals, reduce the Cost of upgrading the Tavern by (3). | `hero_after_play`: every 3rd Elemental played from hand (counted across turns **(confirmed)**) makes the upgrade 3 cheaper, never below 0. |
+| `Fungalmancer Flurgl` | *Gone Fishing*: After you sell 5 minions, get a random Murloc. | `hero_after_sell`: every 5th minion sold (counted across turns **(confirmed)**) gives a random Murloc of the player's Tier or lower from the game's catalog **(engine decision)**. |
 
 ---
 
 ## 12. Decisions
 
-The rules the user settled are marked **(confirmed)** above: the Duos team's 30 Health plus both heroes' Duos Armor; Solo and Duos starting Armor as in the data; effects per player unless the text says team or teammate; Patchwerk's 60 Health and 0 Armor, his extra 30 going into the Duos team's pool; Hero Powers not being spells; Bru'kan's Element and Teron's and Floop's chosen minion lasting for the next combat only; Deathwing's permanent Attack on the enemy's minions too; Illidan with one minion; Lightning's and Earth's different minions; 2 hero offers per player; Hero Powers resolving first at Start of Combat.
+The rules the user settled are marked **(confirmed)** above: the Duos team's 30 Health plus both heroes' Duos Armor; Solo and Duos starting Armor as in the data; effects per player unless the text says team or teammate; Patchwerk's 60 Health and 0 Armor, his extra 30 going into the Duos team's pool; Hero Powers not being spells; Bru'kan's Element and Teron's and Floop's chosen minion lasting for the next combat only; Deathwing's permanent Attack on the enemy's minions too; Illidan with one minion; Lightning's and Earth's different minions; 2 hero offers per player; Hero Powers resolving first at Start of Combat; Y'Shaarj's arm (no stacking, the card regardless of the summon or of fighting); Tamsin's random tie; Rokara's dead killers gaining the Attack; Vanndar, Drek'Thar and Ozumat once per combat; Greybough's Reborn copies and Deities; Onyxia's count per combat and her lasting improvement; Nozdormu's carry-over; the counters across turns.
 
 Engine decisions, pending the user's confirmation:
 
@@ -277,11 +278,7 @@ Engine decisions, pending the user's confirmation:
 | Hero offers | No rerolls, distinct across the lobby, implemented heroes only (§6). | `heroes::draw_offers` |
 | Missing Duos Armor | The 7 heroes without tag 3206 use their Solo Armor in Duos (§2.1). | `tools/gen_heroes.py` |
 | Where the state lives | `PlayerAuras::hero` (§2.2). | `model.rs` |
-| Y'Shaarj | The summon and the card are independent (a full board still gets the card); arms stack and wait for the next combat fought. | `heroes/yshaarj.rs` |
-| Tamsin's ties and stats | The left-most lowest-Attack minion; its Attack and `max_health`. | `heroes/tamsin_roame.rs` |
+| Tamsin's stats | The dying minion's Attack and `max_health`. | `heroes/tamsin_roame.rs` |
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
-| Vanndar and Drek'Thar | Once per combat; a tie at random. | `heroes::summon_copy_of_best` |
-| Greybough's summons | Every minion summoned on the player's side in combat, Reborn copies and Deities included. | `heroes/greybough.rs` |
-| Ozumat, Onyxia | The Tentacle once per combat; Onyxia's Avenge count per combat. | `heroes/ozumat.rs`, `heroes/onyxia.rs` |
-| Counters across turns | Kael'thas, Chenvaala and Flurgl count across turns; Nozdormu's free Refresh carries over; Flurgl's Murloc is of the player's Tier or lower. | their files |
-| Rokara's dead killers | A killer that died in the same exchange gains nothing. | `heroes/rokara.rs` |
+| Vanndar and Drek'Thar | A tie at random. | `heroes::summon_copy_of_best` |
+| Flurgl's Murloc | Of the player's Tier or lower. | `heroes/fungalmancer_flurgl.rs` |

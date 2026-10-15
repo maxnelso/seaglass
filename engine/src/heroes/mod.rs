@@ -411,6 +411,14 @@ pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
     }
 }
 
+/// Duos: the player's warband never stepped in (`docs/heroes.md` §7.1): the card their Hero
+/// Power's `hero_sat_out` hook gives, if any.
+pub fn on_sat_out(auras: &mut PlayerAuras, hero_tier: u32, rng: &mut Rng) -> Option<Unit> {
+    power_hooks(auras)
+        .and_then(|c| c.hero_sat_out)
+        .and_then(|sat_out| sat_out(auras, hero_tier, rng))
+}
+
 /// `true` if the player's Hero Power reacts to their minions' kills (`hero_enemy_killed`).
 pub fn has_enemy_killed(auras: &PlayerAuras) -> bool {
     power_hooks(auras).is_some_and(|c| c.hero_enemy_killed.is_some())

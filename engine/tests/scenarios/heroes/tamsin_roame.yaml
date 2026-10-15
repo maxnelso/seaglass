@@ -14,10 +14,13 @@ scenarios:
           - {type: death, unit: 0}
           - {type: stat_buff, side: a, unit: 1, atk_delta: 1, hp_delta: 1, reason: Fragrant Phylactery}
 
-  - name: a_tie_goes_to_the_left_most
-    description: (engine decision) The 2/4 and the 2/2 tie; the 2/4, left-most, has it.
+  - name: a_tie_is_broken_at_random_left
+    description: >-
+      (confirmed) The 2/4 and the 2/2 tie; with this seed the 2/4 has it: it dies first and gives
+      the others +2/+4.
+    seed: 2
     combat:
-      board_a: ["2/4", "5/5", "2/2"]
+      board_a: ["2/4", "2/2", "5/50"]
       board_b: ["9/30"]
       auras_a: {hero: Tamsin Roame}
     expect:
@@ -25,6 +28,21 @@ scenarios:
         sequence:
           - {type: death, unit: 0}
           - {type: stat_buff, unit: 1, atk_delta: 2, hp_delta: 4, reason: Fragrant Phylactery}
+
+  - name: a_tie_is_broken_at_random_right
+    description: >-
+      (confirmed) The same board; with this seed the 2/2 has it: the 2/4 dies giving nothing, then
+      the 2/2 gives the 5/50 +2/+2.
+    seed: 1
+    combat:
+      board_a: ["2/4", "2/2", "5/50"]
+      board_b: ["9/30"]
+      auras_a: {hero: Tamsin Roame}
+    expect:
+      events:
+        all_of:
+          - {where: {type: stat_buff, reason: Fragrant Phylactery}, count: 1}
+          - {any: {type: stat_buff, unit: 2, atk_delta: 2, hp_delta: 2, reason: Fragrant Phylactery}}
 
   - name: it_gives_the_health_it_had_before_damage
     combat:
@@ -36,7 +54,7 @@ scenarios:
 
   - name: titus_rivendare_triggers_it_again
     combat:
-      board_a: ["1/1", "Titus Rivendare"]
+      board_a: ["1/1", {card: Titus Rivendare, attack: 2}]
       board_b: ["1/50"]
       auras_a: {hero: Tamsin Roame}
     expect:

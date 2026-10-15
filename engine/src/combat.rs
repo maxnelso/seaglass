@@ -180,6 +180,7 @@ impl SideCombatState {
             hand_summoned: &mut self.hand_summoned,
             hand_given_by: &mut self.hand_given_by,
             dead_aberrations: &self.dead_aberrations,
+            dead: &mut self.dead_units,
             beast_bonus_atk: &mut self.combat_beast_bonus_atk,
             hero_tier: self.hero_tier,
             pending_attacks: &mut self.pending_immediate_attacks,
@@ -546,6 +547,24 @@ impl DuosTeamState {
         true
     }
 
+    /// Once the combat is over, each warband that never stepped in gets what its Hero Power gives
+    /// one that sat out (`docs/heroes.md` §7.1): a card, into its hand as given if it has room.
+    fn resolve_sat_out(&mut self, rng: &mut Rng) {
+        for player in 0..2 {
+            if self.fought[player] {
+                continue;
+            }
+            let warband = &mut self.warbands[player];
+            let tier = self.given[player].hero_tier;
+            if let Some(mut card) = heroes::on_sat_out(&mut warband.auras, tier, rng) {
+                if self.given[player].hand.len() < MAX_HAND_SIZE {
+                    cards::sync_unit_auras(&mut card, &warband.auras);
+                    self.given[player].hand.push(card);
+                }
+            }
+        }
+    }
+
     /// The damage the team deals if it won (`docs/duos.md` §4): the fighting warband's player's
     /// Tavern Tier plus the tiers of its survivors, then of its teammate's minions if the
     /// teammate never fought, up to the board cap.
@@ -686,6 +705,10 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
         if entered.is_empty() {
             break;
         }
+    }
+
+    for team in &mut teams {
+        team.resolve_sat_out(&mut rng);
     }
 
     // A team is out when its fighting warband has no minions left: no teammate could step in.
@@ -1965,7 +1988,9 @@ fn resolve_deaths(
 
         // Unit died.
         if let Some(killer) = unit.killed_by.filter(|_| watch_kills) {
-            if opp_side.board.iter().any(|u| u.id == killer) {
+            // The killer may have died in the same exchange (`docs/heroes.md` §7.3).
+            let is_killer = |u: &Unit| u.id == killer;
+            if opp_side.board.iter().any(is_killer) || opp_side.dead_units.iter().any(is_killer) {
                 kills.push((killer, unit.clone()));
             }
         }

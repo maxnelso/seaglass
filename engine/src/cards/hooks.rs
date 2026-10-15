@@ -489,6 +489,9 @@ card_hooks! {
     /// A friendly minion died in combat, once its side's round of deaths resolved (summons go
     /// to the right end): `(ctx, dying)`.
     hero_friendly_death(on_hero_friendly_death): fn(&mut BoardCtx<'_>, &Unit),
+    /// Duos: the player's warband never stepped in, once the combat is over: `(auras, hero_tier,
+    /// rng)`. A card it returns goes to the warband's hand if it has room.
+    hero_sat_out(on_hero_sat_out): fn(&mut PlayerAuras, u32, &mut Rng) -> Option<Unit>,
     /// A friendly minion is being summoned in combat: `(hero, summoned)`.
     hero_combat_summon(on_hero_combat_summon): fn(&HeroState, &mut Unit),
     /// Start of turn, once the shop is filled: `(state, pool, rng)`.
