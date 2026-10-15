@@ -33,8 +33,9 @@
 //!   waits, and the cards that leave a queue reach their receiver's hand;
 //! - per action but a Pass, two metamorphic checks: [`check_like_solo`] (the player's Tavern is
 //!   the one the same action gives alone, but for the cards delivered to the hand, and the team
-//!   loses the Health it costs) and [`check_teammate_untouched`] (without a gift, a Sell, or a
-//!   change of the team's Health or counters, the teammate's Tavern doesn't change);
+//!   loses the Health it costs) and [`check_teammate_untouched`] (without a gift or a change of
+//!   the team's Health or counters, the teammate's Tavern doesn't change, but for what its
+//!   `after_teammate_sell` observers do with the step's sales, whatever made them);
 //! - [`check_free_passes`] (a `Wanderer Cho`'s free Passes: at most 1, or 2 if Golden, reset at
 //!   the start of the turn), the first fighter's switch chance, a warband that sat out keeping its
 //!   next-combat effects, `EndTurn` discarding the temporary cards, and no minion of no pool
@@ -540,7 +541,17 @@ fn check_pass(
     let (b, a) = (&before.players[p], &after.players[p]);
     let card = &b.hand[hand_index];
     if before.free_passes(p) > 0 {
-        if after.free_passes(p) + 1 != before.free_passes(p) || a.gold != b.gold {
+        // (Unless free-Pass minions left the board in the step, with their charges: a queued
+        // Wanderer Cho the Pass made room for completes a Triple with the two on the board.)
+        let free_pass_minions = |s: &TavernState| {
+            s.board
+                .iter()
+                .filter(|u| cards::hooks(u.card_id).has(CardFlags::FREE_PASS))
+                .count()
+        };
+        let one_used = after.free_passes(p) + 1 == before.free_passes(p)
+            || free_pass_minions(a) != free_pass_minions(b);
+        if !one_used || a.gold != b.gold {
             return Err(broken(
                 "a free Pass didn't use exactly one free Pass",
                 format!(
@@ -848,26 +859,32 @@ fn check_like_solo(
 
 /// Teammates are not friendly (`docs/duos_tavern.md` §2, §7): a player's action other than a
 /// Pass reaches their teammate's Tavern only through the team's channels: a gift, the
-/// `after_teammate_sell` observers of a Sell, and the team's Health and counters (whose
-/// "wherever this is" auras then resync). Without any of them (`solo` gave no gift and kept the
-/// card counters, the team's Health and Armor didn't change), the teammate's Tavern and queue are
-/// as they were.
+/// `after_teammate_sell` observers of the step's sales (whatever made them: a Sell, Mutanus'
+/// Devour, Channel the Devourer), and the team's Health and counters (whose "wherever this is"
+/// auras then resync). Without a gift or a change of the team's Health, Armor or counters (`solo`
+/// gave no gift and kept the card counters), the teammate's Tavern and queue are as they were,
+/// but for what their `after_teammate_sell` observers do with `solo`'s sales (run on a copy).
 fn check_teammate_untouched(
     solo: &TavernState,
     before: &DuosTavern,
     after: &DuosTavern,
     p: usize,
     action: TavernAction,
+    pool: &CardPool,
 ) -> Result<(), Violation> {
     let channel = !solo.auras.to_teammate.is_empty()
-        || matches!(action, TavernAction::Sell { .. })
         || (after.health, after.armor) != (before.health, before.armor)
         || solo.auras.card_counters != before.players[p].auras.card_counters;
     if channel {
         return Ok(());
     }
     let mate = 1 - p;
-    let (b, a) = (&before.players[mate], &after.players[mate]);
+    let mut expected = before.players[mate].clone();
+    let (mut pool, mut rng) = (pool.clone(), Rng::new(0));
+    for sold in &solo.sold_this_step {
+        cards::after_teammate_sell(&mut expected, sold, &mut pool, &mut rng);
+    }
+    let (b, a) = (&expected, &after.players[mate]);
     let stats = |units: &[Unit]| -> Vec<(u32, bool, i32, i32)> {
         units
             .iter()
@@ -884,13 +901,21 @@ fn check_teammate_untouched(
         )
     };
     if view(a) != view(b) || after.incoming[mate] != before.incoming[mate] {
-        return Err(broken(
-            format!(
-                "a player's {:?} changed their teammate's Tavern",
-                kind_of(&before.players[p], &action)
+        let kind = kind_of(&before.players[p], &action);
+        let (what, sales) = match solo.sold_this_step.len() {
+            0 => (
+                format!("a player's {kind:?} changed their teammate's Tavern"),
+                String::new(),
             ),
+            n => (
+                format!("a player's {kind:?} left their teammate's Tavern other than its sales do"),
+                format!(" (after {n} sales: {})", units_desc(&solo.sold_this_step)),
+            ),
+        };
+        return Err(broken(
+            what,
             format!(
-                "teammate board {} -> {}, hand {} -> {}, gold {} -> {}",
+                "teammate board {} -> {}, hand {} -> {}, gold {} -> {}{sales}",
                 units_desc(&b.board),
                 units_desc(&a.board),
                 units_desc(&b.hand),
@@ -1943,7 +1968,9 @@ impl DuosGame {
         }
         if let Some(solo) = &solo {
             checks.push(check_like_solo(solo, &before, team, p));
-            checks.push(check_teammate_untouched(solo, &before, team, p, action));
+            checks.push(check_teammate_untouched(
+                solo, &before, team, p, action, &self.pool,
+            ));
         }
         if let Some(hand_index) = pass {
             checks.push(check_pass(&before, team, p, hand_index));
@@ -2619,12 +2646,19 @@ fn replay_a_duos_snapshot() {
             let before = team.clone();
             let valid = team.valid_actions(p);
             let legality = check_duos_legality(&team, p, &valid).map(|unlisted| unlisted.len());
+            // The same action on the player's Tavern alone, for the metamorphic checks.
+            let mut solo = team.players[p].clone();
+            let _ = solo.step(action, &mut pool.clone(), &mut rng.clone());
             let result = team.step(p, action, &mut pool, &mut rng);
             let pass = match action {
                 TavernAction::Pass { hand_index } => {
                     format!("{:?}", check_pass(&before, &team, p, hand_index))
                 }
-                _ => String::new(),
+                _ => format!(
+                    "none; like solo {:?}; teammate {:?}",
+                    check_like_solo(&solo, &before, &team, p),
+                    check_teammate_untouched(&solo, &before, &team, p, action, &pool)
+                ),
             };
             format!(
                 "legality {legality:?}; step {result:?}; pass {pass}; counters {:?}; queues {:?}; \
