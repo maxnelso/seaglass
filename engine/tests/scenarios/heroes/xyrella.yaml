@@ -36,3 +36,33 @@ scenarios:
     steps:
       - hero_power: 0
     expect: {gold: 8, hand: {count: 10, any: Lockbox}, shop: ["5/7"]}
+
+  - name: the_stats_are_set_net_of_the_minions_auras
+    description: >-
+      (engine decision) The Blue Volumizer has the +0/+3 all Volumizers have (1/6): it is set to
+      2/2 without its aura, which then applies again in the hand: 2/5.
+    tavern:
+      auras: {hero: Xyrella, counters: {Blue Volumizer: [0, 3]}}
+      shop: [{card: Blue Volumizer, health: 6, max_health: 6, aura_applied: [0, 3]}]
+    steps:
+      - expect: {shop: [{attack: 1, health: 6}]}
+      - hero_power: 0
+    expect: {hand: [{card: Blue Volumizer, attack: 2, health: 5, max_health: 5}]}
+
+  - name: passed_to_a_teammate_without_the_aura_it_is_2_2
+    description: >-
+      The teammate's Volumizers have no bonus: the minion Xyrella set to 2/2 is 2/2 in their hand
+      (it doesn't lose an aura it no longer has).
+    duos_tavern:
+      players:
+        - auras: {hero: Xyrella, counters: {Blue Volumizer: [0, 3]}}
+          gold: 10
+          shop: [{card: Blue Volumizer, health: 6, max_health: 6, aura_applied: [0, 3]}]
+        - {}
+    steps:
+      - {player: 0, hero_power: 0}
+      - {player: 0, pass: Blue Volumizer}
+    expect:
+      players:
+        - {hand: []}
+        - {hand: [{card: Blue Volumizer, attack: 2, health: 2}]}

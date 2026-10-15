@@ -3,7 +3,9 @@
 //! Hero Power: `See the Light` (`BG20_HERO_101p`), 2 Gold: Choose a minion in the Tavern. Set its stats to 2 and add it to your hand.
 //!
 //! Active, a minion in the Tavern, once per turn: its Attack and Health (and their maximums)
-//! become 2, and it goes to the hand (not a buy). It needs room in the hand; a minion the hand has
+//! become 2, net of the auras on it (`aura_applied` clears, as for `Robust Evolution`), and it goes
+//! to the hand (not a buy), where the auras it has apply again (a +0/+3 Volumizer bonus makes it
+//! 2/5; engine decision). It needs room in the hand; a minion the hand has
 //! no room for by then (a Gold-spent effect filled it) stays in the Tavern as it is (engine
 //! decision).
 
@@ -40,5 +42,7 @@ fn see_the_light(state: &mut TavernState, target: Option<usize>, _: &mut CardPoo
     minion.health = STATS;
     minion.max_attack = STATS;
     minion.max_health = STATS;
+    // Set net of its auras: they apply again as it reaches the hand, where it has them.
+    minion.aura_applied = (0, 0);
     state.add_to_hand(minion);
 }
