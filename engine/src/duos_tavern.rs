@@ -318,7 +318,9 @@ impl DuosTavern {
 
     /// `player` Passes `card`, which has left their hand or wherever it was, to their teammate:
     /// a Pass from its `passed` hook on (§5.6 steps 3-6), the whole of a Pass by a card effect
-    /// (§7.2). It arrives as a plain card, in no group (§5.3).
+    /// (§7.2). It arrives as a plain card, in no group (§5.3). The team's pool first takes the
+    /// Health and Armor the players' observers changed (those of the Pass's Gold, or of an
+    /// earlier gift), which mirroring the counters would otherwise undo.
     fn send_pass(&mut self, player: usize, mut card: Unit, pool: &mut CardPool, rng: &mut Rng) {
         let mate = Self::teammate(player);
         cards::on_passed(&mut card);
@@ -326,7 +328,7 @@ impl DuosTavern {
         card.willbreaker_remaining = 0;
         self.passes_this_turn += 1;
         self.passes_this_game += 1;
-        self.mirror();
+        self.settle();
         cards::after_pass(&mut self.players[player], &card, pool, rng);
         cards::after_team_pass(&mut self.players[player], pool, rng);
         cards::after_team_pass(&mut self.players[mate], pool, rng);
@@ -337,7 +339,8 @@ impl DuosTavern {
     /// first, until none is left. A gift card joins the receiver's incoming queue, as a passed
     /// card does (the caller delivers the queues); a Pass is sent (§5.6); an `Effect` runs its
     /// card's `teammate_gift` hook on the teammate's Tavern, or on both players' if it is the
-    /// team's. Without a `pool` (after a combat) the Passes wait for the next delivery.
+    /// team's. Without a `pool` (after a combat) the Passes wait for the next delivery. The team's
+    /// pool takes the Health and Armor the deliveries' observers change (`settle`) as it goes.
     fn deliver_gifts(&mut self, first: usize, mut pool: Option<&mut CardPool>, rng: &mut Rng) {
         for _ in 0..MAX_GIFT_ROUNDS {
             let mut delivered = false;
@@ -364,7 +367,7 @@ impl DuosTavern {
                             let mate = Self::teammate(player);
                             let receivers: &[usize] = if team { &[player, mate] } else { &[mate] };
                             for &receiver in receivers {
-                                self.mirror();
+                                self.settle();
                                 let state = &mut self.players[receiver];
                                 let cards = cards::apply_teammate_gift(state, card_id, amount, rng);
                                 state.sync_all_auras();
@@ -384,7 +387,7 @@ impl DuosTavern {
                 break;
             }
         }
-        self.mirror();
+        self.settle();
     }
 
     /// Move queued passed cards into their receivers' hands while they have room (§5.4): player
@@ -721,5 +724,44 @@ mod tests {
         assert!(team.players[0].auras.to_teammate.is_empty());
         assert_eq!(team.players[1].hand, vec![unit(2, 2), unit(3, 3)]);
         assert_eq!(team.passes_this_game, 1);
+    }
+
+    #[test]
+    fn a_players_health_and_armor_changes_survive_the_passes_and_gifts_after_them() {
+        // No Gold-spent, `after_pass` or `after_team_pass` observer changes a hero's Health or
+        // Armor yet: each case changes the players' Taverns itself, as such an observer would,
+        // before the team's pool took the change (`settle`).
+        let cases = [
+            // A Pass sent after the Gold-spent observers of its Gold ran.
+            ("a Pass", None),
+            // A gift delivered after them (an `Effect` of a card with no `teammate_gift` hook,
+            // which does nothing), or before the last delivery round ends (a gift card).
+            (
+                "an Effect gift",
+                Some(TeammateGift::Effect {
+                    card_id: 0,
+                    amount: 0,
+                    team: false,
+                }),
+            ),
+            ("a gift card", Some(TeammateGift::Card(unit(2, 2)))),
+        ];
+        for (case, gift) in cases {
+            let mut team = DuosTavern::new().with_armor([2, 0]);
+            let (mut pool, mut rng) = (empty_pool(), Rng::new(1));
+            team.players[0].health -= 3;
+            team.players[1].armor -= 1;
+            match gift {
+                None => team.send_pass(0, unit(1, 1), &mut pool, &mut rng),
+                Some(gift) => {
+                    team.players[0].auras.give_teammate(gift);
+                    team.deliver_gifts(0, Some(&mut pool), &mut rng);
+                }
+            }
+            assert_eq!((team.health, team.armor), (27, 1), "{case}");
+            for state in &team.players {
+                assert_eq!((state.health, state.armor), (27, 1), "{case}");
+            }
+        }
     }
 }
