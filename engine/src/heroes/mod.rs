@@ -55,6 +55,7 @@ pub mod loh_the_living_legend;
 pub mod madam_goya;
 pub mod maiev_shadowsong;
 pub mod malygos;
+pub mod millificent_manastorm;
 pub mod mutanus_the_devourer;
 pub mod nozdormu;
 pub mod nzoth;
@@ -81,6 +82,7 @@ pub mod teron_gorefiend;
 pub mod the_curator;
 pub mod the_jailer;
 pub mod the_lich_king;
+pub mod the_rat_king;
 pub mod thorim_stormlord;
 pub mod time_twister_chromie;
 pub mod trade_prince_gallywix;
@@ -205,6 +207,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (madam_goya::ID, madam_goya::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
     (malygos::ID, malygos::behaviors),
+    (millificent_manastorm::ID, millificent_manastorm::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (nzoth::ID, nzoth::behaviors),
@@ -234,6 +237,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (the_curator::ID, the_curator::behaviors),
     (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
+    (the_rat_king::ID, the_rat_king::behaviors),
     (thorim_stormlord::ID, thorim_stormlord::behaviors),
     (time_twister_chromie::ID, time_twister_chromie::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),

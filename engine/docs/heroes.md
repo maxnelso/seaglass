@@ -292,6 +292,8 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Patches the Pirate` | *Pirate Parrrrty!* (3 Gold): Get a Pirate. After you buy a Pirate, your next Hero Power costs (1) less. | A random Pirate of the player's Tier or lower from the pool **(engine decision)** goes to the hand; it needs room in the hand. Each Pirate bought makes the power 1 cheaper (never below 0); using it puts the cost back to 3. |
 | `Elise Starseeker` | *Lead Explorer* (1 Gold): Discover a minion from your Tier. Costs (1) more after each use. | Discovers among 3 minions of exactly the player's Tier from the pool (`CardPool::draw_discover_options`, as a Triple Reward); it needs room in the hand. Each use makes it 1 more expensive for the rest of the game. |
 | `Alexstrasza` | *Queen of Dragons* (1 Gold): Discover a Dragon. (Unlocks at Tier 4.) | From Tavern Tier 4 on: Discovers among 3 Dragons of the player's Tier or lower from the pool; it needs room in the hand. |
+| `Millificent Manastorm` | *Tinker* (1 Gold): Discover a Magnetic Mech. (Unlocks at Tier 4.) | From Tavern Tier 4 on: Discovers among 3 Magnetic Mechs (a Mech or All minion with Magnetic) of the player's Tier or lower from the pool, as Alexstrasza's; it needs room in the hand. |
+| `The Rat King` | *A Tale of Kings* (2 Gold): Discover a minion of a specific minion type. Swaps type each turn. | The type of turn `t` is the `(t - 1) mod 10`-th lobby type, in the order `Aberration, Beast, Demon, Dragon, Elemental, Mech, Murloc, Pirate, Quilboar, Undead` (`LOBBY_TRIBES`; the first before turn 1), set at each turn start (`hero_turn_start`, `counter` = its index; no RNG) **(engine decision)**. Using it Discovers among 3 minions of that type (a dual type or All counts) of the player's Tier or lower from the pool, as Alexstrasza's; it needs room in the hand. The Hero Power keeps its `card_id` (the data's per-type variants, `TB_BaconShop_HP_041a`.., aren't mapped to types). |
 | `Maiev Shadowsong` | *Imprison* (1 Gold, a card in the Tavern): Choose a card in the Tavern to lock in your hand. After 2 turns, unlock it. | The card leaves the shop for the hand (not a buy) locked for 2 turns (`locked_turns = 2`: it can't be played or sold until the start of the second turn after). It needs room in the hand. |
 | `Captain Eudora` | *Buried Treasure* (1 Gold): Dig for a Golden minion! (4 Digs left.) | Each use is a Dig (`counter`); the 4th gives a Golden minion of exactly the player's Tier from the pool (`Unit::make_golden`), and the count starts again **(engine decision)**. The 4th Dig needs room in the hand. |
 | `Jandice Barov` | *Swap, Lock, & Shop It* (0 Gold, a friendly non-Golden minion): Swap a friendly non-Golden minion with a random one in the Tavern. | A random minion in the shop (one `rng.below(k)`) takes the friendly minion's board slot, and the friendly minion takes its shop slot, each as it is (not a buy, a sale or a summon). It needs a minion in the shop. |
@@ -346,7 +348,7 @@ Engine decisions, pending the user's confirmation:
 | Deathwing's order | The player's minions, then the enemy's. | `heroes/deathwing.rs` |
 | Vanndar and Drek'Thar | A tie at random. | `heroes::summon_copy_of_best` |
 | Flurgl's Murloc | Of the player's Tier or lower. | `heroes/fungalmancer_flurgl.rs` |
-| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella, Pyramad, Maiev, Patches, Elise, Alexstrasza and Togwaggle need room in the hand; a Blood Gem that doesn't fit is lost. | their files |
+| Powers that give cards | Blackthorn, Holli'dae, Baz'hial, Xyrella, Pyramad, Maiev, Patches, Elise, Alexstrasza, Millificent, the Rat King and Togwaggle need room in the hand; a Blood Gem that doesn't fit is lost. | their files |
 | Targets | George's and The Lich King's minion doesn't already have the keyword. | their files |
 | Holli'dae's spell | Drawn as the shop draws a spell: the player's Tier or lower. | `heroes/doctor_hollidae.rs` |
 | Edwin's improvement | +1/+1 per 4 cards bought, spells included. | `heroes/edwin_vancleef.rs` |
@@ -354,7 +356,8 @@ Engine decisions, pending the user's confirmation:
 | Kragg's Gold | 2 on the first turn, +1 per turn started since. | `heroes/skycapn_kragg.rs` |
 | Xyrella's auras | The minion set to 2/2 gets the auras it has in the hand again (2/5 with a +0/+3 Volumizer bonus), rather than staying 2/2. | `heroes/xyrella.rs` |
 | Rakanishu's improvement | Every 3rd turn start, counting the first. | `heroes/rakanishu.rs` |
-| Cards from the catalog or the pool | Ini's Mech and Brann's Brann come from the catalog (not the pool); Patches' Pirate (Tier or lower), Elise's, Alexstrasza's and Eudora's minions from the pool. | their files |
+| The Rat King's types | A fixed rotation through the 10 lobby types in `LOBBY_TRIBES` order, one per turn from Aberration on turn 1 (no random start, no types missing from the lobby). | `heroes/the_rat_king.rs` |
+| Cards from the catalog or the pool | Ini's Mech and Brann's Brann come from the catalog (not the pool); Patches' Pirate (Tier or lower), Elise's, Alexstrasza's, Millificent's, the Rat King's and Eudora's minions from the pool. | their files |
 | Kurtrus' count | It starts again each turn. | `heroes/kurtrus_ashfallen.rs` |
 | Eudora's Digs | The 4th gives a Golden minion of the player's Tier; the count starts again. | `heroes/captain_eudora.rs` |
 | Mutanus' target | Only with another friendly minion. | `heroes/mutanus_the_devourer.rs` |

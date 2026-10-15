@@ -1,0 +1,29 @@
+hero: Millificent Manastorm
+defaults:
+  tavern: {auras: {hero: Millificent Manastorm}, gold: 10, tavern_tier: 4}
+scenarios:
+  - name: it_discovers_a_magnetic_mech
+    seeds: "1..=4"
+    steps:
+      - hero_power
+      - expect:
+          gold: 9
+          discover_pending: {count: 3, all: {all_of: ["mech", {magnetic: true}, {tavern_tier: "<= 4"}]}}
+      - choose_discover: 0
+    expect: {hand: [{all_of: ["mech", {magnetic: true}]}]}
+
+  - name: it_unlocks_at_tier_4
+    tavern: {tavern_tier: 3}
+    steps:
+      - expect_illegal: hero_power
+
+  - name: it_needs_room_in_the_hand
+    tavern: {hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: hero_power
+
+  - name: once_per_turn
+    steps:
+      - hero_power
+      - choose_discover: 0
+      - expect_illegal: hero_power

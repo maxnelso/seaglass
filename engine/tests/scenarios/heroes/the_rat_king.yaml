@@ -1,0 +1,56 @@
+hero: The Rat King
+defaults:
+  tavern: {auras: {hero: The Rat King}, tavern_tier: 6}
+scenarios:
+  - name: turn_1_is_aberrations
+    description: (engine decision) The rotation starts with Aberration on turn 1.
+    seeds: "1..=4"
+    steps:
+      - start_turn
+      - set: {gold: 10}
+      - expect: {turn: 1, auras: {hero: {power: {counter: 0}}}}
+      - hero_power
+      - expect: {gold: 8, discover_pending: {count: 3, all: "aberration"}}
+      - choose_discover: 0
+    expect: {hand: ["aberration"]}
+
+  - name: it_swaps_type_each_turn
+    description: (engine decision) Turn 2 is Beasts, turn 3 Demons.
+    seeds: "1..=4"
+    steps:
+      - start_turn
+      - end_turn
+      - start_turn
+      - set: {gold: 10}
+      - expect: {auras: {hero: {power: {counter: 1}}}}
+      - hero_power
+      - expect: {discover_pending: {count: 3, all: "beast"}}
+      - choose_discover: 0
+      - end_turn
+      - start_turn
+      - set: {gold: 10}
+      - hero_power
+    expect: {discover_pending: {count: 3, all: "demon"}}
+
+  - name: after_undead_it_starts_again
+    description: (engine decision) Turn 10 is Undead, turn 11 Aberration again.
+    tavern: {turn: 9}
+    steps:
+      - start_turn
+      - expect: {turn: 10, auras: {hero: {power: {counter: 9}}}}
+      - end_turn
+      - start_turn
+    expect: {auras: {hero: {power: {counter: 0}}}}
+
+  - name: once_per_turn
+    steps:
+      - start_turn
+      - set: {gold: 10}
+      - hero_power
+      - choose_discover: 0
+      - expect_illegal: hero_power
+
+  - name: it_needs_room_in_the_hand
+    tavern: {gold: 10, hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - expect_illegal: hero_power
