@@ -2162,6 +2162,22 @@ impl Game {
                 .as_ref()
                 .map(|o| card(o, option_index))
                 .unwrap_or_default(),
+            TavernAction::Pass { hand_index } => card(&s.hand, hand_index),
+            TavernAction::HeroPower { target } => {
+                let Some(hero) = s.hero() else {
+                    return String::new();
+                };
+                let zone = match cards::hooks(hero.power.card_id).activate_target {
+                    cards::ActivateTargetKind::ShopCard => &s.shop,
+                    cards::ActivateTargetKind::HandCard => &s.hand,
+                    _ => &s.board,
+                };
+                let name = heroes::data(hero.hero_id).map_or("", |h| h.name);
+                format!(
+                    "{name} -> {}",
+                    target.map(|t| card(zone, t)).unwrap_or_default()
+                )
+            }
             _ => String::new(),
         }
     }
