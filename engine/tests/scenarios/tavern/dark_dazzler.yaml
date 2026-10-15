@@ -50,3 +50,25 @@ scenarios:
       - {player: 0, sell: 1}
     expect:
       players: {0: {board: [{card: Dark Dazzler, stats: 4/7, charges: 1}]}}
+
+  - name: channel_the_devourer_is_a_sale_too
+    description: (confirmed) The teammate's Channel the Devourer sells the 5/6 Joyous.
+    duos_tavern:
+      players:
+        - {board: [Dark Dazzler]}
+        - {board: ["Joyous 5/6", "1/1"], hand: [Channel the Devourer]}
+    steps:
+      - {player: 1, play: {hand: Channel the Devourer, pos: 0}}
+    expect:
+      players: {0: {board: [{card: Dark Dazzler, stats: 9/13}]}}
+
+  - name: mutanus_devour_is_a_sale_too
+    description: (confirmed) The teammate's Hero Power sells the 5/6 Joyous.
+    duos_tavern:
+      players:
+        - {board: [Dark Dazzler]}
+        - {auras: {hero: Mutanus the Devourer}, board: ["Joyous 5/6", "1/1"]}
+    steps:
+      - {player: 1, hero_power: 0}
+    expect:
+      players: {0: {board: [{card: Dark Dazzler, stats: 9/13}]}}

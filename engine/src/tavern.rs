@@ -492,6 +492,10 @@ pub struct TavernState {
     /// legal action is `ChooseHero`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hero_options: Vec<HeroId>,
+    /// The minions sold during the current step, as they were on the board (`docs/tavern.md`
+    /// §7.3): a Duos team shows each sale to the teammate's observers once the step resolved.
+    #[serde(skip)]
+    pub sold_this_step: Vec<Unit>,
 }
 
 impl Default for TavernState {
@@ -533,6 +537,7 @@ impl TavernState {
             include_shop_spells: false,
             auras: PlayerAuras::default(),
             hero_options: Vec::new(),
+            sold_this_step: Vec::new(),
         }
     }
 
@@ -1056,6 +1061,21 @@ impl TavernState {
     /// spells), without discard effects (`docs/tavern.md` §7.4).
     fn discard_temporary_cards(&mut self) {
         self.hand.retain(|card| !cards::is_temporary(card));
+    }
+
+    /// Sell the minion at `board[board_pos]` (`docs/tavern.md` §7.3): the one path of every sale
+    /// (the `Sell` action, `Channel the Devourer`, Mutanus' Devour). It leaves the board, its
+    /// copies return to the pool, the player gains 1 Gold, its on-sell triggers and the sell
+    /// observers run, then the hero's `hero_after_sell`; the sale is recorded in
+    /// `sold_this_step`. Returns the sold minion.
+    pub fn sell_minion(&mut self, board_pos: usize, pool: &mut CardPool, rng: &mut Rng) -> Unit {
+        let sold = self.board.remove(board_pos);
+        pool.return_unit(&sold);
+        self.gold += 1;
+        self.sold_this_step.push(sold.clone());
+        cards::on_sell(self, &sold, pool, rng);
+        heroes::after_sell(self, &sold, pool, rng);
+        sold
     }
 
     /// Perform a free shop Refresh (`Snarky Shark`).
@@ -1743,6 +1763,7 @@ impl TavernState {
         if !self.is_legal(&action) {
             return Err(format!("illegal tavern action: {action:?}"));
         }
+        self.sold_this_step.clear();
         let ended = self.apply_action(action, pool, rng)?;
         self.resolve_triples();
         // The minions' "wherever this is" auras and conditional keywords are up to date between
@@ -1817,11 +1838,7 @@ impl TavernState {
                 Ok(false)
             }
             TavernAction::Sell { board_pos } => {
-                let sold = self.board.remove(board_pos);
-                pool.return_unit(&sold);
-                self.gold += 1;
-                cards::on_sell(self, &sold, pool, rng);
-                heroes::after_sell(self, &sold, pool, rng);
+                self.sell_minion(board_pos, pool, rng);
                 Ok(false)
             }
             TavernAction::Reposition { from_pos, to_pos } => {

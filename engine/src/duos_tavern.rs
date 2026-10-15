@@ -281,10 +281,6 @@ impl DuosTavern {
             return Err(format!("illegal tavern action: {action:?}"));
         }
         self.mirror();
-        let sold = match action {
-            TavernAction::Sell { board_pos } => self.players[player].board.get(board_pos).cloned(),
-            _ => None,
-        };
         let ended = match action {
             TavernAction::Pass { hand_index } => {
                 self.pass(player, hand_index, pool, rng);
@@ -295,8 +291,9 @@ impl DuosTavern {
         if ended {
             self.ended[player] = true;
         }
-        if let Some(sold) = sold {
-            let mate = Self::teammate(player);
+        // Every sale of the step, whatever made it (docs/duos_tavern.md §7.3).
+        let mate = Self::teammate(player);
+        for sold in std::mem::take(&mut self.players[player].sold_this_step) {
             cards::after_teammate_sell(&mut self.players[mate], &sold, pool, rng);
         }
         self.settle();

@@ -198,7 +198,7 @@ In Solo nothing delivers them: Solo has no teammate.
 
 ### 7.3 The Teammate's Observers
 
-- `after_teammate_sell`: after a player sells a minion (`TavernAction::Sell`), their teammate's observers see it, as it was on the board (`Dark Dazzler`).
+- `after_teammate_sell`: after a player sells a minion, by the `Sell` action or any effect that sells one (`Channel the Devourer`, Mutanus' Devour; `tavern.md` §7.3) **(confirmed**: both say "Sell"**)**, their teammate's observers see it, as it was on the board (`Dark Dazzler`), once per sale, after the step.
 - `after_team_pass`: both players' observers, after any Pass of the team (§5.6).
 
 ### 7.4 The Teammate's Warband in Combat

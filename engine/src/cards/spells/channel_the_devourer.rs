@@ -1,7 +1,9 @@
 //! `Channel the Devourer` — Tier 5 Tavern spell (`4` Gold).
 //!
 //! Sell a minion and give its stats to another random friendly minion. The stats are copied as
-//! they are: spell power (`spell_bonus_atk` / `spell_bonus_hp`) does not add to them.
+//! they are: spell power (`spell_bonus_atk` / `spell_bonus_hp`) does not add to them. The sale is a
+//! sale like the `Sell` action's (`TavernState::sell_minion`: the hero's and, in Duos, the
+//! teammate's observers see it).
 
 use super::targeted;
 use crate::cards::CardHooks;
@@ -23,11 +25,8 @@ pub fn cast(
     rng: &mut Rng,
 ) {
     if board_pos < state.board.len() {
-        let sold = state.board.remove(board_pos);
+        let sold = state.sell_minion(board_pos, pool, rng);
         let (sold_atk, sold_hp) = (sold.attack, sold.health);
-        pool.return_unit(&sold);
-        state.gold += 1;
-        crate::cards::on_sell(state, &sold, pool, rng);
         if !state.board.is_empty() {
             let pick = if state.board.len() == 1 {
                 0

@@ -2,12 +2,12 @@
 //!
 //! Hero Power: `Devour` (`BG20_HERO_301p`), 0 Gold: Sell a friendly minion. Spit its stats onto another.
 //!
-//! Active, a friendly minion, once per turn: the minion is sold (1 Gold, its sell triggers and the
-//! sell observers, as the `Sell` action), then a random other friendly minion (one
-//! `rng.below(k)`) gains its Attack and Health. It needs another friendly minion (engine
-//! decision).
+//! Active, a friendly minion, once per turn: the minion is sold (`TavernState::sell_minion`, as by
+//! the `Sell` action: 1 Gold, its sell triggers, the sell observers, the teammate's in Duos), then
+//! a random other friendly minion (one `rng.below(k)`) gains its Attack and Health. It needs
+//! another friendly minion (engine decision).
 
-use crate::cards::{self, ActivateTargetKind, CardHooks};
+use crate::cards::{ActivateTargetKind, CardHooks};
 use crate::model::{CardId, HeroId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -31,11 +31,7 @@ fn devour(state: &mut TavernState, target: Option<usize>, pool: &mut CardPool, r
     let Some(t) = target.filter(|&t| t < state.board.len()) else {
         return;
     };
-    let sold = state.board.remove(t);
-    pool.return_unit(&sold);
-    state.gold += 1;
-    cards::on_sell(state, &sold, pool, rng);
-    super::after_sell(state, &sold, pool, rng);
+    let sold = state.sell_minion(t, pool, rng);
     let pick = match state.board.len() {
         0 => return,
         1 => 0,
