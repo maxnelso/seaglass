@@ -1,0 +1,18 @@
+hero: Sneed
+scenarios:
+  - name: the_game_starts_with_a_shredder
+    steps:
+      - set_hero: Sneed
+    expect: {board: [{card: Sneed's New Shredder, attack: 2, health: 1, tribe: mech}]}
+
+  - name: its_deathrattle_summons_the_highest_health_minion_from_hand_with_divine_shield
+    tavern:
+      auras: {hero: Sneed}
+      board: [{card: Sneed's New Shredder}]
+      hand: ["9/1", "1/9"]
+    steps:
+      - fight: {board: ["5/50"]}
+    expect:
+      combat:
+        events: {any: {type: unit_summoned, side: a, attack: 1, health: 9}}
+      hand: ["9/1", "1/9"]

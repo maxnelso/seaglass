@@ -1,0 +1,12 @@
+hero: The Curator
+scenarios:
+  - name: the_game_starts_with_an_amalgam
+    steps:
+      - set_hero: The Curator
+    expect: {board: [{card: Amalgam, attack: 2, health: 2, tribe: all, venomous: true}]}
+
+  - name: it_is_never_an_action
+    tavern: {gold: 5}
+    steps:
+      - set_hero: The Curator
+      - expect_illegal: hero_power

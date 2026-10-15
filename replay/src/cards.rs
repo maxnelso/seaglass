@@ -59,6 +59,9 @@ pub static TOKEN_HS_IDS: &[(&str, CardId)] = &[
     ("BG34_636t", tokens::TOKEN_GREEN_CHROMADRAKE),
     ("BG34_637t", tokens::TOKEN_BRONZE_CHROMADRAKE),
     ("BG34_638t", tokens::TOKEN_RED_CHROMADRAKE),
+    ("TB_BaconShop_HP_105t", tokens::TOKEN_FISH_OF_NZOTH),
+    ("BG21_HERO_030t", tokens::TOKEN_SNEEDS_SHREDDER),
+    ("TB_BaconShop_HP_033t", tokens::TOKEN_AMALGAM),
 ];
 
 /// Card IDs of the Deities (`C'Thun`, `Y'Shaarj`) once awakened.

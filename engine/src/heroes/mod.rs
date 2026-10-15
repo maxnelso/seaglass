@@ -56,6 +56,7 @@ pub mod maiev_shadowsong;
 pub mod malygos;
 pub mod mutanus_the_devourer;
 pub mod nozdormu;
+pub mod nzoth;
 pub mod onyxia;
 pub mod overlord_saurfang;
 pub mod ozumat;
@@ -70,10 +71,12 @@ pub mod rokara;
 pub mod shudderwock;
 pub mod skycapn_kragg;
 pub mod snake_eyes;
+pub mod sneed;
 pub mod sylvanas_windrunner;
 pub mod taethelan_bloodwatcher;
 pub mod tamsin_roame;
 pub mod teron_gorefiend;
+pub mod the_curator;
 pub mod the_jailer;
 pub mod the_lich_king;
 pub mod thorim_stormlord;
@@ -201,6 +204,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (malygos::ID, malygos::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
+    (nzoth::ID, nzoth::behaviors),
     (onyxia::ID, onyxia::behaviors),
     (overlord_saurfang::ID, overlord_saurfang::behaviors),
     (ozumat::ID, ozumat::behaviors),
@@ -215,6 +219,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (shudderwock::ID, shudderwock::behaviors),
     (skycapn_kragg::ID, skycapn_kragg::behaviors),
     (snake_eyes::ID, snake_eyes::behaviors),
+    (sneed::ID, sneed::behaviors),
     (sylvanas_windrunner::ID, sylvanas_windrunner::behaviors),
     (
         taethelan_bloodwatcher::ID,
@@ -222,6 +227,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (tamsin_roame::ID, tamsin_roame::behaviors),
     (teron_gorefiend::ID, teron_gorefiend::behaviors),
+    (the_curator::ID, the_curator::behaviors),
     (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
     (thorim_stormlord::ID, thorim_stormlord::behaviors),

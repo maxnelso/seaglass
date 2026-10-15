@@ -27,6 +27,11 @@ pub const TOKEN_GREEN_CHROMADRAKE: CardId = 922;
 pub const TOKEN_BRONZE_CHROMADRAKE: CardId = 923;
 pub const TOKEN_RED_CHROMADRAKE: CardId = 924;
 
+// Hero tokens (`docs/heroes.md` §11.2): their hooks are in their hero's file.
+pub const TOKEN_FISH_OF_NZOTH: CardId = 925;
+pub const TOKEN_SNEEDS_SHREDDER: CardId = 926;
+pub const TOKEN_AMALGAM: CardId = 927;
+
 pub const CHROMADRAKE_IDS: [CardId; 5] = [
     TOKEN_BLUE_CHROMADRAKE,
     TOKEN_BLACK_CHROMADRAKE,
@@ -487,6 +492,34 @@ pub fn make_blood_golem(atk: i32, hp: i32, is_golden: bool) -> Unit {
         .with_golden(is_golden)
 }
 
+/// `Fish of N'Zoth` (`TB_BaconShop_HP_105t` — `2/2` Beast N'Zoth starts the game with; gains the
+/// Deathrattles of friendly minions that die in combat).
+pub fn make_fish_of_nzoth() -> Unit {
+    Unit::new("Fish of N'Zoth", 2, 2)
+        .with_card_id(TOKEN_FISH_OF_NZOTH)
+        .with_tavern_tier(1)
+        .with_tribe(Tribe::Beast)
+}
+
+/// `Sneed's New Shredder` (`BG21_HERO_030t` — `2/1` Mech Sneed starts the game with; Deathrattle:
+/// summon the highest-Health minion from your hand with Divine Shield for this combat).
+pub fn make_sneeds_shredder() -> Unit {
+    Unit::new("Sneed's New Shredder", 2, 1)
+        .with_card_id(TOKEN_SNEEDS_SHREDDER)
+        .with_tavern_tier(1)
+        .with_tribe(Tribe::Mech)
+}
+
+/// `Amalgam` (`TB_BaconShop_HP_033t` — `2/2` of every type with Venomous, The Curator starts the
+/// game with).
+pub fn make_amalgam() -> Unit {
+    Unit::new("Amalgam", 2, 2)
+        .with_card_id(TOKEN_AMALGAM)
+        .with_tavern_tier(1)
+        .with_tribe(Tribe::All)
+        .with_keyword(Keyword::Venomous)
+}
+
 /// Helper to construct a Choose-One option card for `discover_pending`.
 pub fn make_choice_option(card_id: CardId, name: &str, is_golden: bool) -> Unit {
     let mut u = Unit::new(name, 0, 0)
@@ -497,7 +530,7 @@ pub fn make_choice_option(card_id: CardId, name: &str, is_golden: bool) -> Unit 
 }
 
 /// Card ids of every token minion (each one instantiable with [`make_plain_token`]).
-pub const TOKEN_MINION_IDS: [CardId; 19] = [
+pub const TOKEN_MINION_IDS: [CardId; 22] = [
     TOKEN_ABERRANT_TENTACLE,
     TOKEN_BEETLE,
     TOKEN_MICROBOT,
@@ -517,6 +550,9 @@ pub const TOKEN_MINION_IDS: [CardId; 19] = [
     TOKEN_GREEN_CHROMADRAKE,
     TOKEN_BRONZE_CHROMADRAKE,
     TOKEN_RED_CHROMADRAKE,
+    TOKEN_FISH_OF_NZOTH,
+    TOKEN_SNEEDS_SHREDDER,
+    TOKEN_AMALGAM,
 ];
 
 /// A plain copy of every token minion (for lookups by name or `CardId`).
@@ -552,6 +588,9 @@ pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
         | TOKEN_GREEN_CHROMADRAKE
         | TOKEN_BRONZE_CHROMADRAKE
         | TOKEN_RED_CHROMADRAKE => Some(make_chromadrake(unit.card_id, false)),
+        TOKEN_FISH_OF_NZOTH => Some(make_fish_of_nzoth()),
+        TOKEN_SNEEDS_SHREDDER => Some(make_sneeds_shredder()),
+        TOKEN_AMALGAM => Some(make_amalgam()),
         _ => None,
     }
 }

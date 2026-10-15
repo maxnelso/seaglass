@@ -11,6 +11,24 @@ scenarios:
       players:
         - {gold: 8, board: ["1/1"]}
         - {hand: ["Zoatroid 5/4"]}
+      passes_this_turn: 1
+
+  - name: it_counts_as_a_team_pass
+    description: >-
+      (confirmed, by analogy with card-effect Passes) The teammate's Passenger gains +1/+2 and
+      the Passes count; only the power's 2 Gold is spent.
+    duos_tavern:
+      players:
+        - {auras: {hero: Madam Goya}, gold: 10, board: ["1/1", Passenger]}
+        - {board: [Passenger]}
+    steps:
+      - {player: 0, hero_power: 0}
+    expect:
+      passes_this_turn: 1
+      passes_this_game: 1
+      players:
+        - {gold: 8, gold_spent_this_turn: 2, board: ["Passenger 3/4"]}
+        - {board: ["Passenger 3/4"]}
 
   - name: a_golden_minion_is_not_a_target
     duos_tavern:

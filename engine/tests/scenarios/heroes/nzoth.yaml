@@ -1,0 +1,31 @@
+hero: N'Zoth
+scenarios:
+  - name: the_game_starts_with_a_fish
+    steps:
+      - set_hero: N'Zoth
+    expect: {board: [{card: Fish of N'Zoth, attack: 2, health: 2, tavern_tier: 1}]}
+
+  - name: the_fish_gains_a_dying_friendly_minions_deathrattle
+    description: >-
+      The Harmless Bonehead dies first; the Fish then has its Deathrattle and summons its two
+      Skeletons when it dies too.
+    combat:
+      board_a: [Harmless Bonehead, {card: Fish of N'Zoth}]
+      board_b: ["10/40"]
+      auras_a: {hero: N'Zoth}
+    expect:
+      events:
+        where: {type: unit_summoned, side: a, name: Skeleton}
+        count: 4
+
+  - name: not_in_the_tavern_copy
+    tavern: {auras: {hero: N'Zoth}, board: [Harmless Bonehead, {card: Fish of N'Zoth}]}
+    steps:
+      - fight: {board: ["10/40"]}
+    expect: {board: [Harmless Bonehead, {card: Fish of N'Zoth, extra_deathrattles: []}]}
+
+  - name: it_is_never_an_action
+    tavern: {gold: 5}
+    steps:
+      - set_hero: N'Zoth
+      - expect_illegal: hero_power
