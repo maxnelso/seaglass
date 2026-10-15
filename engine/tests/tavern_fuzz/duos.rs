@@ -2002,8 +2002,10 @@ impl DuosGame {
                 units_desc(&team.players[p].hand),
             )));
         }
-        if let Some(expect) = &expect {
-            checks.extend(expect.check(&team.players[p], &self.pool, &self.catalog));
+        // What the action itself does, on the player's Tavern alone (`check_like_solo` ties it to
+        // the team's): the cards the queue delivers after it don't get in the way.
+        if let (Some(expect), Some(solo)) = (&expect, &solo) {
+            checks.extend(expect.check(solo, &self.pool, &self.catalog));
         }
         if let Some(solo) = &solo {
             checks.push(check_like_solo(solo, &before, team, p));

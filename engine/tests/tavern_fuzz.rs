@@ -28,7 +28,8 @@
 //! - per action: a rolled shop holds `shop_capacity` minions and one spell, prices are paid in
 //!   Gold (less what the Hero Power gives back), a Health cost never kills, Upgrade goes up one
 //!   Tier, a bought or Discovered card reaches the hand, a `Triple Reward` card cast offers
-//!   minions of its Tier, a Tavern spell counts as cast, the hero is never healed;
+//!   minions of its Tier, a Golden played from hand gives one of the next Tier (an intrinsic one
+//!   none), a Tavern spell counts as cast, the hero is never healed;
 //! - per combat: [`check_battle`] (at most 7 survivors, all alive, outcome and `hero_damage` as
 //!   specified, events framed by `BattleStart` / `BattleEnd`), [`check_battle_units`] (every unit
 //!   accounted for by the events), the hero loses exactly the damage, and the Tavern keeps its
@@ -1482,12 +1483,31 @@ struct Expect {
     triple_reward: bool,
     reward_tier: u32,
     reward_tier_left: bool,
+    /// A Golden minion played from the hand: one that gives a `Triple Reward` card (`true`), or an
+    /// intrinsically Golden one, which gives none (`false`).
+    golden_play: Option<bool>,
+    /// The `Triple Reward` cards in the hand before the action, by locked-in Tier.
+    reward_cards: Vec<i32>,
+    /// The player's Hero Power acts after a minion is played (`hero_after_play`): it may give
+    /// `Triple Reward` cards too (Cho and Gall).
+    hero_after_play: bool,
     casts_tavern_spell: bool,
     gold: u32,
     /// What the action costs in Gold, when nothing else changes the Gold.
     cost: Option<u32>,
     /// The Gold the player's Hero Power gives back for it ([`hero_gold_back`]).
     gold_back: u32,
+}
+
+/// The locked-in Tiers (`counter`, 0 for none) of the `Triple Reward` cards in `hand`, sorted.
+fn reward_cards(hand: &[Unit]) -> Vec<i32> {
+    let mut tiers: Vec<i32> = hand
+        .iter()
+        .filter(|u| u.card_id == cards::tokens::SPELL_TRIPLE_REWARD)
+        .map(|u| u.counter)
+        .collect();
+    tiers.sort_unstable();
+    tiers
 }
 
 /// The Gold the player's Hero Power gives back for `action`, which costs `cost` Gold: what its
@@ -1570,6 +1590,11 @@ impl Expect {
             triple_reward: false,
             reward_tier,
             reward_tier_left: false,
+            golden_play: None,
+            reward_cards: reward_cards(&s.hand),
+            hero_after_play: s
+                .hero()
+                .is_some_and(|h| cards::hooks(h.power.card_id).hero_after_play.is_some()),
             casts_tavern_spell: false,
             gold: s.gold,
             cost,
@@ -1597,15 +1622,18 @@ impl Expect {
             }
             TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } => {
                 if let Some(card) = s.hand.get(hand_index) {
+                    let reward_card = card.card_id == cards::tokens::SPELL_TRIPLE_REWARD;
                     // (`docs/tavern.md` §5.2: a card without a locked-in Tier uses the current.)
-                    if card.counter > 0 {
+                    if reward_card && card.counter > 0 {
                         expect.reward_tier = card.counter as u32;
                     }
                     let reward_tier = expect.reward_tier;
-                    expect.triple_reward = card.card_id == cards::tokens::SPELL_TRIPLE_REWARD
-                        && pool_copies(pool, catalog, reward_tier) >= 3;
+                    expect.triple_reward =
+                        reward_card && pool_copies(pool, catalog, reward_tier) >= 3;
                     expect.reward_tier_left =
                         expect.triple_reward && exact_tier_copies(pool, catalog, reward_tier) > 0;
+                    expect.golden_play =
+                        (!card.is_spell && card.is_golden).then_some(!card.intrinsic_golden);
                     expect.casts_tavern_spell =
                         card.is_spell && cards::spells::is_tavern_spell(card.card_id);
                 }
@@ -1617,7 +1645,8 @@ impl Expect {
 
     /// The checks of `s`, the state just after the action, in order: a Health cost never kills,
     /// Upgrade goes up one Tier, a bought or Discovered card reaches the hand, a `Triple Reward`
-    /// card cast offers minions of its Tier, prices are paid in Gold (less what the
+    /// card cast offers minions of its Tier, a Golden played from hand gives one of the next Tier
+    /// (an intrinsic one none), prices are paid in Gold (less what the
     /// Hero Power gives back), a Sell gives 1 Gold, a Tavern spell counts as cast, and a Refresh
     /// rolls a full shop.
     fn check(
@@ -1665,6 +1694,43 @@ impl Expect {
                         format!("Tier {} expected: {}", self.reward_tier, units_desc(opts)),
                     )));
                 }
+            }
+        }
+        if let Some(gives) = self.golden_play {
+            // A Golden played from the hand gives one `Triple Reward` card, its Tier locked in
+            // then: `min(6, Tier + 1)` (none if the hand is full); an intrinsic Golden none
+            // (`docs/tavern.md` §5.2). The Hero Power's `hero_after_play` may give more.
+            let after = reward_cards(&s.hand);
+            let tier = (s.tavern_tier + 1).min(6) as i32;
+            let of_tier = |cards: &[i32]| cards.iter().filter(|&&c| c == tier).count();
+            let new = after.len() as i64 - self.reward_cards.len() as i64;
+            let new_of_tier = of_tier(&after) as i64 - of_tier(&self.reward_cards) as i64;
+            let full = s.hand.len() >= 10;
+            let (ok, what) = if !gives {
+                (
+                    new == 0,
+                    "an intrinsic Golden played from hand gave a Triple Reward card",
+                )
+            } else if self.hero_after_play {
+                (
+                    new_of_tier >= 1 || (new == 0 && full),
+                    "a Golden played from hand gave no Triple Reward card of the next Tier",
+                )
+            } else {
+                (
+                    (new == 1 && new_of_tier == 1) || (new == 0 && full),
+                    "a Golden played from hand didn't give one Triple Reward card of the next Tier",
+                )
+            };
+            if !ok {
+                checks.push(Err(broken(
+                    what,
+                    format!(
+                        "Tier {tier} expected; Triple Reward cards {:?} -> {after:?}, hand {}",
+                        self.reward_cards,
+                        units_desc(&s.hand)
+                    ),
+                )));
             }
         }
         if let Some(cost) = self.cost {
