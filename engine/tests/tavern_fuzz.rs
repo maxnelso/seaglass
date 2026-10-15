@@ -1537,7 +1537,7 @@ impl Expect {
         let cost = match action {
             TavernAction::Buy { shop_index } => s.shop.get(shop_index).map(|u| {
                 if !u.is_spell {
-                    3
+                    s.minion_buy_cost()
                 } else if u.costs_health {
                     0
                 } else {
@@ -1577,11 +1577,13 @@ impl Expect {
                     .map(|u| u.card_id);
             }
             TavernAction::ChooseDiscover { option_index } => {
+                // (An option the Hero Power keeps goes to its `stored` cards: Thorim's champion.)
                 expect.to_hand = s
                     .discover_pending
                     .as_ref()
                     .and_then(|o| o.get(option_index))
                     .filter(|u| !u.is_spell && !is_wildcard(u) && !cards::is_option_card(u.card_id))
+                    .filter(|u| !u.to_hero_power)
                     .map(|u| u.card_id)
                     .filter(|_| room);
             }
