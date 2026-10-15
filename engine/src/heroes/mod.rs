@@ -20,6 +20,7 @@ pub mod captain_eudora;
 pub mod captain_hooktusk;
 pub mod chenvaala;
 pub mod cho;
+pub mod cthun;
 pub mod death_speaker_blackthorn;
 pub mod deathwing;
 pub mod dinotamer_brann;
@@ -50,6 +51,7 @@ pub mod kithix;
 pub mod kurtrus_ashfallen;
 pub mod lich_bazhial;
 pub mod loh_the_living_legend;
+pub mod madam_goya;
 pub mod maiev_shadowsong;
 pub mod malygos;
 pub mod mutanus_the_devourer;
@@ -68,16 +70,19 @@ pub mod rokara;
 pub mod shudderwock;
 pub mod skycapn_kragg;
 pub mod snake_eyes;
+pub mod sylvanas_windrunner;
 pub mod taethelan_bloodwatcher;
 pub mod tamsin_roame;
 pub mod teron_gorefiend;
 pub mod the_jailer;
 pub mod the_lich_king;
 pub mod thorim_stormlord;
+pub mod time_twister_chromie;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
 pub mod varden_dawngrasp;
 pub mod xyrella;
+pub mod yogg_saron_hopes_end;
 pub mod ysera;
 pub mod yshaarj;
 pub mod zephrys_the_great;
@@ -157,6 +162,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (captain_hooktusk::ID, captain_hooktusk::behaviors),
     (chenvaala::ID, chenvaala::behaviors),
     (cho::ID, cho::behaviors),
+    (cthun::ID, cthun::behaviors),
     (
         death_speaker_blackthorn::ID,
         death_speaker_blackthorn::behaviors,
@@ -190,6 +196,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (kurtrus_ashfallen::ID, kurtrus_ashfallen::behaviors),
     (lich_bazhial::ID, lich_bazhial::behaviors),
     (loh_the_living_legend::ID, loh_the_living_legend::behaviors),
+    (madam_goya::ID, madam_goya::behaviors),
     (maiev_shadowsong::ID, maiev_shadowsong::behaviors),
     (malygos::ID, malygos::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
@@ -208,6 +215,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (shudderwock::ID, shudderwock::behaviors),
     (skycapn_kragg::ID, skycapn_kragg::behaviors),
     (snake_eyes::ID, snake_eyes::behaviors),
+    (sylvanas_windrunner::ID, sylvanas_windrunner::behaviors),
     (
         taethelan_bloodwatcher::ID,
         taethelan_bloodwatcher::behaviors,
@@ -217,10 +225,12 @@ const IMPLEMENTED: &[Implemented] = &[
     (the_jailer::ID, the_jailer::behaviors),
     (the_lich_king::ID, the_lich_king::behaviors),
     (thorim_stormlord::ID, thorim_stormlord::behaviors),
+    (time_twister_chromie::ID, time_twister_chromie::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (varden_dawngrasp::ID, varden_dawngrasp::behaviors),
     (xyrella::ID, xyrella::behaviors),
+    (yogg_saron_hopes_end::ID, yogg_saron_hopes_end::behaviors),
     (ysera::ID, ysera::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
     (zephrys_the_great::ID, zephrys_the_great::behaviors),
@@ -511,6 +521,13 @@ pub fn keep_chosen(state: &mut TavernState, chosen: Unit) {
 pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
     if let Some(friendly_attack) = power_hooks(ctx.auras).and_then(|c| c.hero_friendly_attack) {
         friendly_attack(ctx, attacker_id);
+    }
+}
+
+/// The combat's results are back in the Tavern: the Hero Power's `hero_after_combat` hook.
+pub fn after_combat(state: &mut TavernState, dead: &[Unit]) {
+    if let Some(after_combat) = power_hooks(&state.auras).and_then(|c| c.hero_after_combat) {
+        after_combat(state, dead);
     }
 }
 

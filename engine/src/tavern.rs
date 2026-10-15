@@ -1146,6 +1146,23 @@ impl TavernState {
         cards::after_shop_refresh(self, rng);
     }
 
+    /// Refresh the Tavern with Tavern spells (Time Twister Chromie's Mana Per Minute;
+    /// `docs/heroes.md` §11.2): every slot, the minion slots and the spell slot, holds a spell
+    /// drawn as the shop draws one.
+    pub fn refresh_shop_with_spells(&mut self, pool: &mut CardPool, rng: &mut Rng) {
+        self.is_frozen = false;
+        for old in self.shop.drain(..) {
+            pool.return_unit(&old);
+        }
+        let slots = shop_capacity(self.tavern_tier) + usize::from(self.include_shop_spells);
+        for _ in 0..slots {
+            let spell = self.draw_shop_spell(rng);
+            self.shop.push(spell);
+        }
+        heroes::after_refresh(self, pool, rng);
+        cards::after_shop_refresh(self, rng);
+    }
+
     /// Refresh the Tavern with minions of `tribe` (`Lost Staff of Hamuul`).
     pub fn refresh_shop_with_tribe(&mut self, tribe: Tribe, pool: &mut CardPool, rng: &mut Rng) {
         self.is_frozen = false;
@@ -1407,6 +1424,7 @@ impl TavernState {
         }
 
         self.resolve_triples();
+        heroes::after_combat(self, dead_units);
 
         self.last_combat_won = result == CombatResult::Won;
         self.last_combat_lost = result == CombatResult::Lost;

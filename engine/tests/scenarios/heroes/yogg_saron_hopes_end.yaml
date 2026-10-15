@@ -1,0 +1,21 @@
+hero: Yogg-Saron, Hope's End
+defaults:
+  tavern: {auras: {hero: "Yogg-Saron, Hope's End"}, gold: 0}
+scenarios:
+  - name: from_turn_3_each_turn_casts_a_random_tavern_spell
+    seeds: "1..=8"
+    tavern: {turn: 2, board: ["1/1", "2/2"]}
+    steps:
+      - start_turn
+    expect: {auras: {tavern_spells_cast: 1}}
+
+  - name: not_before_turn_3
+    tavern: {turn: 1, board: ["1/1"]}
+    steps:
+      - start_turn
+    expect: {auras: {tavern_spells_cast: 0}}
+
+  - name: it_is_never_an_action
+    tavern: {gold: 5}
+    steps:
+      - expect_illegal: hero_power

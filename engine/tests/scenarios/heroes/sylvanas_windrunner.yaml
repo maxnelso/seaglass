@@ -1,0 +1,25 @@
+hero: Sylvanas Windrunner
+defaults:
+  tavern: {auras: {hero: Sylvanas Windrunner}, gold: 10, turn: 3}
+scenarios:
+  - name: it_discovers_a_plain_copy_of_a_minion_that_died_last_combat
+    seeds: "1..=4"
+    tavern: {board: ["Zoatroid +5/+5", "Bubble Gunner"]}
+    steps:
+      - fight: {board: ["99/99"]}
+      - expect: {board: {count: 2}}
+      - hero_power
+      - expect: {gold: 8, discover_pending: {count: 2, all: {any_of: ["Zoatroid 3/2", "Bubble Gunner 2/3"]}}}
+      - choose_discover: 0
+    expect: {hand: {count: 1}}
+
+  - name: it_needs_a_minion_that_died
+    tavern: {board: ["Zoatroid"]}
+    steps:
+      - expect_illegal: hero_power
+
+  - name: it_unlocks_on_turn_3
+    tavern: {turn: 2, board: ["Zoatroid"]}
+    steps:
+      - fight: {board: ["99/99"]}
+      - expect_illegal: hero_power

@@ -1,0 +1,33 @@
+hero: C'Thun
+defaults:
+  tavern: {auras: {hero: C'Thun}, gold: 10}
+scenarios:
+  - name: using_it_buffs_a_friendly_minion_at_end_of_turn
+    tavern: {turn: 1, board: ["1/1"]}
+    steps:
+      - hero_power
+      - expect: {gold: 9, board: ["1/1"]}
+      - end_turn
+    expect: {board: ["2/2"]}
+
+  - name: it_repeats_once_more_each_turn
+    description: (engine decision) On turn 3, three times.
+    tavern: {turn: 3, board: ["1/1"]}
+    steps:
+      - hero_power
+      - end_turn
+    expect: {board: ["4/4"]}
+
+  - name: without_using_it_nothing_happens
+    tavern: {turn: 3, board: ["1/1"]}
+    steps:
+      - end_turn
+    expect: {board: ["1/1"]}
+
+  - name: the_minions_are_random
+    seeds: "1..=4"
+    tavern: {turn: 4, board: ["1/1", "1/1"]}
+    steps:
+      - hero_power
+      - end_turn
+    expect: {board: {sum: {attack: 6}}}

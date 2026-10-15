@@ -1,0 +1,21 @@
+hero: Time Twister Chromie
+defaults:
+  tavern: {auras: {hero: Time Twister Chromie}, gold: 0, tavern_tier: 2}
+scenarios:
+  - name: it_refreshes_the_tavern_with_tavern_spells
+    seeds: "1..=4"
+    tavern: {shop: ["1/1", "1/1"], is_frozen: true}
+    steps:
+      - hero_power
+    expect: {is_frozen: false, shop: {count: 4, all: {is_spell: true, tavern_tier: "<= 2"}}}
+
+  - name: the_spell_slot_too
+    tavern: {include_shop_spells: true}
+    steps:
+      - hero_power
+    expect: {shop: {count: 5, all: {is_spell: true}}}
+
+  - name: once_per_turn
+    steps:
+      - hero_power
+      - expect_illegal: hero_power
