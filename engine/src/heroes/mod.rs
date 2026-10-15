@@ -24,6 +24,7 @@ pub mod doctor_hollidae;
 pub mod drekthar;
 pub mod edwin_vancleef;
 pub mod elise_starseeker;
+pub mod enhance_o_mechano;
 pub mod flobbidinous_floop;
 pub mod forest_lord_cenarius;
 pub mod forest_warden_omu;
@@ -32,6 +33,7 @@ pub mod george_the_fallen;
 pub mod greybough;
 pub mod heistbaron_togwaggle;
 pub mod illidan_stormrage;
+pub mod infinite_toki;
 pub mod ini_stormcoil;
 pub mod jandice_barov;
 pub mod kaelthas_sunstrider;
@@ -58,6 +60,7 @@ pub mod the_lich_king;
 pub mod trade_prince_gallywix;
 pub mod vanndar_stormpike;
 pub mod xyrella;
+pub mod ysera;
 pub mod yshaarj;
 pub mod zerek_master_cloner;
 
@@ -142,6 +145,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (drekthar::ID, drekthar::behaviors),
     (edwin_vancleef::ID, edwin_vancleef::behaviors),
     (elise_starseeker::ID, elise_starseeker::behaviors),
+    (enhance_o_mechano::ID, enhance_o_mechano::behaviors),
     (flobbidinous_floop::ID, flobbidinous_floop::behaviors),
     (forest_lord_cenarius::ID, forest_lord_cenarius::behaviors),
     (forest_warden_omu::ID, forest_warden_omu::behaviors),
@@ -150,6 +154,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (greybough::ID, greybough::behaviors),
     (heistbaron_togwaggle::ID, heistbaron_togwaggle::behaviors),
     (illidan_stormrage::ID, illidan_stormrage::behaviors),
+    (infinite_toki::ID, infinite_toki::behaviors),
     (ini_stormcoil::ID, ini_stormcoil::behaviors),
     (jandice_barov::ID, jandice_barov::behaviors),
     (kaelthas_sunstrider::ID, kaelthas_sunstrider::behaviors),
@@ -176,6 +181,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (xyrella::ID, xyrella::behaviors),
+    (ysera::ID, ysera::behaviors),
     (yshaarj::ID, yshaarj::behaviors),
     (zerek_master_cloner::ID, zerek_master_cloner::behaviors),
 ];
@@ -449,6 +455,13 @@ pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool,
 pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(after_upgrade) = power_hooks(&state.auras).and_then(|c| c.hero_after_upgrade) {
         after_upgrade(state, pool, rng);
+    }
+}
+
+/// The Tavern was Refreshed: the Hero Power's `hero_after_refresh` hook (`docs/heroes.md` §4).
+pub fn after_refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(after_refresh) = power_hooks(&state.auras).and_then(|c| c.hero_after_refresh) {
+        after_refresh(state, pool, rng);
     }
 }
 

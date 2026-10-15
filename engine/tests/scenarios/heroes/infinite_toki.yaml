@@ -1,0 +1,29 @@
+hero: Infinite Toki
+defaults:
+  tavern: {auras: {hero: Infinite Toki}, gold: 10}
+scenarios:
+  - name: it_refreshes_with_two_minions_of_the_next_tier
+    seeds: "1..=4"
+    steps:
+      - hero_power
+    expect:
+      gold: 9
+      shop: {all_of: [{count: 3}, {where: {tavern_tier: 2}, count: 2}, {0: {tavern_tier: 1}}]}
+
+  - name: at_tier_6_they_are_tier_6
+    seeds: "1..=2"
+    tavern: {tavern_tier: 6}
+    steps:
+      - hero_power
+    expect: {shop: {all_of: [{count: 6}, {-1: {tavern_tier: 6}}, {-2: {tavern_tier: 6}}]}}
+
+  - name: it_unfreezes_the_tavern
+    tavern: {is_frozen: true, shop: ["1/1"]}
+    steps:
+      - hero_power
+    expect: {is_frozen: false, shop: {count: 3}}
+
+  - name: once_per_turn
+    steps:
+      - hero_power
+      - expect_illegal: hero_power

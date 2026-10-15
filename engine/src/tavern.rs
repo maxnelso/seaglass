@@ -1095,6 +1095,41 @@ impl TavernState {
             let spell = self.draw_shop_spell(rng);
             self.shop.push(spell);
         }
+        heroes::after_refresh(self, pool, rng);
+        cards::after_shop_refresh(self, rng);
+    }
+
+    /// Refresh the Tavern with its last `count` minions of exactly `tier` (Infinite Toki's Temporal
+    /// Tavern; `docs/heroes.md` §11.2), falling back to the highest Tier below with copies left.
+    pub fn refresh_shop_with_tier_minions(
+        &mut self,
+        tier: u32,
+        count: usize,
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) {
+        self.is_frozen = false;
+        for old in self.shop.drain(..) {
+            pool.return_unit(&old);
+        }
+        let cap = shop_capacity(self.tavern_tier);
+        for _ in 0..cap.saturating_sub(count) {
+            if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
+                self.apply_shop_auras(&mut drawn);
+                self.shop.push(drawn);
+            }
+        }
+        for _ in 0..count.min(cap) {
+            if let Some(mut drawn) = pool.draw_discover_options(tier, 1, rng).pop() {
+                self.apply_shop_auras(&mut drawn);
+                self.shop.push(drawn);
+            }
+        }
+        if self.include_shop_spells {
+            let spell = self.draw_shop_spell(rng);
+            self.shop.push(spell);
+        }
+        heroes::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1115,6 +1150,7 @@ impl TavernState {
             let spell = self.draw_shop_spell(rng);
             self.shop.push(spell);
         }
+        heroes::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1205,6 +1241,7 @@ impl TavernState {
                 let spell = self.draw_shop_spell(rng);
                 self.shop.push(spell);
             }
+            heroes::after_refresh(self, pool, rng);
             cards::after_shop_refresh(self, rng);
         }
         heroes::on_turn_start(self, pool, rng);

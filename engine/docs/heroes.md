@@ -128,6 +128,7 @@ Hero Powers reuse the card hook system (`src/cards/hooks.rs`): a Hero Power is a
 | `hero_after_sell` | After a minion is sold, once its sell triggers resolved: `(state, sold, pool, rng)`. | Gallywix, Ozumat, Flurgl. |
 | `hero_after_play` | After a minion is played or Magnetized, once the `after_friendly_play` observers resolved: `(state, played, pool, rng)`. | Chenvaala. |
 | `hero_after_upgrade` | After the Tavern is upgraded: `(state, pool, rng)`. | Forest Warden Omu. |
+| `hero_after_refresh` | The Tavern was Refreshed (the `Refresh` action, a Refresh by a card or a Hero Power, the start of turn's new shop; not a frozen shop kept), before the cards' after-Refresh effects: `(state, pool, rng)`. | Ysera, Enhance-o Mechano. |
 
 Extra Deathrattles a Hero Power gives a minion in combat (Tamsin's Fragrant Phylactery, Bru'kan's Earth Invocation) are cards too: `Unit::extra_deathrattles` lists their card ids, and their `deathrattle` hooks resolve after the minion's own Deathrattle, each counting as a Deathrattle triggered and repeated by `Titus Rivendare` like it.
 
@@ -291,6 +292,9 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 | `Jandice Barov` | *Swap, Lock, & Shop It* (0 Gold, a friendly non-Golden minion): Swap a friendly non-Golden minion with a random one in the Tavern. | A random minion in the shop (one `rng.below(k)`) takes the friendly minion's board slot, and the friendly minion takes its shop slot, each as it is (not a buy, a sale or a summon). It needs a minion in the shop. |
 | `Mutanus the Devourer` | *Devour* (0 Gold, a friendly minion): Sell a friendly minion. Spit its stats onto another. | The minion is sold (1 Gold, its sell triggers and the sell observers, as the `Sell` action), then a random other friendly minion (one `rng.below(k)`) gains its Attack and Health. It needs another friendly minion **(engine decision)**. |
 | `Heistbaron Togwaggle` | *The Perfect Crime* (11 Gold): Steal all cards from the Tavern. Each turn, your next Hero Power costs (1) less. | Every shop card goes to the hand while it has room, left to right (not a buy); the rest stay. At the start of each turn, the first included, it gets 1 cheaper (never below 0) **(engine decision)**; using it puts the cost back to 11. It needs a card in the shop and room in the hand. |
+| `Ysera` | *Dream Portal*: The Tavern offers an extra Dragon whenever it is Refreshed. | `hero_after_refresh`: a Dragon of the player's Tier or lower from the pool (`CardPool::draw_by_tribe`) joins the shop after its minions (before its spell), beyond its usual size, if the Tavern has room (it holds 7 cards, `tavern.md` §3.2). |
+| `Enhance-o Mechano` | *Enhancification*: After the Tavern is Refreshed, give a random minion in it a random Bonus Keyword, twice. | `hero_after_refresh`, twice: a random minion in the shop that lacks one of the Bonus Keywords (Taunt, Divine Shield, Windfury, Venomous, Reborn: **engine decision**) gains one it lacks, at random (one `rng.below(k)` for the minion, one for the keyword); the two can be the same minion. |
+| `Infinite Toki` | *Temporal Tavern* (1 Gold): Refresh the Tavern. Include two minions from a Tier higher than yours. | A Refresh (`TavernState::refresh_shop_with_tier_minions`) whose last 2 minions are of exactly the next Tier (Tier 6 at Tier 6; from the pool, falling back to the highest Tier below with copies left, as a Triple Reward's Discover) **(engine decision)**; the rest as any Refresh, its after-Refresh effects included. |
 
 ---
 
@@ -322,3 +326,5 @@ Engine decisions, pending the user's confirmation:
 | Eudora's Digs | The 4th gives a Golden minion of the player's Tier; the count starts again. | `heroes/captain_eudora.rs` |
 | Mutanus' target | Only with another friendly minion. | `heroes/mutanus_the_devourer.rs` |
 | Togwaggle's discount | From the first turn's start on. | `heroes/heistbaron_togwaggle.rs` |
+| Enhance-o's Bonus Keywords | Taunt, Divine Shield, Windfury, Venomous and Reborn; only a minion that lacks one is picked. | `heroes/enhance_o_mechano.rs` |
+| Toki's minions | Exactly the next Tier (Tier 6 at Tier 6), the last 2 of the shop's minions. | `heroes/infinite_toki.rs` |

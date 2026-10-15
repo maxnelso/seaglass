@@ -1,0 +1,18 @@
+hero: Enhance-o Mechano
+defaults:
+  tavern: {auras: {hero: Enhance-o Mechano}, gold: 10}
+scenarios:
+  - name: a_refresh_gives_bonus_keywords
+    description: >-
+      Twice, a random minion in the shop gains a Bonus Keyword it lacks: at least one minion has
+      one.
+    seeds: "1..=8"
+    steps:
+      - refresh
+    expect:
+      shop:
+        any: {any_of: ["taunt", "divine_shield", "windfury", "venomous", "reborn"]}
+
+  - name: it_is_never_an_action
+    steps:
+      - expect_illegal: hero_power

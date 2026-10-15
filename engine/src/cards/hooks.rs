@@ -509,6 +509,9 @@ card_hooks! {
     hero_after_play(on_hero_after_play): fn(&mut TavernState, &Played, &mut CardPool, &mut Rng),
     /// After the Tavern is upgraded: `(state, pool, rng)`.
     hero_after_upgrade(on_hero_after_upgrade): TavernEventFn,
+    /// The Tavern was Refreshed (not a frozen shop kept), before the cards' after-Refresh
+    /// effects: `(state, pool, rng)`.
+    hero_after_refresh(on_hero_after_refresh): TavernEventFn,
 }
 
 impl Default for CardHooks {
