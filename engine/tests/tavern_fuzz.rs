@@ -20,7 +20,8 @@
 //!   minions in the Tavern with at least 1 Health and no negative Attack, no spell on the board,
 //!   no empty or orphaned Discover, `max_gold`, `upgrade_cost` and Armor as specified, no three
 //!   non-Golden copies left untripled, each unit matching its card (Tier, type, name, base
-//!   stats), no leftover marker id or transient state;
+//!   stats), no leftover marker id or transient state, no Duos card or team counter in a Solo
+//!   game and no minion of no pool offered in a Duos one ([`check_game_cards`]);
 //! - [`check_synced`]: re-syncing the auras changes nothing; [`check_round_trip`]: the state
 //!   survives a serde round trip; [`check_pool_leaks`]: the pool holds at most the base copies
 //!   and no copy leaves it for nowhere;
@@ -40,6 +41,8 @@
 //! Games go on past the failures of known bugs ([`KNOWN_BUGS`], each kept as a `known_bug`
 //! scenario until it is fixed), and `cargo test` fails only on new ones.
 //! [`random_battles_keep_the_invariants`] checks the same combat invariants over random boards.
+//! The `duos` module (`tavern_fuzz/duos.rs`) does all this over random Duos games too, per
+//! player, with the team's own checks (`SEAGLASS_FUZZ_DUOS_*`, see its documentation).
 //!
 //! - `SEAGLASS_FUZZ_GAMES`: the number of games (default 12).
 //! - `SEAGLASS_FUZZ_BATTLES`: the number of random battles (default 300).
@@ -64,8 +67,9 @@
 //! ```sh
 //! CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
 //! SEAGLASS_FUZZ_GAMES=50000 SEAGLASS_FUZZ_BATTLES=3000000 SEAGLASS_FUZZ_THREADS=18 \
+//! SEAGLASS_FUZZ_DUOS_GAMES=20000 SEAGLASS_FUZZ_DUOS_BATTLES=1000000 \
 //! SEAGLASS_FUZZ_LOOKAHEAD=300 SEAGLASS_FUZZ_OUT=target/fuzz \
-//!   cargo test --release -p seaglass --test tavern_fuzz -- --nocapture
+//!   cargo test --release -p seaglass --test tavern_fuzz random_ -- --nocapture --test-threads 1
 //! ```
 
 use std::cell::RefCell;
@@ -87,6 +91,10 @@ use seaglass::{
     TavernState, Unit, UnitId, MAX_SHOP_SIZE,
 };
 use serde::{Deserialize, Serialize};
+
+/// The Duos games: the same checks, per player, plus the team's.
+#[path = "tavern_fuzz/duos.rs"]
+mod duos;
 
 // ---------------------------------------------------------------------------------------------
 // Settings
@@ -400,9 +408,27 @@ struct Call {
     index: u64,
     turn: u32,
     phase: Phase,
+    /// A Duos game's team (`duos.rs`): `player` is then the player in it, and `opponent` the
+    /// opposing team.
+    team: Option<usize>,
     player: usize,
     opponent: Option<usize>,
     action: Option<TavernAction>,
+}
+
+impl Call {
+    /// The call before a game's first one.
+    fn first() -> Self {
+        Call {
+            index: 0,
+            turn: 0,
+            phase: Phase::StartTurn,
+            team: None,
+            player: 0,
+            opponent: None,
+            action: None,
+        }
+    }
 }
 
 /// One failure of one game.
@@ -592,6 +618,7 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
     }
     check_units(s)?;
     check_transients(s)?;
+    check_game_cards(s)?;
     // Three non-Golden copies across board and hand form a Triple, unless its Golden has no room
     // in the hand: the copies are taken from the board first (`docs/tavern.md` §5).
     let mut copies: BTreeMap<u32, (usize, usize)> = BTreeMap::new();
@@ -709,6 +736,85 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
                 return Err(broken(
                     format!("a Discover offers the same card twice: {}", u.name),
                     units_desc(opts),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The card ids of the Duos cards: the Duos-exclusive minions (those of the Duos pool and the
+/// Naga-only ones, in no pool) and the Duos spells (`docs/duos_tavern.md` §8).
+fn duos_card_ids() -> &'static BTreeSet<u32> {
+    static IDS: std::sync::OnceLock<BTreeSet<u32>> = std::sync::OnceLock::new();
+    IDS.get_or_init(|| {
+        cards::duos_exclusive_catalog()
+            .iter()
+            .chain(&cards::duos_out_of_pool_catalog())
+            .map(|t| t.card_id)
+            .chain(cards::spells::all_duos_spells().iter().map(|u| u.card_id))
+            .collect()
+    })
+}
+
+/// The Duos-exclusive minions in no pool (the Naga-only ones, `docs/duos_tavern.md` §8).
+fn out_of_pool_ids() -> &'static BTreeSet<u32> {
+    static IDS: std::sync::OnceLock<BTreeSet<u32>> = std::sync::OnceLock::new();
+    IDS.get_or_init(|| {
+        cards::duos_out_of_pool_catalog()
+            .iter()
+            .map(|t| t.card_id)
+            .collect()
+    })
+}
+
+/// The cards come from the game's catalog (`docs/duos_tavern.md` §8): no Duos card in a Solo game
+/// (its pool, its random cards and its shop spells are Solo ones), and no minion of no pool (the
+/// Naga-only ones) offered by a Duos game's shop or Discovers.
+fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
+    let prompts = s.discover_pending.iter().chain(&s.discover_queue).flatten();
+    if !s.auras.duos_game {
+        // The team counters stay 0 in Solo (`docs/duos_tavern.md` §7.1).
+        if s.auras.team_passes_this_turn != 0
+            || s.auras.team_passes_this_game != 0
+            || !s.auras.teammate_counters.is_empty()
+        {
+            return Err(broken(
+                "a Solo player has team counters",
+                format!(
+                    "passes {}/{}, teammate_counters {:?}",
+                    s.auras.team_passes_this_turn,
+                    s.auras.team_passes_this_game,
+                    s.auras.teammate_counters
+                ),
+            ));
+        }
+        let zones = s
+            .board
+            .iter()
+            .map(|u| ("board", u))
+            .chain(s.hand.iter().map(|u| ("hand", u)))
+            .chain(s.shop.iter().map(|u| ("shop", u)))
+            .chain(prompts.map(|u| ("Discover", u)));
+        for (zone, u) in zones {
+            if duos_card_ids().contains(&u.card_id) {
+                return Err(broken(
+                    format!("a Duos card in a Solo game's {zone}: {}", u.name),
+                    unit_desc(u),
+                ));
+            }
+        }
+    } else {
+        let offered = s
+            .shop
+            .iter()
+            .map(|u| ("shop", u))
+            .chain(prompts.map(|u| ("Discover", u)));
+        for (zone, u) in offered {
+            if out_of_pool_ids().contains(&u.card_id) {
+                return Err(broken(
+                    format!("a minion of no pool is offered in the {zone}: {}", u.name),
+                    unit_desc(u),
                 ));
             }
         }
@@ -1100,7 +1206,29 @@ fn check_pool_leaks(
     pool: &CardPool,
     catalog: &[CardTemplate],
 ) -> Result<(), Violation> {
+    check_pool_leaks_with(players, &[], pool, catalog)
+}
+
+/// [`check_pool_leaks`], with the `queued` cards held outside the players' Taverns too (a Duos
+/// team's incoming queues).
+fn check_pool_leaks_with(
+    players: &[TavernState],
+    queued: &[Unit],
+    pool: &CardPool,
+    catalog: &[CardTemplate],
+) -> Result<(), Violation> {
     let mut held: BTreeMap<u32, u32> = BTreeMap::new();
+    let mut hold = |u: &Unit| {
+        if !u.is_spell {
+            let copies = if u.is_golden && !u.intrinsic_golden && !u.golden_from_effect {
+                3
+            } else {
+                1
+            };
+            *held.entry(u.card_id).or_default() += copies;
+        }
+    };
+    queued.iter().for_each(&mut hold);
     for s in players {
         let prompts = s.discover_pending.iter().chain(&s.discover_queue).flatten();
         // A Duos card's gift waiting for the teammate (there is none in a Solo game).
@@ -1108,23 +1236,13 @@ fn check_pool_leaks(
             TeammateGift::Card(u) | TeammateGift::Pass(u) => Some(u),
             TeammateGift::Effect { .. } => None,
         });
-        for u in s
-            .board
+        s.board
             .iter()
             .chain(&s.hand)
             .chain(&s.shop)
             .chain(prompts)
             .chain(gifts)
-        {
-            if !u.is_spell {
-                let copies = if u.is_golden && !u.intrinsic_golden && !u.golden_from_effect {
-                    3
-                } else {
-                    1
-                };
-                *held.entry(u.card_id).or_default() += copies;
-            }
-        }
+            .for_each(&mut hold);
     }
     for t in catalog {
         let remaining = pool.remaining_copies(t.card_id);
@@ -1339,6 +1457,198 @@ fn check_health_kept(before: i32, s: &TavernState) -> Result<(), Violation> {
 /// A hero's Health and Armor together.
 fn hit_points(s: &TavernState) -> i32 {
     s.health + s.armor
+}
+
+/// What a Tavern action must do, from the state just before it (`docs/tavern.md` §6): its price
+/// in Gold, the card it puts in the hand, the Triple Reward of a Golden played from hand, and so
+/// on. [`Expect::check`] checks the state after it.
+struct Expect {
+    action: TavernAction,
+    kind: Kind,
+    before_hp: i32,
+    /// The action costs Health (a Health Refresh, a Health-cost spell).
+    health_cost: bool,
+    tier: u32,
+    prompts: usize,
+    tavern_spells_cast: u32,
+    /// The card the action puts in the hand (a bought minion, a Discovered card).
+    to_hand: Option<u32>,
+    /// A Golden played from hand must offer a Triple Reward (of `reward_tier`, if the pool has
+    /// copies of it: `reward_tier_left`).
+    triple_reward: bool,
+    reward_tier: u32,
+    reward_tier_left: bool,
+    casts_tavern_spell: bool,
+    gold: u32,
+    /// What the action costs in Gold, when nothing else changes the Gold.
+    cost: Option<u32>,
+}
+
+impl Expect {
+    fn new(
+        s: &TavernState,
+        action: TavernAction,
+        pool: &CardPool,
+        catalog: &[CardTemplate],
+    ) -> Self {
+        let health_cost = match action {
+            TavernAction::Refresh => s.auras.free_refreshes == 0 && s.has_health_refresh(),
+            TavernAction::Buy { shop_index } => s
+                .shop
+                .get(shop_index)
+                .is_some_and(|u| u.is_spell && u.costs_health),
+            _ => false,
+        };
+        let reward_tier = (s.tavern_tier + 1).min(6);
+        let room = s.hand.len() < 10;
+        let free_refresh = action == TavernAction::Refresh
+            && (s.auras.free_refreshes > 0 || s.has_health_refresh());
+        let cost = match action {
+            TavernAction::Buy { shop_index } => s.shop.get(shop_index).map(|u| {
+                if !u.is_spell {
+                    3
+                } else if u.costs_health {
+                    0
+                } else {
+                    s.effective_spell_buy_cost(u)
+                }
+            }),
+            TavernAction::Refresh => Some(if free_refresh { 0 } else { 1 }),
+            TavernAction::UpgradeTavern => Some(s.upgrade_cost),
+            // (Not an Activate: its effect can give Gold, a Kelp Keeper triggering a Battlecry
+            // that casts a Tavern Coin.)
+            _ => None,
+        };
+        let mut expect = Expect {
+            action,
+            kind: kind_of(s, &action),
+            before_hp: hit_points(s),
+            health_cost,
+            tier: s.tavern_tier,
+            prompts: s.discover_pending.iter().chain(&s.discover_queue).count(),
+            tavern_spells_cast: s.auras.tavern_spells_cast,
+            to_hand: None,
+            triple_reward: false,
+            reward_tier,
+            reward_tier_left: false,
+            casts_tavern_spell: false,
+            gold: s.gold,
+            cost,
+        };
+        match action {
+            TavernAction::Buy { shop_index } => {
+                // (A wildcard `Elemental of Surprise` triples into another card's Golden.)
+                expect.to_hand = s
+                    .shop
+                    .get(shop_index)
+                    .filter(|u| !u.is_spell && !is_wildcard(u))
+                    .map(|u| u.card_id);
+            }
+            TavernAction::ChooseDiscover { option_index } => {
+                expect.to_hand = s
+                    .discover_pending
+                    .as_ref()
+                    .and_then(|o| o.get(option_index))
+                    .filter(|u| !u.is_spell && !is_wildcard(u) && !cards::is_option_card(u.card_id))
+                    .map(|u| u.card_id)
+                    .filter(|_| room);
+            }
+            TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } => {
+                if let Some(card) = s.hand.get(hand_index) {
+                    expect.triple_reward = !card.is_spell
+                        && card.is_golden
+                        && !card.intrinsic_golden
+                        && pool_copies(pool, catalog, reward_tier) >= 3;
+                    expect.reward_tier_left =
+                        expect.triple_reward && exact_tier_copies(pool, catalog, reward_tier) > 0;
+                    expect.casts_tavern_spell =
+                        card.is_spell && cards::spells::is_tavern_spell(card.card_id);
+                }
+            }
+            _ => {}
+        }
+        expect
+    }
+
+    /// The checks of `s`, the state just after the action, in order: a Health cost never kills,
+    /// Upgrade goes up one Tier, a bought or Discovered card reaches the hand, a Golden played
+    /// from hand offers a Triple Reward of the next Tier, prices are paid in Gold, a Sell gives
+    /// 1 Gold, a Tavern spell counts as cast, and a Refresh rolls a full shop.
+    fn check(
+        &self,
+        s: &TavernState,
+        pool: &CardPool,
+        catalog: &[CardTemplate],
+    ) -> Vec<Result<(), Violation>> {
+        let (action, kind, tier, gold) = (self.action, self.kind, self.tier, self.gold);
+        let mut checks = Vec::new();
+        if self.health_cost && self.before_hp > 0 && s.health <= 0 {
+            checks.push(Err(violation(
+                FailureKind::IllegalActionAccepted,
+                format!("a Health cost ({:?}) killed the hero", kind),
+                format!("{} -> {} Health + Armor", self.before_hp, hit_points(s)),
+            )));
+        }
+        if action == TavernAction::UpgradeTavern
+            && (s.tavern_tier != tier + 1 || s.upgrade_cost != base_upgrade_cost(s.tavern_tier))
+        {
+            checks.push(Err(broken(
+                "UpgradeTavern did not go up one Tier at its base upgrade cost",
+                format!("tier {tier} -> {}, cost {}", s.tavern_tier, s.upgrade_cost),
+            )));
+        }
+        if let Some(cid) = self.to_hand {
+            if !s.hand.iter().any(|u| u.card_id == cid) {
+                checks.push(Err(broken(
+                    format!("the {:?} card did not reach the hand", kind),
+                    format!("card id {cid}, hand {}", units_desc(&s.hand)),
+                )));
+            }
+        }
+        if self.triple_reward {
+            let last = s.discover_queue.last().or(s.discover_pending.as_ref());
+            if s.discover_pending.iter().chain(&s.discover_queue).count() <= self.prompts {
+                checks.push(Err(broken(
+                    "a Golden played from hand offered no Triple Reward",
+                    format!("board {}", units_desc(&s.board)),
+                )));
+            } else if let Some(opts) = last.filter(|_| self.reward_tier_left) {
+                if opts.iter().any(|u| u.tavern_tier != self.reward_tier) {
+                    checks.push(Err(broken(
+                        "a Triple Reward offers minions of another Tier",
+                        format!("Tier {} expected: {}", self.reward_tier, units_desc(opts)),
+                    )));
+                }
+            }
+        }
+        if let Some(cost) = self.cost {
+            if s.gold + cost != gold {
+                checks.push(Err(broken(
+                    format!("a {:?} did not cost its price in Gold", kind),
+                    format!("{gold} -> {} Gold for a cost of {cost}", s.gold),
+                )));
+            }
+        }
+        if matches!(action, TavernAction::Sell { .. }) && s.gold < gold + 1 {
+            checks.push(Err(broken(
+                "a Sell did not give 1 Gold",
+                format!("{gold} -> {} Gold", s.gold),
+            )));
+        }
+        if self.casts_tavern_spell && s.auras.tavern_spells_cast <= self.tavern_spells_cast {
+            checks.push(Err(broken(
+                "a Tavern spell played from hand was not counted as cast",
+                format!("tavern_spells_cast {}", s.auras.tavern_spells_cast),
+            )));
+        }
+        if action == TavernAction::Refresh {
+            if s.is_frozen {
+                checks.push(Err(broken("the shop is still frozen after a Refresh", "")));
+            }
+            checks.push(check_refilled_shop(s, pool, catalog, "Refresh"));
+        }
+        checks
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1582,14 +1892,7 @@ impl Game {
             policy: Rng::new(seed ^ 0x9071_C700_0000_0001),
             players,
             ghost: None,
-            call: Call {
-                index: 0,
-                turn: 0,
-                phase: Phase::StartTurn,
-                player: 0,
-                opponent: None,
-                action: None,
-            },
+            call: Call::first(),
             stop_at: None,
             taken: None,
             ghost_now: None,
@@ -1617,7 +1920,7 @@ impl Game {
 
     /// Stop at the first failed check, unless it is a known bug and the game goes on past
     /// those (`continue_known`): then keep it in `known` (once per game) and go on.
-    fn tolerate<const N: usize>(&mut self, checks: [Result<(), Violation>; N]) -> Flow {
+    fn tolerate(&mut self, checks: impl IntoIterator<Item = Result<(), Violation>>) -> Flow {
         for check in checks {
             if let Err(v) = check {
                 let failure = self.failure(v.clone());
@@ -1830,48 +2133,8 @@ impl Game {
             println!("    t{} p{p} {action:?} {}", self.call.turn, self.cards);
         }
         let s = &mut self.players[p];
-        let kind = kind_of(s, &action);
-        let before_hp = hit_points(s);
+        let expect = Expect::new(s, action, &self.pool, &self.catalog);
         let old_health = s.health;
-        let health_cost = match action {
-            TavernAction::Refresh => s.auras.free_refreshes == 0 && s.has_health_refresh(),
-            TavernAction::Buy { shop_index } => s
-                .shop
-                .get(shop_index)
-                .is_some_and(|u| u.is_spell && u.costs_health),
-            _ => false,
-        };
-        let tier = s.tavern_tier;
-        let prompts = s.discover_pending.iter().chain(&s.discover_queue).count();
-        let tavern_spells_cast = s.auras.tavern_spells_cast;
-        // The card an action puts in the hand (a bought minion, a Discovered card), and the
-        // Golden played from hand that must offer a Triple Reward.
-        let mut to_hand = None;
-        let mut triple_reward = false;
-        let reward_tier = (s.tavern_tier + 1).min(6);
-        let mut reward_tier_left = false;
-        let mut casts_tavern_spell = false;
-        let room = s.hand.len() < 10;
-        let gold = s.gold;
-        let free_refresh = action == TavernAction::Refresh
-            && (s.auras.free_refreshes > 0 || s.has_health_refresh());
-        // What the action costs in Gold (`docs/tavern.md` §6), when nothing else changes the Gold.
-        let cost = match action {
-            TavernAction::Buy { shop_index } => s.shop.get(shop_index).map(|u| {
-                if !u.is_spell {
-                    3
-                } else if u.costs_health {
-                    0
-                } else {
-                    s.effective_spell_buy_cost(u)
-                }
-            }),
-            TavernAction::Refresh => Some(if free_refresh { 0 } else { 1 }),
-            TavernAction::UpgradeTavern => Some(s.upgrade_cost),
-            // (Not an Activate: its effect can give Gold, a Kelp Keeper triggering a Battlecry
-            // that casts a Tavern Coin.)
-            _ => None,
-        };
         if let TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } =
             action
         {
@@ -1879,44 +2142,12 @@ impl Game {
                 *self.played.entry(card.card_id).or_default() += 1;
             }
         }
-        match action {
-            TavernAction::Buy { shop_index } => {
-                // (A wildcard `Elemental of Surprise` triples into another card's Golden.)
-                to_hand = s
-                    .shop
-                    .get(shop_index)
-                    .filter(|u| !u.is_spell && !is_wildcard(u))
-                    .map(|u| u.card_id);
-            }
-            TavernAction::ChooseDiscover { option_index } => {
-                to_hand = s
-                    .discover_pending
-                    .as_ref()
-                    .and_then(|o| o.get(option_index))
-                    .filter(|u| !u.is_spell && !is_wildcard(u) && !cards::is_option_card(u.card_id))
-                    .map(|u| u.card_id)
-                    .filter(|_| room);
-            }
-            TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } => {
-                if let Some(card) = s.hand.get(hand_index) {
-                    triple_reward = !card.is_spell
-                        && card.is_golden
-                        && !card.intrinsic_golden
-                        && pool_copies(&self.pool, &self.catalog, reward_tier) >= 3;
-                    reward_tier_left = triple_reward
-                        && exact_tier_copies(&self.pool, &self.catalog, reward_tier) > 0;
-                    casts_tavern_spell =
-                        card.is_spell && cards::spells::is_tavern_spell(card.card_id);
-                }
-            }
-            _ => {}
-        }
         let ended = match s.step(action, &mut self.pool, &mut self.rng) {
             Ok(ended) => ended,
             Err(e) => {
                 return Err(violation(
                     FailureKind::LegalActionRejected,
-                    format!("step rejects a listed {:?}", kind),
+                    format!("step rejects a listed {:?}", expect.kind),
                     e,
                 )
                 .into())
@@ -1926,92 +2157,18 @@ impl Game {
             return Err(broken(format!("step returned {ended} for {action:?}"), "").into());
         }
         let s = &self.players[p];
-        if health_cost && before_hp > 0 && s.health <= 0 {
-            return Err(violation(
-                FailureKind::IllegalActionAccepted,
-                format!("a Health cost ({:?}) killed the hero", kind),
-                format!("{before_hp} -> {} Health + Armor", hit_points(s)),
-            )
-            .into());
-        }
-        if action == TavernAction::UpgradeTavern
-            && (s.tavern_tier != tier + 1 || s.upgrade_cost != base_upgrade_cost(s.tavern_tier))
-        {
-            return Err(broken(
-                "UpgradeTavern did not go up one Tier at its base upgrade cost",
-                format!("tier {tier} -> {}, cost {}", s.tavern_tier, s.upgrade_cost),
-            )
-            .into());
-        }
-        if let Some(cid) = to_hand {
-            if !s.hand.iter().any(|u| u.card_id == cid) {
-                let lost = broken(
-                    format!("the {:?} card did not reach the hand", kind),
-                    format!("card id {cid}, hand {}", units_desc(&s.hand)),
-                );
-                self.tolerate([Err(lost)])?;
-            }
-        }
-        let s = &self.players[p];
-        if triple_reward {
-            let last = s.discover_queue.last().or(s.discover_pending.as_ref());
-            if s.discover_pending.iter().chain(&s.discover_queue).count() <= prompts {
-                return Err(broken(
-                    "a Golden played from hand offered no Triple Reward",
-                    format!("board {}", units_desc(&s.board)),
-                )
-                .into());
-            }
-            if let Some(opts) = last.filter(|_| reward_tier_left) {
-                if opts.iter().any(|u| u.tavern_tier != reward_tier) {
-                    return Err(broken(
-                        "a Triple Reward offers minions of another Tier",
-                        format!("Tier {reward_tier} expected: {}", units_desc(opts)),
-                    )
-                    .into());
-                }
-            }
-        }
-        if let Some(cost) = cost {
-            if s.gold + cost != gold {
-                return Err(broken(
-                    format!("a {:?} did not cost its price in Gold", kind),
-                    format!("{gold} -> {} Gold for a cost of {cost}", s.gold),
-                )
-                .into());
-            }
-        }
-        if matches!(action, TavernAction::Sell { .. }) && s.gold < gold + 1 {
-            return Err(broken(
-                "a Sell did not give 1 Gold",
-                format!("{gold} -> {} Gold", s.gold),
-            )
-            .into());
-        }
-        if casts_tavern_spell && s.auras.tavern_spells_cast <= tavern_spells_cast {
-            return Err(broken(
-                "a Tavern spell played from hand was not counted as cast",
-                format!("tavern_spells_cast {}", s.auras.tavern_spells_cast),
-            )
-            .into());
-        }
-        if action == TavernAction::Refresh {
-            if s.is_frozen {
-                return Err(broken("the shop is still frozen after a Refresh", "").into());
-            }
-            check_refilled_shop(s, &self.pool, &self.catalog, "Refresh")?;
-        }
+        let mut checks = expect.check(s, &self.pool, &self.catalog);
         let leaks = if self.trace {
             check_pool_leaks(&self.players, &self.pool, &self.catalog)
         } else {
             Ok(())
         };
-        let checks = [
+        checks.extend([
             check_health_kept(old_health, s),
             check_synced(s),
             check_tavern(s),
             leaks,
-        ];
+        ]);
         self.tolerate(checks)?;
         Ok(ended)
     }
@@ -2025,7 +2182,10 @@ impl Game {
         self.players[p] = player;
         self.pool = pool;
         self.rng = rng;
-        self.call.action = None;
+        // (A failure keeps its action, for its snapshot.)
+        if result.is_ok() {
+            self.call.action = None;
+        }
         result.map(|_| ())
     }
 
@@ -2241,7 +2401,11 @@ fn fuzz_game(seed: u64, settings: &Settings) -> (Vec<Failure>, BTreeMap<u32, u32
 
 /// The failure of the first run of a game, or a nondeterminism if its replay differs.
 fn check_replay(seed: u64, settings: &Settings, first: Run) -> Option<Failure> {
-    let replay = run_game(seed, settings, false);
+    compare_replay(seed, first, run_game(seed, settings, false))
+}
+
+/// The failure of the `first` run of a game, or a nondeterminism if its `replay` differs.
+fn compare_replay(seed: u64, first: Run, replay: Run) -> Option<Failure> {
     let same =
         |f: &Failure, g: &Failure| f.signature == g.signature && f.call.index == g.call.index;
     let same_failure = match (&first.failure, &replay.failure) {
@@ -2264,14 +2428,7 @@ fn check_replay(seed: u64, settings: &Settings, first: Run) -> Option<Failure> {
             .failure
             .as_ref()
             .map(|f| f.call.clone())
-            .unwrap_or(Call {
-                index: 0,
-                turn: 0,
-                phase: Phase::StartTurn,
-                player: 0,
-                opponent: None,
-                action: None,
-            });
+            .unwrap_or_else(Call::first);
         return Some(Failure {
             seed,
             kind: FailureKind::Nondeterminism,
@@ -2384,6 +2541,15 @@ impl Groups {
 }
 
 fn run_all(settings: &Settings) -> Groups {
+    run_games(settings, fuzz_game)
+}
+
+/// Play `settings.games` games with `fuzz` (a game's failures and the cards it played), on
+/// `settings.threads` threads.
+fn run_games(
+    settings: &Settings,
+    fuzz: impl Fn(u64, &Settings) -> (Vec<Failure>, BTreeMap<u32, u32>) + Sync,
+) -> Groups {
     let groups = Mutex::new(Groups::default());
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
@@ -2391,7 +2557,7 @@ fn run_all(settings: &Settings) -> Groups {
     let started = Instant::now();
     std::thread::scope(|scope| {
         for worker in 0..settings.threads {
-            let (groups, next, done, running) = (&groups, &next, &done, &running);
+            let (groups, next, done, running, fuzz) = (&groups, &next, &done, &running, &fuzz);
             scope.spawn(move || loop {
                 let i = next.fetch_add(1, Ordering::Relaxed) as u64;
                 if i >= settings.games {
@@ -2399,7 +2565,7 @@ fn run_all(settings: &Settings) -> Groups {
                 }
                 let seed = settings.first_seed + i;
                 running.lock().unwrap()[worker] = Some((seed, Instant::now()));
-                let (failures, played) = fuzz_game(seed, settings);
+                let (failures, played) = fuzz(seed, settings);
                 running.lock().unwrap()[worker] = None;
                 let mut g = groups.lock().unwrap();
                 g.games += 1;
@@ -2444,18 +2610,46 @@ fn run_all(settings: &Settings) -> Groups {
 }
 
 fn describe_call(call: &Call) -> String {
-    let opponent = call
-        .opponent
-        .map(|o| format!(" v player {o}"))
-        .unwrap_or_default();
+    let (who, opponent) = match call.team {
+        Some(team) => (
+            format!("team {team} player {}", call.player),
+            call.opponent.map(|o| format!(" v team {o}")),
+        ),
+        None => (
+            format!("player {}", call.player),
+            call.opponent.map(|o| format!(" v player {o}")),
+        ),
+    };
+    let opponent = opponent.unwrap_or_default();
     let action = call.action.map(|a| format!(" {a:?}")).unwrap_or_default();
     format!(
-        "turn {} {:?} player {}{opponent}{action} (call {})",
-        call.turn, call.phase, call.player, call.index
+        "turn {} {:?} {who}{opponent}{action} (call {})",
+        call.turn, call.phase, call.index
     )
 }
 
 fn report(groups: &Groups, settings: &Settings) -> String {
+    let coverage: Vec<(u32, String)> = catalog_for("full")
+        .expect("full catalog")
+        .iter()
+        .map(|t| (t.card_id, t.name.clone()))
+        .chain(
+            cards::spells::all_spells()
+                .iter()
+                .map(|u| (u.card_id, u.name.clone())),
+        )
+        .collect();
+    report_with(groups, settings, &coverage, known_bug)
+}
+
+/// The report of a run: its failure groups (each one's count and earliest failure, with
+/// `known`'s reason if it is a known bug), and the `coverage` cards never played from hand.
+fn report_with(
+    groups: &Groups,
+    settings: &Settings,
+    coverage: &[(u32, String)],
+    known: fn(&Failure) -> Option<&'static str>,
+) -> String {
     let mut out = String::new();
     let failures: usize = groups.groups.values().map(|(c, _)| c).sum();
     let _ = writeln!(
@@ -2469,17 +2663,10 @@ fn report(groups: &Groups, settings: &Settings) -> String {
     );
     if groups.games >= 1000 {
         // Coverage: the catalog minions and Tavern spells never played from hand.
-        let never: Vec<String> = catalog_for("full")
-            .expect("full catalog")
+        let never: Vec<&str> = coverage
             .iter()
-            .map(|t| (t.card_id, t.name.clone()))
-            .chain(
-                cards::spells::all_spells()
-                    .iter()
-                    .map(|u| (u.card_id, u.name.clone())),
-            )
             .filter(|(id, _)| !groups.played.contains_key(id))
-            .map(|(_, name)| name)
+            .map(|(_, name)| name.as_str())
             .collect();
         let _ = writeln!(
             out,
@@ -2491,7 +2678,7 @@ fn report(groups: &Groups, settings: &Settings) -> String {
     let mut sorted: Vec<&(usize, Failure)> = groups.groups.values().collect();
     sorted.sort_by_key(|(count, f)| (f.kind, std::cmp::Reverse(*count)));
     for (count, f) in sorted {
-        let known = known_bug(f)
+        let known = known(f)
             .map(|w| format!(" [known: {w}]"))
             .unwrap_or_default();
         let _ = writeln!(out, "\n{count} x {}{known}", f.signature);
