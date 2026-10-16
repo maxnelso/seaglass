@@ -881,8 +881,9 @@ impl Unit {
         } else {
             hp
         };
-        self.attack += eff_atk;
-        self.health += eff_hp;
+        // Stats saturate at `i32::MAX` / `i32::MIN` (`docs/tavern.md` §4.2).
+        self.attack = self.attack.saturating_add(eff_atk);
+        self.health = self.health.saturating_add(eff_hp);
         if self.attack > self.max_attack {
             self.max_attack = self.attack;
         }

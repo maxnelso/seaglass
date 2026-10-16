@@ -12,10 +12,17 @@ scenarios:
       - end_turn
     expect: {board: ["8/8"]}
 
-  - name: it_stops_doubling_at_1024
-    description: An engine decision.
+  - name: it_keeps_doubling_and_stats_saturate
+    description: No cap (confirmed); from 2^31 on the bonus is 2,147,483,647 and stats saturate there.
+    tavern: {turn: 5, board: ["1/1"], auras: {trinkets: [{trinket: Weighted Gauntlet, counter: 30}]}}
+    steps:
+      - start_turn
+      - end_turn
+    expect: {board: ["2147483647/2147483647"], auras: {trinkets: [{counter: 31}]}}
+
+  - name: a_large_bonus_doubles_past_1024
     tavern: {turn: 5, board: ["1/1"], auras: {trinkets: [{trinket: Weighted Gauntlet, counter: 10}]}}
     steps:
       - start_turn
       - end_turn
-    expect: {board: ["1025/1025"], auras: {trinkets: [{counter: 10}]}}
+    expect: {board: ["2049/2049"]}
