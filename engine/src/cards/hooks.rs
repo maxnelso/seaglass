@@ -636,6 +636,11 @@ card_hooks! {
     /// A card was discarded from the hand, after the cards' discard observers: `(state, card,
     /// pool, rng)`.
     trinket_after_discard(on_trinket_after_discard): CardEventFn,
+    /// What buying `card` costs, given the price so far (`TavernState::buy_price`): `(trinket,
+    /// state, card, price)`.
+    trinket_buy_price(on_trinket_buy_price): fn(&TrinketState, &TavernState, &Unit, crate::tavern::BuyPrice) -> crate::tavern::BuyPrice,
+    /// The copies of a minion a Triple takes, if this trinket lowers it: `(card_id)`.
+    trinket_triple_copies(on_trinket_triple_copies): fn(CardId) -> Option<usize>,
 }
 
 impl Default for CardHooks {

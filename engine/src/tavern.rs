@@ -500,6 +500,13 @@ pub enum TavernAction {
     },
 }
 
+/// What buying a card costs (`TavernState::buy_price`): `cost` Gold, or `cost` Health if `health`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BuyPrice {
+    pub cost: u32,
+    pub health: bool,
+}
+
 /// Which Refresh the Tavern's new cards come from (`docs/tavern.md` §4.1): "after the Tavern is
 /// Refreshed" effects see both, "after you Refresh" ones only [`RefreshKind::Player`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1070,6 +1077,30 @@ impl TavernState {
 
     /// The Gold a minion costs to buy now (`docs/tavern.md` §6): 3 (or the Hero Power's price,
     /// §3.3), less `next_minion_discount`.
+    /// What buying the shop card `card` costs (`docs/tavern.md` §6): a minion's price
+    /// ([`minion_buy_cost`](Self::minion_buy_cost)) or a spell's
+    /// ([`effective_spell_buy_cost`](Self::effective_spell_buy_cost)), in Health if the card
+    /// `costs_health`, then the trinkets' price changes (`trinket_buy_price`).
+    pub fn buy_price(&self, card: &Unit) -> BuyPrice {
+        let cost = if card.is_spell {
+            self.effective_spell_buy_cost(card)
+        } else {
+            self.minion_buy_cost()
+        };
+        let base = BuyPrice {
+            cost,
+            health: card.costs_health,
+        };
+        trinkets::buy_price(self, card, base)
+    }
+
+    /// The copies of `card_id` a Triple takes: [`triple_copies`](Self::triple_copies), or fewer
+    /// if a trinket says so (`trinket_triple_copies`: `Designer Eyepatch`).
+    pub fn triple_copies_for(&self, card_id: CardId) -> usize {
+        let n = self.triple_copies();
+        trinkets::triple_copies(&self.auras, card_id).map_or(n, |t| t.min(n))
+    }
+
     pub fn minion_buy_cost(&self) -> u32 {
         let price = heroes::tavern_rules(&self.auras).minion_cost as i32;
         (price - self.auras.next_minion_discount).max(0) as u32
@@ -1798,16 +1829,12 @@ impl TavernState {
                 if self.hand.len() >= 10 || cards::hooks(card.card_id).has(CardFlags::UNBUYABLE) {
                     return false;
                 }
-                if card.is_spell {
-                    let cost = self.effective_spell_buy_cost(card);
-                    if card.costs_health {
-                        self.health + self.armor > cost as i32
-                            || cards::board_prevents_hero_damage(&self.board)
-                    } else {
-                        self.gold >= cost
-                    }
+                let price = self.buy_price(card);
+                if price.health {
+                    self.health + self.armor > price.cost as i32
+                        || cards::board_prevents_hero_damage(&self.board)
                 } else {
-                    self.gold >= self.minion_buy_cost()
+                    self.gold >= price.cost
                 }
             }
             TavernAction::Play {
@@ -2188,11 +2215,12 @@ impl TavernState {
                 let mut unit = self.shop.remove(shop_index);
                 unit.frozen = false;
                 let bought_snapshot = unit.clone();
+                let price = self.buy_price(&unit);
                 let obtained;
                 if unit.is_spell {
-                    let cost = self.effective_spell_buy_cost(&unit);
+                    let cost = price.cost;
                     self.auras.next_spell_discount = 0;
-                    let costs_health = unit.costs_health;
+                    let costs_health = price.health;
                     obtained = unit.clone();
                     trinkets::card_added(self, &obtained);
                     self.hand.push(unit);
@@ -2203,7 +2231,7 @@ impl TavernState {
                         self.spend_gold(cost, pool, rng);
                     }
                 } else {
-                    let cost = self.minion_buy_cost();
+                    let cost = price.cost;
                     self.auras.next_minion_discount = 0;
                     cards::on_minion_bought(self, &mut unit);
                     let cid = unit.card_id;
@@ -2212,7 +2240,11 @@ impl TavernState {
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
-                    self.spend_gold(cost, pool, rng);
+                    if price.health {
+                        self.deal_hero_damage(cost as i32);
+                    } else {
+                        self.spend_gold(cost, pool, rng);
+                    }
                 }
                 cards::on_obtained(self, &obtained, pool, rng);
                 cards::after_buy_card(self, &bought_snapshot, pool, rng);
@@ -2454,7 +2486,7 @@ impl TavernState {
                 && !no_triple(u.card_id)
         };
 
-        let n = self.triple_copies();
+        let n = self.triple_copies_for(card_id);
         let exact_count = self
             .board
             .iter()

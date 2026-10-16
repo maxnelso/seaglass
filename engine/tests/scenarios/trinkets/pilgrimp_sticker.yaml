@@ -1,0 +1,11 @@
+trinket: Pilgrimp Sticker
+scenarios:
+  - name: one_demon_each_turn_costs_health
+    tavern: {gold: 10, health: 30, shop: ["1/1 beast", "1/1 demon", "1/1 demon"], auras: {trinkets: [Pilgrimp Sticker]}}
+    steps:
+      - buy: 0
+      - expect: {gold: 7, health: 30}
+      - buy: 0
+      - expect: {gold: 7, health: 27}
+      - buy: 0
+    expect: {gold: 4, health: 27}

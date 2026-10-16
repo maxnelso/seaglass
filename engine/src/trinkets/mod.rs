@@ -20,6 +20,7 @@ pub mod baleful_incense;
 pub mod baller_portrait;
 pub mod baller_portrait_greater;
 pub mod bartend_o_trons_oilcan;
+pub mod bazaar_sticker;
 pub mod beatboxer_portrait;
 pub mod beetle_band;
 pub mod beetle_band_greater;
@@ -45,10 +46,13 @@ pub mod cursed_crystal;
 pub mod dalaran_cheese_wheel;
 pub mod defensive_shell;
 pub mod demonic_bloodletter;
+pub mod demonic_tapestry;
+pub mod designer_eyepatch;
 pub mod dragon_skull;
 pub mod dragons_eye;
 pub mod dragonwing_glider;
 pub mod dramaloc_sticker;
+pub mod electrode_attractor;
 pub mod emergency_gearblade;
 pub mod enigmatic_headstone;
 pub mod eternal_portrait;
@@ -100,6 +104,7 @@ pub mod nether_pendant;
 pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
 pub mod orc_estra_portrait;
+pub mod pilgrimp_sticker;
 pub mod pocket_cyclone;
 pub mod pocket_cyclone_greater;
 pub mod protective_ring;
@@ -128,6 +133,7 @@ pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
 pub mod the_eye_of_dalaran;
+pub mod the_eye_of_sargeras;
 pub mod tome_of_the_ancients;
 pub mod trailblazer_sticker;
 pub mod training_certificate;
@@ -140,6 +146,7 @@ pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod wand_of_divination;
 pub mod war_drum;
+pub mod warcry_totem;
 pub mod water_wheel;
 pub mod weighted_gauntlet;
 pub mod wicked_tome;
@@ -157,7 +164,7 @@ use crate::model::{
     CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, Unit, UnitId, LOBBY_TRIBES,
 };
 use crate::rng::Rng;
-use crate::tavern::{CardPool, MinionSlot, RefreshKind, TavernState};
+use crate::tavern::{BuyPrice, CardPool, MinionSlot, RefreshKind, TavernState};
 
 /// A trinket of the pool (`docs/trinkets.md` §2.1): one row of the generated table.
 #[derive(Clone, Copy, Debug)]
@@ -211,6 +218,7 @@ const IMPLEMENTED: &[Implemented] = &[
         bartend_o_trons_oilcan::ID,
         bartend_o_trons_oilcan::behaviors,
     ),
+    (bazaar_sticker::ID, bazaar_sticker::behaviors),
     (beatboxer_portrait::ID, beatboxer_portrait::behaviors),
     (beetle_band::ID, beetle_band::behaviors),
     (beetle_band_greater::ID, beetle_band_greater::behaviors),
@@ -248,10 +256,13 @@ const IMPLEMENTED: &[Implemented] = &[
     (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
     (defensive_shell::ID, defensive_shell::behaviors),
     (demonic_bloodletter::ID, demonic_bloodletter::behaviors),
+    (demonic_tapestry::ID, demonic_tapestry::behaviors),
+    (designer_eyepatch::ID, designer_eyepatch::behaviors),
     (dragon_skull::ID, dragon_skull::behaviors),
     (dragons_eye::ID, dragons_eye::behaviors),
     (dragonwing_glider::ID, dragonwing_glider::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
+    (electrode_attractor::ID, electrode_attractor::behaviors),
     (emergency_gearblade::ID, emergency_gearblade::behaviors),
     (enigmatic_headstone::ID, enigmatic_headstone::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
@@ -315,6 +326,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (nomi_sticker::ID, nomi_sticker::behaviors),
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
     (orc_estra_portrait::ID, orc_estra_portrait::behaviors),
+    (pilgrimp_sticker::ID, pilgrimp_sticker::behaviors),
     (pocket_cyclone::ID, pocket_cyclone::behaviors),
     (
         pocket_cyclone_greater::ID,
@@ -349,6 +361,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
+    (the_eye_of_sargeras::ID, the_eye_of_sargeras::behaviors),
     (tome_of_the_ancients::ID, tome_of_the_ancients::behaviors),
     (trailblazer_sticker::ID, trailblazer_sticker::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
@@ -370,6 +383,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (wand_of_divination::ID, wand_of_divination::behaviors),
     (war_drum::ID, war_drum::behaviors),
+    (warcry_totem::ID, warcry_totem::behaviors),
     (water_wheel::ID, water_wheel::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (wicked_tome::ID, wicked_tome::behaviors),
@@ -861,6 +875,26 @@ pub fn extra_spell_casts(auras: &mut PlayerAuras) -> u32 {
         }
     }
     extra
+}
+
+/// What buying `card` costs, after each trinket's `trinket_buy_price` (in pick order).
+pub fn buy_price(state: &TavernState, card: &Unit, mut price: BuyPrice) -> BuyPrice {
+    for trinket in &state.auras.trinkets {
+        if let Some(buy_price) = hooks(trinket.card_id).trinket_buy_price {
+            price = buy_price(trinket, state, card, price);
+        }
+    }
+    price
+}
+
+/// The fewest copies of `card_id` a trinket makes a Triple take (`trinket_triple_copies`).
+pub fn triple_copies(auras: &PlayerAuras, card_id: CardId) -> Option<usize> {
+    auras
+        .trinkets
+        .iter()
+        .filter_map(|t| hooks(t.card_id).trinket_triple_copies)
+        .filter_map(|f| f(card_id))
+        .min()
 }
 
 /// The player ends their turn: each trinket's `trinket_end_turn` hook, with the end-of-turn

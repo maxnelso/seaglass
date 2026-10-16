@@ -655,8 +655,9 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
         }
     }
     // (A Hero Power can change the copies a Triple takes: Mister Clocksworth's 2.)
-    let n = s.triple_copies();
-    let untripled = copies.iter().find(|(_, &(on_board, held))| {
+    let untripled = copies.iter().find(|(&cid, &(on_board, held))| {
+        // (A trinket can change it for some minions: Designer Eyepatch's Pirates.)
+        let n = s.triple_copies_for(cid);
         let from_hand = held.min(n - on_board.min(n));
         on_board + held >= n && s.hand.len() - from_hand < 10
     });
@@ -1814,10 +1815,9 @@ impl Expect {
     ) -> Self {
         let health_cost = match action {
             TavernAction::Refresh => s.auras.free_refreshes == 0 && s.has_health_refresh(),
-            TavernAction::Buy { shop_index } => s
-                .shop
-                .get(shop_index)
-                .is_some_and(|u| u.is_spell && u.costs_health),
+            TavernAction::Buy { shop_index } => {
+                s.shop.get(shop_index).is_some_and(|u| s.buy_price(u).health)
+            }
             _ => false,
         };
         let reward_tier = (s.tavern_tier + 1).min(6);
@@ -1826,12 +1826,11 @@ impl Expect {
             && (s.auras.free_refreshes > 0 || s.has_health_refresh());
         let cost = match action {
             TavernAction::Buy { shop_index } => s.shop.get(shop_index).map(|u| {
-                if !u.is_spell {
-                    s.minion_buy_cost()
-                } else if u.costs_health {
+                let price = s.buy_price(u);
+                if price.health {
                     0
                 } else {
-                    s.effective_spell_buy_cost(u)
+                    price.cost
                 }
             }),
             TavernAction::Refresh => Some(if free_refresh { 0 } else { s.refresh_cost() }),

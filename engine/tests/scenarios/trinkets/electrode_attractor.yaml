@@ -1,0 +1,14 @@
+trinket: Electrode Attractor
+scenarios:
+  - name: magnetic_mechs_cost_two
+    tavern: {gold: 2, shop: [Annoy-o-Module], auras: {trinkets: [Electrode Attractor]}}
+    steps:
+      - buy: 0
+    expect: {gold: 0, hand: [Annoy-o-Module]}
+
+  - name: a_refresh_adds_a_magnetic_mech
+    seeds: "1..=3"
+    tavern: {gold: 5, tavern_tier: 3, auras: {trinkets: [Electrode Attractor]}}
+    steps:
+      - refresh
+    expect: {shop: {count: 5, -1: {magnetic: true}}}

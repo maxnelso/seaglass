@@ -1,0 +1,9 @@
+trinket: The Eye of Sargeras
+scenarios:
+  - name: every_fourth_card_bought_costs_health
+    tavern: {gold: 10, health: 30, shop: ["1/1", "1/1", Tavern Coin], auras: {trinkets: [{trinket: The Eye of Sargeras, counter: 2}]}}
+    steps:
+      - buy: 0
+      - expect: {gold: 7, health: 30, auras: {trinkets: [{counter: 3}]}}
+      - buy: 0
+    expect: {gold: 7, health: 27, auras: {trinkets: [{counter: 0}]}}

@@ -1,0 +1,12 @@
+trinket: Bazaar Sticker
+scenarios:
+  - name: one_tavern_spell_each_turn_costs_health
+    tavern: {turn: 5, gold: 10, health: 30, shop: [Repair Job, Repair Job], auras: {trinkets: [Bazaar Sticker]}}
+    steps:
+      - buy: 0
+      - expect: {gold: 10, health: 28}
+      - buy: 0
+      - expect: {gold: 8, health: 28}
+      - end_turn
+      - start_turn
+    expect: {auras: {trinkets: [{armed: 0}]}}

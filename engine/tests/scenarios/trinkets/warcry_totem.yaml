@@ -1,0 +1,16 @@
+trinket: Warcry Totem
+scenarios:
+  - name: the_first_two_battlecry_minions_each_turn_are_free
+    tavern: {gold: 3, shop: [Nerubian Deathswarmer, Nerubian Deathswarmer, "1/1", Electric Synthesizer], auras: {trinkets: [Warcry Totem]}}
+    steps:
+      - buy: 0
+      - buy: 0
+      - expect: {gold: 3}
+      - buy: 1
+    expect: {gold: 0, hand: {count: 3}}
+
+  - name: a_third_battlecry_minion_costs_gold
+    tavern: {gold: 3, shop: [Electric Synthesizer], auras: {trinkets: [{trinket: Warcry Totem, armed: 2}]}}
+    steps:
+      - buy: 0
+    expect: {gold: 0}

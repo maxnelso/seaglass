@@ -1,0 +1,13 @@
+trinket: Demonic Tapestry
+scenarios:
+  - name: the_fourth_refresh_marks_the_highest_tier_minion
+    tavern: {gold: 10, tavern_tier: 3, auras: {trinkets: [{trinket: Demonic Tapestry, counter: 3}]}}
+    steps:
+      - refresh
+    expect: {shop: {where: {costs_health: true}, count: 1}, auras: {trinkets: [{counter: 0}]}}
+
+  - name: a_marked_minion_costs_health
+    tavern: {gold: 0, health: 30, shop: [{card: "3/3", costs_health: true}], auras: {trinkets: [Demonic Tapestry]}}
+    steps:
+      - buy: 0
+    expect: {gold: 0, health: 27, hand: ["3/3"]}

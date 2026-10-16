@@ -149,6 +149,8 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_extra_battlecries` | A friendly Battlecry is about to resolve in the Tavern (played, or triggered by a card): extra triggers this trinket adds, on top of the board's `Passive::BattlecryTriggers` (it may use up a charge): `(trinket, unit)`. | `Dragon's Eye`, `War Drum`. |
 | `trinket_battlecry_triggered` | A friendly Battlecry triggered in the Tavern, after the `after_friendly_battlecry` observers (each trigger): `(state, unit)`. | `Dragon Skull`, `Murky Sticker`. |
 | `trinket_after_discard` | A card was discarded from the hand, after the cards' discard observers and its own `discarded` hook: `(state, card, pool, rng)`. | `Shath'Yar Shrine`. |
+| `trinket_buy_price` | What buying a shop card costs, given the price so far (`TavernState::buy_price`: the minion or spell price, in Health if the card `costs_health`, then each trinket in pick order): `(trinket, state, card, price)`, a `BuyPrice` (cost, Health or Gold). A trinket that uses up a charge does it in its `trinket_after_buy`. | `Bazaar Sticker`, `Warcry Totem`. |
+| `trinket_triple_copies` | The copies of a minion a Triple takes, if this trinket lowers it (`TavernState::triple_copies_for`: the fewest of the Hero Power's rule and the trinkets'): `(card_id)`. | `Designer Eyepatch`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -390,6 +392,13 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Sludge Portrait` (Greater) | Get a Sludge Corrosion. After you discard a spell, get a Sludge Corrosion. | As picked and after each spell discarded. |
 | `Tome of the Ancients` (Greater) | After you discard 3 cards, your Tavern spells give an extra +1/+1 this game. | Every 3rd card discarded (across turns): `spell_bonus_atk` / `_hp` +1/+1. |
 | `Writhing Tentacles` (Greater) | After you discard your first minion each turn, get a copy of it with double stats. | The first minion discarded each turn: a copy as it was (a new copy, not from the pool) with its Attack and Health doubled. |
+| `Bazaar Sticker` (Lesser) | One Tavern spell each turn costs Health instead of Gold to buy. | `trinket_buy_price`: the first Tavern spell bought each turn costs its price in Health (`TavernState::buy_price`). |
+| `Pilgrimp Sticker` (Lesser) | One Demon each turn costs Health instead of Gold to buy. | The first Demon bought each turn, in Health. |
+| `Demonic Tapestry` (Lesser) | After you Refresh 4 times, the highest-Tier minion in the Tavern costs Health instead of Gold to buy. | Every 4th Refresh the player does (it repeats: **engine decision**) marks the highest-Tier minion in the Tavern (`Unit::costs_health`; ties at random) until it leaves. |
+| `Warcry Totem` (Lesser) | The first two Battlecry minions you buy each turn are free. | The first 2 Battlecry minions bought each turn cost 0. |
+| `The Eye of Sargeras` (Greater) | Every fourth card you buy costs Health instead of Gold. | Every 4th card bought after it is picked (`counter`, across turns) costs its price in Health. |
+| `Electrode Attractor` (Greater) | Magnetic Mechs cost (2). The Tavern offers an extra one whenever it is Refreshed. | Magnetic Mechs cost 2; every Refresh (the turn start's too) adds a Magnetic Mech of the player's Tier or lower from the pool if the Tavern has room. |
+| `Designer Eyepatch` (Greater) | You only need 2 copies of a Pirate to make it Golden. | `trinket_triple_copies`: 2 copies of a Pirate form a Triple (`TavernState::triple_copies_for`, the fewest any rule asks for). |
 
 ### 11.3 Deferred
 
@@ -425,6 +434,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 11 | Demonic Tapestry repeats every 4th Refresh. | its file |
 | Batch 10 | Extra Battlecry triggers add to Brann's; Murky Sticker's improvements since picked; Young Murk-Eye Sticker's right-most after the first Battlecry. | their files |
 | Batch 9 | Jewelry Box's random keyword; Nether Pendant's improvement and rewound damage; Trusty Crowbar without combat hand cards; Wolfhead Flail counting minions. | their files |
 | Batch 8 | Lockbox Portrait's left-most Lockbox; Shrine of Evolution's plain Tier 4 minions from the pool; Gold Mallet's improvements; Bloodbound Earrings and Wand without combat casts; Replica Cathedral's first spell from any source. | their files |

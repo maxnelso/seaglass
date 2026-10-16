@@ -1,0 +1,13 @@
+trinket: Designer Eyepatch
+scenarios:
+  - name: two_copies_of_a_pirate_make_a_golden
+    tavern: {gold: 10, board: [Southsea Busker], shop: [Southsea Busker], auras: {trinkets: [Designer Eyepatch]}}
+    steps:
+      - buy: 0
+    expect: {board: [], hand: [{name: Golden Southsea Busker, is_golden: true}]}
+
+  - name: not_other_minions
+    tavern: {gold: 10, board: [Harmless Bonehead], shop: [Harmless Bonehead], auras: {trinkets: [Designer Eyepatch]}}
+    steps:
+      - buy: 0
+    expect: {board: [Harmless Bonehead], hand: [Harmless Bonehead]}
