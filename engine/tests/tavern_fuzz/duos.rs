@@ -140,6 +140,8 @@ struct DuosConfig {
     heroes: Vec<[Vec<HeroId>; 2]>,
     /// Whether the heroes are offered rather than given.
     offer_heroes: bool,
+    /// The players are offered trinkets on turns 6 and 9 (`docs/trinkets.md` §8.1).
+    trinkets: bool,
 }
 
 impl DuosConfig {
@@ -243,6 +245,8 @@ impl DuosConfig {
         } else {
             (vec![[Vec::new(), Vec::new()]; teams], false)
         };
+        // Trinkets too, from an RNG of their own: offered in half the games.
+        let trinkets = Rng::new(seed ^ 0x7121_4E75_D005_0002).below(2) == 0;
         Self {
             teams,
             shop_spells,
@@ -256,6 +260,7 @@ impl DuosConfig {
             player_weights,
             heroes,
             offer_heroes,
+            trinkets,
         }
     }
 }
@@ -439,6 +444,18 @@ fn check_duos_legality(
                 format!("{valid:?}"),
             ));
         }
+    } else if !s.trinket_options.is_empty() {
+        // Then the trinket pick (`docs/trinkets.md` §4).
+        let expected: Vec<TavernAction> = (0..s.trinket_options.len())
+            .filter(|&i| trinkets::option_price(s, i).is_some())
+            .map(|option_index| TavernAction::ChooseTrinket { option_index })
+            .collect();
+        if valid != expected.as_slice() {
+            return Err(broken(
+                "a pending trinket offer allows other actions",
+                format!("{valid:?}"),
+            ));
+        }
     } else if let Some(opts) = &s.discover_pending {
         let expected: Vec<TavernAction> = (0..opts.len())
             .map(|option_index| TavernAction::ChooseDiscover { option_index })
@@ -457,6 +474,7 @@ fn check_duos_legality(
         if let TavernAction::Pass { hand_index } = a {
             let expected = s.discover_pending.is_none()
                 && s.hero_options.is_empty()
+                && s.trinket_options.is_empty()
                 && s.hand
                     .get(hand_index)
                     .is_some_and(|card| card.locked_turns == 0 && card.lockbox_turns_left == 0)
@@ -1575,6 +1593,7 @@ impl DuosGame {
                 let mut team = DuosTavern::new()
                     .with_armor(cfg.armor[t])
                     .with_shop_spells(cfg.shop_spells)
+                    .with_trinkets(cfg.trinkets)
                     .with_first_fighter_switch_chance(cfg.first_fighter_switch_chance);
                 for (p, s) in team.players.iter_mut().enumerate() {
                     s.auras.deity.kind = cfg.deities[t][p];
@@ -1945,7 +1964,10 @@ impl DuosGame {
                 self.reject_on_copy(t)?;
             }
             let s = &self.teams[t].players[p];
-            let action = if s.discover_pending.is_some() || !s.hero_options.is_empty() {
+            let action = if s.discover_pending.is_some()
+                || !s.hero_options.is_empty()
+                || !s.trinket_options.is_empty()
+            {
                 discovers_in_a_row[p] += 1;
                 if discovers_in_a_row[p] > 50 {
                     return Err(broken("more than 50 Discovers in a row", "").into());
