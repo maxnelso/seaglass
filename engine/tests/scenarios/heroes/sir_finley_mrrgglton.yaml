@@ -23,3 +23,13 @@ scenarios:
       - expect:
           discover_pending: null
           auras: {hero: {power: {card_id: {same_as: chosen_power}}}}
+
+  - name: a_start_of_game_hero_power_brings_its_gift
+    description: >
+      (confirmed) Finley may be offered Patchwerk's Hero Power; another hero who gets it gains its
+      30 extra Health then (engine decision).
+    steps:
+      - set_hero: Sir Finley Mrrgglton
+      - set: {discover_pending: [{card: "0/1", card_id: 59399, is_spell: true, to_hero_power: true}]}
+      - choose_discover: 0
+      - expect: {health: 60, auras: {hero: {power: {card_id: 59399}}}}

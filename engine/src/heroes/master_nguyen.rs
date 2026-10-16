@@ -6,8 +6,11 @@
 //! own Hero Power whatever power replaced it) puts `Power of the Storm` back
 //! (`super::replace_power`: the outgoing power cleans up through its `hero_power_removed` hook),
 //! and `turn_start` offers a Discover of 2 new Hero Powers for that turn.
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): it chooses
+//! Hero Powers itself.
 
-use crate::cards::CardHooks;
+use crate::cards::{CardFlags, CardHooks};
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -23,6 +26,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
             .on_hero_base_turn_reset(take_back)
             .on_hero_turn_start(turn_start)
             .on_hero_option_chosen(choose_power),

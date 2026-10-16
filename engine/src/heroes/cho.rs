@@ -7,8 +7,11 @@
 //! each give the player a `Triple Reward` card (if the hand has room) and their teammate one (a
 //! teammate `Card` gift, whatever the teammate's hero: engine decision), on top of the Golden's own
 //! card. The teammate's locks in their own Tier as it arrives (confirmed).
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): Cho and Gall
+//! are a pair (confirmed: never offered).
 
-use crate::cards::{tokens, CardHooks, Played};
+use crate::cards::{tokens, CardFlags, CardHooks, Played};
 use crate::heroes::power_mut;
 use crate::model::{CardId, HeroId, TeammateGift};
 use crate::rng::Rng;
@@ -22,7 +25,12 @@ const TIMES: i32 = 3;
 
 /// The Hero Power's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
-    vec![(POWER, CardHooks::EMPTY.on_hero_after_play(after_play))]
+    vec![(
+        POWER,
+        CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
+            .on_hero_after_play(after_play),
+    )]
 }
 
 /// After a Golden minion is played: a Triple Reward for the player and for Gall.

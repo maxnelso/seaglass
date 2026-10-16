@@ -7,7 +7,8 @@
 //! to 3 random minions without replacement via `rng.below`, keeping their stats, Golden status,
 //! keywords, and permanent enchantments (with opponent-specific `aura_applied` cleared and
 //! Bigglesworth's global auras applied), and offers a Discover. If `last_warband` is empty, adds
-//! a `Consolation Coin` (`TB_BaconShop_HP_080t`, 0-Cost token spell: Gain 1 Gold) to hand instead.
+//! a `Consolation Coin` (`TB_BaconShop_HP_080t`, dbfId 94063, a 0-Gold token spell, not a Tavern
+//! spell: Gain 1 Gold) to hand instead.
 
 use crate::cards::{self, tokens, CardFlags, CardHooks};
 use crate::model::{CardId, HeroId, Unit};

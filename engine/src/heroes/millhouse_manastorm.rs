@@ -5,12 +5,13 @@
 //! Passive. `hero_tavern_rules`: minions and paid Refreshes cost 2 Gold, and each Tier's Upgrade
 //! starts 1 Gold dearer (`upgrade_cost` starts at the base cost + 1; the turn discounts still lower
 //! it, down to 0; `docs/tavern.md` §3.3; confirmed). Getting the hero adds the 1 to the current
-//! `upgrade_cost` (`hero_chosen`).
+//! `upgrade_cost` (`hero_chosen`), and losing it (`hero_power_removed`: Master Nguyen's next turn)
+//! takes it back off.
 
 use crate::cards::CardHooks;
 use crate::heroes::TavernRules;
-use crate::model::{CardId, HeroId};
-use crate::tavern::TavernState;
+use crate::model::{CardId, HeroId, HeroPowerState};
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: HeroId = 60366;
 pub const POWER: CardId = 60405;
@@ -21,7 +22,8 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         POWER,
         CardHooks::EMPTY
             .on_hero_tavern_rules(rules)
-            .on_hero_chosen(chosen),
+            .on_hero_chosen(chosen)
+            .on_hero_power_removed(removed),
     )]
 }
 
@@ -29,6 +31,13 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 fn chosen(state: &mut TavernState) {
     if state.tavern_tier < 6 {
         state.upgrade_cost += 1;
+    }
+}
+
+/// Losing the Hero Power: the current Upgrade costs 1 less again.
+fn removed(state: &mut TavernState, _: &mut HeroPowerState, _: &mut CardPool) {
+    if state.tavern_tier < 6 {
+        state.upgrade_cost = state.upgrade_cost.saturating_sub(1);
     }
 }
 

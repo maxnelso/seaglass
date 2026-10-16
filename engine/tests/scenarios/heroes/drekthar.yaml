@@ -1,7 +1,7 @@
 hero: Drek'Thar
 scenarios:
   - name: from_turn_7_it_summons_a_copy_of_the_highest_attack_minion
-    tavern: {auras: {hero: {hero: Drek'Thar, power: {counter: 6}}}, board: ["1/5", "4/2", "3/3"]}
+    tavern: {turn: 6, auras: {hero: Drek'Thar}, board: ["1/5", "4/2", "3/3"]}
     steps:
       - start_turn
       - fight: {board: ["0/50"]}

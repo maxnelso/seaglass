@@ -72,6 +72,11 @@ impl CardFlags {
     /// A temporary card: still in the hand when its player ends their turn, it is discarded,
     /// without discard effects (a Spellcraft spell; `docs/tavern.md` §7.4).
     pub const TEMPORARY: CardFlags = CardFlags(1 << 14);
+    /// A Hero Power no Discover of Hero Powers offers (Sir Finley, Master Nguyen, Genn;
+    /// `docs/heroes.md` §11.2).
+    pub const NOT_DISCOVERABLE_POWER: CardFlags = CardFlags(1 << 15);
+    /// A Hero Power not offered for a single turn (Master Nguyen; `docs/heroes.md` §11.2).
+    pub const NOT_A_TURN_POWER: CardFlags = CardFlags(1 << 16);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -485,9 +490,9 @@ card_hooks! {
     /// Start of turn, before the uses are reset, for the hero's own Hero Power (its table power),
     /// whatever Hero Power the hero has now: `(state, pool)`.
     hero_base_turn_reset(on_hero_base_turn_reset): fn(&mut TavernState, &mut CardPool),
-    /// This Hero Power is replaced by another (`heroes::replace_power`): `(its state, pool)`, to
-    /// clean up what it keeps.
-    hero_power_removed(on_hero_power_removed): fn(&mut HeroPowerState, &mut CardPool),
+    /// This Hero Power is replaced by another (`heroes::replace_power`): `(state, its state, pool)`,
+    /// to clean up what it keeps and undo what it gave for as long as it is the Hero Power.
+    hero_power_removed(on_hero_power_removed): fn(&mut TavernState, &mut HeroPowerState, &mut CardPool),
     /// The player got this hero (its start-of-game text): `(state)`.
     hero_chosen(on_hero_chosen): fn(&mut TavernState),
     /// Gold was spent: `(state, amount)`.

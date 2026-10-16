@@ -6,7 +6,9 @@
 //! side B of `state.lobby.featured_pair`), once per turn when `state.lobby.featured_pair.is_some()`.
 //! Stores the guess in `power.armed` (`1` for side A, `2` for side B). At the start of the next
 //! turn (`hero_turn_start`), checks `state.lobby.last_pair_outcome`: if the guessed side won, adds
-//! 3 `Tavern Coin`s to hand; if `BattleOutcome::Draw`, refunds 1 `Tavern Coin`; otherwise 0.
+//! 3 `Tavern Coin`s to hand; if `BattleOutcome::Draw`, refunds 1 `Tavern Coin`; otherwise 0. A
+//! wager still open when the Hero Power is replaced (`hero_power_removed`: Master Nguyen's next
+//! turn start) is settled then, the same way.
 
 use crate::cards::{tokens, ActivateTargetKind, CardHooks};
 use crate::heroes::power_mut;
@@ -25,7 +27,10 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             .with_activate_target(ActivateTargetKind::PairSide)
             .on_hero_power(place_wager)
             .on_hero_power_usable(|state| state.lobby.featured_pair.is_some())
-            .on_hero_turn_start(settle_wager),
+            .on_hero_turn_start(settle_wager)
+            .on_hero_power_removed(|state, power, _| {
+                settle(state, std::mem::take(&mut power.armed))
+            }),
     )]
 }
 
@@ -38,12 +43,16 @@ fn place_wager(state: &mut TavernState, target: Option<usize>, _: &mut CardPool,
 
 /// Start of turn: pay out 3 `Tavern Coin`s on a winning guess, or 1 on a tie.
 fn settle_wager(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
-    let Some(guess) = power_mut(&mut state.auras)
-        .map(|p| std::mem::take(&mut p.armed))
-        .filter(|&g| g > 0)
-    else {
+    if let Some(guess) = power_mut(&mut state.auras).map(|p| std::mem::take(&mut p.armed)) {
+        settle(state, guess);
+    }
+}
+
+/// Pay out the wager `guess` (`1` side A, `2` side B, `0` none) on the last pair's outcome.
+fn settle(state: &mut TavernState, guess: u32) {
+    if guess == 0 {
         return;
-    };
+    }
     let coins = match (guess, state.lobby.last_pair_outcome) {
         (1, Some(BattleOutcome::AWin)) | (2, Some(BattleOutcome::BWin)) => 3,
         (_, Some(BattleOutcome::Draw)) => 1,

@@ -6,8 +6,11 @@
 //! player's `start_turn` runs) replaces `hero.power` with a fresh copy of the teammate's hero's
 //! Hero Power and runs its `hero_chosen` hook. The copy has no such hook: it happens once, at the
 //! start of the team's first turn.
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): it copies a
+//! Hero Power itself.
 
-use crate::cards::{hooks, CardHooks};
+use crate::cards::{hooks, CardFlags, CardHooks};
 use crate::model::{CardId, HeroId};
 use crate::tavern::TavernState;
 
@@ -18,7 +21,9 @@ pub const POWER: CardId = 104569;
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
-        CardHooks::EMPTY.on_hero_before_team_turn(copy_teammate_power),
+        CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
+            .on_hero_before_team_turn(copy_teammate_power),
     )]
 }
 

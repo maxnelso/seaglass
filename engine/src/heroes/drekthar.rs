@@ -2,13 +2,14 @@
 //!
 //! Hero Power: `Frostwolf Fervor` (`BG22_HERO_002p`), 0 Gold: When you have space in combat, summon a copy of your highest-Attack minion. (Unlocks on Turn 7.)
 //!
-//! Passive. It counts the turns (`counter`); from the 7th on, each combat is armed. Once per
+//! Passive. At each turn start (`hero_turn_start`) it reads the game's turn (`counter`); from the
+//! 7th on, each combat is armed, however long the player has had it (Genn's, Nguyen's). Once per
 //! combat (engine decision), as soon as there is room on the board (`hero_combat_space`: at Start
 //! of Combat, or after a round of deaths), a copy of the friendly minion with the most Attack (a
 //! tie at random) is summoned at the right end: its current stats, keywords and state.
 
 use crate::cards::{BoardCtx, CardHooks};
-use crate::heroes::{count_turn_and_arm, summon_copy_of_best};
+use crate::heroes::{arm_from_turn, summon_copy_of_best};
 use crate::model::{CardId, HeroId};
 
 pub const ID: HeroId = 80239;
@@ -19,7 +20,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
-            .on_hero_turn_reset(count_turn_and_arm)
+            .on_hero_turn_start(arm_from_turn)
             .on_hero_combat_space(summon_copy),
     )]
 }

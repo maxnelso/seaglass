@@ -44,3 +44,45 @@ scenarios:
       - expect:
           pool: {Lurking Leviathan: "$before + 1"}
           auras: {hero: {power: {card_id: 71909, stored: []}}}
+
+  - name: millhouses_upgrade_cost_comes_off_with_his_hero_power
+    steps:
+      - set_hero: Master Nguyen
+      - start_turn
+      - expect: {upgrade_cost: {capture: cost}}
+      - set: {discover_pending: [{card: "0/1", card_id: 60405, is_spell: true, to_hero_power: true}]}
+      - choose_discover: 0
+      - expect: {upgrade_cost: "$cost + 1"}
+      - end_turn
+      - start_turn
+      - expect: {upgrade_cost: "$cost - 1", auras: {hero: {power: {card_id: 71909}}}}
+
+  - name: saurfangs_and_rakanishus_bonuses_come_off_with_their_hero_powers
+    steps:
+      - set_hero: Master Nguyen
+      - start_turn
+      - set: {discover_pending: [{card: "0/1", card_id: 71455, is_spell: true, to_hero_power: true}]}
+      - choose_discover: 0
+      - expect: {auras: {tavern_all_atk: 1, tavern_all_hp: 1}}
+      - end_turn
+      - start_turn
+      - expect: {auras: {tavern_all_atk: 0, tavern_all_hp: 0}}
+      - set: {discover_pending: [{card: "0/1", card_id: 122960, is_spell: true, to_hero_power: true}]}
+      - choose_discover: 0
+      - expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}
+      - end_turn
+      - start_turn
+      - expect: {auras: {spell_bonus_atk: 0, spell_bonus_hp: 0}}
+
+  - name: barovs_wager_is_settled_when_his_hero_power_goes
+    steps:
+      - set_hero: Master Nguyen
+      - set: {lobby: {opponents: [{}, {}], featured_pair: [0, 1]}}
+      - start_turn
+      - set: {discover_pending: [{card: "0/1", card_id: 63600, is_spell: true, to_hero_power: true}]}
+      - choose_discover: 0
+      - hero_power: 0
+      - end_turn
+      - set: {lobby: {last_pair_outcome: a_win}}
+      - start_turn
+      - expect: {hand: {count: 3, all: Tavern Coin}, auras: {hero: {power: {card_id: 71909}}}}

@@ -120,7 +120,9 @@ pub mod zerek_master_cloner;
 
 pub use table::{CARD_DEFS_BUILD, HEROES};
 
-use crate::cards::{hooks, ActivateTargetKind, BoardCtx, CardHooks, HeroCombatCtx, Played};
+use crate::cards::{
+    hooks, ActivateTargetKind, BoardCtx, CardFlags, CardHooks, HeroCombatCtx, Played,
+};
 use crate::model::{CardId, HeroId, HeroPowerState, HeroState, PlayerAuras, Unit, UnitId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -1049,11 +1051,14 @@ pub fn mark_minion(state: &mut TavernState, target: Option<usize>, _: &mut CardP
 /// The turn the Hero Powers that "unlock on Turn N" unlock (`docs/heroes.md` §11).
 pub const UNLOCK_TURN: i32 = 7;
 
-/// `hero_turn_reset` of the Hero Powers that act once per combat once unlocked (Vanndar,
-/// Drek'Thar): count the turn (`counter`), and from `UNLOCK_TURN` on arm the coming combat.
-pub fn count_turn_and_arm(hero: &mut HeroState) {
-    hero.power.counter += 1;
-    hero.power.armed = u32::from(hero.power.counter >= UNLOCK_TURN);
+/// `hero_turn_start` of the Hero Powers that act once per combat once unlocked (Vanndar,
+/// Drek'Thar): the game's turn (`counter`), and from `UNLOCK_TURN` on the coming combat is armed.
+pub fn arm_from_turn(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
+    let turn = state.turn as i32;
+    if let Some(power) = power_mut(&mut state.auras) {
+        power.counter = turn;
+        power.armed = u32::from(turn >= UNLOCK_TURN);
+    }
 }
 
 /// Once per combat, if armed and there is room: summon a copy of the friendly minion with the
@@ -1177,90 +1182,33 @@ pub fn power_mut_for(auras: &mut PlayerAuras, card_id: CardId) -> Option<&mut He
     Some(&mut hero.power)
 }
 
-/// The Hero Powers a Discover can offer (`Sir Finley Mrrgglton`, `Master Nguyen`,
-/// `Genn, Worgen King`; `docs/heroes.md` §11.2).
+/// The Hero Powers a Discover of Hero Powers can offer (`Sir Finley Mrrgglton`, `Master Nguyen`,
+/// `Genn, Worgen King`; `docs/heroes.md` §11.2): the implemented ones (Duos-only ones only in
+/// Duos) but `exclude`, the player's current ones and those flagged
+/// [`CardFlags::NOT_DISCOVERABLE_POWER`]. For a single turn (`temporary`: Master Nguyen), not those
+/// flagged [`CardFlags::NOT_A_TURN_POWER`] either, nor an active one its `hero_power_usable` hook
+/// says can't be used now.
 pub fn offerable_powers(
     state: &TavernState,
     exclude: Option<CardId>,
     temporary: bool,
 ) -> Vec<&'static HeroData> {
     let duos = state.auras.duos_game;
+    let current: Vec<CardId> = state.hero().map_or_else(Vec::new, |h| {
+        std::iter::once(h.power.card_id)
+            .chain(h.second_power.iter().map(|p| p.card_id))
+            .collect()
+    });
     HEROES
         .iter()
         .filter(|h| is_implemented(h.id) && (duos || !h.duos_only))
-        .filter(|h| exclude != Some(h.power.id))
+        .filter(|h| exclude != Some(h.power.id) && !current.contains(&h.power.id))
         .filter(|h| {
-            !matches!(
-                h.id,
-                patchwerk::ID
-                    | nzoth::ID
-                    | sneed::ID
-                    | the_curator::ID
-                    | a_f_kay::ID
-                    | ambassador_faelin::ID
-                    | thorim_stormlord::ID
-                    | sir_finley_mrrgglton::ID
-                    | master_nguyen::ID
-                    | genn_worgen_king::ID
-                    | the_nameless_one::ID
-                    | cho::ID
-                    | gall::ID
-            )
-        })
-        .filter(|h| {
-            if !temporary {
-                return true;
-            }
-            if (h.id == alexstrasza::ID || h.id == millificent_manastorm::ID)
-                && state.tavern_tier < 4
-            {
-                return false;
-            }
-            if h.id == the_jailer::ID && state.tavern_tier < 2 {
-                return false;
-            }
-            if (h.id == exarch_othaar::ID || h.id == shudderwock::ID) && state.turn < 3 {
-                return false;
-            }
-            !matches!(
-                h.id,
-                reno_jackson::ID
-                    | skycapn_kragg::ID
-                    | zerek_master_cloner::ID
-                    | ragnaros_the_firelord::ID
-                    | aranna_starseeker::ID
-                    | loh_the_living_legend::ID
-                    | dinotamer_brann::ID
-                    | sylvanas_windrunner::ID
-                    | guff_runetotem::ID
-                    | ini_stormcoil::ID
-                    | kaelthas_sunstrider::ID
-                    | fungalmancer_flurgl::ID
-                    | rock_master_voone::ID
-                    | chenvaala::ID
-                    | overlord_saurfang::ID
-                    | rakanishu::ID
-                    | queen_wagtoggle::ID
-                    | ozumat::ID
-                    | onyxia::ID
-                    | vanndar_stormpike::ID
-                    | drekthar::ID
-                    | millhouse_manastorm::ID
-                    | sindragosa::ID
-                    | mister_clocksworth::ID
-                    | snake_eyes::ID
-                    | ysera::ID
-                    | varden_dawngrasp::ID
-                    | enhance_o_mechano::ID
-                    | silas_darkmoon::ID
-                    | galewing::ID
-                    | lord_jaraxxus::ID
-                    | cariel_roame::ID
-                    | cookie_the_cook::ID
-                    | mr_bigglesworth::ID
-                    | lord_barov::ID
-                    | king_mukla::ID
-            )
+            let card = hooks(h.power.id);
+            !card.has(CardFlags::NOT_DISCOVERABLE_POWER)
+                && (!temporary
+                    || (!card.has(CardFlags::NOT_A_TURN_POWER)
+                        && card.hero_power_usable.is_none_or(|usable| usable(state))))
         })
         .collect()
 }
@@ -1312,7 +1260,7 @@ pub fn replace_power(
     };
     if let Some(mut old) = old {
         if let Some(removed) = hooks(old.card_id).hero_power_removed {
-            removed(&mut old, pool);
+            removed(state, &mut old, pool);
         }
     }
 }
@@ -1488,6 +1436,75 @@ mod tests {
                 "{}: power ids don't collide with card ids",
                 h.name
             );
+        }
+    }
+
+    /// A Tavern whose player has the hero `name`, on turn `turn`.
+    fn tavern_with(name: &str, turn: u32) -> TavernState {
+        let mut state = TavernState::new();
+        state
+            .set_hero(by_name(name).expect("a hero").id)
+            .expect("an implemented hero");
+        state.turn = turn;
+        state
+    }
+
+    fn offered(state: &TavernState, temporary: bool) -> Vec<&'static str> {
+        offerable_powers(state, None, temporary)
+            .iter()
+            .map(|h| h.name)
+            .collect()
+    }
+
+    #[test]
+    fn hero_power_discovers_never_offer_the_choosers_skippers_cho_or_gall() {
+        let never = [
+            "Sir Finley Mrrgglton",
+            "Master Nguyen",
+            "Genn, Worgen King",
+            "The Nameless One",
+            "A. F. Kay",
+            "Ambassador Faelin",
+            "Cho",
+            "Gall",
+        ];
+        let mut duos = tavern_with("Sir Finley Mrrgglton", 1);
+        duos.auras.duos_game = true;
+        for (state, temporary) in [
+            (tavern_with("Sir Finley Mrrgglton", 1), false),
+            (tavern_with("Genn, Worgen King", 4), false),
+            (tavern_with("Master Nguyen", 5), true),
+            (duos, false),
+        ] {
+            let offered = offered(&state, temporary);
+            for name in never {
+                assert!(!offered.contains(&name), "{name} is offered");
+            }
+        }
+    }
+
+    #[test]
+    fn finley_and_genn_may_get_the_start_of_game_powers_nguyen_never() {
+        let start_of_game = [
+            "Patchwerk",
+            "N'Zoth",
+            "Sneed",
+            "The Curator",
+            "Thorim, Stormlord",
+        ];
+        for (name, turn) in [("Sir Finley Mrrgglton", 1), ("Genn, Worgen King", 4)] {
+            let offered = offered(&tavern_with(name, turn), false);
+            assert!(start_of_game.iter().all(|p| offered.contains(p)), "{name}");
+        }
+        let nguyen = offered(&tavern_with("Master Nguyen", 5), true);
+        assert!(start_of_game.iter().all(|p| !nguyen.contains(p)));
+        for simple in [
+            "Millhouse Manastorm",
+            "Sindragosa",
+            "Ysera",
+            "Cookie the Cook",
+        ] {
+            assert!(nguyen.contains(&simple), "{simple}");
         }
     }
 

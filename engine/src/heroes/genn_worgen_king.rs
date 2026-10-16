@@ -5,8 +5,11 @@
 //! Passive. Counts down `counter` from 3 on turn 1 to 1 on turn 3; on turn 4, offers a first
 //! Discover of 3 Hero Powers to replace `hero.power`, and once chosen, offers a second Discover of
 //! 3 Hero Powers (excluding the first) to install in `hero.second_power`.
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): it chooses
+//! Hero Powers itself.
 
-use crate::cards::CardHooks;
+use crate::cards::{CardFlags, CardHooks};
 use crate::heroes::power_mut;
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
@@ -26,6 +29,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
             .on_hero_chosen(chosen)
             .on_hero_turn_start(turn_start)
             .on_hero_option_chosen(choose_first_power),

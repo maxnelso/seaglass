@@ -4,8 +4,11 @@
 //!
 //! Passive. When the player gets the hero (`hero_chosen`), an `Amalgam` (`TB_BaconShop_HP_033t`, a
 //! Tier 1 `2/2` token of every type with Venomous) joins the board if it has room.
+//!
+//! Master Nguyen never offers it for a single turn (`CardFlags::NOT_A_TURN_POWER`): its Amalgam
+//! would come back every turn.
 
-use crate::cards::{tokens, CardHooks};
+use crate::cards::{tokens, CardFlags, CardHooks};
 use crate::combat::MAX_BOARD_SIZE;
 use crate::model::{CardId, HeroId};
 use crate::tavern::TavernState;
@@ -17,7 +20,9 @@ pub const POWER: CardId = 59201;
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
-        CardHooks::EMPTY.on_hero_chosen(start_with_an_amalgam),
+        CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_A_TURN_POWER)
+            .on_hero_chosen(start_with_an_amalgam),
     )]
 }
 

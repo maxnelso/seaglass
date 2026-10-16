@@ -1483,9 +1483,27 @@ fn check_round_trip(s: &TavernState) -> Result<(), Violation> {
     }
 }
 
-/// Nothing heals the hero: its Health never goes up (`Soul Rewinder` prevents damage instead).
+/// The upgrade cost after a turn start (`docs/tavern.md` §4): 1 less than `before`, and less the
+/// Upgrade extra a Hero Power the turn start took away gave (Millhouse's, once Master Nguyen takes
+/// his Hero Power back: `docs/heroes.md` §11.3).
+fn upgrade_after_turn_start(before: u32, before_auras: &PlayerAuras, s: &TavernState) -> u32 {
+    let lost = heroes::tavern_rules(before_auras)
+        .upgrade_extra
+        .saturating_sub(heroes::tavern_rules(&s.auras).upgrade_extra);
+    before.saturating_sub(lost).saturating_sub(1)
+}
+
+/// Nothing heals the hero: its Health never goes up (`Soul Rewinder` prevents damage instead), but
+/// for the 30 Health Patchwerk's Hero Power gives another hero as they get it (`docs/heroes.md`
+/// §11.2: Sir Finley's or Genn's Discover).
 fn check_health_kept(before: i32, s: &TavernState) -> Result<(), Violation> {
-    if s.health > before {
+    let patched = s.hero().is_some_and(|h| {
+        h.hero_id != heroes::patchwerk::ID
+            && std::iter::once(&h.power)
+                .chain(&h.second_power)
+                .any(|p| p.card_id == heroes::patchwerk::POWER)
+    });
+    if s.health > before && !(patched && s.health == before + 30) {
         return Err(broken(
             "the hero's Health went up",
             format!("{before} -> {}", s.health),
@@ -2147,6 +2165,7 @@ impl Game {
                     self.players[p].upgrade_cost,
                     self.players[p].health,
                 );
+                let old_auras = self.players[p].auras.clone();
                 self.players[p].start_turn(&mut self.pool, &mut self.rng);
                 if self.trace {
                     let s = &self.players[p];
@@ -2165,7 +2184,8 @@ impl Game {
                 if s.is_frozen {
                     return Err(broken("the shop is still frozen after start_turn", "").into());
                 }
-                if s.turn > 1 && s.tavern_tier < 6 && s.upgrade_cost != old_cost.saturating_sub(1) {
+                let expected = upgrade_after_turn_start(old_cost, &old_auras, s);
+                if s.turn > 1 && s.tavern_tier < 6 && s.upgrade_cost != expected {
                     return Err(broken(
                         "the upgrade cost did not go down by 1 at the start of the turn",
                         format!("{old_cost} -> {}", s.upgrade_cost),

@@ -368,7 +368,8 @@ pub fn make_triple_reward(tavern_tier: u32) -> Unit {
     reward
 }
 
-/// `Bananas` (`BG_Bananas` — 1-Gold token spell: Give a minion +1/+1; `King Mukla`).
+/// `Bananas` (`BG_EX1_014t`, dbfId 122906 — 1-Gold token spell, not a Tavern spell: Give a minion
+/// +1/+1; `King Mukla`).
 pub fn make_bananas() -> Unit {
     let mut spell = Unit::new("Bananas", 1, 1)
         .with_card_id(SPELL_BANANAS)
@@ -378,7 +379,8 @@ pub fn make_bananas() -> Unit {
     spell
 }
 
-/// `Big Banana` (`BG_Bananas_Big` — 1-Gold token spell: Give a minion +2/+2; `King Mukla`).
+/// `Big Banana` (`BG_TB_006`, dbfId 122908 — 1-Gold token spell, not a Tavern spell: Give a minion
+/// +2/+2; `King Mukla`).
 pub fn make_big_banana() -> Unit {
     let mut spell = Unit::new("Big Banana", 2, 2)
         .with_card_id(SPELL_BIG_BANANA)
@@ -388,7 +390,8 @@ pub fn make_big_banana() -> Unit {
     spell
 }
 
-/// `Consolation Coin` (`TB_BaconShop_HP_080t` — 0-Gold token spell: Gain 1 Gold; `Mr. Bigglesworth`).
+/// `Consolation Coin` (`TB_BaconShop_HP_080t`, dbfId 94063 — 0-Gold token spell, not a Tavern
+/// spell: Gain 1 Gold; `Mr. Bigglesworth`).
 pub fn make_consolation_coin() -> Unit {
     let mut spell = Unit::new("Consolation Coin", 0, 0)
         .with_card_id(SPELL_CONSOLATION_COIN)

@@ -5,8 +5,11 @@
 //! Passive. At the start of the first turn (`hero_turn_start`), offers a Discover among 3 distinct
 //! Hero Powers (`super::offer_power_discover`); the chosen one replaces `Adventure!` for the rest
 //! of the game (`super::install_power`).
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): it chooses
+//! Hero Powers itself.
 
-use crate::cards::CardHooks;
+use crate::cards::{CardFlags, CardHooks};
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -22,6 +25,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
             .on_hero_turn_start(turn_start)
             .on_hero_option_chosen(choose_power),
     )]

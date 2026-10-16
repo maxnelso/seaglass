@@ -8,8 +8,11 @@
 //! (`Unit::to_hero_power`, `docs/tavern.md` §5.2): the chosen one is kept (`stored`).
 //! `hero_gold_spent` counts the Gold spent (`counter`); from 60 on, the kept minion goes to the hand
 //! as soon as it has room (engine decision).
+//!
+//! Master Nguyen never offers it for a single turn (`CardFlags::NOT_A_TURN_POWER`): its
+//! start-of-game Discover would come back every turn.
 
-use crate::cards::{self, CardHooks};
+use crate::cards::{self, CardFlags, CardHooks};
 use crate::heroes::power_mut;
 use crate::model::{CardId, HeroId};
 use crate::rng::Rng;
@@ -32,6 +35,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_A_TURN_POWER)
             .on_hero_turn_start(choose_champion)
             .on_hero_gold_spent(gold_spent),
     )]

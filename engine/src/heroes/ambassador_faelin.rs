@@ -7,8 +7,11 @@
 //! keeps (`Unit::to_hero_power`, `stored`; the other options go back to the pool). Each kept
 //! minion goes to the hand once the player's Tier reaches its Tier, waiting for room (confirmed):
 //! at a turn start, after an Upgrade or after a minion is played (engine decision).
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): its skipped
+//! turn would be past.
 
-use crate::cards::{CardHooks, Played};
+use crate::cards::{CardFlags, CardHooks, Played};
 use crate::heroes::{hand_has_room, power_mut};
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
@@ -28,6 +31,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
             .on_hero_skips_turn(|state| state.turn == 1)
             .on_hero_turn_start(turn_start)
             .on_hero_after_upgrade(|state, _, _| deliver(state))

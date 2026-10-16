@@ -4,11 +4,12 @@
 //!
 //! Passive. When the player gets the hero (`hero_chosen`), spell power +1/+1 (`spell_bonus_atk` /
 //! `spell_bonus_hp`). Every 3rd turn start (`hero_turn_start`, `counter`, counting the first:
-//! engine decision) adds +1/+1 more.
+//! engine decision) adds +1/+1 more. Losing it (`hero_power_removed`: Master Nguyen's next turn)
+//! takes the bonus back.
 
 use crate::cards::CardHooks;
 use crate::heroes::power_mut;
-use crate::model::{CardId, HeroId};
+use crate::model::{CardId, HeroId, HeroPowerState};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -24,7 +25,8 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         POWER,
         CardHooks::EMPTY
             .on_hero_chosen(tavern_lighting)
-            .on_hero_turn_start(turn_start),
+            .on_hero_turn_start(turn_start)
+            .on_hero_power_removed(removed),
     )]
 }
 
@@ -32,6 +34,13 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 fn tavern_lighting(state: &mut TavernState) {
     state.auras.spell_bonus_atk += 1;
     state.auras.spell_bonus_hp += 1;
+}
+
+/// Losing the Hero Power: Tavern spells lose its `1 + stacks` bonus.
+fn removed(state: &mut TavernState, power: &mut HeroPowerState, _: &mut CardPool) {
+    let bonus = 1 + power.stacks.max(0);
+    state.auras.spell_bonus_atk -= bonus;
+    state.auras.spell_bonus_hp -= bonus;
 }
 
 /// Start of turn: every 3rd improves it.

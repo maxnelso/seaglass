@@ -8,8 +8,11 @@
 //! `friendly_death` hook adds the dead minion's Deathrattle (its card's, then those an effect gave
 //! it) to its `extra_deathrattles`, for the combat. A gained Deathrattle resolves with the Fish as
 //! its minion (its Golden, its stats; engine decision).
+//!
+//! Master Nguyen never offers it for a single turn (`CardFlags::NOT_A_TURN_POWER`): its Fish would
+//! come back every turn.
 
-use crate::cards::{self, tokens, BoardCtx, CardHooks};
+use crate::cards::{self, tokens, BoardCtx, CardFlags, CardHooks};
 use crate::combat::MAX_BOARD_SIZE;
 use crate::model::{CardId, HeroId, Unit};
 use crate::tavern::TavernState;
@@ -20,7 +23,12 @@ pub const POWER: CardId = 66484;
 /// The Hero Power's hooks and the Fish's, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![
-        (POWER, CardHooks::EMPTY.on_hero_chosen(start_with_a_fish)),
+        (
+            POWER,
+            CardHooks::EMPTY
+                .with_flags(CardFlags::NOT_A_TURN_POWER)
+                .on_hero_chosen(start_with_a_fish),
+        ),
         (
             tokens::TOKEN_FISH_OF_NZOTH,
             CardHooks::EMPTY.on_friendly_death(gain_deathrattle),

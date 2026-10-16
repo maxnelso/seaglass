@@ -8,8 +8,11 @@
 //! this combat": a copy of the highest-Health minion in the hand (a tie at random: one
 //! `rng.below(k)`) not yet summoned from the hand this combat, with Divine Shield, as `Diremuck
 //! Forager`'s hand summons; a Golden one, the two highest (engine decision).
+//!
+//! Master Nguyen never offers it for a single turn (`CardFlags::NOT_A_TURN_POWER`): its Shredder
+//! would come back every turn.
 
-use crate::cards::{tokens, BoardCtx, CardHooks};
+use crate::cards::{tokens, BoardCtx, CardFlags, CardHooks};
 use crate::combat::MAX_BOARD_SIZE;
 use crate::model::{CardId, HeroId, Unit};
 use crate::tavern::TavernState;
@@ -22,7 +25,9 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![
         (
             POWER,
-            CardHooks::EMPTY.on_hero_chosen(start_with_a_shredder),
+            CardHooks::EMPTY
+                .with_flags(CardFlags::NOT_A_TURN_POWER)
+                .on_hero_chosen(start_with_a_shredder),
         ),
         (
             tokens::TOKEN_SNEEDS_SHREDDER,

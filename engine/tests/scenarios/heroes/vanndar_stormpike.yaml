@@ -1,7 +1,7 @@
 hero: Vanndar Stormpike
 scenarios:
   - name: from_turn_7_it_summons_a_copy_of_the_highest_health_minion
-    tavern: {auras: {hero: {hero: Vanndar Stormpike, power: {counter: 6}}}, board: ["1/5", "2/9", "3/3"]}
+    tavern: {turn: 6, auras: {hero: Vanndar Stormpike}, board: ["1/5", "2/9", "3/3"]}
     steps:
       - start_turn
       - expect: {auras: {hero: {power: {counter: 7, armed: 1}}}}

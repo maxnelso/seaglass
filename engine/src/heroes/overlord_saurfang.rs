@@ -4,11 +4,12 @@
 //!
 //! Passive. When the player gets the hero (`hero_chosen`), the Tavern's minions get +1/+1
 //! (`tavern_all_atk` / `tavern_all_hp`, the minions in the shop too). Every 3rd minion bought
-//! (counted across turns: `hero_after_buy`, `counter`) adds +1/+1 more.
+//! (counted across turns: `hero_after_buy`, `counter`) adds +1/+1 more. Losing it
+//! (`hero_power_removed`: Master Nguyen's next turn) takes the bonus back off the Tavern.
 
 use crate::cards::CardHooks;
 use crate::heroes::power_mut;
-use crate::model::{CardId, HeroId, Unit};
+use crate::model::{CardId, HeroId, HeroPowerState, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -24,7 +25,8 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         POWER,
         CardHooks::EMPTY
             .on_hero_chosen(for_the_horde)
-            .on_hero_after_buy(after_buy),
+            .on_hero_after_buy(after_buy)
+            .on_hero_power_removed(removed),
     )]
 }
 
@@ -34,6 +36,19 @@ fn for_the_horde(state: &mut TavernState) {
     state.auras.tavern_all_hp += 1;
     for unit in state.shop.iter_mut().filter(|u| !u.is_spell) {
         unit.add_stats(1, 1);
+    }
+}
+
+/// Losing the Hero Power: the Tavern's minions lose its `1 + stacks` bonus.
+fn removed(state: &mut TavernState, power: &mut HeroPowerState, _: &mut CardPool) {
+    let bonus = 1 + power.stacks.max(0);
+    state.auras.tavern_all_atk -= bonus;
+    state.auras.tavern_all_hp -= bonus;
+    for unit in state.shop.iter_mut().filter(|u| !u.is_spell) {
+        unit.attack = (unit.attack - bonus).max(0);
+        unit.health = (unit.health - bonus).max(1);
+        unit.max_attack = unit.attack;
+        unit.max_health = unit.health;
     }
 }
 

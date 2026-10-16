@@ -741,12 +741,25 @@ fn check_queues(before: &DuosTavern, after: &DuosTavern) -> Result<(), Violation
     Ok(())
 }
 
-/// The team's Health never goes up (rewinds prevent damage instead).
-fn check_team_health_kept(before: i32, team: &DuosTavern) -> Result<(), Violation> {
-    if team.health > before {
+/// The team's Health never goes up (rewinds prevent damage instead), but for the 30 Health
+/// Patchwerk's Hero Power gives another hero as they get it (`docs/heroes.md` §11.2: Sir Finley's
+/// or Genn's Discover, The Nameless One's copy).
+fn check_team_health_kept(before: &DuosTavern, team: &DuosTavern) -> Result<(), Violation> {
+    let patched = |s: &seaglass::TavernState| {
+        s.hero().is_some_and(|h| {
+            h.hero_id != heroes::patchwerk::ID
+                && std::iter::once(&h.power)
+                    .chain(&h.second_power)
+                    .any(|p| p.card_id == heroes::patchwerk::POWER)
+        })
+    };
+    let gained = (0..2)
+        .filter(|&p| patched(&team.players[p]) && !patched(&before.players[p]))
+        .count() as i32;
+    if team.health > before.health + 30 * gained {
         return Err(broken(
             "the team's Health went up",
-            format!("{before} -> {}", team.health),
+            format!("{} -> {}", before.health, team.health),
         ));
     }
     Ok(())
@@ -1841,8 +1854,8 @@ impl DuosGame {
             if s.is_frozen {
                 checks.push(Err(broken("the shop is still frozen after start_turn", "")));
             }
-            if s.turn > 1 && s.tavern_tier < 6 && s.upgrade_cost != b.upgrade_cost.saturating_sub(1)
-            {
+            let expected = upgrade_after_turn_start(b.upgrade_cost, &b.auras, s);
+            if s.turn > 1 && s.tavern_tier < 6 && s.upgrade_cost != expected {
                 checks.push(Err(broken(
                     "the upgrade cost did not go down by 1 at the start of the turn",
                     format!("player {p}: {} -> {}", b.upgrade_cost, s.upgrade_cost),
@@ -1862,7 +1875,7 @@ impl DuosGame {
             checks.push(check_tavern(s));
         }
         checks.extend([
-            check_team_health_kept(before.health, team),
+            check_team_health_kept(&before, team),
             check_queues(&before, team),
             check_team(team, true),
             self.check_pool(),
@@ -2045,7 +2058,7 @@ impl DuosGame {
             check_team(team, true),
             match chosen {
                 Some(id) => check_hero_chosen(&before, team, p, id),
-                None => check_team_health_kept(before.health, team),
+                None => check_team_health_kept(&before, team),
             },
         ]);
         for (s, b) in team.players.iter().zip(&before.players) {

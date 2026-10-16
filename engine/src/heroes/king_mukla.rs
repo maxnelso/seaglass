@@ -3,7 +3,8 @@
 //! Hero Power: `Bananarama` (`TB_BaconShop_HP_038`), 0 Gold: At the start of your turn, get 2 Bananas and give everyone else one.
 //!
 //! Passive (`hero_turn_start`): at the start of each turn, rolls 2 Bananas for Mukla's hand (each
-//! independently `Big Banana` `+2/+2` when `rng.below(2) == 0`, else `Bananas` `+1/+1`) and rolls
+//! independently `Big Banana` (`BG_TB_006`) `+2/+2` when `rng.below(2) == 0`, else `Bananas`
+//! (`BG_EX1_014t`) `+1/+1`; token spells, not Tavern spells) and rolls
 //! 1 Banana into `state.lobby_gifts` for each living opponent in `state.lobby.opponents`.
 
 use crate::cards::hooks::SpellTarget;

@@ -5,8 +5,11 @@
 //! Passive. `hero_skips_turn` on turns 1 and 2 (only `EndTurn` is legal). At the start of turn 3
 //! (`hero_turn_start`): two `Triple Reward` cards, locked in at Tier 3 and at Tier 4 (each lost
 //! with a full hand, `docs/tavern.md` §5.2; confirmed).
+//!
+//! Never offered by a Discover of Hero Powers (`CardFlags::NOT_DISCOVERABLE_POWER`): its skipped
+//! turns would be past.
 
-use crate::cards::{tokens, CardHooks};
+use crate::cards::{tokens, CardFlags, CardHooks};
 use crate::model::{CardId, HeroId};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -25,6 +28,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         POWER,
         CardHooks::EMPTY
+            .with_flags(CardFlags::NOT_DISCOVERABLE_POWER)
             .on_hero_skips_turn(|state| (1..=SKIPPED).contains(&state.turn))
             .on_hero_turn_start(turn_start),
     )]

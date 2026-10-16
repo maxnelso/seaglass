@@ -30,7 +30,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             .on_hero_start_of_combat(|ctx| join(&mut ctx.own))
             .on_hero_combat_space(join)
             .on_hero_turn_start(back_to_pool)
-            .on_hero_power_removed(return_kept)
+            .on_hero_power_removed(|_, power, pool| return_kept(power, pool))
             .with_activate_target(ActivateTargetKind::ShopCard),
     )]
 }
