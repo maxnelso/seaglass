@@ -735,7 +735,7 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
     }
     for opts in s.discover_pending.iter().chain(&s.discover_queue) {
         for (i, u) in opts.iter().enumerate() {
-            if !u.to_hero_power && opts[..i].iter().any(|o| o.card_id == u.card_id) {
+            if !from_a_warband(s, u) && opts[..i].iter().any(|o| o.card_id == u.card_id) {
                 return Err(broken(
                     format!("a Discover offers the same card twice: {}", u.name),
                     units_desc(opts),
@@ -744,6 +744,18 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
         }
     }
     Ok(())
+}
+
+/// Whether the Discover option `u` was taken from another player's warband (the lobby's last
+/// warbands: `Scabbs Cutterbutter`, `Mr. Bigglesworth`, `Murloc Holmes`), which may hold two copies
+/// of a card, or a minion of no pool (`docs/tavern.md` §3.1). Only a Hero Power's options
+/// (`to_hero_power`) come from there.
+fn from_a_warband(s: &TavernState, u: &Unit) -> bool {
+    u.to_hero_power
+        && s.lobby
+            .opponents
+            .iter()
+            .any(|o| o.last_warband.iter().any(|w| w.card_id == u.card_id))
 }
 
 /// The card ids of the Duos cards: the Duos-exclusive minions (those of the Duos pool and the
@@ -774,7 +786,8 @@ fn out_of_pool_ids() -> &'static BTreeSet<u32> {
 /// The cards come from the game's catalog (`docs/duos_tavern.md` §8): no Duos card in a Solo game
 /// (its pool, its random cards and its shop spells are Solo ones), and no minion of no pool (the
 /// Naga-only ones) offered by a Duos game's Discovers, unless the player's Hero Power kept it from
-/// their warband (`Sylvanas Windrunner` offers the minions that died last combat). (Nor by its
+/// their warband (`Sylvanas Windrunner` offers the minions that died last combat) or takes it from
+/// another player's warband ([`from_a_warband`]). (Nor by its
 /// shop, `duos::check_shop_offers`, where a player's own minion can go: `Jandice Barov` swaps one
 /// there.)
 fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
@@ -821,7 +834,7 @@ fn check_game_cards(s: &TavernState) -> Result<(), Violation> {
             })
         };
         for u in prompts {
-            if out_of_pool_ids().contains(&u.card_id) && !u.to_hero_power && !kept(u.card_id) {
+            if out_of_pool_ids().contains(&u.card_id) && !from_a_warband(s, u) && !kept(u.card_id) {
                 return Err(broken(
                     format!("a minion of no pool is offered in the Discover: {}", u.name),
                     unit_desc(u),
