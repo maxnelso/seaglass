@@ -11,3 +11,18 @@ scenarios:
     steps:
       - refresh
     expect: {upgrade_cost: 0}
+
+  - name: not_the_new_shop_of_a_turn_start
+    description: The turn start's new shop is not a Refresh the player does (confirmed); only the turn's own decay.
+    tavern: {turn: 5, tavern_tier: 2, upgrade_cost: 6, auras: {trinkets: [Frigid Blossom]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {upgrade_cost: 5}
+
+  - name: a_refresh_by_a_hero_power_counts
+    description: Time-Twister Chromie's Refresh is one the player does (engine decision).
+    tavern: {tavern_tier: 2, gold: 5, upgrade_cost: 6, auras: {hero: Time Twister Chromie, trinkets: [Frigid Blossom]}}
+    steps:
+      - hero_power
+    expect: {upgrade_cost: 5}

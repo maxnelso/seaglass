@@ -588,9 +588,12 @@ card_hooks! {
     /// A Tavern spell is cast in the Tavern (each cast), after the cards' `spell_cast` observers:
     /// `(state, pool, rng)`.
     trinket_spell_cast(on_trinket_spell_cast): TavernEventFn,
-    /// The Tavern was Refreshed, after the Hero Power's `hero_after_refresh`, before the cards'
-    /// after-Refresh effects: `(state, pool, rng)`.
+    /// The Tavern was Refreshed, by any Refresh (the turn start's new shop too), after the Hero
+    /// Power's `hero_after_refresh`, before the cards' after-Refresh effects: `(state, pool, rng)`.
     trinket_after_refresh(on_trinket_after_refresh): TavernEventFn,
+    /// The player Refreshed (not the turn start's new shop: `docs/tavern.md` §4.1), after every
+    /// trinket's `trinket_after_refresh`: `(state, pool, rng)`.
+    trinket_after_player_refresh(on_trinket_after_player_refresh): TavernEventFn,
     /// Extra times the effects counted by a [`Passive`] trigger, on top of the board's: `(passive)`
     /// (only `EndOfTurnTriggers` is read).
     trinket_extra_triggers(on_trinket_extra_triggers): fn(Passive) -> u32,

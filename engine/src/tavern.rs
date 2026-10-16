@@ -500,6 +500,16 @@ pub enum TavernAction {
     },
 }
 
+/// Which Refresh the Tavern's new cards come from (`docs/tavern.md` §4.1): "after the Tavern is
+/// Refreshed" effects see both, "after you Refresh" ones only [`RefreshKind::Player`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RefreshKind {
+    /// A Refresh the player does: the `Refresh` action, or one of their cards' or Hero Powers'.
+    Player,
+    /// The new shop of an unfrozen turn start.
+    TurnStart,
+}
+
 /// Complete state of a player during the Tavern Phase (`docs/tavern.md` §3).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TavernState {
@@ -1303,7 +1313,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
-        trinkets::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, RefreshKind::Player, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1338,7 +1348,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
-        trinkets::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, RefreshKind::Player, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1356,7 +1366,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
-        trinkets::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, RefreshKind::Player, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1378,7 +1388,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
-        trinkets::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, RefreshKind::Player, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1419,7 +1429,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
-        trinkets::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, RefreshKind::Player, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1523,7 +1533,7 @@ impl TavernState {
             self.shop = kept;
             self.fill_kept_shop(cap, pool, rng);
             heroes::after_refresh(self, pool, rng);
-            trinkets::after_refresh(self, pool, rng);
+            trinkets::after_refresh(self, RefreshKind::TurnStart, pool, rng);
             cards::after_shop_refresh(self, rng);
         } else {
             for old in self.shop.drain(..) {
@@ -1540,7 +1550,7 @@ impl TavernState {
                 self.shop.push(spell);
             }
             heroes::after_refresh(self, pool, rng);
-            trinkets::after_refresh(self, pool, rng);
+            trinkets::after_refresh(self, RefreshKind::TurnStart, pool, rng);
             cards::after_shop_refresh(self, rng);
         }
         heroes::on_turn_start(self, pool, rng);

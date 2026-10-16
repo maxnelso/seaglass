@@ -1625,12 +1625,7 @@ fn check_round_trip(s: &TavernState) -> Result<(), Violation> {
 /// Upgrade extra a Hero Power the turn start took away gave (Millhouse's, once Master Nguyen takes
 /// his Hero Power back: `docs/heroes.md` §11.3), and less the 3 of `Bartend-o-Tron's Oilcan`
 /// (`docs/trinkets.md` §11.2).
-fn upgrade_after_turn_start(
-    before: u32,
-    before_auras: &PlayerAuras,
-    was_frozen: bool,
-    s: &TavernState,
-) -> u32 {
+fn upgrade_after_turn_start(before: u32, before_auras: &PlayerAuras, s: &TavernState) -> u32 {
     let lost = heroes::tavern_rules(before_auras)
         .upgrade_extra
         .saturating_sub(heroes::tavern_rules(&s.auras).upgrade_extra);
@@ -1639,13 +1634,10 @@ fn upgrade_after_turn_start(
     } else {
         0
     };
-    // Frigid Blossom sees the turn start's new shop as a Refresh (not a frozen shop kept).
-    let blossom = u32::from(!was_frozen && trinkets::owns(&s.auras, trinkets::frigid_blossom::ID));
     before
         .saturating_sub(lost)
         .saturating_sub(1)
         .saturating_sub(oilcan)
-        .saturating_sub(blossom)
 }
 
 /// The player's lobby is consistent (`docs/tavern.md` §3.1): its indices point into its
@@ -2411,7 +2403,7 @@ impl Game {
                 if s.is_frozen {
                     return Err(broken("the shop is still frozen after start_turn", "").into());
                 }
-                let expected = upgrade_after_turn_start(old_cost, &old_auras, was_frozen, s);
+                let expected = upgrade_after_turn_start(old_cost, &old_auras, s);
                 if s.turn > 1 && s.tavern_tier < 6 && s.upgrade_cost != expected {
                     return Err(broken(
                         "the upgrade cost did not go down by 1 at the start of the turn",

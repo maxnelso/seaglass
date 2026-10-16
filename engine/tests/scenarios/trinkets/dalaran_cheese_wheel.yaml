@@ -11,3 +11,10 @@ scenarios:
     steps:
       - refresh
     expect: {auras: {tavern_all_atk: 4, tavern_all_hp: 4, trinkets: [{counter: 0}]}}
+
+  - name: the_turn_start_shop_does_not_count
+    tavern: {turn: 5, auras: {tavern_all_atk: 2, tavern_all_hp: 2, trinkets: [{trinket: Dalaran Cheese Wheel, counter: 3}]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {auras: {tavern_all_atk: 2, trinkets: [{counter: 3}]}}

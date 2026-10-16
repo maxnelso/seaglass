@@ -141,7 +141,7 @@ Two wordings see different Refreshes (`RefreshKind`, passed to the after-Refresh
 | Wording | Sees | Examples |
 | :--- | :--- | :--- |
 | "After the Tavern is Refreshed", "whenever it is Refreshed", "after each Refresh" | Every Refresh: the `Refresh` action (paid, free or a Health Refresh), a card's or Hero Power's Refresh, and the new shop of an unfrozen turn start (§4 step 4). | `En-Djinn Blazer`, `Waveling`, `Easterly Winds`, `Blood Gem Barrage`, `Demon Fodder`, Enhance-o Mechano, Varden Dawngrasp, Ysera, Silas Darkmoon, `Innkeeper's Stein`. |
-| "After **you** Refresh", "every N times you Refresh" | A Refresh the player does: the `Refresh` action (paid, free or a Health Refresh) and a Refresh one of their cards or Hero Powers does (`Snarky Shark`, Tess Greymane's `Bob's Burgles`, Infinite Toki, Time-Twister Chromie, `Lost Staff of Hamuul`) **(engine decision**: the wording reads it as the player's**)**. Not the new shop of a turn start **(confirmed)**. | `Frigid Blossom`, `Upstart Embers`, `Dalaran Cheese Wheel` (the trinkets' `trinket_after_player_refresh`). |
+| "After **you** Refresh", "every N times you Refresh" | A Refresh the player does: the `Refresh` action (paid, free or a Health Refresh) and a Refresh one of their cards or Hero Powers does (`Snarky Shark`, Tess Greymane's `Bob's Burgles`, Infinite Toki, Time Twister Chromie, `Lost Staff of Hamuul`) **(engine decision**: the wording reads it as the player's**)**. Not the new shop of a turn start **(confirmed)**. | `Frigid Blossom`, `Upstart Embers`, `Dalaran Cheese Wheel` (the trinkets' `trinket_after_player_refresh`). |
 
 No minion, spell or Hero Power of the engine's pool has the "after you Refresh" wording; only trinkets do.
 

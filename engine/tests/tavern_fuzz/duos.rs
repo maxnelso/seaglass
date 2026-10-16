@@ -1890,7 +1890,7 @@ impl DuosGame {
             if s.is_frozen {
                 checks.push(Err(broken("the shop is still frozen after start_turn", "")));
             }
-            let expected = upgrade_after_turn_start(b.upgrade_cost, &b.auras, b.is_frozen, s);
+            let expected = upgrade_after_turn_start(b.upgrade_cost, &b.auras, s);
             if s.turn > 1 && s.tavern_tier < 6 && s.upgrade_cost != expected {
                 checks.push(Err(broken(
                     "the upgrade cost did not go down by 1 at the start of the turn",

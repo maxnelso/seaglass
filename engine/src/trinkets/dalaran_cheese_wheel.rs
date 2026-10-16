@@ -4,10 +4,10 @@
 //!
 //! Picked: the Tavern's bonus (`auras.tavern_all_atk` / `tavern_all_hp`, as `Staff of
 //! Enrichment`'s) goes up by +2/+2, the minions in the Tavern now too (`trinkets::buff_tavern_minions`).
-//! `trinket_after_refresh`: every 4th Refresh (`counter`, across turns; every Refresh
-//! `hero_after_refresh` sees, the turn start's new shop too: **engine decision**) improves it by
-//! another +2/+2 (**engine decision**), after the Refresh's new minions got the old bonus, so they
-//! gain the new +2/+2 too.
+//! `trinket_after_player_refresh`: every 4th Refresh the player does (`counter`, across turns; not
+//! the turn start's new shop: confirmed, `docs/tavern.md` §4.1) improves it by another +2/+2
+//! (**engine decision**), after the Refresh's new minions got the old bonus, so they gain the new
+//! +2/+2 too.
 
 use crate::cards::CardHooks;
 use crate::model::CardId;
@@ -25,7 +25,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         ID,
         CardHooks::EMPTY
             .on_trinket_bought(improve)
-            .on_trinket_after_refresh(after_refresh),
+            .on_trinket_after_player_refresh(after_refresh),
     )]
 }
 

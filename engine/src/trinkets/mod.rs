@@ -119,7 +119,7 @@ use crate::model::{
     CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, Unit, UnitId, LOBBY_TRIBES,
 };
 use crate::rng::Rng;
-use crate::tavern::{CardPool, MinionSlot, TavernState};
+use crate::tavern::{CardPool, MinionSlot, RefreshKind, TavernState};
 
 /// A trinket of the pool (`docs/trinkets.md` §2.1): one row of the generated table.
 #[derive(Clone, Copy, Debug)]
@@ -686,10 +686,24 @@ pub fn spell_cast(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     }
 }
 
-/// The Tavern was Refreshed: each trinket's `trinket_after_refresh` hook.
-pub fn after_refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+/// The Tavern was Refreshed (`docs/tavern.md` §4.1): each trinket's `trinket_after_refresh` hook,
+/// then, for a Refresh the player does, each trinket's `trinket_after_player_refresh` hook.
+pub fn after_refresh(
+    state: &mut TavernState,
+    kind: RefreshKind,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
     for id in owned_ids(&state.auras) {
         if let Some(after_refresh) = hooks(id).trinket_after_refresh {
+            after_refresh(state, pool, rng);
+        }
+    }
+    if kind != RefreshKind::Player {
+        return;
+    }
+    for id in owned_ids(&state.auras) {
+        if let Some(after_refresh) = hooks(id).trinket_after_player_refresh {
             after_refresh(state, pool, rng);
         }
     }
@@ -940,6 +954,15 @@ pub fn buff_random_pirates(
     }
     for i in pirates {
         state.board[i].add_stats(attack, health);
+    }
+}
+
+/// One of `tied` (non-empty) at random: one `rng.below(k)`, none when there is a single one (ties
+/// for "highest" / "lowest" are broken at random: confirmed, `docs/trinkets.md` §12).
+pub fn pick_tied(tied: &[usize], rng: &mut Rng) -> usize {
+    match tied {
+        [only] => *only,
+        _ => tied[rng.below(tied.len())],
     }
 }
 
