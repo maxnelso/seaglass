@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### Deferred
 - 4-team matches and their pairings: the engine has one team's Tavern; a match of four teams is the caller's job.
-- The Duos combat rules themselves (`duos.md`). Heroes, their Hero Powers and their starting Armor are specified in [`heroes.md`](heroes.md).
+- The Duos combat rules themselves (`duos.md`). Heroes, their Hero Powers and their starting Armor are specified in [`heroes.md`](heroes.md), trinkets (per player in Duos) in [`trinkets.md`](trinkets.md) §8.1.
 
 ---
 

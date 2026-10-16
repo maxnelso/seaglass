@@ -1,6 +1,6 @@
 # Heroes Specification
 
-This document specifies Battlegrounds **heroes** in Seaglass: the hero a player plays, their starting Health and Armor, their **Hero Power** and its state, how Hero Powers reach the Tavern and combat, the RL action, and hero selection. It builds on [`tavern.md`](tavern.md), [`combat.md`](combat.md), [`duos_tavern.md`](duos_tavern.md) and [`duos.md`](duos.md), and like them it is updated **before** behavior changes. The engines stay card-agnostic: what a Hero Power does lives in its hero's file (`src/heroes/<hero>.rs`) and reaches the engine only through hooks.
+This document specifies Battlegrounds **heroes** in Seaglass: the hero a player plays, their starting Health and Armor, their **Hero Power** and its state, how Hero Powers reach the Tavern and combat, the RL action, and hero selection. It builds on [`tavern.md`](tavern.md), [`combat.md`](combat.md), [`duos_tavern.md`](duos_tavern.md) and [`duos.md`](duos.md) (trinkets, which follow the same patterns, are in [`trinkets.md`](trinkets.md)), and like them it is updated **before** behavior changes. The engines stay card-agnostic: what a Hero Power does lives in its hero's file (`src/heroes/<hero>.rs`) and reaches the engine only through hooks.
 
 Rules marked **(confirmed)** were settled with the user. Rules marked **(engine decision)** are details nobody has settled yet: the engine implements them as written, each in one place, so that it is a small change if the answer differs (§12).
 
@@ -19,7 +19,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### Deferred
 - `Queen Azshara`: her Naga Conquest Discovers Naga, and Naga aren't in the game **(confirmed)**; she is in the table but not implemented, and not offered (§6).
-- Buddies (companions), Trinkets, Quests, Darkmoon Prizes, Anomalies, Dark Gifts, Timewarp, Spellcraft outside Duos, Secrets, custom Undead creations, and StarCraft multi-piece boards/upgrade spells: the heroes that need them (E.T.C.; Buttons, Marin; Sire Denathrius; Tickatus; Nightmare Lord Xavius, Tras'tath; Morchie, Murozond; Lady Vashj; The Great Akazamzarak; Professor Putricide; Jim Raynor, Kerrigan, Queen of Blades, Artanis) **(confirmed)** are in the table but not implemented, and not offered (§6).
+- Buddies (companions), Quests, Darkmoon Prizes, Anomalies, Dark Gifts, Timewarp, Spellcraft outside Duos, Secrets, custom Undead creations, and StarCraft multi-piece boards/upgrade spells: the heroes that need them (E.T.C.; Buttons, Marin; Sire Denathrius; Tickatus; Nightmare Lord Xavius, Tras'tath; Morchie, Murozond; Lady Vashj; The Great Akazamzarak; Professor Putricide; Jim Raynor, Kerrigan, Queen of Blades, Artanis) **(confirmed)** are in the table but not implemented, and not offered (§6).
 
 ---
 

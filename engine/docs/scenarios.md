@@ -36,7 +36,7 @@ not load is reported as the test `<dir>::<file>::<file>`.
 ## 2. Scenario files
 
 ```yaml
-card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>` or `topic: <text>`
+card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>`, `trinket: <name>` or `topic: <text>`
 defaults:                      # optional: merged into every scenario
   seed: 101
 scenarios:
@@ -182,6 +182,9 @@ step also has `player:` (§2.1).
 | `choose_hero: <option index or hero name>` | `TavernAction::ChooseHero` (indexes `hero_options`). |
 | `set_hero: <hero name>` | `TavernState::set_hero`: the hero, its Hero Power, Health and Armor (a Duos player's: the team's pool takes them). |
 | `offer_heroes: [<hero names>]` | `TavernState::offer_heroes`. |
+| `give_trinket: <trinket name>` | `TavernState::give_trinket`: the trinket joins, with its `trinket_bought` text, for no Gold (`docs/trinkets.md` §4). `Eternal Portrait (Greater)` names a Greater trinket that shares its name with a Lesser one. |
+| `offer_trinkets: [<trinket names>]` or `offer_trinkets: lesser \| greater` | Offer those trinkets at their cost, or an offer drawn as on turn 6 or 9 (`docs/trinkets.md` §3.3). |
+| `choose_trinket: <option index or trinket name>` | `TavernAction::ChooseTrinket` (indexes `trinket_options`). |
 | `add_to_hand: <unit spec(s)>` | `TavernState::add_to_hand` for each card (as if it were gained: triples, hand limit). |
 | `push_board` / `push_hand` / `push_shop: <unit spec(s)>` | Append the cards directly: no triggers, no auras, no triples. |
 | `clear: <zone>` or `clear: [<zones>]` | Empty `board`, `hand` and/or `shop`. |
