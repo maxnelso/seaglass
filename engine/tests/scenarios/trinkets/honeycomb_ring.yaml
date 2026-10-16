@@ -1,0 +1,18 @@
+trinket: Honeycomb Ring
+scenarios:
+  - name: tavern_spells_give_one_one_more
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Honeycomb Ring
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}
+
+  - name: a_spell_on_a_minion_improves_it_this_turn_only
+    tavern: {turn: 5, gold: 10, board: ["1/1"], hand: [Repair Job, Repair Job], auras: {spell_bonus_atk: 1, spell_bonus_hp: 1, trinkets: [Honeycomb Ring]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - expect: {board: ["6/10"], auras: {spell_bonus_atk: 2}}
+      - play: {hand: 0, pos: 0}
+      - expect: {board: ["12/20"], auras: {spell_bonus_atk: 3}}
+      - end_turn
+      - start_turn
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1, trinkets: [{counter: 0}]}}

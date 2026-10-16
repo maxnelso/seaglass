@@ -1,0 +1,7 @@
+trinket: Gold Mallet (Greater)
+scenarios:
+  - name: end_of_turn_buff_improved_by_golden_minions_played
+    tavern: {board: ["1/1"], auras: {trinkets: [{trinket: Gold Mallet (Greater), counter: 2}]}}
+    steps:
+      - end_turn
+    expect: {board: ["13/7"]}

@@ -961,6 +961,7 @@ pub fn cast_spell_from(
     if source == CastSource::Hand && card_hooks.has(CardFlags::BLOOD_GEM) {
         extra_casts += board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
     }
+    extra_casts += crate::trinkets::extra_spell_casts(&mut state.auras);
     let bounty_casts = if card_hooks.has(CardFlags::BOUNTY) {
         board_passive(&state.board, Passive::BountyCasts)
     } else {
@@ -968,10 +969,12 @@ pub fn cast_spell_from(
     };
     let casts = bounty_casts * (1 + extra_casts);
 
+    let mut resolved = 0;
     for cast in 0..casts {
         if targeted && find_cast_target(state, target).is_none() {
             break; // the target is gone: this cast and the rest fizzle
         }
+        resolved += 1;
         if tavern_spell {
             state.auras.tavern_spells_cast += 1;
             crate::cards::on_cast_tavern_spell(state, pool, rng);
@@ -1003,9 +1006,23 @@ pub fn cast_spell_from(
         crate::cards::after_cast_any_spell(state, pool, rng);
     }
 
+    let final_target = if targeted {
+        find_cast_target(state, target)
+    } else {
+        None
+    };
     if let Some(id) = target_id {
         unmark_cast_target(state, id);
     }
+    // The trinkets see the whole spell once its casts are done (`docs/trinkets.md` §6).
+    let spell = crate::trinkets::SpellCast {
+        card,
+        targeted,
+        target: final_target,
+        from_hand: source == CastSource::Hand,
+        casts: resolved,
+    };
+    crate::trinkets::after_spell(state, &spell, pool, rng);
 }
 
 /// `true` if `unit` is marked as the target of the spell being cast (see [`CAST_TARGET_ID`]).

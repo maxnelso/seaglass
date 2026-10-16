@@ -997,6 +997,7 @@ impl TavernState {
     ) {
         let played_card_id = card.card_id;
         let played_tribe = card.tribe;
+        let played_golden = card.is_golden;
         let was_golden_minion = card.is_golden;
         let gives_triple_reward = card.is_golden && !card.intrinsic_golden;
         let should_die_on_play = card.dies_on_play_this_turn;
@@ -1038,6 +1039,7 @@ impl TavernState {
             let played = Played {
                 card_id: played_card_id,
                 tribe: played_tribe,
+                golden: played_golden,
                 board_pos: insert_idx,
                 magnetized: false,
                 from_hand: true,
@@ -1156,6 +1158,7 @@ impl TavernState {
 
         let combined = self.combine_choose_one
             || opt0.combine_choose_one
+            || trinkets::extra_triggers(&self.auras, Passive::CombinesChooseOne) > 0
             || cards::use_charge(&mut self.board, CardFlags::COMBINES_CHOOSE_ONE);
 
         if combined {

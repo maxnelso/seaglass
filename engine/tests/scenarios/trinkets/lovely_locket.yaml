@@ -1,0 +1,20 @@
+trinket: Lovely Locket
+scenarios:
+  - name: a_spell_on_a_friendly_minion_is_cast_on_another
+    tavern: {gold: 5, board: ["1/1", "1/1"], hand: [Repair Job], auras: {trinkets: [Lovely Locket]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["5/9", "5/9"], auras: {tavern_spells_cast: 2}}
+
+  - name: the_copy_does_not_trigger_it_again
+    seeds: "1..=3"
+    tavern: {gold: 5, board: ["1/1", "1/1", "1/1"], hand: [Repair Job], auras: {trinkets: [Lovely Locket]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: {0: "5/9", where: {attack: 5}, count: 2}}
+
+  - name: nothing_without_another_minion
+    tavern: {gold: 5, board: ["1/1"], hand: [Repair Job], auras: {trinkets: [Lovely Locket]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["5/9"], auras: {tavern_spells_cast: 1}}

@@ -1,0 +1,16 @@
+trinket: Reusable Batteries
+scenarios:
+  - name: the_first_minion_bought_each_turn_gives_a_satellite_with_its_stats
+    tavern: {gold: 10, shop: ["3/5", "2/2"], auras: {trinkets: [Reusable Batteries]}}
+    steps:
+      - buy: 0
+      - buy: 0
+    expect: {hand: ["3/5", {name: Satellite, attack: 3, health: 5, magnetic: true}, "2/2"]}
+
+  - name: again_the_next_turn
+    tavern: {turn: 5, gold: 10, shop: ["3/5"], auras: {trinkets: [{trinket: Reusable Batteries, armed: 1}]}}
+    steps:
+      - end_turn
+      - start_turn
+      - buy: 0
+    expect: {hand: {where: {name: Satellite}, count: 1}}

@@ -1,0 +1,16 @@
+trinket: Gold Mallet
+scenarios:
+  - name: end_of_turn_buff_improved_by_golden_minions_played
+    tavern: {board: ["1/1"], hand: ["golden Tarecgosa 8/8", "1/1"], auras: {trinkets: [Gold Mallet]}}
+    steps:
+      - play: 0
+      - play: 0
+      - end_turn
+    expect: {board: ["3/3", "10/10", "3/3"]}
+
+  - name: a_golden_magnetic_minion_magnetized_counts
+    description: (confirmed)
+    tavern: {board: ["1/1 mech"], hand: ["golden Annoy-o-Module"], auras: {trinkets: [Gold Mallet]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: {count: 1}, auras: {trinkets: [{counter: 1}]}}

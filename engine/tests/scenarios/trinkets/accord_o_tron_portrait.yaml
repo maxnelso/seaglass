@@ -1,0 +1,13 @@
+trinket: Accord-o-Tron Portrait
+scenarios:
+  - name: an_accord_o_tron_on_the_left_and_right_most_mechs
+    tavern: {board: ["1/1 mech", "1/1", "1/1 mech", "1/1 mech"], auras: {trinkets: [Accord-o-Tron Portrait]}}
+    steps:
+      - end_turn
+    expect: {board: ["4/4", "1/1", "1/1", "4/4"]}
+
+  - name: once_with_a_single_mech
+    tavern: {board: ["1/1 mech"], auras: {trinkets: [Accord-o-Tron Portrait]}}
+    steps:
+      - end_turn
+    expect: {board: ["4/4"]}

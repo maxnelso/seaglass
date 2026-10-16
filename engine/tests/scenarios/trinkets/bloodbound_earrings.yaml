@@ -1,0 +1,7 @@
+trinket: Bloodbound Earrings
+scenarios:
+  - name: the_fourth_spell_plays_a_blood_gem_on_every_minion
+    tavern: {board: ["1/1", "2/2"], hand: [Tavern Coin], auras: {trinkets: [{trinket: Bloodbound Earrings, counter: 3}]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["2/2", "3/3"], auras: {trinkets: [{counter: 0}]}}

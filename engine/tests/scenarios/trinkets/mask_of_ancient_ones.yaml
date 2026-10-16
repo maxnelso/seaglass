@@ -1,0 +1,7 @@
+trinket: Mask of Ancient Ones
+scenarios:
+  - name: the_deity_becomes_golden
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Mask of Ancient Ones
+    expect: {auras: {deity: {is_golden: true}}}

@@ -1,0 +1,15 @@
+trinket: Dragonwing Glider
+scenarios:
+  - name: playing_a_minion_or_a_spell_buffs_a_dragon
+    tavern: {board: ["1/1 dragon"], hand: ["1/1", Tavern Coin], auras: {trinkets: [Dragonwing Glider]}}
+    steps:
+      - play: 0
+      - expect: {board: ["5/5", "1/1"]}
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["9/9", "1/1"]}
+
+  - name: nothing_without_a_dragon
+    tavern: {hand: ["1/1"], auras: {trinkets: [Dragonwing Glider]}}
+    steps:
+      - play: 0
+    expect: {board: ["1/1"]}

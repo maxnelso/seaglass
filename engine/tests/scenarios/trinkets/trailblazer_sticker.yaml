@@ -1,0 +1,7 @@
+trinket: Trailblazer Sticker
+scenarios:
+  - name: a_choose_one_has_both_effects
+    tavern: {hand: [Gem Day], auras: {trinkets: [Trailblazer Sticker]}}
+    steps:
+      - play: 0
+    expect: {discover_pending: null, auras: {blood_gem_bonus_atk: 1, blood_gem_bonus_hp: 1}}

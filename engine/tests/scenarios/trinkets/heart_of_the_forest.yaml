@@ -1,0 +1,13 @@
+trinket: Heart of the Forest
+scenarios:
+  - name: tavern_spells_give_one_one_more
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Heart of the Forest
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}
+
+  - name: the_fourth_tavern_spell_from_hand_improves_it
+    tavern: {hand: [Tavern Coin], auras: {spell_bonus_atk: 1, spell_bonus_hp: 1, trinkets: [{trinket: Heart of the Forest, counter: 3}]}}
+    steps:
+      - play: 0
+    expect: {auras: {spell_bonus_atk: 2, spell_bonus_hp: 2, trinkets: [{counter: 0}]}}

@@ -140,6 +140,8 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_after_player_refresh` | The player Refreshed (the `Refresh` action, or a Refresh one of their cards or Hero Powers does; not the turn start's new shop: tavern.md §4.1), after every trinket's `trinket_after_refresh`: `(state, pool, rng)`. | `Frigid Blossom`, `Upstart Embers`, `Dalaran Cheese Wheel`. |
 | `trinket_gold_spent` | Gold was spent (`TavernState::spend_gold`: a buy, a Refresh, an Upgrade, ...), after the Hero Power's `hero_gold_spent`: `(state, amount, pool, rng)`. | `Booty Bay Brew`. |
 | `trinket_tavern_summon` | A friendly minion is summoned in the Tavern (played, or summoned by a card), after the minions' `friendly_summon` observers: `(trinket, summoned)`. | `Mama Bear Sticker`. |
+| `trinket_after_spell` | A spell was cast in the Tavern, once all its casts are done (after the target is unmarked): `(state, cast, pool, rng)`, a `SpellCast` (the card, whether it is cast on a minion, where that target now is, whether it was played from the hand, the casts that resolved). | `Bloodbound Earrings`, `Lovely Locket`. |
+| `trinket_extra_spell_casts` | A spell is about to be cast in the Tavern: the extra casts this trinket adds (it may use up a charge): `(trinket)`. | `Replica Cathedral`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -345,6 +347,25 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Gold Pendant` (Lesser) | Make a random friendly minion from Tier 4 or below Golden. At the start of each turn, repeat this. | A random board minion of Tier 4 or lower that isn't Golden (`Unit::make_golden`, as `Golden Touch`'s: one pool copy); nothing without one. |
 | `Innkeeper's Hearth` (Greater) | Discover two Tier 6 minions. Set their stats to 30/30. | Two Discovers of 3 Tier 6 minions from the pool, one after the other; the options are 30/30 before the choice **(engine decision)**. |
 | `Upstart Embers` (Greater) | After you Refresh, double the stats of the highest- Health minion in the Tavern. | `trinket_after_player_refresh`: a Refresh the player does, not the turn start's new shop **(confirmed)**; ties broken at random, one `rng.below(k)` among the tied **(confirmed)**. |
+| `Reusable Batteries` (Lesser) | The first time you buy a minion each turn, get a Magnetic Satellite with its stats. | The first minion bought each turn: a `Satellite` with its Attack and Health. |
+| `Lockbox Portrait` (Lesser) | Get a Lockbox. If you already have one, it opens 2 turns sooner instead. At the start of each turn, repeat this. | With a `Lockbox` in the hand, the left-most one's countdown goes down by 2 (after its own) and it opens at 0; else a new `Lockbox` **(engine decision**: the left-most**)**. |
+| `Shrine of Evolution` (Lesser) | Transform all your minions into random Tier 4 minions. | Each board minion becomes a random Tier 4 minion drawn from the pool (as `Robust Evolution`'s transform), plain, base stats, never Golden **(engine decision)**. |
+| `Gold Mallet` (Lesser) | At the end of your turn, give your minions +1/+1. (Improved by Golden minions you've played this game!) | `+1/+1 × (1 + Golden minions played from the hand)`, a Golden Magnetic minion Magnetized from it too **(confirmed)**. |
+| `Bloodbound Earrings` (Lesser) | After you cast 4 spells, this plays a Blood Gem on all your minions. | Every cast of every spell in the Tavern counts, across turns (combat casts don't: **engine decision**); the Gems are played, not cast. |
+| `Wand of Divination` (Lesser, Quilboar and Naga) | After you cast 3 spells on minions, gain 1 Gold. | Every cast on a minion, on the board or in the Tavern, across turns. Offered for Quilboar (§1). |
+| `Lovely Locket` (Lesser) | After you cast a spell on a friendly minion, this casts it on another friendly minion. | Once the spell's casts are done, a fresh copy cast by an effect on a random other board minion; that copy counts as a spell the player casts but doesn't trigger the Locket again; spells on Tavern minions don't count **(confirmed)**. |
+| `Cursed Crystal` (Lesser) | After the Tavern is Refreshed, give its minions +3/+3 this turn. | The turn's first Refresh (the turn start's too) adds +3/+3 to the Tavern's turn bonus (as `Ashen Corruptor`'s): the minions of the turn's Refreshes have it; a minion bought keeps it, one still in the Tavern loses it at the next turn start **(confirmed)**. |
+| `Replica Cathedral` (Lesser) | Your first spell each turn casts an extra time. | `trinket_extra_spell_casts`: one extra cast of the first spell cast each turn, from the hand or by an effect **(engine decision)**. |
+| `Dragonwing Glider` (Lesser) | Whenever you play a card, give a friendly Dragon +4/+4. | A minion or a spell played from the hand: a random board Dragon; not cards cast or summoned by effects **(confirmed)**. |
+| `Mask of Ancient Ones` (Greater) | Make your Deity Golden this game. | `auras.deity.is_golden`. |
+| `Gold Mallet` (Greater) | At the end of your turn, give your minions +4/+2. (Improved by Golden minions you've played this game!) | As the Lesser one: `+4/+2 × (1 + Golden minions played)` **(confirmed)**. |
+| `Bloodbound Earrings` (Greater) | After you cast 5 spells, this plays two Blood Gems on all your minions. | As the Lesser one, every 5th, 2 Gems. |
+| `Honeycomb Ring` (Greater) | Your Tavern spells give an extra +1/+1. After you cast a spell on a minion, improve for this turn only. | `spell_bonus_atk` / `_hp` +1/+1 as picked, and +1/+1 more per cast on a minion (on the board or in the Tavern) until the next turn start **(confirmed)**. |
+| `Heart of the Forest` (Greater, Pirate and Naga) | Your Tavern spells give an extra +1/+1. After you cast {4} Tavern spells from hand, improve this. | The data's numbers are broken: +1/+1 as picked, +1/+1 more every 4th Tavern spell cast from the hand, across turns **(confirmed)**. Offered for Pirate (§1). |
+| `Insurrectionist's Blade` (Greater) | At the end of your turn, trigger all friendly Rallies. | Each Rally minion, left to right, triggers as `Sky-hatch Runaway` makes it (`cards::trigger_tavern_rally`). |
+| `Accord-o-Tron Portrait` (Greater) | At the end of each turn, Magnetize an Accord-o-Tron to your left- and right-most Mechs. | A plain `Accord-o-Tron` Magnetized by an effect (`cards::magnetize`) on each; once with a single Mech. |
+| `Magicfin Sticker` (Greater) | After you buy a Tavern spell, get a 1/1 Murloc and teach it that spell. (2 times per turn.) | A `Magicfin Apprentice` taught it, as `Magicfin Mycologist`'s. |
+| `Trailblazer Sticker` (Greater) | Your Choose One cards have both effects combined. | `Passive::CombinesChooseOne` (`trinket_extra_triggers`): every Choose One applies both options. |
 
 ### 11.3 Deferred
 
@@ -380,6 +401,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 8 | Lockbox Portrait's left-most Lockbox; Shrine of Evolution's plain Tier 4 minions from the pool; Gold Mallet's improvements; Bloodbound Earrings and Wand without combat casts; Replica Cathedral's first spell from any source. | their files |
 | Batch 7 | Innkeeper's Hearth's options are 30/30 before the choice. | their files |
 | Batch 6 | Dalaran Cheese Wheel improves by +2/+2. | its file |
 | Batch 5 | A card's or Hero Power's Refresh is one the player does ("after you Refresh"). | tavern.md §4.1 |

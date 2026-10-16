@@ -11,6 +11,7 @@
 mod table;
 mod vocab;
 
+pub mod accord_o_tron_portrait;
 pub mod all_purpose_kibble;
 pub mod artisanal_urn;
 pub mod azeroth_model_globe;
@@ -23,6 +24,8 @@ pub mod beetle_band;
 pub mod beetle_band_greater;
 pub mod bleeding_heart;
 pub mod blood_golem_sticker;
+pub mod bloodbound_earrings;
+pub mod bloodbound_earrings_greater;
 pub mod bluegill_flippers;
 pub mod bobs_tip_jar;
 pub mod booty_bay_brew;
@@ -37,9 +40,11 @@ pub mod cookies_stirring_rod;
 pub mod corrupted_baton;
 pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
+pub mod cursed_crystal;
 pub mod dalaran_cheese_wheel;
 pub mod defensive_shell;
 pub mod demonic_bloodletter;
+pub mod dragonwing_glider;
 pub mod dramaloc_sticker;
 pub mod emergency_gearblade;
 pub mod enigmatic_headstone;
@@ -55,23 +60,32 @@ pub mod ghastly_sticker;
 pub mod glass_of_perspective;
 pub mod glass_of_perspective_greater;
 pub mod goblin_wallet;
+pub mod gold_mallet;
+pub mod gold_mallet_greater;
 pub mod gold_pendant;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
+pub mod heart_of_the_forest;
 pub mod herald_sticker;
 pub mod herding_horn;
 pub mod hoggy_bank;
 pub mod holy_mallet;
+pub mod honeycomb_ring;
 pub mod innkeepers_hearth;
 pub mod innkeepers_stein;
+pub mod insurrectionists_blade;
 pub mod ironforge_anvil;
 pub mod jar_o_gems;
 pub mod lava_lamp;
 pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
+pub mod lockbox_portrait;
+pub mod lovely_locket;
 pub mod lucky_tabby;
+pub mod magicfin_sticker;
 pub mod magicians_top_hat;
 pub mod mama_bear_sticker;
+pub mod mask_of_ancient_ones;
 pub mod miniature_ship;
 pub mod nerglish_phrasebook;
 pub mod nerglish_phrasebook_greater;
@@ -87,11 +101,14 @@ pub mod rascal_sticker;
 pub mod recycling_sticker;
 pub mod reflective_pendant;
 pub mod rendle_sticker;
+pub mod replica_cathedral;
+pub mod reusable_batteries;
 pub mod rivendare_portrait;
 pub mod rockin_music_box;
 pub mod scraper_sticker;
 pub mod secret_schematic;
 pub mod sellemental_portrait;
+pub mod shrine_of_evolution;
 pub mod slamma_sticker;
 pub mod spell_powered_wrench;
 pub mod sphere_of_memory;
@@ -100,6 +117,7 @@ pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
 pub mod the_eye_of_dalaran;
+pub mod trailblazer_sticker;
 pub mod training_certificate;
 pub mod transcribing_typewriter;
 pub mod transcribing_typewriter_greater;
@@ -107,6 +125,7 @@ pub mod tricksters_sleeve;
 pub mod upstart_embers;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
+pub mod wand_of_divination;
 pub mod water_wheel;
 pub mod weighted_gauntlet;
 pub mod wicked_tome;
@@ -157,6 +176,10 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented trinket, by file name.
 const IMPLEMENTED: &[Implemented] = &[
+    (
+        accord_o_tron_portrait::ID,
+        accord_o_tron_portrait::behaviors,
+    ),
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (artisanal_urn::ID, artisanal_urn::behaviors),
     (azeroth_model_globe::ID, azeroth_model_globe::behaviors),
@@ -175,6 +198,11 @@ const IMPLEMENTED: &[Implemented] = &[
     (beetle_band_greater::ID, beetle_band_greater::behaviors),
     (bleeding_heart::ID, bleeding_heart::behaviors),
     (blood_golem_sticker::ID, blood_golem_sticker::behaviors),
+    (bloodbound_earrings::ID, bloodbound_earrings::behaviors),
+    (
+        bloodbound_earrings_greater::ID,
+        bloodbound_earrings_greater::behaviors,
+    ),
     (bluegill_flippers::ID, bluegill_flippers::behaviors),
     (bobs_tip_jar::ID, bobs_tip_jar::behaviors),
     (booty_bay_brew::ID, booty_bay_brew::behaviors),
@@ -198,9 +226,11 @@ const IMPLEMENTED: &[Implemented] = &[
         corrupted_coin_portrait::ID,
         corrupted_coin_portrait::behaviors,
     ),
+    (cursed_crystal::ID, cursed_crystal::behaviors),
     (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
     (defensive_shell::ID, defensive_shell::behaviors),
     (demonic_bloodletter::ID, demonic_bloodletter::behaviors),
+    (dragonwing_glider::ID, dragonwing_glider::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
     (emergency_gearblade::ID, emergency_gearblade::behaviors),
     (enigmatic_headstone::ID, enigmatic_headstone::behaviors),
@@ -219,26 +249,38 @@ const IMPLEMENTED: &[Implemented] = &[
         glass_of_perspective_greater::behaviors,
     ),
     (goblin_wallet::ID, goblin_wallet::behaviors),
+    (gold_mallet::ID, gold_mallet::behaviors),
+    (gold_mallet_greater::ID, gold_mallet_greater::behaviors),
     (gold_pendant::ID, gold_pendant::behaviors),
     (great_boar_sticker::ID, great_boar_sticker::behaviors),
     (
         great_boar_sticker_greater::ID,
         great_boar_sticker_greater::behaviors,
     ),
+    (heart_of_the_forest::ID, heart_of_the_forest::behaviors),
     (herald_sticker::ID, herald_sticker::behaviors),
     (herding_horn::ID, herding_horn::behaviors),
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
+    (honeycomb_ring::ID, honeycomb_ring::behaviors),
     (innkeepers_hearth::ID, innkeepers_hearth::behaviors),
     (innkeepers_stein::ID, innkeepers_stein::behaviors),
+    (
+        insurrectionists_blade::ID,
+        insurrectionists_blade::behaviors,
+    ),
     (ironforge_anvil::ID, ironforge_anvil::behaviors),
     (jar_o_gems::ID, jar_o_gems::behaviors),
     (lava_lamp::ID, lava_lamp::behaviors),
     (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
+    (lockbox_portrait::ID, lockbox_portrait::behaviors),
+    (lovely_locket::ID, lovely_locket::behaviors),
     (lucky_tabby::ID, lucky_tabby::behaviors),
+    (magicfin_sticker::ID, magicfin_sticker::behaviors),
     (magicians_top_hat::ID, magicians_top_hat::behaviors),
     (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
+    (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
     (nerglish_phrasebook::ID, nerglish_phrasebook::behaviors),
     (
@@ -263,11 +305,14 @@ const IMPLEMENTED: &[Implemented] = &[
     (recycling_sticker::ID, recycling_sticker::behaviors),
     (reflective_pendant::ID, reflective_pendant::behaviors),
     (rendle_sticker::ID, rendle_sticker::behaviors),
+    (replica_cathedral::ID, replica_cathedral::behaviors),
+    (reusable_batteries::ID, reusable_batteries::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
     (rockin_music_box::ID, rockin_music_box::behaviors),
     (scraper_sticker::ID, scraper_sticker::behaviors),
     (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
+    (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (spell_powered_wrench::ID, spell_powered_wrench::behaviors),
     (sphere_of_memory::ID, sphere_of_memory::behaviors),
@@ -276,6 +321,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
+    (trailblazer_sticker::ID, trailblazer_sticker::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
     (
         transcribing_typewriter::ID,
@@ -292,6 +338,7 @@ const IMPLEMENTED: &[Implemented] = &[
         volumizer_portrait_greater::ID,
         volumizer_portrait_greater::behaviors,
     ),
+    (wand_of_divination::ID, wand_of_divination::behaviors),
     (water_wheel::ID, water_wheel::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (wicked_tome::ID, wicked_tome::behaviors),
@@ -676,6 +723,43 @@ pub fn gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng
     }
 }
 
+/// A spell the player cast in the Tavern, as the trinkets see it once all its casts are done
+/// (`trinket_after_spell`, `docs/trinkets.md` §6).
+#[derive(Clone, Debug)]
+pub struct SpellCast {
+    /// The spell card.
+    pub card: Unit,
+    /// It is cast on a minion.
+    pub targeted: bool,
+    /// Where its target now is (on the board or in the Tavern), if it is still there.
+    pub target: Option<MinionSlot>,
+    /// Played from the hand (else cast by an effect).
+    pub from_hand: bool,
+    /// The casts that resolved (extra casts included; none once the target was gone).
+    pub casts: u32,
+}
+
+/// A spell was cast: each trinket's `trinket_after_spell` hook.
+pub fn after_spell(state: &mut TavernState, spell: &SpellCast, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_spell) = hooks(id).trinket_after_spell {
+            after_spell(state, spell, pool, rng);
+        }
+    }
+}
+
+/// The extra casts the trinkets give the spell about to be cast (`trinket_extra_spell_casts`,
+/// which uses up their charges).
+pub fn extra_spell_casts(auras: &mut PlayerAuras) -> u32 {
+    let mut extra = 0;
+    for trinket in &mut auras.trinkets {
+        if let Some(extra_casts) = hooks(trinket.card_id).trinket_extra_spell_casts {
+            extra += extra_casts(trinket);
+        }
+    }
+    extra
+}
+
 /// The player ends their turn: each trinket's `trinket_end_turn` hook, with the end-of-turn
 /// repeat count (`docs/tavern.md` §7.5).
 pub fn end_turn(state: &mut TavernState, repeats: u32, pool: &mut CardPool, rng: &mut Rng) {
@@ -986,6 +1070,25 @@ pub fn repeat_end_turn(
 ) {
     for _ in 0..repeats {
         payoff(state, pool, rng);
+    }
+}
+
+/// A Golden minion played from the hand (or Magnetized from it) adds one to the trinket `id`'s
+/// `counter` (`Gold Mallet`).
+pub fn count_golden_play(state: &mut TavernState, id: CardId, played: &Played) {
+    if !(played.from_hand && played.golden) {
+        return;
+    }
+    if let Some(t) = state_mut(&mut state.auras, id) {
+        t.counter += 1;
+    }
+}
+
+/// `count` Blood Gems are played (not cast: `Unit::play_blood_gems`) on every minion on the board.
+pub fn play_blood_gems_on_board(state: &mut TavernState, count: u32) {
+    let auras = state.auras.clone();
+    for unit in &mut state.board {
+        unit.play_blood_gems(count, &auras);
     }
 }
 

@@ -1220,6 +1220,7 @@ pub fn apply_magnetization(
     let played = Played {
         card_id: card.card_id,
         tribe: card.tribe,
+        golden: card.is_golden,
         board_pos: target_pos,
         magnetized: true,
         from_hand,

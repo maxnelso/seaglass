@@ -1,0 +1,8 @@
+trinket: Shrine of Evolution
+scenarios:
+  - name: every_minion_becomes_a_random_tier_4_minion
+    seeds: "1..=3"
+    tavern: {turn: 5, board: ["1/1", "2/2 beast", Tarecgosa]}
+    steps:
+      - give_trinket: Shrine of Evolution
+    expect: {board: {count: 3, all: {tavern_tier: 4, is_golden: false}}}

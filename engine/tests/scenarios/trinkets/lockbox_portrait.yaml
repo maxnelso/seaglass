@@ -1,0 +1,22 @@
+trinket: Lockbox Portrait
+scenarios:
+  - name: a_lockbox_when_picked
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Lockbox Portrait
+    expect: {hand: [{card: Lockbox, lockbox_turns_left: 5}]}
+
+  - name: an_owned_lockbox_opens_two_turns_sooner
+    description: Its own countdown (5 to 4), then 2 sooner.
+    tavern: {turn: 5, hand: [{card: Lockbox, lockbox_turns_left: 5}], auras: {trinkets: [Lockbox Portrait]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {hand: [{card: Lockbox, lockbox_turns_left: 2}]}
+
+  - name: it_opens_at_once_when_the_countdown_ends
+    tavern: {turn: 5, tavern_tier: 3, hand: [{card: Lockbox, lockbox_turns_left: 3}], auras: {trinkets: [Lockbox Portrait]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {hand: [{is_spell: false, is_golden: true}]}

@@ -114,6 +114,8 @@ pub enum Passive {
     ExtraDeathrattles,
     /// Extra casts of Blood Gems played from hand, each a cast of its own (summed across the board).
     ExtraHandBloodGemCasts,
+    /// Choose One cards have both effects combined (any contribution: read from trinkets).
+    CombinesChooseOne,
 }
 
 impl Passive {
@@ -148,6 +150,8 @@ pub enum SocAction {
 pub struct Played {
     pub card_id: CardId,
     pub tribe: Tribe,
+    /// The played (or Magnetized) card is Golden.
+    pub golden: bool,
     /// Board index of the played minion (or of the minion it was Magnetized onto).
     pub board_pos: usize,
     pub magnetized: bool,
@@ -610,6 +614,11 @@ card_hooks! {
     /// A friendly minion is summoned in the Tavern (played, or summoned by a card), after the
     /// minions' `friendly_summon` observers: `(trinket, summoned)`.
     trinket_tavern_summon(on_trinket_tavern_summon): fn(&TrinketState, &mut Unit),
+    /// A spell was cast in the Tavern (all its casts resolved): `(state, cast, pool, rng)`.
+    trinket_after_spell(on_trinket_after_spell): fn(&mut TavernState, &crate::trinkets::SpellCast, &mut CardPool, &mut Rng),
+    /// A spell is about to be cast in the Tavern: extra casts this trinket adds, using up its
+    /// charge: `(trinket)`.
+    trinket_extra_spell_casts(on_trinket_extra_spell_casts): fn(&mut TrinketState) -> u32,
 }
 
 impl Default for CardHooks {

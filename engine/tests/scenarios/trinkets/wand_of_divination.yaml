@@ -1,0 +1,13 @@
+trinket: Wand of Divination
+scenarios:
+  - name: the_third_spell_on_a_minion_gives_a_gold
+    tavern: {gold: 5, board: ["1/1"], hand: [Repair Job], auras: {trinkets: [{trinket: Wand of Divination, counter: 2}]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {gold: 6, board: ["5/9"], auras: {trinkets: [{counter: 0}]}}
+
+  - name: not_an_untargeted_spell
+    tavern: {gold: 5, hand: [Tavern Coin], auras: {trinkets: [{trinket: Wand of Divination, counter: 2}]}}
+    steps:
+      - play: 0
+    expect: {auras: {trinkets: [{counter: 2}]}}
