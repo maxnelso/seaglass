@@ -1,0 +1,16 @@
+trinket: Magician's Top Hat
+scenarios:
+  - name: two_minions_each_from_tiers_1_2_and_3
+    seeds: "1..=4"
+    tavern: {turn: 5, tavern_tier: 1}
+    steps:
+      - give_trinket: Magician's Top Hat
+    expect:
+      hand:
+        count: 6
+        0: {tavern_tier: 1}
+        1: {tavern_tier: 1}
+        2: {tavern_tier: 2}
+        3: {tavern_tier: 2}
+        4: {tavern_tier: 3}
+        5: {tavern_tier: 3}

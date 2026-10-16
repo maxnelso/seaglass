@@ -1,0 +1,8 @@
+trinket: Explorer's Binoculars
+scenarios:
+  - name: three_tier_4_minions_at_any_tier
+    seeds: "1..=4"
+    tavern: {turn: 5, tavern_tier: 1}
+    steps:
+      - give_trinket: Explorer's Binoculars
+    expect: {hand: {count: 3, all: {is_spell: false, tavern_tier: 4}}}

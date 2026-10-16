@@ -11,15 +11,20 @@
 mod table;
 
 pub mod all_purpose_kibble;
+pub mod artisanal_urn;
 pub mod baleful_incense;
 pub mod bartend_o_trons_oilcan;
+pub mod beatboxer_portrait;
 pub mod beetle_band;
 pub mod beetle_band_greater;
 pub mod bleeding_heart;
 pub mod blood_golem_sticker;
+pub mod bluegill_flippers;
 pub mod bobs_tip_jar;
 pub mod bronze_timepiece;
 pub mod butchers_sickle;
+pub mod comfy_coffin;
+pub mod comfy_coffin_greater;
 pub mod converter_portrait;
 pub mod cookies_stirring_rod;
 pub mod corrupted_baton;
@@ -27,11 +32,17 @@ pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
 pub mod defensive_shell;
 pub mod dramaloc_sticker;
+pub mod enigmatic_headstone;
 pub mod eternal_portrait;
 pub mod evil_experiment;
+pub mod explorers_binoculars;
 pub mod faerie_dragon_scale;
+pub mod fish_portrait;
+pub mod flighty_portrait;
 pub mod fridge_magnet;
+pub mod frigid_blossom;
 pub mod ghastly_sticker;
+pub mod goblin_wallet;
 pub mod herald_sticker;
 pub mod hoggy_bank;
 pub mod holy_mallet;
@@ -42,13 +53,19 @@ pub mod lava_lamp;
 pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
 pub mod lucky_tabby;
+pub mod magicians_top_hat;
+pub mod miniature_ship;
+pub mod nerglish_phrasebook;
+pub mod nerglish_phrasebook_greater;
 pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
 pub mod protective_ring;
+pub mod rascal_sticker;
 pub mod recycling_sticker;
 pub mod reflective_pendant;
 pub mod rendle_sticker;
 pub mod rivendare_portrait;
+pub mod rockin_music_box;
 pub mod scraper_sticker;
 pub mod secret_schematic;
 pub mod sellemental_portrait;
@@ -65,6 +82,7 @@ pub mod tricksters_sleeve;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod water_wheel;
+pub mod weighted_gauntlet;
 pub mod willbreaker_sticker;
 pub mod worn_treasure_map;
 
@@ -112,18 +130,23 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 /// Every implemented trinket, by file name.
 const IMPLEMENTED: &[Implemented] = &[
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
+    (artisanal_urn::ID, artisanal_urn::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
     (
         bartend_o_trons_oilcan::ID,
         bartend_o_trons_oilcan::behaviors,
     ),
+    (beatboxer_portrait::ID, beatboxer_portrait::behaviors),
     (beetle_band::ID, beetle_band::behaviors),
     (beetle_band_greater::ID, beetle_band_greater::behaviors),
     (bleeding_heart::ID, bleeding_heart::behaviors),
     (blood_golem_sticker::ID, blood_golem_sticker::behaviors),
+    (bluegill_flippers::ID, bluegill_flippers::behaviors),
     (bobs_tip_jar::ID, bobs_tip_jar::behaviors),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
     (butchers_sickle::ID, butchers_sickle::behaviors),
+    (comfy_coffin::ID, comfy_coffin::behaviors),
+    (comfy_coffin_greater::ID, comfy_coffin_greater::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
     (cookies_stirring_rod::ID, cookies_stirring_rod::behaviors),
     (corrupted_baton::ID, corrupted_baton::behaviors),
@@ -137,11 +160,17 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (defensive_shell::ID, defensive_shell::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
+    (enigmatic_headstone::ID, enigmatic_headstone::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
     (evil_experiment::ID, evil_experiment::behaviors),
+    (explorers_binoculars::ID, explorers_binoculars::behaviors),
     (faerie_dragon_scale::ID, faerie_dragon_scale::behaviors),
+    (fish_portrait::ID, fish_portrait::behaviors),
+    (flighty_portrait::ID, flighty_portrait::behaviors),
     (fridge_magnet::ID, fridge_magnet::behaviors),
+    (frigid_blossom::ID, frigid_blossom::behaviors),
     (ghastly_sticker::ID, ghastly_sticker::behaviors),
+    (goblin_wallet::ID, goblin_wallet::behaviors),
     (herald_sticker::ID, herald_sticker::behaviors),
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
@@ -152,13 +181,22 @@ const IMPLEMENTED: &[Implemented] = &[
     (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
     (lucky_tabby::ID, lucky_tabby::behaviors),
+    (magicians_top_hat::ID, magicians_top_hat::behaviors),
+    (miniature_ship::ID, miniature_ship::behaviors),
+    (nerglish_phrasebook::ID, nerglish_phrasebook::behaviors),
+    (
+        nerglish_phrasebook_greater::ID,
+        nerglish_phrasebook_greater::behaviors,
+    ),
     (nomi_sticker::ID, nomi_sticker::behaviors),
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
     (protective_ring::ID, protective_ring::behaviors),
+    (rascal_sticker::ID, rascal_sticker::behaviors),
     (recycling_sticker::ID, recycling_sticker::behaviors),
     (reflective_pendant::ID, reflective_pendant::behaviors),
     (rendle_sticker::ID, rendle_sticker::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
+    (rockin_music_box::ID, rockin_music_box::behaviors),
     (scraper_sticker::ID, scraper_sticker::behaviors),
     (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
@@ -184,6 +222,7 @@ const IMPLEMENTED: &[Implemented] = &[
         volumizer_portrait_greater::behaviors,
     ),
     (water_wheel::ID, water_wheel::behaviors),
+    (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
 ];
@@ -730,6 +769,34 @@ pub fn give_random_minion(
         let card = pool[rng.below(pool.len())].instantiate();
         state.add_to_hand_or_wait(card);
     }
+}
+
+/// A trinket's "Get a random Tier N minion" in the Tavern: a random minion of exactly Tier `tier`
+/// from the game's catalog (one `rng.below(k)`) goes to the hand, or waits for room in a full
+/// hand (`docs/trinkets.md` §5). Nothing if the catalog has none.
+pub fn give_random_minion_of_tier(state: &mut TavernState, rng: &mut Rng, tier: u32) {
+    let pool: Vec<_> = cards::game_templates(&state.auras)
+        .iter()
+        .filter(|t| t.tavern_tier == tier)
+        .collect();
+    if !pool.is_empty() {
+        let card = pool[rng.below(pool.len())].instantiate();
+        state.add_to_hand_or_wait(card);
+    }
+}
+
+/// The left-most minion in the hand (spells skipped) gains `+attack/+health`, if there is one.
+pub fn buff_left_most_in_hand(state: &mut TavernState, attack: i32, health: i32) {
+    if let Some(unit) = state.hand.iter_mut().find(|u| !u.is_spell) {
+        unit.add_stats(attack, health);
+    }
+}
+
+/// The Undead Attack bonus (`auras.undead_bonus_attack`, "your Undead have +N Attack this game
+/// (wherever they are)", as `Nerubian Deathswarmer`'s) goes up by `attack`, and the auras resync.
+pub fn buff_undead_attack(state: &mut TavernState, attack: i32) {
+    state.auras.undead_bonus_attack += attack;
+    state.sync_all_auras();
 }
 
 /// The left- and right-most of `indexes` (in board order), once if there is only one.

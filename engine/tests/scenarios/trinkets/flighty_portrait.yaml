@@ -1,0 +1,13 @@
+trinket: Flighty Portrait
+scenarios:
+  - name: it_gives_a_flighty_scout
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Flighty Portrait
+    expect: {hand: [Flighty Scout]}
+
+  - name: a_tavern_spell_buffs_flighty_scouts
+    tavern: {board: ["Flighty Scout 3/3", "1/1"], hand: [Tavern Coin, "Flighty Scout 3/3"], auras: {trinkets: [Flighty Portrait]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["6/6", "1/1"], hand: ["6/6"]}

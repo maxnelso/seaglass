@@ -1,0 +1,7 @@
+trinket: Comfy Coffin (Greater)
+scenarios:
+  - name: a_tavern_spell_gives_undead_two_attack
+    tavern: {board: ["1/1 undead"], hand: [Tavern Coin], auras: {trinkets: [Comfy Coffin (Greater)]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["3/1"], auras: {undead_bonus_attack: 2}}

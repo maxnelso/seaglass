@@ -1,0 +1,9 @@
+trinket: Goblin Wallet
+scenarios:
+  - name: each_end_of_turn_adds_one_maximum_gold
+    tavern: {turn: 5, max_gold: 7, auras: {trinkets: [Goblin Wallet]}}
+    steps:
+      - end_turn
+      - expect: {max_gold: 8, auras: {base_max_gold_bonus: 1}}
+      - start_turn
+    expect: {gold: 9, max_gold: 9}

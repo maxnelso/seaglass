@@ -1,0 +1,7 @@
+trinket: Artisanal Urn
+scenarios:
+  - name: undead_have_twenty_attack
+    tavern: {turn: 9, board: ["1/1 undead", "1/1"]}
+    steps:
+      - give_trinket: Artisanal Urn
+    expect: {board: ["21/1", "1/1"], auras: {undead_bonus_attack: 20}}

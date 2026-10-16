@@ -1,0 +1,7 @@
+trinket: Miniature Ship
+scenarios:
+  - name: a_tavern_spell_buffs_the_pirates
+    tavern: {board: ["1/1 pirate", "1/1 beast"], hand: [Tavern Coin], auras: {trinkets: [Miniature Ship]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["4/4", "1/1"]}

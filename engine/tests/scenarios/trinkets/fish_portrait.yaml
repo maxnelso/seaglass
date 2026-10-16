@@ -1,0 +1,7 @@
+trinket: Fish Portrait
+scenarios:
+  - name: it_gives_a_fish_of_nzoth
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Fish Portrait
+    expect: {hand: ["Fish of N'Zoth"]}

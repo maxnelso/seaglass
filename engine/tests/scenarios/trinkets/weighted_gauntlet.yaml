@@ -1,0 +1,21 @@
+trinket: Weighted Gauntlet
+scenarios:
+  - name: the_end_of_turn_buff_doubles_each_turn
+    tavern: {turn: 5, board: ["1/1"], auras: {trinkets: [Weighted Gauntlet]}}
+    steps:
+      - end_turn
+      - expect: {board: ["2/2"]}
+      - start_turn
+      - end_turn
+      - expect: {board: ["4/4"]}
+      - start_turn
+      - end_turn
+    expect: {board: ["8/8"]}
+
+  - name: it_stops_doubling_at_1024
+    description: An engine decision.
+    tavern: {turn: 5, board: ["1/1"], auras: {trinkets: [{trinket: Weighted Gauntlet, counter: 10}]}}
+    steps:
+      - start_turn
+      - end_turn
+    expect: {board: ["1025/1025"], auras: {trinkets: [{counter: 10}]}}

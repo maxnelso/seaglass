@@ -1,0 +1,7 @@
+trinket: Beatboxer Portrait
+scenarios:
+  - name: it_gives_a_polarizing_beatboxer
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Beatboxer Portrait
+    expect: {hand: [Polarizing Beatboxer]}

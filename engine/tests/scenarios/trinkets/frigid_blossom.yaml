@@ -1,0 +1,13 @@
+trinket: Frigid Blossom
+scenarios:
+  - name: a_refresh_lowers_the_upgrade_cost
+    tavern: {tavern_tier: 2, gold: 5, upgrade_cost: 6, auras: {trinkets: [Frigid Blossom]}}
+    steps:
+      - refresh
+    expect: {upgrade_cost: 5}
+
+  - name: not_below_zero
+    tavern: {tavern_tier: 2, gold: 5, upgrade_cost: 0, auras: {trinkets: [Frigid Blossom]}}
+    steps:
+      - refresh
+    expect: {upgrade_cost: 0}

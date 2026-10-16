@@ -1,0 +1,7 @@
+trinket: Bluegill Flippers
+scenarios:
+  - name: a_tavern_spell_buffs_the_left_most_in_hand_and_on_board
+    tavern: {board: ["1/1", "1/1"], hand: [Tavern Coin, "2/2", "2/2"], auras: {trinkets: [Bluegill Flippers]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["4/4", "1/1"], hand: ["5/5", "2/2"]}

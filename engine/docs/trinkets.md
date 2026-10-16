@@ -294,6 +294,24 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Cookie's Stirring Rod` (Greater) | After you play 5 Murlocs, get two random Tavern spells. | Counted across turns; drawn as the shop draws one. |
 | `Sphere of Memory` (Greater) | At the end of your turn, get 3 copies of the last Tavern spell you cast. | Fresh copies of `last_tavern_spell_cast`; nothing before any. |
 | `Ghastly Sticker` (Greater) | Your end of turn effects trigger an extra time. | The minions' end-of-turn triggers resolve once more, on top of `Drakkari Enchanter`'s; not a Hero Power's or a trinket's **(engine decision)**. |
+| `Goblin Wallet` (Lesser) | At the end of each turn, increase your maximum Gold by 1. | As `Strike Oil` (`max_gold`, `base_max_gold_bonus`), above 10 too **(engine decision)**. |
+| `Explorer's Binoculars` (Lesser) | Get three random Tier 4 minions. | Exactly Tier 4, whatever the Tavern's Tier, one draw each. |
+| `Magician's Top Hat` (Lesser) | Get two minions each from Tiers 1, 2, and 3. | 2 random minions of Tier 1, then 2 of Tier 2, then 2 of Tier 3. |
+| `Fish Portrait` (Lesser) | Get a Fish of N'Zoth. | N'Zoth's `Fish of N'Zoth` token, which gains Deathrattles in combat as N'Zoth's does. |
+| `Rockin' Music Box` (Lesser) | Get a random Battlecry minion. At the start of each turn, get another. | Of the player's Tier or lower. |
+| `Rascal Sticker` (Lesser) | Gain 1 Gold for each friendly Golden minion. At the start of your turn, repeat this. | The Golden minions on the board, not in the hand **(engine decision)**. |
+| `Frigid Blossom` (Lesser) | After you Refresh, reduce the cost of upgrading the Tavern by (1). | Every Refresh `hero_after_refresh` sees, the turn start's new shop too **(engine decision)**; never below 0. |
+| `Nerglish Phrasebook` (Lesser) | After you play a minion, give the left-most minion in your hand +3/+3. | After each minion played from the hand; spells in the hand are skipped. |
+| `Bluegill Flippers` (Lesser) | Whenever you cast a Tavern spell, give the left-most minion in your hand and warband +3/+3. | Each cast of a Tavern spell: the left-most minion in the hand (spells skipped) and `board[0]`. |
+| `Flighty Portrait` (Lesser) | Get a Flighty Scout. After you cast a Tavern spell, give Flighty Scouts in your hand and warband +3/+3. | Every `Flighty Scout`, Golden too. |
+| `Weighted Gauntlet` (Lesser) | At the end of your turn, give your minions +1/+1. (Doubles at the start of each turn!) | `+2^counter`, doubling at each turn start from the turn after the pick; it stops at `+1024/+1024` to keep stats in range **(engine decision)**. |
+| `Enigmatic Headstone` (Lesser) | At the end of each turn, your Undead have +2 Attack this game (wherever they are). | `auras.undead_bonus_attack`, as `Nerubian Deathswarmer`'s. |
+| `Comfy Coffin` (Lesser) | Whenever you cast a Tavern spell, your Undead have +1 Attack this game (wherever they are). | `auras.undead_bonus_attack`. |
+| `Beatboxer Portrait` (Greater) | Get a Polarizing Beatboxer. | A plain one from the catalog. |
+| `Nerglish Phrasebook` (Greater) | After you play a minion, give the left-most minion in your hand +6/+6. | As the Lesser one, +6/+6. |
+| `Miniature Ship` (Greater) | After you cast a Tavern spell, give your Pirates +3/+3. | The Pirates on the board. |
+| `Comfy Coffin` (Greater) | Whenever you cast a Tavern spell, your Undead have +2 Attack this game (wherever they are). | As the Lesser one, +2. |
+| `Artisanal Urn` (Greater) | Your Undead have +20 Attack. | `auras.undead_bonus_attack` +20 as picked (the trinket is kept). |
 
 ### 11.3 Deferred
 
@@ -329,7 +347,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
-| "Get a ..." | A new plain copy from the catalog, not the pool (§11.1) **(confirmed)**. | `trinkets::give_minion` |
+| Batch 5 | Goblin Wallet above 10 Gold; Rascal Sticker counts the board only; Frigid Blossom on every Refresh, the turn start's too; Weighted Gauntlet stops doubling at +1024/+1024. | their files |
 | Batch 4 | Rendle's ties to the left-most; Innkeeper's Stein nothing at Tier 6; Defensive Shell on a Magnetization; Ghastly Sticker repeats the minions' triggers only; Jar o' Gems ignores Tavern attacks. | their files |
 | Batch 3 | Stuffed Coin Purse pays at once at Tier 6; Typewriter's copies don't come from the pool; random Magnetic Mechs of the player's Tier or lower. | their files |
 | Batch 2 | Staff of the Scourge may draw an Undead with Reborn; Jar o' Gems once per combat. | their files |

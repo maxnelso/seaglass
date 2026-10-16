@@ -1,0 +1,7 @@
+trinket: Enigmatic Headstone
+scenarios:
+  - name: each_end_of_turn_gives_undead_two_attack
+    tavern: {turn: 5, board: ["1/1 undead", "1/1 beast"], hand: ["1/1 undead"], auras: {trinkets: [Enigmatic Headstone]}}
+    steps:
+      - end_turn
+    expect: {board: ["3/1", "1/1"], hand: ["3/1"], auras: {undead_bonus_attack: 2}}

@@ -1,0 +1,10 @@
+trinket: Rascal Sticker
+scenarios:
+  - name: one_gold_per_golden_minion_now_and_each_turn
+    tavern: {turn: 5, gold: 0, max_gold: 7, board: ["golden Tarecgosa 8/8", "golden Tarecgosa 8/8", "1/1"]}
+    steps:
+      - give_trinket: Rascal Sticker
+      - expect: {gold: 2}
+      - end_turn
+      - start_turn
+    expect: {gold: 10}

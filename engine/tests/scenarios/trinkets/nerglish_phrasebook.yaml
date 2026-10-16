@@ -1,0 +1,7 @@
+trinket: Nerglish Phrasebook
+scenarios:
+  - name: a_play_buffs_the_left_most_minion_in_hand
+    tavern: {hand: ["1/1", Tavern Coin, "2/2", "3/3"], auras: {trinkets: [Nerglish Phrasebook]}}
+    steps:
+      - play: 0
+    expect: {hand: [Tavern Coin, "5/5", "3/3"]}
