@@ -128,11 +128,26 @@ At the beginning of Turn `t`:
      - Return all minions currently in `shop` to `CardPool`, except the cards frozen on their own (`Unit::frozen`), which stay in their order and are unfrozen.
      - Without such cards: draw `cap` new minions from `CardPool` (`tier <= tavern_tier`), then a random Tavern spell if the shop offers spells.
      - With them: each kept card fills a slot, and the free slots fill as for a frozen shop above (a free spell slot only if no spell was kept).
-     - Either way it is a Refresh: the after-Refresh effects run (the Hero Power's `hero_after_refresh`, then the cards'), with the kept cards in the shop **(engine decision)**.
+     - Either way the Tavern is Refreshed: the effects of "after the Tavern is Refreshed", "whenever it is Refreshed" and "after each Refresh" run (the Hero Power's `hero_after_refresh`, then the cards'), with the kept cards in the shop **(engine decision)**. It is not a Refresh *the player* does: "after **you** Refresh" effects don't see it **(confirmed)** (§4.1).
    - In both cases every card left in `shop` is unfrozen (`Unit::frozen = false`).
 5. **Spellcraft**:
    - Each Spellcraft minion on `board` (left $\to$ right) gives its Spellcraft spell; with a full `hand` it waits for room (§7.4).
 6. **Trinket offer** ([`trinkets.md`](trinkets.md) §3): on turns 6 and 9, a player with trinket offers enabled (`trinkets_enabled`) is offered 4 trinkets (`trinket_options`), once the Triples are resolved. Without offers enabled, nothing happens and nothing is drawn.
+
+### 4.1 Refreshes
+
+Two wordings see different Refreshes (`RefreshKind`, passed to the after-Refresh dispatch):
+
+| Wording | Sees | Examples |
+| :--- | :--- | :--- |
+| "After the Tavern is Refreshed", "whenever it is Refreshed", "after each Refresh" | Every Refresh: the `Refresh` action (paid, free or a Health Refresh), a card's or Hero Power's Refresh, and the new shop of an unfrozen turn start (§4 step 4). | `En-Djinn Blazer`, `Waveling`, `Easterly Winds`, `Blood Gem Barrage`, `Demon Fodder`, Enhance-o Mechano, Varden Dawngrasp, Ysera, Silas Darkmoon, `Innkeeper's Stein`. |
+| "After **you** Refresh", "every N times you Refresh" | A Refresh the player does: the `Refresh` action (paid, free or a Health Refresh) and a Refresh one of their cards or Hero Powers does (`Snarky Shark`, Tess Greymane's `Bob's Burgles`, Infinite Toki, Time-Twister Chromie, `Lost Staff of Hamuul`) **(engine decision**: the wording reads it as the player's**)**. Not the new shop of a turn start **(confirmed)**. | `Frigid Blossom`, `Upstart Embers`, `Dalaran Cheese Wheel` (the trinkets' `trinket_after_player_refresh`). |
+
+No minion, spell or Hero Power of the engine's pool has the "after you Refresh" wording; only trinkets do.
+
+### 4.2 Stats saturate
+
+Stats never overflow: `Unit::add_stats` saturates at `i32::MAX` (2,147,483,647) and `i32::MIN`, as the game caps them **(confirmed)**; so do the doublings that go through it (`Weighted Gauntlet`).
 
 ---
 
