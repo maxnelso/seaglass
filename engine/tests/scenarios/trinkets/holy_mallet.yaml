@@ -1,0 +1,40 @@
+trinket: Holy Mallet
+scenarios:
+  - name: the_left_and_right_most_minions_gain_divine_shield
+    combat:
+      board_a: ["1/1", "2/2", "3/3"]
+      board_b: []
+      auras_a: {trinkets: [Holy Mallet]}
+    expect:
+      survivors_a: ["1/1 divine_shield", "2/2 -divine_shield", "3/3 divine_shield"]
+
+  - name: a_single_minion_gains_it
+    combat:
+      board_a: ["1/1"]
+      board_b: []
+      auras_a: {trinkets: [Holy Mallet]}
+    expect: {survivors_a: ["1/1 divine_shield"]}
+
+  - name: only_its_owners_minions
+    combat:
+      board_a: ["1/1"]
+      board_b: []
+      auras_b: {trinkets: [Holy Mallet]}
+    expect: {survivors_a: ["1/1 -divine_shield"]}
+
+  - name: it_works_for_side_b_and_wins_the_fight
+    description: The shielded 2/1 survives the 2/2's hit and kills it.
+    seeds: "1..=4"
+    combat:
+      board_a: ["2/2"]
+      board_b: ["2/1"]
+      auras_b: {trinkets: [Holy Mallet]}
+    expect: {outcome: b_win, survivors_b: ["2/1 -divine_shield"]}
+
+  - name: the_tavern_minion_keeps_nothing
+    tavern: {auras: {trinkets: [Holy Mallet]}, board: ["2/1"]}
+    steps:
+      - fight: {board: []}
+    expect:
+      combat: {survivors_a: ["2/1 divine_shield"]}
+      board: ["2/1 -divine_shield"]

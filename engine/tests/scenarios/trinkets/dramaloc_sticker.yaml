@@ -1,0 +1,18 @@
+trinket: Dramaloc Sticker
+scenarios:
+  - name: murlocs_gain_the_attack_of_the_highest_attack_minion_in_hand
+    description: They gain that much Attack (an engine decision); a spell in the hand doesn't count.
+    combat:
+      board_a: ["1/1 murloc", "1/1 beast", "2/2 mech_murloc"]
+      board_b: []
+      hand_a: ["5/5", "7/1", Tavern Coin]
+      auras_a: {trinkets: [Dramaloc Sticker]}
+    expect: {survivors_a: ["8/1", "1/1", "9/2"]}
+
+  - name: nothing_without_a_minion_in_hand
+    combat:
+      board_a: ["1/1 murloc"]
+      board_b: []
+      hand_a: [Tavern Coin]
+      auras_a: {trinkets: [Dramaloc Sticker]}
+    expect: {survivors_a: ["1/1"]}

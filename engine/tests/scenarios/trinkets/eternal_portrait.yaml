@@ -1,0 +1,16 @@
+trinket: Eternal Portrait
+scenarios:
+  - name: picking_it_gives_an_eternal_knight
+    tavern: {gold: 8}
+    steps:
+      - offer_trinkets: [Eternal Portrait]
+      - choose_trinket: 0
+    expect: {gold: 2, hand: ["Eternal Knight -golden"]}
+
+  - name: eternal_knights_gain_taunt_and_reborn
+    combat:
+      board_a: [Eternal Knight, "1/1", "golden Eternal Knight"]
+      board_b: []
+      auras_a: {trinkets: [Eternal Portrait]}
+    expect:
+      survivors_a: ["Eternal Knight taunt reborn", "1/1 -taunt -reborn", "Eternal Knight taunt reborn"]

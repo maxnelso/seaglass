@@ -1,0 +1,25 @@
+trinket: Summoning Sphere
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: a_copy_of_the_teammates_highest_health_minion_is_summoned
+    duos_tavern:
+      players:
+        - {auras: {trinkets: [Summoning Sphere]}, board: ["1/1"]}
+        - {board: ["2/5", "9/3"]}
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat:
+        events: {any: {type: unit_summoned, side: a, reason: Summoning Sphere, attack: 2, health: 5}}
+      players: {0: {board: ["1/1"]}}
+
+  - name: without_a_teammate_minion_nothing_happens
+    duos_tavern:
+      players:
+        - {auras: {trinkets: [Summoning Sphere]}, board: ["1/1"]}
+        - {}
+    steps:
+      - fight: {team: [[], []]}
+    expect:
+      combat: {events: {none: {type: unit_summoned}}}

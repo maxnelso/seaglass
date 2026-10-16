@@ -1,0 +1,31 @@
+trinket: Baleful Incense
+scenarios:
+  - name: the_left_and_right_most_undead_gain_reborn
+    combat:
+      board_a: ["1/1 beast", "2/2 undead", "3/3 undead", "4/4 undead", "5/5 beast"]
+      board_b: []
+      auras_a: {trinkets: [Baleful Incense]}
+    expect:
+      survivors_a:
+        - "1/1 -reborn"
+        - "2/2 undead reborn"
+        - "3/3 -reborn"
+        - "4/4 undead reborn"
+        - "5/5 -reborn"
+
+  - name: the_reborn_undead_comes_back
+    description: The 1/1 Undead dies to the 1/2 and is Reborn.
+    seed: 1
+    combat:
+      board_a: ["1/1 undead"]
+      board_b: ["1/2"]
+      auras_a: {trinkets: [Baleful Incense]}
+    expect:
+      events: {any: {type: unit_summoned, side: a, reason: Reborn}}
+
+  - name: nothing_without_an_undead
+    combat:
+      board_a: ["1/1 beast"]
+      board_b: []
+      auras_a: {trinkets: [Baleful Incense]}
+    expect: {survivors_a: ["1/1 -reborn"]}

@@ -1,0 +1,9 @@
+trinket: Lightfeather Sticker
+scenarios:
+  - name: rally_minions_gain_divine_shield
+    combat:
+      board_a: [Flittering Bat, "1/1", Flittering Bat]
+      board_b: []
+      auras_a: {trinkets: [Lightfeather Sticker]}
+    expect:
+      survivors_a: ["Flittering Bat divine_shield", "1/1 -divine_shield", "Flittering Bat divine_shield"]

@@ -1,0 +1,18 @@
+trinket: Hoggy Bank
+scenarios:
+  - name: a_dead_quilboar_gives_two_blood_gems
+    description: The Gems go to the combat hand and come back with it; the Beast gives none.
+    tavern: {auras: {trinkets: [Hoggy Bank]}, board: ["1/1 quilboar", "1/1 beast"]}
+    steps:
+      - fight: {board: ["10/10"]}
+    expect:
+      hand: [Blood Gem, Blood Gem]
+      board: [{extra_deathrattles: []}, {extra_deathrattles: []}]
+
+  - name: quilboar_gain_the_deathrattle_for_the_combat
+    combat:
+      board_a: ["1/1 quilboar", "1/1 beast"]
+      board_b: []
+      auras_a: {trinkets: [Hoggy Bank]}
+    expect:
+      survivors_a: [{extra_deathrattles: [111516]}, {extra_deathrattles: []}]

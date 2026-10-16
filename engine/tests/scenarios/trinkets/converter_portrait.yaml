@@ -1,0 +1,35 @@
+trinket: Converter Portrait
+scenarios:
+  - name: picking_it_gives_a_faceless_converter
+    tavern: {gold: 10}
+    steps:
+      - offer_trinkets: [Converter Portrait, Ironforge Anvil]
+      - choose_trinket: Converter Portrait
+    expect:
+      gold: 4
+      hand: ["Faceless Converter 5/5 -golden"]
+      auras: {trinkets: [{name: Converter Portrait}]}
+
+  - name: with_a_full_hand_the_converter_waits_for_room
+    description: >-
+      Hand protection (confirmed): the card waits, and keeps waiting across turns (an engine
+      decision), until a card leaves the hand.
+    tavern: {hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - give_trinket: Converter Portrait
+      - expect: {hand: {count: 10}, waiting_for_hand: [Faceless Converter]}
+      - end_turn
+      - start_turn
+      - expect: {waiting_for_hand: [Faceless Converter]}
+      - play: 0
+    expect:
+      hand: {count: 10, -1: Faceless Converter}
+      waiting_for_hand: []
+
+  - name: faceless_converters_gain_reborn
+    combat:
+      board_a: [Faceless Converter, "golden Faceless Converter", "1/1"]
+      board_b: []
+      auras_a: {trinkets: [Converter Portrait]}
+    expect:
+      survivors_a: ["Faceless Converter reborn", "Faceless Converter reborn", "1/1 -reborn"]

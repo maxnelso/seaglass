@@ -1,0 +1,9 @@
+trinket: Bronze Timepiece
+scenarios:
+  - name: each_minion_gains_half_its_attack_as_health
+    description: Rounded down (an engine decision).
+    combat:
+      board_a: ["5/1", "1/1", "8/2", "0/3"]
+      board_b: []
+      auras_a: {trinkets: [Bronze Timepiece]}
+    expect: {survivors_a: ["5/3", "1/1", "8/6", "0/3"]}

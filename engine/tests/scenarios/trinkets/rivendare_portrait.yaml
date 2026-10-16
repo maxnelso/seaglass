@@ -1,0 +1,15 @@
+trinket: Rivendare Portrait
+scenarios:
+  - name: picking_it_gives_a_titus_rivendare
+    tavern: {gold: 10}
+    steps:
+      - offer_trinkets: [Rivendare Portrait]
+      - choose_trinket: 0
+    expect: {gold: 7, hand: ["Titus Rivendare 1/7"]}
+
+  - name: titus_rivendares_double_their_health
+    combat:
+      board_a: [Titus Rivendare, "Titus Rivendare 2/9", "1/3"]
+      board_b: []
+      auras_a: {trinkets: [Rivendare Portrait]}
+    expect: {survivors_a: ["Titus Rivendare 1/14", "Titus Rivendare 2/18", "1/3"]}

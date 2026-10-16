@@ -212,8 +212,24 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 
 ### 11.1 Combat Trinkets
 
+"Get a ..." gives a plain copy of the minion from the catalog, not from the pool **(engine decision)**, under hand protection (§5). "Start of Combat" is step 1c (§7.2).
+
 | Trinket | Text | How the engine reads it |
 | :--- | :--- | :--- |
+| `Holy Mallet` (Lesser) | Start of Combat: Give your left and right-most minions Divine Shield. | The left-most minion, then the right-most; a single minion once. |
+| `Baleful Incense` (Lesser) | Start of Combat: Give your left and right-most Undead Reborn. | The left-most and right-most Undead (a two-type or `All` minion counts); a single one once. |
+| `Training Certificate` (Lesser) | Start of Combat: Double the stats of your two lowest-Attack minions. | The two with the lowest Attack, ties to the left-most **(engine decision)**, gain their Attack and Health. |
+| `Eternal Portrait` (Lesser) | Get an Eternal Knight. Start of Combat: Give your Eternal Knights Taunt and Reborn. | Every friendly `Eternal Knight`, Golden too. |
+| `Hoggy Bank` (Lesser) | Start of Combat: Give your Quilboar "Deathrattle: Get 2 Blood Gems." | Every friendly Quilboar gains the extra Deathrattle *Gem in the Bank* (`BG30_MagicItem_411e`) for the combat; it gives 2 `Blood Gem`s to the combat hand, which come back with it. |
+| `Summoning Sphere` (Lesser, Duos) | Start of Combat: Summon a copy of your teammate's highest-Health minion. | From the teammate's warband as it entered the combat (`duos.md` §2), a tie at random (one draw), at the right end if there is room, as Vanndar's copy (`heroes.md` §11.1). Nothing without a teammate minion. |
+| `Converter Portrait` (Greater) | Get a Faceless Converter. Start of Combat: Give your Faceless Converters Reborn. | Every friendly `Faceless Converter`, Golden too. |
+| `Rivendare Portrait` (Greater) | Get a Titus Rivendare. Start of Combat: Double the Health of your Titus Rivendares. | Every friendly `Titus Rivendare` gains its Health. |
+| `Bronze Timepiece` (Greater) | Start of Combat: Give each of your minions Health equal to half its Attack. | Left to right, half its Attack rounded down **(engine decision)**. |
+| `Ironforge Anvil` (Greater) | Start of Combat: Triple the stats of your minions with no type. | Each minion without a type (not an `All` one) gains twice its Attack and Health. |
+| `Protective Ring` (Greater) | Start of Combat: Give 4 random friendly Pirates Divine Shield. | 4 different Pirates (all if fewer), one `rng.below(k)` each; one that already has a shield can be drawn **(engine decision)**. |
+| `Lightfeather Sticker` (Greater) | Start of Combat: Give your Rally minions Divine Shield. | Every friendly minion with a Rally. |
+| `Dramaloc Sticker` (Greater) | Start of Combat: Give your Murlocs the Attack of the highest-Attack minion in your hand. | Each Murloc gains that much Attack (rather than its Attack becoming it) **(engine decision)**; spells don't count; nothing without a minion in the hand. |
+| `Evil Experiment` (Greater) | After your Deity awakens, give it Reborn. | `trinket_deity_awakened`: the Deity gains Reborn as it awakens. |
 
 ### 11.2 Tavern Trinkets
 
@@ -254,3 +270,5 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| "Get a ..." | A plain copy from the catalog, not the pool (§11.1). | `trinkets::give_minion` |
+| Batch 1 | Training Certificate's ties to the left-most; Bronze Timepiece rounds down; Protective Ring may draw a shielded Pirate; Dramaloc Sticker's Murlocs gain the Attack. | their files |

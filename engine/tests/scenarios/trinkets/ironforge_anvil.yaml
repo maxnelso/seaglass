@@ -1,0 +1,8 @@
+trinket: Ironforge Anvil
+scenarios:
+  - name: minions_with_no_type_triple_their_stats
+    combat:
+      board_a: ["2/3", "1/1 beast", "1/1 all", "3/1"]
+      board_b: []
+      auras_a: {trinkets: [Ironforge Anvil]}
+    expect: {survivors_a: ["6/9", "1/1 beast", "1/1 all", "9/3"]}

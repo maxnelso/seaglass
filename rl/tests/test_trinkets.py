@@ -51,3 +51,26 @@ def test_a_game_without_trinkets_is_unchanged() -> None:
     player_vec, slot_card_ids, _ = encode_observation(obs)
     assert player_vec.shape == (PLAYER_DIM,) and slot_card_ids.shape == (NUM_SLOTS,)
     assert not np.any(player_vec[-6:]) and not np.any(slot_card_ids[-6:])
+
+
+def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
+    game = seaglass.TavernGame(seed=5, trinkets=True)
+    _play_to_turn(game, 9)
+    obs = game.observe()
+    assert obs.turn == 9 and 1 <= len(obs.trinket_options) <= 4
+    assert len(obs.trinket_option_costs) == len(obs.trinket_options)
+    assert min(obs.trinket_option_costs) <= 2 or len(obs.trinket_options) < 4
+    legal = game.legal_actions()
+    assert legal and all(a.kind == "choose_trinket" for a in legal)
+    mask = action_mask(game, allow_reposition=True, allow_freeze=True)
+    assert np.flatnonzero(mask).tolist() == [CHOOSE_TRINKET_INDICES[a.args[0]] for a in legal]
+    player_vec, slot_card_ids, _ = encode_observation(obs)
+    assert player_vec[-6] == 1.0 and slot_card_ids[-4] != 0
+
+    pick = legal[0].args[0]
+    chosen, cost, gold = obs.trinket_options[pick], obs.trinket_option_costs[pick], obs.gold
+    game.step(seaglass.TavernAction.choose_trinket(pick))
+    obs = game.observe()
+    assert obs.trinket_options == [] and obs.trinkets == [chosen]
+    assert obs.gold == gold - cost
+    assert any(a.kind == "end_turn" for a in game.legal_actions())

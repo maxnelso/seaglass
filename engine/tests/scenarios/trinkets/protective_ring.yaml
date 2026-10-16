@@ -1,0 +1,13 @@
+trinket: Protective Ring
+scenarios:
+  - name: four_random_pirates_gain_divine_shield
+    seeds: "1..=8"
+    combat:
+      board_a: ["1/1 pirate", "1/1 pirate", "1/1 beast", "1/1 pirate", "1/1 pirate", "1/1 pirate"]
+      board_b: []
+      auras_a: {trinkets: [Protective Ring]}
+    expect:
+      survivors_a:
+        all_of:
+          - {count: 6, 2: "1/1 beast -divine_shield"}
+          - {where: {divine_shield: true}, count: 4}

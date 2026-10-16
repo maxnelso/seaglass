@@ -10,9 +10,24 @@
 
 mod table;
 
+pub mod baleful_incense;
+pub mod bronze_timepiece;
+pub mod converter_portrait;
+pub mod dramaloc_sticker;
+pub mod eternal_portrait;
+pub mod evil_experiment;
+pub mod hoggy_bank;
+pub mod holy_mallet;
+pub mod ironforge_anvil;
+pub mod lightfeather_sticker;
+pub mod protective_ring;
+pub mod rivendare_portrait;
+pub mod summoning_sphere;
+pub mod training_certificate;
+
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
 
-use crate::cards::{hooks, BoardCtx, CardHooks, HeroCombatCtx};
+use crate::cards::{self, hooks, BoardCtx, CardHooks, HeroCombatCtx};
 use crate::model::{CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, LOBBY_TRIBES};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -50,7 +65,22 @@ pub const OFF_TYPE_DISCOUNT: u32 = 2;
 type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented trinket, by file name.
-const IMPLEMENTED: &[Implemented] = &[];
+const IMPLEMENTED: &[Implemented] = &[
+    (baleful_incense::ID, baleful_incense::behaviors),
+    (bronze_timepiece::ID, bronze_timepiece::behaviors),
+    (converter_portrait::ID, converter_portrait::behaviors),
+    (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
+    (eternal_portrait::ID, eternal_portrait::behaviors),
+    (evil_experiment::ID, evil_experiment::behaviors),
+    (hoggy_bank::ID, hoggy_bank::behaviors),
+    (holy_mallet::ID, holy_mallet::behaviors),
+    (ironforge_anvil::ID, ironforge_anvil::behaviors),
+    (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
+    (protective_ring::ID, protective_ring::behaviors),
+    (rivendare_portrait::ID, rivendare_portrait::behaviors),
+    (summoning_sphere::ID, summoning_sphere::behaviors),
+    (training_certificate::ID, training_certificate::behaviors),
+];
 
 /// The hooks of every implemented trinket's cards, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
@@ -191,6 +221,15 @@ pub enum OfferClass {
 /// (`docs/trinkets.md` §3.3 steps 1-2), in table order: each offerable trinket of that kind they
 /// don't own, its class and its price.
 pub fn candidates(state: &TavernState, greater: bool) -> Vec<(CardId, OfferClass, u32)> {
+    candidates_in(state, greater, offerable(state.auras.duos_game))
+}
+
+/// [`candidates`] among the trinkets of `pool` (in its order).
+fn candidates_in<'a>(
+    state: &TavernState,
+    greater: bool,
+    pool: impl Iterator<Item = &'a TrinketData>,
+) -> Vec<(CardId, OfferClass, u32)> {
     let counts = type_counts(state);
     let threshold = if greater { 3 } else { 2 };
     let best = counts.iter().copied().max().unwrap_or(0);
@@ -200,8 +239,7 @@ pub fn candidates(state: &TavernState, greater: bool) -> Vec<(CardId, OfferClass
             .position(|&l| l == t)
             .map_or(0, |i| counts[i])
     };
-    offerable(state.auras.duos_game)
-        .filter(|t| t.greater == greater && !owns(&state.auras, t.id))
+    pool.filter(|t| t.greater == greater && !owns(&state.auras, t.id))
         .filter_map(|t| {
             if t.tribes.is_empty() {
                 return Some((t.id, OfferClass::Neutral, t.cost));
@@ -227,7 +265,11 @@ pub fn candidates(state: &TavernState, greater: bool) -> Vec<(CardId, OfferClass
 /// if none is yet, then the rest up to [`OFFER_COUNT`] (at most one Off option), each a uniform
 /// `rng.below(k)` over what is left; then a Fisher-Yates shuffle.
 pub fn draw_offer(state: &TavernState, greater: bool, rng: &mut Rng) -> Vec<TrinketOption> {
-    let candidates = candidates(state, greater);
+    draw_from(&candidates(state, greater), rng)
+}
+
+/// The draw of [`draw_offer`] among `candidates`.
+fn draw_from(candidates: &[(CardId, OfferClass, u32)], rng: &mut Rng) -> Vec<TrinketOption> {
     let mut drawn: Vec<usize> = Vec::with_capacity(OFFER_COUNT);
     let mut draw = |drawn: &mut Vec<usize>, keep: &dyn Fn(&(CardId, OfferClass, u32)) -> bool| {
         let list: Vec<usize> = (0..candidates.len())
@@ -359,8 +401,26 @@ pub fn on_deity_awakened(ctx: &mut BoardCtx<'_>, idx: usize) {
     }
 }
 
-/// The most cards a hand holds (`tavern.md` §2).
-pub const MAX_HAND_SIZE: usize = 10;
+// ---------------------------------------------------------------------------------------------
+// Helpers for the trinkets' hooks
+// ---------------------------------------------------------------------------------------------
+
+/// A trinket's "Get a ..." (`docs/trinkets.md` §5): a plain copy of the minion `card_id` from the
+/// catalog (not the pool) goes to the hand, or waits for room in a full hand.
+pub fn give_minion(state: &mut TavernState, card_id: CardId) {
+    if let Some(template) = cards::template(card_id) {
+        state.add_to_hand_or_wait(template.instantiate());
+    }
+}
+
+/// The left- and right-most of `indexes` (in board order), once if there is only one.
+pub fn ends(indexes: &[usize]) -> Vec<usize> {
+    match indexes {
+        [] => Vec::new(),
+        [only] => vec![*only],
+        [first, .., last] => vec![*first, *last],
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -502,6 +562,87 @@ mod tests {
         let mut u = Unit::new("m", 1, 1);
         u.tribe = tribe;
         u
+    }
+
+    /// Over the whole table (every Solo trinket, as if all were implemented), random boards and
+    /// hands get offers that follow every rule (`docs/trinkets.md` §3.2).
+    #[test]
+    fn offers_from_the_whole_pool_follow_the_rules() {
+        let tribes = [
+            Tribe::None,
+            Tribe::Beast,
+            Tribe::Demon,
+            Tribe::Dragon,
+            Tribe::Elemental,
+            Tribe::Mech,
+            Tribe::Murloc,
+            Tribe::Pirate,
+            Tribe::Quilboar,
+            Tribe::Undead,
+            Tribe::BeastPirate,
+            Tribe::MechMurloc,
+            Tribe::All,
+        ];
+        let pool = || {
+            TRINKETS
+                .iter()
+                .filter(|t| !t.duos_only && !t.tribes.contains(&Tribe::Naga))
+        };
+        let mut rng = Rng::new(11);
+        for _ in 0..2000 {
+            let mut state = TavernState::new();
+            for _ in 0..rng.below(8) {
+                state.board.push(minion(tribes[rng.below(tribes.len())]));
+            }
+            for _ in 0..rng.below(6) {
+                state.hand.push(minion(tribes[rng.below(tribes.len())]));
+            }
+            let greater = rng.below(2) == 0;
+            if rng.below(3) == 0 {
+                let kind: Vec<_> = pool().filter(|t| t.greater == greater).collect();
+                state
+                    .auras
+                    .trinkets
+                    .push(new_state(kind[rng.below(kind.len())].id));
+            }
+            let candidates = candidates_in(&state, greater, pool());
+            let offer = draw_from(&candidates, &mut rng);
+            let class = |id: CardId| candidates.iter().find(|c| c.0 == id).map(|c| c.1);
+            let counts = type_counts(&state);
+            let threshold = if greater { 3 } else { 2 };
+            assert_eq!(offer.len(), OFFER_COUNT, "{offer:?}");
+            for (i, o) in offer.iter().enumerate() {
+                let t = data(o.card_id).unwrap();
+                assert_eq!(t.greater, greater);
+                assert!(
+                    offer[..i].iter().all(|p| p.card_id != o.card_id),
+                    "distinct"
+                );
+                assert!(!owns(&state.auras, o.card_id), "never one the player owns");
+                let eligible = t.tribes.is_empty()
+                    || t.tribes.iter().any(|&x| {
+                        LOBBY_TRIBES
+                            .iter()
+                            .position(|&l| l == x)
+                            .is_some_and(|k| counts[k] >= threshold)
+                    });
+                assert!(eligible, "{} needs {threshold} minions of its type", t.name);
+                let price = match class(o.card_id) {
+                    Some(OfferClass::Off) => t.cost.saturating_sub(OFF_TYPE_DISCOUNT),
+                    _ => t.cost,
+                };
+                assert_eq!(o.cost, price);
+            }
+            assert!(offer.iter().any(|o| o.cost <= CHEAP_COST), "a cheap option");
+            assert!(offer
+                .iter()
+                .any(|o| class(o.card_id) == Some(OfferClass::Neutral)));
+            let off = offer
+                .iter()
+                .filter(|o| class(o.card_id) == Some(OfferClass::Off))
+                .count();
+            assert!(off <= 1, "at most one option of another type");
+        }
     }
 
     #[test]

@@ -1,0 +1,16 @@
+trinket: Evil Experiment
+scenarios:
+  - name: the_awakened_deity_gains_reborn
+    description: >-
+      Boom-in-a-Box's Start of Combat kills the four Zoatroids, C'Thun awakens with Reborn, dies
+      to the 20/30 and is Reborn.
+    seed: 7
+    combat:
+      board_a: [Zoatroid, Zoatroid, Zoatroid, Zoatroid]
+      board_b: [Boom-in-a-Box, "20/30"]
+      auras_a: {deity: {kind: cthun, attack: 5, health: 5}, trinkets: [Evil Experiment]}
+    expect:
+      events:
+        sequence:
+          - {type: deity_awakened, side: a, deity: cthun}
+          - {type: unit_summoned, side: a, reason: Reborn}
