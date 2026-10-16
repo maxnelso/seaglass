@@ -1,0 +1,9 @@
+trinket: Cookie's Stirring Rod
+scenarios:
+  - name: the_fifth_murloc_played_gives_two_tavern_spells
+    tavern: {hand: ["1/1 murloc", "1/1 beast"], auras: {trinkets: [{trinket: Cookie's Stirring Rod, counter: 4}]}}
+    steps:
+      - play: 1
+      - expect: {hand: [{tribe: murloc}]}
+      - play: 0
+    expect: {hand: {count: 2, all: {is_spell: true}}, auras: {trinkets: [{counter: 0}]}}

@@ -7,8 +7,6 @@
 
 use crate::cards::{BoardCtx, CardHooks};
 use crate::model::{CardId, Unit};
-use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 121182;
 
@@ -20,13 +18,9 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         ID,
         CardHooks::EMPTY
-            .on_trinket_turn_start(new_turn)
+            .on_trinket_combat_start(super::reset_per_combat)
             .on_trinket_friendly_death(avenge),
     )]
-}
-
-fn new_turn(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
-    super::reset_per_combat(state, ID);
 }
 
 fn avenge(ctx: &mut BoardCtx<'_>, _: &Unit) {

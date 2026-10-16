@@ -1,0 +1,11 @@
+trinket: Lava Lamp
+scenarios:
+  - name: the_sixth_minion_sold_gives_an_elemental
+    tavern: {tavern_tier: 6, board: ["1/1", "1/1"], auras: {trinkets: [{trinket: Lava Lamp, counter: 4}]}}
+    steps:
+      - sell: 0
+      - expect: {hand: []}
+      - sell: 0
+    expect:
+      hand: {count: 1, all: {tribe: {any_of: [elemental, elemental_demon, all]}}}
+      auras: {trinkets: [{counter: 0}]}

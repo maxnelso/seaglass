@@ -1,0 +1,10 @@
+trinket: Rendle Sticker
+scenarios:
+  - name: it_steals_the_highest_tier_card_now_and_at_each_turn_end
+    description: Among ties, the left-most (an engine decision). Nothing is paid.
+    tavern: {gold: 3, shop: ["1/1 t1", "4/4 t3", "5/5 t3", "2/2 t2"]}
+    steps:
+      - give_trinket: Rendle Sticker
+      - expect: {gold: 3, hand: ["4/4"], shop: ["1/1", "5/5", "2/2"]}
+      - end_turn
+    expect: {hand: ["4/4", "5/5"], shop: ["1/1", "2/2"]}

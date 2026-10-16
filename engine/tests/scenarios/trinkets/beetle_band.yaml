@@ -20,8 +20,10 @@ scenarios:
       auras_a: {trinkets: [Beetle Band]}
     expect: {events: {none: {type: unit_summoned}}}
 
-  - name: the_count_starts_again_each_turn
-    tavern: {auras: {trinkets: [{trinket: Beetle Band, counter: 4}]}}
-    steps:
-      - start_turn
-    expect: {auras: {trinkets: [{counter: 0}]}}
+  - name: the_count_starts_again_each_combat
+    description: Confirmed. Four deaths counted before don't carry into this combat.
+    combat:
+      board_a: ["1/1"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [{trinket: Beetle Band, counter: 4}]}
+    expect: {events: {none: {type: unit_summoned}}}

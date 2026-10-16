@@ -132,6 +132,13 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_friendly_attack` | A friendly minion attacks (in combat or in the Tavern), after the Hero Power's `hero_friendly_attack`, before it strikes: `(ctx, attacker_id)`. | `Faerie Dragon Scale`, `Lionfish Portrait`. |
 | `trinket_after_buy` | After a card is bought, after the Hero Power's `hero_after_buy`: `(state, bought, pool, rng)`. | `Transcribing Typewriter`, `Trickster's Sleeve`. |
 | `trinket_after_upgrade` | After the Tavern is upgraded, after the Hero Power's `hero_after_upgrade`: `(state, pool, rng)`. | `Stuffed Coin Purse`. |
+| `trinket_after_play` | After a minion is played or Magnetized, after the Hero Power's `hero_after_play`: `(state, played, pool, rng)`. | `Nomi Sticker`, `Water Wheel`. |
+| `trinket_after_sell` | After a minion is sold, after the Hero Power's `hero_after_sell`: `(state, sold, pool, rng)`. | `Lava Lamp`. |
+| `trinket_end_turn` | The player ends their turn, after the Hero Power's `hero_end_turn`: `(state, pool, rng)`. | `Rendle Sticker`, `Sphere of Memory`. |
+| `trinket_spell_cast` | Each cast of a Tavern spell in the Tavern, after the cards' `spell_cast` observers: `(state, pool, rng)`. | `Corrupted Baton`. |
+| `trinket_after_refresh` | The Tavern was Refreshed (as `hero_after_refresh`), after the Hero Power's, before the cards' after-Refresh effects: `(state, pool, rng)`. | `Innkeeper's Stein`. |
+| `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger, on top of the board's: `(passive)` (only `EndOfTurnTriggers` is read). | `Ghastly Sticker`. |
+| `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
 
 The dispatch functions (`trinkets::on_start_of_combat`, `trinkets::on_turn_start`, ...) run each owned trinket's hook in turn; the engines call them next to the matching Hero Power dispatch. Extra Deathrattles a trinket gives a minion in combat (`Jarred Frostling`) are cards too, as the Hero Powers' (`heroes.md` §4): `Unit::extra_deathrattles` lists them. More hooks are added with the trinkets that need them (§11).
@@ -217,7 +224,7 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 
 ### 11.1 Combat Trinkets
 
-"Get a ..." gives a plain copy of the minion from the catalog, not from the pool **(engine decision)**, under hand protection (§5). "Start of Combat" is step 1c (§7.2).
+"Get a ..." gives a new plain copy of the minion from the catalog, not from the pool **(confirmed)**, under hand protection (§5). A random card ("get a random Beast") is a new copy of the player's Tier or lower, not taken from the pool **(confirmed)**. "Start of Combat" is step 1c (§7.2).
 
 | Trinket | Text | How the engine reads it |
 | :--- | :--- | :--- |
@@ -237,20 +244,20 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Evil Experiment` (Greater) | After your Deity awakens, give it Reborn. | `trinket_deity_awakened`: the Deity gains Reborn as it awakens. |
 | `Beetle Band` (Lesser) | Avenge (5): Summon a 2/2 Beetle. Give it Taunt. | Every 5th friendly death in a combat: a `Beetle` (with the player's Beetle bonus) with Taunt at the right end. |
 | `Staff of the Scourge` (Lesser) | Avenge (5): Give a random friendly Undead Reborn. | A random living Undead (one that has Reborn can be drawn **(engine decision)**), one draw. |
-| `Lucky Tabby` (Lesser) | After 7 friendly minions die, get a random Beast. | Counted across combats; a random Beast of the player's Tier or lower from the game's catalog **(engine decision**, as Ini Stormcoil's Mech**)** to the combat hand. |
+| `Lucky Tabby` (Lesser) | After 7 friendly minions die, get a random Beast. | Counted across combats **(confirmed)**; a random Beast of the player's Tier or lower from the game's catalog **(confirmed)** to the combat hand. |
 | `Stormcoil Sticker` (Lesser) | After 6 friendly minions die, get a random Mech. | As `Lucky Tabby`, a Mech. |
 | `Bleeding Heart` (Lesser) | After 8 friendly minions die, get a random Undead. | As `Lucky Tabby`, an Undead. |
 | `Lionfish Portrait` (Lesser) | Get a Lurking Lionfish. Whenever a friendly Beast attacks, give it +4/+2. | The attacker gains it before it strikes, in combat or in the Tavern (a Fishbait attack). |
 | `Beetle Band` (Greater) | Avenge (7): Summon two 2/2 Beetles. Give them Taunt. | As the Lesser one, two Beetles. |
 | `Fridge Magnet` (Greater) | Avenge (3): Get a random Magnetic minion. | Every 3rd friendly death in a combat: a random Magnetic minion of the player's Tier or lower from the catalog, to the combat hand. |
-| `Faerie Dragon Scale` (Greater) | Whenever a friendly Dragon attacks, give it Divine Shield. (3 times per combat.) | Before it strikes; a Dragon that still has one uses a charge too **(engine decision)**. |
-| `All-Purpose Kibble` (Greater) | Whenever a friendly Beast attacks, give it +3 Attack and permanently improve this. | `+(3 + stacks)` Attack, then each improvement is +1 for the rest of the game **(engine decision)**. |
+| `Faerie Dragon Scale` (Greater) | Whenever a friendly Dragon attacks, give it Divine Shield. (3 times per combat.) | Before it strikes; a Dragon that still has one keeps it and uses no charge **(confirmed)**. |
+| `All-Purpose Kibble` (Greater) | Whenever a friendly Beast attacks, give it +3 Attack and permanently improve this. | `+(3 + stacks)` Attack, then each improvement is +1 for the rest of the game **(confirmed)**. |
 | `Slamma Sticker` (Greater) | After you summon a Beast in combat, double its Attack. | Every Beast summoned on the player's side in combat, after the other summon modifiers. |
-| `Blood Golem Sticker` (Greater) | Whenever a friendly Quilboar dies, summon a Golem with stats equal to its Blood Gems. | A `Blood Golem` with the stats its Blood Gems gave it (`blood_gem_stats_applied`) at the right end; none without them **(engine decision)**. |
-| `Jar o' Gems` (Greater) | After 2 friendly minions attack each combat, this plays a Blood Gem on all your Quilboar. | Once per combat, after the 2nd friendly attack **(engine decision**: not every 2 attacks**)**; the Gems are played, not cast. |
+| `Blood Golem Sticker` (Greater) | Whenever a friendly Quilboar dies, summon a Golem with stats equal to its Blood Gems. | A `Blood Golem` with the stats its Blood Gems gave it (`blood_gem_stats_applied`) at the right end; none without them **(confirmed)**. |
+| `Jar o' Gems` (Greater) | After 2 friendly minions attack each combat, this plays a Blood Gem on all your Quilboar. | Once per combat, after the 2nd friendly attack in combat **(engine decision**: not every 2 attacks; Tavern attacks don't count**)**; the Gems are played, not cast. |
 | `Herald Sticker` (Greater) | Start of Combat: Trigger all friendly Deathrattles. | Each friendly minion with a Deathrattle (its own or one an effect gave it), left to right as the board was, if alive, triggers them as `Deathstrider` does (repeated by `Titus Rivendare`), summons to its right. |
 
-"Per combat" counts and charges (Avenge, "3 times per combat", "each combat") start again at the start of each turn **(engine decision**, as Onyxia's Avenge, `heroes.md` §11.1**)**; "after N friendly minions die" counts go across combats.
+"Per combat" counts and charges (Avenge, "3 times per combat", "each combat") start again every combat (`trinket_combat_start`) **(confirmed)**; "after N friendly minions die" counts go across combats **(confirmed)**.
 
 ### 11.2 Tavern Trinkets
 
@@ -273,6 +280,20 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Butcher's Sickle` (Greater) | Get a Butchering. At the start of each turn, get another. | Fresh `Butchering`s. |
 | `Transcribing Typewriter` (Greater) | Get an extra copy of the next 4 minions you buy. | As the Lesser one, 4 copies. |
 | `Volumizer Portrait` (Greater) | Get 2 random Magnetic Volumizers. At the start of each turn, repeat this. | As the Lesser one, 2 each time. |
+| `Nomi Sticker` (Lesser) | After you play an Elemental, give Elementals in the Tavern +3/+2 this game. | Each Elemental played from the hand: the Tavern's Elemental bonus +3/+2 (as `Dune Dweller`'s), the shop's Elementals now. |
+| `Corrupted Baton` (Lesser) | After you cast a Tavern spell, give your Deity +4/+4. | Each cast of a Tavern spell in the Tavern (`auras.deity`). |
+| `Rendle Sticker` (Lesser) | Steal the highest-Tier card from the Tavern. At the end of each turn, repeat this. | As picked and at each turn end: the Tavern's card of the highest Tier (minion or spell; ties to the left-most **(engine decision)**) goes to the hand as it is, not bought (no buy triggers, nothing paid). |
+| `Innkeeper's Stein` (Lesser) | The Tavern offers an extra minion of a higher Tier whenever it is Refreshed. | Every Refresh adds a minion of `tavern_tier + 1` from the pool (`draw_discover_options`) at the end of the Tavern if it has room; nothing at Tier 6 **(engine decision)**. |
+| `Water Wheel` (Lesser) | After you play an Elemental, get a random Tavern spell. (Twice per turn.) | The first 2 Elementals played from the hand each turn; the spell is drawn as the shop draws one. |
+| `Defensive Shell` (Lesser) | The first minion you play each turn gains Divine Shield. | Once its play resolved; a Magnetization gives it to the minion Magnetized onto **(engine decision)**. |
+| `Nomi Sticker` (Greater) | After you play an Elemental, give Elementals in the Tavern +5/+5 this game. | As the Lesser one, +5/+5. |
+| `Corrupted Baton` (Greater) | After you cast a Tavern spell, give your Deity +10/+10. | As the Lesser one, +10/+10. |
+| `Lava Lamp` (Greater) | After you sell 6 minions, get a random Elemental. | Counted across turns. |
+| `Secret Schematic` (Greater) | After you buy a Mech, get a random Tavern spell. | Drawn as the shop draws one. |
+| `Recycling Sticker` (Greater) | After you play an Elemental, gain a free Refresh. | `free_refreshes`, which carries over. |
+| `Cookie's Stirring Rod` (Greater) | After you play 5 Murlocs, get two random Tavern spells. | Counted across turns; drawn as the shop draws one. |
+| `Sphere of Memory` (Greater) | At the end of your turn, get 3 copies of the last Tavern spell you cast. | Fresh copies of `last_tavern_spell_cast`; nothing before any. |
+| `Ghastly Sticker` (Greater) | Your end of turn effects trigger an extra time. | The minions' end-of-turn triggers resolve once more, on top of `Drakkari Enchanter`'s; not a Hero Power's or a trinket's **(engine decision)**. |
 
 ### 11.3 Deferred
 
@@ -291,7 +312,7 @@ The list grows as the batches go (§11.1, §11.2): every trinket of the table th
 
 ## 12. Decisions
 
-The rules the user settled are marked **(confirmed)** above: the Lesser offer on turn 6 and the Greater one on turn 9, 4 options each; the pick before anything else, and no skipping; the price paid in Gold as the trinket is picked, and the trinket kept for the rest of the game; at least one option of 2 Gold or less; the 2 (Lesser) and 3 (Greater) minions a typed trinket needs; at least one option without a type; at most one option of a type that isn't the most common one, 2 Gold cheaper; never a trinket the player owns; cards a trinket gives waiting for room in the hand; Naga trinkets never offered; the deferred systems.
+The rules the user settled are marked **(confirmed)** above: per-combat counts restarting every combat and "after N minions die" counts going across combats; Kibble's +1 improvements; Faerie Dragon Scale skipping a shielded Dragon; random cards as new copies of the player's Tier or lower; "Get a ..." cards as new copies, not from the pool; Blood Golem Sticker summoning nothing without Blood Gem stats; the Lesser offer on turn 6 and the Greater one on turn 9, 4 options each; the pick before anything else, and no skipping; the price paid in Gold as the trinket is picked, and the trinket kept for the rest of the game; at least one option of 2 Gold or less; the 2 (Lesser) and 3 (Greater) minions a typed trinket needs; at least one option without a type; at most one option of a type that isn't the most common one, 2 Gold cheaper; never a trinket the player owns; cards a trinket gives waiting for room in the hand; Naga trinkets never offered; the deferred systems.
 
 Engine decisions, pending the user's confirmation:
 
@@ -308,7 +329,8 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
-| "Get a ..." | A plain copy from the catalog, not the pool (§11.1). | `trinkets::give_minion` |
+| "Get a ..." | A new plain copy from the catalog, not the pool (§11.1) **(confirmed)**. | `trinkets::give_minion` |
+| Batch 4 | Rendle's ties to the left-most; Innkeeper's Stein nothing at Tier 6; Defensive Shell on a Magnetization; Ghastly Sticker repeats the minions' triggers only; Jar o' Gems ignores Tavern attacks. | their files |
 | Batch 3 | Stuffed Coin Purse pays at once at Tier 6; Typewriter's copies don't come from the pool; random Magnetic Mechs of the player's Tier or lower. | their files |
-| Batch 2 | Per-combat counts restart each turn; Staff of the Scourge may draw an Undead with Reborn; random cards from the catalog of the player's Tier or lower; Faerie Dragon Scale spends a charge on a shielded Dragon; Kibble improves by +1; Blood Golem Sticker needs Blood Gem stats; Jar o' Gems once per combat. | their files |
+| Batch 2 | Staff of the Scourge may draw an Undead with Reborn; Jar o' Gems once per combat. | their files |
 | Batch 1 | Training Certificate's ties to the left-most; Bronze Timepiece rounds down; Protective Ring may draw a shielded Pirate; Dramaloc Sticker's Murlocs gain the Attack. | their files |

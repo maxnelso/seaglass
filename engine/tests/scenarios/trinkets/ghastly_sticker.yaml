@@ -1,0 +1,8 @@
+trinket: Ghastly Sticker
+scenarios:
+  - name: end_of_turn_effects_trigger_an_extra_time
+    description: Lullabot's end-of-turn +1 Health resolves twice.
+    tavern: {board: [Lullabot], auras: {trinkets: [Ghastly Sticker]}}
+    steps:
+      - end_turn
+    expect: {board: ["Lullabot 2/4"]}

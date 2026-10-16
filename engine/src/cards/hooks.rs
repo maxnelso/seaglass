@@ -578,6 +578,24 @@ card_hooks! {
     /// After the Tavern is upgraded, after the Hero Power's `hero_after_upgrade`: `(state, pool,
     /// rng)`.
     trinket_after_upgrade(on_trinket_after_upgrade): TavernEventFn,
+    /// After a minion is played or Magnetized, after the Hero Power's `hero_after_play`:
+    /// `(state, played, pool, rng)`.
+    trinket_after_play(on_trinket_after_play): fn(&mut TavernState, &Played, &mut CardPool, &mut Rng),
+    /// After a minion is sold, after the Hero Power's `hero_after_sell`: `(state, sold, pool, rng)`.
+    trinket_after_sell(on_trinket_after_sell): CardEventFn,
+    /// The player ends their turn, after the Hero Power's `hero_end_turn`: `(state, pool, rng)`.
+    trinket_end_turn(on_trinket_end_turn): TavernEventFn,
+    /// A Tavern spell is cast in the Tavern (each cast), after the cards' `spell_cast` observers:
+    /// `(state, pool, rng)`.
+    trinket_spell_cast(on_trinket_spell_cast): TavernEventFn,
+    /// The Tavern was Refreshed, after the Hero Power's `hero_after_refresh`, before the cards'
+    /// after-Refresh effects: `(state, pool, rng)`.
+    trinket_after_refresh(on_trinket_after_refresh): TavernEventFn,
+    /// Extra times the effects counted by a [`Passive`] trigger, on top of the board's: `(passive)`
+    /// (only `EndOfTurnTriggers` is read).
+    trinket_extra_triggers(on_trinket_extra_triggers): fn(Passive) -> u32,
+    /// A combat starts (the player's side is set up): `(trinket)`, to restart per-combat counts.
+    trinket_combat_start(on_trinket_combat_start): fn(&mut TrinketState),
 }
 
 impl Default for CardHooks {

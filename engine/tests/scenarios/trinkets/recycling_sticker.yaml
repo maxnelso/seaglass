@@ -1,0 +1,8 @@
+trinket: Recycling Sticker
+scenarios:
+  - name: playing_an_elemental_gives_a_free_refresh
+    tavern: {hand: ["1/1 elemental", "1/1 beast"], auras: {trinkets: [Recycling Sticker]}}
+    steps:
+      - play: 0
+      - play: 0
+    expect: {auras: {free_refreshes: 1}}

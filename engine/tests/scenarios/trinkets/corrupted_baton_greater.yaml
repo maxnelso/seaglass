@@ -1,0 +1,7 @@
+trinket: Corrupted Baton (Greater)
+scenarios:
+  - name: each_tavern_spell_cast_gives_the_deity_ten_ten
+    tavern: {gold: 10, hand: [Tavern Coin], auras: {deity: {attack: 1, health: 1}, trinkets: [Corrupted Baton (Greater)]}}
+    steps:
+      - play: 0
+    expect: {auras: {deity: {attack: 11, health: 11}}}

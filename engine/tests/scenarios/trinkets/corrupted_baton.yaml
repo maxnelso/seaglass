@@ -1,0 +1,7 @@
+trinket: Corrupted Baton
+scenarios:
+  - name: each_tavern_spell_cast_gives_the_deity_four_four
+    tavern: {gold: 10, hand: [Tavern Coin], auras: {deity: {attack: 1, health: 1}, trinkets: [Corrupted Baton]}}
+    steps:
+      - play: 0
+    expect: {auras: {deity: {attack: 5, health: 5}}}

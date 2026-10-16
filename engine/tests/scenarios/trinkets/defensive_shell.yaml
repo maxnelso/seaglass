@@ -1,0 +1,13 @@
+trinket: Defensive Shell
+scenarios:
+  - name: the_first_minion_played_each_turn_gains_divine_shield
+    tavern: {hand: ["1/1", "2/2"], auras: {trinkets: [Defensive Shell]}}
+    steps:
+      - play: 0
+      - play: 0
+      - expect: {board: ["1/1 divine_shield", "2/2 -divine_shield"]}
+      - end_turn
+      - start_turn
+      - add_to_hand: "3/3"
+      - play: 0
+    expect: {board: {-1: "3/3 divine_shield"}}

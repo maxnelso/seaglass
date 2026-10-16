@@ -21,26 +21,39 @@ pub mod bobs_tip_jar;
 pub mod bronze_timepiece;
 pub mod butchers_sickle;
 pub mod converter_portrait;
+pub mod cookies_stirring_rod;
+pub mod corrupted_baton;
+pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
+pub mod defensive_shell;
 pub mod dramaloc_sticker;
 pub mod eternal_portrait;
 pub mod evil_experiment;
 pub mod faerie_dragon_scale;
 pub mod fridge_magnet;
+pub mod ghastly_sticker;
 pub mod herald_sticker;
 pub mod hoggy_bank;
 pub mod holy_mallet;
+pub mod innkeepers_stein;
 pub mod ironforge_anvil;
 pub mod jar_o_gems;
+pub mod lava_lamp;
 pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
 pub mod lucky_tabby;
+pub mod nomi_sticker;
+pub mod nomi_sticker_greater;
 pub mod protective_ring;
+pub mod recycling_sticker;
 pub mod reflective_pendant;
+pub mod rendle_sticker;
 pub mod rivendare_portrait;
 pub mod scraper_sticker;
+pub mod secret_schematic;
 pub mod sellemental_portrait;
 pub mod slamma_sticker;
+pub mod sphere_of_memory;
 pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
@@ -51,12 +64,13 @@ pub mod transcribing_typewriter_greater;
 pub mod tricksters_sleeve;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
+pub mod water_wheel;
 pub mod willbreaker_sticker;
 pub mod worn_treasure_map;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
 
-use crate::cards::{self, hooks, BoardCtx, CardHooks, HeroCombatCtx};
+use crate::cards::{self, hooks, BoardCtx, CardHooks, HeroCombatCtx, Passive, Played};
 use crate::model::{
     CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, Unit, UnitId, LOBBY_TRIBES,
 };
@@ -111,29 +125,45 @@ const IMPLEMENTED: &[Implemented] = &[
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
     (butchers_sickle::ID, butchers_sickle::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
+    (cookies_stirring_rod::ID, cookies_stirring_rod::behaviors),
+    (corrupted_baton::ID, corrupted_baton::behaviors),
+    (
+        corrupted_baton_greater::ID,
+        corrupted_baton_greater::behaviors,
+    ),
     (
         corrupted_coin_portrait::ID,
         corrupted_coin_portrait::behaviors,
     ),
+    (defensive_shell::ID, defensive_shell::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
     (evil_experiment::ID, evil_experiment::behaviors),
     (faerie_dragon_scale::ID, faerie_dragon_scale::behaviors),
     (fridge_magnet::ID, fridge_magnet::behaviors),
+    (ghastly_sticker::ID, ghastly_sticker::behaviors),
     (herald_sticker::ID, herald_sticker::behaviors),
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
+    (innkeepers_stein::ID, innkeepers_stein::behaviors),
     (ironforge_anvil::ID, ironforge_anvil::behaviors),
     (jar_o_gems::ID, jar_o_gems::behaviors),
+    (lava_lamp::ID, lava_lamp::behaviors),
     (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
     (lucky_tabby::ID, lucky_tabby::behaviors),
+    (nomi_sticker::ID, nomi_sticker::behaviors),
+    (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
     (protective_ring::ID, protective_ring::behaviors),
+    (recycling_sticker::ID, recycling_sticker::behaviors),
     (reflective_pendant::ID, reflective_pendant::behaviors),
+    (rendle_sticker::ID, rendle_sticker::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
     (scraper_sticker::ID, scraper_sticker::behaviors),
+    (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
+    (sphere_of_memory::ID, sphere_of_memory::behaviors),
     (staff_of_the_scourge::ID, staff_of_the_scourge::behaviors),
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
@@ -153,6 +183,7 @@ const IMPLEMENTED: &[Implemented] = &[
         volumizer_portrait_greater::ID,
         volumizer_portrait_greater::behaviors,
     ),
+    (water_wheel::ID, water_wheel::behaviors),
     (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
 ];
@@ -501,6 +532,71 @@ pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rn
     }
 }
 
+/// After a minion was played or Magnetized: each trinket's `trinket_after_play` hook.
+pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_play) = hooks(id).trinket_after_play {
+            after_play(state, played, pool, rng);
+        }
+    }
+}
+
+/// After a minion was sold: each trinket's `trinket_after_sell` hook.
+pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_sell) = hooks(id).trinket_after_sell {
+            after_sell(state, sold, pool, rng);
+        }
+    }
+}
+
+/// The player ends their turn: each trinket's `trinket_end_turn` hook.
+pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(end_turn) = hooks(id).trinket_end_turn {
+            end_turn(state, pool, rng);
+        }
+    }
+}
+
+/// A Tavern spell was cast in the Tavern: each trinket's `trinket_spell_cast` hook.
+pub fn spell_cast(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(spell_cast) = hooks(id).trinket_spell_cast {
+            spell_cast(state, pool, rng);
+        }
+    }
+}
+
+/// The Tavern was Refreshed: each trinket's `trinket_after_refresh` hook.
+pub fn after_refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_refresh) = hooks(id).trinket_after_refresh {
+            after_refresh(state, pool, rng);
+        }
+    }
+}
+
+/// Extra times the effects counted by `passive` trigger, summed over the trinkets'
+/// `trinket_extra_triggers` (0 without trinkets).
+pub fn extra_triggers(auras: &PlayerAuras, passive: Passive) -> u32 {
+    auras
+        .trinkets
+        .iter()
+        .filter_map(|t| hooks(t.card_id).trinket_extra_triggers)
+        .map(|f| f(passive))
+        .sum()
+}
+
+/// A combat starts for the player: each trinket's `trinket_combat_start` hook.
+pub fn combat_start(auras: &mut PlayerAuras) {
+    for trinket in &mut auras.trinkets {
+        if let Some(combat_start) = hooks(trinket.card_id).trinket_combat_start {
+            combat_start(trinket);
+        }
+    }
+}
+
 /// After the Tavern was upgraded: each trinket's `trinket_after_upgrade` hook.
 pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     for id in owned_ids(&state.auras) {
@@ -574,12 +670,46 @@ pub fn avenge(ctx: &mut BoardCtx<'_>, id: CardId, every: i32) -> bool {
     true
 }
 
-/// The start of turn reset of a trinket whose count or charges are per combat: its `counter`
-/// and `armed` start again (`docs/trinkets.md` §11.1).
-pub fn reset_per_combat(state: &mut TavernState, id: CardId) {
+/// The `trinket_combat_start` of a trinket whose count or charges are per combat (Avenge, "3
+/// times per combat"): its `counter` and `armed` start again (confirmed: `docs/trinkets.md`
+/// §11.1).
+pub fn reset_per_combat(trinket: &mut TrinketState) {
+    trinket.counter = 0;
+    trinket.armed = 0;
+}
+
+/// The start of turn reset of a trinket whose charges are per turn ("twice per turn", "the
+/// first ... each turn"): its `counter` and `armed` start again.
+pub fn reset_per_turn(state: &mut TavernState, id: CardId) {
     if let Some(t) = state_mut(&mut state.auras, id) {
         t.counter = 0;
         t.armed = 0;
+    }
+}
+
+/// A Tavern count: the trinket `id`'s `counter` goes up by 1, and `true` (the count starting
+/// again) every `every`th time.
+pub fn count_to(auras: &mut PlayerAuras, id: CardId, every: i32) -> bool {
+    let Some(t) = state_mut(auras, id) else {
+        return false;
+    };
+    t.counter += 1;
+    if t.counter < every {
+        return false;
+    }
+    t.counter -= every;
+    true
+}
+
+/// The Tavern's Elemental bonus goes up by `(attack, health)` for the rest of the game, and the
+/// Elementals in the Tavern now gain it (as `Dune Dweller`'s).
+pub fn buff_tavern_elementals(state: &mut TavernState, attack: i32, health: i32) {
+    state.auras.tavern_elemental_atk += attack;
+    state.auras.tavern_elemental_hp += health;
+    for unit in &mut state.shop {
+        if !unit.is_spell && unit.tribe.matches(Tribe::Elemental) {
+            unit.add_stats(attack, health);
+        }
     }
 }
 

@@ -124,7 +124,13 @@ struct SideCombatState {
 }
 
 impl SideCombatState {
-    fn new(mut board: Vec<Unit>, hero_tier: u32, auras: PlayerAuras, mut hand: Vec<Unit>) -> Self {
+    fn new(
+        mut board: Vec<Unit>,
+        hero_tier: u32,
+        mut auras: PlayerAuras,
+        mut hand: Vec<Unit>,
+    ) -> Self {
+        crate::trinkets::combat_start(&mut auras);
         for u in &mut board {
             if let Some(combat_start) = cards::hooks(u.card_id).combat_start {
                 combat_start(u);

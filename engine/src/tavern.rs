@@ -1273,6 +1273,7 @@ impl TavernState {
         self.sold_this_step.push(sold.clone());
         cards::on_sell(self, &sold, pool, rng);
         heroes::after_sell(self, &sold, pool, rng);
+        trinkets::after_sell(self, &sold, pool, rng);
         // The hats it wore pass on, whatever the Hero Power (`Unit::hats`).
         if sold.hats > 0 {
             if let Some(sell) = cards::hooks(HAT_CARD).sell {
@@ -1300,6 +1301,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1334,6 +1336,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1351,6 +1354,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1372,6 +1376,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1412,6 +1417,7 @@ impl TavernState {
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, pool, rng);
         cards::after_shop_refresh(self, rng);
     }
 
@@ -1515,6 +1521,7 @@ impl TavernState {
             self.shop = kept;
             self.fill_kept_shop(cap, pool, rng);
             heroes::after_refresh(self, pool, rng);
+            trinkets::after_refresh(self, pool, rng);
             cards::after_shop_refresh(self, rng);
         } else {
             for old in self.shop.drain(..) {
@@ -1531,6 +1538,7 @@ impl TavernState {
                 self.shop.push(spell);
             }
             heroes::after_refresh(self, pool, rng);
+            trinkets::after_refresh(self, pool, rng);
             cards::after_shop_refresh(self, rng);
         }
         heroes::on_turn_start(self, pool, rng);
@@ -2334,6 +2342,7 @@ impl TavernState {
             TavernAction::EndTurn => {
                 cards::on_end_turn(self, pool, rng);
                 heroes::end_turn(self, pool, rng);
+                trinkets::end_turn(self, pool, rng);
                 self.discard_temporary_cards();
                 Ok(true)
             }

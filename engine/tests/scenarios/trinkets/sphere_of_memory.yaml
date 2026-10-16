@@ -1,0 +1,14 @@
+trinket: Sphere of Memory
+scenarios:
+  - name: three_copies_of_the_last_tavern_spell_at_the_end_of_the_turn
+    tavern: {gold: 10, hand: [Tavern Coin], auras: {trinkets: [Sphere of Memory]}}
+    steps:
+      - play: 0
+      - end_turn
+    expect: {hand: [Tavern Coin, Tavern Coin, Tavern Coin]}
+
+  - name: nothing_before_a_spell_was_cast
+    tavern: {auras: {trinkets: [Sphere of Memory]}}
+    steps:
+      - end_turn
+    expect: {hand: []}

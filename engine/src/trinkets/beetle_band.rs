@@ -3,15 +3,13 @@
 //! Avenge (5): Summon a 2/2 Beetle. Give it Taunt.
 //!
 //! `trinket_friendly_death`: every 5th friendly minion that dies in a combat (`counter`, which
-//! starts again each turn: **engine decision**, as Onyxia's count) summons a `Beetle` (2/2 plus
+//! starts again each combat: confirmed) summons a `Beetle` (2/2 plus
 //! the player's Beetle bonus, `tokens::make_beetle`) with Taunt at the right end, if there is
 //! room.
 
 use crate::cards::{tokens, BoardCtx, CardHooks};
 use crate::heroes::HERO_SOURCE;
 use crate::model::{CardId, Keyword, Unit};
-use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 120760;
 
@@ -23,13 +21,9 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         ID,
         CardHooks::EMPTY
-            .on_trinket_turn_start(new_turn)
+            .on_trinket_combat_start(super::reset_per_combat)
             .on_trinket_friendly_death(avenge),
     )]
-}
-
-fn new_turn(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
-    super::reset_per_combat(state, ID);
 }
 
 fn avenge(ctx: &mut BoardCtx<'_>, _: &Unit) {

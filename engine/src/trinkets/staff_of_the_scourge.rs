@@ -3,13 +3,11 @@
 //! Avenge (5): Give a random friendly Undead Reborn.
 //!
 //! `trinket_friendly_death`: every 5th friendly minion that dies in a combat (the count starts
-//! again each turn) gives a random living friendly Undead Reborn (one `rng.below(k)`; one that
+//! again each combat: confirmed) gives a random living friendly Undead Reborn (one `rng.below(k)`; one that
 //! already has Reborn can be drawn: **engine decision**). Nothing without one.
 
 use crate::cards::{BoardCtx, CardHooks};
 use crate::model::{CardId, Keyword, Tribe, Unit};
-use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
 
 pub const ID: CardId = 112080;
 
@@ -21,13 +19,9 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         ID,
         CardHooks::EMPTY
-            .on_trinket_turn_start(new_turn)
+            .on_trinket_combat_start(super::reset_per_combat)
             .on_trinket_friendly_death(avenge),
     )]
-}
-
-fn new_turn(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
-    super::reset_per_combat(state, ID);
 }
 
 fn avenge(ctx: &mut BoardCtx<'_>, _: &Unit) {

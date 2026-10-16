@@ -1,0 +1,11 @@
+trinket: Nomi Sticker
+scenarios:
+  - name: playing_an_elemental_buffs_tavern_elementals_for_the_game
+    tavern: {hand: ["1/1 elemental", "1/1 beast"], shop: ["2/2 elemental", "2/2 beast", Fortify], auras: {trinkets: [Nomi Sticker]}}
+    steps:
+      - play: 1
+      - expect: {auras: {tavern_elemental_atk: 0}}
+      - play: 0
+    expect:
+      auras: {tavern_elemental_atk: 3, tavern_elemental_hp: 2}
+      shop: ["5/4 elemental", "2/2 beast", Fortify]

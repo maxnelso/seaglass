@@ -1316,6 +1316,7 @@ pub fn after_play_minion(
         }
     }
     crate::heroes::after_play(state, played, pool, rng);
+    crate::trinkets::after_play(state, played, pool, rng);
     sync_board_spell_auras(&state.board, &mut state.auras);
 }
 
@@ -1402,7 +1403,8 @@ pub fn is_temporary(card: &Unit) -> bool {
 /// [`Passive::EndOfTurnTriggers`]: Magnetized Health bonuses, then each minion's `end_of_turn`
 /// hook, left to right.
 pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    let repeats = board_passive(&state.board, Passive::EndOfTurnTriggers);
+    let repeats = board_passive(&state.board, Passive::EndOfTurnTriggers)
+        + crate::trinkets::extra_triggers(&state.auras, Passive::EndOfTurnTriggers);
     for _ in 0..repeats {
         for unit in &mut state.board {
             if unit.eot_health_bonus > 0 {
@@ -1417,6 +1419,7 @@ pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) 
 /// Apply `spell_cast` observers (left to right) when a Tavern spell is cast.
 pub fn on_cast_tavern_spell(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     notify_tavern(state, |h| h.spell_cast, |s, idx, f| f(s, idx, pool, rng));
+    crate::trinkets::spell_cast(state, pool, rng);
 }
 
 /// Apply `after_targeted_spell` observers (left to right) after a spell targeted the minion at

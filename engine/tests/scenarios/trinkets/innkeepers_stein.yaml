@@ -1,0 +1,15 @@
+trinket: Innkeeper's Stein
+scenarios:
+  - name: a_refresh_adds_a_minion_of_the_next_tier
+    tavern: {tavern_tier: 2, gold: 5, auras: {trinkets: [Innkeeper's Stein]}}
+    steps:
+      - refresh
+    expect:
+      shop: {count: 5, -1: {tavern_tier: 3}}
+
+  - name: nothing_at_tier_6
+    description: An engine decision.
+    tavern: {tavern_tier: 6, gold: 5, auras: {trinkets: [Innkeeper's Stein]}}
+    steps:
+      - refresh
+    expect: {shop: {count: 6}}

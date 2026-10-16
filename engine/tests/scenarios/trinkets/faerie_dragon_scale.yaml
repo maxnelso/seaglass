@@ -18,3 +18,15 @@ scenarios:
       board_b: ["1/100"]
       auras_a: {trinkets: [Faerie Dragon Scale]}
     expect: {events: {none: {type: divine_shield_popped}}}
+
+  - name: a_shielded_dragon_keeps_the_charge
+    description: >-
+      Confirmed: the Dragon's own Divine Shield takes the first counter-damage without using a
+      charge, so 3 more shields are given after it: 4 pops in all.
+    seeds: "1..=3"
+    combat:
+      board_a: ["2/12 dragon divine_shield"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Faerie Dragon Scale]}
+    expect:
+      events: {where: {type: divine_shield_popped, unit: 0}, count: 4}

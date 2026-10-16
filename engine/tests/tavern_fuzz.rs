@@ -1395,6 +1395,8 @@ fn check_pool_leaks_with(
             .iter()
             .chain(&s.hand)
             .chain(&s.shop)
+            // A trinket's card waiting for room in the hand (Rendle Sticker's stolen minion).
+            .chain(&s.waiting_for_hand)
             .chain(prompts)
             .chain(gifts)
             .chain(kept)
@@ -1451,6 +1453,14 @@ fn check_refilled_shop(
     catalog: &[CardTemplate],
     what: &str,
 ) -> Result<(), Violation> {
+    // A trinket that acts after a Refresh may add to it (`Innkeeper's Stein`).
+    if s.auras
+        .trinkets
+        .iter()
+        .any(|t| cards::hooks(t.card_id).trinket_after_refresh.is_some())
+    {
+        return Ok(());
+    }
     let cap = s.shop_minion_slots();
     let minions = s
         .shop

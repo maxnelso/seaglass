@@ -1,0 +1,12 @@
+trinket: Water Wheel
+scenarios:
+  - name: the_first_two_elementals_played_each_turn_give_a_spell
+    tavern: {hand: ["1/1 elemental", "1/1 elemental", "1/1 elemental"], auras: {trinkets: [Water Wheel]}}
+    steps:
+      - play: 0
+      - play: 0
+      - play: 0
+      - expect: {hand: {count: 2, all: {is_spell: true}}}
+      - end_turn
+      - start_turn
+    expect: {auras: {trinkets: [{armed: 0}]}}

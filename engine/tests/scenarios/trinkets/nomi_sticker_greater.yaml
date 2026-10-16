@@ -1,0 +1,7 @@
+trinket: Nomi Sticker (Greater)
+scenarios:
+  - name: playing_an_elemental_gives_tavern_elementals_five_five
+    tavern: {hand: ["1/1 elemental"], shop: ["2/2 elemental"], auras: {trinkets: [Nomi Sticker (Greater)]}}
+    steps:
+      - play: 0
+    expect: {auras: {tavern_elemental_atk: 5, tavern_elemental_hp: 5}, shop: ["7/7 elemental"]}
