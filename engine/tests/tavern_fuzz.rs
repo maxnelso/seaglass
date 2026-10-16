@@ -1613,12 +1613,21 @@ fn check_round_trip(s: &TavernState) -> Result<(), Violation> {
 
 /// The upgrade cost after a turn start (`docs/tavern.md` §4): 1 less than `before`, and less the
 /// Upgrade extra a Hero Power the turn start took away gave (Millhouse's, once Master Nguyen takes
-/// his Hero Power back: `docs/heroes.md` §11.3).
+/// his Hero Power back: `docs/heroes.md` §11.3), and less the 3 of `Bartend-o-Tron's Oilcan`
+/// (`docs/trinkets.md` §11.2).
 fn upgrade_after_turn_start(before: u32, before_auras: &PlayerAuras, s: &TavernState) -> u32 {
     let lost = heroes::tavern_rules(before_auras)
         .upgrade_extra
         .saturating_sub(heroes::tavern_rules(&s.auras).upgrade_extra);
-    before.saturating_sub(lost).saturating_sub(1)
+    let oilcan = if trinkets::owns(&s.auras, trinkets::bartend_o_trons_oilcan::ID) {
+        trinkets::bartend_o_trons_oilcan::DISCOUNT
+    } else {
+        0
+    };
+    before
+        .saturating_sub(lost)
+        .saturating_sub(1)
+        .saturating_sub(oilcan)
 }
 
 /// The player's lobby is consistent (`docs/tavern.md` §3.1): its indices point into its
@@ -1757,19 +1766,32 @@ fn hero_gold_back(s: &TavernState, action: TavernAction, cost: u32, pool: &CardP
     probe.gold
 }
 
-/// The Gold a trinket gives as it is picked (`ChooseTrinket`; its `trinket_bought` text: "Gain 4
-/// Gold"), run on a copy of the state with no Gold.
+/// The Gold the player's trinkets give back for `action`: a trinket picked (`ChooseTrinket`; its
+/// `trinket_bought` text: "Gain 4 Gold"), or their `trinket_after_buy` and `trinket_after_upgrade`
+/// hooks (`Trickster's Sleeve`, `Stuffed Coin Purse`), run on a copy of the state with no Gold.
 fn trinket_gold_back(s: &TavernState, action: TavernAction, pool: &CardPool) -> u32 {
-    let TavernAction::ChooseTrinket { option_index } = action else {
-        return 0;
-    };
-    let Some(option) = s.trinket_options.get(option_index) else {
-        return 0;
-    };
     let (mut probe, mut pool, mut rng) = (s.clone(), pool.clone(), Rng::new(0));
     probe.gold = 0;
-    probe.trinket_options.clear();
-    trinkets::give(&mut probe, option.card_id, &mut pool, &mut rng);
+    match action {
+        TavernAction::ChooseTrinket { option_index } => {
+            let Some(option) = s.trinket_options.get(option_index) else {
+                return 0;
+            };
+            probe.trinket_options.clear();
+            trinkets::give(&mut probe, option.card_id, &mut pool, &mut rng);
+        }
+        TavernAction::Buy { shop_index } if !s.auras.trinkets.is_empty() => {
+            let Some(bought) = s.shop.get(shop_index) else {
+                return 0;
+            };
+            trinkets::after_buy(&mut probe, bought, &mut pool, &mut rng);
+        }
+        TavernAction::UpgradeTavern if !s.auras.trinkets.is_empty() => {
+            probe.tavern_tier += 1;
+            trinkets::after_upgrade(&mut probe, &mut pool, &mut rng);
+        }
+        _ => return 0,
+    }
     probe.gold
 }
 

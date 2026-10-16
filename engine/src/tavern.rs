@@ -2186,6 +2186,7 @@ impl TavernState {
                 cards::on_obtained(self, &obtained, pool, rng);
                 cards::after_buy_card(self, &bought_snapshot, pool, rng);
                 heroes::after_buy(self, &bought_snapshot, pool, rng);
+                trinkets::after_buy(self, &bought_snapshot, pool, rng);
                 Ok(false)
             }
             TavernAction::Play {
@@ -2254,6 +2255,7 @@ impl TavernState {
                 self.tavern_tier += 1;
                 self.upgrade_cost = self.base_upgrade_price();
                 heroes::after_upgrade(self, pool, rng);
+                trinkets::after_upgrade(self, pool, rng);
                 Ok(false)
             }
             TavernAction::ToggleFreeze => {

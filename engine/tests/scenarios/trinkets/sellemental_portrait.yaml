@@ -1,0 +1,10 @@
+trinket: Sellemental Portrait
+scenarios:
+  - name: a_sellemental_now_and_each_turn
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Sellemental Portrait
+      - expect: {hand: [Sellemental]}
+      - end_turn
+      - start_turn
+    expect: {hand: [Sellemental, Sellemental]}

@@ -1,0 +1,12 @@
+trinket: Volumizer Portrait (Greater)
+scenarios:
+  - name: volumizers_now_and_each_turn
+    description: Seeds whose four Volumizers make no Triple.
+    seeds: [1, 2, 5]
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Volumizer Portrait (Greater)
+      - expect: {hand: {count: 2, all: {card: {any_of: [Blue Volumizer, Green Volumizer, Red Volumizer]}}}}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 4}}

@@ -12,12 +12,16 @@ mod table;
 
 pub mod all_purpose_kibble;
 pub mod baleful_incense;
+pub mod bartend_o_trons_oilcan;
 pub mod beetle_band;
 pub mod beetle_band_greater;
 pub mod bleeding_heart;
 pub mod blood_golem_sticker;
+pub mod bobs_tip_jar;
 pub mod bronze_timepiece;
+pub mod butchers_sickle;
 pub mod converter_portrait;
+pub mod corrupted_coin_portrait;
 pub mod dramaloc_sticker;
 pub mod eternal_portrait;
 pub mod evil_experiment;
@@ -32,12 +36,23 @@ pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
 pub mod lucky_tabby;
 pub mod protective_ring;
+pub mod reflective_pendant;
 pub mod rivendare_portrait;
+pub mod scraper_sticker;
+pub mod sellemental_portrait;
 pub mod slamma_sticker;
 pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
+pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
 pub mod training_certificate;
+pub mod transcribing_typewriter;
+pub mod transcribing_typewriter_greater;
+pub mod tricksters_sleeve;
+pub mod volumizer_portrait;
+pub mod volumizer_portrait_greater;
+pub mod willbreaker_sticker;
+pub mod worn_treasure_map;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
 
@@ -84,12 +99,22 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 const IMPLEMENTED: &[Implemented] = &[
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
+    (
+        bartend_o_trons_oilcan::ID,
+        bartend_o_trons_oilcan::behaviors,
+    ),
     (beetle_band::ID, beetle_band::behaviors),
     (beetle_band_greater::ID, beetle_band_greater::behaviors),
     (bleeding_heart::ID, bleeding_heart::behaviors),
     (blood_golem_sticker::ID, blood_golem_sticker::behaviors),
+    (bobs_tip_jar::ID, bobs_tip_jar::behaviors),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
+    (butchers_sickle::ID, butchers_sickle::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
+    (
+        corrupted_coin_portrait::ID,
+        corrupted_coin_portrait::behaviors,
+    ),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
     (evil_experiment::ID, evil_experiment::behaviors),
@@ -104,12 +129,32 @@ const IMPLEMENTED: &[Implemented] = &[
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
     (lucky_tabby::ID, lucky_tabby::behaviors),
     (protective_ring::ID, protective_ring::behaviors),
+    (reflective_pendant::ID, reflective_pendant::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
+    (scraper_sticker::ID, scraper_sticker::behaviors),
+    (sellemental_portrait::ID, sellemental_portrait::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (staff_of_the_scourge::ID, staff_of_the_scourge::behaviors),
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
+    (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
+    (
+        transcribing_typewriter::ID,
+        transcribing_typewriter::behaviors,
+    ),
+    (
+        transcribing_typewriter_greater::ID,
+        transcribing_typewriter_greater::behaviors,
+    ),
+    (tricksters_sleeve::ID, tricksters_sleeve::behaviors),
+    (volumizer_portrait::ID, volumizer_portrait::behaviors),
+    (
+        volumizer_portrait_greater::ID,
+        volumizer_portrait_greater::behaviors,
+    ),
+    (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
+    (worn_treasure_map::ID, worn_treasure_map::behaviors),
 ];
 
 /// The hooks of every implemented trinket's cards, for the card registry.
@@ -447,6 +492,24 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
     }
 }
 
+/// After a card was bought: each trinket's `trinket_after_buy` hook.
+pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_buy) = hooks(id).trinket_after_buy {
+            after_buy(state, bought, pool, rng);
+        }
+    }
+}
+
+/// After the Tavern was upgraded: each trinket's `trinket_after_upgrade` hook.
+pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_upgrade) = hooks(id).trinket_after_upgrade {
+            after_upgrade(state, pool, rng);
+        }
+    }
+}
+
 /// A friendly minion is being summoned in combat: each trinket's `trinket_combat_summon` hook.
 pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
     for trinket in &auras.trinkets {
@@ -517,6 +580,25 @@ pub fn reset_per_combat(state: &mut TavernState, id: CardId) {
     if let Some(t) = state_mut(&mut state.auras, id) {
         t.counter = 0;
         t.armed = 0;
+    }
+}
+
+/// A trinket's "Get a random ..." in the Tavern: a random minion of the player's Tier or lower
+/// from the game's catalog that `keep` accepts (one `rng.below(k)`, none when there is a single
+/// one) goes to the hand, or waits for room in a full hand (`docs/trinkets.md` §5).
+pub fn give_random_minion(
+    state: &mut TavernState,
+    rng: &mut Rng,
+    keep: impl Fn(&cards::CardTemplate) -> bool,
+) {
+    let tier = state.tavern_tier;
+    let pool: Vec<_> = cards::game_templates(&state.auras)
+        .iter()
+        .filter(|t| t.tavern_tier <= tier && keep(t))
+        .collect();
+    if !pool.is_empty() {
+        let card = pool[rng.below(pool.len())].instantiate();
+        state.add_to_hand_or_wait(card);
     }
 }
 

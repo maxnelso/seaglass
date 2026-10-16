@@ -1,0 +1,7 @@
+trinket: Willbreaker Sticker
+scenarios:
+  - name: two_spells_of_which_one_can_be_played
+    tavern: {gold: 10, board: ["1/1"]}
+    steps:
+      - give_trinket: Willbreaker Sticker
+      - expect: {hand: {count: 2, all: {is_spell: true, willbreaker_remaining: 1}}}

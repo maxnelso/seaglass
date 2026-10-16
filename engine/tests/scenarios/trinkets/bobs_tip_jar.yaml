@@ -1,0 +1,11 @@
+trinket: Bob's Tip Jar
+scenarios:
+  - name: it_gives_four_gold_and_four_maximum_gold
+    tavern: {gold: 3, max_gold: 10, turn: 9}
+    steps:
+      - offer_trinkets: [Bob's Tip Jar]
+      - choose_trinket: 0
+      - expect: {gold: 7, max_gold: 14, auras: {base_max_gold_bonus: 4}}
+      - end_turn
+      - start_turn
+    expect: {gold: 14, max_gold: 14}

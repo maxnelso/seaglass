@@ -572,6 +572,12 @@ card_hooks! {
     /// A friendly minion is being summoned in combat, after the other summon modifiers (the Hero
     /// Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`.
     trinket_combat_summon(on_trinket_combat_summon): fn(&TrinketState, &mut Unit),
+    /// After a card is bought, after the Hero Power's `hero_after_buy`: `(state, bought, pool,
+    /// rng)`.
+    trinket_after_buy(on_trinket_after_buy): CardEventFn,
+    /// After the Tavern is upgraded, after the Hero Power's `hero_after_upgrade`: `(state, pool,
+    /// rng)`.
+    trinket_after_upgrade(on_trinket_after_upgrade): TavernEventFn,
 }
 
 impl Default for CardHooks {

@@ -1,0 +1,11 @@
+trinket: Volumizer Portrait
+scenarios:
+  - name: volumizers_now_and_each_turn
+    seeds: "1..=4"
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Volumizer Portrait
+      - expect: {hand: {count: 1, all: {card: {any_of: [Blue Volumizer, Green Volumizer, Red Volumizer]}}}}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 2}}

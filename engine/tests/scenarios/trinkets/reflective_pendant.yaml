@@ -1,0 +1,13 @@
+trinket: Reflective Pendant
+scenarios:
+  - name: a_plain_copy_of_a_friendly_minion
+    tavern: {board: ["Zoatroid +5/+5"]}
+    steps:
+      - give_trinket: Reflective Pendant
+    expect: {hand: ["Zoatroid 3/2"]}
+
+  - name: nothing_with_an_empty_board
+    tavern: {}
+    steps:
+      - give_trinket: Reflective Pendant
+    expect: {hand: []}

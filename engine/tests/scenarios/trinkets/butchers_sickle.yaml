@@ -1,0 +1,10 @@
+trinket: Butcher's Sickle
+scenarios:
+  - name: a_butchering_now_and_each_turn
+    tavern: {turn: 8}
+    steps:
+      - give_trinket: Butcher's Sickle
+      - expect: {hand: [Butchering]}
+      - end_turn
+      - start_turn
+    expect: {hand: [Butchering, Butchering]}

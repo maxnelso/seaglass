@@ -1,0 +1,16 @@
+trinket: Bartend-o-Tron's Oilcan
+scenarios:
+  - name: the_upgrade_costs_three_less_now_and_every_turn
+    tavern: {tavern_tier: 3, upgrade_cost: 8, turn: 5}
+    steps:
+      - give_trinket: Bartend-o-Tron's Oilcan
+      - expect: {upgrade_cost: 5}
+      - end_turn
+      - start_turn
+    expect: {upgrade_cost: 1}
+
+  - name: never_below_zero
+    tavern: {tavern_tier: 3, upgrade_cost: 2}
+    steps:
+      - give_trinket: Bartend-o-Tron's Oilcan
+    expect: {upgrade_cost: 0}

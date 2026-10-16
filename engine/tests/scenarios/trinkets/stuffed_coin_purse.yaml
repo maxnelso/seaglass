@@ -1,0 +1,20 @@
+trinket: Stuffed Coin Purse
+scenarios:
+  - name: reaching_tier_6_gives_twelve_gold
+    tavern: {tavern_tier: 5, gold: 10, upgrade_cost: 10, auras: {trinkets: [Stuffed Coin Purse]}}
+    steps:
+      - upgrade_tavern
+    expect: {tavern_tier: 6, gold: 12, auras: {trinkets: [{stacks: 1}]}}
+
+  - name: picked_at_tier_6_it_gives_them_at_once
+    description: An engine decision.
+    tavern: {tavern_tier: 6, gold: 0}
+    steps:
+      - give_trinket: Stuffed Coin Purse
+    expect: {gold: 12}
+
+  - name: a_lower_upgrade_gives_nothing
+    tavern: {tavern_tier: 4, gold: 10, upgrade_cost: 10, auras: {trinkets: [Stuffed Coin Purse]}}
+    steps:
+      - upgrade_tavern
+    expect: {tavern_tier: 5, gold: 0}

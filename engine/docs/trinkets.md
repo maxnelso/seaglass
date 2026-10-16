@@ -130,6 +130,8 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_deity_awakened` | The player's Deity awakened in combat, after its own `awaken` hook: `(ctx, deity_idx)`. | `Evil Experiment`. |
 | `trinket_friendly_death` | A friendly minion died in combat, once its side's round of deaths resolved, after the Hero Power's `hero_friendly_death` (summons go to the right end): `(ctx, dying)`. | Avenge, "after N friendly minions die". |
 | `trinket_friendly_attack` | A friendly minion attacks (in combat or in the Tavern), after the Hero Power's `hero_friendly_attack`, before it strikes: `(ctx, attacker_id)`. | `Faerie Dragon Scale`, `Lionfish Portrait`. |
+| `trinket_after_buy` | After a card is bought, after the Hero Power's `hero_after_buy`: `(state, bought, pool, rng)`. | `Transcribing Typewriter`, `Trickster's Sleeve`. |
+| `trinket_after_upgrade` | After the Tavern is upgraded, after the Hero Power's `hero_after_upgrade`: `(state, pool, rng)`. | `Stuffed Coin Purse`. |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
 
 The dispatch functions (`trinkets::on_start_of_combat`, `trinkets::on_turn_start`, ...) run each owned trinket's hook in turn; the engines call them next to the matching Hero Power dispatch. Extra Deathrattles a trinket gives a minion in combat (`Jarred Frostling`) are cards too, as the Hero Powers' (`heroes.md` §4): `Unit::extra_deathrattles` lists them. More hooks are added with the trinkets that need them (§11).
@@ -252,8 +254,25 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 
 ### 11.2 Tavern Trinkets
 
+"At the start of each turn" is the trinket's `trinket_turn_start`, after the Hero Power's turn start. A random minion is of the player's Tier or lower from the game's catalog **(engine decision)**.
+
 | Trinket | Text | How the engine reads it |
 | :--- | :--- | :--- |
+| `Worn Treasure Map` (Lesser) | In two turns, gain 10 Gold. (Once per game.) | At the 2nd turn start after it is picked (turn 8 for one picked on turn 6). |
+| `Stuffed Coin Purse` (Lesser) | When you reach Tier 6, gain 12 gold. | The Upgrade to Tier 6 gives 12 Gold, once; picked at Tier 6 already, at once **(engine decision)**. |
+| `Bartend-o-Tron's Oilcan` (Lesser) | Reduce the Cost of upgrading the Tavern by (3). At the start of each turn, repeat this. | `upgrade_cost` 3 lower (never below 0) as picked and at each turn start, after the turn's own decay. |
+| `Corrupted Coin Portrait` (Lesser) | Get 2 Corrupted Coins. | Fresh `Corrupted Coin`s. |
+| `Reflective Pendant` (Lesser) | Get a plain copy of a random friendly minion. At the start of each turn, repeat this. | A plain copy (`cards::plain_instance`) of a random board minion, one draw; nothing with an empty board. |
+| `Scraper Sticker` (Lesser) | Get a random Magnetic Mech. At the start of each turn, get another. | Of the player's Tier or lower **(engine decision)**. |
+| `Sellemental Portrait` (Lesser) | Get a Sellemental. At the start of each turn, get another. | A plain `Sellemental` from the catalog. |
+| `Volumizer Portrait` (Lesser) | Get a random Magnetic Volumizer. At the start of each turn, get another. | A `Blue`, `Green` or `Red Volumizer`, one `rng.below(3)`. |
+| `Transcribing Typewriter` (Lesser) | Get an extra copy of the next 2 minions you buy. | `trinket_after_buy`: a plain copy of each of the next 2 minions bought (not from the pool **(engine decision)**); the copy can complete a Triple. |
+| `Trickster's Sleeve` (Lesser) | After you buy a minion, gain 1 Gold. (Then swap to Tavern spell!) | It waits for a minion bought, then for a Tavern spell bought, and so on (`armed`); each gives 1 Gold and swaps it. |
+| `Willbreaker Sticker` (Lesser) | Get 2 random Tavern spells. When you play one, discard the other. At the start of your turn, repeat this. | 2 spells drawn as the shop draws one, as one `Wandering Willbreaker` group (`tavern.md` §6). |
+| `Bob's Tip Jar` (Greater) | Gain 4 Gold. Increase your maximum Gold by 4. | As `Strike Oil` for the maximum (`max_gold`, `base_max_gold_bonus`). |
+| `Butcher's Sickle` (Greater) | Get a Butchering. At the start of each turn, get another. | Fresh `Butchering`s. |
+| `Transcribing Typewriter` (Greater) | Get an extra copy of the next 4 minions you buy. | As the Lesser one, 4 copies. |
+| `Volumizer Portrait` (Greater) | Get 2 random Magnetic Volumizers. At the start of each turn, repeat this. | As the Lesser one, 2 each time. |
 
 ### 11.3 Deferred
 
@@ -290,5 +309,6 @@ Engine decisions, pending the user's confirmation:
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
 | "Get a ..." | A plain copy from the catalog, not the pool (§11.1). | `trinkets::give_minion` |
+| Batch 3 | Stuffed Coin Purse pays at once at Tier 6; Typewriter's copies don't come from the pool; random Magnetic Mechs of the player's Tier or lower. | their files |
 | Batch 2 | Per-combat counts restart each turn; Staff of the Scourge may draw an Undead with Reborn; random cards from the catalog of the player's Tier or lower; Faerie Dragon Scale spends a charge on a shielded Dragon; Kibble improves by +1; Blood Golem Sticker needs Blood Gem stats; Jar o' Gems once per combat. | their files |
 | Batch 1 | Training Certificate's ties to the left-most; Bronze Timepiece rounds down; Protective Ring may draw a shielded Pirate; Dramaloc Sticker's Murlocs gain the Attack. | their files |

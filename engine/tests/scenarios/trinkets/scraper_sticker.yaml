@@ -1,0 +1,11 @@
+trinket: Scraper Sticker
+scenarios:
+  - name: a_magnetic_mech_now_and_each_turn
+    seeds: "1..=4"
+    tavern: {turn: 5, tavern_tier: 6}
+    steps:
+      - give_trinket: Scraper Sticker
+      - end_turn
+      - start_turn
+    expect:
+      hand: {count: 2, all: {magnetic: true, tribe: {any_of: [mech, mech_murloc, undead_mech, all]}}}

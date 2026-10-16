@@ -1,0 +1,15 @@
+trinket: Worn Treasure Map
+scenarios:
+  - name: two_turns_later_it_gives_ten_gold_once
+    tavern: {turn: 6}
+    steps:
+      - give_trinket: Worn Treasure Map
+      - end_turn
+      - start_turn
+      - expect: {turn: 7, gold: 9}
+      - end_turn
+      - start_turn
+      - expect: {turn: 8, gold: 20}
+      - end_turn
+      - start_turn
+    expect: {turn: 9, gold: 10}

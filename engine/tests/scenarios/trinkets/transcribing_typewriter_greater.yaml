@@ -1,0 +1,11 @@
+trinket: Transcribing Typewriter (Greater)
+scenarios:
+  - name: the_next_four_minions_bought_come_with_a_copy
+    tavern: {gold: 20, shop: [Zoatroid, Joyous, Wrath Weaver, Harmless Bonehead, Lullabot]}
+    steps:
+      - give_trinket: Transcribing Typewriter (Greater)
+      - repeat: 5
+        steps: [{buy: 0}]
+    expect:
+      hand: {count: 9}
+      auras: {trinkets: [{counter: 0}]}

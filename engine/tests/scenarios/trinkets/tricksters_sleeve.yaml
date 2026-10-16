@@ -1,0 +1,11 @@
+trinket: Trickster's Sleeve
+scenarios:
+  - name: a_minion_then_a_tavern_spell_each_give_a_gold
+    tavern: {gold: 10, shop: [Zoatroid, Joyous, Fortify], auras: {trinkets: [Trickster's Sleeve]}}
+    steps:
+      - buy: Zoatroid
+      - expect: {gold: 8}
+      - buy: Joyous
+      - expect: {gold: 5}
+      - buy: Fortify
+    expect: {auras: {trinkets: [{armed: 0}]}, gold: 5}

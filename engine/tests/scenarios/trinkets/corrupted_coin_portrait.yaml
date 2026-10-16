@@ -1,0 +1,7 @@
+trinket: Corrupted Coin Portrait
+scenarios:
+  - name: it_gives_two_corrupted_coins
+    tavern: {}
+    steps:
+      - give_trinket: Corrupted Coin Portrait
+    expect: {hand: [Corrupted Coin, Corrupted Coin]}

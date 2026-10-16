@@ -69,8 +69,11 @@ def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
 
     pick = legal[0].args[0]
     chosen, cost, gold = obs.trinket_options[pick], obs.trinket_option_costs[pick], obs.gold
+    owned = list(obs.trinkets)  # the Lesser one picked on turn 6, if there was an offer
     game.step(seaglass.TavernAction.choose_trinket(pick))
     obs = game.observe()
-    assert obs.trinket_options == [] and obs.trinkets == [chosen]
-    assert obs.gold == gold - cost
+    assert obs.trinket_options == [] and obs.trinkets == owned + [chosen]
+    names = {tid: name for (tid, name, *_rest) in seaglass.trinkets_table()}
+    gained = 4 if names[chosen] == "Bob's Tip Jar" else 0  # "Gain 4 Gold"
+    assert obs.gold == gold - cost + gained
     assert any(a.kind == "end_turn" for a in game.legal_actions())

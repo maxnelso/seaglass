@@ -1,0 +1,13 @@
+trinket: Transcribing Typewriter
+scenarios:
+  - name: the_next_two_minions_bought_come_with_a_copy
+    tavern: {gold: 10, shop: [Zoatroid, Joyous, Wrath Weaver]}
+    steps:
+      - give_trinket: Transcribing Typewriter
+      - buy: 0
+      - expect: {hand: [Zoatroid, Zoatroid]}
+      - buy: 0
+      - buy: 0
+    expect:
+      hand: [Zoatroid, Zoatroid, Joyous, Joyous, Wrath Weaver]
+      auras: {trinkets: [{counter: 0}]}
