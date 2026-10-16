@@ -65,6 +65,7 @@ fn hero_state(p: &PlayerSetup) -> Option<HeroState> {
                 stacks: 0,
                 armed: 0,
                 stored: Vec::new(),
+                picked: None,
             },
             second_power: None,
         },

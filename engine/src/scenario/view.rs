@@ -10,7 +10,7 @@
 //!   cards without one); each effect also has `card`; their `hero` (`null` without one) also has
 //!   `name` (the hero's);
 //! - the fields serde leaves out while they have their default are there too: a unit's `marked`
-//!   and `extra_deathrattles`, the auras' `hero` (and its power's `stored`), a Tavern's
+//!   and `extra_deathrattles`, the auras' `hero` (and its power's `stored` and `picked`), a Tavern's
 //!   `hero_options` and `waiting_for_hand`.
 //!
 //! Enum variants with data (YAML tags such as `!Refreshes 3`) become single-key maps
@@ -245,14 +245,16 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
     ) {
         let name = crate::heroes::data(state.hero_id).map_or("?", |h| h.name);
         hero.push("name", View::Str(name.to_string()));
-        // The Hero Power's kept cards, left out while there are none.
+        // The Hero Power's kept cards and picked minion, left out while there are none.
         if let View::Map(fields) = hero {
             with_default(fields, "second_power", View::Null);
             if let Some((_, View::Map(power))) = fields.iter_mut().find(|(k, _)| k == "power") {
                 with_default(power, "stored", View::List(Vec::new()));
+                with_default(power, "picked", View::Null);
             }
             if let Some((_, View::Map(sp))) = fields.iter_mut().find(|(k, _)| k == "second_power") {
                 with_default(sp, "stored", View::List(Vec::new()));
+                with_default(sp, "picked", View::Null);
             }
         }
     }

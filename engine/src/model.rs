@@ -373,6 +373,11 @@ pub struct HeroPowerState {
     /// Cards the Hero Power keeps (a copy waiting for room in combat).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stored: Vec<Unit>,
+    /// A minion on the board or in the shop the Hero Power picked and will act on again (a first
+    /// pick waiting for its second), by the id `heroes::identify_minion` gave it. It drops once no
+    /// minion on the board or in the shop has that id (`docs/heroes.md` §3.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picked: Option<UnitId>,
 }
 
 /// Something a player's card gives their teammate (`docs/duos_tavern.md` §7.2), recorded in

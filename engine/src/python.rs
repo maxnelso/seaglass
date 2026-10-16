@@ -651,7 +651,7 @@ impl From<&TavernState> for PyTavernObservation {
             hero_power_uses_left: s.hero().map_or(0, |h| h.power.uses_left),
             hero_power_counter: s.hero().map_or(0, |h| h.power.counter),
             hero_power_stacks: s.hero().map_or(0, |h| h.power.stacks),
-            hero_power_armed: s.hero().map_or(0, |h| h.power.armed),
+            hero_power_armed: s.hero().map_or(0, |h| heroes::armed_feature(s, &h.power)),
             hero_power_usable: s.discover_pending.is_none()
                 && s.hero_options.is_empty()
                 && !heroes::valid_targets(s).is_empty(),
@@ -664,7 +664,7 @@ impl From<&TavernState> for PyTavernObservation {
             second_hero_power_uses_left: sp.map_or(0, |p| p.uses_left),
             second_hero_power_counter: sp.map_or(0, |p| p.counter),
             second_hero_power_stacks: sp.map_or(0, |p| p.stacks),
-            second_hero_power_armed: sp.map_or(0, |p| p.armed),
+            second_hero_power_armed: sp.map_or(0, |p| heroes::armed_feature(s, p)),
             second_hero_power_usable: s.discover_pending.is_none()
                 && s.hero_options.is_empty()
                 && !heroes::valid_targets_2(s).is_empty(),

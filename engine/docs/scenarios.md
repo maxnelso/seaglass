@@ -289,9 +289,9 @@ Values are the engine's serde forms, with derived keys:
   without one) and `effect_stacks` (total stacks of each card's effects; `0` for cards
   without one). Each effect also has `card`. Their `hero` is `null` without a hero, and has
   `name` (the hero's) besides its fields (`hero_id`, `power: {card_id, cost, uses_left, counter,
-  stacks, armed, stored}`, `second_power`).
+  stacks, armed, stored, picked}`, `second_power`).
 - Fields serde leaves out at their default are there anyway: a unit's `marked`,
-  `extra_deathrattles` and `until_next_turn_atk`, a Tavern's `hero_options` and `waiting_for_hand`, a Hero Power's `stored` and a hero's `second_power`.
+  `extra_deathrattles` and `until_next_turn_atk`, a Tavern's `hero_options` and `waiting_for_hand`, a Hero Power's `stored` and `picked` (`null` without one) and a hero's `second_power`.
 - **`pool`** (Tavern, Duos Tavern): the remaining copies of each catalog card, by name (`null`
   for a card that isn't in the catalog: `pool: {Wanderer Cho: null}` in a Solo pool);
   **`pool_size`**: their total.

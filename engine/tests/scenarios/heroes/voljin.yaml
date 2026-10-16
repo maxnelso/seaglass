@@ -10,16 +10,17 @@ scenarios:
       - expect:
           health: 30
           armor: 17
-          auras: {hero: {power: {cost: 0, uses_left: 1, armed: 0}}}
+          auras: {hero: {power: {cost: 0, uses_left: 1, picked: null}}}
       - hero_power: 0
       - expect:
           gold: 10
-          auras: {hero: {power: {uses_left: 1, armed: 1}}}
+          auras: {hero: {power: {uses_left: 1, picked: {capture: first}}}}
+          board: {0: {id: {same_as: first}}}
       - expect_illegal: {hero_power: 0}
       - hero_power: 7
       - expect:
           gold: 10
-          auras: {hero: {power: {uses_left: 0, armed: 0}}}
+          auras: {hero: {power: {uses_left: 0, picked: null}}}
           board:
             0: {stats: "12/5", until_next_turn_atk: 10}
             1: "6/4"
@@ -29,7 +30,7 @@ scenarios:
       - end_turn
       - start_turn
       - expect:
-          auras: {hero: {power: {uses_left: 1, armed: 0}}}
+          auras: {hero: {power: {uses_left: 1, picked: null}}}
           board:
             0: {stats: "2/5", until_next_turn_atk: 0}
           shop:
@@ -63,3 +64,43 @@ scenarios:
             0: {card: Joyous, is_golden: true, stats: "4/6", until_next_turn_atk: 0}
           board:
             0: {stats: "5/5", until_next_turn_atk: 0}
+
+  - name: the_first_pick_follows_its_minion_when_a_buy_shifts_the_shop
+    tavern:
+      gold: 10
+      board: ["2/5"]
+      shop: ["10/3", "4/4", "6/6"]
+    steps:
+      - set_hero: Vol'jin
+      - hero_power: 8
+      - expect:
+          auras: {hero: {power: {uses_left: 1, picked: {capture: first}}}}
+          shop: {1: {stats: "4/4", id: {same_as: first}}}
+      - buy: 0
+      - expect:
+          shop: {0: {stats: "4/4", id: {same_as: first}}, 1: "6/6"}
+      - expect_illegal: {hero_power: 7}
+      - hero_power: 0
+      - expect:
+          gold: 7
+          auras: {hero: {power: {uses_left: 0, picked: null}}}
+          board: [{stats: "6/5", until_next_turn_atk: 4}]
+          shop:
+            0: {stats: "6/4", until_next_turn_atk: 2}
+            1: {stats: "6/6", until_next_turn_atk: 0}
+
+  - name: the_first_pick_drops_when_its_minion_leaves_the_shop
+    tavern:
+      gold: 10
+      board: ["2/5"]
+      shop: ["10/3", "4/4"]
+    steps:
+      - set_hero: Vol'jin
+      - hero_power: 7
+      - refresh
+      - hero_power: 0
+      - expect:
+          gold: 9
+          auras: {hero: {power: {uses_left: 1, picked: {capture: second}}}}
+          board: [{stats: "2/5", until_next_turn_atk: 0, id: {same_as: second}}]
+          shop: {all: {until_next_turn_atk: 0}}

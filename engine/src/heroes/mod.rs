@@ -405,6 +405,7 @@ pub fn new_power_state(p: PowerData) -> HeroPowerState {
         stacks: 0,
         armed: 0,
         stored: Vec::new(),
+        picked: None,
     }
 }
 
@@ -1119,6 +1120,66 @@ pub fn hand_has_room(state: &TavernState) -> bool {
 /// use).
 pub fn unused_this_game(state: &TavernState) -> bool {
     active_power(state).is_some_and(|p| p.stacks == 0)
+}
+
+/// Ids [`identify_minion`] gives stay below this, clear of the temporary ids the engine uses while
+/// it resolves an effect (`cards::with_tavern_ctx`, a Battlecry's target).
+const PICK_ID_LIMIT: UnitId = 1 << 29;
+
+/// Give the minion at `BoardOrShopMinion` target `target` (`0..7` board, `7..14` shop) an id no
+/// other card on the board, in the shop or in the hand has, and return it (`docs/heroes.md` §3.2):
+/// Tavern cards have no distinct ids otherwise, and a Hero Power that picks a minion
+/// (`HeroPowerState::picked`) finds it again by that id after the board or the shop changed.
+pub fn identify_minion(state: &mut TavernState, target: usize) -> Option<UnitId> {
+    let id = minion_at(state, target)?.id;
+    let cards = || state.board.iter().chain(&state.hand).chain(&state.shop);
+    let distinct = id != 0 && id < PICK_ID_LIMIT && cards().filter(|u| u.id == id).count() == 1;
+    let id = if distinct {
+        id
+    } else {
+        1 + cards()
+            .map(|u| u.id)
+            .filter(|&id| id < PICK_ID_LIMIT)
+            .max()
+            .unwrap_or(0)
+    };
+    let unit = if target < 7 {
+        state.board.get_mut(target)
+    } else {
+        state.shop.get_mut(target - 7)
+    };
+    unit?.id = id;
+    Some(id)
+}
+
+/// The minion at `BoardOrShopMinion` target `target` (a shop spell is none).
+fn minion_at(state: &TavernState, target: usize) -> Option<&Unit> {
+    if target < 7 {
+        state.board.get(target)
+    } else {
+        state.shop.get(target - 7).filter(|u| !u.is_spell)
+    }
+}
+
+/// The `BoardOrShopMinion` target of the minion whose id is `id`, if one is on the board or in
+/// the shop (a minion [`identify_minion`] gave that id).
+pub fn minion_target(state: &TavernState, id: UnitId) -> Option<usize> {
+    state.board.iter().position(|u| u.id == id).or_else(|| {
+        state
+            .shop
+            .iter()
+            .position(|u| u.id == id && !u.is_spell)
+            .map(|i| 7 + i)
+    })
+}
+
+/// The observation's `hero_power_armed` for `power` (`docs/heroes.md` §8): its picked minion's
+/// current target + 1 (0 once the pick dropped), or else its `armed`.
+pub fn armed_feature(state: &TavernState, power: &HeroPowerState) -> u32 {
+    match power.picked {
+        Some(id) => minion_target(state, id).map_or(0, |t| t as u32 + 1),
+        None => power.armed,
+    }
 }
 
 /// The player's Hero Power state (for hooks that know the player has a hero).

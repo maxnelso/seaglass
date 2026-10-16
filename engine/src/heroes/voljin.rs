@@ -4,12 +4,14 @@
 //!
 //! Active, `BoardOrShopMinion` (`0..7` friendly board, `7..14` Tavern minion), once per turn:
 //! usable when at least 2 minions exist across `board` and `shop`. The first `HeroPower` picks a
-//! minion (`armed = target + 1`) and restores `uses_left = 1` without spending Gold; the second
-//! picks a different minion, clears `armed`, and gives each minion the other's current Attack
-//! until next turn (`Unit::add_temp_attack`).
+//! minion (`picked`, by the id `heroes::identify_minion` gives it, so the pick follows the minion
+//! when the board or the shop changes) and restores `uses_left = 1` without spending Gold; the
+//! second picks a different minion, clears `picked`, and gives each minion the other's current
+//! Attack until next turn (`Unit::add_temp_attack`). A pick whose minion left the board and the
+//! shop has dropped: the next use is a first pick again.
 
 use crate::cards::{ActivateTargetKind, CardHooks};
-use crate::heroes::power_mut;
+use crate::heroes::{identify_minion, minion_target, power_mut};
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -25,7 +27,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             .on_hero_power(spirit_swap)
             .on_hero_power_usable(usable)
             .on_hero_power_target(valid_target)
-            .on_hero_turn_reset(|hero| hero.power.armed = 0)
+            .on_hero_turn_reset(|hero| hero.power.picked = None)
             .with_activate_target(ActivateTargetKind::BoardOrShopMinion),
     )]
 }
@@ -36,26 +38,15 @@ fn usable(state: &TavernState) -> bool {
     state.board.len() + shop_minions >= 2
 }
 
-/// The second pick must be a different minion from the first (`armed = first + 1`).
-fn valid_target(state: &TavernState, target: usize) -> bool {
-    let armed = super::active_power(state).map_or(0, |p| p.armed);
-    if armed == 0 {
-        return true;
-    }
-    let first = (armed - 1) as usize;
-    if minion_at(state, first).is_none() {
-        return true;
-    }
-    target != first
+/// The current target of the first pick, if it is still on the board or in the shop.
+fn first_pick(state: &TavernState) -> Option<usize> {
+    let id = super::active_power(state)?.picked?;
+    minion_target(state, id)
 }
 
-/// Read the minion at `BoardOrShopMinion` target `t`.
-fn minion_at(state: &TavernState, t: usize) -> Option<&Unit> {
-    if t < 7 {
-        state.board.get(t)
-    } else {
-        state.shop.get(t - 7).filter(|u| !u.is_spell)
-    }
+/// The second pick must be a different minion from the first.
+fn valid_target(state: &TavernState, target: usize) -> bool {
+    first_pick(state) != Some(target)
 }
 
 /// Mutably borrow the minion at `BoardOrShopMinion` target `t`.
@@ -67,30 +58,27 @@ fn minion_at_mut(state: &mut TavernState, t: usize) -> Option<&mut Unit> {
     }
 }
 
-/// Using it: first pick records `armed` and keeps `uses_left = 1`; second pick swaps Attack gains.
+/// Using it: the first pick is remembered and keeps `uses_left = 1`; the second swaps Attack.
 fn spirit_swap(state: &mut TavernState, target: Option<usize>, _: &mut CardPool, _: &mut Rng) {
     let Some(t) = target else {
         return;
     };
-    let armed = power_mut(&mut state.auras).map_or(0, |p| p.armed);
-    if armed == 0 || minion_at(state, (armed - 1) as usize).is_none() {
+    let Some(first) = first_pick(state) else {
+        let id = identify_minion(state, t);
         if let Some(power) = power_mut(&mut state.auras) {
-            power.armed = (t + 1) as u32;
+            power.picked = id;
             power.uses_left = 1;
         }
         return;
-    }
-    let first = (armed - 1) as usize;
+    };
     if let Some(power) = power_mut(&mut state.auras) {
-        power.armed = 0;
+        power.picked = None;
     }
     if first == t {
         return;
     }
-    let (Some(atk_a), Some(atk_b)) = (
-        minion_at(state, first).map(|u| u.attack.max(0)),
-        minion_at(state, t).map(|u| u.attack.max(0)),
-    ) else {
+    let attack = |state: &mut TavernState, t| minion_at_mut(state, t).map(|u| u.attack.max(0));
+    let (Some(atk_a), Some(atk_b)) = (attack(state, first), attack(state, t)) else {
         return;
     };
     if let Some(a) = minion_at_mut(state, first) {

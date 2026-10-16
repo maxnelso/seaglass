@@ -185,3 +185,23 @@ def test_second_hero_power_and_delegation_heroes_in_the_observation() -> None:
     duos.start_turn()
     assert duos.observe(0).hero_power_id == duos.observe(1).hero_power_id
 
+
+
+def test_voljins_first_pick_is_observed_where_it_is_now() -> None:
+    # `engine/docs/heroes.md` §8: `hero_power_armed` is the picked minion's current target + 1.
+    game = seaglass.TavernGame(seed=3, hero="Vol'jin")
+    game.start_turn()
+    game.step(seaglass.TavernAction.end_turn())
+    game.start_turn()
+    assert game.observe().gold == 4
+    shop = game.observe().shop
+    minions = [i for i, u in enumerate(shop) if not u.is_spell]
+    assert len(minions) >= 2
+    picked = minions[1]
+    game.step(seaglass.TavernAction.hero_power(7 + picked))
+    obs = game.observe()
+    assert (obs.hero_power_armed, obs.hero_power_uses_left) == (8 + picked, 1)
+    game.step(seaglass.TavernAction.buy(minions[0]))
+    assert game.observe().hero_power_armed == 7 + picked  # one slot to the left
+    game.step(seaglass.TavernAction.refresh())
+    assert game.observe().hero_power_armed == 0  # the pick dropped
