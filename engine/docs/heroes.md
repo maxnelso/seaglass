@@ -377,16 +377,17 @@ Never offered (`NOT_DISCOVERABLE_POWER`):
 
 Sir Finley and Genn may be offered every other one, Patchwerk's, N'Zoth's, Sneed's, The Curator's and Thorim's included **(confirmed)**: their start-of-game text resolves as they get it (Patchwerk's 30 Health, the Fish, the Shredder, the Amalgam, Thorim's Tier 7 Discover).
 
-Master Nguyen offers as many as work for a single turn **(confirmed)**. Not for a single turn **(engine decision)**:
+Master Nguyen offers as many as work for a single turn **(confirmed)**. Not for a single turn (**engine decision** but for Cariel's):
 
 | Hero Power | Why |
 | :--- | :--- |
 | Patchwerk's (`NOT_A_TURN_POWER`) | Its 30 extra Health would come back every turn. |
 | N'Zoth's, Sneed's, The Curator's (`NOT_A_TURN_POWER`) | Their start-of-game token (the Fish, the Shredder, the Amalgam) would come back every turn. |
 | Thorim's (`NOT_A_TURN_POWER`) | Its start-of-game Tier 7 Discover would come back every turn, and the kept champion would be lost with the Hero Power. |
+| Cariel Roame's (`NOT_A_TURN_POWER`) | Never **(confirmed)**: its improvement, chosen after a combat, would come once the Hero Power is gone. |
 | An active one its `hero_power_usable` hook says can't be used now | It wouldn't work that turn: Alexstrasza and Millificent before Tier 4, The Jailer before Tier 2, Exarch Othaar, Shudderwock and Sylvanas before turn 3 (Sylvanas also needs minions that died in the last combat while she was the Hero Power), Scabbs, Tess and Lord Barov without the lobby information they read, a full hand for the powers that need room in it. |
 
-Every other one is offered, the passives that act turn by turn (Millhouse, Sindragosa, Clocksworth, Snake Eyes, Ysera, Varden, Silas, Jaraxxus, Cariel, Cookie, Bigglesworth, Mukla, ...), long-progress ones (Ragnaros, Aranna, Kael'thas, ...) and once-per-game ones (Reno, Kragg, Zerek), whose state starts fresh every turn. What a Hero Power gives for as long as it is the Hero Power comes back off when Nguyen takes his back (`hero_power_removed`, **engine decision**): Millhouse's +1 Upgrade cost, Saurfang's Tavern bonus, Rakanishu's spell bonus; Tavish's loaded minion goes back to the pool, and Barov's open wager is settled. Vanndar's and Drek'Thar's unlock reads the game's turn, not how long the Hero Power was held. Cariel's improvement Choose One, offered after a combat, may be answered once Nguyen's Hero Power is back: it then improves nothing **(engine decision)**.
+Every other one is offered, the passives that act turn by turn (Millhouse, Sindragosa, Clocksworth, Snake Eyes, Ysera, Varden, Silas, Jaraxxus, Cookie, Bigglesworth, Mukla, ...), long-progress ones (Ragnaros, Aranna, Kael'thas, ...) and once-per-game ones (Reno, Kragg, Zerek), whose state starts fresh every turn. What a Hero Power gives for as long as it is the Hero Power comes back off when Nguyen takes his back (`hero_power_removed`, **engine decision**): Millhouse's +1 Upgrade cost, Saurfang's Tavern bonus, Rakanishu's spell bonus; Tavish's loaded minion goes back to the pool, and Barov's open wager is settled. Vanndar's and Drek'Thar's unlock reads the game's turn, not how long the Hero Power was held.
 
 ---
 

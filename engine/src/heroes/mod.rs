@@ -1485,6 +1485,7 @@ mod tests {
         }
         let nguyen = offered(&tavern_with("Master Nguyen", 5), true);
         assert!(start_of_game.iter().all(|p| !nguyen.contains(p)));
+        assert!(!nguyen.contains(&"Cariel Roame"));
         for simple in [
             "Millhouse Manastorm",
             "Sindragosa",

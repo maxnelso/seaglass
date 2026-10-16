@@ -6,8 +6,10 @@
 //! minions `+(1 + counter)/+(1 + stacks)`. After each combat (`hero_after_combat`), offers a Choose
 //! One of `Offensive Stance` (+1 Attack: `counter += 1`), `Defensive Stance` (+1 Health:
 //! `stacks += 1`), and `United Stance` (+1 target: `armed += 1`).
+//!
+//! Master Nguyen never offers it for a single turn (`CardFlags::NOT_A_TURN_POWER`, confirmed).
 
-use crate::cards::{tokens, CardHooks};
+use crate::cards::{tokens, CardFlags, CardHooks};
 use crate::heroes::{power_mut, power_mut_for};
 use crate::model::{CardId, HeroId, Unit};
 use crate::rng::Rng;
@@ -31,6 +33,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         (
             POWER,
             CardHooks::EMPTY
+                .with_flags(CardFlags::NOT_A_TURN_POWER)
                 .on_hero_power(conviction)
                 .on_hero_power_usable(usable)
                 .on_hero_after_combat(after_combat),
