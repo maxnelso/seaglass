@@ -361,9 +361,8 @@ pub fn offerable(duos: bool) -> Vec<HeroId> {
 
 /// Draw `per_player` distinct heroes for each of `players` players (`docs/heroes.md` §6): for
 /// each player in turn, uniformly among the offerable heroes not offered yet, one `rng.below(k)`
-/// per hero. In Duos (`duos == true`), if a player's teammate (`player ^ 1`) was offered
-/// `The Nameless One`, `The Nameless One` is excluded from this player's pool so a team can never
-/// get two copies of `The Nameless One`. A player gets fewer if the pool runs out.
+/// per hero. No hero is offered twice in a lobby, so a Duos team never gets two copies of one (The
+/// Nameless One). A player gets fewer if the pool runs out.
 pub fn draw_offers(
     players: usize,
     per_player: usize,
@@ -371,27 +370,15 @@ pub fn draw_offers(
     rng: &mut Rng,
 ) -> Vec<Vec<HeroId>> {
     let mut left = offerable(duos);
-    let mut result: Vec<Vec<HeroId>> = Vec::with_capacity(players);
-    for player in 0..players {
-        let mate_has_nameless = duos
-            && player % 2 == 1
-            && result
-                .get(player - 1)
-                .is_some_and(|o| o.contains(&the_nameless_one::ID));
-        let mut offered = Vec::with_capacity(per_player);
-        for _ in 0..per_player {
-            let candidates: Vec<usize> = (0..left.len())
-                .filter(|&i| !(mate_has_nameless && left[i] == the_nameless_one::ID))
-                .collect();
-            if candidates.is_empty() {
-                break;
+    (0..players)
+        .map(|_| {
+            let mut offered = Vec::with_capacity(per_player);
+            while offered.len() < per_player && !left.is_empty() {
+                offered.push(left.remove(rng.below(left.len())));
             }
-            let idx = candidates[rng.below(candidates.len())];
-            offered.push(left.remove(idx));
-        }
-        result.push(offered);
-    }
-    result
+            offered
+        })
+        .collect()
 }
 
 /// A fresh state for the Hero Power `p` (`docs/heroes.md` §3.2): at its starting cost, with a use
