@@ -10,9 +10,10 @@ use seaglass::cards::{self, ballers, tokens, volumizers};
 use seaglass::heroes;
 use seaglass::model::{
     BattleOutcome, DeityKind, DeityState, EffectDuration, GameState, HeroPowerState, HeroState,
-    PlayerAuras, PlayerEffect, Side, Tribe, Unit, UnitId,
+    PlayerAuras, PlayerEffect, Side, Tribe, TrinketState, Unit, UnitId,
 };
 use seaglass::scenario::card_index;
+use seaglass::trinkets;
 use seaglass::{resolve_battle, resolve_duos_battle, DuosTeam, Event, Rng, Warband};
 
 use crate::cards::{engine_card, CardKind, MatchedBy};
@@ -45,6 +46,32 @@ pub fn hero_power_simulated(card_id: &str) -> bool {
             || h.hero_combat_space.is_some()
             || h.hero_enemy_killed.is_some()
     })
+}
+
+/// `true` if the engine simulates the trinket `card_id` in combat: it is an implemented trinket
+/// with a combat hook (`engine/docs/trinkets.md` §6, §10).
+pub fn trinket_simulated(card_id: &str) -> bool {
+    trinkets::by_card_id(card_id).is_some_and(|t| {
+        let h = cards::hooks(t.id);
+        trinkets::is_implemented(t.id)
+            && (h.trinket_start_of_combat.is_some() || h.trinket_deity_awakened.is_some())
+    })
+}
+
+/// The player's trinkets for the engine (`engine/docs/trinkets.md` §10): the implemented ones
+/// among those the log shows them owning, once each (a `Souvenir Stand` copy shows twice).
+fn trinket_states(p: &PlayerSetup) -> Vec<TrinketState> {
+    let mut states: Vec<TrinketState> = Vec::new();
+    for card_id in &p.trinkets {
+        let Some(t) = trinkets::by_card_id(card_id).filter(|t| trinkets::is_implemented(t.id))
+        else {
+            continue;
+        };
+        if !states.iter().any(|s| s.card_id == t.id) {
+            states.push(trinkets::new_state(t.id));
+        }
+    }
+    states
 }
 
 /// The player's hero for the engine (`engine/docs/heroes.md` §10): the hero of `p`'s hero card
@@ -217,6 +244,7 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
     };
     a.hero_health = Some(p.hero_health);
     a.hero = hero_state(p);
+    a.trinkets = trinket_states(p);
     if p.tags_known {
         a.spell_bonus_atk = tag("TAVERN_SPELL_ATTACK_INCREASE").unwrap_or(0);
         a.spell_bonus_hp = tag("TAVERN_SPELL_HEALTH_INCREASE").unwrap_or(0);
@@ -360,6 +388,7 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
             let what = match kind.as_str() {
                 "HERO_POWER" if hero_power_simulated(card_id) => continue,
                 "HERO_POWER" => "hero power",
+                "BATTLEGROUND_TRINKET" if trinket_simulated(card_id) => continue,
                 "BATTLEGROUND_TRINKET" => "trinket",
                 _ => continue,
             };

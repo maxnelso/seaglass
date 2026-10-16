@@ -154,7 +154,8 @@ fn not_simulated(kind: &str, card_id: &str, name: &str) -> Option<&'static str> 
     match kind {
         "HERO_POWER" if !crate::validate::hero_power_simulated(card_id) => Some("hero power"),
         "HERO_POWER" => None,
-        "BATTLEGROUND_TRINKET" => Some("trinket"),
+        "BATTLEGROUND_TRINKET" if !crate::validate::trinket_simulated(card_id) => Some("trinket"),
+        "BATTLEGROUND_TRINKET" => None,
         "ENCHANTMENT" => Some("Dark Gift"),
         "MINION" if !implemented(card_id, name) => Some("unimplemented minion"),
         "SPELL" | "BATTLEGROUND_SPELL"
@@ -693,8 +694,8 @@ mod tests {
     fn a_trinket_summoning_the_attacker_is_not_simulated() {
         let trinket = Source {
             entity_id: 50,
-            card_id: "BG36_MagicItem_600".into(),
-            name: "Converter Portrait".into(),
+            card_id: "BG36_MagicItem_407".into(),
+            name: "Dragonhead Staff".into(),
             kind: "BATTLEGROUND_TRINKET".into(),
         };
         let summoned = unit(30, "BGS_004", "Wrath Weaver");
@@ -709,7 +710,7 @@ mod tests {
         );
         assert_eq!(d.cause, Cause::NotSimulated, "{d:?}");
         assert!(d.evidence[0].strong);
-        assert!(d.evidence[0].what.contains("Converter Portrait"), "{d:?}");
+        assert!(d.evidence[0].what.contains("Dragonhead Staff"), "{d:?}");
     }
 
     #[test]
