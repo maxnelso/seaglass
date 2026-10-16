@@ -4,10 +4,11 @@
 //! minions are chosen as for `Misplaced Tea Set` (the best assignment of minions to types, Naga
 //! included).
 
-use crate::cards::{spells, CardTemplate};
+use crate::cards::CardTemplate;
 use crate::events::Event;
 use crate::model::{CardId, Side, Tribe, Unit};
 use crate::rng::Rng;
+use crate::types;
 
 pub const ID: CardId = 712;
 
@@ -30,7 +31,7 @@ pub fn on_rally(
 ) {
     let repeats = if is_golden { 2 } else { 1 };
     for _ in 0..repeats {
-        let indices = spells::select_menagerie_targets(board, rng);
+        let indices = types::select_menagerie_targets(board, rng);
         for idx in indices {
             let target = &mut board[idx];
             target.add_stats(15, 15);

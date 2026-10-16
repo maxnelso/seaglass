@@ -233,7 +233,7 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 
 ### 11.1 Combat Trinkets
 
-"Get a ..." gives a new plain copy of the minion from the catalog, not from the pool **(confirmed)**, under hand protection (§5). A random card ("get a random Beast") is a new copy of the player's Tier or lower, not taken from the pool **(confirmed)**. "Start of Combat" is step 1c (§7.2).
+Trinkets that count or choose "different minion types" follow the Menagerie rule (`tavern.md` §7.8) **(confirmed)**. "Get a ..." gives a new plain copy of the minion from the catalog, not from the pool **(confirmed)**, under hand protection (§5). A random card ("get a random Beast") is a new copy of the player's Tier or lower, not taken from the pool **(confirmed)**. "Start of Combat" is step 1c (§7.2).
 
 | Trinket | Text | How the engine reads it |
 | :--- | :--- | :--- |

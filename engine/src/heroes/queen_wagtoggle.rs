@@ -6,10 +6,11 @@
 //! types, as `Misplaced Tea Set`: `docs/tavern.md` §7.8) gains `+N/+N`, `N = 1 + stacks`. Every 10
 //! Gold the player spends (`counter`) adds a stack.
 
-use crate::cards::{spells, CardHooks, HeroCombatCtx};
+use crate::cards::{CardHooks, HeroCombatCtx};
 use crate::heroes::power_mut;
 use crate::model::{CardId, HeroId};
 use crate::tavern::TavernState;
+use crate::types;
 
 pub const ID: HeroId = 57924;
 pub const POWER: CardId = 59863;
@@ -41,7 +42,7 @@ fn gold_spent(state: &mut TavernState, amount: u32) {
 /// Start of Combat: a friendly minion of each type gains `+N/+N`.
 fn start_of_combat(ctx: &mut HeroCombatCtx<'_>) {
     let n = 1 + power_mut(ctx.own.auras).map_or(0, |p| p.stacks);
-    for i in spells::select_menagerie_targets(ctx.own.board, ctx.own.rng) {
+    for i in types::select_menagerie_targets(ctx.own.board, ctx.own.rng) {
         ctx.own.buff_unit(i, n, n, "Wax Warband");
     }
 }

@@ -5,11 +5,12 @@
 //! Parrot` and a `Flittering Bat` count 2, and so do a `Firescale Hoarder` and a `Glim Guardian`:
 //! Naga is a type too).
 
-use super::{menagerie_type_count, spell};
+use super::spell;
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
+use crate::types::menagerie_type_count;
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {

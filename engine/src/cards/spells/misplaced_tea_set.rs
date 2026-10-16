@@ -2,9 +2,9 @@
 //!
 //! Give a friendly minion of each type +4/+4. The minions are the best assignment of friendly
 //! minions to types (as many as possible: `Treasure Parrot` and `Flittering Bat` both get it, the
-//! Parrot as the Pirate), at random among the best ones (`super::select_menagerie_targets`). Naga
-//! is a type too (`docs/tavern.md` §7.8): `Firescale Hoarder` and `Glim Guardian` both get it,
-//! the Hoarder as the Naga.
+//! Parrot as the Pirate), at random among the best ones (the Menagerie rule,
+//! `types::select_menagerie_targets`: `docs/tavern.md` §7.8). Naga is a type too: `Firescale
+//! Hoarder` and `Glim Guardian` both get it, the Hoarder as the Naga.
 
 use super::{apply_misplaced_tea_set, spell};
 use crate::cards::CardHooks;

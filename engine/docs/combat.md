@@ -39,7 +39,7 @@ All trigger effects double in magnitude (or repeat) when the source unit is Gold
   - `id` — A `UnitId` assigned at setup (§5.1), stable for the whole battle even as board positions shift. Tokens summoned mid-battle receive fresh IDs.
   - `attack` (integer $\ge 0$) and `health` (current health; mutates during combat).
   - `tavern_tier` (integer $\ge 1$, default `1`) — Used for hero-damage calculation.
-  - `tribe` — The unit's minion types (`docs/tavern.md` §7.8: the 10 lobby types and Naga), used by tribal triggers and auras. `Tribe::None` matches nothing (not even another `None`); dual-tribe units match either constituent tribe, and `All` units match every type, Naga included.
+  - `tribe` — The unit's minion types (`docs/tavern.md` §7.8: the 10 lobby types and Naga), used by tribal triggers and auras. `Tribe::None` matches nothing (not even another `None`); dual-tribe units match either constituent tribe, and `All` units match every type, Naga included. Effects that count or choose different types (`The Last One Standing`, Queen Wagtoggle) follow the Menagerie rule (`docs/tavern.md` §7.8).
   - `taunt`, `divine_shield`, `windfury`, `reborn` — Active combat keyword flags.
   - `inherent_divine_shield` — `true` when Divine Shield is printed on the card rather than granted by an effect. Unlike `divine_shield`, it never clears when popped, allowing Reborn to restore printed shields (§5.3.1 step 9).
   - `is_golden` — Doubles the effect of the unit's triggers.
