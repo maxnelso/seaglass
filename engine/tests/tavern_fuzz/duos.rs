@@ -10,7 +10,11 @@
 //! minions and spells among them, sometimes a full hand), some Pass a lot, and some players hoard
 //! cards (they buy and rarely play), so that every card gets played and Passes queue. Half of them
 //! give every player a random implemented hero (`docs/heroes.md`), or offer two to choose from,
-//! whose Hero Power the policy uses like any action.
+//! whose Hero Power the policy uses like any action. Every turn the players get a real lobby (a
+//! `seaglass::lobby::Lobby` of every team's players, `docs/tavern.md` §3.1: next and last
+//! opponents in the same seat of the opposing team, a team that is out counting as both its players
+//! dying), and their lobby gifts are delivered after their team's start of turn and turn
+//! (`check_lobby`).
 //!
 //! After every action, start of turn and combat it checks each team:
 //! - every Solo check of both players' Taverns (`check_tavern`, `check_synced`, and the actor's
@@ -1533,8 +1537,14 @@ struct DuosGame {
     policy: Rng,
     teams: Vec<DuosTavern>,
     alive: Vec<bool>,
-    /// The last eliminated team, whose ghost the odd team out fights.
+    /// The last eliminated team, whose ghost the odd team out fights, and which team it is.
     ghost: Option<DuosTavern>,
+    ghost_team: Option<usize>,
+    /// What the players know about each other (`docs/tavern.md` §3.1): team `t`'s players are
+    /// `2t` and `2t + 1`.
+    lobby: Lobby,
+    /// The coming turn's pairings of teams (the odd team out alone).
+    pairing: Vec<Vec<usize>>,
     call: Call,
     /// Stop just before this engine call, keeping its inputs in `taken`.
     stop_at: Option<u64>,
@@ -1597,8 +1607,11 @@ impl DuosGame {
             pool,
             rng: Rng::new(seed),
             policy: Rng::new(seed ^ 0xD005_9071_C700_0002),
+            lobby: Lobby::new(2 * teams.len(), true),
             teams,
             ghost: None,
+            ghost_team: None,
+            pairing: Vec::new(),
             call: Call::first(),
             stop_at: None,
             taken: None,
@@ -1760,14 +1773,18 @@ impl DuosGame {
     fn play(&mut self) -> Flow {
         for turn in 1..=self.cfg.max_turns {
             self.call.turn = turn;
+            self.pair_up()?;
             for t in 0..self.teams.len() {
                 if self.alive[t] {
                     self.start_turn(t)?;
+                    self.deliver_lobby_gifts()?;
                 }
             }
             for t in 0..self.teams.len() {
                 if self.alive[t] {
                     self.team_turn(t)?;
+                    // A Hero Power got during the turn may have made gifts (Master Nguyen's Mukla).
+                    self.deliver_lobby_gifts()?;
                     let checks = [self.check_pool(), check_team_round_trip(&self.teams[t])];
                     self.tolerate(checks)?;
                 }
@@ -2137,15 +2154,72 @@ impl DuosGame {
         Ok(())
     }
 
-    /// Pair the teams still in the game and resolve their combats.
-    fn combats(&mut self) -> Flow {
+    /// Every player's Tavern, player `2t + i` being team `t`'s player `i`.
+    fn player_states(&mut self) -> Vec<&mut TavernState> {
+        self.teams
+            .iter_mut()
+            .flat_map(|team| team.players.iter_mut())
+            .collect()
+    }
+
+    /// Pair the teams still in the game for the coming combats, and give every player their view
+    /// of the lobby (`docs/tavern.md` §3.1): their next opponent is the opposing team's player in
+    /// their seat.
+    fn pair_up(&mut self) -> Flow {
         let mut order: Vec<usize> = (0..self.teams.len()).filter(|&t| self.alive[t]).collect();
         for i in (1..order.len()).rev() {
             let j = self.policy.below(i + 1);
             order.swap(i, j);
         }
-        for pair in order.chunks(2) {
-            if let [a, b] = *pair {
+        self.pairing = order.chunks(2).map(<[usize]>::to_vec).collect();
+        let pairs: Vec<(usize, usize)> = self
+            .pairing
+            .iter()
+            .filter_map(|pair| match **pair {
+                [a, b] => Some((a, b)),
+                _ => None,
+            })
+            .flat_map(|(a, b)| [(2 * a, 2 * b), (2 * a + 1, 2 * b + 1)])
+            .collect();
+        self.lobby.set_next_pairs(&pairs);
+        let lobby = self.lobby.clone();
+        lobby.apply(&mut self.player_states());
+        let checks: Vec<_> = self
+            .teams
+            .iter()
+            .flat_map(|team| team.players.iter().map(check_lobby))
+            .collect();
+        self.tolerate(checks)
+    }
+
+    /// Deliver the cards the players' Hero Powers made for the other teams' players
+    /// (`docs/tavern.md` §3.1).
+    fn deliver_lobby_gifts(&mut self) -> Flow {
+        let lobby = self.lobby.clone();
+        lobby.deliver_gifts(&mut self.player_states());
+        let checks: Vec<_> = self
+            .teams
+            .iter()
+            .flat_map(|team| team.players.iter().map(check_lobby))
+            .collect();
+        self.tolerate(checks)
+    }
+
+    /// Record a team's combat in the lobby: each player's board as it entered it, and their
+    /// opponent in the same seat of `opponent` (a team), if any.
+    fn record_lobby_combat(&mut self, t: usize, before: &DuosTavern, opponent: Option<usize>) {
+        for (i, player) in before.players.iter().enumerate() {
+            let board = &player.board;
+            self.lobby
+                .record_combat(2 * t + i, opponent.map(|o| 2 * o + i), board);
+        }
+    }
+
+    /// Resolve the coming combats (`pair_up`'s pairings) and record them in the lobby.
+    fn combats(&mut self) -> Flow {
+        let pairing = std::mem::take(&mut self.pairing);
+        for pair in &pairing {
+            if let [a, b] = **pair {
                 self.combat_pair(a, b)?;
             } else {
                 self.combat_ghost(pair[0])?;
@@ -2157,8 +2231,11 @@ impl DuosGame {
             if self.alive[t] && self.teams[t].is_out() {
                 self.alive[t] = false;
                 self.ghost = Some(self.teams[t].clone());
+                self.ghost_team = Some(t);
             }
         }
+        let alive: Vec<bool> = self.alive.iter().flat_map(|&a| [a, a]).collect();
+        self.lobby.record_deaths(&alive);
         Ok(())
     }
 
@@ -2186,6 +2263,9 @@ impl DuosGame {
         let res = DuosTavern::resolve_combat_pair(&mut team_a, &mut team_b, seed);
         self.teams[a] = team_a;
         self.teams[b] = team_b;
+        self.record_lobby_combat(a, &before_a, Some(b));
+        self.record_lobby_combat(b, &before_b, Some(a));
+        self.lobby.record_outcome(2 * a, 2 * b, res.outcome);
         if self.trace {
             println!(
                 "  combat team {a} v team {b}: {:?}, {} damage; {}",
@@ -2212,10 +2292,11 @@ impl DuosGame {
         let others: Vec<usize> = (0..self.teams.len())
             .filter(|&o| o != t && self.alive[o])
             .collect();
-        let opponent = match &self.ghost {
-            Some(g) => g.clone(),
+        let (opponent, source) = match &self.ghost {
+            Some(g) => (g.clone(), self.ghost_team),
             None if !others.is_empty() => {
-                self.teams[others[self.policy.below(others.len())]].clone()
+                let o = others[self.policy.below(others.len())];
+                (self.teams[o].clone(), Some(o))
             }
             None => return Ok(()),
         };
@@ -2223,6 +2304,7 @@ impl DuosGame {
         let seed = self.rng.next_u64();
         self.begin(Phase::Ghost, t, 0, None, Some(seed))?;
         let before = self.teams[t].clone();
+        self.record_lobby_combat(t, &before, source);
         let (fight, ghost) = (fighting_team(&before), fighting_team(&opponent));
         let res = self.teams[t].resolve_combat_against(&ghost, seed);
         if self.trace {

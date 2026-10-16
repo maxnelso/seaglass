@@ -1,7 +1,9 @@
 //! Head-to-head 2-player Battlegrounds game simulator and full-trace logger.
 //!
 //! Runs a complete game between two semi-random players sharing a `CardPool` and deterministic `Rng`,
-//! printing every Tavern action, state transition, aura update, and Combat event.
+//! printing every Tavern action, state transition, aura update, and Combat event. The players see
+//! each other through the shared lobby (`seaglass::lobby::Lobby`, `engine/docs/tavern.md` §3.1):
+//! each is the other's next and last opponent, and their lobby gifts reach each other.
 //!
 //! Usage:
 //!   cargo run --bin sim_match
@@ -12,6 +14,7 @@ use std::collections::HashMap;
 use std::env;
 
 use seaglass::cards::{self, minions, spells, tokens};
+use seaglass::lobby::Lobby;
 use seaglass::{
     base_copies_for_tier, full_catalog, BattleOutcome, BattleResult, CardPool, DeityKind, Event,
     PlayerAuras, Rng, Side, TavernAction, TavernState, Tribe, Unit, UnitId,
@@ -1339,21 +1342,31 @@ fn main() {
     println!(" Player 2 (P2): HP 30 + 5 Armor, Deity = Y'Shaarj");
     println!("================================================================================");
 
+    let mut lobby = Lobby::new(2, false);
     for turn in 1..=max_turns {
         println!("\n################################################################################");
         println!("                              TURN {turn} BEGINS");
         println!("################################################################################");
 
+        // Each is the other's next opponent (head to head: no featured pair to wager on).
+        lobby.set_next_pairs(&[(0, 1)]);
+        lobby.apply(&mut [&mut p1, &mut p2]);
         p1.start_turn(&mut pool, &mut rng);
         p2.start_turn(&mut pool, &mut rng);
+        lobby.deliver_gifts(&mut [&mut p1, &mut p2]);
 
         run_player_tavern_turn("P1", &mut p1, &mut pool, &mut rng);
         run_player_tavern_turn("P2", &mut p2, &mut pool, &mut rng);
+        lobby.deliver_gifts(&mut [&mut p1, &mut p2]);
 
         let pre_a = p1.clone();
         let pre_b = p2.clone();
         let combat_seed = rng.next_u64();
         let res = TavernState::resolve_combat_pair(&mut p1, &mut p2, combat_seed);
+        lobby.record_combat(0, Some(1), &pre_a.board);
+        lobby.record_combat(1, Some(0), &pre_b.board);
+        lobby.record_outcome(0, 1, res.outcome);
+        lobby.record_deaths(&[p1.health > 0, p2.health > 0]);
         print_combat_trace(turn, &pre_a, &pre_b, &res, &p1, &p2, &pool);
 
         if p1.health <= 0 || p2.health <= 0 {

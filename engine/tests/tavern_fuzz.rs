@@ -8,7 +8,12 @@
 //! Health or less are eliminated, until one is left or the turn cap. Some games give the players
 //! extra maximum Gold or random cards first (Tier 7 minions, token spells), so that every card
 //! gets played, and half of them give every player a random implemented hero (`docs/heroes.md`),
-//! whose Hero Power the policy uses like any action.
+//! whose Hero Power the policy uses like any action. Every turn the players get a real lobby
+//! (`seaglass::lobby::Lobby`, `docs/tavern.md` §3.1: the coming pairings, decided before the turns
+//! start, and the last combats' warbands, opponents, deaths and featured outcome), and the cards
+//! their Hero Powers make for the others (King Mukla's Bananas) are delivered after each start of
+//! turn and each player's turn ([`check_lobby`]: views indexing their opponents, no gift left
+//! over).
 //!
 //! After every action, start of turn and combat it checks:
 //! - [`check_legality`]: `valid_actions()` lists each legal action once, `is_legal` agrees with it
@@ -85,6 +90,7 @@ use std::time::{Duration, Instant};
 
 use seaglass::cards::{self, CardFlags};
 use seaglass::heroes;
+use seaglass::lobby::Lobby;
 use seaglass::model::{HeroId, TeammateGift};
 use seaglass::{
     base_copies_for_tier, catalog_for, BattleOutcome, BattleResult, CardPool, CardTemplate,
@@ -1493,6 +1499,33 @@ fn upgrade_after_turn_start(before: u32, before_auras: &PlayerAuras, s: &TavernS
     before.saturating_sub(lost).saturating_sub(1)
 }
 
+/// The player's lobby is consistent (`docs/tavern.md` §3.1): its indices point into its
+/// opponents, and no lobby gift is left undelivered.
+fn check_lobby(s: &TavernState) -> Result<(), Violation> {
+    let lobby = &s.lobby;
+    let n = lobby.opponents.len();
+    let in_range = |i: Option<usize>| i.is_none_or(|i| i < n);
+    let pair_ok = lobby
+        .featured_pair
+        .is_none_or(|(a, b)| a < n && b < n && a != b);
+    if !(in_range(lobby.next_opponent) && in_range(lobby.last_opponent) && pair_ok) {
+        return Err(broken(
+            "a lobby index is out of range",
+            format!(
+                "{n} opponents, next {:?}, last {:?}, featured {:?}",
+                lobby.next_opponent, lobby.last_opponent, lobby.featured_pair
+            ),
+        ));
+    }
+    if !s.lobby_gifts.is_empty() {
+        return Err(broken(
+            "a lobby gift was not delivered",
+            units_desc(&s.lobby_gifts),
+        ));
+    }
+    Ok(())
+}
+
 /// Nothing heals the hero: its Health never goes up (`Soul Rewinder` prevents damage instead), but
 /// for the 30 Health Patchwerk's Hero Power gives another hero as they get it (`docs/heroes.md`
 /// §11.2: Sir Finley's or Genn's Discover).
@@ -2020,8 +2053,13 @@ struct Game {
     policy: Rng,
     players: Vec<TavernState>,
     alive: Vec<bool>,
-    /// The last eliminated player, whose ghost the odd player out fights.
+    /// The last eliminated player, whose ghost the odd player out fights, and who they are.
     ghost: Option<TavernState>,
+    ghost_player: Option<usize>,
+    /// What the players know about each other (`docs/tavern.md` §3.1).
+    lobby: Lobby,
+    /// The coming turn's pairings (the odd player out alone), decided before the turns start.
+    pairing: Vec<Vec<usize>>,
     call: Call,
     /// Stop just before this engine call, keeping its inputs in `taken`.
     stop_at: Option<u64>,
@@ -2074,8 +2112,11 @@ impl Game {
             pool,
             rng: Rng::new(seed),
             policy: Rng::new(seed ^ 0x9071_C700_0000_0001),
+            lobby: Lobby::new(players.len(), false),
             players,
             ghost: None,
+            ghost_player: None,
+            pairing: Vec::new(),
             call: Call::first(),
             stop_at: None,
             taken: None,
@@ -2155,6 +2196,7 @@ impl Game {
     fn play(&mut self) -> Flow {
         for turn in 1..=self.cfg.max_turns {
             self.call.turn = turn;
+            self.pair_up()?;
             for p in 0..self.players.len() {
                 if !self.alive[p] {
                     continue;
@@ -2205,10 +2247,13 @@ impl Game {
                     check_pool_leaks(&self.players, &self.pool, &self.catalog),
                 ];
                 self.tolerate(checks)?;
+                self.deliver_lobby_gifts()?;
             }
             for p in 0..self.players.len() {
                 if self.alive[p] {
                     self.tavern_turn(p)?;
+                    // A Hero Power got during the turn may have made gifts (Master Nguyen's Mukla).
+                    self.deliver_lobby_gifts()?;
                     let checks = [
                         check_pool_leaks(&self.players, &self.pool, &self.catalog),
                         check_round_trip(&self.players[p]),
@@ -2401,15 +2446,43 @@ impl Game {
         result.map(|_| ())
     }
 
-    /// Pair the players still in the game and resolve their combats.
-    fn combats(&mut self) -> Flow {
+    /// Pair the players still in the game for the coming combats, and give every player their
+    /// view of the lobby (`docs/tavern.md` §3.1).
+    fn pair_up(&mut self) -> Flow {
         let mut order: Vec<usize> = (0..self.players.len()).filter(|&p| self.alive[p]).collect();
         for i in (1..order.len()).rev() {
             let j = self.policy.below(i + 1);
             order.swap(i, j);
         }
-        for pair in order.chunks(2) {
-            if let [a, b] = *pair {
+        self.pairing = order.chunks(2).map(<[usize]>::to_vec).collect();
+        let pairs: Vec<(usize, usize)> = self
+            .pairing
+            .iter()
+            .filter_map(|pair| match **pair {
+                [a, b] => Some((a, b)),
+                _ => None,
+            })
+            .collect();
+        self.lobby.set_next_pairs(&pairs);
+        let mut refs: Vec<&mut TavernState> = self.players.iter_mut().collect();
+        self.lobby.apply(&mut refs);
+        let checks: Vec<_> = self.players.iter().map(check_lobby).collect();
+        self.tolerate(checks)
+    }
+
+    /// Deliver the cards the players' Hero Powers made for the others (`docs/tavern.md` §3.1).
+    fn deliver_lobby_gifts(&mut self) -> Flow {
+        let mut refs: Vec<&mut TavernState> = self.players.iter_mut().collect();
+        self.lobby.deliver_gifts(&mut refs);
+        let checks: Vec<_> = self.players.iter().map(check_lobby).collect();
+        self.tolerate(checks)
+    }
+
+    /// Resolve the coming combats (`pair_up`'s pairings) and record them in the lobby.
+    fn combats(&mut self) -> Flow {
+        let pairing = std::mem::take(&mut self.pairing);
+        for pair in &pairing {
+            if let [a, b] = **pair {
                 self.combat_pair(a, b)?;
             } else {
                 self.combat_ghost(pair[0])?;
@@ -2421,8 +2494,10 @@ impl Game {
             if self.alive[p] && self.players[p].health <= 0 {
                 self.alive[p] = false;
                 self.ghost = Some(self.players[p].clone());
+                self.ghost_player = Some(p);
             }
         }
+        self.lobby.record_deaths(&self.alive);
         Ok(())
     }
 
@@ -2439,6 +2514,9 @@ impl Game {
         let res = TavernState::resolve_combat_pair(&mut pa, &mut pb, seed);
         self.players[a] = pa;
         self.players[b] = pb;
+        self.lobby.record_combat(a, Some(b), &before_a.board);
+        self.lobby.record_combat(b, Some(a), &before_b.board);
+        self.lobby.record_outcome(a, b, res.outcome);
         if self.trace {
             println!(
                 "  combat p{a} v p{b}: {:?}, {} damage",
@@ -2487,10 +2565,11 @@ impl Game {
         let others: Vec<usize> = (0..self.players.len())
             .filter(|&q| q != p && self.alive[q])
             .collect();
-        let opponent = match &self.ghost {
-            Some(g) => g.clone(),
+        let (opponent, source) = match &self.ghost {
+            Some(g) => (g.clone(), self.ghost_player),
             None if !others.is_empty() => {
-                self.players[others[self.policy.below(others.len())]].clone()
+                let q = others[self.policy.below(others.len())];
+                (self.players[q].clone(), Some(q))
             }
             None => return Ok(()),
         };
@@ -2505,6 +2584,7 @@ impl Game {
             opponent.board.len().min(7),
         );
         let before = self.players[p].clone();
+        self.lobby.record_combat(p, source, &before.board);
         let res = self.players[p].resolve_combat_against(
             &opponent.board,
             opponent.tavern_tier,
