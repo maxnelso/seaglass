@@ -628,6 +628,14 @@ card_hooks! {
     /// After each Tavern action (`TavernState::step`), once the waiting cards are delivered:
     /// `(state, pool, rng)`.
     trinket_after_action(on_trinket_after_action): TavernEventFn,
+    /// A friendly Battlecry is about to resolve in the Tavern: extra triggers this trinket adds
+    /// (it may use up a charge): `(trinket, unit)`.
+    trinket_extra_battlecries(on_trinket_extra_battlecries): fn(&mut TrinketState, &Unit) -> u32,
+    /// A friendly Battlecry triggered in the Tavern (each trigger): `(state, unit)`.
+    trinket_battlecry_triggered(on_trinket_battlecry_triggered): fn(&mut TavernState, &Unit),
+    /// A card was discarded from the hand, after the cards' discard observers: `(state, card,
+    /// pool, rng)`.
+    trinket_after_discard(on_trinket_after_discard): CardEventFn,
 }
 
 impl Default for CardHooks {

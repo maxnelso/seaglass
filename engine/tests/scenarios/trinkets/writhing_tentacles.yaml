@@ -1,0 +1,13 @@
+trinket: Writhing Tentacles
+scenarios:
+  - name: the_first_discarded_minion_comes_back_with_double_stats
+    tavern: {board: [Brain Rotter], hand: ["2/3", "1/1"], auras: {trinkets: [Writhing Tentacles]}}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {hand: ["1/1", "4/6"], auras: {trinkets: [{armed: 1}]}}
+
+  - name: only_the_first_each_turn
+    tavern: {board: [Brain Rotter], hand: ["2/3"], auras: {trinkets: [{trinket: Writhing Tentacles, armed: 1}]}}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {hand: []}

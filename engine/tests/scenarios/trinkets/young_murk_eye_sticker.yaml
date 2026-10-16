@@ -1,0 +1,13 @@
+trinket: Young Murk-Eye Sticker
+scenarios:
+  - name: the_left_and_right_most_battlecries_trigger
+    tavern: {board: [Nerubian Deathswarmer, "1/1", Nerubian Deathswarmer], auras: {trinkets: [Young Murk-Eye Sticker]}}
+    steps:
+      - end_turn
+    expect: {auras: {undead_bonus_attack: 2}}
+
+  - name: once_with_a_single_minion
+    tavern: {board: [Nerubian Deathswarmer], auras: {trinkets: [Young Murk-Eye Sticker]}}
+    steps:
+      - end_turn
+    expect: {auras: {undead_bonus_attack: 1}}

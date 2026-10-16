@@ -1,0 +1,7 @@
+trinket: Tome of the Ancients
+scenarios:
+  - name: the_third_discard_gives_tavern_spells_one_one
+    tavern: {board: [Brain Rotter], hand: ["1/1"], auras: {trinkets: [{trinket: Tome of the Ancients, counter: 2}]}}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1, trinkets: [{counter: 0}]}}

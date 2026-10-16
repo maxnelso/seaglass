@@ -146,6 +146,9 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_hero_damage` | The hero took damage in the Tavern (`TavernState::deal_hero_damage`, not rewound): `(state, amount)`. | `Nether Pendant`. |
 | `trinket_card_added` | A card entered the hand (`add_to_hand`, a buy, a Triple's Golden): `(state, card)`. | `Trusty Crowbar`. |
 | `trinket_after_action` | After each Tavern action (`TavernState::step`), once the waiting cards are delivered: `(state, pool, rng)`. | `Splinter of Aurum`. |
+| `trinket_extra_battlecries` | A friendly Battlecry is about to resolve in the Tavern (played, or triggered by a card): extra triggers this trinket adds, on top of the board's `Passive::BattlecryTriggers` (it may use up a charge): `(trinket, unit)`. | `Dragon's Eye`, `War Drum`. |
+| `trinket_battlecry_triggered` | A friendly Battlecry triggered in the Tavern, after the `after_friendly_battlecry` observers (each trigger): `(state, unit)`. | `Dragon Skull`, `Murky Sticker`. |
+| `trinket_after_discard` | A card was discarded from the hand, after the cards' discard observers and its own `discarded` hook: `(state, card, pool, rng)`. | `Shath'Yar Shrine`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -378,6 +381,15 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Nether Pendant` (Greater) | Minions in the Tavern have +2/+2. Improves every 3 times your hero takes damage outside combat. | The Tavern's bonus +2/+2 as picked, +2/+2 more every 3rd time the hero takes damage in the Tavern (`trinket_hero_damage`; rewound damage doesn't count) **(engine decision)**. |
 | `Trusty Crowbar` (Greater) | Whenever you get a Pirate, give your left-most minion +16/+16. | Each Pirate minion card that enters the hand (`trinket_card_added`: bought, Discovered, generated, a Golden made by a Triple, delivered from the waiting queue), not a Pirate summoned or played **(confirmed)**; combat hand cards don't count **(engine decision)**. |
 | `Wolfhead Flail` (Greater) | At the end of your turn, trigger your two left-most Deathrattles. | The two left-most minions with a Deathrattle (their own or given) each trigger them in the Tavern (`cards::trigger_tavern_deathrattle`); minions, not Deathrattles **(engine decision)**. |
+| `Dragon Skull` (Lesser) | Whenever you trigger a Battlecry, give your left- and right-most minions +5/+5. | `trinket_battlecry_triggered`: after each trigger of a friendly Battlecry in the Tavern (each repeat too); a minion being played isn't on the board yet. |
+| `War Drum` (Lesser) | One Battlecry each turn triggers two extra times. | `trinket_extra_battlecries`: the first Battlecry each turn (played or triggered), +2, added to `Brann Bronzebeard`'s **(engine decision)**. |
+| `Dragon's Eye` (Greater) | Your Dragons' Battlecries trigger an extra time. | `trinket_extra_battlecries`: +1 for a Dragon, added to `Brann Bronzebeard`'s (3 times with both: **engine decision**). |
+| `Murky Sticker` (Greater) | At the end of each turn, give your two left-most minions +1/+2. (Improved by your Battlecries triggered this game!) | `+1/+2 × (1 + friendly Battlecries triggered since it was picked)` (each trigger counts) **(engine decision)**. |
+| `Young Murk-Eye Sticker` (Greater) | At the end of your turn, trigger your left and right- most minions' Battlecries. | `cards::trigger_board_battlecry` on the left-most, then on the right-most as the board is then (once with a single minion) **(engine decision)**. |
+| `Shath'Yar Shrine` (Greater) | After you discard a spell, get a random Aberration. | `trinket_after_discard`: of the player's Tier or lower. |
+| `Sludge Portrait` (Greater) | Get a Sludge Corrosion. After you discard a spell, get a Sludge Corrosion. | As picked and after each spell discarded. |
+| `Tome of the Ancients` (Greater) | After you discard 3 cards, your Tavern spells give an extra +1/+1 this game. | Every 3rd card discarded (across turns): `spell_bonus_atk` / `_hp` +1/+1. |
+| `Writhing Tentacles` (Greater) | After you discard your first minion each turn, get a copy of it with double stats. | The first minion discarded each turn: a copy as it was (a new copy, not from the pool) with its Attack and Health doubled. |
 
 ### 11.3 Deferred
 
@@ -413,6 +425,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 10 | Extra Battlecry triggers add to Brann's; Murky Sticker's improvements since picked; Young Murk-Eye Sticker's right-most after the first Battlecry. | their files |
 | Batch 9 | Jewelry Box's random keyword; Nether Pendant's improvement and rewound damage; Trusty Crowbar without combat hand cards; Wolfhead Flail counting minions. | their files |
 | Batch 8 | Lockbox Portrait's left-most Lockbox; Shrine of Evolution's plain Tier 4 minions from the pool; Gold Mallet's improvements; Bloodbound Earrings and Wand without combat casts; Replica Cathedral's first spell from any source. | their files |
 | Batch 7 | Innkeeper's Hearth's options are 30/30 before the choice. | their files |

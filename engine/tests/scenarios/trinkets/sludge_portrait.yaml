@@ -1,0 +1,10 @@
+trinket: Sludge Portrait
+scenarios:
+  - name: a_sludge_corrosion_now_and_after_a_discarded_spell
+    tavern: {turn: 9, board: [Brain Rotter]}
+    steps:
+      - give_trinket: Sludge Portrait
+      - expect: {hand: [Sludge Corrosion]}
+      - add_to_hand: Tavern Coin
+      - activate: {pos: Brain Rotter, target: 1}
+    expect: {hand: {0: Sludge Corrosion, -1: Sludge Corrosion}}

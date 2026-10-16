@@ -875,7 +875,15 @@ fn check_like_solo(
     });
     let a = &after.players[p];
     let goldens = |s: &TavernState| s.hand.iter().filter(|u| u.is_golden).count();
-    if team_wide || goldens(a) != goldens(solo) {
+    // A trinket that reacts to cards entering the hand (`Trusty Crowbar`) also sees the cards the
+    // queue delivers.
+    let sees_deliveries = a.hand.len() > solo.hand.len()
+        && a.auras.trinkets.iter().any(|t| {
+            seaglass::cards::hooks(t.card_id)
+                .trinket_card_added
+                .is_some()
+        });
+    if team_wide || sees_deliveries || goldens(a) != goldens(solo) {
         return Ok(());
     }
     let stats = |units: &[Unit]| -> Vec<(u32, bool, i32, i32)> {

@@ -1,0 +1,14 @@
+trinket: Shath'Yar Shrine
+scenarios:
+  - name: a_discarded_spell_gives_an_aberration
+    seeds: "1..=3"
+    tavern: {tavern_tier: 6, board: [Brain Rotter], hand: [Tavern Coin], auras: {trinkets: [Shath'Yar Shrine]}}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {hand: [{tribe: {any_of: [aberration, all]}}]}
+
+  - name: not_a_discarded_minion
+    tavern: {board: [Brain Rotter], hand: ["1/1"], auras: {trinkets: [Shath'Yar Shrine]}}
+    steps:
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {hand: []}

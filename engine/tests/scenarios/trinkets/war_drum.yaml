@@ -1,0 +1,12 @@
+trinket: War Drum
+scenarios:
+  - name: the_first_battlecry_each_turn_triggers_two_extra_times
+    tavern: {turn: 5, hand: [Nerubian Deathswarmer, Nerubian Deathswarmer], auras: {trinkets: [War Drum]}}
+    steps:
+      - play: 0
+      - expect: {auras: {undead_bonus_attack: 3}}
+      - play: 0
+      - expect: {auras: {undead_bonus_attack: 4}}
+      - end_turn
+      - start_turn
+    expect: {auras: {trinkets: [{armed: 0}]}}

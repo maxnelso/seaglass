@@ -1,0 +1,8 @@
+trinket: Dragon Skull
+scenarios:
+  - name: each_battlecry_buffs_the_left_and_right_most_minions
+    description: The Deathswarmer isn't on the board yet when its Battlecry triggers.
+    tavern: {board: ["1/1", "1/1", "1/1"], hand: [Nerubian Deathswarmer], auras: {trinkets: [Dragon Skull]}}
+    steps:
+      - play: 0
+    expect: {board: ["6/6", "1/1", "6/6", Nerubian Deathswarmer]}

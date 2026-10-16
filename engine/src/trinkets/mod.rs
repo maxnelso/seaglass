@@ -45,6 +45,8 @@ pub mod cursed_crystal;
 pub mod dalaran_cheese_wheel;
 pub mod defensive_shell;
 pub mod demonic_bloodletter;
+pub mod dragon_skull;
+pub mod dragons_eye;
 pub mod dragonwing_glider;
 pub mod dramaloc_sticker;
 pub mod emergency_gearblade;
@@ -91,6 +93,7 @@ pub mod mama_bear_sticker;
 pub mod mask_of_ancient_ones;
 pub mod miniature_ship;
 pub mod multilayered_shield;
+pub mod murky_sticker;
 pub mod nerglish_phrasebook;
 pub mod nerglish_phrasebook_greater;
 pub mod nether_pendant;
@@ -113,8 +116,10 @@ pub mod rockin_music_box;
 pub mod scraper_sticker;
 pub mod secret_schematic;
 pub mod sellemental_portrait;
+pub mod shathyar_shrine;
 pub mod shrine_of_evolution;
 pub mod slamma_sticker;
+pub mod sludge_portrait;
 pub mod spell_powered_wrench;
 pub mod sphere_of_memory;
 pub mod splinter_of_aurum;
@@ -123,6 +128,7 @@ pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
 pub mod the_eye_of_dalaran;
+pub mod tome_of_the_ancients;
 pub mod trailblazer_sticker;
 pub mod training_certificate;
 pub mod transcribing_typewriter;
@@ -133,12 +139,15 @@ pub mod upstart_embers;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod wand_of_divination;
+pub mod war_drum;
 pub mod water_wheel;
 pub mod weighted_gauntlet;
 pub mod wicked_tome;
 pub mod willbreaker_sticker;
 pub mod wolfhead_flail;
 pub mod worn_treasure_map;
+pub mod writhing_tentacles;
+pub mod young_murk_eye_sticker;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
 pub use vocab::vocabulary;
@@ -239,6 +248,8 @@ const IMPLEMENTED: &[Implemented] = &[
     (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
     (defensive_shell::ID, defensive_shell::behaviors),
     (demonic_bloodletter::ID, demonic_bloodletter::behaviors),
+    (dragon_skull::ID, dragon_skull::behaviors),
+    (dragons_eye::ID, dragons_eye::behaviors),
     (dragonwing_glider::ID, dragonwing_glider::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
     (emergency_gearblade::ID, emergency_gearblade::behaviors),
@@ -294,6 +305,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
     (multilayered_shield::ID, multilayered_shield::behaviors),
+    (murky_sticker::ID, murky_sticker::behaviors),
     (nerglish_phrasebook::ID, nerglish_phrasebook::behaviors),
     (
         nerglish_phrasebook_greater::ID,
@@ -325,8 +337,10 @@ const IMPLEMENTED: &[Implemented] = &[
     (scraper_sticker::ID, scraper_sticker::behaviors),
     (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
+    (shathyar_shrine::ID, shathyar_shrine::behaviors),
     (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
+    (sludge_portrait::ID, sludge_portrait::behaviors),
     (spell_powered_wrench::ID, spell_powered_wrench::behaviors),
     (sphere_of_memory::ID, sphere_of_memory::behaviors),
     (splinter_of_aurum::ID, splinter_of_aurum::behaviors),
@@ -335,6 +349,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
+    (tome_of_the_ancients::ID, tome_of_the_ancients::behaviors),
     (trailblazer_sticker::ID, trailblazer_sticker::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
     (
@@ -354,12 +369,18 @@ const IMPLEMENTED: &[Implemented] = &[
         volumizer_portrait_greater::behaviors,
     ),
     (wand_of_divination::ID, wand_of_divination::behaviors),
+    (war_drum::ID, war_drum::behaviors),
     (water_wheel::ID, water_wheel::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (wicked_tome::ID, wicked_tome::behaviors),
     (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
     (wolfhead_flail::ID, wolfhead_flail::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
+    (writhing_tentacles::ID, writhing_tentacles::behaviors),
+    (
+        young_murk_eye_sticker::ID,
+        young_murk_eye_sticker::behaviors,
+    ),
 ];
 
 /// The hooks of every implemented trinket's cards, for the card registry.
@@ -796,6 +817,36 @@ pub fn after_action(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng)
     for id in owned_ids(&state.auras) {
         if let Some(after_action) = hooks(id).trinket_after_action {
             after_action(state, pool, rng);
+        }
+    }
+}
+
+/// The extra triggers the trinkets give the friendly Battlecry about to resolve
+/// (`trinket_extra_battlecries`, which may use up their charges).
+pub fn extra_battlecries(auras: &mut PlayerAuras, unit: &Unit) -> u32 {
+    let mut extra = 0;
+    for trinket in &mut auras.trinkets {
+        if let Some(extra_battlecries) = hooks(trinket.card_id).trinket_extra_battlecries {
+            extra += extra_battlecries(trinket, unit);
+        }
+    }
+    extra
+}
+
+/// A friendly Battlecry triggered: each trinket's `trinket_battlecry_triggered` hook.
+pub fn battlecry_triggered(state: &mut TavernState, unit: &Unit) {
+    for id in owned_ids(&state.auras) {
+        if let Some(triggered) = hooks(id).trinket_battlecry_triggered {
+            triggered(state, unit);
+        }
+    }
+}
+
+/// A card was discarded from the hand: each trinket's `trinket_after_discard` hook.
+pub fn after_discard(state: &mut TavernState, card: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_discard) = hooks(id).trinket_after_discard {
+            after_discard(state, card, pool, rng);
         }
     }
 }

@@ -1123,7 +1123,8 @@ fn trigger_battlecry(
     let Some(battlecry) = card.battlecry else {
         return;
     };
-    let repeats = board_passive(&state.board, Passive::BattlecryTriggers);
+    let repeats = board_passive(&state.board, Passive::BattlecryTriggers)
+        + crate::trinkets::extra_battlecries(&mut state.auras, unit);
     let target = card
         .battlecry_target
         .and_then(|pick| pick(state, unit, board_pos))
@@ -1140,6 +1141,7 @@ fn trigger_battlecry(
             |h| h.after_friendly_battlecry,
             |s, idx, f| f(s, idx, played.then_some(&mut *unit)),
         );
+        crate::trinkets::battlecry_triggered(state, unit);
     }
     if let Some(id) = target_id {
         // Unmark the target (and any copy of it that went to the hand, shop, a prompt, or the
@@ -1614,6 +1616,7 @@ pub fn on_discard_hand_card(
     if let Some(on_discarded) = hooks(discarded.card_id).discarded {
         on_discarded(state, discarded, pool, rng);
     }
+    crate::trinkets::after_discard(state, discarded, pool, rng);
 }
 
 /// Returns `true` if a minion on `board` rewinds hero damage taken in the Tavern

@@ -1,0 +1,13 @@
+trinket: Dragon's Eye
+scenarios:
+  - name: a_dragons_battlecry_triggers_an_extra_time
+    tavern: {board: ["1/1 dragon"], hand: [Electric Synthesizer], auras: {trinkets: [Dragon's Eye]}}
+    steps:
+      - play: 0
+    expect: {board: ["3/3", Electric Synthesizer]}
+
+  - name: not_another_types
+    tavern: {hand: [Nerubian Deathswarmer], auras: {trinkets: [Dragon's Eye]}}
+    steps:
+      - play: 0
+    expect: {auras: {undead_bonus_attack: 1}}

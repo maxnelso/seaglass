@@ -1,0 +1,9 @@
+trinket: Murky Sticker
+scenarios:
+  - name: the_two_left_most_minions_gain_more_per_battlecry_triggered
+    tavern: {board: ["1/1", "1/1"], hand: [Nerubian Deathswarmer], auras: {trinkets: [{trinket: Murky Sticker, counter: 1}]}}
+    steps:
+      - play: 0
+      - expect: {auras: {trinkets: [{counter: 2}]}}
+      - end_turn
+    expect: {board: ["4/7", "4/7", Nerubian Deathswarmer]}
