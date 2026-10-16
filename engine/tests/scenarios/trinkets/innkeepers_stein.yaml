@@ -7,9 +7,9 @@ scenarios:
     expect:
       shop: {count: 5, -1: {tavern_tier: 3}}
 
-  - name: nothing_at_tier_6
-    description: An engine decision.
+  - name: a_tier_6_minion_at_tier_6
+    description: The higher Tier caps at 6 (confirmed).
     tavern: {tavern_tier: 6, gold: 5, auras: {trinkets: [Innkeeper's Stein]}}
     steps:
       - refresh
-    expect: {shop: {count: 6}}
+    expect: {shop: {count: 7, -1: {tavern_tier: 6}}}
