@@ -7,8 +7,25 @@ scenarios:
       auras_a: {trinkets: [Training Certificate]}
     expect: {survivors_a: ["3/3", "2/4", "4/2", "5/5"]}
 
-  - name: ties_take_the_left_most
-    description: An engine decision (docs/trinkets.md §11.1).
+  - name: ties_are_broken_at_random
+    description: Two of the three tied 1-Attack minions double their stats (confirmed).
+    seeds: "1..=8"
+    combat:
+      board_a: ["1/1", "1/2", "1/3"]
+      board_b: []
+      auras_a: {trinkets: [Training Certificate]}
+    expect: {survivors_a: {where: {attack: 2}, count: 2}}
+
+  - name: a_tie_may_skip_the_left_most
+    seed: 1
+    combat:
+      board_a: ["1/1", "1/2", "1/3"]
+      board_b: []
+      auras_a: {trinkets: [Training Certificate]}
+    expect: {survivors_a: {2: "2/6"}}
+
+  - name: or_take_the_left_most
+    seed: 2
     combat:
       board_a: ["1/1", "1/2", "1/3"]
       board_b: []

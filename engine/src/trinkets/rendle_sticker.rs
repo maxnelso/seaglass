@@ -3,9 +3,10 @@
 //! Steal the highest-Tier card from the Tavern. At the end of each turn, repeat this.
 //!
 //! Picked, and at the end of each turn (`trinket_end_turn`, after the cards' end-of-turn
-//! triggers): the card of the highest Tier in the Tavern (a minion or a spell; among ties the
-//! left-most: **engine decision**) leaves it for the hand, as it is (not a buy: no buy triggers,
-//! nothing paid), and waits for room in a full hand. Nothing from an empty Tavern.
+//! triggers): the card of the highest Tier in the Tavern (a minion or a spell; ties are broken at
+//! random, one `rng.below(k)` among the tied: confirmed) leaves it for the hand, as it is (not a
+//! buy: no buy triggers, nothing paid), and waits for room in a full hand. Nothing from an empty
+//! Tavern.
 
 use crate::cards::CardHooks;
 use crate::model::CardId;
@@ -24,14 +25,14 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     )]
 }
 
-fn steal(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
+fn steal(state: &mut TavernState, _: &mut CardPool, rng: &mut Rng) {
     let Some(best) = state.shop.iter().map(|u| u.tavern_tier).max() else {
         return;
     };
-    let Some(pos) = state.shop.iter().position(|u| u.tavern_tier == best) else {
-        return;
-    };
-    let mut card = state.shop.remove(pos);
+    let tied: Vec<usize> = (0..state.shop.len())
+        .filter(|&i| state.shop[i].tavern_tier == best)
+        .collect();
+    let mut card = state.shop.remove(super::pick_tied(&tied, rng));
     card.frozen = false;
     state.add_to_hand_or_wait(card);
 }
