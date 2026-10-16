@@ -35,3 +35,15 @@ scenarios:
             1:
               board: [Fish of N'Zoth]
               auras: {hero: {power: {card_id: 66484}}}
+
+  - name: copying_patchwerks_hero_power_adds_no_second_30_health
+    description: (confirmed) A Duos team's Health from Patchwerk is 60, not 90.
+    duos_tavern: {}
+    steps:
+      - {player: 0, set_hero: The Nameless One}
+      - {player: 1, set_hero: Patchwerk}
+      - expect: {health: 60}
+      - start_turn
+      - expect:
+          health: 60
+          players: {0: {auras: {hero: {power: {card_id: 59399}}}}}

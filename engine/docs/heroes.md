@@ -274,7 +274,7 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 
 | Hero | Hero Power | How the engine reads it |
 | :--- | :--- | :--- |
-| `Patchwerk` | *All Patched Up*: Start the game with 30 extra Health. | His data (60 Health, 0 Armor) does it for him (§2.3). Another hero who gets the Hero Power (Sir Finley's or Genn's Discover, The Nameless One's copy) gains the 30 Health as they get it (`hero_chosen`) **(engine decision)**. |
+| `Patchwerk` | *All Patched Up*: Start the game with 30 extra Health. | His data (60 Health, 0 Armor) does it for him (§2.3). Another hero who gets the Hero Power (Sir Finley's or Genn's Discover, The Nameless One's copy) gains the 30 Health as they get it (`hero_chosen`) **(engine decision)**, but a Duos team gets Patchwerk's 30 Health at most once: The Nameless One copying a Patchwerk teammate's Hero Power adds none, the team stays at 60 **(confirmed)**; so does Sir Finley's or Genn's with a Patchwerk teammate **(engine decision)**. The team counter under the Hero Power's id (`PlayerAuras::team_counter`) records it. |
 | `Cap'n Hoggarr` | *I'm the Cap'n Now*: After you buy a Pirate, gain 1 Gold. | `hero_after_buy`: a bought minion with the Pirate type gives 1 Gold. |
 | `Forest Warden Omu` | *Everbloom*: After you upgrade the Tavern, gain 2 Gold. | `hero_after_upgrade`: 2 Gold. |
 | `Trade Prince Gallywix` | *Smart Savings*: After you sell a minion, gain 1 Gold next turn. | Passive (its data cost is never paid). `hero_after_sell`: `bonus_gold_next_turn += 1`. |
@@ -433,5 +433,5 @@ Engine decisions, pending the user's confirmation:
 | Tess with no warband | Not usable while the last opponent's warband is empty or unknown. | `heroes/tess_greymane.rs` |
 | Hero Powers for a single turn | Master Nguyen is not offered the start-of-game ones, nor one that can't be used now (§11.3). | the Hero Powers' files, `heroes::offerable_powers` |
 | A replaced Hero Power | What it gave for as long as it was the Hero Power comes back off (Millhouse, Saurfang, Rakanishu), Tavish's minion goes back to the pool before the shop is rolled, Barov's open wager is settled. | their files |
-| Patchwerk's Hero Power on another hero | Its 30 Health comes with it. | `heroes/patchwerk.rs` |
+| Patchwerk's Hero Power on another hero | Its 30 Health comes with it, at most once per Duos team (a Finley or Genn with a Patchwerk teammate gets none). | `heroes/patchwerk.rs` |
 | Vanndar's and Drek'Thar's unlock | Turn 7 of the game, however long the Hero Power was held. | `heroes::arm_from_turn` |
