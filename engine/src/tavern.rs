@@ -2352,9 +2352,17 @@ impl TavernState {
                 Ok(false)
             }
             TavernAction::EndTurn => {
+                // The minions' triggers repeat on their own (`cards::on_end_turn`); a trinket's
+                // extra end-of-turn triggers also repeat the Hero Power's and the trinkets' own
+                // (`docs/trinkets.md` §6, `trinket_extra_triggers`).
                 cards::on_end_turn(self, pool, rng);
-                heroes::end_turn(self, pool, rng);
-                trinkets::end_turn(self, pool, rng);
+                let rounds = 1 + trinkets::extra_triggers(&self.auras, Passive::EndOfTurnTriggers);
+                for _ in 0..rounds {
+                    heroes::end_turn(self, pool, rng);
+                }
+                for _ in 0..rounds {
+                    trinkets::end_turn(self, pool, rng);
+                }
                 self.discard_temporary_cards();
                 Ok(true)
             }

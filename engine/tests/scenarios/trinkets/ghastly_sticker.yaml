@@ -6,3 +6,26 @@ scenarios:
     steps:
       - end_turn
     expect: {board: ["Lullabot 2/4"]}
+
+  - name: with_drakkari_enchanter_three_times
+    description: One more time on top of Drakkari Enchanter's (engine decision).
+    tavern: {board: [Lullabot, Drakkari Enchanter], auras: {trinkets: [Ghastly Sticker]}}
+    steps:
+      - end_turn
+    expect: {board: {0: "Lullabot 2/5"}}
+
+  - name: the_hero_powers_end_of_turn_effect_too
+    description: Sulfuras' +8/+8 resolves twice (confirmed).
+    tavern:
+      board: ["1/1"]
+      auras: {hero: {hero: Ragnaros the Firelord, power: {card_id: 64426}}, trinkets: [Ghastly Sticker]}
+    steps:
+      - end_turn
+    expect: {board: ["17/17"]}
+
+  - name: other_trinkets_end_of_turn_effects_too
+    description: Goblin Wallet's +1 maximum Gold resolves twice (confirmed).
+    tavern: {turn: 5, max_gold: 7, auras: {trinkets: [Goblin Wallet, Ghastly Sticker]}}
+    steps:
+      - end_turn
+    expect: {max_gold: 9, auras: {base_max_gold_bonus: 2}}
