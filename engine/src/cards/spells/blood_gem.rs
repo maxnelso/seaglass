@@ -1,10 +1,13 @@
 //! `Blood Gem` — token spell (not a Tavern spell).
 //!
 //! Give a minion `+1/+1`, plus your Blood Gem bonuses.
+//!
+//! A `Jewelry Box` gem (its `counter` names a keyword: 1 Taunt, 2 Divine Shield, 3 Reborn) also
+//! gives that keyword to a Quilboar it is played on, each cast (`docs/trinkets.md` §11.2).
 
 use super::targeted_minion;
 use crate::cards::{CardFlags, CardHooks};
-use crate::model::Unit;
+use crate::model::{Keyword, Tribe, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
 
@@ -17,7 +20,7 @@ pub fn hooks() -> CardHooks {
 /// more times with `Hot-Air Surveyor`: see [`CardFlags::BLOOD_GEM`]).
 pub fn cast(
     state: &mut TavernState,
-    _: &Unit,
+    card: &Unit,
     target: MinionSlot,
     _: &mut CardPool,
     rng: &mut Rng,
@@ -28,6 +31,19 @@ pub fn cast(
     };
     if let Some(target) = target {
         target.play_blood_gems(1, &state.auras);
+        if let Some(keyword) = gem_keyword(card).filter(|_| target.tribe.matches(Tribe::Quilboar)) {
+            target.apply_keyword(keyword, false);
+        }
         crate::cards::resolve_pending_effects(&mut state.board, &state.auras, rng);
+    }
+}
+
+/// The keyword a `Jewelry Box` gem gives a Quilboar, from its `counter` (none for a plain gem).
+pub fn gem_keyword(card: &Unit) -> Option<Keyword> {
+    match card.counter {
+        1 => Some(Keyword::Taunt),
+        2 => Some(Keyword::DivineShield),
+        3 => Some(Keyword::Reborn),
+        _ => None,
     }
 }

@@ -1,0 +1,14 @@
+trinket: Nether Pendant
+scenarios:
+  - name: tavern_minions_have_two_two
+    tavern: {turn: 9, shop: ["1/1"]}
+    steps:
+      - give_trinket: Nether Pendant
+    expect: {shop: ["3/3"], auras: {tavern_all_atk: 2, tavern_all_hp: 2}}
+
+  - name: the_third_hero_damage_improves_it
+    description: Wrath Weaver deals 1 damage to the hero.
+    tavern: {board: [Wrath Weaver], hand: ["1/1 demon"], auras: {tavern_all_atk: 2, tavern_all_hp: 2, trinkets: [{trinket: Nether Pendant, counter: 2}]}}
+    steps:
+      - play: 0
+    expect: {auras: {tavern_all_atk: 4, tavern_all_hp: 4, trinkets: [{counter: 0}]}}

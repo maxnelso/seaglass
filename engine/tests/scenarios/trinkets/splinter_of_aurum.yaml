@@ -1,0 +1,17 @@
+trinket: Splinter of Aurum
+scenarios:
+  - name: fifteen_gold_gives_a_golden_tier_5_minion_once
+    seeds: "1..=3"
+    tavern: {gold: 14, board: ["1/1"], auras: {trinkets: [Splinter of Aurum]}}
+    steps:
+      - sell: 0
+      - expect: {gold: 15, hand: [{tavern_tier: 5, is_golden: true}]}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 1}, auras: {trinkets: [{armed: 1}]}}
+
+  - name: not_below_fifteen
+    tavern: {gold: 13, board: ["1/1"], auras: {trinkets: [Splinter of Aurum]}}
+    steps:
+      - sell: 0
+    expect: {hand: []}

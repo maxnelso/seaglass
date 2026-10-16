@@ -1,0 +1,17 @@
+trinket: Aggem Sticker
+scenarios:
+  - name: seven_blood_gems_on_a_minion_of_each_type
+    description: >-
+      The Menagerie rule (confirmed): the Beast-Pirate stands for the Beast, so all three typed
+      minions get 7 Blood Gems; the minion without a type gets none.
+    tavern: {board: ["1/1 beast_pirate", "1/1 pirate", "1/1 mech", "1/1"], auras: {trinkets: [Aggem Sticker]}}
+    steps:
+      - end_turn
+    expect: {board: ["8/8", "8/8", "8/8", "1/1"]}
+
+  - name: one_minion_per_type
+    seeds: "1..=4"
+    tavern: {board: ["1/1 beast", "1/1 beast"], auras: {trinkets: [Aggem Sticker]}}
+    steps:
+      - end_turn
+    expect: {board: {where: {attack: 8}, count: 1}}

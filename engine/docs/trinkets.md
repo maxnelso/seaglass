@@ -142,6 +142,10 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_tavern_summon` | A friendly minion is summoned in the Tavern (played, or summoned by a card), after the minions' `friendly_summon` observers: `(trinket, summoned)`. | `Mama Bear Sticker`. |
 | `trinket_after_spell` | A spell was cast in the Tavern, once all its casts are done (after the target is unmarked): `(state, cast, pool, rng)`, a `SpellCast` (the card, whether it is cast on a minion, where that target now is, whether it was played from the hand, the casts that resolved). | `Bloodbound Earrings`, `Lovely Locket`. |
 | `trinket_extra_spell_casts` | A spell is about to be cast in the Tavern: the extra casts this trinket adds (it may use up a charge): `(trinket)`. | `Replica Cathedral`. |
+| `trinket_before_spell` | A spell is about to be cast in the Tavern, before its extra casts are counted: `(state)`. | `Multilayered Shield`. |
+| `trinket_hero_damage` | The hero took damage in the Tavern (`TavernState::deal_hero_damage`, not rewound): `(state, amount)`. | `Nether Pendant`. |
+| `trinket_card_added` | A card entered the hand (`add_to_hand`, a buy, a Triple's Golden): `(state, card)`. | `Trusty Crowbar`. |
+| `trinket_after_action` | After each Tavern action (`TavernState::step`), once the waiting cards are delivered: `(state, pool, rng)`. | `Splinter of Aurum`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -366,6 +370,14 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Accord-o-Tron Portrait` (Greater) | At the end of each turn, Magnetize an Accord-o-Tron to your left- and right-most Mechs. | A plain `Accord-o-Tron` Magnetized by an effect (`cards::magnetize`) on each; once with a single Mech. |
 | `Magicfin Sticker` (Greater) | After you buy a Tavern spell, get a 1/1 Murloc and teach it that spell. (2 times per turn.) | A `Magicfin Apprentice` taught it, as `Magicfin Mycologist`'s. |
 | `Trailblazer Sticker` (Greater) | Your Choose One cards have both effects combined. | `Passive::CombinesChooseOne` (`trinket_extra_triggers`): every Choose One applies both options. |
+| `Glowing Crystal` (Lesser) | At the start of your turn, gain 1 Gold for each different friendly minion type. | 1 Gold per type by the Menagerie rule (`types::menagerie_type_count`, `tavern.md` §7.8) **(confirmed)**. |
+| `Splinter of Aurum` (Lesser) | When you have 15 Gold, get a random Golden Tier 5 minion. (Once per game.) | Checked as picked, at each turn start and after each action (`trinket_after_action`); a new Golden copy of a random Tier 5 minion; once a minion was given, never again **(confirmed)**. |
+| `Jewelry Box` (Lesser) | Get a Blood Gem that gives a Quilboar Taunt, Divine Shield, or Reborn. At the start of each turn, repeat this. | A `Blood Gem` whose `counter` names the keyword, drawn as it is given (one `rng.below(3)`); each of its casts on a Quilboar gives that keyword too (`blood_gem::gem_keyword`) **(engine decision)**. |
+| `Aggem Sticker` (Greater) | At the end of your turn, this plays 7 Blood Gems on a friendly minion of each type. | The minions of a best matching of minions to types, by the Menagerie rule (`types::select_menagerie_targets`) **(confirmed)**; the Gems are played, not cast. |
+| `Multilayered Shield` (Greater) | Your Tavern spells give an extra +1/+2. (Improved by each different friendly minion type!) | `spell_bonus_atk` / `_hp` hold +1/+2 × (1 + types, by the Menagerie rule) **(confirmed)**, brought up to date as picked and before each spell (`trinket_before_spell`). |
+| `Nether Pendant` (Greater) | Minions in the Tavern have +2/+2. Improves every 3 times your hero takes damage outside combat. | The Tavern's bonus +2/+2 as picked, +2/+2 more every 3rd time the hero takes damage in the Tavern (`trinket_hero_damage`; rewound damage doesn't count) **(engine decision)**. |
+| `Trusty Crowbar` (Greater) | Whenever you get a Pirate, give your left-most minion +16/+16. | Each Pirate minion card that enters the hand (`trinket_card_added`: bought, Discovered, generated, a Golden made by a Triple, delivered from the waiting queue), not a Pirate summoned or played **(confirmed)**; combat hand cards don't count **(engine decision)**. |
+| `Wolfhead Flail` (Greater) | At the end of your turn, trigger your two left-most Deathrattles. | The two left-most minions with a Deathrattle (their own or given) each trigger them in the Tavern (`cards::trigger_tavern_deathrattle`); minions, not Deathrattles **(engine decision)**. |
 
 ### 11.3 Deferred
 
@@ -401,6 +413,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 9 | Jewelry Box's random keyword; Nether Pendant's improvement and rewound damage; Trusty Crowbar without combat hand cards; Wolfhead Flail counting minions. | their files |
 | Batch 8 | Lockbox Portrait's left-most Lockbox; Shrine of Evolution's plain Tier 4 minions from the pool; Gold Mallet's improvements; Bloodbound Earrings and Wand without combat casts; Replica Cathedral's first spell from any source. | their files |
 | Batch 7 | Innkeeper's Hearth's options are 30/30 before the choice. | their files |
 | Batch 6 | Dalaran Cheese Wheel improves by +2/+2. | its file |

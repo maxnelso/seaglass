@@ -1,0 +1,16 @@
+trinket: Glowing Crystal
+scenarios:
+  - name: one_gold_per_different_type_at_turn_start
+    description: The Menagerie rule (confirmed) - Beast-Pirate, Pirate and Mech cover 3 types; the minion without a type none.
+    tavern: {turn: 5, board: ["1/1 beast_pirate", "1/1 pirate", "1/1 mech", "1/1"], auras: {trinkets: [Glowing Crystal]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {gold: 11}
+
+  - name: a_two_type_minion_counts_once
+    tavern: {turn: 5, board: ["1/1 beast_pirate"], auras: {trinkets: [Glowing Crystal]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {gold: 9}

@@ -12,6 +12,7 @@ mod table;
 mod vocab;
 
 pub mod accord_o_tron_portrait;
+pub mod aggem_sticker;
 pub mod all_purpose_kibble;
 pub mod artisanal_urn;
 pub mod azeroth_model_globe;
@@ -59,6 +60,7 @@ pub mod frigid_blossom;
 pub mod ghastly_sticker;
 pub mod glass_of_perspective;
 pub mod glass_of_perspective_greater;
+pub mod glowing_crystal;
 pub mod goblin_wallet;
 pub mod gold_mallet;
 pub mod gold_mallet_greater;
@@ -76,6 +78,7 @@ pub mod innkeepers_stein;
 pub mod insurrectionists_blade;
 pub mod ironforge_anvil;
 pub mod jar_o_gems;
+pub mod jewelry_box;
 pub mod lava_lamp;
 pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
@@ -87,8 +90,10 @@ pub mod magicians_top_hat;
 pub mod mama_bear_sticker;
 pub mod mask_of_ancient_ones;
 pub mod miniature_ship;
+pub mod multilayered_shield;
 pub mod nerglish_phrasebook;
 pub mod nerglish_phrasebook_greater;
+pub mod nether_pendant;
 pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
 pub mod orc_estra_portrait;
@@ -112,6 +117,7 @@ pub mod shrine_of_evolution;
 pub mod slamma_sticker;
 pub mod spell_powered_wrench;
 pub mod sphere_of_memory;
+pub mod splinter_of_aurum;
 pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
@@ -122,6 +128,7 @@ pub mod training_certificate;
 pub mod transcribing_typewriter;
 pub mod transcribing_typewriter_greater;
 pub mod tricksters_sleeve;
+pub mod trusty_crowbar;
 pub mod upstart_embers;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
@@ -130,6 +137,7 @@ pub mod water_wheel;
 pub mod weighted_gauntlet;
 pub mod wicked_tome;
 pub mod willbreaker_sticker;
+pub mod wolfhead_flail;
 pub mod worn_treasure_map;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
@@ -180,6 +188,7 @@ const IMPLEMENTED: &[Implemented] = &[
         accord_o_tron_portrait::ID,
         accord_o_tron_portrait::behaviors,
     ),
+    (aggem_sticker::ID, aggem_sticker::behaviors),
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (artisanal_urn::ID, artisanal_urn::behaviors),
     (azeroth_model_globe::ID, azeroth_model_globe::behaviors),
@@ -248,6 +257,7 @@ const IMPLEMENTED: &[Implemented] = &[
         glass_of_perspective_greater::ID,
         glass_of_perspective_greater::behaviors,
     ),
+    (glowing_crystal::ID, glowing_crystal::behaviors),
     (goblin_wallet::ID, goblin_wallet::behaviors),
     (gold_mallet::ID, gold_mallet::behaviors),
     (gold_mallet_greater::ID, gold_mallet_greater::behaviors),
@@ -271,6 +281,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (ironforge_anvil::ID, ironforge_anvil::behaviors),
     (jar_o_gems::ID, jar_o_gems::behaviors),
+    (jewelry_box::ID, jewelry_box::behaviors),
     (lava_lamp::ID, lava_lamp::behaviors),
     (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
@@ -282,11 +293,13 @@ const IMPLEMENTED: &[Implemented] = &[
     (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
     (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
+    (multilayered_shield::ID, multilayered_shield::behaviors),
     (nerglish_phrasebook::ID, nerglish_phrasebook::behaviors),
     (
         nerglish_phrasebook_greater::ID,
         nerglish_phrasebook_greater::behaviors,
     ),
+    (nether_pendant::ID, nether_pendant::behaviors),
     (nomi_sticker::ID, nomi_sticker::behaviors),
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
     (orc_estra_portrait::ID, orc_estra_portrait::behaviors),
@@ -316,6 +329,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (spell_powered_wrench::ID, spell_powered_wrench::behaviors),
     (sphere_of_memory::ID, sphere_of_memory::behaviors),
+    (splinter_of_aurum::ID, splinter_of_aurum::behaviors),
     (staff_of_the_scourge::ID, staff_of_the_scourge::behaviors),
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
@@ -332,6 +346,7 @@ const IMPLEMENTED: &[Implemented] = &[
         transcribing_typewriter_greater::behaviors,
     ),
     (tricksters_sleeve::ID, tricksters_sleeve::behaviors),
+    (trusty_crowbar::ID, trusty_crowbar::behaviors),
     (upstart_embers::ID, upstart_embers::behaviors),
     (volumizer_portrait::ID, volumizer_portrait::behaviors),
     (
@@ -343,6 +358,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (wicked_tome::ID, wicked_tome::behaviors),
     (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
+    (wolfhead_flail::ID, wolfhead_flail::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
 ];
 
@@ -744,6 +760,42 @@ pub fn after_spell(state: &mut TavernState, spell: &SpellCast, pool: &mut CardPo
     for id in owned_ids(&state.auras) {
         if let Some(after_spell) = hooks(id).trinket_after_spell {
             after_spell(state, spell, pool, rng);
+        }
+    }
+}
+
+/// A spell is about to be cast: each trinket's `trinket_before_spell` hook.
+pub fn before_spell(state: &mut TavernState) {
+    for id in owned_ids(&state.auras) {
+        if let Some(before_spell) = hooks(id).trinket_before_spell {
+            before_spell(state);
+        }
+    }
+}
+
+/// The hero took damage in the Tavern: each trinket's `trinket_hero_damage` hook.
+pub fn hero_damage(state: &mut TavernState, amount: i32) {
+    for id in owned_ids(&state.auras) {
+        if let Some(hero_damage) = hooks(id).trinket_hero_damage {
+            hero_damage(state, amount);
+        }
+    }
+}
+
+/// A card entered the hand: each trinket's `trinket_card_added` hook.
+pub fn card_added(state: &mut TavernState, card: &Unit) {
+    for id in owned_ids(&state.auras) {
+        if let Some(card_added) = hooks(id).trinket_card_added {
+            card_added(state, card);
+        }
+    }
+}
+
+/// After each Tavern action: each trinket's `trinket_after_action` hook.
+pub fn after_action(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_action) = hooks(id).trinket_after_action {
+            after_action(state, pool, rng);
         }
     }
 }

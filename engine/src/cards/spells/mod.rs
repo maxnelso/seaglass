@@ -852,6 +852,7 @@ pub fn cast_spell_from(
     if source == CastSource::Hand && card_hooks.has(CardFlags::BLOOD_GEM) {
         extra_casts += board_passive(&state.board, Passive::ExtraHandBloodGemCasts);
     }
+    crate::trinkets::before_spell(state);
     extra_casts += crate::trinkets::extra_spell_casts(&mut state.auras);
     let bounty_casts = if card_hooks.has(CardFlags::BOUNTY) {
         board_passive(&state.board, Passive::BountyCasts)

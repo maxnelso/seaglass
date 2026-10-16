@@ -619,6 +619,15 @@ card_hooks! {
     /// A spell is about to be cast in the Tavern: extra casts this trinket adds, using up its
     /// charge: `(trinket)`.
     trinket_extra_spell_casts(on_trinket_extra_spell_casts): fn(&mut TrinketState) -> u32,
+    /// A spell is about to be cast in the Tavern, before its extra casts are counted: `(state)`.
+    trinket_before_spell(on_trinket_before_spell): fn(&mut TavernState),
+    /// The hero took damage in the Tavern (not rewound): `(state, amount)`.
+    trinket_hero_damage(on_trinket_hero_damage): fn(&mut TavernState, i32),
+    /// A card entered the hand (`TavernState::add_to_hand`): `(state, card)`.
+    trinket_card_added(on_trinket_card_added): fn(&mut TavernState, &Unit),
+    /// After each Tavern action (`TavernState::step`), once the waiting cards are delivered:
+    /// `(state, pool, rng)`.
+    trinket_after_action(on_trinket_after_action): TavernEventFn,
 }
 
 impl Default for CardHooks {

@@ -1,0 +1,18 @@
+trinket: Jewelry Box
+scenarios:
+  - name: a_keyword_blood_gem_now_and_each_turn
+    seeds: "1..=3"
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Jewelry Box
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 2, all: {name: Blood Gem, counter: "1..=3"}}}
+
+  - name: played_on_a_quilboar_it_gives_the_keyword
+    seed: 1
+    tavern: {turn: 5, board: ["1/1 quilboar"]}
+    steps:
+      - give_trinket: Jewelry Box
+      - play: {hand: 0, pos: 0}
+    expect: {board: [{all_of: [{attack: 2, health: 2}, {any_of: [{taunt: true}, {divine_shield: true}, {reborn: true}]}]}]}

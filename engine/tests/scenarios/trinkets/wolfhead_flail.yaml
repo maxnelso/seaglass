@@ -1,0 +1,19 @@
+trinket: Wolfhead Flail
+scenarios:
+  - name: the_two_left_most_deathrattles_trigger_at_the_end_of_turn
+    description: >-
+      The first two Boneheads summon two Skeletons each to their right (3 of the 4 Skeletons then
+      form a Triple); the Golden one doesn't trigger.
+    tavern: {board: [Harmless Bonehead, Harmless Bonehead, "golden Harmless Bonehead"], auras: {trinkets: [Wolfhead Flail]}}
+    steps:
+      - end_turn
+    expect:
+      board: [Harmless Bonehead, Skeleton, Harmless Bonehead, "golden Harmless Bonehead"]
+      hand: ["golden Skeleton"]
+
+  - name: nothing_without_a_deathrattle
+    tavern: {board: ["1/1"], auras: {trinkets: [Wolfhead Flail]}}
+    steps:
+      - end_turn
+    expect: {board: ["1/1"]}
+

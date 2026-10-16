@@ -1,0 +1,14 @@
+trinket: Trusty Crowbar
+scenarios:
+  - name: getting_a_pirate_buffs_the_left_most_minion
+    tavern: {gold: 10, board: ["1/1", "1/1"], shop: ["1/1 pirate", "1/1 beast"], auras: {trinkets: [Trusty Crowbar]}}
+    steps:
+      - buy: 0
+      - buy: 0
+    expect: {board: ["17/17", "1/1"]}
+
+  - name: not_a_pirate_played
+    tavern: {board: ["1/1"], hand: ["1/1 pirate"], auras: {trinkets: [Trusty Crowbar]}}
+    steps:
+      - play: 0
+    expect: {board: ["1/1", "1/1"]}

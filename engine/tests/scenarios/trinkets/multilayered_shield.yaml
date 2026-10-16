@@ -1,0 +1,19 @@
+trinket: Multilayered Shield
+scenarios:
+  - name: tavern_spells_give_one_two_per_type_plus_one
+    description: Two types (the Menagerie rule, confirmed) - +3/+6 on a Repair Job (+4/+8).
+    tavern: {turn: 9, board: ["1/1 beast", "1/1 beast_pirate"], hand: [Repair Job]}
+    steps:
+      - give_trinket: Multilayered Shield
+      - expect: {auras: {spell_bonus_atk: 3, spell_bonus_hp: 6}}
+      - play: {hand: 0, pos: 0}
+    expect: {board: {0: "8/15"}}
+
+  - name: it_follows_the_board_at_each_cast
+    tavern: {turn: 9, board: ["1/1 beast"], hand: ["1/1 mech", Repair Job]}
+    steps:
+      - give_trinket: Multilayered Shield
+      - expect: {auras: {spell_bonus_atk: 2, spell_bonus_hp: 4}}
+      - play: 0
+      - play: {hand: 0, pos: 0}
+    expect: {board: {0: "8/15"}, auras: {spell_bonus_atk: 3, spell_bonus_hp: 6}}

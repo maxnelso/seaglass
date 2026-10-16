@@ -2001,6 +2001,32 @@ fn tavern_rally(
     }
 }
 
+/// Trigger the Deathrattles of the living minion `state.board[pos]` during the Tavern Phase (its
+/// card's, then those an effect gave it), as if it died but without removing it: summons go to its
+/// right, and `Passive::ExtraDeathrattles` repeats them (`Wolfhead Flail`).
+pub fn trigger_tavern_deathrattle(
+    state: &mut TavernState,
+    pos: usize,
+    _pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if pos >= state.board.len() {
+        return;
+    }
+    with_distinct_board_ids(state, |state| {
+        let mut next_id = TAVERN_SUMMON_IDS;
+        let unit = state.board[pos].clone();
+        let repeats = 1 + board_passive(&state.board, Passive::ExtraDeathrattles);
+        with_tavern_ctx(state, &mut next_id, rng, |ctx| {
+            ctx.cursor = pos + 1;
+            for _ in 0..repeats {
+                on_deathrattle(&unit, ctx);
+            }
+        });
+    });
+    state.sync_all_auras();
+}
+
 /// Where the attacker and the target of a [`tavern_attack`] are once it resolved (`None`: gone).
 #[derive(Clone, Copy, Debug)]
 pub struct TavernAttack {
