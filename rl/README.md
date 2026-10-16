@@ -41,7 +41,7 @@ At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_
 
 ### 2. Action Space & Legality Mask
 During a Tavern turn, the agent repeatedly takes discrete micro-actions until selecting `EndTurn`.
-- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, and the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
+- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes), and `ChooseTrinket`: see [Trinkets](#trinkets)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
 - The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Discover is pending (the `Triple Reward` card cast, a Discover effect), all actions except `ChooseDiscover` are masked out. A Golden played from the hand gives a `Triple Reward` card (a 0-Gold spell in the hand, `engine/docs/tavern.md` §5.2); its locked-in Discover Tier is the card's `counter` (`seaglass.Unit.counter`), and casting it is a `Play`.
 
 ### 3. Reward Function
@@ -91,6 +91,23 @@ Heroes and their Hero Powers ([`engine/docs/heroes.md`](../engine/docs/heroes.md
 ### Actions
 After the Duos `Pass` actions, the table appends 11 `HeroPower` actions (`HERO_POWER_INDICES`: untargeted, then targets `0..10`), 4 `ChooseHero` actions (`CHOOSE_HERO_INDICES`; 2 heroes are offered by default), 4 extra `HeroPower` target actions (`HERO_POWER_EXTRA_INDICES`: targets `10..14` for `BoardOrShopMinion`), and 15 `HeroPower2` actions (`HERO_POWER_2_INDICES`: untargeted, then targets `0..14`). A player without a hero never lists them as legal.
 
+
+---
+
+## Trinkets
+
+Trinkets ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md)) are optional: a game without trinket offers (the default) is exactly as before.
+
+### Bindings
+- `TavernGame(..., trinkets=False)` and `DuosTavernGame(..., trinkets=False)`: `True` enables the offers, a Lesser one at the start of turn 6 and a Greater one at the start of turn 9 (4 options each; per player in Duos). Only implemented trinkets are offered.
+- `TavernAction.choose_trinket(option_index)` (kind `"choose_trinket"`, args `(option_index, None)`): pick an offered trinket, paying its price in Gold. While trinkets are offered, it is the only legal action (no skipping); an unaffordable option is illegal (if none is affordable, the cheapest ones are free).
+- `trinkets_table()`: `(id, name, greater, cost, implemented)` for each of the 264 trinkets of the pool. Their ids are appended at the end of `all_card_ids()`, so they are in the card vocabulary.
+
+### Observation
+`TavernObservation` and `DuosObservation` have `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their counters), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices: 2 less for an option of a type that isn't the player's most common one). `features.py` appends six features to the `[PLAYER]` vector (`PLAYER_DIM` is 31): whether trinkets are offered, the number owned `/ 2`, and the 4 offered prices `/ 10` (0 for no option); and six card slots after the waiting ones (`NUM_SLOTS` is 37): the 2 owned trinkets (`MAX_TRINKETS`), then the 4 offered ones, each with its id and the present flag.
+
+### Actions
+The table appends 4 `ChooseTrinket` actions last (`CHOOSE_TRINKET_INDICES`). A game without trinket offers never lists them as legal.
 ---
 
 ## Model Architecture (`BattlegroundsActorCritic`)
@@ -123,7 +140,8 @@ rl/
 └── tests/
     ├── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
     ├── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
-    └── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
+    ├── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
+    └── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
 ```
 
 ---

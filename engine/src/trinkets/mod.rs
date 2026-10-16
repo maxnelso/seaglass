@@ -1,0 +1,522 @@
+//! Trinkets (`docs/trinkets.md`).
+//!
+//! The trinket pool is the generated [`TRINKETS`] table (`table.rs`, written by
+//! `tools/gen_trinkets.py` from `CardDefs.xml` and HearthstoneJSON). Each implemented trinket has
+//! its own file (`src/trinkets/<slug>.rs`) whose header names the trinket, its kind, price, types
+//! and text (checked against the table by the tests below), and which defines its [`CardHooks`].
+//! A trinket is a card with hooks (`docs/trinkets.md` §6): the Tavern and Combat engines reach it
+//! only through the functions here, which look its hooks up by its card id (its dbfId); they never
+//! name a trinket.
+
+mod table;
+
+pub use table::{CARD_DEFS_BUILD, TRINKETS};
+
+use crate::cards::{hooks, BoardCtx, CardHooks, HeroCombatCtx};
+use crate::model::{CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, LOBBY_TRIBES};
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
+
+/// A trinket of the pool (`docs/trinkets.md` §2.1): one row of the generated table.
+#[derive(Clone, Copy, Debug)]
+pub struct TrinketData {
+    /// Its dbfId: the trinket's engine `CardId`.
+    pub id: CardId,
+    pub card_id: &'static str,
+    pub name: &'static str,
+    /// A Greater trinket (else Lesser).
+    pub greater: bool,
+    /// Its price in Gold.
+    pub cost: u32,
+    /// The minion types it is associated with (none, one or two).
+    pub tribes: &'static [Tribe],
+    /// Only in Duos.
+    pub duos_only: bool,
+    pub text: &'static str,
+}
+
+/// The turn of the Lesser offer (`docs/trinkets.md` §3.1, confirmed).
+pub const LESSER_TURN: u32 = 6;
+/// The turn of the Greater offer (`docs/trinkets.md` §3.1, confirmed).
+pub const GREATER_TURN: u32 = 9;
+/// Options in an offer (`docs/trinkets.md` §3.2, confirmed).
+pub const OFFER_COUNT: usize = 4;
+/// An option this cheap or cheaper is guaranteed (`docs/trinkets.md` §3.2, confirmed).
+pub const CHEAP_COST: u32 = 2;
+/// What an option of a type that isn't the player's most common one costs less (confirmed).
+pub const OFF_TYPE_DISCOUNT: u32 = 2;
+
+/// An implemented trinket: its id and its cards' hooks.
+type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
+
+/// Every implemented trinket, by file name.
+const IMPLEMENTED: &[Implemented] = &[];
+
+/// The hooks of every implemented trinket's cards, for the card registry.
+pub fn behaviors() -> Vec<(CardId, CardHooks)> {
+    IMPLEMENTED.iter().flat_map(|(_, cards)| cards()).collect()
+}
+
+/// The trinket pool, sorted by name.
+pub fn table() -> &'static [TrinketData] {
+    TRINKETS
+}
+
+/// The trinket `id`.
+pub fn data(id: CardId) -> Option<&'static TrinketData> {
+    TRINKETS.iter().find(|t| t.id == id)
+}
+
+/// The trinket whose card ID is `card_id`.
+pub fn by_card_id(card_id: &str) -> Option<&'static TrinketData> {
+    TRINKETS.iter().find(|t| t.card_id == card_id)
+}
+
+/// `true` if another trinket of the table has `t`'s name (the Lesser and Greater `Eternal
+/// Portrait`).
+fn name_is_shared(t: &TrinketData) -> bool {
+    TRINKETS.iter().any(|o| o.id != t.id && o.name == t.name)
+}
+
+/// The name scenarios and headers use for `t`: its name, with ` (Greater)` for a Greater trinket
+/// that shares its name with another (`docs/trinkets.md` §8.3).
+pub fn display_name(t: &TrinketData) -> String {
+    if t.greater && name_is_shared(t) {
+        format!("{} (Greater)", t.name)
+    } else {
+        t.name.to_string()
+    }
+}
+
+/// The file stem of `t` (`docs/trinkets.md` §9): its name's slug, with `_greater` for a Greater
+/// trinket that shares its name with another.
+pub fn slug(t: &TrinketData) -> String {
+    let base = crate::scenario::slug(t.name);
+    if t.greater && name_is_shared(t) {
+        format!("{base}_greater")
+    } else {
+        base
+    }
+}
+
+/// The trinket named `name` (case-insensitive): its display name, its name (the Lesser one of a
+/// shared name first), its slug, or its card ID.
+pub fn by_name(name: &str) -> Option<&'static TrinketData> {
+    let wanted = name.trim();
+    TRINKETS
+        .iter()
+        .find(|t| display_name(t).eq_ignore_ascii_case(wanted) || slug(t) == wanted)
+        .or_else(|| {
+            TRINKETS
+                .iter()
+                .filter(|t| t.name.eq_ignore_ascii_case(wanted))
+                .min_by_key(|t| t.greater)
+        })
+        .or_else(|| by_card_id(wanted))
+}
+
+/// `true` if the engine implements the trinket `id`.
+pub fn is_implemented(id: CardId) -> bool {
+    IMPLEMENTED.iter().any(|&(t, _)| t == id)
+}
+
+/// The trinkets a game can offer (`docs/trinkets.md` §3.1): the implemented ones, not Naga,
+/// Duos-only ones only in Duos, in table order.
+pub fn offerable(duos: bool) -> impl Iterator<Item = &'static TrinketData> {
+    TRINKETS.iter().filter(move |t| {
+        is_implemented(t.id) && (duos || !t.duos_only) && !t.tribes.contains(&Tribe::Naga)
+    })
+}
+
+/// A fresh state for the trinket `id`.
+pub fn new_state(id: CardId) -> TrinketState {
+    TrinketState {
+        card_id: id,
+        ..TrinketState::default()
+    }
+}
+
+/// `true` if the player owns the trinket `id`.
+pub fn owns(auras: &PlayerAuras, id: CardId) -> bool {
+    auras.trinkets.iter().any(|t| t.card_id == id)
+}
+
+/// The player's state of the trinket `id` (a player never owns two copies of a trinket, so a
+/// trinket's hooks find their state by its id: `docs/trinkets.md` §2.2).
+pub fn state_mut(auras: &mut PlayerAuras, id: CardId) -> Option<&mut TrinketState> {
+    auras.trinkets.iter_mut().find(|t| t.card_id == id)
+}
+
+/// The player's state of the trinket `id`.
+pub fn state(auras: &PlayerAuras, id: CardId) -> Option<&TrinketState> {
+    auras.trinkets.iter().find(|t| t.card_id == id)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Offers
+// ---------------------------------------------------------------------------------------------
+
+/// For each lobby type (`LOBBY_TRIBES` order), the minions on the board and in the hand that have
+/// it (`docs/trinkets.md` §3.2 rule 3): a two-type minion counts for both, an `All` minion for
+/// every type, a spell for none.
+pub fn type_counts(state: &TavernState) -> [u32; LOBBY_TRIBES.len()] {
+    let mut counts = [0; LOBBY_TRIBES.len()];
+    for unit in state
+        .board
+        .iter()
+        .chain(&state.hand)
+        .filter(|u| !u.is_spell)
+    {
+        for (i, &t) in LOBBY_TRIBES.iter().enumerate() {
+            if unit.tribe.has_single(t) {
+                counts[i] += 1;
+            }
+        }
+    }
+    counts
+}
+
+/// How an offer candidate is drawn (`docs/trinkets.md` §3.3 step 2).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum OfferClass {
+    /// No type.
+    Neutral,
+    /// A type that is one of the player's most common types.
+    Main,
+    /// No most common type, but an eligible one: 2 Gold cheaper.
+    Off,
+}
+
+/// The offer candidates of a Lesser (`greater == false`) or Greater offer for the player
+/// (`docs/trinkets.md` §3.3 steps 1-2), in table order: each offerable trinket of that kind they
+/// don't own, its class and its price.
+pub fn candidates(state: &TavernState, greater: bool) -> Vec<(CardId, OfferClass, u32)> {
+    let counts = type_counts(state);
+    let threshold = if greater { 3 } else { 2 };
+    let best = counts.iter().copied().max().unwrap_or(0);
+    let count_of = |t: Tribe| {
+        LOBBY_TRIBES
+            .iter()
+            .position(|&l| l == t)
+            .map_or(0, |i| counts[i])
+    };
+    offerable(state.auras.duos_game)
+        .filter(|t| t.greater == greater && !owns(&state.auras, t.id))
+        .filter_map(|t| {
+            if t.tribes.is_empty() {
+                return Some((t.id, OfferClass::Neutral, t.cost));
+            }
+            let eligible = |&&tribe: &&Tribe| count_of(tribe) >= threshold;
+            if !t.tribes.iter().any(|tribe| eligible(&tribe)) {
+                return None;
+            }
+            if t.tribes.iter().any(|&tribe| count_of(tribe) == best) {
+                Some((t.id, OfferClass::Main, t.cost))
+            } else {
+                Some((
+                    t.id,
+                    OfferClass::Off,
+                    t.cost.saturating_sub(OFF_TYPE_DISCOUNT),
+                ))
+            }
+        })
+        .collect()
+}
+
+/// Draw an offer for the player (`docs/trinkets.md` §3.3): a Neutral option, then a cheap one
+/// if none is yet, then the rest up to [`OFFER_COUNT`] (at most one Off option), each a uniform
+/// `rng.below(k)` over what is left; then a Fisher-Yates shuffle.
+pub fn draw_offer(state: &TavernState, greater: bool, rng: &mut Rng) -> Vec<TrinketOption> {
+    let candidates = candidates(state, greater);
+    let mut drawn: Vec<usize> = Vec::with_capacity(OFFER_COUNT);
+    let mut draw = |drawn: &mut Vec<usize>, keep: &dyn Fn(&(CardId, OfferClass, u32)) -> bool| {
+        let list: Vec<usize> = (0..candidates.len())
+            .filter(|i| !drawn.contains(i) && keep(&candidates[*i]))
+            .collect();
+        if !list.is_empty() {
+            drawn.push(list[rng.below(list.len())]);
+        }
+    };
+    draw(&mut drawn, &|c| c.1 == OfferClass::Neutral);
+    if !drawn.iter().any(|&i| candidates[i].2 <= CHEAP_COST) {
+        draw(&mut drawn, &|c| c.2 <= CHEAP_COST);
+    }
+    while drawn.len() < OFFER_COUNT {
+        let before = drawn.len();
+        let off_drawn = drawn.iter().any(|&i| candidates[i].1 == OfferClass::Off);
+        draw(&mut drawn, &|c| !(off_drawn && c.1 == OfferClass::Off));
+        if drawn.len() == before {
+            break;
+        }
+    }
+    for i in (1..drawn.len()).rev() {
+        let j = rng.below(i + 1);
+        drawn.swap(i, j);
+    }
+    drawn
+        .into_iter()
+        .map(|i| TrinketOption {
+            card_id: candidates[i].0,
+            cost: candidates[i].2,
+        })
+        .collect()
+}
+
+/// The start of turn's offer (`docs/trinkets.md` §3.1): on turn 6 a Lesser one, on turn 9 a
+/// Greater one, for a player with offers enabled. Nothing else happens, and nothing is drawn.
+pub fn offer_at_turn_start(state: &mut TavernState, rng: &mut Rng) {
+    if !state.trinkets_enabled {
+        return;
+    }
+    let greater = match state.turn {
+        LESSER_TURN => false,
+        GREATER_TURN => true,
+        _ => return,
+    };
+    state.trinket_options = draw_offer(state, greater, rng);
+}
+
+/// The Gold the offered option `option_index` costs the player now (`docs/trinkets.md` §4), or
+/// `None` if they can't pick it: its price if they have it; if no option is affordable, nothing
+/// for the cheapest ones.
+pub fn option_price(state: &TavernState, option_index: usize) -> Option<u32> {
+    let option = state.trinket_options.get(option_index)?;
+    if state.gold >= option.cost {
+        return Some(option.cost);
+    }
+    let affordable = state.trinket_options.iter().any(|o| state.gold >= o.cost);
+    let cheapest = state.trinket_options.iter().map(|o| o.cost).min();
+    (!affordable && cheapest == Some(option.cost)).then_some(0)
+}
+
+/// Pick the offered option `option_index` (legal, `docs/trinkets.md` §4): the offer clears, the
+/// price is paid (Gold spent), then the trinket joins and its `trinket_bought` text resolves.
+pub fn choose(state: &mut TavernState, option_index: usize, pool: &mut CardPool, rng: &mut Rng) {
+    let Some(price) = option_price(state, option_index) else {
+        return;
+    };
+    let id = state.trinket_options[option_index].card_id;
+    state.trinket_options.clear();
+    state.spend_gold(price, pool, rng);
+    give(state, id, pool, rng);
+}
+
+/// Give the player the trinket `id` (`docs/trinkets.md` §4): it joins their trinkets and its
+/// `trinket_bought` hook resolves. No price, no offer.
+pub fn give(state: &mut TavernState, id: CardId, pool: &mut CardPool, rng: &mut Rng) {
+    state.auras.trinkets.push(new_state(id));
+    if let Some(bought) = hooks(id).trinket_bought {
+        bought(state, pool, rng);
+    }
+    state.sync_all_auras();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Dispatch: the player's trinkets' hooks, in the order they were picked
+// ---------------------------------------------------------------------------------------------
+
+/// The ids of the player's trinkets, in the order they were picked (a snapshot: a hook may change
+/// the list).
+fn owned_ids(auras: &PlayerAuras) -> Vec<CardId> {
+    auras.trinkets.iter().map(|t| t.card_id).collect()
+}
+
+/// `true` if one of the player's trinkets acts at Start of Combat (`docs/trinkets.md` §7.2).
+pub fn has_start_of_combat(auras: &PlayerAuras) -> bool {
+    auras
+        .trinkets
+        .iter()
+        .any(|t| hooks(t.card_id).trinket_start_of_combat.is_some())
+}
+
+/// The `trinket_start_of_combat` hooks of the player's trinkets, in pick order: the engine runs
+/// each with its own context, then the damage, destroys and deaths it caused
+/// (`docs/trinkets.md` §7.2).
+pub fn start_of_combat_hooks(auras: &PlayerAuras) -> Vec<fn(&mut HeroCombatCtx<'_>)> {
+    auras
+        .trinkets
+        .iter()
+        .filter_map(|t| hooks(t.card_id).trinket_start_of_combat)
+        .collect()
+}
+
+/// Start of turn, after the Hero Power's: each trinket's `trinket_turn_start` hook.
+pub fn on_turn_start(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(turn_start) = hooks(id).trinket_turn_start {
+            turn_start(state, pool, rng);
+        }
+    }
+}
+
+/// The player's Deity awakened in combat at `ctx.board[idx]`: each trinket's
+/// `trinket_deity_awakened` hook.
+pub fn on_deity_awakened(ctx: &mut BoardCtx<'_>, idx: usize) {
+    for id in owned_ids(ctx.auras) {
+        if let Some(awakened) = hooks(id).trinket_deity_awakened {
+            awakened(ctx, idx);
+        }
+    }
+}
+
+/// The most cards a hand holds (`tavern.md` §2).
+pub const MAX_HAND_SIZE: usize = 10;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Unit;
+    use std::fs;
+    use std::path::Path;
+
+    /// `(file stem, source)` of every trinket file.
+    fn trinket_files() -> Vec<(String, String)> {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/trinkets");
+        let mut files: Vec<(String, String)> = fs::read_dir(&dir)
+            .expect("src/trinkets")
+            .map(|e| e.expect("entry").path())
+            .filter(|p| p.extension().is_some_and(|e| e == "rs"))
+            .map(|p| {
+                let stem = p.file_stem().unwrap().to_string_lossy().into_owned();
+                (stem, fs::read_to_string(&p).expect("readable"))
+            })
+            .filter(|(stem, _)| stem != "mod" && stem != "table")
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The header a trinket file must start with (`docs/trinkets.md` §9).
+    fn expected_header(t: &TrinketData) -> String {
+        let kind = if t.greater { "Greater" } else { "Lesser" };
+        let mut tribes: Vec<&str> = t.tribes.iter().map(|&x| tribe_name(x)).collect();
+        if t.duos_only {
+            tribes.push("Duos only");
+        }
+        let extra = if tribes.is_empty() {
+            String::new()
+        } else {
+            format!(", {}", tribes.join(", "))
+        };
+        format!(
+            "//! `{}` (`{}`) — {kind}, {} Gold{extra}.\n//!\n//! {}\n",
+            display_name(t),
+            t.card_id,
+            t.cost,
+            t.text
+        )
+    }
+
+    fn tribe_name(t: Tribe) -> &'static str {
+        match t {
+            Tribe::Aberration => "Aberration",
+            Tribe::Beast => "Beast",
+            Tribe::Demon => "Demon",
+            Tribe::Dragon => "Dragon",
+            Tribe::Elemental => "Elemental",
+            Tribe::Mech => "Mech",
+            Tribe::Murloc => "Murloc",
+            Tribe::Pirate => "Pirate",
+            Tribe::Quilboar => "Quilboar",
+            Tribe::Undead => "Undead",
+            Tribe::Naga => "Naga",
+            _ => "?",
+        }
+    }
+
+    /// The value of `pub const <name>: <ty> = <value>;` in `src`.
+    fn constant(src: &str, name: &str) -> Option<u32> {
+        let line = src
+            .lines()
+            .find(|l| l.starts_with(&format!("pub const {name}: ")))?;
+        line.split('=')
+            .nth(1)?
+            .trim()
+            .trim_end_matches(';')
+            .replace('_', "")
+            .parse()
+            .ok()
+    }
+
+    #[test]
+    fn every_trinket_file_matches_the_table() {
+        let files = trinket_files();
+        assert_eq!(
+            files.len(),
+            IMPLEMENTED.len(),
+            "every trinket file is in IMPLEMENTED"
+        );
+        let scenarios = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/scenarios/trinkets");
+        for (stem, src) in &files {
+            let id = constant(src, "ID").unwrap_or_else(|| panic!("{stem}.rs: no `pub const ID`"));
+            let t = data(id).unwrap_or_else(|| panic!("{stem}.rs: ID {id} is not in the table"));
+            assert_eq!(slug(t), *stem, "{stem}.rs: file name is the trinket's slug");
+            let header = expected_header(t);
+            assert!(
+                src.starts_with(&header),
+                "{stem}.rs: the header doesn't match the table; expected:\n{header}"
+            );
+            assert!(is_implemented(id), "{stem}.rs: not in IMPLEMENTED");
+            assert!(
+                behaviors().iter().any(|&(card, _)| card == id),
+                "{stem}.rs: the trinket has no hooks"
+            );
+            let scenario = fs::read_to_string(scenarios.join(format!("{stem}.yaml")))
+                .unwrap_or_else(|_| panic!("{stem}.rs: no tests/scenarios/trinkets/{stem}.yaml"));
+            assert!(
+                scenario.starts_with(&format!("trinket: {}\n", display_name(t))),
+                "{stem}.yaml: starts with `trinket: {}`",
+                display_name(t)
+            );
+        }
+    }
+
+    #[test]
+    fn the_table_has_the_whole_pool() {
+        assert_eq!(TRINKETS.len(), 264);
+        assert_eq!(TRINKETS.iter().filter(|t| !t.greater).count(), 127);
+        let naga = |t: &&TrinketData| t.tribes.contains(&Tribe::Naga);
+        assert_eq!(TRINKETS.iter().filter(naga).count(), 18);
+        assert_eq!(TRINKETS.iter().filter(|t| t.duos_only).count(), 9);
+        let solo = TRINKETS
+            .iter()
+            .filter(|t| !naga(t) && !t.duos_only)
+            .collect::<Vec<_>>();
+        assert_eq!(solo.len(), 237);
+        assert_eq!(solo.iter().filter(|t| !t.greater).count(), 115);
+        for t in TRINKETS {
+            assert!(t.id > 11_000, "{}: trinket ids don't collide", t.name);
+            assert!(crate::heroes::table().iter().all(|h| h.power.id != t.id));
+        }
+        let lesser = by_name("Eternal Portrait").expect("Eternal Portrait");
+        let greater = by_name("Eternal Portrait (Greater)").expect("the Greater one");
+        assert!(!lesser.greater && greater.greater);
+        assert_eq!(slug(greater), "eternal_portrait_greater");
+        assert_eq!(
+            by_card_id("BG30_MagicItem_902").map(|t| t.name),
+            Some("Holy Mallet")
+        );
+    }
+
+    fn minion(tribe: Tribe) -> Unit {
+        let mut u = Unit::new("m", 1, 1);
+        u.tribe = tribe;
+        u
+    }
+
+    #[test]
+    fn type_counts_count_two_types_and_all() {
+        let mut state = TavernState::new();
+        state.board = vec![minion(Tribe::BeastPirate), minion(Tribe::All)];
+        state.hand = vec![minion(Tribe::Beast)];
+        let mut spell = minion(Tribe::Beast);
+        spell.is_spell = true;
+        state.hand.push(spell);
+        let counts = type_counts(&state);
+        let at = |t: Tribe| counts[LOBBY_TRIBES.iter().position(|&l| l == t).unwrap()];
+        assert_eq!(
+            (at(Tribe::Beast), at(Tribe::Pirate), at(Tribe::Undead)),
+            (3, 2, 1)
+        );
+    }
+}

@@ -1,0 +1,53 @@
+"""Trinkets through the Rust<->Python seam (`engine/docs/trinkets.md` §8.2)."""
+
+from __future__ import annotations
+
+import numpy as np
+import seaglass
+
+from seaglass_rl import NUM_SLOTS, PLAYER_DIM, encode_observation
+from seaglass_rl.actions import (
+    ACTION_SPACE_SIZE,
+    CHOOSE_TRINKET_INDICES,
+    action_mask,
+    index_from_action,
+)
+
+
+def test_trinket_actions_are_appended_last() -> None:
+    n = len(CHOOSE_TRINKET_INDICES)
+    assert CHOOSE_TRINKET_INDICES == list(range(ACTION_SPACE_SIZE - n, ACTION_SPACE_SIZE))
+    act = seaglass.TavernAction.choose_trinket(2)
+    assert act.kind == "choose_trinket" and act.args == (2, None)
+    assert index_from_action(act) == CHOOSE_TRINKET_INDICES[2]
+
+
+def test_the_trinket_table_has_the_pool() -> None:
+    table = seaglass.trinkets_table()
+    assert len(table) == 264
+    assert sum(1 for (_, _, greater, _, _) in table if not greater) == 127
+    ids = set(seaglass.all_card_ids())
+    assert all(tid in ids for (tid, *_rest) in table)
+
+
+def _play_to_turn(game: seaglass.TavernGame, turn: int) -> None:
+    """End turns (without combat) until `turn` has started, taking any forced pick."""
+    game.start_turn()
+    while game.observe().turn < turn:
+        while game.observe().trinket_options:
+            game.step(seaglass.TavernAction.choose_trinket(0))
+        game.end_turn()
+        game.start_turn()
+
+
+def test_a_game_without_trinkets_is_unchanged() -> None:
+    game = seaglass.TavernGame(seed=7)
+    _play_to_turn(game, 9)
+    obs = game.observe()
+    assert obs.trinkets == [] and obs.trinket_options == [] and obs.trinket_option_costs == []
+    assert all(a.kind != "choose_trinket" for a in game.legal_actions())
+    mask = action_mask(game, allow_reposition=True, allow_freeze=True)
+    assert not np.any(mask[CHOOSE_TRINKET_INDICES])
+    player_vec, slot_card_ids, _ = encode_observation(obs)
+    assert player_vec.shape == (PLAYER_DIM,) and slot_card_ids.shape == (NUM_SLOTS,)
+    assert not np.any(player_vec[-6:]) and not np.any(slot_card_ids[-6:])

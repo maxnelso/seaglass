@@ -445,6 +445,15 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
                 .map_or("?", |h| h.name);
             format!("Choose hero {hero}")
         }
+        TavernAction::ChooseTrinket { option_index } => {
+            match state.trinket_options.get(option_index) {
+                Some(o) => {
+                    let name = seaglass::trinkets::data(o.card_id).map_or("?", |t| t.name);
+                    format!("Choose trinket {name} for {}g", o.cost)
+                }
+                None => format!("Choose trinket {option_index}"),
+            }
+        }
     }
 }
 

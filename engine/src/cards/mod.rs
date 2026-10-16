@@ -1726,11 +1726,12 @@ pub fn has_start_of_combat(unit: &Unit) -> bool {
     card.start_of_combat.is_some() || card.start_of_combat_action.is_some()
 }
 
-/// `true` if the player has a Start-of-Combat effect of their own: a Hero Power that acts at Start
-/// of Combat (`hero_start_of_combat`), a player effect that acts at Start of Combat (`player_start_of_combat`, `player_combat_space`) or a hand card that
+/// `true` if the player has a Start-of-Combat effect of their own: a Hero Power or a trinket that
+/// acts at Start of Combat (`hero_start_of_combat`, `trinket_start_of_combat`), a player effect that acts at Start of Combat (`player_start_of_combat`, `player_combat_space`) or a hand card that
 /// summons copies (`combat_copies_from_hand`).
 pub fn has_player_start_of_combat(hand: &[Unit], auras: &PlayerAuras) -> bool {
     crate::heroes::has_start_of_combat(auras)
+        || crate::trinkets::has_start_of_combat(auras)
         || effects::has_start_of_combat(auras)
         || hand.iter().any(|card| combat_copies_from_hand(card) > 0)
 }
@@ -1755,11 +1756,13 @@ pub fn start_of_combat_action(unit: &Unit) -> Option<SocAction> {
     hooks(unit.card_id).start_of_combat_action.map(|f| f(unit))
 }
 
-/// Resolve the `awaken` hook of the Deity that just awakened at `ctx.board[idx]`.
+/// Resolve the `awaken` hook of the Deity that just awakened at `ctx.board[idx]`, then the
+/// player's trinkets' `trinket_deity_awakened` hooks.
 pub fn on_awaken(ctx: &mut BoardCtx<'_>, idx: usize) {
     if let Some(awaken) = hooks(ctx.board[idx].card_id).awaken {
         awaken(ctx, idx);
     }
+    crate::trinkets::on_deity_awakened(ctx, idx);
 }
 
 /// Resolve a minion's On-Attack (`Rally`) hook. `def_target` is the defending board and the

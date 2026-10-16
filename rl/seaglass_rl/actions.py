@@ -10,6 +10,7 @@ MAX_HAND = 10
 MAX_SHOP = 7
 MAX_DISCOVER = 4
 MAX_HERO_OPTIONS = 4
+MAX_TRINKET_OPTIONS = 4
 
 
 def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, int | None, int | None], int]]:
@@ -90,6 +91,11 @@ def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, 
     for t_pos in range(MAX_BOARD + MAX_SHOP):
         register(seaglass.TavernAction.hero_power_2(t_pos))
 
+    # 14. Pick an offered trinket: option_index in 0..4 (`engine/docs/trinkets.md` §4). Last; a
+    #     game without trinket offers never lists them as legal.
+    for opt_idx in range(MAX_TRINKET_OPTIONS):
+        register(seaglass.TavernAction.choose_trinket(opt_idx))
+
     return actions, lookup
 
 
@@ -106,6 +112,9 @@ HERO_POWER_EXTRA_INDICES = [
 ]
 HERO_POWER_2_INDICES = [ACTION_TO_INDEX[("hero_power_2", None, None)]] + [
     ACTION_TO_INDEX[("hero_power_2", t_pos, None)] for t_pos in range(MAX_BOARD + MAX_SHOP)
+]
+CHOOSE_TRINKET_INDICES = [
+    ACTION_TO_INDEX[("choose_trinket", i, None)] for i in range(MAX_TRINKET_OPTIONS)
 ]
 
 

@@ -21,6 +21,8 @@
 //!   reaches the teammate (`teammate_gift`, `teammate_combat_gift`; `docs/duos_tavern.md` §7).
 //! - **Hero Power hooks** fire for the player whose hero has the Hero Power: a Hero Power is a
 //!   card with hooks (`hero_power`, `hero_start_of_combat`, ...; `docs/heroes.md` §4).
+//! - **Trinket hooks** fire for the player who owns the trinket: a trinket is a card with hooks
+//!   (`trinket_bought`, `trinket_start_of_combat`, ...; `docs/trinkets.md` §6).
 
 use crate::cards::{
     ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, HeroCombatCtx, RallyCtx,
@@ -549,6 +551,17 @@ card_hooks! {
     /// Whether the player skips the current turn (only `EndTurn` and `ChooseDiscover` are
     /// legal): `(state)`.
     hero_skips_turn(on_hero_skips_turn): fn(&TavernState) -> bool,
+
+    // ---- Trinkets (fire for the player who owns this trinket, in the order the trinkets were
+    // picked; `docs/trinkets.md` §6) -----------------------------------------------------------
+    /// The player gets this trinket (its "Get a ..." text): `(state, pool, rng)`.
+    trinket_bought(on_trinket_bought): TavernEventFn,
+    /// Start of Combat, after both sides' Hero Powers (`docs/trinkets.md` §7.2): `(ctx)`.
+    trinket_start_of_combat(on_trinket_start_of_combat): fn(&mut HeroCombatCtx<'_>),
+    /// Start of turn, after the Hero Power's `hero_turn_start`: `(state, pool, rng)`.
+    trinket_turn_start(on_trinket_turn_start): TavernEventFn,
+    /// The player's Deity awakened in combat, after its own `awaken` hook: `(ctx, deity_idx)`.
+    trinket_deity_awakened(on_trinket_deity_awakened): CombatFn,
 }
 
 impl Default for CardHooks {

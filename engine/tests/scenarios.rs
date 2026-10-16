@@ -4,7 +4,8 @@
 //! (`cargo test --test scenarios -- tavern::joyous::`). Scenarios marked `known_bug` must
 //! fail with a mismatch; they are listed after the run. Two more tests check the card data:
 //! `catalog` (against `tests/scenarios/catalog.yaml`) and `coverage` (every card source file
-//! has a scenario file in `combat/` or `tavern/`, every hero file one in `heroes/`).
+//! has a scenario file in `combat/` or `tavern/`, every hero file one in `heroes/`, every trinket
+//! file one in `trinkets/`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -504,6 +505,9 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
                 Ok(Header::Hero(_)) => {
                     errors.push(format!("{file}: hero scenarios belong in heroes/"));
                 }
+                Ok(Header::Trinket(_)) => {
+                    errors.push(format!("{file}: trinket scenarios belong in trinkets/"));
+                }
                 Err(e) => errors.push(format!("{file}: {e}")),
             }
         }
@@ -535,7 +539,32 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
         }
     }
 
-    let known = ["combat", "tavern", "heroes", "catalog.yaml"];
+    // Every trinket file has its scenario file, `trinkets/<trinket>.yaml`, starting with
+    // `trinket:` (`docs/trinkets.md` §9).
+    let mut trinkets = stems(&src.join("../trinkets"), "rs");
+    trinkets.remove("mod");
+    trinkets.remove("table");
+    let trinket_files = stems(&root.join("trinkets"), "yaml");
+    for stem in &trinkets {
+        if !trinket_files.contains(stem) {
+            errors.push(format!(
+                "trinkets/{stem}.yaml is missing (for src/trinkets/{stem}.rs)"
+            ));
+        }
+    }
+    for stem in &trinket_files {
+        let file = format!("trinkets/{stem}.yaml");
+        match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
+            Ok(Header::Trinket(_)) if trinkets.contains(stem) => {}
+            Ok(Header::Trinket(name)) => errors.push(format!(
+                "{file} is about {name}: there is no src/trinkets/{stem}.rs"
+            )),
+            Ok(_) => errors.push(format!("{file} must start with `trinket:`")),
+            Err(e) => errors.push(format!("{file}: {e}")),
+        }
+    }
+
+    let known = ["combat", "tavern", "heroes", "trinkets", "catalog.yaml"];
     for entry in fs::read_dir(root).map_err(|e| e.to_string())? {
         let name = entry
             .map_err(|e| e.to_string())?

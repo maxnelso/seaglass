@@ -5,9 +5,10 @@ use crate::combat::{resolve_battle, BattleResult};
 use crate::heroes;
 use crate::model::{
     BattleOutcome, CardId, CombatResult, GameState, HeroId, HeroState, LobbyView, PlayerAuras,
-    Side, TeammateGift, Tribe, Unit, HAT_CARD,
+    Side, TeammateGift, Tribe, TrinketOption, Unit, HAT_CARD,
 };
 use crate::rng::Rng;
+use crate::trinkets;
 
 /// Maximum number of minions allowed on a player's board.
 pub const MAX_BOARD_SIZE: usize = 7;
@@ -493,6 +494,10 @@ pub enum TavernAction {
     HeroPower2 {
         target: Option<usize>,
     },
+    /// Pick the offered trinket `trinket_options[option_index]` (`docs/trinkets.md` §4).
+    ChooseTrinket {
+        option_index: usize,
+    },
 }
 
 /// Complete state of a player during the Tavern Phase (`docs/tavern.md` §3).
@@ -559,6 +564,17 @@ pub struct TavernState {
     /// §3.1).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lobby_gifts: Vec<Unit>,
+    /// The player is offered trinkets on turns 6 and 9 (`docs/trinkets.md` §3.1). Off by default.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub trinkets_enabled: bool,
+    /// The trinkets offered to the player (`docs/trinkets.md` §3.3): while there are any, the only
+    /// legal action is `ChooseTrinket`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trinket_options: Vec<TrinketOption>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl Default for TavernState {
@@ -604,6 +620,8 @@ impl TavernState {
             waiting_for_hand: Vec::new(),
             lobby: LobbyView::default(),
             lobby_gifts: Vec::new(),
+            trinkets_enabled: false,
+            trinket_options: Vec::new(),
         }
     }
 
@@ -663,6 +681,17 @@ impl TavernState {
     /// Offer the player the heroes `options` to choose from (`docs/heroes.md` §6).
     pub fn offer_heroes(&mut self, options: Vec<HeroId>) {
         self.hero_options = options;
+    }
+
+    /// Give the player the trinket `id` (`docs/trinkets.md` §4): it joins their trinkets and its
+    /// `trinket_bought` text resolves, for no Gold and without an offer.
+    pub fn give_trinket(&mut self, id: CardId, pool: &mut CardPool, rng: &mut Rng) {
+        trinkets::give(self, id, pool, rng);
+    }
+
+    /// Offer the player the trinkets `options` to pick from (`docs/trinkets.md` §3).
+    pub fn offer_trinkets(&mut self, options: Vec<TrinketOption>) {
+        self.trinket_options = options;
     }
 
     /// Enable or disable automatic rolling of 1 Tavern Spell into `shop` on `start_turn` / `Refresh`.
@@ -1227,7 +1256,9 @@ impl TavernState {
     /// (`docs/tavern.md` §7.4).
     fn discard_temporary_cards(&mut self) {
         self.hand.retain(|card| !cards::is_temporary(card));
-        self.waiting_for_hand.clear();
+        // A trinket's card keeps waiting (`docs/trinkets.md` §5).
+        self.waiting_for_hand
+            .retain(|card| !cards::is_temporary(card));
     }
 
     /// Sell the minion at `board[board_pos]` (`docs/tavern.md` §7.3): the one path of every sale
@@ -1503,9 +1534,11 @@ impl TavernState {
             cards::after_shop_refresh(self, rng);
         }
         heroes::on_turn_start(self, pool, rng);
+        trinkets::on_turn_start(self, pool, rng);
         cards::on_start_turn_spellcrafts(self);
         self.sync_all_auras();
         self.resolve_triples();
+        trinkets::offer_at_turn_start(self, rng);
     }
 
     /// Build the player's board snapshot for Combat (including Start-of-Combat hand summons).
@@ -1710,6 +1743,14 @@ impl TavernState {
                 TavernAction::ChooseHero { option_index } if *option_index < self.hero_options.len()
             );
         }
+        // A trinket offer: only the pick (`docs/trinkets.md` §4).
+        if !self.trinket_options.is_empty() {
+            return matches!(
+                action,
+                TavernAction::ChooseTrinket { option_index }
+                    if trinkets::option_price(self, *option_index).is_some()
+            );
+        }
         if let Some(ref opts) = self.discover_pending {
             return matches!(
                 action,
@@ -1863,6 +1904,7 @@ impl TavernState {
             TavernAction::HeroPower { target } => heroes::can_use(self, target),
             TavernAction::ChooseHero { .. } => false,
             TavernAction::HeroPower2 { target } => heroes::can_use_2(self, target),
+            TavernAction::ChooseTrinket { .. } => false,
         }
     }
 
@@ -1872,6 +1914,12 @@ impl TavernState {
         if !self.hero_options.is_empty() {
             return (0..self.hero_options.len())
                 .map(|option_index| TavernAction::ChooseHero { option_index })
+                .collect();
+        }
+        if !self.trinket_options.is_empty() {
+            return (0..self.trinket_options.len())
+                .filter(|&i| trinkets::option_price(self, i).is_some())
+                .map(|option_index| TavernAction::ChooseTrinket { option_index })
                 .collect();
         }
         if let Some(ref opts) = self.discover_pending {
@@ -2301,6 +2349,10 @@ impl TavernState {
             }
             TavernAction::HeroPower2 { target } => {
                 heroes::use_power_2(self, target, pool, rng);
+                Ok(false)
+            }
+            TavernAction::ChooseTrinket { option_index } => {
+                trinkets::choose(self, option_index, pool, rng);
                 Ok(false)
             }
         }

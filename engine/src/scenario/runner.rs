@@ -12,7 +12,7 @@ use serde_yaml::Value;
 use crate::cards::{self, ActivateTargetKind, CardTemplate};
 use crate::combat::{BattleResult, DuosResult};
 use crate::duos_tavern::DuosTavern;
-use crate::model::{GameState, Unit};
+use crate::model::{GameState, TrinketOption, Unit};
 use crate::rng::Rng;
 use crate::sim::{self, BattleDistribution};
 use crate::tavern::{CardPool, TavernAction, TavernState};
@@ -273,6 +273,33 @@ fn tavern_action(
                 captures,
             )?,
         },
+        Action::ChooseTrinket(i) => TavernAction::ChooseTrinket {
+            option_index: match i {
+                Index::At(n) => {
+                    let len = state.trinket_options.len() as i64;
+                    let n = if *n < 0 { len + n } else { *n };
+                    usize::try_from(n).map_err(|_| {
+                        Failure::Mismatch(format!("trinket_options[{n}]: {len} trinket(s) offered"))
+                    })?
+                }
+                Index::Find(Value::String(name)) => {
+                    let id = super::spec::trinket_id(name).map_err(Failure::Invalid)?;
+                    state
+                        .trinket_options
+                        .iter()
+                        .position(|o| o.card_id == id)
+                        .ok_or_else(|| {
+                            Failure::Mismatch(format!("{name} is not among the trinket options"))
+                        })?
+                }
+                Index::Find(other) => {
+                    return Err(Failure::Invalid(format!(
+                        "`choose_trinket` takes an index or a trinket name, got {}",
+                        show(other)
+                    )))
+                }
+            },
+        },
         Action::ChooseHero(i) => TavernAction::ChooseHero {
             option_index: match i {
                 Index::At(n) => {
@@ -309,6 +336,7 @@ fn tavern_action(
 fn tavern_step(
     state: &mut TavernState,
     pool: &mut CardPool,
+    rng: &mut Rng,
     catalog: &[CardTemplate],
     kind: &StepKind,
     captures: &Captures,
@@ -340,6 +368,19 @@ fn tavern_step(
         StepKind::TakeFromPool(ids) => take_from_pool(catalog, pool, ids)?,
         StepKind::SetHero(id) => state.set_hero(*id).map_err(Failure::Invalid)?,
         StepKind::OfferHeroes(ids) => state.offer_heroes(ids.clone()),
+        StepKind::GiveTrinket(id) => state.give_trinket(*id, pool, rng),
+        StepKind::OfferTrinkets(ids) => state.offer_trinkets(
+            ids.iter()
+                .map(|&card_id| TrinketOption {
+                    card_id,
+                    cost: crate::trinkets::data(card_id).map_or(0, |t| t.cost),
+                })
+                .collect(),
+        ),
+        StepKind::DrawTrinketOffer(greater) => {
+            let options = crate::trinkets::draw_offer(state, *greater, rng);
+            state.offer_trinkets(options);
+        }
         StepKind::PlayBloodGems(z, index, count) => {
             let i = position(zone(state, *z), index, z.name(), captures)?;
             let auras = state.auras.clone();
@@ -588,7 +629,8 @@ impl World {
             StepKind::If { .. } | StepKind::Repeat { .. } => unreachable!("handled by steps()"),
             other => {
                 let t = tavern_mut(&mut self.tavern)?;
-                if !tavern_step(&mut t.state, &mut t.pool, &t.catalog, other, &self.captures)? {
+                let (state, pool, rng) = (&mut t.state, &mut t.pool, &mut t.rng);
+                if !tavern_step(state, pool, rng, &t.catalog, other, &self.captures)? {
                     return Err(Failure::Invalid(
                         "this step needs a Duos team (a `duos_tavern:` scenario)".to_string(),
                     ));
@@ -648,7 +690,8 @@ impl World {
             other => {
                 let p = for_player()?;
                 let state = &mut team.state.players[p];
-                if !tavern_step(state, &mut team.pool, &team.catalog, other, &self.captures)? {
+                let (pool, rng) = (&mut team.pool, &mut team.rng);
+                if !tavern_step(state, pool, rng, &team.catalog, other, &self.captures)? {
                     return Err(Failure::Invalid(
                         "this step is not valid in a `duos_tavern:` scenario".to_string(),
                     ));

@@ -11,8 +11,9 @@
 //! `board: {0: "Joyous 5/5"}`). A [`PlayerAuras`](crate::model::PlayerAuras) patch also takes
 //! `counters: {<card>: [a, b] | n | null}` (its `card_counters`, keyed by card name) and effects
 //! given as `{card: <name>, stacks: n, duration: ...}` (`stacks` defaults to 1, `duration` to
-//! `Game`), and `hero: <name>` (a fresh hero, `docs/heroes.md` §2.2; `{hero: <name>, power: {...}}`
-//! patches its fields). Enum variants with data are written as in the view: `duration: {Refreshes:
+//! `Game`), `hero: <name>` (a fresh hero, `docs/heroes.md` §2.2; `{hero: <name>, power: {...}}`
+//! patches its fields), and `trinkets: [<name>, {trinket: <name>, counter: n}]` (fresh trinkets,
+//! `docs/trinkets.md` §8.3). Enum variants with data are written as in the view: `duration: {Refreshes:
 //! 3}`.
 
 use serde::de::DeserializeOwned;
@@ -139,6 +140,12 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
                 fields.insert(Value::from(name), Value::Sequence(Vec::new()));
             }
         }
+        if !fields.contains_key("trinkets_enabled") {
+            fields.insert(Value::from("trinkets_enabled"), Value::Bool(false));
+        }
+        if !fields.contains_key("trinket_options") {
+            fields.insert(Value::from("trinket_options"), Value::Sequence(Vec::new()));
+        }
         if !fields.contains_key("lobby") {
             let lobby = serde_yaml::to_value(crate::model::LobbyView::default())
                 .map_err(|e| e.to_string())?;
@@ -148,6 +155,14 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
     // A Hero Power's kept cards, left out while there are none.
     if fields.contains_key("uses_left")
         && fields.contains_key("armed")
+        && !fields.contains_key("stored")
+    {
+        fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
+    }
+    // A trinket's kept cards, left out while there are none.
+    if fields.contains_key("stacks")
+        && fields.contains_key("armed")
+        && !fields.contains_key("uses_left")
         && !fields.contains_key("stored")
     {
         fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
@@ -173,6 +188,10 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
         }
         if is_auras && name == "hero" {
             set_hero(fields, change, &field_path)?;
+            continue;
+        }
+        if is_auras && name == "trinkets" {
+            set_trinkets(fields, change, &field_path)?;
             continue;
         }
         if open && change.is_null() {
@@ -348,6 +367,47 @@ fn set_hero(fields: &mut Mapping, change: &Value, path: &str) -> Result<(), Stri
         merge(&mut value, &rest, path)?;
     }
     fields.insert("hero".into(), value);
+    Ok(())
+}
+
+/// `trinkets: [<name> | {trinket: <name>, <field>: ...}]`: the player's trinkets
+/// (`docs/trinkets.md` §8.3), fresh (`trinkets::new_state`), with a mapping's other keys patching
+/// their fields (`counter: 3`). The list replaces the player's trinkets.
+fn set_trinkets(fields: &mut Mapping, change: &Value, path: &str) -> Result<(), String> {
+    let items = match change {
+        Value::Null => Vec::new(),
+        Value::Sequence(items) => items.clone(),
+        other => vec![other.clone()],
+    };
+    let mut trinkets = Vec::new();
+    for (i, item) in items.iter().enumerate() {
+        let item_path = format!("{path}[{i}]");
+        let (name, rest) = match item {
+            Value::String(name) => (name.as_str(), None),
+            Value::Mapping(m) => match m.get("trinket").and_then(Value::as_str) {
+                Some(name) => {
+                    let mut rest = m.clone();
+                    rest.remove("trinket");
+                    (name, Some(Value::Mapping(rest)))
+                }
+                None => return Err(format!("`{item_path}`: expected {{trinket: <name>, ...}}")),
+            },
+            other => {
+                return Err(format!(
+                    "`{item_path}`: expected a trinket name or {{trinket: <name>, ...}}, got {}",
+                    show(other)
+                ))
+            }
+        };
+        let id = super::spec::trinket_id(name).map_err(|e| format!("`{item_path}`: {e}"))?;
+        let mut value =
+            serde_yaml::to_value(crate::trinkets::new_state(id)).map_err(|e| e.to_string())?;
+        if let Some(rest) = rest {
+            merge(&mut value, &rest, &item_path)?;
+        }
+        trinkets.push(value);
+    }
+    fields.insert("trinkets".into(), Value::Sequence(trinkets));
     Ok(())
 }
 

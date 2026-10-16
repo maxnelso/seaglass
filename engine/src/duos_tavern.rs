@@ -132,6 +132,14 @@ impl DuosTavern {
         self
     }
 
+    /// Enable or disable trinket offers for both players (`docs/trinkets.md` §8.1).
+    pub fn with_trinkets(mut self, enabled: bool) -> Self {
+        for state in &mut self.players {
+            state.trinkets_enabled = enabled;
+        }
+        self
+    }
+
     /// Set the chance that the first fighter switches each turn (§4.3).
     pub fn with_first_fighter_switch_chance(mut self, chance: f64) -> Self {
         self.first_fighter_switch_chance = chance;
@@ -241,11 +249,14 @@ impl DuosTavern {
         actions
     }
 
-    /// `true` if `player` may Pass `hand[hand_index]` (§5.1): no Discover pending, a card that
-    /// isn't locked, and a free Pass or 1 Gold.
+    /// `true` if `player` may Pass `hand[hand_index]` (§5.1): no Discover, hero choice or trinket
+    /// offer pending, a card that isn't locked, and a free Pass or 1 Gold.
     fn can_pass(&self, player: usize, hand_index: usize) -> bool {
         let state = &self.players[player];
-        if state.discover_pending.is_some() || !state.hero_options.is_empty() {
+        if state.discover_pending.is_some()
+            || !state.hero_options.is_empty()
+            || !state.trinket_options.is_empty()
+        {
             return false;
         }
         let Some(card) = state.hand.get(hand_index) else {

@@ -281,16 +281,18 @@ enum Kind {
     HeroPower,
     /// Choosing a hero (`docs/heroes.md` §6).
     ChooseHero,
+    /// Picking a trinket (`docs/trinkets.md` §4).
+    ChooseTrinket,
 }
 
-const KINDS: usize = 16;
+const KINDS: usize = 17;
 
 /// The kinds there were before heroes: only their weights vary per game, so that adding heroes
 /// left every seed's configuration as it was.
 const PRE_HERO_KINDS: usize = 14;
 
 /// Base weights, indexed by `Kind as usize`: mostly buying and playing, so games develop.
-const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0, 12, 1];
+const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0, 12, 1, 1];
 
 fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
     match *action {
@@ -320,6 +322,7 @@ fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
         TavernAction::Pass { .. } => Kind::Pass,
         TavernAction::HeroPower { .. } | TavernAction::HeroPower2 { .. } => Kind::HeroPower,
         TavernAction::ChooseHero { .. } => Kind::ChooseHero,
+        TavernAction::ChooseTrinket { .. } => Kind::ChooseTrinket,
     }
 }
 
@@ -1925,6 +1928,7 @@ enum Act {
     HeroPower(Option<usize>),
     HeroPower2(Option<usize>),
     ChooseHero(usize),
+    ChooseTrinket(usize),
 }
 
 impl From<TavernAction> for Act {
@@ -1954,6 +1958,7 @@ impl From<TavernAction> for Act {
             TavernAction::HeroPower { target } => Act::HeroPower(target),
             TavernAction::HeroPower2 { target } => Act::HeroPower2(target),
             TavernAction::ChooseHero { option_index } => Act::ChooseHero(option_index),
+            TavernAction::ChooseTrinket { option_index } => Act::ChooseTrinket(option_index),
         }
     }
 }
@@ -1985,6 +1990,7 @@ impl From<Act> for TavernAction {
             Act::HeroPower(target) => TavernAction::HeroPower { target },
             Act::HeroPower2(target) => TavernAction::HeroPower2 { target },
             Act::ChooseHero(option_index) => TavernAction::ChooseHero { option_index },
+            Act::ChooseTrinket(option_index) => TavernAction::ChooseTrinket { option_index },
         }
     }
 }

@@ -20,6 +20,8 @@ from seaglass_rl import (
     action_mask,
     encode_observation,
 )
+from seaglass_rl.actions import MAX_TRINKET_OPTIONS
+from seaglass_rl.features import MAX_TRINKETS
 
 
 def test_action_mask_matches_engine_legality() -> None:
@@ -115,7 +117,9 @@ def test_cards_waiting_for_room_are_encoded_last() -> None:
     obs = game.observe()
     assert obs.waiting_for_hand == []
     player_vec, slot_card_ids, _ = encode_observation(obs)
-    assert player_vec[17] == 0.0 and not slot_card_ids[-3:].any()
+    # The waiting slots come right before the trinket slots (`engine/docs/trinkets.md` §8.2).
+    w = NUM_SLOTS - MAX_TRINKETS - MAX_TRINKET_OPTIONS - 3
+    assert player_vec[17] == 0.0 and not slot_card_ids[w : w + 3].any()
 
     spell = next(u for u in obs.shop if u.is_spell)
 
@@ -127,8 +131,8 @@ def test_cards_waiting_for_room_are_encoded_last() -> None:
 
     player_vec, slot_card_ids, slot_num_feats = encode_observation(Waiting())
     assert player_vec[17] == np.float32(1.0 / 3.0)
-    assert slot_card_ids[-3] != 0 and slot_num_feats[-3, 4] == 1.0  # a spell
-    assert not slot_card_ids[-2:].any()
+    assert slot_card_ids[w] != 0 and slot_num_feats[w, 4] == 1.0  # a spell
+    assert not slot_card_ids[w + 1 : w + 3].any()
     duos = seaglass.DuosTavernGame(seed=3)
     duos.start_turn()
     assert duos.observe(0).waiting_for_hand == []

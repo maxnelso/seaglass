@@ -1,0 +1,82 @@
+topic: Trinket offers and the ChooseTrinket action (docs/trinkets.md §3-§5)
+scenarios:
+  - name: only_the_pick_is_legal_while_trinkets_are_offered
+    description: >-
+      A pending trinket offer blocks every other action, End Turn included (confirmed), and the
+      player must take one of the options.
+    tavern: {gold: 10, shop: ["1/1"], hand: [Tavern Coin]}
+    steps:
+      - offer_trinkets: [Holy Mallet, Training Certificate]
+      - expect_illegal: end_turn
+      - expect_illegal: {buy: 0}
+      - expect_illegal: refresh
+      - expect_illegal: {play: 0}
+      - expect_illegal: {choose_trinket: 2}
+      - expect_legal: {choose_trinket: 1}
+      - choose_trinket: Training Certificate
+      - expect_legal: end_turn
+    expect:
+      trinket_options: []
+      gold: 7
+      auras: {trinkets: [{name: Training Certificate, counter: 0}]}
+
+  - name: the_price_is_gold_spent
+    description: >-
+      The pick pays the option's price in Gold (confirmed), as Gold spent (an engine decision): it
+      counts in gold_spent_this_turn.
+    tavern: {gold: 8, trinkets_enabled: true}
+    steps:
+      - offer_trinkets: [Eternal Portrait, Holy Mallet]
+      - choose_trinket: 0
+    expect: {gold: 2, gold_spent_this_turn: 6, auras: {trinkets: [{name: Eternal Portrait}]}}
+
+  - name: an_unaffordable_option_is_illegal
+    tavern: {gold: 2}
+    steps:
+      - offer_trinkets: [Eternal Portrait, Holy Mallet]
+      - expect_illegal: {choose_trinket: 0}
+      - expect_legal: {choose_trinket: 1}
+
+  - name: with_no_affordable_option_the_cheapest_is_free
+    description: An engine decision (docs/trinkets.md §4); the guaranteed cheap option makes it rare.
+    tavern: {gold: 2}
+    steps:
+      - offer_trinkets: [Eternal Portrait, Training Certificate, Baleful Incense]
+      - expect_illegal: {choose_trinket: 0}
+      - expect_legal: {choose_trinket: 1}
+      - expect_legal: {choose_trinket: 2}
+      - choose_trinket: 2
+    expect: {gold: 2, auras: {trinkets: [{name: Baleful Incense}]}}
+
+  - name: the_offer_comes_before_a_pending_discover
+    description: >-
+      A trinket offer is answered before a Discover already pending (an engine decision): the
+      Discover waits behind it.
+    tavern: {gold: 10, discover_pending: ["1/1", "2/2"]}
+    steps:
+      - offer_trinkets: [Holy Mallet]
+      - expect_illegal: {choose_discover: 0}
+      - choose_trinket: 0
+      - expect_legal: {choose_discover: 0}
+
+  - name: no_pass_while_a_trinket_is_offered
+    duos_tavern: {players: [{gold: 5, hand: ["1/1"]}, {}]}
+    steps:
+      - {player: 0, offer_trinkets: [Holy Mallet]}
+      - {player: 0, expect_illegal: {pass: 0}}
+      - {player: 1, expect_legal: end_turn}
+      - {player: 0, choose_trinket: 0}
+      - {player: 0, expect_legal: {pass: 0}}
+
+  - name: given_trinkets_travel_into_combat_in_the_auras
+    tavern: {auras: {trinkets: [Holy Mallet, {trinket: Bronze Timepiece, counter: 2}]}}
+    expect:
+      auras:
+        trinkets: [{name: Holy Mallet, counter: 0}, {name: Bronze Timepiece, counter: 2}]
+
+  - name: no_offer_without_trinkets_enabled
+    description: The default (trinkets_enabled false) is no offer on turns 6 and 9, and no draw.
+    tavern: {turn: 5}
+    steps:
+      - start_turn
+      - expect: {turn: 6, trinket_options: []}

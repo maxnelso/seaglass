@@ -8,10 +8,12 @@
 //! - player auras also have `counters` (`card_counters` keyed by card name, `[0, 0]` for cards
 //!   without one) and `effect_stacks` (total stacks of each card's player effects, 0 for
 //!   cards without one); each effect also has `card`; their `hero` (`null` without one) also has
-//!   `name` (the hero's);
+//!   `name` (the hero's), and each of their `trinkets` and each of a Tavern's `trinket_options`
+//!   also has `name` (the trinket's display name, `docs/trinkets.md` §8.3);
 //! - the fields serde leaves out while they have their default are there too: a unit's `marked`
-//!   and `extra_deathrattles`, the auras' `hero` (and its power's `stored` and `picked`), a Tavern's
-//!   `hero_options` and `waiting_for_hand`.
+//!   and `extra_deathrattles`, the auras' `hero` (and its power's `stored` and `picked`) and
+//!   `trinkets` (and their `stored`), a Tavern's `hero_options`, `waiting_for_hand`,
+//!   `trinkets_enabled` and `trinket_options`.
 //!
 //! Enum variants with data (YAML tags such as `!Refreshes 3`) become single-key maps
 //! (`{Refreshes: 3}`).
@@ -162,6 +164,15 @@ fn from_value(value: &Value) -> View {
             with_default(&mut view, "hero_options", View::List(Vec::new()));
             with_default(&mut view, "waiting_for_hand", View::List(Vec::new()));
             with_default(&mut view, "lobby_gifts", View::List(Vec::new()));
+            with_default(&mut view, "trinkets_enabled", View::Bool(false));
+            with_default(&mut view, "trinket_options", View::List(Vec::new()));
+            if let Some((_, View::List(options))) =
+                view.iter_mut().find(|(k, _)| k == "trinket_options")
+            {
+                for option in options {
+                    name_trinket(option);
+                }
+            }
             with_default(
                 &mut view,
                 "lobby",
@@ -175,6 +186,21 @@ fn from_value(value: &Value) -> View {
             from_value(&tagged.value),
         )]),
     }
+}
+
+/// Add the trinket's display name (`name`) to the view of a `TrinketState` or `TrinketOption`.
+fn name_trinket(view: &mut View) {
+    let id = match view {
+        View::Map(fields) => fields.iter().find_map(|(k, v)| match (k.as_str(), v) {
+            ("card_id", View::Int(id)) => CardId::try_from(*id).ok(),
+            _ => None,
+        }),
+        _ => None,
+    };
+    let name = id
+        .and_then(crate::trinkets::data)
+        .map_or_else(|| "?".to_string(), crate::trinkets::display_name);
+    view.push("name", View::Str(name));
 }
 
 /// Add `key: default` to `view` if serde skipped it (a field left out while it has its default).
@@ -239,6 +265,15 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
     let mut view = fields(m);
     with_default(&mut view, "hero", View::Null);
     with_default(&mut view, "next_minion_discount", View::Int(0));
+    with_default(&mut view, "trinkets", View::List(Vec::new()));
+    if let Some((_, View::List(trinkets))) = view.iter_mut().find(|(k, _)| k == "trinkets") {
+        for trinket in trinkets {
+            if let View::Map(fields) = trinket {
+                with_default(fields, "stored", View::List(Vec::new()));
+            }
+            name_trinket(trinket);
+        }
+    }
     if let (Some((_, hero)), Some(state)) = (
         view.iter_mut().find(|(k, _)| k == "hero"),
         auras.hero.as_ref(),

@@ -9,6 +9,7 @@ from seaglass_rl import PLAYER_DIM, encode_observation
 from seaglass_rl.actions import (
     ACTION_SPACE_SIZE,
     CHOOSE_HERO_INDICES,
+    CHOOSE_TRINKET_INDICES,
     HERO_POWER_2_INDICES,
     HERO_POWER_EXTRA_INDICES,
     HERO_POWER_INDICES,
@@ -20,7 +21,9 @@ from seaglass_rl.actions import (
 
 def test_hero_actions_are_appended_last() -> None:
     tail = HERO_POWER_INDICES + CHOOSE_HERO_INDICES + HERO_POWER_EXTRA_INDICES + HERO_POWER_2_INDICES
-    assert tail == list(range(ACTION_SPACE_SIZE - len(tail), ACTION_SPACE_SIZE))
+    # Only the trinket actions (`engine/docs/trinkets.md` §8.2) come after them.
+    end = CHOOSE_TRINKET_INDICES[0]
+    assert tail == list(range(end - len(tail), end))
     act = seaglass.TavernAction.hero_power(3)
     assert act.kind == "hero_power" and act.args == (3, None)
     assert index_from_action(seaglass.TavernAction.hero_power()) == HERO_POWER_INDICES[0]

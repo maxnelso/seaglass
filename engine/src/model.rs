@@ -334,6 +334,39 @@ pub struct PlayerAuras {
     /// without a hero. It lives in the auras so that it travels into combat and back with them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hero: Option<HeroState>,
+    /// The player's trinkets, in the order they were picked (`docs/trinkets.md` §2.2): empty for a
+    /// player without trinkets. They live in the auras so that they travel into combat and back.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trinkets: Vec<TrinketState>,
+}
+
+/// A trinket the player owns (`docs/trinkets.md` §2.2). The engine reads only `card_id`; the rest
+/// belongs to the trinket's own hooks.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TrinketState {
+    /// The trinket (its dbfId, the card whose hooks implement it).
+    pub card_id: CardId,
+    /// Progress toward a threshold ("(6 left!)").
+    #[serde(default)]
+    pub counter: i32,
+    /// Improvements so far.
+    #[serde(default)]
+    pub stacks: i32,
+    /// A per-turn or per-combat charge.
+    #[serde(default)]
+    pub armed: u32,
+    /// Cards the trinket keeps.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stored: Vec<Unit>,
+}
+
+/// A trinket offered to the player (`docs/trinkets.md` §3.3): which one, and its price.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TrinketOption {
+    pub card_id: CardId,
+    /// Its price in Gold (2 less than its cost for an option of a type that isn't the player's
+    /// most common one).
+    pub cost: u32,
 }
 
 /// A hero's identity: the hero card's dbfId (`64403` for `Al'Akir`; `docs/heroes.md` §2.1).

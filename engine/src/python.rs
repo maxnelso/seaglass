@@ -459,6 +459,14 @@ impl PyTavernAction {
         }
     }
 
+    /// Pick the offered trinket `trinket_options[option_index]` (`docs/trinkets.md` §4).
+    #[staticmethod]
+    fn choose_trinket(option_index: usize) -> Self {
+        Self {
+            inner: TavernAction::ChooseTrinket { option_index },
+        }
+    }
+
     #[getter]
     fn kind(&self) -> &'static str {
         match self.inner {
@@ -477,6 +485,7 @@ impl PyTavernAction {
             TavernAction::HeroPower { .. } => "hero_power",
             TavernAction::ChooseHero { .. } => "choose_hero",
             TavernAction::HeroPower2 { .. } => "hero_power_2",
+            TavernAction::ChooseTrinket { .. } => "choose_trinket",
         }
     }
 
@@ -503,6 +512,7 @@ impl PyTavernAction {
             TavernAction::HeroPower { target } => (target, None),
             TavernAction::ChooseHero { option_index } => (Some(option_index), None),
             TavernAction::HeroPower2 { target } => (target, None),
+            TavernAction::ChooseTrinket { option_index } => (Some(option_index), None),
             TavernAction::Refresh
             | TavernAction::UpgradeTavern
             | TavernAction::ToggleFreeze
@@ -604,6 +614,17 @@ pub struct PyTavernObservation {
     /// `true` if some `HeroPower2` action is legal now.
     #[pyo3(get)]
     pub second_hero_power_usable: bool,
+    /// The player's trinkets' ids (dbfIds), in the order they were picked, and their `counter`s
+    /// (`docs/trinkets.md` §8.2).
+    #[pyo3(get)]
+    pub trinkets: Vec<u32>,
+    #[pyo3(get)]
+    pub trinket_counters: Vec<i32>,
+    /// The offered trinkets' ids and prices; while there are any, only `choose_trinket` is legal.
+    #[pyo3(get)]
+    pub trinket_options: Vec<u32>,
+    #[pyo3(get)]
+    pub trinket_option_costs: Vec<u32>,
 }
 
 impl From<&TavernState> for PyTavernObservation {
@@ -655,6 +676,7 @@ impl From<&TavernState> for PyTavernObservation {
             hero_power_armed: s.hero().map_or(0, |h| heroes::armed_feature(s, &h.power)),
             hero_power_usable: s.discover_pending.is_none()
                 && s.hero_options.is_empty()
+                && s.trinket_options.is_empty()
                 && !heroes::valid_targets(s).is_empty(),
             hero_options: s.hero_options.clone(),
             waiting_for_hand: py_units(&s.waiting_for_hand),
@@ -668,7 +690,12 @@ impl From<&TavernState> for PyTavernObservation {
             second_hero_power_armed: sp.map_or(0, |p| heroes::armed_feature(s, p)),
             second_hero_power_usable: s.discover_pending.is_none()
                 && s.hero_options.is_empty()
+                && s.trinket_options.is_empty()
                 && !heroes::valid_targets_2(s).is_empty(),
+            trinkets: s.auras.trinkets.iter().map(|t| t.card_id).collect(),
+            trinket_counters: s.auras.trinkets.iter().map(|t| t.counter).collect(),
+            trinket_options: s.trinket_options.iter().map(|o| o.card_id).collect(),
+            trinket_option_costs: s.trinket_options.iter().map(|o| o.cost).collect(),
         }
     }
 }
@@ -703,9 +730,10 @@ pub struct PyTavernGame {
 #[pymethods]
 impl PyTavernGame {
     /// `hero` (a name or id; `docs/heroes.md`) gives the player that hero: its Health, Armor and
-    /// Hero Power. Without one (the default) the player has `armor` and no Hero Power.
+    /// Hero Power. Without one (the default) the player has `armor` and no Hero Power. `trinkets`
+    /// enables the trinket offers of turns 6 and 9 (`docs/trinkets.md`); off by default.
     #[new]
-    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None))]
+    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None, trinkets=false))]
     fn new(
         seed: u64,
         catalog: &str,
@@ -713,11 +741,13 @@ impl PyTavernGame {
         shop_spells: bool,
         armor: i32,
         hero: Option<&Bound<'_, PyAny>>,
+        trinkets: bool,
     ) -> PyResult<Self> {
         let templates = cards::catalog_for(catalog).map_err(PyValueError::new_err)?;
         let pool = CardPool::new(templates);
         let rng = Rng::new(seed);
         let mut state = TavernState::new().with_shop_spells(shop_spells);
+        state.trinkets_enabled = trinkets;
         state.auras.deity.kind = parse_deity_kind(deity)?;
         match parse_hero(hero)? {
             Some(id) => state.set_hero(id).map_err(PyValueError::new_err)?,
@@ -1260,6 +1290,16 @@ pub struct PyDuosObservation {
     /// The player whose warband fights first in the coming combat.
     #[pyo3(get)]
     pub first_fighter: usize,
+    /// This player's trinkets and their offer (`docs/trinkets.md` §8.2), as in
+    /// `TavernObservation`.
+    #[pyo3(get)]
+    pub trinkets: Vec<u32>,
+    #[pyo3(get)]
+    pub trinket_counters: Vec<i32>,
+    #[pyo3(get)]
+    pub trinket_options: Vec<u32>,
+    #[pyo3(get)]
+    pub trinket_option_costs: Vec<u32>,
 }
 
 impl PyDuosObservation {
@@ -1324,6 +1364,10 @@ impl PyDuosObservation {
             passes_this_turn: team.passes_this_turn,
             passes_this_game: team.passes_this_game,
             first_fighter: team.first_fighter,
+            trinkets: own.trinkets,
+            trinket_counters: own.trinket_counters,
+            trinket_options: own.trinket_options,
+            trinket_option_costs: own.trinket_option_costs,
         }
     }
 }
@@ -1354,8 +1398,10 @@ impl PyDuosTavernGame {
     /// `armor` is each hero's starting Armor: the team starts with their sum (§3). `heroes` (a
     /// name or id for each player, or `None`; `docs/heroes.md`) gives the players heroes instead:
     /// the team gets their Duos Armor (and Patchwerk's extra Health) and each its Hero Power.
+    /// `trinkets` enables both players' trinket offers (`docs/trinkets.md` §8.1).
     #[new]
-    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None))]
+    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None, trinkets=false))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         seed: u64,
         catalog: &str,
@@ -1364,6 +1410,7 @@ impl PyDuosTavernGame {
         shop_spells: bool,
         deity: Option<&str>,
         heroes: Option<HeroPair<'_>>,
+        trinkets: bool,
     ) -> PyResult<Self> {
         if !(0.0..=1.0).contains(&first_fighter_switch_chance) {
             return Err(PyValueError::new_err(format!(
@@ -1374,6 +1421,7 @@ impl PyDuosTavernGame {
         let kind = parse_deity_kind(deity)?;
         let mut team = DuosTavern::new()
             .with_shop_spells(shop_spells)
+            .with_trinkets(trinkets)
             .with_first_fighter_switch_chance(first_fighter_switch_chance);
         for state in &mut team.players {
             state.auras.deity.kind = kind;
@@ -1684,7 +1732,31 @@ fn all_card_ids() -> Vec<u32> {
             ids.push(id);
         }
     }
+    // The trinkets last (`docs/trinkets.md` §8.2), so the earlier indices are unchanged.
+    for t in crate::trinkets::table() {
+        if !ids.contains(&t.id) {
+            ids.push(t.id);
+        }
+    }
     ids
+}
+
+/// The trinket pool (`docs/trinkets.md` §2.1): `(id, name, greater, cost, implemented)` for every
+/// trinket, by name.
+#[pyfunction]
+fn trinkets_table() -> Vec<(u32, &'static str, bool, u32, bool)> {
+    crate::trinkets::table()
+        .iter()
+        .map(|t| {
+            (
+                t.id,
+                t.name,
+                t.greater,
+                t.cost,
+                crate::trinkets::is_implemented(t.id),
+            )
+        })
+        .collect()
 }
 
 /// The hero pool (`docs/heroes.md` §2.1): `(id, name, implemented)` for every hero, by name.
@@ -1722,6 +1794,7 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(catalog, m)?)?;
     m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
     m.add_function(wrap_pyfunction!(heroes_table, m)?)?;
+    m.add_function(wrap_pyfunction!(trinkets_table, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
     Ok(())
 }

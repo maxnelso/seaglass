@@ -2,7 +2,8 @@
 //!
 //! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`, and Duos Taverns:
 //! `docs/duos_tavern.md`) and the **Combat Phase** (`docs/combat.md`, and Duos combats:
-//! `docs/duos.md`), with heroes and their Hero Powers (`docs/heroes.md`).
+//! `docs/duos.md`), with heroes and their Hero Powers (`docs/heroes.md`) and trinkets
+//! (`docs/trinkets.md`).
 
 pub mod cards;
 pub mod combat;
@@ -15,6 +16,7 @@ pub mod rng;
 pub mod scenario;
 pub mod sim;
 pub mod tavern;
+pub mod trinkets;
 
 #[cfg(feature = "python")]
 pub mod python;
@@ -32,7 +34,8 @@ pub use duos_tavern::DuosTavern;
 pub use events::Event;
 pub use model::{
     BattleOutcome, CardId, DeityKind, DeityState, GameState, HeroId, HeroPowerState, HeroState,
-    Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe, Unit, UnitId,
+    Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe, TrinketOption,
+    TrinketState, Unit, UnitId,
 };
 pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};

@@ -6,7 +6,7 @@ import math
 import numpy as np
 import seaglass
 
-from .actions import MAX_BOARD, MAX_DISCOVER, MAX_HAND, MAX_SHOP
+from .actions import MAX_BOARD, MAX_DISCOVER, MAX_HAND, MAX_SHOP, MAX_TRINKET_OPTIONS
 
 # Index 0 is reserved for empty slots / unknown cards.
 _ALL_IDS = seaglass.all_card_ids()
@@ -15,8 +15,12 @@ VOCAB_SIZE: int = len(_ALL_IDS) + 1
 
 # The cards waiting for room in the hand (`engine/docs/tavern.md` §7.4), appended last.
 MAX_WAITING: int = 3
-NUM_SLOTS: int = MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING  # 7 + 10 + 7 + 4 + 3 = 31
-PLAYER_DIM: int = 25
+# The owned trinkets, then the offered ones (`engine/docs/trinkets.md` §8.2), appended after them.
+MAX_TRINKETS: int = 2
+NUM_SLOTS: int = (
+    MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING + MAX_TRINKETS + MAX_TRINKET_OPTIONS
+)  # 7 + 10 + 7 + 4 + 3 + 2 + 4 = 37
+PLAYER_DIM: int = 31
 SLOT_NUM_DIM: int = 14
 
 
@@ -47,6 +51,8 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
       - `slot_card_ids`: int64 array of shape `(NUM_SLOTS,)` (indices in `0..VOCAB_SIZE`)
       - `slot_num_feats`: float32 array of shape `(NUM_SLOTS, SLOT_NUM_DIM)`
     """
+    option_costs = [c / 10.0 for c in obs.trinket_option_costs[:MAX_TRINKET_OPTIONS]]
+    option_costs += [0.0] * (MAX_TRINKET_OPTIONS - len(option_costs))
     player_vec = np.array(
         [
             obs.turn / 20.0,
@@ -82,6 +88,11 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             obs.second_hero_power_cost / 10.0,
             float(obs.second_hero_power_uses_left),
             obs.second_hero_power_armed / 3.0,
+            # Trinkets (`engine/docs/trinkets.md` §8.2): a pending offer, the trinkets owned, and
+            # the offered prices (0 for no option).
+            1.0 if obs.trinket_options else 0.0,
+            len(obs.trinkets) / MAX_TRINKETS,
+            *option_costs,
         ],
         dtype=np.float32,
     )
@@ -109,5 +120,15 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
     offset += MAX_DISCOVER
     for i, u in enumerate(obs.waiting_for_hand[:MAX_WAITING]):
         slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
+
+    # Trinkets: a present flag and the card id (their ids are in the vocabulary).
+    offset += MAX_WAITING
+    for i, tid in enumerate(obs.trinkets[:MAX_TRINKETS]):
+        slot_card_ids[offset + i] = CARD_ID_TO_IDX.get(tid, 0)
+        slot_num_feats[offset + i, 0] = 1.0
+    offset += MAX_TRINKETS
+    for i, tid in enumerate(obs.trinket_options[:MAX_TRINKET_OPTIONS]):
+        slot_card_ids[offset + i] = CARD_ID_TO_IDX.get(tid, 0)
+        slot_num_feats[offset + i, 0] = 1.0
 
     return player_vec, slot_card_ids, slot_num_feats

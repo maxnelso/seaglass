@@ -29,6 +29,7 @@ use crate::cards;
 use crate::combat::{DuosTeam, Warband};
 use crate::heroes;
 use crate::model::{CardId, HeroId, PlayerAuras, Unit};
+use crate::trinkets;
 
 use super::matchup::Batch;
 use super::patch;
@@ -44,6 +45,8 @@ pub enum Header {
     Topic(String),
     /// `hero: <name>`: one hero and its Hero Power (its canonical name; `docs/heroes.md`).
     Hero(String),
+    /// `trinket: <name>`: one trinket (its display name; `docs/trinkets.md` §8.3).
+    Trinket(String),
 }
 
 /// A parsed scenario file.
@@ -116,6 +119,12 @@ pub(super) enum StepKind {
     SetHero(HeroId),
     /// `TavernState::offer_heroes` (`docs/heroes.md` §6).
     OfferHeroes(Vec<HeroId>),
+    /// `TavernState::give_trinket` (`docs/trinkets.md` §4).
+    GiveTrinket(CardId),
+    /// An offer of these trinkets at their cost (`docs/trinkets.md` §8.3).
+    OfferTrinkets(Vec<CardId>),
+    /// An offer drawn as on turn 6 (`false`) or 9 (`true`) (`docs/trinkets.md` §3.3).
+    DrawTrinketOffer(bool),
     Fight(Box<FightPlan>),
     /// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
     DuosFight(Box<DuosFightPlan>),
@@ -204,6 +213,8 @@ pub(super) enum Action {
     HeroPower2(Option<Index>),
     /// Choose the hero offered at this index (or with this name).
     ChooseHero(Index),
+    /// Pick the trinket offered at this index (or with this name).
+    ChooseTrinket(Index),
 }
 
 /// Either given in the scenario, or `tavern` (copied from the Tavern when the step runs).
@@ -369,7 +380,7 @@ const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, ref
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
     expect_legal, expect_illegal, hero_power, hero_power_2, choose_hero, set_hero, offer_heroes, \
-    if/then/else, repeat/steps";
+    give_trinket, offer_trinkets, choose_trinket, if/then/else, repeat/steps";
 
 /// The steps that are only a name (`end_turn`); tagged with a player they are written
 /// `{player: 1, end_turn}`.
@@ -404,26 +415,40 @@ impl ScenarioFile {
         for key in top.keys() {
             if !matches!(
                 key.as_str(),
-                Some("card" | "topic" | "hero" | "defaults" | "scenarios")
+                Some("card" | "topic" | "hero" | "trinket" | "defaults" | "scenarios")
             ) {
                 return Err(format!(
-                    "unknown top-level key {} (keys: card, topic, hero, defaults, scenarios)",
+                    "unknown top-level key {} (keys: card, topic, hero, trinket, defaults, scenarios)",
                     show(key)
                 ));
             }
         }
-        let header = match (top.get("card"), top.get("topic"), top.get("hero")) {
-            (Some(card), None, None) => {
+        let header = match (
+            top.get("card"),
+            top.get("topic"),
+            top.get("hero"),
+            top.get("trinket"),
+        ) {
+            (None, None, None, Some(trinket)) => {
+                let name = trinket
+                    .as_str()
+                    .ok_or("`trinket:` must be a trinket name")?;
+                let id = trinket_id(name)?;
+                Header::Trinket(trinkets::display_name(
+                    trinkets::data(id).expect("a trinket"),
+                ))
+            }
+            (Some(card), None, None, None) => {
                 let name = card.as_str().ok_or("`card:` must be a card name")?;
                 Header::Card(card_index().resolve(name)?.name.clone())
             }
-            (None, Some(topic), None) => Header::Topic(
+            (None, Some(topic), None, None) => Header::Topic(
                 topic
                     .as_str()
                     .ok_or("`topic:` must be a string")?
                     .to_string(),
             ),
-            (None, None, Some(hero)) => {
+            (None, None, Some(hero), None) => {
                 let name = hero.as_str().ok_or("`hero:` must be a hero name")?;
                 Header::Hero(
                     hero_id(name)
@@ -431,12 +456,10 @@ impl ScenarioFile {
                         .to_string(),
                 )
             }
-            _ => {
-                return Err(
-                    "a scenario file needs exactly one of `card:`, `topic:` and `hero:`"
-                        .to_string(),
-                )
-            }
+            _ => return Err(
+                "a scenario file needs exactly one of `card:`, `topic:`, `hero:` and `trinket:`"
+                    .to_string(),
+            ),
         };
         let defaults = match top.remove("defaults") {
             None | Some(Value::Null) => Mapping::new(),
@@ -1052,6 +1075,26 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
             target => Some(index(target)?),
         })),
         "choose_hero" => StepKind::Action(Action::ChooseHero(index(arg)?)),
+        "choose_trinket" => StepKind::Action(Action::ChooseTrinket(index(arg)?)),
+        "give_trinket" => StepKind::GiveTrinket(trinket_id(
+            arg.as_str().ok_or("`give_trinket` takes a trinket name")?,
+        )?),
+        "offer_trinkets" => match arg {
+            Value::String(kind) if kind == "lesser" => StepKind::DrawTrinketOffer(false),
+            Value::String(kind) if kind == "greater" => StepKind::DrawTrinketOffer(true),
+            Value::Sequence(names) => StepKind::OfferTrinkets(
+                names
+                    .iter()
+                    .map(|n| trinket_id(n.as_str().ok_or("`offer_trinkets` takes trinket names")?))
+                    .collect::<Result<_, String>>()?,
+            ),
+            other => {
+                return Err(format!(
+                    "`offer_trinkets` takes a list of trinket names, `lesser` or `greater`, got {}",
+                    show(other)
+                ))
+            }
+        },
         "set_hero" => StepKind::SetHero(hero_id(
             arg.as_str().ok_or("`set_hero` takes a hero name")?,
         )?),
@@ -1191,6 +1234,22 @@ pub(super) fn hero_id(name: &str) -> Result<HeroId, String> {
             format!("unknown hero {name:?}")
         } else {
             format!("unknown hero {name:?} (did you mean {}?)", close.join(", "))
+        }
+    })
+}
+
+/// The trinket named `name` (`docs/trinkets.md` §8.3).
+pub(super) fn trinket_id(name: &str) -> Result<CardId, String> {
+    trinkets::by_name(name).map(|t| t.id).ok_or_else(|| {
+        let names = trinkets::table().iter().map(|t| t.name);
+        let close = super::units::closest(name, names);
+        if close.is_empty() {
+            format!("unknown trinket {name:?}")
+        } else {
+            format!(
+                "unknown trinket {name:?} (did you mean {}?)",
+                close.join(", ")
+            )
         }
     })
 }

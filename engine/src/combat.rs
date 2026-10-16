@@ -882,6 +882,13 @@ fn resolve_start_of_combat_in_order(
         let (own_side, opp_side) = sides_mut(side, side_a, side_b);
         resolve_hero_start_of_combat(side, own_side, opp_side, next_id, rng, events);
     }
+    // Then the trinkets, in the order they were picked (`docs/trinkets.md` §7.2).
+    for &side in order {
+        let (own_side, opp_side) = sides_mut(side, side_a, side_b);
+        for hook in crate::trinkets::start_of_combat_hooks(&own_side.auras) {
+            resolve_power_start_of_combat(side, own_side, opp_side, next_id, rng, events, hook);
+        }
+    }
     for &side in order {
         let (own_side, opp_side) = sides_mut(side, side_a, side_b);
         resolve_start_of_combat_effects(side, own_side, opp_side, rng, events);
@@ -1014,12 +1021,36 @@ fn resolve_hero_start_of_combat(
     if !heroes::has_start_of_combat(&own_side.auras) {
         return;
     }
+    resolve_power_start_of_combat(
+        side,
+        own_side,
+        opp_side,
+        next_id,
+        rng,
+        events,
+        heroes::on_start_of_combat,
+    );
+}
+
+/// Resolve a Start-of-Combat effect of `side`'s player (its Hero Power's, or one of its
+/// trinkets': `docs/trinkets.md` §7.2): `hook`, then the damage it deals to enemy minions, the
+/// minions it destroys, the deaths, and its immediate attacks.
+#[allow(clippy::too_many_arguments)]
+fn resolve_power_start_of_combat(
+    side: Side,
+    own_side: &mut SideCombatState,
+    opp_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+    hook: fn(&mut HeroCombatCtx<'_>),
+) {
     let mut ctx = HeroCombatCtx {
         own: own_side.ctx(side, next_id, rng, events),
         enemy_board: &mut opp_side.board,
         enemy_damage: Vec::new(),
     };
-    heroes::on_start_of_combat(&mut ctx);
+    hook(&mut ctx);
     let destroys = std::mem::take(&mut ctx.own.destroys);
     let damage = std::mem::take(&mut ctx.enemy_damage);
     for (id, amount) in damage {
