@@ -12,6 +12,7 @@ use crate::cards::{self, CardTemplate};
 use crate::combat::{DuosResult, DuosTeam, Warband};
 use crate::duos_tavern::DuosTavern;
 use crate::heroes;
+use crate::lobby::Lobby;
 use crate::model::{BattleOutcome, DeityKind, GameState, HeroId, Keyword, Unit};
 use crate::rng::Rng;
 use crate::scenario::{parse_unit as rust_parse_unit, Defaults};
@@ -871,6 +872,150 @@ impl PyTavernGame {
         self.state.auras.deity.kind = parse_deity_kind(deity)?;
         Ok(())
     }
+
+    /// Take the cards this player's Hero Power made for the other players (`King Mukla`'s
+    /// Bananas; `engine/docs/tavern.md` §3.1). `Lobby.deliver_gifts` delivers them.
+    fn take_lobby_gifts(&mut self) -> Vec<PyUnit> {
+        py_units(&self.state.take_lobby_gifts())
+    }
+}
+
+/// `outcome` (`"a_win"`, `"b_win"`, `"draw"`) as a `BattleOutcome`.
+fn parse_outcome(outcome: &str) -> PyResult<BattleOutcome> {
+    match outcome {
+        "a_win" => Ok(BattleOutcome::AWin),
+        "b_win" => Ok(BattleOutcome::BWin),
+        "draw" => Ok(BattleOutcome::Draw),
+        other => Err(PyValueError::new_err(format!("unknown outcome {other:?}"))),
+    }
+}
+
+/// What the players of a game know about each other (`engine/docs/tavern.md` §3.1), built for
+/// their `TavernGame`s (or, in Duos, every team's `DuosTavernGame`: team `t`'s players are `2t`
+/// and `2t + 1`) by the engine's shared `lobby::Lobby`. Each turn: `set_next_pairs` and `apply`
+/// before the turns start, `deliver_gifts` after them, and `record_combat`, `record_outcome` and
+/// `record_deaths` after the combats. It is never part of the observation.
+#[pyclass(name = "Lobby")]
+pub struct PyLobby {
+    inner: Lobby,
+}
+
+impl PyLobby {
+    fn check(&self, player: usize) -> PyResult<()> {
+        if player < self.inner.len() {
+            Ok(())
+        } else {
+            Err(PyValueError::new_err(format!(
+                "player {player} is not in a lobby of {}",
+                self.inner.len()
+            )))
+        }
+    }
+
+    fn check_count(&self, count: usize) -> PyResult<()> {
+        if count == self.inner.len() {
+            Ok(())
+        } else {
+            Err(PyValueError::new_err(format!(
+                "{count} players for a lobby of {}",
+                self.inner.len()
+            )))
+        }
+    }
+}
+
+#[pymethods]
+impl PyLobby {
+    #[new]
+    #[pyo3(signature = (players, duos=false))]
+    fn new(players: usize, duos: bool) -> Self {
+        Self {
+            inner: Lobby::new(players, duos),
+        }
+    }
+
+    #[getter]
+    fn players(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// The coming turn's pairings; the first is the featured pair.
+    fn set_next_pairs(&mut self, pairs: Vec<(usize, usize)>) -> PyResult<()> {
+        for &(a, b) in &pairs {
+            self.check(a)?;
+            self.check(b)?;
+        }
+        self.inner.set_next_pairs(&pairs);
+        Ok(())
+    }
+
+    /// `player`'s combat: their opponent (`None` for a ghost) and their board as it entered it.
+    #[pyo3(signature = (player, opponent, board))]
+    fn record_combat(
+        &mut self,
+        player: usize,
+        opponent: Option<usize>,
+        board: Vec<PyUnit>,
+    ) -> PyResult<()> {
+        self.check(player)?;
+        if let Some(o) = opponent {
+            self.check(o)?;
+        }
+        let board: Vec<Unit> = board.into_iter().map(|u| u.inner).collect();
+        self.inner.record_combat(player, opponent, &board);
+        Ok(())
+    }
+
+    /// The outcome (`"a_win"`, `"b_win"`, `"draw"`) of `a`'s combat (side A) against `b`.
+    fn record_outcome(&mut self, a: usize, b: usize, outcome: &str) -> PyResult<()> {
+        self.inner.record_outcome(a, b, parse_outcome(outcome)?);
+        Ok(())
+    }
+
+    /// Who is still in the game once the combats are over.
+    fn record_deaths(&mut self, alive: Vec<bool>) -> PyResult<()> {
+        self.check_count(alive.len())?;
+        self.inner.record_deaths(&alive);
+        Ok(())
+    }
+
+    /// Give every player (`games[p]` is player `p`) their view of the lobby.
+    fn apply(&self, mut games: Vec<PyRefMut<'_, PyTavernGame>>) -> PyResult<()> {
+        self.check_count(games.len())?;
+        let mut states: Vec<&mut TavernState> = games.iter_mut().map(|g| &mut g.state).collect();
+        self.inner.apply(&mut states);
+        Ok(())
+    }
+
+    /// Deliver every player's lobby gifts to their living opponents (full-hand rule).
+    fn deliver_gifts(&self, mut games: Vec<PyRefMut<'_, PyTavernGame>>) -> PyResult<()> {
+        self.check_count(games.len())?;
+        let mut states: Vec<&mut TavernState> = games.iter_mut().map(|g| &mut g.state).collect();
+        self.inner.deliver_gifts(&mut states);
+        Ok(())
+    }
+
+    /// `apply` for a Duos game: `teams[t]` holds players `2t` and `2t + 1`.
+    fn apply_duos(&self, mut teams: Vec<PyRefMut<'_, PyDuosTavernGame>>) -> PyResult<()> {
+        self.check_count(2 * teams.len())?;
+        let mut states: Vec<&mut TavernState> = teams
+            .iter_mut()
+            .flat_map(|t| t.team.players.iter_mut())
+            .collect();
+        self.inner.apply(&mut states);
+        Ok(())
+    }
+
+    /// `deliver_gifts` for a Duos game: `teams[t]` holds players `2t` and `2t + 1`.
+    fn deliver_gifts_duos(&self, mut teams: Vec<PyRefMut<'_, PyDuosTavernGame>>) -> PyResult<()> {
+        self.check_count(2 * teams.len())?;
+        let mut states: Vec<&mut TavernState> = teams
+            .iter_mut()
+            .flat_map(|t| t.team.players.iter_mut())
+            .collect();
+        self.inner.deliver_gifts(&mut states);
+        Ok(())
+    }
 }
 
 /// `units` as Python units.
@@ -1342,6 +1487,13 @@ impl PyDuosTavernGame {
         let res = self.team.resolve_combat_against(&opponent, combat_seed);
         Ok(PyDuosBattleResult::from(&res))
     }
+
+    /// Take the cards `player`'s Hero Power made for the other teams' players (`King Mukla`'s
+    /// Bananas; `engine/docs/tavern.md` §3.1). `Lobby.deliver_gifts_duos` delivers them.
+    fn take_lobby_gifts(&mut self, player: usize) -> PyResult<Vec<PyUnit>> {
+        Self::check_player(player)?;
+        Ok(py_units(&self.team.players[player].take_lobby_gifts()))
+    }
 }
 
 #[pyfunction]
@@ -1562,6 +1714,7 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDuosBattleResult>()?;
     m.add_class::<PyDuosObservation>()?;
     m.add_class::<PyDuosTavernGame>()?;
+    m.add_class::<PyLobby>()?;
     m.add_function(wrap_pyfunction!(simulate, m)?)?;
     m.add_function(wrap_pyfunction!(simulate_batch, m)?)?;
     m.add_function(wrap_pyfunction!(simulate_duos, m)?)?;

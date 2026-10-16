@@ -205,3 +205,73 @@ def test_voljins_first_pick_is_observed_where_it_is_now() -> None:
     assert game.observe().hero_power_armed == 7 + picked  # one slot to the left
     game.step(seaglass.TavernAction.refresh())
     assert game.observe().hero_power_armed == 0  # the pick dropped
+
+
+def _units(*names: str) -> list:
+    templates = {t.name: t for t in seaglass.catalog("full")}
+    return [templates[name].instantiate() for name in names]
+
+
+def _head_to_head(hero: str, opponent_board: list) -> tuple:
+    """A game with `hero` against a plain one whose last warband was `opponent_board`, each the
+    other's last and next opponent, at the start of turn 1."""
+    game = seaglass.TavernGame(seed=4, hero=hero)
+    opp = seaglass.TavernGame(seed=5)
+    lobby = seaglass.Lobby(2)
+    lobby.record_combat(0, 1, [])
+    lobby.record_combat(1, 0, opponent_board)
+    lobby.set_next_pairs([(0, 1)])
+    lobby.apply([game, opp])
+    game.start_turn()
+    opp.start_turn()
+    lobby.deliver_gifts([game, opp])
+    return game, opp, lobby
+
+
+def test_scabbs_discovers_from_the_opponents_last_warband() -> None:
+    game, _, _ = _head_to_head("Scabbs Cutterbutter", _units("Joyous", "Zoatroid"))
+    game.step(seaglass.TavernAction.hero_power())
+    options = game.observe().discover_pending
+    assert options is not None and {u.name for u in options} == {"Joyous", "Zoatroid"}
+    game.step(seaglass.TavernAction.choose_discover(0))
+    assert game.observe().hand[0].name in {"Joyous", "Zoatroid"}
+
+
+def test_tess_refreshes_with_the_opponents_last_warband() -> None:
+    game, _, _ = _head_to_head("Tess Greymane", _units("Joyous", "Zoatroid"))
+    game.step(seaglass.TavernAction.hero_power())
+    minions = [u.name for u in game.observe().shop if not u.is_spell]
+    assert sorted(minions) == ["Joyous", "Zoatroid"]
+
+
+def test_mukla_gives_the_opponent_a_banana() -> None:
+    _, opp, _ = _head_to_head("King Mukla", [])
+    assert [u.name for u in opp.observe().hand] in (["Bananas"], ["Big Banana"])
+
+
+def test_holmes_guess_gives_a_coin() -> None:
+    game, _, _ = _head_to_head("Murloc Holmes", _units("Joyous"))
+    game.step(seaglass.TavernAction.hero_power())
+    assert [u.name for u in game.observe().discover_pending] == ["Joyous"]
+    game.step(seaglass.TavernAction.choose_discover(0))
+    assert [u.name for u in game.observe().hand] == ["Tavern Coin"]
+
+
+def test_the_lobby_is_not_in_the_observation() -> None:
+    # The player doesn't see the lobby: the same Tavern with and without one encodes the same.
+    plain = seaglass.TavernGame(seed=4)
+    plain.start_turn()
+    game = seaglass.TavernGame(seed=4)
+    others = [seaglass.TavernGame(seed=6), seaglass.TavernGame(seed=7)]
+    lobby = seaglass.Lobby(3)
+    lobby.record_combat(0, 1, _units("Joyous"))
+    lobby.record_combat(1, 0, _units("Joyous", "Zoatroid"))
+    lobby.record_combat(2, None, _units("Wrath Weaver"))
+    lobby.record_outcome(0, 1, "a_win")
+    lobby.record_deaths([True, True, True])
+    lobby.set_next_pairs([(1, 2)])
+    lobby.apply([game, *others])
+    game.start_turn()
+    assert not hasattr(game.observe(), "lobby")
+    for a, b in zip(encode_observation(plain.observe()), encode_observation(game.observe())):
+        assert np.array_equal(a, b)

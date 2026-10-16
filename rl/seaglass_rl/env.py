@@ -48,6 +48,9 @@ class BattlegroundsEnv:
 
         self.player: seaglass.TavernGame | None = None
         self.opp_game: seaglass.TavernGame | None = None
+        # What the two players know about each other (lobby Hero Powers: Scabbs, Tess, Holmes,
+        # Mukla, ...). Never part of the observation.
+        self.lobby = seaglass.Lobby(2)
         self.opp_bot: RandomBot | HeuristicBot | PolicyBot = self._make_opponent(seed)
         self.steps_this_turn = 0
 
@@ -61,6 +64,17 @@ class BattlegroundsEnv:
     def _board_power(self, obs: seaglass.TavernObservation) -> float:
         return compute_board_power(obs)
 
+    def _start_turns(self) -> None:
+        """Both players start their turn, each the other's next opponent (head to head: no featured
+        pair to wager on), and their lobby gifts reach each other."""
+        assert self.player is not None and self.opp_game is not None
+        games = [self.player, self.opp_game]
+        self.lobby.set_next_pairs([(0, 1)])
+        self.lobby.apply(games)
+        self.player.start_turn()
+        self.opp_game.start_turn()
+        self.lobby.deliver_gifts(games)
+
     def reset(self, seed: int | None = None) -> tuple[tuple[np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
         if seed is None:
             seed = self.base_seed + self.episode_count * 2
@@ -69,9 +83,9 @@ class BattlegroundsEnv:
         self.player = seaglass.TavernGame(seed=seed, catalog=self.catalog, deity="cthun")
         self.opp_game = seaglass.TavernGame(seed=seed + 1, catalog=self.catalog, deity="yshaarj")
         self.opp_bot = self._make_opponent(seed)
+        self.lobby = seaglass.Lobby(2)
 
-        self.player.start_turn()
-        self.opp_game.start_turn()
+        self._start_turns()
         self.steps_this_turn = 0
 
         obs = self.player.observe()
@@ -116,9 +130,13 @@ class BattlegroundsEnv:
 
         # Opponent takes its Tavern turn, then both boards fight
         self.opp_bot.play_turn(self.opp_game, max_steps=self.max_steps_per_turn)
+        self.lobby.deliver_gifts([self.player, self.opp_game])
         pre_combat_agent = self.player.observe()
         pre_combat_opp = self.opp_game.observe()
         battle = self.player.resolve_combat_with(self.opp_game)
+        self.lobby.record_combat(0, 1, pre_combat_agent.board)
+        self.lobby.record_combat(1, 0, pre_combat_opp.board)
+        self.lobby.record_outcome(0, 1, battle.outcome)
 
         if battle.outcome == "a_win":
             reward += 0.2 + battle.hero_damage / 30.0
@@ -127,6 +145,7 @@ class BattlegroundsEnv:
 
         p_obs = self.player.observe()
         o_obs = self.opp_game.observe()
+        self.lobby.record_deaths([p_obs.health > 0, o_obs.health > 0])
         info["combat"] = {
             "turn": pre_combat_agent.turn,
             "agent_board": pre_combat_agent.board,
@@ -165,8 +184,7 @@ class BattlegroundsEnv:
             )
 
         # Advance to the next turn
-        self.player.start_turn()
-        self.opp_game.start_turn()
+        self._start_turns()
         self.steps_this_turn = 0
         next_obs = self.player.observe()
         return (
