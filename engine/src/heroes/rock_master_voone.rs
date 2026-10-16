@@ -4,7 +4,9 @@
 //!
 //! Passive. Every 3rd turn end (`hero_end_turn`, `counter`, counting from the first) gives the
 //! player a plain copy of the left-most card in their hand (`cards::plain_instance`; a spell: a
-//! fresh one) if the hand has room; with an empty hand, nothing (engine decision).
+//! fresh one) if the hand has room; with an empty hand, nothing (engine decision). The counter
+//! advances once per turn; with end-of-turn repeats (`docs/tavern.md` §7.5) the turn it fires
+//! gives that many copies (confirmed).
 
 use crate::cards::{self, spells, CardHooks};
 use crate::heroes::power_mut;
@@ -24,24 +26,27 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 }
 
 /// End of turn: every 3rd, a plain copy of the left-most card in the hand.
-fn end_turn(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
+fn end_turn(state: &mut TavernState, repeats: u32, _: &mut CardPool, _: &mut Rng) {
     let Some(power) = power_mut(&mut state.auras) else {
         return;
     };
+    // The counter advances once per turn; the copy repeats (`docs/tavern.md` §7.5).
     power.counter += 1;
     if power.counter < TURNS {
         return;
     }
     power.counter = 0;
-    let Some(first) = state.hand.first() else {
-        return;
-    };
-    let copy = if first.is_spell {
-        spells::spell_by_id(first.card_id)
-    } else {
-        cards::plain_instance(first)
-    };
-    if let Some(copy) = copy.filter(|_| super::hand_has_room(state)) {
-        state.add_to_hand(copy);
+    for _ in 0..repeats {
+        let Some(first) = state.hand.first() else {
+            return;
+        };
+        let copy = if first.is_spell {
+            spells::spell_by_id(first.card_id)
+        } else {
+            cards::plain_instance(first)
+        };
+        if let Some(copy) = copy.filter(|_| super::hand_has_room(state)) {
+            state.add_to_hand(copy);
+        }
     }
 }

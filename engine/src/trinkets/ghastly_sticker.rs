@@ -2,10 +2,10 @@
 //!
 //! Your end of turn effects trigger an extra time.
 //!
-//! `trinket_extra_triggers`: every end-of-turn effect triggers once more (confirmed): the minions'
-//! end-of-turn triggers (`tavern.md` §7.5) one more time on top of `Drakkari Enchanter`'s (3 times
-//! with both: **engine decision**), then the Hero Power's `hero_end_turn` twice, then every
-//! trinket's `trinket_end_turn` twice. There are no end-of-turn player effects or hand triggers.
+//! `trinket_extra_triggers`: +1 to the end-of-turn repeat count (`cards::end_of_turn_repeats`,
+//! `docs/tavern.md` §7.5) of every end-of-turn effect: the minions', the Hero Power's, the
+//! trinkets' (confirmed); added to `Drakkari Enchanter`'s, 3 times with both (confirmed). Turn
+//! counters advance once and charges are used once (confirmed).
 
 use crate::cards::{CardHooks, Passive};
 use crate::model::CardId;

@@ -15,7 +15,11 @@ pub const ID: CardId = 133695;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
-    vec![(ID, CardHooks::EMPTY.on_trinket_end_turn(end_turn))]
+    vec![(
+        ID,
+        CardHooks::EMPTY
+            .on_trinket_end_turn(|s, n, p, r| super::repeat_end_turn(s, n, p, r, end_turn)),
+    )]
 }
 
 fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {

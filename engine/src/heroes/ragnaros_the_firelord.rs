@@ -46,12 +46,14 @@ fn after_buy(state: &mut TavernState, _: &Unit, _: &mut CardPool, _: &mut Rng) {
 }
 
 /// Sulfuras, end of turn: the left- and right-most minions gain +8/+8.
-fn sulfuras(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
+fn sulfuras(state: &mut TavernState, repeats: u32, _: &mut CardPool, _: &mut Rng) {
     let Some(last) = state.board.len().checked_sub(1) else {
         return;
     };
-    state.board[0].add_stats(BUFF, BUFF);
-    if last > 0 {
-        state.board[last].add_stats(BUFF, BUFF);
+    for _ in 0..repeats {
+        state.board[0].add_stats(BUFF, BUFF);
+        if last > 0 {
+            state.board[last].add_stats(BUFF, BUFF);
+        }
     }
 }

@@ -227,6 +227,10 @@ pub type EffectAfterCombatFn = fn(&mut TavernState, &mut PlayerEffect, CombatRes
 pub type CardObserverFn = fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng);
 /// A Tavern event for the player's Hero Power: `(state, pool, rng)`.
 pub type TavernEventFn = fn(&mut TavernState, &mut CardPool, &mut Rng);
+/// An end-of-turn hook of a Hero Power or trinket: `(state, repeats, pool, rng)`. `repeats` is the
+/// end-of-turn repeat count (`docs/tavern.md` §7.5): the hook repeats its payoff that many times,
+/// but advances a turn counter and uses a charge once.
+pub type EndTurnFn = fn(&mut TavernState, u32, &mut CardPool, &mut Rng);
 /// The `HeroPower` action: `(state, target, pool, rng)` (`docs/heroes.md` §5).
 pub type HeroPowerFn = fn(&mut TavernState, Option<usize>, &mut CardPool, &mut Rng);
 
@@ -529,8 +533,9 @@ card_hooks! {
     /// The Tavern was Refreshed (not a frozen shop kept), before the cards' after-Refresh
     /// effects: `(state, pool, rng)`.
     hero_after_refresh(on_hero_after_refresh): TavernEventFn,
-    /// The player ends their turn, after the cards' end-of-turn triggers: `(state, pool, rng)`.
-    hero_end_turn(on_hero_end_turn): TavernEventFn,
+    /// The player ends their turn, after the cards' end-of-turn triggers: `(state, repeats, pool,
+    /// rng)` ([`EndTurnFn`]).
+    hero_end_turn(on_hero_end_turn): EndTurnFn,
     /// The player chose an option of a Discover the Hero Power keeps (`Unit::to_hero_power`):
     /// `(state, chosen, unchosen, pool, rng)`.
     hero_option_chosen(on_hero_option_chosen): fn(&mut TavernState, Unit, Vec<Unit>, &mut CardPool, &mut Rng),
@@ -583,8 +588,9 @@ card_hooks! {
     trinket_after_play(on_trinket_after_play): fn(&mut TavernState, &Played, &mut CardPool, &mut Rng),
     /// After a minion is sold, after the Hero Power's `hero_after_sell`: `(state, sold, pool, rng)`.
     trinket_after_sell(on_trinket_after_sell): CardEventFn,
-    /// The player ends their turn, after the Hero Power's `hero_end_turn`: `(state, pool, rng)`.
-    trinket_end_turn(on_trinket_end_turn): TavernEventFn,
+    /// The player ends their turn, after the Hero Power's `hero_end_turn`: `(state, repeats, pool,
+    /// rng)` ([`EndTurnFn`]).
+    trinket_end_turn(on_trinket_end_turn): EndTurnFn,
     /// A Tavern spell is cast in the Tavern (each cast), after the cards' `spell_cast` observers:
     /// `(state, pool, rng)`.
     trinket_spell_cast(on_trinket_spell_cast): TavernEventFn,

@@ -916,12 +916,12 @@ pub fn after_combat(state: &mut TavernState, dead: &[Unit]) {
 }
 
 /// The player ends their turn: the Hero Power's `hero_end_turn` hook (`docs/heroes.md` §4).
-pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+pub fn end_turn(state: &mut TavernState, repeats: u32, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(end_turn) = power_hooks(&state.auras).and_then(|c| c.hero_end_turn) {
-        end_turn(state, pool, rng);
+        end_turn(state, repeats, pool, rng);
     }
     if let Some(end_turn) = second_power_hooks(&state.auras).and_then(|c| c.hero_end_turn) {
-        with_second_power(state, |s| end_turn(s, pool, rng));
+        with_second_power(state, |s| end_turn(s, repeats, pool, rng));
     }
 }
 

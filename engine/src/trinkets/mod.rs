@@ -668,11 +668,12 @@ pub fn gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng
     }
 }
 
-/// The player ends their turn: each trinket's `trinket_end_turn` hook.
-pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+/// The player ends their turn: each trinket's `trinket_end_turn` hook, with the end-of-turn
+/// repeat count (`docs/tavern.md` §7.5).
+pub fn end_turn(state: &mut TavernState, repeats: u32, pool: &mut CardPool, rng: &mut Rng) {
     for id in owned_ids(&state.auras) {
         if let Some(end_turn) = hooks(id).trinket_end_turn {
-            end_turn(state, pool, rng);
+            end_turn(state, repeats, pool, rng);
         }
     }
 }
@@ -963,6 +964,20 @@ pub fn pick_tied(tied: &[usize], rng: &mut Rng) -> usize {
     match tied {
         [only] => *only,
         _ => tied[rng.below(tied.len())],
+    }
+}
+
+/// A `trinket_end_turn` without a turn counter: `payoff` resolves `repeats` times (the end-of-turn
+/// repeat count: `docs/tavern.md` §7.5).
+pub fn repeat_end_turn(
+    state: &mut TavernState,
+    repeats: u32,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+    payoff: fn(&mut TavernState, &mut CardPool, &mut Rng),
+) {
+    for _ in 0..repeats {
+        payoff(state, pool, rng);
     }
 }
 

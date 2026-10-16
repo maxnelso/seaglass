@@ -20,7 +20,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         ID,
         CardHooks::EMPTY
             .on_trinket_turn_start(double)
-            .on_trinket_end_turn(end_turn),
+            .on_trinket_end_turn(|s, n, p, r| super::repeat_end_turn(s, n, p, r, end_turn)),
     )]
 }
 

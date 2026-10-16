@@ -29,3 +29,17 @@ scenarios:
   - name: it_is_never_an_action
     steps:
       - expect_illegal: hero_power
+
+  - name: ghastly_sticker_gives_two_copies
+    description: The payoff repeats, the counter advances once (confirmed).
+    tavern: {hand: [Strike Oil], auras: {hero: {hero: Rock Master Voone, power: {counter: 2}}, trinkets: [Ghastly Sticker]}}
+    steps:
+      - end_turn
+    expect: {hand: [Strike Oil, Strike Oil, Strike Oil], auras: {hero: {power: {counter: 0}}}}
+
+  - name: the_counter_advances_once_per_turn
+    description: (confirmed) With Drakkari Enchanter and Ghastly Sticker.
+    tavern: {hand: [Strike Oil], board: [Drakkari Enchanter], auras: {hero: {hero: Rock Master Voone, power: {counter: 0}}, trinkets: [Ghastly Sticker]}}
+    steps:
+      - end_turn
+    expect: {hand: [Strike Oil], auras: {hero: {power: {counter: 1}}}}

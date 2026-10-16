@@ -1401,12 +1401,18 @@ pub fn is_temporary(card: &Unit) -> bool {
     hooks(card.card_id).has(CardFlags::TEMPORARY)
 }
 
-/// Apply End-of-Turn triggers when `EndTurn` is taken, repeated per
-/// [`Passive::EndOfTurnTriggers`]: Magnetized Health bonuses, then each minion's `end_of_turn`
-/// hook, left to right.
-pub fn on_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    let repeats = board_passive(&state.board, Passive::EndOfTurnTriggers)
-        + crate::trinkets::extra_triggers(&state.auras, Passive::EndOfTurnTriggers);
+/// The end-of-turn repeat count (`docs/tavern.md` §7.5): the board's
+/// [`Passive::EndOfTurnTriggers`] (1, or `Drakkari Enchanter`'s) plus the trinkets' extra triggers
+/// (`Ghastly Sticker`). Every end-of-turn effect resolves that many times.
+pub fn end_of_turn_repeats(state: &TavernState) -> u32 {
+    board_passive(&state.board, Passive::EndOfTurnTriggers)
+        + crate::trinkets::extra_triggers(&state.auras, Passive::EndOfTurnTriggers)
+}
+
+/// Apply End-of-Turn triggers when `EndTurn` is taken, `repeats` times
+/// ([`end_of_turn_repeats`]): Magnetized Health bonuses, then each minion's `end_of_turn` hook,
+/// left to right.
+pub fn on_end_turn(state: &mut TavernState, repeats: u32, pool: &mut CardPool, rng: &mut Rng) {
     for _ in 0..repeats {
         for unit in &mut state.board {
             if unit.eot_health_bonus > 0 {

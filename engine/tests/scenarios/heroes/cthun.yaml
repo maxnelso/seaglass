@@ -31,3 +31,27 @@ scenarios:
       - hero_power
       - end_turn
     expect: {board: {sum: {attack: 6}}}
+
+  - name: twice_with_ghastly_sticker
+    description: Every end-of-turn effect triggers an extra time (confirmed); the arming is used once.
+    tavern: {turn: 1, board: ["1/1"], auras: {hero: C'Thun, trinkets: [Ghastly Sticker]}}
+    steps:
+      - hero_power
+      - end_turn
+    expect: {board: ["3/3"], auras: {hero: {power: {armed: 0}}}}
+
+  - name: twice_with_drakkari_enchanter
+    description: (confirmed) 2 buffs, on the 1/1 or the Enchanter.
+    tavern: {turn: 1, board: ["1/1", Drakkari Enchanter]}
+    steps:
+      - hero_power
+      - end_turn
+    expect: {board: {sum: {attack: 4, health: 8}}}
+
+  - name: three_times_with_both
+    description: (confirmed) The extras add up.
+    tavern: {turn: 1, board: ["1/1", Drakkari Enchanter], auras: {hero: C'Thun, trinkets: [Ghastly Sticker]}}
+    steps:
+      - hero_power
+      - end_turn
+    expect: {board: {sum: {attack: 5, health: 9}}}

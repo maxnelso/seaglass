@@ -32,6 +32,6 @@ fn rules(rules: &mut TavernRules) {
 }
 
 /// End of turn: the Tavern Freezes.
-fn freeze(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
+fn freeze(state: &mut TavernState, _: u32, _: &mut CardPool, _: &mut Rng) {
     state.is_frozen = true;
 }
