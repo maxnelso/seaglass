@@ -3,27 +3,27 @@
 //! Hero Power: `Hat Trick` (`TB_BaconShop_HP_042`), 0 Gold: When you play a minion, give it a +1/+1 hat that passes to a friendly minion when sold.
 //!
 //! Passive (`docs/heroes.md` §11.2): `hero_after_play` gives a minion played from hand `+1/+1` and
-//! `hats += 1`. When a minion with hats is sold (`hero_after_sell`, or `pass_hats` if the player
-//! no longer has *Hat Trick*), each hat gives a random remaining friendly board minion `+1/+1` and
-//! `hats += 1`.
+//! a hat (`hats += 1`). Hats are the minion's: this file also registers the hat card's
+//! (`HAT_CARD`) `sell` hook, which the sale runs whatever the player's Hero Power: each hat of the
+//! sold minion gives a random remaining friendly board minion `+1/+1` and `hats += 1`.
 
 use crate::cards::{CardHooks, Played};
-use crate::model::{CardId, HeroId, Unit};
+use crate::model::{CardId, HeroId, Unit, HAT_CARD};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
 pub const ID: HeroId = 59806;
 pub const POWER: CardId = 59860;
 
+/// The Hero Power's hooks and the hat card's, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
-    vec![(
-        POWER,
-        CardHooks::EMPTY
-            .on_hero_after_play(after_play)
-            .on_hero_after_sell(after_sell),
-    )]
+    vec![
+        (POWER, CardHooks::EMPTY.on_hero_after_play(after_play)),
+        (HAT_CARD, CardHooks::EMPTY.on_sell(pass_hats)),
+    ]
 }
 
+/// A minion played from the hand gets a hat.
 fn after_play(state: &mut TavernState, played: &Played, _: &mut CardPool, _: &mut Rng) {
     if !played.from_hand {
         return;
@@ -34,13 +34,10 @@ fn after_play(state: &mut TavernState, played: &Played, _: &mut CardPool, _: &mu
     }
 }
 
-fn after_sell(state: &mut TavernState, sold: &Unit, _: &mut CardPool, rng: &mut Rng) {
-    pass_hats(state, sold.hats, rng);
-}
-
-/// Pass `hats` +1/+1 hats to random remaining friendly board minions (`docs/heroes.md` §11.2).
-pub fn pass_hats(state: &mut TavernState, hats: u32, rng: &mut Rng) {
-    for _ in 0..hats {
+/// The hat card's `sell` hook: the sold minion's hats pass, one by one, to random remaining
+/// friendly board minions (`docs/heroes.md` §11.2).
+fn pass_hats(state: &mut TavernState, sold: &Unit, _: &mut CardPool, rng: &mut Rng) {
+    for _ in 0..sold.hats {
         if state.board.is_empty() {
             break;
         }

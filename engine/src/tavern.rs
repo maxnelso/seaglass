@@ -5,7 +5,7 @@ use crate::combat::{resolve_battle, BattleResult};
 use crate::heroes;
 use crate::model::{
     BattleOutcome, CardId, CombatResult, GameState, HeroId, HeroState, LobbyView, PlayerAuras,
-    Side, TeammateGift, Tribe, Unit,
+    Side, TeammateGift, Tribe, Unit, HAT_CARD,
 };
 use crate::rng::Rng;
 
@@ -1234,8 +1234,8 @@ impl TavernState {
     /// Sell the minion at `board[board_pos]` (`docs/tavern.md` §7.3): the one path of every sale
     /// (the `Sell` action, `Channel the Devourer`, Mutanus' Devour). It leaves the board, its
     /// copies return to the pool, the player gains 1 Gold, its on-sell triggers and the sell
-    /// observers run, then the hero's `hero_after_sell`; the sale is recorded in
-    /// `sold_this_step`. Returns the sold minion.
+    /// observers run, then the hero's `hero_after_sell`, then the hats it wore pass on (the hat
+    /// card's `sell` hook); the sale is recorded in `sold_this_step`. Returns the sold minion.
     pub fn sell_minion(&mut self, board_pos: usize, pool: &mut CardPool, rng: &mut Rng) -> Unit {
         let sold = self.board.remove(board_pos);
         pool.return_unit(&sold);
@@ -1243,6 +1243,12 @@ impl TavernState {
         self.sold_this_step.push(sold.clone());
         cards::on_sell(self, &sold, pool, rng);
         heroes::after_sell(self, &sold, pool, rng);
+        // The hats it wore pass on, whatever the Hero Power (`Unit::hats`).
+        if sold.hats > 0 {
+            if let Some(sell) = cards::hooks(HAT_CARD).sell {
+                sell(self, &sold, pool, rng);
+            }
+        }
         sold
     }
 
@@ -1406,7 +1412,7 @@ impl TavernState {
         self.gold_spent_this_turn = 0;
         self.elementals_played_this_turn = 0;
         self.auras.expire_turn_effects();
-        heroes::turn_reset(self);
+        heroes::turn_reset(self, pool);
         let turn_atk = std::mem::take(&mut self.auras.tavern_turn_atk);
         let turn_hp = std::mem::take(&mut self.auras.tavern_turn_hp);
         // The cards the turn start keeps lose this turn's Tavern buffs: a frozen shop's, and the

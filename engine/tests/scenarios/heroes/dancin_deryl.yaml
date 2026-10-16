@@ -23,3 +23,13 @@ scenarios:
     expect:
       board:
         0: {stats: "4/4", hats: 2}
+
+  - name: hats_still_pass_without_hat_trick
+    description: (confirmed) Hats are the minion's, not the Hero Power's.
+    tavern:
+      auras: {hero: Snake Eyes}
+      board: ["2/2", {card: "5/5", hats: 2}]
+    steps:
+      - sell: 1
+    expect:
+      board: [{stats: "4/4", hats: 2}]

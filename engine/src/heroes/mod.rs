@@ -627,31 +627,27 @@ pub fn use_power_2(
     with_second_power(state, |state| use_power(state, target, pool, rng));
 }
 
-/// Start of turn (`docs/heroes.md` §3.3, §3.4): the board's marks clear, and the Hero Power's
-/// uses are reset (1 if it is active, 0 if passive) before its `hero_turn_reset` hook.
-pub fn turn_reset(state: &mut TavernState) {
-    let Some(hero) = state.auras.hero.as_mut() else {
+/// Start of turn (`docs/heroes.md` §3.3, §3.4): the board's marks clear, the hero's own Hero
+/// Power's `hero_base_turn_reset` hook runs (whatever power the hero has now), and the Hero
+/// Power's uses are reset (1 if it is active, 0 if passive) before its `hero_turn_reset` hook.
+pub fn turn_reset(state: &mut TavernState, pool: &mut CardPool) {
+    let Some(hero_id) = state.auras.hero.as_ref().map(|h| h.hero_id) else {
         return;
     };
     for unit in &mut state.board {
         unit.marked = false;
     }
-    if hero.hero_id == master_nguyen::ID && hooks(master_nguyen::POWER).hero_turn_start.is_some() {
-        let kept_stored = if hero.power.card_id == tavish_stormpike::POWER {
-            std::mem::take(&mut hero.power.stored)
-        } else {
-            Vec::new()
-        };
-        if let Some(nguyen) = data(master_nguyen::ID) {
-            hero.power = new_power_state(nguyen.power);
-            hero.power.stored = kept_stored;
-        }
-    } else {
-        let card = hooks(hero.power.card_id);
-        hero.power.uses_left = u32::from(card.hero_power.is_some());
-        if let Some(reset) = card.hero_turn_reset {
-            reset(hero);
-        }
+    let own_power = data(hero_id).map(|h| h.power.id);
+    if let Some(base_reset) = own_power.and_then(|id| hooks(id).hero_base_turn_reset) {
+        base_reset(state, pool);
+    }
+    let Some(hero) = state.auras.hero.as_mut() else {
+        return;
+    };
+    let card = hooks(hero.power.card_id);
+    hero.power.uses_left = u32::from(card.hero_power.is_some());
+    if let Some(reset) = card.hero_turn_reset {
+        reset(hero);
     }
     if let Some(second) = hero.second_power.as_mut() {
         std::mem::swap(&mut hero.power, second);
@@ -808,20 +804,11 @@ pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rn
 
 /// After a minion was sold: the Hero Power's `hero_after_sell` hook.
 pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
-    let has_deryl = state.auras.hero.as_ref().is_some_and(|h| {
-        h.power.card_id == dancin_deryl::POWER
-            || h.second_power
-                .as_ref()
-                .is_some_and(|sp| sp.card_id == dancin_deryl::POWER)
-    });
     if let Some(after_sell) = power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
         after_sell(state, sold, pool, rng);
     }
     if let Some(after_sell) = second_power_hooks(&state.auras).and_then(|c| c.hero_after_sell) {
         with_second_power(state, |s| after_sell(s, sold, pool, rng));
-    }
-    if sold.hats > 0 && !has_deryl && hooks(dancin_deryl::POWER).hero_after_sell.is_some() {
-        dancin_deryl::pass_hats(state, sold.hats, rng);
     }
 }
 
@@ -1321,8 +1308,33 @@ pub fn offer_power_discover(
     state.push_discover(options);
 }
 
+/// Replace the player's Hero Power (`hero.power`, or `hero.second_power` if `into_second`) with
+/// `new` (`docs/heroes.md` §4): the outgoing power's `hero_power_removed` hook cleans up what it
+/// keeps.
+pub fn replace_power(
+    state: &mut TavernState,
+    new: HeroPowerState,
+    into_second: bool,
+    pool: &mut CardPool,
+) {
+    let Some(hero) = state.auras.hero.as_mut() else {
+        return;
+    };
+    let old = if into_second {
+        hero.second_power.replace(new)
+    } else {
+        Some(std::mem::replace(&mut hero.power, new))
+    };
+    if let Some(mut old) = old {
+        if let Some(removed) = hooks(old.card_id).hero_power_removed {
+            removed(&mut old, pool);
+        }
+    }
+}
+
 /// Install the Hero Power `power_card_id` into `hero.power` (or `hero.second_power` if
-/// `into_second`), running its `hero_chosen`, `hero_turn_reset`, and `hero_turn_start` hooks.
+/// `into_second`, [`replace_power`]), running its `hero_chosen`, `hero_turn_reset`, and
+/// `hero_turn_start` hooks.
 pub fn install_power(
     state: &mut TavernState,
     power_card_id: CardId,
@@ -1333,11 +1345,8 @@ pub fn install_power(
     let Some(h) = HEROES.iter().find(|h| h.power.id == power_card_id) else {
         return;
     };
-    let p = new_power_state(h.power);
+    replace_power(state, new_power_state(h.power), into_second, pool);
     if into_second {
-        if let Some(hero) = state.auras.hero.as_mut() {
-            hero.second_power = Some(p);
-        }
         with_second_power(state, |state| {
             let card = hooks(power_card_id);
             if let Some(chosen) = card.hero_chosen {
@@ -1353,9 +1362,6 @@ pub fn install_power(
             }
         });
     } else {
-        if let Some(hero) = state.auras.hero.as_mut() {
-            hero.power = p;
-        }
         let card = hooks(power_card_id);
         if let Some(chosen) = card.hero_chosen {
             chosen(state);
@@ -1372,37 +1378,24 @@ pub fn install_power(
     state.sync_all_auras();
 }
 
-/// Duos (`The Nameless One`, `docs/heroes.md` §11.2): at the start of turn 1 (before either
-/// player's `start_turn` runs), if `players[player]` has `The Nameless One`'s Hero Power, replace
-/// it with a fresh copy of their teammate's Hero Power and run its `hero_chosen` hook.
-pub fn copy_teammate_power(players: &mut [TavernState; 2], player: usize) {
-    let is_nameless = players[player]
-        .auras
-        .hero
-        .as_ref()
-        .is_some_and(|h| h.power.card_id == the_nameless_one::POWER)
-        && hooks(the_nameless_one::POWER).hero_turn_reset.is_some();
-    if !is_nameless {
-        return;
+/// Duos: the team's turn is about to start, before either player's start of turn
+/// (`docs/heroes.md` §4): each player's Hero Powers' `hero_before_team_turn` hook, with their
+/// teammate's Tavern, player 0's first.
+pub fn before_team_turn(players: &mut [TavernState; 2]) {
+    for player in 0..2 {
+        let (left, right) = players.split_at_mut(1);
+        let (own, mate) = if player == 0 {
+            (&mut left[0], &right[0])
+        } else {
+            (&mut right[0], &left[0])
+        };
+        if let Some(f) = power_hooks(&own.auras).and_then(|c| c.hero_before_team_turn) {
+            f(own, mate);
+        }
+        if let Some(f) = second_power_hooks(&own.auras).and_then(|c| c.hero_before_team_turn) {
+            with_second_power(own, |s| f(s, mate));
+        }
     }
-    let Some(mate_hero_id) = players[1 - player].auras.hero.as_ref().map(|h| h.hero_id) else {
-        return;
-    };
-    assert_ne!(
-        mate_hero_id,
-        the_nameless_one::ID,
-        "a Duos team cannot have two copies of The Nameless One"
-    );
-    let Some(mate_data) = data(mate_hero_id) else {
-        return;
-    };
-    if let Some(hero) = players[player].auras.hero.as_mut() {
-        hero.power = new_power_state(mate_data.power);
-    }
-    if let Some(chosen) = hooks(mate_data.power.id).hero_chosen {
-        chosen(&mut players[player]);
-    }
-    players[player].sync_all_auras();
 }
 
 #[cfg(test)]

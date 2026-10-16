@@ -166,9 +166,7 @@ impl DuosTavern {
         self.passes_this_turn = 0;
         self.ended = [false; 2];
         self.mirror();
-        for player in 0..2 {
-            crate::heroes::copy_teammate_power(&mut self.players, player);
-        }
+        crate::heroes::before_team_turn(&mut self.players);
         self.settle();
         for player in 0..2 {
             // A warband that sat out the last combat keeps its unused next-combat effects (§6.3).

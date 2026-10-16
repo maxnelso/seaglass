@@ -29,3 +29,18 @@ scenarios:
       - expect:
           discover_pending: null
           auras: {hero: {power: {card_id: {same_as: turn2_power}}}}
+
+  - name: the_outgoing_hero_power_cleans_up_what_it_keeps
+    description: Tavish's loaded minion goes back to the pool when Nguyen takes his Hero Power back (`hero_power_removed`).
+    tavern: {shop: [Lurking Leviathan]}
+    steps:
+      - set_hero: Master Nguyen
+      - set: {auras: {hero: {power: {card_id: 123150, cost: 0, uses_left: 1}}}}
+      - take_from_pool: [Lurking Leviathan]
+      - expect: {pool: {Lurking Leviathan: {capture: before}}}
+      - hero_power: 0
+      - expect: {pool: {Lurking Leviathan: "$before"}, auras: {hero: {power: {stored: [Lurking Leviathan]}}}}
+      - start_turn
+      - expect:
+          pool: {Lurking Leviathan: "$before + 1"}
+          auras: {hero: {power: {card_id: 71909, stored: []}}}

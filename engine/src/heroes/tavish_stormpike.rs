@@ -7,12 +7,13 @@
 //! room (Start of Combat, step 1b, or `hero_combat_space` once a slot opens), it is summoned at the
 //! right end (a summon: the summon observers trigger) and attacks immediately (confirmed). Kept
 //! cards are marked once they joined (`Unit::marked`). At the next turn start every kept card's
-//! copy goes back to the pool, whether it joined or was lost (confirmed).
+//! copy goes back to the pool, whether it joined or was lost (confirmed), or as soon as the Hero
+//! Power is replaced (`hero_power_removed`: Master Nguyen's next turn start).
 
 use crate::cards::{ActivateTargetKind, BoardCtx, CardHooks};
 use crate::combat::MAX_BOARD_SIZE;
 use crate::heroes::{power_mut, HERO_SOURCE};
-use crate::model::{CardId, HeroId};
+use crate::model::{CardId, HeroId, HeroPowerState};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -29,6 +30,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
             .on_hero_start_of_combat(|ctx| join(&mut ctx.own))
             .on_hero_combat_space(join)
             .on_hero_turn_start(back_to_pool)
+            .on_hero_power_removed(return_kept)
             .with_activate_target(ActivateTargetKind::ShopCard),
     )]
 }
@@ -68,9 +70,14 @@ fn join(ctx: &mut BoardCtx<'_>) {
 
 /// Start of turn: the kept minions' copies go back to the pool.
 fn back_to_pool(state: &mut TavernState, pool: &mut CardPool, _: &mut Rng) {
-    let Some(power) = power_mut(&mut state.auras) else {
-        return;
-    };
+    if let Some(power) = power_mut(&mut state.auras) {
+        return_kept(power, pool);
+    }
+}
+
+/// The kept minions' copies go back to the pool (at the next turn start, or once the Hero Power
+/// is replaced: Master Nguyen's next turn).
+fn return_kept(power: &mut HeroPowerState, pool: &mut CardPool) {
     for minion in std::mem::take(&mut power.stored) {
         pool.return_unit(&minion);
     }

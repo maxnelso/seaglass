@@ -27,7 +27,7 @@ use crate::cards::{
     TeammateWarband,
 };
 use crate::model::{
-    CardId, CombatResult, HeroState, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId,
+    CardId, CombatResult, HeroPowerState, HeroState, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId,
 };
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
@@ -482,6 +482,12 @@ card_hooks! {
     hero_power_target(on_hero_power_target): fn(&TavernState, usize) -> bool,
     /// Start of turn, after `uses_left` was reset: `(hero)`.
     hero_turn_reset(on_hero_turn_reset): fn(&mut HeroState),
+    /// Start of turn, before the uses are reset, for the hero's own Hero Power (its table power),
+    /// whatever Hero Power the hero has now: `(state, pool)`.
+    hero_base_turn_reset(on_hero_base_turn_reset): fn(&mut TavernState, &mut CardPool),
+    /// This Hero Power is replaced by another (`heroes::replace_power`): `(its state, pool)`, to
+    /// clean up what it keeps.
+    hero_power_removed(on_hero_power_removed): fn(&mut HeroPowerState, &mut CardPool),
     /// The player got this hero (its start-of-game text): `(state)`.
     hero_chosen(on_hero_chosen): fn(&mut TavernState),
     /// Gold was spent: `(state, amount)`.
@@ -534,6 +540,9 @@ card_hooks! {
     /// The Tavern's prices and rules the Hero Power changes, whenever they are read:
     /// `(rules)` (`docs/tavern.md` §3.3).
     hero_tavern_rules(on_hero_tavern_rules): fn(&mut crate::heroes::TavernRules),
+    /// Duos: the team's turn is about to start, before either player's start of turn: `(state,
+    /// teammate's state)`.
+    hero_before_team_turn(on_hero_before_team_turn): fn(&mut TavernState, &TavernState),
     /// Whether the player skips the current turn (only `EndTurn` and `ChooseDiscover` are
     /// legal): `(state)`.
     hero_skips_turn(on_hero_skips_turn): fn(&TavernState) -> bool,

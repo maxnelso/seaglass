@@ -221,7 +221,7 @@ When a Tavern trigger would deal damage to the friendly hero:
 - Combat damage (the hero damage of a lost combat, taken by Armor first, then Health) triggers no hero-damage observers: `Soul Rewinder` and `Ashen Corruptor` don't rewind it, `Tichondrius` doesn't trigger, and `Eredar Escapist` ("after your hero takes 4 damage") doesn't count it.
 
 ### 7.3 On-Sell Triggers
-Every sale goes through one path (`TavernState::sell_minion`): the `Sell` action and the effects that "sell a minion" (`Channel the Devourer`, Mutanus' Devour) **(confirmed**: both say "Sell"**)**. It removes the minion, returns its copies to the pool, gives `+1` Gold, runs its on-sell triggers and the Tavern's sell observers, then the hero's `hero_after_sell` (`heroes.md` §4), and records the sale for the step (`sold_this_step`, read by a Duos team for the teammate's observers: `duos_tavern.md` §7.3).
+Every sale goes through one path (`TavernState::sell_minion`): the `Sell` action and the effects that "sell a minion" (`Channel the Devourer`, Mutanus' Devour) **(confirmed**: both say "Sell"**)**. It removes the minion, returns its copies to the pool, gives `+1` Gold, runs its on-sell triggers and the Tavern's sell observers, then the hero's `hero_after_sell` (`heroes.md` §4), then passes the hats it wore (`Unit::hats`: the hat card's `sell` hook, whatever the player's Hero Power: `heroes.md` §11.2), and records the sale for the step (`sold_this_step`, read by a Duos team for the teammate's observers: `duos_tavern.md` §7.3).
 
 When a minion at `board[board_pos]` is sold:
 - May draw or generate minion(s)/token(s) into `hand` (if `hand.len() < 10`, checking for Triples after each addition).

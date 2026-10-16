@@ -644,11 +644,16 @@ pub struct Unit {
     /// at the start of the next turn (`docs/tavern.md` §4).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub until_next_turn_atk: i32,
-    /// Number of +1/+1 hats on this minion (`Dancin' Deryl`'s Hat Trick; `docs/heroes.md` §11.2),
-    /// passed to random friendly board minions when sold.
+    /// Number of +1/+1 hats on this minion: copies of the hat card [`HAT_CARD`] (`Dancin' Deryl`'s
+    /// Hat Trick gives them; `docs/heroes.md` §11.2). When it is sold, the hat card's `sell` hook
+    /// passes them on, whatever the player's Hero Power (`docs/tavern.md` §7.3).
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub hats: u32,
 }
+
+/// The hat card (*Hats*, `TB_BaconShop_HP_042e`): [`Unit::hats`] counts its copies on a minion,
+/// and its `sell` hook passes them when the minion is sold (`docs/heroes.md` §11.2).
+pub const HAT_CARD: CardId = 59861;
 
 /// `true` if `n` is 0 (serde: a field skipped while it is 0).
 fn is_zero_u8(n: &u8) -> bool {
