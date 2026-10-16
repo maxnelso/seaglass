@@ -1,0 +1,14 @@
+trinket: Booty Bay Brew
+scenarios:
+  - name: spending_gold_buffs_two_pirates
+    tavern: {gold: 10, board: ["1/1 pirate", "1/1 beast", "1/1 pirate"], auras: {trinkets: [Booty Bay Brew]}}
+    steps:
+      - refresh
+    expect: {board: ["4/4", "1/1", "4/4"]}
+
+  - name: two_different_pirates_of_three
+    seeds: "1..=4"
+    tavern: {gold: 10, board: ["1/1 pirate", "1/1 pirate", "1/1 pirate"], auras: {trinkets: [Booty Bay Brew]}}
+    steps:
+      - refresh
+    expect: {board: {where: {attack: 4}, count: 2}}

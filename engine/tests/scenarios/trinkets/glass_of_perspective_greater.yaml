@@ -1,0 +1,11 @@
+trinket: Glass of Perspective (Greater)
+scenarios:
+  - name: two_choose_one_minions_now_and_each_turn
+    seeds: "1..=4"
+    tavern: {turn: 9, tavern_tier: 6}
+    steps:
+      - give_trinket: Glass of Perspective (Greater)
+      - expect: {hand: {count: 2, all: {is_spell: false}}}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 4, all: {is_spell: false}}}

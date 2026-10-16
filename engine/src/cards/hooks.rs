@@ -596,6 +596,8 @@ card_hooks! {
     trinket_extra_triggers(on_trinket_extra_triggers): fn(Passive) -> u32,
     /// A combat starts (the player's side is set up): `(trinket)`, to restart per-combat counts.
     trinket_combat_start(on_trinket_combat_start): fn(&mut TrinketState),
+    /// Gold was spent, after the Hero Power's `hero_gold_spent`: `(state, amount, pool, rng)`.
+    trinket_gold_spent(on_trinket_gold_spent): fn(&mut TavernState, u32, &mut CardPool, &mut Rng),
 }
 
 impl Default for CardHooks {

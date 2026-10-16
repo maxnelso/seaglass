@@ -700,7 +700,8 @@ impl TavernState {
         self
     }
 
-    /// Spend `amount` Gold, updating `gold_spent_this_turn` and firing `cards::on_gold_spent`.
+    /// Spend `amount` Gold, updating `gold_spent_this_turn` and firing `cards::on_gold_spent`, then
+    /// the Hero Power's and the trinkets' Gold-spent hooks.
     pub fn spend_gold(&mut self, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
         if amount == 0 {
             return;
@@ -709,6 +710,7 @@ impl TavernState {
         self.gold_spent_this_turn += amount;
         cards::on_gold_spent(self, amount, pool, rng);
         heroes::on_gold_spent(self, amount);
+        trinkets::gold_spent(self, amount, pool, rng);
     }
 
     /// Enqueue a Discover or Choose-One prompt (`discover_pending`).

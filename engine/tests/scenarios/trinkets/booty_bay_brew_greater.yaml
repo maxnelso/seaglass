@@ -1,0 +1,7 @@
+trinket: Booty Bay Brew (Greater)
+scenarios:
+  - name: spending_gold_buffs_two_pirates
+    tavern: {gold: 10, board: ["1/1 pirate", "1/1 pirate"], auras: {trinkets: [Booty Bay Brew (Greater)]}}
+    steps:
+      - refresh
+    expect: {board: ["7/7", "7/7"]}

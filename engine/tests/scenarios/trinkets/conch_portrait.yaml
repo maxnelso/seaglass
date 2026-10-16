@@ -1,0 +1,13 @@
+trinket: Conch Portrait
+scenarios:
+  - name: a_cloning_conch_now_and_every_two_turns
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Conch Portrait
+      - expect: {hand: [Cloning Conch]}
+      - end_turn
+      - start_turn
+      - expect: {hand: [Cloning Conch]}
+      - end_turn
+      - start_turn
+    expect: {hand: [Cloning Conch, Cloning Conch]}

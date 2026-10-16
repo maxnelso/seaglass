@@ -1,0 +1,10 @@
+trinket: Baller Portrait
+scenarios:
+  - name: a_fire_or_snow_baller_now_and_each_turn
+    seeds: "1..=4"
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Baller Portrait
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 2, all: {name: {any_of: [Fire Baller, Snow Baller]}}}}

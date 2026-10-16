@@ -1,0 +1,13 @@
+trinket: Spell-powered Wrench
+scenarios:
+  - name: a_magnetic_play_casts_repair_job_on_a_mech
+    tavern: {hand: [Annoy-o-Module], auras: {trinkets: [Spell-powered Wrench]}}
+    steps:
+      - play: 0
+    expect: {board: [{attack: 6, health: 12}], auras: {tavern_spells_cast: 1}}
+
+  - name: not_after_a_minion_that_isnt_magnetic
+    tavern: {board: ["1/1 mech"], hand: ["1/1 mech"], auras: {trinkets: [Spell-powered Wrench]}}
+    steps:
+      - play: 0
+    expect: {auras: {tavern_spells_cast: 0}}

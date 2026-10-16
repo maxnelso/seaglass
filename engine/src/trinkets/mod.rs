@@ -13,6 +13,8 @@ mod table;
 pub mod all_purpose_kibble;
 pub mod artisanal_urn;
 pub mod baleful_incense;
+pub mod baller_portrait;
+pub mod baller_portrait_greater;
 pub mod bartend_o_trons_oilcan;
 pub mod beatboxer_portrait;
 pub mod beetle_band;
@@ -21,17 +23,23 @@ pub mod bleeding_heart;
 pub mod blood_golem_sticker;
 pub mod bluegill_flippers;
 pub mod bobs_tip_jar;
+pub mod booty_bay_brew;
+pub mod booty_bay_brew_greater;
 pub mod bronze_timepiece;
 pub mod butchers_sickle;
 pub mod comfy_coffin;
 pub mod comfy_coffin_greater;
+pub mod conch_portrait;
 pub mod converter_portrait;
 pub mod cookies_stirring_rod;
 pub mod corrupted_baton;
 pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
+pub mod dalaran_cheese_wheel;
 pub mod defensive_shell;
+pub mod demonic_bloodletter;
 pub mod dramaloc_sticker;
+pub mod emergency_gearblade;
 pub mod enigmatic_headstone;
 pub mod eternal_portrait;
 pub mod evil_experiment;
@@ -42,7 +50,11 @@ pub mod flighty_portrait;
 pub mod fridge_magnet;
 pub mod frigid_blossom;
 pub mod ghastly_sticker;
+pub mod glass_of_perspective;
+pub mod glass_of_perspective_greater;
 pub mod goblin_wallet;
+pub mod great_boar_sticker;
+pub mod great_boar_sticker_greater;
 pub mod herald_sticker;
 pub mod hoggy_bank;
 pub mod holy_mallet;
@@ -59,6 +71,9 @@ pub mod nerglish_phrasebook;
 pub mod nerglish_phrasebook_greater;
 pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
+pub mod orc_estra_portrait;
+pub mod pocket_cyclone;
+pub mod pocket_cyclone_greater;
 pub mod protective_ring;
 pub mod rascal_sticker;
 pub mod recycling_sticker;
@@ -70,6 +85,7 @@ pub mod scraper_sticker;
 pub mod secret_schematic;
 pub mod sellemental_portrait;
 pub mod slamma_sticker;
+pub mod spell_powered_wrench;
 pub mod sphere_of_memory;
 pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
@@ -93,7 +109,7 @@ use crate::model::{
     CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, Unit, UnitId, LOBBY_TRIBES,
 };
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// A trinket of the pool (`docs/trinkets.md` §2.1): one row of the generated table.
 #[derive(Clone, Copy, Debug)]
@@ -132,6 +148,11 @@ const IMPLEMENTED: &[Implemented] = &[
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (artisanal_urn::ID, artisanal_urn::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
+    (baller_portrait::ID, baller_portrait::behaviors),
+    (
+        baller_portrait_greater::ID,
+        baller_portrait_greater::behaviors,
+    ),
     (
         bartend_o_trons_oilcan::ID,
         bartend_o_trons_oilcan::behaviors,
@@ -143,10 +164,16 @@ const IMPLEMENTED: &[Implemented] = &[
     (blood_golem_sticker::ID, blood_golem_sticker::behaviors),
     (bluegill_flippers::ID, bluegill_flippers::behaviors),
     (bobs_tip_jar::ID, bobs_tip_jar::behaviors),
+    (booty_bay_brew::ID, booty_bay_brew::behaviors),
+    (
+        booty_bay_brew_greater::ID,
+        booty_bay_brew_greater::behaviors,
+    ),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
     (butchers_sickle::ID, butchers_sickle::behaviors),
     (comfy_coffin::ID, comfy_coffin::behaviors),
     (comfy_coffin_greater::ID, comfy_coffin_greater::behaviors),
+    (conch_portrait::ID, conch_portrait::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
     (cookies_stirring_rod::ID, cookies_stirring_rod::behaviors),
     (corrupted_baton::ID, corrupted_baton::behaviors),
@@ -158,8 +185,11 @@ const IMPLEMENTED: &[Implemented] = &[
         corrupted_coin_portrait::ID,
         corrupted_coin_portrait::behaviors,
     ),
+    (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
     (defensive_shell::ID, defensive_shell::behaviors),
+    (demonic_bloodletter::ID, demonic_bloodletter::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
+    (emergency_gearblade::ID, emergency_gearblade::behaviors),
     (enigmatic_headstone::ID, enigmatic_headstone::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
     (evil_experiment::ID, evil_experiment::behaviors),
@@ -170,7 +200,17 @@ const IMPLEMENTED: &[Implemented] = &[
     (fridge_magnet::ID, fridge_magnet::behaviors),
     (frigid_blossom::ID, frigid_blossom::behaviors),
     (ghastly_sticker::ID, ghastly_sticker::behaviors),
+    (glass_of_perspective::ID, glass_of_perspective::behaviors),
+    (
+        glass_of_perspective_greater::ID,
+        glass_of_perspective_greater::behaviors,
+    ),
     (goblin_wallet::ID, goblin_wallet::behaviors),
+    (great_boar_sticker::ID, great_boar_sticker::behaviors),
+    (
+        great_boar_sticker_greater::ID,
+        great_boar_sticker_greater::behaviors,
+    ),
     (herald_sticker::ID, herald_sticker::behaviors),
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
@@ -190,6 +230,12 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (nomi_sticker::ID, nomi_sticker::behaviors),
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
+    (orc_estra_portrait::ID, orc_estra_portrait::behaviors),
+    (pocket_cyclone::ID, pocket_cyclone::behaviors),
+    (
+        pocket_cyclone_greater::ID,
+        pocket_cyclone_greater::behaviors,
+    ),
     (protective_ring::ID, protective_ring::behaviors),
     (rascal_sticker::ID, rascal_sticker::behaviors),
     (recycling_sticker::ID, recycling_sticker::behaviors),
@@ -201,6 +247,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
+    (spell_powered_wrench::ID, spell_powered_wrench::behaviors),
     (sphere_of_memory::ID, sphere_of_memory::behaviors),
     (staff_of_the_scourge::ID, staff_of_the_scourge::behaviors),
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
@@ -589,6 +636,15 @@ pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng
     }
 }
 
+/// Gold was spent: each trinket's `trinket_gold_spent` hook.
+pub fn gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
+    for id in owned_ids(&state.auras) {
+        if let Some(gold_spent) = hooks(id).trinket_gold_spent {
+            gold_spent(state, amount, pool, rng);
+        }
+    }
+}
+
 /// The player ends their turn: each trinket's `trinket_end_turn` hook.
 pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     for id in owned_ids(&state.auras) {
@@ -797,6 +853,62 @@ pub fn buff_left_most_in_hand(state: &mut TavernState, attack: i32, health: i32)
 pub fn buff_undead_attack(state: &mut TavernState, attack: i32) {
     state.auras.undead_bonus_attack += attack;
     state.sync_all_auras();
+}
+
+/// The Tavern's bonus (`auras.tavern_all_atk` / `tavern_all_hp`: "minions in the Tavern have
+/// +N/+N", as `Staff of Enrichment`'s) goes up by `(attack, health)` for the rest of the game, and
+/// the minions in the Tavern now gain it.
+pub fn buff_tavern_minions(state: &mut TavernState, attack: i32, health: i32) {
+    state.auras.tavern_all_atk += attack;
+    state.auras.tavern_all_hp += health;
+    for unit in &mut state.shop {
+        if !unit.is_spell {
+            unit.add_stats(attack, health);
+        }
+    }
+}
+
+/// Cast `Easterly Winds` `times` times by an effect (`spells::cast_spell_by_effect`: Tavern spell
+/// casts, which the spell-cast observers see).
+pub fn cast_easterly_winds(
+    state: &mut TavernState,
+    times: u32,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    for _ in 0..times {
+        if let Some(spell) = cards::spells::spell_by_id(cards::spells::SPELL_EASTERLY_WINDS) {
+            cards::spells::cast_spell_by_effect(state, spell, MinionSlot::Board(0), pool, rng);
+        }
+    }
+}
+
+/// Cast `Repair Job` by an effect (`spells::cast_spell_by_effect`: a Tavern spell cast, which the
+/// spell-cast observers see) on `board[pos]`.
+pub fn cast_repair_job(state: &mut TavernState, pos: usize, pool: &mut CardPool, rng: &mut Rng) {
+    if let Some(spell) = cards::spells::spell_by_id(cards::spells::SPELL_REPAIR_JOB) {
+        cards::spells::cast_spell_by_effect(state, spell, MinionSlot::Board(pos), pool, rng);
+    }
+}
+
+/// `count` different random Pirates on the board (every one if there are `count` or fewer; one
+/// `rng.below(k)` per pick otherwise) gain `+attack/+health`.
+pub fn buff_random_pirates(
+    state: &mut TavernState,
+    count: usize,
+    attack: i32,
+    health: i32,
+    rng: &mut Rng,
+) {
+    let mut pirates: Vec<usize> = (0..state.board.len())
+        .filter(|&i| state.board[i].tribe.matches(Tribe::Pirate))
+        .collect();
+    while pirates.len() > count {
+        pirates.remove(rng.below(pirates.len()));
+    }
+    for i in pirates {
+        state.board[i].add_stats(attack, health);
+    }
 }
 
 /// The left- and right-most of `indexes` (in board order), once if there is only one.

@@ -1,0 +1,10 @@
+trinket: Orc-estra Portrait
+scenarios:
+  - name: an_orc_estra_conductor_now_and_each_turn
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Orc-estra Portrait
+      - expect: {hand: [Orc-estra Conductor]}
+      - end_turn
+      - start_turn
+    expect: {hand: [Orc-estra Conductor, Orc-estra Conductor]}

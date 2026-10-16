@@ -1,0 +1,7 @@
+trinket: Demonic Bloodletter
+scenarios:
+  - name: a_tavern_spell_gives_tavern_minions_one_one_this_game
+    tavern: {shop: ["1/1", "2/2"], hand: [Tavern Coin], auras: {trinkets: [Demonic Bloodletter]}}
+    steps:
+      - play: 0
+    expect: {shop: ["2/2", "3/3"], auras: {tavern_all_atk: 1, tavern_all_hp: 1}}

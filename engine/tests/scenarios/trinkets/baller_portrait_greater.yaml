@@ -1,0 +1,13 @@
+trinket: Baller Portrait (Greater)
+scenarios:
+  - name: a_temperature_shift_now
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Baller Portrait (Greater)
+    expect: {hand: [Temperature Shift]}
+
+  - name: the_eleventh_elemental_played_gives_another
+    tavern: {hand: ["1/1 elemental"], auras: {trinkets: [{trinket: Baller Portrait (Greater), counter: 10}]}}
+    steps:
+      - play: 0
+    expect: {hand: [Temperature Shift], auras: {trinkets: [{counter: 0}]}}

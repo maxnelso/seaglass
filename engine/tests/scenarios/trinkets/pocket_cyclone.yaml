@@ -1,0 +1,10 @@
+trinket: Pocket Cyclone
+scenarios:
+  - name: it_casts_easterly_winds_now_and_each_turn
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Pocket Cyclone
+      - expect: {auras: {tavern_spells_cast: 1}}
+      - end_turn
+      - start_turn
+    expect: {auras: {tavern_spells_cast: 2}}

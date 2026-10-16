@@ -1,0 +1,10 @@
+trinket: Pocket Cyclone (Greater)
+scenarios:
+  - name: four_casts_now_and_two_each_turn
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Pocket Cyclone (Greater)
+      - expect: {auras: {tavern_spells_cast: 4}}
+      - end_turn
+      - start_turn
+    expect: {auras: {tavern_spells_cast: 6}}

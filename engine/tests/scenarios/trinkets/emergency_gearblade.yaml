@@ -1,0 +1,7 @@
+trinket: Emergency Gearblade
+scenarios:
+  - name: repair_job_on_the_left_most_mech_at_the_end_of_turn
+    tavern: {turn: 5, board: ["1/1 beast", "1/1 mech", "1/1 mech"], auras: {trinkets: [Emergency Gearblade]}}
+    steps:
+      - end_turn
+    expect: {board: ["1/1", "5/9", "1/1"], auras: {tavern_spells_cast: 1}}

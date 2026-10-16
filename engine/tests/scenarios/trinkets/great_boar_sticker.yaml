@@ -1,0 +1,7 @@
+trinket: Great Boar Sticker
+scenarios:
+  - name: three_blood_gems_and_two_one_more
+    tavern: {turn: 5}
+    steps:
+      - give_trinket: Great Boar Sticker
+    expect: {hand: [Blood Gem, Blood Gem, Blood Gem], auras: {blood_gem_bonus_atk: 2, blood_gem_bonus_hp: 1}}

@@ -137,6 +137,7 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_end_turn` | The player ends their turn, after the Hero Power's `hero_end_turn`: `(state, pool, rng)`. | `Rendle Sticker`, `Sphere of Memory`. |
 | `trinket_spell_cast` | Each cast of a Tavern spell in the Tavern, after the cards' `spell_cast` observers: `(state, pool, rng)`. | `Corrupted Baton`. |
 | `trinket_after_refresh` | The Tavern was Refreshed (as `hero_after_refresh`), after the Hero Power's, before the cards' after-Refresh effects: `(state, pool, rng)`. | `Innkeeper's Stein`. |
+| `trinket_gold_spent` | Gold was spent (`TavernState::spend_gold`: a buy, a Refresh, an Upgrade, ...), after the Hero Power's `hero_gold_spent`: `(state, amount, pool, rng)`. | `Booty Bay Brew`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger, on top of the board's: `(passive)` (only `EndOfTurnTriggers` is read). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -312,6 +313,22 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Miniature Ship` (Greater) | After you cast a Tavern spell, give your Pirates +3/+3. | The Pirates on the board. |
 | `Comfy Coffin` (Greater) | Whenever you cast a Tavern spell, your Undead have +2 Attack this game (wherever they are). | As the Lesser one, +2. |
 | `Artisanal Urn` (Greater) | Your Undead have +20 Attack. | `auras.undead_bonus_attack` +20 as picked (the trinket is kept). |
+| `Demonic Bloodletter` (Lesser) | Whenever you cast a Tavern spell, give minions in the Tavern +1/+1 this game. | The Tavern's bonus (`tavern_all_atk` / `tavern_all_hp`, as `Staff of Enrichment`'s) +1/+1, the shop's minions now. |
+| `Great Boar Sticker` (Lesser) | Get 3 Blood Gems. Your Blood Gems give an extra +2/+1. | The Blood Gem bonus (`blood_gem_bonus_atk` / `_hp`, as `Gem Day`'s) +2/+1 as picked, then 3 Blood Gems. |
+| `Glass of Perspective` (Lesser) | Get a random Choose One card. At the start of each turn, get another. | A Choose One minion of the player's Tier or lower. |
+| `Conch Portrait` (Lesser) | Get a Cloning Conch. At the start of every 2 turns, repeat this. | Every 2nd turn start after the pick (`counter`). |
+| `Orc-estra Portrait` (Lesser, Duos) | Get an Orc-estra Conductor. At the start of each turn, get another. | A plain one from the catalog. |
+| `Baller Portrait` (Lesser) | Get a Fire Baller or a Snow Baller. At the start of each turn, repeat this. | One of the two at random, one `rng.below(2)` **(engine decision)**. |
+| `Pocket Cyclone` (Lesser) | Cast Easterly Winds. At the start of each turn, cast it again. | Cast by an effect (`spells::cast_spell_by_effect`): a Tavern spell cast, which the spell-cast observers (the trinkets' too) see. |
+| `Emergency Gearblade` (Lesser) | At the end of your turn, cast Repair Job on your left-most Mech. | Cast by an effect on the left-most Mech on the board; nothing without one. |
+| `Spell-powered Wrench` (Lesser) | After you play a Magnetic minion, cast Repair Job on a random friendly Mech. | After a Magnetic minion played from the hand (Magnetized or placed): cast by an effect on a random Mech on the board, one draw. |
+| `Booty Bay Brew` (Lesser) | Whenever you spend Gold, give two friendly Pirates +3/+3. | `trinket_gold_spent`: each spending, whatever the amount; 2 different random Pirates on the board, every Pirate if there are 2 or fewer **(engine decision)**. |
+| `Dalaran Cheese Wheel` (Greater) | Minions in the Tavern have +2/+2. Improves every 4 times you Refresh. | The Tavern's bonus +2/+2 as picked, and +2/+2 more every 4th Refresh (counted across turns, the turn start's new shop too) **(engine decision)**. |
+| `Great Boar Sticker` (Greater) | Get 5 Blood Gems. Your Blood Gems give an extra +3/+3. | As the Lesser one: +3/+3, 5 Blood Gems. |
+| `Glass of Perspective` (Greater) | Get 2 random Choose One cards. At the start of each turn, get 2 more. | As the Lesser one, 2 each time. |
+| `Baller Portrait` (Greater) | Get a Temperature Shift. After you play 11 Elementals, repeat this. | Every 11th Elemental played from the hand (counted across turns). |
+| `Pocket Cyclone` (Greater) | Cast Easterly Winds four times. At the start of each turn, cast it twice more. | As the Lesser one: 4 casts as picked, 2 at each turn start. |
+| `Booty Bay Brew` (Greater) | Whenever you spend Gold, give two friendly Pirates +6/+6. | As the Lesser one, +6/+6. |
 
 ### 11.3 Deferred
 
@@ -347,6 +364,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 6 | Baller Portrait picks at random; Booty Bay Brew on every spending, 2 different random Pirates; Dalaran Cheese Wheel improves by +2/+2 every 4th Refresh, the turn start's too. | their files |
 | Batch 5 | Goblin Wallet above 10 Gold; Rascal Sticker counts the board only; Frigid Blossom on every Refresh, the turn start's too; Weighted Gauntlet stops doubling at +1024/+1024. | their files |
 | Batch 4 | Rendle's ties to the left-most; Innkeeper's Stein nothing at Tier 6; Defensive Shell on a Magnetization; Ghastly Sticker repeats the minions' triggers only; Jar o' Gems ignores Tavern attacks. | their files |
 | Batch 3 | Stuffed Coin Purse pays at once at Tier 6; Typewriter's copies don't come from the pool; random Magnetic Mechs of the player's Tier or lower. | their files |
