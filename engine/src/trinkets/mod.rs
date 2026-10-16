@@ -9,6 +9,7 @@
 //! name a trinket.
 
 mod table;
+mod vocab;
 
 pub mod all_purpose_kibble;
 pub mod artisanal_urn;
@@ -113,6 +114,7 @@ pub mod willbreaker_sticker;
 pub mod worn_treasure_map;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
+pub use vocab::vocabulary;
 
 use crate::cards::{self, hooks, BoardCtx, CardHooks, HeroCombatCtx, Passive, Played};
 use crate::model::{
@@ -365,12 +367,18 @@ pub fn is_implemented(id: CardId) -> bool {
     IMPLEMENTED.iter().any(|&(t, _)| t == id)
 }
 
-/// The trinkets a game can offer (`docs/trinkets.md` §3.1): the implemented ones, not Naga,
-/// Duos-only ones only in Duos, in table order.
+/// `true` if the trinket's only type is Naga (`docs/trinkets.md` §1: never offered; one with a
+/// second type is offered for it).
+pub fn naga_only(t: &TrinketData) -> bool {
+    !t.tribes.is_empty() && t.tribes.iter().all(|&tribe| tribe == Tribe::Naga)
+}
+
+/// The trinkets a game can offer (`docs/trinkets.md` §3.1): the implemented ones, not of the Naga
+/// type only, Duos-only ones only in Duos, in table order.
 pub fn offerable(duos: bool) -> impl Iterator<Item = &'static TrinketData> {
-    TRINKETS.iter().filter(move |t| {
-        is_implemented(t.id) && (duos || !t.duos_only) && !t.tribes.contains(&Tribe::Naga)
-    })
+    TRINKETS
+        .iter()
+        .filter(move |t| is_implemented(t.id) && (duos || !t.duos_only) && !naga_only(t))
 }
 
 /// A fresh state for the trinket `id`.
@@ -1007,7 +1015,7 @@ mod tests {
                 let stem = p.file_stem().unwrap().to_string_lossy().into_owned();
                 (stem, fs::read_to_string(&p).expect("readable"))
             })
-            .filter(|(stem, _)| stem != "mod" && stem != "table")
+            .filter(|(stem, _)| !["mod", "table", "vocab"].contains(&stem.as_str()))
             .collect();
         files.sort();
         files
@@ -1100,17 +1108,18 @@ mod tests {
 
     #[test]
     fn the_table_has_the_whole_pool() {
-        assert_eq!(TRINKETS.len(), 264);
-        assert_eq!(TRINKETS.iter().filter(|t| !t.greater).count(), 127);
-        let naga = |t: &&TrinketData| t.tribes.contains(&Tribe::Naga);
-        assert_eq!(TRINKETS.iter().filter(naga).count(), 18);
+        // HSReplay's 237 Solo trinkets and the 9 Duos-exclusive ones (`docs/trinkets.md` §9).
+        assert_eq!(TRINKETS.len(), 246);
+        assert_eq!(TRINKETS.iter().filter(|t| !t.greater).count(), 120);
         assert_eq!(TRINKETS.iter().filter(|t| t.duos_only).count(), 9);
-        let solo = TRINKETS
-            .iter()
-            .filter(|t| !naga(t) && !t.duos_only)
-            .collect::<Vec<_>>();
+        assert!(!TRINKETS.iter().any(naga_only));
+        let naga = |t: &&TrinketData| t.tribes.contains(&Tribe::Naga);
+        let dual: Vec<_> = TRINKETS.iter().filter(naga).map(|t| t.name).collect();
+        assert_eq!(dual, ["Heart of the Forest", "Wand of Divination"]);
+        let solo = TRINKETS.iter().filter(|t| !t.duos_only).collect::<Vec<_>>();
         assert_eq!(solo.len(), 237);
         assert_eq!(solo.iter().filter(|t| !t.greater).count(), 115);
+        assert!(by_name("Kiri's Double Eclipse").is_none());
         for t in TRINKETS {
             assert!(t.id > 11_000, "{}: trinket ids don't collide", t.name);
             assert!(crate::heroes::table().iter().all(|h| h.power.id != t.id));
@@ -1123,6 +1132,39 @@ mod tests {
             by_card_id("BG30_MagicItem_902").map(|t| t.name),
             Some("Holy Mallet")
         );
+    }
+
+    /// The table is exactly the committed pool file (`tools/data/trinkets_hsreplay.tsv`): its
+    /// trinkets, kinds and prices (`docs/trinkets.md` §9).
+    #[test]
+    fn the_table_is_the_hsreplay_pool_file() {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../tools/data/trinkets_hsreplay.tsv");
+        let text = fs::read_to_string(&path).expect("tools/data/trinkets_hsreplay.tsv");
+        let mut listed = 0;
+        for line in text.lines() {
+            let line = line.split('#').next().unwrap_or("").trim();
+            if line.is_empty() {
+                continue;
+            }
+            let fields: Vec<&str> = line.split('\t').map(str::trim).collect();
+            let t =
+                by_card_id(fields[0]).unwrap_or_else(|| panic!("{} is in the table", fields[0]));
+            assert_eq!(t.greater, fields[1] == "Greater", "{}: kind", t.name);
+            assert_eq!(t.cost.to_string(), fields[2], "{}: price", t.name);
+            listed += 1;
+        }
+        assert_eq!(listed, TRINKETS.len());
+    }
+
+    /// The RL vocabulary keeps the first table's order and every trinket of the table
+    /// (`docs/trinkets.md` §8.2).
+    #[test]
+    fn the_vocabulary_is_append_only() {
+        let ids = vocabulary();
+        assert_eq!(ids[..vocab::VOCAB_IDS.len()], vocab::VOCAB_IDS);
+        assert!(TRINKETS.iter().all(|t| ids.contains(&t.id)));
+        assert_eq!(ids.len(), 264);
     }
 
     fn minion(tribe: Tribe) -> Unit {
@@ -1150,11 +1192,7 @@ mod tests {
             Tribe::MechMurloc,
             Tribe::All,
         ];
-        let pool = || {
-            TRINKETS
-                .iter()
-                .filter(|t| !t.duos_only && !t.tribes.contains(&Tribe::Naga))
-        };
+        let pool = || TRINKETS.iter().filter(|t| !t.duos_only && !naga_only(t));
         let mut rng = Rng::new(11);
         for _ in 0..2000 {
             let mut state = TavernState::new();

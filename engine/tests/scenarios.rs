@@ -544,6 +544,7 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
     let mut trinkets = stems(&src.join("../trinkets"), "rs");
     trinkets.remove("mod");
     trinkets.remove("table");
+    trinkets.remove("vocab");
     let trinket_files = stems(&root.join("trinkets"), "yaml");
     for stem in &trinkets {
         if !trinket_files.contains(stem) {

@@ -1732,10 +1732,11 @@ fn all_card_ids() -> Vec<u32> {
             ids.push(id);
         }
     }
-    // The trinkets last (`docs/trinkets.md` §8.2), so the earlier indices are unchanged.
-    for t in crate::trinkets::table() {
-        if !ids.contains(&t.id) {
-            ids.push(t.id);
+    // The trinkets last (`docs/trinkets.md` §8.2), so the earlier indices are unchanged, in their
+    // fixed, append-only order (`trinkets::vocabulary`).
+    for id in crate::trinkets::vocabulary() {
+        if !ids.contains(&id) {
+            ids.push(id);
         }
     }
     ids
