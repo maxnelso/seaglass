@@ -5,11 +5,13 @@
 //! Passive (`hero_turn_start`): at the start of each turn, rolls 2 Bananas for Mukla's hand (each
 //! independently `Big Banana` (`BG_TB_006`) `+2/+2` when `rng.below(2) == 0`, else `Bananas`
 //! (`BG_EX1_014t`) `+1/+1`; token spells, not Tavern spells) and rolls
-//! 1 Banana into `state.lobby_gifts` for each living opponent in `state.lobby.opponents`.
+//! 1 Banana for the teammate in Duos (a teammate `Card` gift, delivered by the team's Tavern),
+//! then 1 Banana into `state.lobby_gifts` for each living opponent in `state.lobby.opponents`,
+//! which the lobby delivers (`docs/tavern.md` §3.1).
 
 use crate::cards::hooks::SpellTarget;
 use crate::cards::{tokens, CardFlags, CardHooks};
-use crate::model::{CardId, HeroId, Unit};
+use crate::model::{CardId, HeroId, TeammateGift, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -53,11 +55,16 @@ fn roll_banana(rng: &mut Rng) -> Unit {
     }
 }
 
-/// Start of turn: get 2 Bananas and queue 1 Banana in `lobby_gifts` per living opponent.
+/// Start of turn: get 2 Bananas, give the Duos teammate 1, and queue 1 Banana in `lobby_gifts`
+/// per living opponent.
 fn bananarama(state: &mut TavernState, _: &mut CardPool, rng: &mut Rng) {
     for _ in 0..2 {
         let banana = roll_banana(rng);
         state.add_to_hand(banana);
+    }
+    if state.auras.duos_game {
+        let banana = roll_banana(rng);
+        state.auras.to_teammate.push(TeammateGift::Card(banana));
     }
     let living_opponents = state.lobby.opponents.iter().filter(|o| o.alive).count();
     for _ in 0..living_opponents {

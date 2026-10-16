@@ -43,3 +43,17 @@ scenarios:
       - expect:
           board: ["Joyous 5/4"]
           auras: {tavern_spells_cast: 0}
+
+  - name: in_duos_the_teammate_gets_a_banana_through_the_team
+    description: >
+      (confirmed) Everyone else gets one, the teammate too: a teammate gift, delivered by the
+      team's Tavern (engine decision). The lobby's opponents get theirs through `lobby_gifts`.
+    duos_tavern: {}
+    steps:
+      - {player: 0, set_hero: King Mukla}
+      - {player: 0, set: {lobby: {opponents: [{}, {}]}}}
+      - start_turn
+      - expect:
+          players:
+            0: {hand: {count: 2}, lobby_gifts: {count: 2}}
+            1: {hand: {count: 1, all: {any_of: [Bananas, Big Banana]}}}

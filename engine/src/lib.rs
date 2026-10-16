@@ -9,6 +9,7 @@ pub mod combat;
 pub mod duos_tavern;
 pub mod events;
 pub mod heroes;
+pub mod lobby;
 pub mod model;
 pub mod rng;
 pub mod scenario;
