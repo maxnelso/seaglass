@@ -598,6 +598,9 @@ card_hooks! {
     trinket_combat_start(on_trinket_combat_start): fn(&mut TrinketState),
     /// Gold was spent, after the Hero Power's `hero_gold_spent`: `(state, amount, pool, rng)`.
     trinket_gold_spent(on_trinket_gold_spent): fn(&mut TavernState, u32, &mut CardPool, &mut Rng),
+    /// A friendly minion is summoned in the Tavern (played, or summoned by a card), after the
+    /// minions' `friendly_summon` observers: `(trinket, summoned)`.
+    trinket_tavern_summon(on_trinket_tavern_summon): fn(&TrinketState, &mut Unit),
 }
 
 impl Default for CardHooks {

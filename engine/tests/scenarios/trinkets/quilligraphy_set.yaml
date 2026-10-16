@@ -1,0 +1,13 @@
+trinket: Quilligraphy Set
+scenarios:
+  - name: every_third_death_gives_blood_gems_one_health
+    tavern: {board: ["1/1", "1/1", "1/1"], auras: {trinkets: [Quilligraphy Set]}}
+    steps:
+      - fight: {board: ["1/100"]}
+    expect: {auras: {blood_gem_bonus_atk: 0, blood_gem_bonus_hp: 1}}
+
+  - name: the_count_starts_again_each_combat
+    tavern: {board: ["1/1", "1/1"], auras: {trinkets: [{trinket: Quilligraphy Set, counter: 1}]}}
+    steps:
+      - fight: {board: ["1/100"]}
+    expect: {auras: {blood_gem_bonus_hp: 0}}

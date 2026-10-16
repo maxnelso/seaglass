@@ -1,0 +1,7 @@
+trinket: Wicked Tome
+scenarios:
+  - name: every_fourth_death_gives_tavern_spells_one_one
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1"], auras: {trinkets: [Wicked Tome]}}
+    steps:
+      - fight: {board: ["1/100"]}
+    expect: {auras: {spell_bonus_atk: 1, spell_bonus_hp: 1}}

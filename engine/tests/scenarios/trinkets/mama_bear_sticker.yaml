@@ -1,0 +1,17 @@
+trinket: Mama Bear Sticker
+scenarios:
+  - name: a_beast_played_gains_six_six
+    tavern: {hand: ["1/1 beast", "1/1 murloc"], auras: {trinkets: [Mama Bear Sticker]}}
+    steps:
+      - play: 0
+      - play: 0
+    expect: {board: ["7/7", "1/1"]}
+
+  - name: a_beast_summoned_in_combat_gains_six_six
+    combat:
+      board_a: ["2/1 beast reborn"]
+      board_b: ["0/30 taunt", "5/5"]
+      auras_a: {trinkets: [Mama Bear Sticker]}
+    seeds: "1..=3"
+    expect:
+      events: {any: {type: unit_summoned, side: a, reason: Reborn, attack: 8, health: 7}}

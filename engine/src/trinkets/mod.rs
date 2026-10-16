@@ -12,6 +12,7 @@ mod table;
 
 pub mod all_purpose_kibble;
 pub mod artisanal_urn;
+pub mod azeroth_model_globe;
 pub mod baleful_incense;
 pub mod baller_portrait;
 pub mod baller_portrait_greater;
@@ -53,11 +54,14 @@ pub mod ghastly_sticker;
 pub mod glass_of_perspective;
 pub mod glass_of_perspective_greater;
 pub mod goblin_wallet;
+pub mod gold_pendant;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
 pub mod herald_sticker;
+pub mod herding_horn;
 pub mod hoggy_bank;
 pub mod holy_mallet;
+pub mod innkeepers_hearth;
 pub mod innkeepers_stein;
 pub mod ironforge_anvil;
 pub mod jar_o_gems;
@@ -66,6 +70,7 @@ pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
 pub mod lucky_tabby;
 pub mod magicians_top_hat;
+pub mod mama_bear_sticker;
 pub mod miniature_ship;
 pub mod nerglish_phrasebook;
 pub mod nerglish_phrasebook_greater;
@@ -75,6 +80,8 @@ pub mod orc_estra_portrait;
 pub mod pocket_cyclone;
 pub mod pocket_cyclone_greater;
 pub mod protective_ring;
+pub mod quilligraphy_set;
+pub mod quilligraphy_set_greater;
 pub mod rascal_sticker;
 pub mod recycling_sticker;
 pub mod reflective_pendant;
@@ -91,14 +98,17 @@ pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
+pub mod the_eye_of_dalaran;
 pub mod training_certificate;
 pub mod transcribing_typewriter;
 pub mod transcribing_typewriter_greater;
 pub mod tricksters_sleeve;
+pub mod upstart_embers;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod water_wheel;
 pub mod weighted_gauntlet;
+pub mod wicked_tome;
 pub mod willbreaker_sticker;
 pub mod worn_treasure_map;
 
@@ -147,6 +157,7 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 const IMPLEMENTED: &[Implemented] = &[
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (artisanal_urn::ID, artisanal_urn::behaviors),
+    (azeroth_model_globe::ID, azeroth_model_globe::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
     (baller_portrait::ID, baller_portrait::behaviors),
     (
@@ -206,14 +217,17 @@ const IMPLEMENTED: &[Implemented] = &[
         glass_of_perspective_greater::behaviors,
     ),
     (goblin_wallet::ID, goblin_wallet::behaviors),
+    (gold_pendant::ID, gold_pendant::behaviors),
     (great_boar_sticker::ID, great_boar_sticker::behaviors),
     (
         great_boar_sticker_greater::ID,
         great_boar_sticker_greater::behaviors,
     ),
     (herald_sticker::ID, herald_sticker::behaviors),
+    (herding_horn::ID, herding_horn::behaviors),
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
+    (innkeepers_hearth::ID, innkeepers_hearth::behaviors),
     (innkeepers_stein::ID, innkeepers_stein::behaviors),
     (ironforge_anvil::ID, ironforge_anvil::behaviors),
     (jar_o_gems::ID, jar_o_gems::behaviors),
@@ -222,6 +236,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
     (lucky_tabby::ID, lucky_tabby::behaviors),
     (magicians_top_hat::ID, magicians_top_hat::behaviors),
+    (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
     (nerglish_phrasebook::ID, nerglish_phrasebook::behaviors),
     (
@@ -237,6 +252,11 @@ const IMPLEMENTED: &[Implemented] = &[
         pocket_cyclone_greater::behaviors,
     ),
     (protective_ring::ID, protective_ring::behaviors),
+    (quilligraphy_set::ID, quilligraphy_set::behaviors),
+    (
+        quilligraphy_set_greater::ID,
+        quilligraphy_set_greater::behaviors,
+    ),
     (rascal_sticker::ID, rascal_sticker::behaviors),
     (recycling_sticker::ID, recycling_sticker::behaviors),
     (reflective_pendant::ID, reflective_pendant::behaviors),
@@ -253,6 +273,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
+    (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
     (
         transcribing_typewriter::ID,
@@ -263,6 +284,7 @@ const IMPLEMENTED: &[Implemented] = &[
         transcribing_typewriter_greater::behaviors,
     ),
     (tricksters_sleeve::ID, tricksters_sleeve::behaviors),
+    (upstart_embers::ID, upstart_embers::behaviors),
     (volumizer_portrait::ID, volumizer_portrait::behaviors),
     (
         volumizer_portrait_greater::ID,
@@ -270,6 +292,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (water_wheel::ID, water_wheel::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
+    (wicked_tome::ID, wicked_tome::behaviors),
     (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
 ];
@@ -706,6 +729,15 @@ pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
     for trinket in &auras.trinkets {
         if let Some(combat_summon) = hooks(trinket.card_id).trinket_combat_summon {
             combat_summon(trinket, summoned);
+        }
+    }
+}
+
+/// A friendly minion was summoned in the Tavern: each trinket's `trinket_tavern_summon` hook.
+pub fn tavern_summon(auras: &PlayerAuras, summoned: &mut Unit) {
+    for trinket in &auras.trinkets {
+        if let Some(tavern_summon) = hooks(trinket.card_id).trinket_tavern_summon {
+            tavern_summon(trinket, summoned);
         }
     }
 }

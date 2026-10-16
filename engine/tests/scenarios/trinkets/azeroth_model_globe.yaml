@@ -1,0 +1,12 @@
+trinket: Azeroth Model Globe
+scenarios:
+  - name: two_gold_and_a_tier_6_discover_every_two_turns
+    tavern: {turn: 5, tavern_tier: 6}
+    steps:
+      - give_trinket: Azeroth Model Globe
+      - end_turn
+      - start_turn
+      - expect: {gold: 8, discover_pending: null}
+      - end_turn
+      - start_turn
+    expect: {gold: 11, discover_pending: {count: 3, all: {tavern_tier: 6}}}

@@ -1,0 +1,7 @@
+trinket: Quilligraphy Set (Greater)
+scenarios:
+  - name: every_fourth_death_gives_blood_gems_one_one
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1"], auras: {trinkets: [Quilligraphy Set (Greater)]}}
+    steps:
+      - fight: {board: ["1/100"]}
+    expect: {auras: {blood_gem_bonus_atk: 1, blood_gem_bonus_hp: 1}}

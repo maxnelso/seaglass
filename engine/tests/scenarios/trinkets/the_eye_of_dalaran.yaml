@@ -1,0 +1,8 @@
+trinket: The Eye of Dalaran
+scenarios:
+  - name: a_dying_minion_without_a_type_gives_a_tavern_spell
+    seeds: "1..=3"
+    tavern: {board: ["1/1", "1/1 beast"], auras: {trinkets: [The Eye of Dalaran]}}
+    steps:
+      - fight: {board: ["1/100"]}
+    expect: {hand: {count: 1, all: {is_spell: true}}}

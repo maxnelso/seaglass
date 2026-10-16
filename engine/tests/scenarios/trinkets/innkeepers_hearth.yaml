@@ -1,0 +1,11 @@
+trinket: Innkeeper's Hearth
+scenarios:
+  - name: two_tier_6_discovers_of_30_30_minions
+    tavern: {turn: 9, tavern_tier: 6}
+    steps:
+      - give_trinket: Innkeeper's Hearth
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 6, attack: 30, health: 30}}}
+      - choose_discover: 0
+      - expect: {hand: ["30/30"], discover_pending: {count: 3, all: {attack: 30, health: 30}}}
+      - choose_discover: 0
+    expect: {hand: ["30/30", "30/30"]}

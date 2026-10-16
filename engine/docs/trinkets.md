@@ -138,6 +138,7 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_spell_cast` | Each cast of a Tavern spell in the Tavern, after the cards' `spell_cast` observers: `(state, pool, rng)`. | `Corrupted Baton`. |
 | `trinket_after_refresh` | The Tavern was Refreshed (as `hero_after_refresh`), after the Hero Power's, before the cards' after-Refresh effects: `(state, pool, rng)`. | `Innkeeper's Stein`. |
 | `trinket_gold_spent` | Gold was spent (`TavernState::spend_gold`: a buy, a Refresh, an Upgrade, ...), after the Hero Power's `hero_gold_spent`: `(state, amount, pool, rng)`. | `Booty Bay Brew`. |
+| `trinket_tavern_summon` | A friendly minion is summoned in the Tavern (played, or summoned by a card), after the minions' `friendly_summon` observers: `(trinket, summoned)`. | `Mama Bear Sticker`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger, on top of the board's: `(passive)` (only `EndOfTurnTriggers` is read). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -257,6 +258,12 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Blood Golem Sticker` (Greater) | Whenever a friendly Quilboar dies, summon a Golem with stats equal to its Blood Gems. | A `Blood Golem` with the stats its Blood Gems gave it (`blood_gem_stats_applied`) at the right end; none without them **(confirmed)**. |
 | `Jar o' Gems` (Greater) | After 2 friendly minions attack each combat, this plays a Blood Gem on all your Quilboar. | Once per combat, after the 2nd friendly attack in combat **(engine decision**: not every 2 attacks; Tavern attacks don't count**)**; the Gems are played, not cast. |
 | `Herald Sticker` (Greater) | Start of Combat: Trigger all friendly Deathrattles. | Each friendly minion with a Deathrattle (its own or one an effect gave it), left to right as the board was, if alive, triggers them as `Deathstrider` does (repeated by `Titus Rivendare`), summons to its right. |
+| `Mama Bear Sticker` (Lesser) | Whenever you summon a Beast, give it +6/+6. | In the Tavern (`trinket_tavern_summon`: a Beast played, or summoned by a card) and in combat (`trinket_combat_summon`). |
+| `Quilligraphy Set` (Lesser) | Avenge (3): Your Blood Gems give an extra +1 Health this game. | `blood_gem_bonus_hp` +1; the count starts again each combat **(confirmed)**. |
+| `The Eye of Dalaran` (Lesser) | Whenever a friendly minion with no type dies, get a random Tavern spell. | Each friendly minion without a type that dies in combat: a spell of the player's Tier or lower, drawn as the shop draws one, to the combat hand. |
+| `Herding Horn` (Lesser) | Whenever a friendly Rally minion attacks, gain a free Refresh. | `auras.free_refreshes` +1, which carries over to the next turn. |
+| `Quilligraphy Set` (Greater) | Avenge (4): Your Blood Gems give an extra +1/+1 this game. | As the Lesser one: Avenge (4), +1/+1. |
+| `Wicked Tome` (Greater) | Avenge (4): Your Tavern spells give an extra +1/+1 this game. | `spell_bonus_atk` / `spell_bonus_hp` +1/+1 (as `Intrepid Botanist`'s); the count starts again each combat **(confirmed)**. |
 
 "Per combat" counts and charges (Avenge, "3 times per combat", "each combat") start again every combat (`trinket_combat_start`) **(confirmed)**; "after N friendly minions die" counts go across combats **(confirmed)**.
 
@@ -329,6 +336,10 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Baller Portrait` (Greater) | Get a Temperature Shift. After you play 11 Elementals, repeat this. | Every 11th Elemental played from the hand (counted across turns). |
 | `Pocket Cyclone` (Greater) | Cast Easterly Winds four times. At the start of each turn, cast it twice more. | As the Lesser one: 4 casts as picked, 2 at each turn start. |
 | `Booty Bay Brew` (Greater) | Whenever you spend Gold, give two friendly Pirates +6/+6. | As the Lesser one, +6/+6. |
+| `Azeroth Model Globe` (Lesser) | At the start of every two turns, gain 2 Gold and Discover a Tier 6 minion. | Every 2nd turn start after the pick: 2 Gold, then a Discover of 3 Tier 6 minions from the pool (`draw_discover_options`, as a Triple Reward). |
+| `Gold Pendant` (Lesser) | Make a random friendly minion from Tier 4 or below Golden. At the start of each turn, repeat this. | A random board minion of Tier 4 or lower that isn't Golden (`Unit::make_golden`, as `Golden Touch`'s: one pool copy); nothing without one. |
+| `Innkeeper's Hearth` (Greater) | Discover two Tier 6 minions. Set their stats to 30/30. | Two Discovers of 3 Tier 6 minions from the pool, one after the other; the options are 30/30 before the choice **(engine decision)**. |
+| `Upstart Embers` (Greater) | After you Refresh, double the stats of the highest- Health minion in the Tavern. | Every Refresh, the turn start's too **(engine decision)**; ties to the left-most **(engine decision)**. |
 
 ### 11.3 Deferred
 
@@ -364,6 +375,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 7 | Innkeeper's Hearth's options are 30/30 before the choice; Upstart Embers on every Refresh, ties to the left-most. | their files |
 | Batch 6 | Baller Portrait picks at random; Booty Bay Brew on every spending, 2 different random Pirates; Dalaran Cheese Wheel improves by +2/+2 every 4th Refresh, the turn start's too. | their files |
 | Batch 5 | Goblin Wallet above 10 Gold; Rascal Sticker counts the board only; Frigid Blossom on every Refresh, the turn start's too; Weighted Gauntlet stops doubling at +1024/+1024. | their files |
 | Batch 4 | Rendle's ties to the left-most; Innkeeper's Stein nothing at Tier 6; Defensive Shell on a Magnetization; Ghastly Sticker repeats the minions' triggers only; Jar o' Gems ignores Tavern attacks. | their files |
