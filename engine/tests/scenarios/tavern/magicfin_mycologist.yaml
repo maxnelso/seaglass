@@ -61,3 +61,20 @@ scenarios:
     expect:
       auras: {tavern_spells_cast: 0}
       board: [Lullabot, Magicfin Apprentice]
+
+  - name: an_apprentice_taught_a_pass_gives_its_target_back_its_own_id
+    description: >
+      The Battlecry's target, Passed to the teammate by the spell (`Well Wishes`), arrives with its
+      own id, not the Battlecry's target marker (`UnitId::MAX - 1`).
+    duos_tavern:
+      catalog: duos
+      players:
+        - board: [Joyous]
+          hand: [{card: Magicfin Apprentice, taught_spell_id: 10591}]   # 10591: Well Wishes
+        - {}
+    steps:
+      - {player: 0, play: {hand: 0, pos: 1}}
+    expect:
+      players:
+        - board: [Magicfin Apprentice]
+        - hand: [{card: Joyous, id: {not: 4294967294}}]

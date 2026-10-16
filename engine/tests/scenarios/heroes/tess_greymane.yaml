@@ -60,3 +60,24 @@ scenarios:
               - last_warband: [Joyous]
             last_opponent: 0
       - expect_legal: hero_power
+
+  - name: the_copies_are_plain_even_of_tokens_and_custom_minions
+    description: >
+      `cards::instantiate_plain_copy`: a token is copied as a fresh token, and a minion of neither
+      the catalog nor the tokens loses what was added to it (hats, marks, Freeze, temporary
+      keywords and Attack, extra Deathrattles).
+    steps:
+      - set_hero: Tess Greymane
+      - set:
+          gold: 5
+          lobby:
+            opponents:
+              - last_warband:
+                  - {card: "Fish of N'Zoth 9/9", hats: 2, marked: true, frozen: true}
+                  - {card: "7/7", hats: 1, marked: true, frozen: true, until_next_turn_atk: 3, temp_reborn: true}
+            last_opponent: 0
+      - hero_power
+      - expect:
+          shop:
+            0: {card: Fish of N'Zoth, stats: "2/2", hats: 0, marked: false, frozen: false, extra_deathrattles: []}
+            1: {stats: "7/7", hats: 0, marked: false, frozen: false, until_next_turn_atk: 0, keywords: []}
