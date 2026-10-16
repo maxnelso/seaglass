@@ -11,18 +11,19 @@ scenarios:
       - hero_power: 0
       - expect:
           board: ["2/2 Beast"]
-          auras: {hero: {power: {uses_left: 0, counter: 1}}}
+          auras: {hero: {power: {uses_left: 0, counter: 1, stored: ["2/2 beast"]}}}
       - start_turn
       - push_shop: ["3/3 Murloc"]
       - hero_power: 7
       - expect:
-          auras: {hero: {power: {uses_left: 0, counter: 2}}}
+          shop: {0: "3/3 murloc"}
+          auras: {hero: {power: {uses_left: 0, counter: 2, stored: ["2/2 beast", "3/3 murloc"]}}}
       - start_turn
       - push_board: ["5/5 Dragon"]
       - hero_power: 1
       - expect:
           board: ["2/2 Beast", "5/5 Dragon"]
-          auras: {hero: {power: {uses_left: 0, counter: 0, stacks: 0}}}
+          auras: {hero: {power: {uses_left: 0, counter: 0, stacks: 0, stored: []}}}
           discover_pending: ["beast", "murloc", "dragon"]
       - choose_discover: 0
     expect:
