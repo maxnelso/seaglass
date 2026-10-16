@@ -80,7 +80,6 @@ pub mod ozumat;
 pub mod patches_the_pirate;
 pub mod patchwerk;
 pub mod pyramad;
-pub mod queen_azshara;
 pub mod queen_wagtoggle;
 pub mod ragnaros_the_firelord;
 pub mod rakanishu;
@@ -256,7 +255,6 @@ const IMPLEMENTED: &[Implemented] = &[
     (patches_the_pirate::ID, patches_the_pirate::behaviors),
     (patchwerk::ID, patchwerk::behaviors),
     (pyramad::ID, pyramad::behaviors),
-    (queen_azshara::ID, queen_azshara::behaviors),
     (queen_wagtoggle::ID, queen_wagtoggle::behaviors),
     (ragnaros_the_firelord::ID, ragnaros_the_firelord::behaviors),
     (rakanishu::ID, rakanishu::behaviors),
@@ -918,18 +916,6 @@ pub fn on_friendly_damage_dealt(ctx: &mut BoardCtx<'_>, dealer_id: UnitId, amoun
     }
 }
 
-/// The player's board stats or minions changed (`TavernState::sync_all_auras`): the Hero Power's
-/// `hero_board_changed` hook (`docs/heroes.md` §4).
-pub fn on_board_changed(state: &mut TavernState) {
-    if let Some(board_changed) = power_hooks(&state.auras).and_then(|c| c.hero_board_changed) {
-        board_changed(state);
-    }
-    if let Some(board_changed) = second_power_hooks(&state.auras).and_then(|c| c.hero_board_changed)
-    {
-        with_second_power(state, board_changed);
-    }
-}
-
 /// The combat's results are back in the Tavern: the Hero Power's `hero_after_combat` hook.
 pub fn after_combat(state: &mut TavernState, dead: &[Unit]) {
     if let Some(after_combat) = power_hooks(&state.auras).and_then(|c| c.hero_after_combat) {
@@ -1269,7 +1255,6 @@ pub fn offerable_powers(
                     | silas_darkmoon::ID
                     | galewing::ID
                     | lord_jaraxxus::ID
-                    | queen_azshara::ID
                     | cariel_roame::ID
                     | cookie_the_cook::ID
                     | mr_bigglesworth::ID

@@ -739,7 +739,6 @@ impl TavernState {
         for u in &mut self.shop {
             cards::sync_unit_auras(u, &self.auras);
         }
-        heroes::on_board_changed(self);
     }
 
     /// Remove the board minions `remove` picks (left to right), keeping `play_slot` between the
