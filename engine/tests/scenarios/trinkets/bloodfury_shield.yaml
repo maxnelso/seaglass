@@ -1,0 +1,9 @@
+trinket: Bloodfury Shield
+scenarios:
+  - name: a_tavern_spell_adds_a_fodder_to_the_next_refresh
+    tavern: {gold: 1, turn: 9, board: ["1/1"], hand: [Repair Job], auras: {trinkets: [Bloodfury Shield]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - expect: {auras: {effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}}
+      - refresh
+    expect: {shop: {where: {name: Demon Fodder}, count: 1}, auras: {effects: []}}

@@ -74,13 +74,13 @@ pub mod sludge_corrosion;
 pub mod staff_of_enrichment;
 pub mod strike_oil;
 pub mod tavern_coin;
-pub mod triple_reward;
 pub mod tavern_dish_banana;
 pub mod temperature_shift;
 pub mod them_apples;
 pub mod time_management;
 pub mod tomb_turning;
 pub mod tricky_trousers;
+pub mod triple_reward;
 pub mod unmasked_identity;
 pub mod upper_hand;
 pub mod wave_of_gold;
@@ -198,7 +198,13 @@ pub const BOUNTY_SPELL_IDS: [CardId; 5] = [
     SPELL_WEALTHY_BOUNTY,
 ];
 
-fn make_tavern_spell(card_id: CardId, name: &str, tier: u32, cost: u32, costs_health: bool) -> Unit {
+fn make_tavern_spell(
+    card_id: CardId,
+    name: &str,
+    tier: u32,
+    cost: u32,
+    costs_health: bool,
+) -> Unit {
     let mut u = Unit::new(name, 0, 0)
         .with_card_id(card_id)
         .with_tavern_tier(tier);
@@ -373,7 +379,13 @@ pub fn tier5_spells() -> Vec<Unit> {
 /// All 5 active Tier 6 Tavern Spells (Patch 36.6.3).
 pub fn tier6_spells() -> Vec<Unit> {
     vec![
-        make_tavern_spell(SPELL_AZERITE_EMPOWERMENT, "Azerite Empowerment", 6, 4, false),
+        make_tavern_spell(
+            SPELL_AZERITE_EMPOWERMENT,
+            "Azerite Empowerment",
+            6,
+            4,
+            false,
+        ),
         make_tavern_spell(
             SPELL_EYES_OF_THE_EARTH_MOTHER,
             "Eyes of the Earth Mother",
@@ -532,18 +544,34 @@ pub fn draw_random_tavern_spell(max_tier: u32, rng: &mut Rng) -> Unit {
 /// `tavern_tier <= max_tier` ([`draw_random_tavern_spell`]), or in a Duos game (`duos`) one among
 /// those and the Duos spells with `tavern_tier <= max_tier` (`docs/duos_tavern.md` §8.3).
 pub fn draw_shop_spell(max_tier: u32, duos: bool, rng: &mut Rng) -> Unit {
-    if !duos {
+    draw_shop_spell_in(1, max_tier, duos, rng)
+}
+
+/// Draw the spell a shop offers among those with `min_tier <= tavern_tier <= max_tier`
+/// (trinkets' `trinket_shop_tiers`), as [`draw_shop_spell`] does (the same draw when `min_tier`
+/// is 1); if none is that high, among those up to `max_tier`.
+pub fn draw_shop_spell_in(min_tier: u32, max_tier: u32, duos: bool, rng: &mut Rng) -> Unit {
+    if !duos && min_tier <= 1 {
         return draw_random_tavern_spell(max_tier, rng);
     }
-    let pool: Vec<Unit> = spells_up_to_tier(max_tier)
+    let all: Vec<Unit> = spells_up_to_tier(max_tier)
         .into_iter()
         .chain(
             duos_spells()
                 .into_iter()
-                .filter(|s| s.tavern_tier <= max_tier),
+                .filter(|s| duos && s.tavern_tier <= max_tier),
         )
         .filter(|s| is_pool_tavern_spell(s.card_id))
         .collect();
+    let in_range: Vec<&Unit> = all
+        .iter()
+        .filter(|s| min_tier <= 1 || s.tavern_tier >= min_tier)
+        .collect();
+    let pool: Vec<&Unit> = if in_range.is_empty() {
+        all.iter().collect()
+    } else {
+        in_range
+    };
     let idx = rng.below(pool.len());
     pool[idx].clone()
 }

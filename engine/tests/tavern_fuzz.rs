@@ -1462,13 +1462,20 @@ fn check_refilled_shop(
     {
         return Ok(());
     }
+    // A trinket that changes the Tiers the shop offers (`Guiding Candle`, `Bob-blehead`) draws
+    // from other Tiers than the player's; one that makes a Refresh (`Warband Whistle`) copies
+    // minions instead.
+    let own_tiers = !s.auras.trinkets.iter().any(|t| {
+        let hooks = cards::hooks(t.card_id);
+        hooks.trinket_shop_tiers.is_some() || hooks.trinket_refresh.is_some()
+    });
     let cap = s.shop_minion_slots();
     let minions = s
         .shop
         .iter()
         .filter(|u| !u.is_spell && cards::template(u.card_id).is_some())
         .count();
-    if minions < cap && pool_copies(pool, catalog, s.tavern_tier) > 0 {
+    if own_tiers && minions < cap && pool_copies(pool, catalog, s.tavern_tier) > 0 {
         return Err(broken(
             format!("the shop rolled by {what} has {minions} pool minions (capacity {cap})"),
             units_desc(&s.shop),
@@ -1480,7 +1487,7 @@ fn check_refilled_shop(
         .shop
         .iter()
         .filter(rolled)
-        .find(|u| u.tavern_tier > s.tavern_tier)
+        .find(|u| u.tavern_tier > if own_tiers { s.tavern_tier } else { 6 })
     {
         return Err(broken(
             format!("the shop rolled by {what} offers a card above its Tier"),
@@ -1815,9 +1822,10 @@ impl Expect {
     ) -> Self {
         let health_cost = match action {
             TavernAction::Refresh => s.auras.free_refreshes == 0 && s.has_health_refresh(),
-            TavernAction::Buy { shop_index } => {
-                s.shop.get(shop_index).is_some_and(|u| s.buy_price(u).health)
-            }
+            TavernAction::Buy { shop_index } => s
+                .shop
+                .get(shop_index)
+                .is_some_and(|u| s.buy_price(u).health),
             _ => false,
         };
         let reward_tier = (s.tavern_tier + 1).min(6);

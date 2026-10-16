@@ -1,0 +1,21 @@
+trinket: Warband Whistle
+scenarios:
+  - name: a_free_refresh_of_plain_copies_of_the_warband
+    tavern: {gold: 0, turn: 9, include_shop_spells: true, board: [{card: Wrath Weaver, attack: 10, health: 10}, Zoatroid]}
+    steps:
+      - give_trinket: Warband Whistle
+      - expect: {auras: {free_refreshes: 1, trinkets: [{armed: 1}]}}
+      - refresh
+    expect:
+      gold: 0
+      shop: {count: 3, 0: "Wrath Weaver 1/3", 1: "Zoatroid 3/2", 2: {is_spell: true}}
+      auras: {free_refreshes: 0, trinkets: [{armed: 0}]}
+
+  - name: the_next_refresh_is_a_normal_one
+    seeds: "1..=3"
+    tavern: {gold: 1, turn: 9, board: [Wrath Weaver], auras: {free_refreshes: 1, trinkets: [{trinket: Warband Whistle, armed: 1}]}}
+    steps:
+      - refresh
+      - expect: {shop: ["Wrath Weaver 1/3"]}
+      - refresh
+    expect: {gold: 0, shop: {count: 3}}

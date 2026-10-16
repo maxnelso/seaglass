@@ -94,10 +94,22 @@ impl CardPool {
 
     /// Draw one minion with `tavern_tier <= max_tier`, weighted by remaining copies.
     pub fn draw_from_pool(&mut self, max_tier: u32, rng: &mut Rng) -> Option<Unit> {
+        self.draw_from_pool_in(1, max_tier, rng)
+    }
+
+    /// Draw one minion with `min_tier <= tavern_tier <= max_tier`, weighted by remaining copies
+    /// (the same draw as [`Self::draw_from_pool`] when `min_tier` is 1).
+    pub fn draw_from_pool_in(
+        &mut self,
+        min_tier: u32,
+        max_tier: u32,
+        rng: &mut Rng,
+    ) -> Option<Unit> {
+        let in_range = |t: u32| (min_tier..=max_tier).contains(&t);
         let total_copies: u32 = self
             .entries
             .iter()
-            .filter(|e| e.template.tavern_tier <= max_tier && e.remaining > 0)
+            .filter(|e| in_range(e.template.tavern_tier) && e.remaining > 0)
             .map(|e| e.remaining)
             .sum();
 
@@ -107,7 +119,7 @@ impl CardPool {
 
         let mut pick = rng.below(total_copies as usize) as u32;
         for entry in &mut self.entries {
-            if entry.template.tavern_tier <= max_tier && entry.remaining > 0 {
+            if in_range(entry.template.tavern_tier) && entry.remaining > 0 {
                 if pick < entry.remaining {
                     entry.remaining -= 1;
                     return Some(entry.template.instantiate());
@@ -1129,10 +1141,11 @@ impl TavernState {
     }
 
     /// The minions a rolled shop holds (`docs/tavern.md` §3.3): `shop_capacity`, less the Hero
-    /// Power's fewer minions.
+    /// Power's fewer minions, or the trinkets' (`trinkets::shop_minion_slots`).
     pub fn shop_minion_slots(&self) -> usize {
         let fewer = heroes::tavern_rules(&self.auras).fewer_shop_minions;
-        shop_capacity(self.tavern_tier).saturating_sub(fewer)
+        let slots = shop_capacity(self.tavern_tier).saturating_sub(fewer);
+        trinkets::shop_minion_slots(self, slots)
     }
 
     /// The non-Golden copies a Triple takes (`docs/tavern.md` §5): 3, or the Hero Power's.
@@ -1298,8 +1311,29 @@ impl TavernState {
 
     /// Draw the spell the shop offers: a random Tavern spell of the Tavern's Tier or lower, or in a
     /// Duos game a Duos spell too (`docs/duos_tavern.md` §8.3).
-    fn draw_shop_spell(&self, rng: &mut Rng) -> Unit {
-        cards::spells::draw_shop_spell(self.tavern_tier, self.auras.duos_game, rng)
+    fn draw_shop_spell(&self, kind: RefreshKind, rng: &mut Rng) -> Unit {
+        let (min, max) = self.shop_tiers(kind);
+        cards::spells::draw_shop_spell_in(min, max, self.auras.duos_game, rng)
+    }
+
+    /// The Tiers the shop's draws offer for a Refresh of `kind` (`docs/tavern.md` §4): 1 to the
+    /// player's Tier, or the trinkets' (`trinkets::shop_tiers`).
+    pub fn shop_tiers(&self, kind: RefreshKind) -> (u32, u32) {
+        trinkets::shop_tiers(&self.auras, kind, (1, self.tavern_tier))
+    }
+
+    /// Draw a minion for the shop, for a Refresh of `kind`, from the Tiers it offers
+    /// ([`Self::shop_tiers`]), with the shop buffs applied.
+    fn draw_shop_minion(
+        &self,
+        kind: RefreshKind,
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) -> Option<Unit> {
+        let (min, max) = self.shop_tiers(kind);
+        let mut drawn = pool.draw_from_pool_in(min, max, rng)?;
+        self.apply_shop_auras(&mut drawn);
+        Some(drawn)
     }
 
     /// Discard the temporary cards still in the hand ([`CardFlags::TEMPORARY`]: Spellcraft
@@ -1342,13 +1376,12 @@ impl TavernState {
         }
         let cap = self.shop_minion_slots();
         for _ in 0..cap {
-            if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
-                self.apply_shop_auras(&mut drawn);
+            if let Some(drawn) = self.draw_shop_minion(RefreshKind::Player, pool, rng) {
                 self.shop.push(drawn);
             }
         }
         if self.include_shop_spells {
-            let spell = self.draw_shop_spell(rng);
+            let spell = self.draw_shop_spell(RefreshKind::Player, rng);
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
@@ -1371,8 +1404,7 @@ impl TavernState {
         }
         let cap = self.shop_minion_slots();
         for _ in 0..cap.saturating_sub(count) {
-            if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
-                self.apply_shop_auras(&mut drawn);
+            if let Some(drawn) = self.draw_shop_minion(RefreshKind::Player, pool, rng) {
                 self.shop.push(drawn);
             }
         }
@@ -1383,7 +1415,7 @@ impl TavernState {
             }
         }
         if self.include_shop_spells {
-            let spell = self.draw_shop_spell(rng);
+            let spell = self.draw_shop_spell(RefreshKind::Player, rng);
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
@@ -1401,7 +1433,7 @@ impl TavernState {
         }
         let slots = self.shop_minion_slots() + usize::from(self.include_shop_spells);
         for _ in 0..slots {
-            let spell = self.draw_shop_spell(rng);
+            let spell = self.draw_shop_spell(RefreshKind::Player, rng);
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
@@ -1423,7 +1455,7 @@ impl TavernState {
             }
         }
         if self.include_shop_spells {
-            let spell = self.draw_shop_spell(rng);
+            let spell = self.draw_shop_spell(RefreshKind::Player, rng);
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
@@ -1464,7 +1496,7 @@ impl TavernState {
             self.shop.push(copy);
         }
         if self.include_shop_spells {
-            let spell = self.draw_shop_spell(rng);
+            let spell = self.draw_shop_spell(RefreshKind::Player, rng);
             self.shop.push(spell);
         }
         heroes::after_refresh(self, pool, rng);
@@ -1480,13 +1512,12 @@ impl TavernState {
         let new_spell = self.include_shop_spells && !self.shop.iter().any(|u| u.is_spell);
         let needed = slots.saturating_sub(self.shop.len() + usize::from(new_spell));
         for _ in 0..needed {
-            if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
-                self.apply_shop_auras(&mut drawn);
+            if let Some(drawn) = self.draw_shop_minion(RefreshKind::TurnStart, pool, rng) {
                 self.shop.push(drawn);
             }
         }
         if new_spell {
-            let spell = self.draw_shop_spell(rng);
+            let spell = self.draw_shop_spell(RefreshKind::TurnStart, rng);
             self.shop.push(spell);
         }
     }
@@ -1579,13 +1610,12 @@ impl TavernState {
                 pool.return_unit(&old);
             }
             for _ in 0..cap {
-                if let Some(mut drawn) = pool.draw_from_pool(self.tavern_tier, rng) {
-                    self.apply_shop_auras(&mut drawn);
+                if let Some(drawn) = self.draw_shop_minion(RefreshKind::TurnStart, pool, rng) {
                     self.shop.push(drawn);
                 }
             }
             if self.include_shop_spells {
-                let spell = self.draw_shop_spell(rng);
+                let spell = self.draw_shop_spell(RefreshKind::TurnStart, rng);
                 self.shop.push(spell);
             }
             heroes::after_refresh(self, pool, rng);
@@ -2309,7 +2339,9 @@ impl TavernState {
                     let cost = self.refresh_cost();
                     self.spend_gold(cost, pool, rng);
                 }
-                self.refresh_shop_free(pool, rng);
+                if !trinkets::refresh(self, pool, rng) {
+                    self.refresh_shop_free(pool, rng);
+                }
                 Ok(false)
             }
             TavernAction::UpgradeTavern => {

@@ -151,6 +151,9 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_after_discard` | A card was discarded from the hand, after the cards' discard observers and its own `discarded` hook: `(state, card, pool, rng)`. | `Shath'Yar Shrine`. |
 | `trinket_buy_price` | What buying a shop card costs, given the price so far (`TavernState::buy_price`: the minion or spell price, in Health if the card `costs_health`, then each trinket in pick order): `(trinket, state, card, price)`, a `BuyPrice` (cost, Health or Gold). A trinket that uses up a charge does it in its `trinket_after_buy`. | `Bazaar Sticker`, `Warcry Totem`. |
 | `trinket_triple_copies` | The copies of a minion a Triple takes, if this trinket lowers it (`TavernState::triple_copies_for`: the fewest of the Hero Power's rule and the trinkets'): `(card_id)`. | `Designer Eyepatch`. |
+| `trinket_shop_tiers` | The Tiers a shop draw offers, given the range so far (`TavernState::shop_tiers`: 1 to the player's Tier, then each trinket in pick order), for the Refresh it fills (`RefreshKind`): `(trinket, kind, (min, max))`. The shop's minion draws and its spell draw read it, on every Refresh and the turn start's new shop; the minions cards add to the shop don't. | `Guiding Candle`, `Bob-blehead`. |
+| `trinket_shop_slots` | The minions a rolled shop holds, given the count so far (`TavernState::shop_minion_slots`): `(state, slots)`. | `Glowing Gauntlet`. |
+| `trinket_refresh` | The `Refresh` action's new shop, if this trinket makes it (the first trinket in pick order that returns `true`; otherwise `TavernState::refresh_shop_free`): `(state, pool, rng)`. | `Warband Whistle`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
@@ -399,6 +402,11 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `The Eye of Sargeras` (Greater) | Every fourth card you buy costs Health instead of Gold. | Every 4th card bought after it is picked (`counter`, across turns) costs its price in Health. |
 | `Electrode Attractor` (Greater) | Magnetic Mechs cost (2). The Tavern offers an extra one whenever it is Refreshed. | Magnetic Mechs cost 2; every Refresh (the turn start's too) adds a Magnetic Mech of the player's Tier or lower from the pool if the Tavern has room. |
 | `Designer Eyepatch` (Greater) | You only need 2 copies of a Pirate to make it Golden. | `trinket_triple_copies`: 2 copies of a Pirate form a Triple (`TavernState::triple_copies_for`, the fewest any rule asks for). |
+| `Guiding Candle` (Greater) | Your first two Refreshes each turn contain only Tier 6 cards. | `trinket_shop_tiers`: the first 2 Refreshes the player does each turn (not the turn start's new shop: **engine decision**) draw Tier 6 minions and a Tier 6 spell. |
+| `Bob-blehead` (Lesser) | Gain 2 Gold. The Tavern no longer offers cards from Tier 1 or Tier 2. | 2 Gold as picked; every shop draw (the turn start's too) offers Tier 3 or higher, Tier 3 below Tier 3 **(engine decision)**. |
+| `Glowing Gauntlet` (Lesser) | Minions in the Tavern have +3/+3. The Tavern always has 7 cards. | The Tavern's bonus +3/+3 as picked; `trinket_shop_slots`: every rolled shop holds 7 cards, the spell among them; a shop isn't filled again after a buy **(engine decision)**. |
+| `Warband Whistle` (Greater) | Gain a free Refresh that contains plain copies of minions in your warband. | A free Refresh as picked; `trinket_refresh`: the next `Refresh` action is `refresh_shop_with_warband` of the board (as Tess Greymane's) **(engine decision)**. |
+| `Bloodfury Shield` (Greater) | Whenever you cast a Tavern spell, add a Fodder to your next Refresh. | Each cast (repeats too) adds a Demon Fodder to the next Refresh (`tokens::add_fodder_to_refreshes`). |
 
 ### 11.3 Deferred
 
@@ -434,6 +442,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 12 | Guiding Candle counts the player's Refreshes; Bob-blehead's Tier 3 below Tier 3; Glowing Gauntlet's 7 cards as rolled; Warband Whistle's next Refresh action. | their files |
 | Batch 11 | Demonic Tapestry repeats every 4th Refresh. | its file |
 | Batch 10 | Extra Battlecry triggers add to Brann's; Murky Sticker's improvements since picked; Young Murk-Eye Sticker's right-most after the first Battlecry. | their files |
 | Batch 9 | Jewelry Box's random keyword; Nether Pendant's improvement and rewound damage; Trusty Crowbar without combat hand cards; Wolfhead Flail counting minions. | their files |

@@ -1,0 +1,22 @@
+trinket: Guiding Candle
+scenarios:
+  - name: the_first_two_refreshes_each_turn_offer_only_tier_6_cards
+    seeds: "1..=3"
+    tavern: {gold: 10, tavern_tier: 2, include_shop_spells: true, auras: {trinkets: [Guiding Candle]}}
+    steps:
+      - refresh
+      - expect: {shop: {count: 5, all: {tavern_tier: 6}}, auras: {trinkets: [{counter: 1}]}}
+      - refresh
+      - expect: {shop: {count: 5, all: {tavern_tier: 6}}, auras: {trinkets: [{counter: 2}]}}
+      - refresh
+    expect: {shop: {count: 5, all: {tavern_tier: "<= 2"}}}
+
+  - name: the_count_restarts_each_turn
+    seeds: "1..=3"
+    tavern: {gold: 10, tavern_tier: 2, auras: {trinkets: [{trinket: Guiding Candle, counter: 2}]}}
+    steps:
+      - end_turn
+      - start_turn
+      - expect: {shop: {count: 4, all: {tavern_tier: "<= 2"}}, auras: {trinkets: [{counter: 0}]}}
+      - refresh
+    expect: {shop: {count: 4, all: {tavern_tier: 6}}}

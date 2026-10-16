@@ -184,6 +184,9 @@ pub enum SpellTarget {
 pub type PlayFn = fn(&mut TavernState, &mut Unit, usize, &mut CardPool, &mut Rng);
 /// Activate: `(state, source_pos, target_pos, pool, rng)`.
 pub type ActivateFn = fn(&mut TavernState, usize, Option<usize>, &mut CardPool, &mut Rng);
+/// A trinket's `trinket_shop_tiers`: `(trinket, kind, (min, max))` to the Tiers a shop draw
+/// offers.
+pub type ShopTiersFn = fn(&TrinketState, crate::tavern::RefreshKind, (u32, u32)) -> (u32, u32);
 /// On-sell / on-discard / on-choose for the card itself: `(state, card, pool, rng)`.
 pub type CardEventFn = fn(&mut TavernState, &Unit, &mut CardPool, &mut Rng);
 /// Generic Tavern observer: `(state, self_idx, pool, rng)`.
@@ -641,6 +644,15 @@ card_hooks! {
     trinket_buy_price(on_trinket_buy_price): fn(&TrinketState, &TavernState, &Unit, crate::tavern::BuyPrice) -> crate::tavern::BuyPrice,
     /// The copies of a minion a Triple takes, if this trinket lowers it: `(card_id)`.
     trinket_triple_copies(on_trinket_triple_copies): fn(CardId) -> Option<usize>,
+    /// The Tiers a shop draw offers, given the range so far (`TavernState::shop_tiers`), for the
+    /// Refresh it fills: `(trinket, kind, (min, max))`.
+    trinket_shop_tiers(on_trinket_shop_tiers): ShopTiersFn,
+    /// The minions a rolled shop holds, given the count so far
+    /// (`TavernState::shop_minion_slots`): `(state, slots)`.
+    trinket_shop_slots(on_trinket_shop_slots): fn(&TavernState, usize) -> usize,
+    /// The `Refresh` action's new shop, if this trinket makes it (returns `true` once it did):
+    /// `(state, pool, rng)`.
+    trinket_refresh(on_trinket_refresh): fn(&mut TavernState, &mut CardPool, &mut Rng) -> bool,
 }
 
 impl Default for CardHooks {

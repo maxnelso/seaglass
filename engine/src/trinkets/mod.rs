@@ -28,7 +28,9 @@ pub mod bleeding_heart;
 pub mod blood_golem_sticker;
 pub mod bloodbound_earrings;
 pub mod bloodbound_earrings_greater;
+pub mod bloodfury_shield;
 pub mod bluegill_flippers;
+pub mod bob_blehead;
 pub mod bobs_tip_jar;
 pub mod booty_bay_brew;
 pub mod booty_bay_brew_greater;
@@ -67,12 +69,14 @@ pub mod ghastly_sticker;
 pub mod glass_of_perspective;
 pub mod glass_of_perspective_greater;
 pub mod glowing_crystal;
+pub mod glowing_gauntlet;
 pub mod goblin_wallet;
 pub mod gold_mallet;
 pub mod gold_mallet_greater;
 pub mod gold_pendant;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
+pub mod guiding_candle;
 pub mod heart_of_the_forest;
 pub mod herald_sticker;
 pub mod herding_horn;
@@ -146,6 +150,7 @@ pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod wand_of_divination;
 pub mod war_drum;
+pub mod warband_whistle;
 pub mod warcry_totem;
 pub mod water_wheel;
 pub mod weighted_gauntlet;
@@ -229,7 +234,9 @@ const IMPLEMENTED: &[Implemented] = &[
         bloodbound_earrings_greater::ID,
         bloodbound_earrings_greater::behaviors,
     ),
+    (bloodfury_shield::ID, bloodfury_shield::behaviors),
     (bluegill_flippers::ID, bluegill_flippers::behaviors),
+    (bob_blehead::ID, bob_blehead::behaviors),
     (bobs_tip_jar::ID, bobs_tip_jar::behaviors),
     (booty_bay_brew::ID, booty_bay_brew::behaviors),
     (
@@ -280,6 +287,7 @@ const IMPLEMENTED: &[Implemented] = &[
         glass_of_perspective_greater::behaviors,
     ),
     (glowing_crystal::ID, glowing_crystal::behaviors),
+    (glowing_gauntlet::ID, glowing_gauntlet::behaviors),
     (goblin_wallet::ID, goblin_wallet::behaviors),
     (gold_mallet::ID, gold_mallet::behaviors),
     (gold_mallet_greater::ID, gold_mallet_greater::behaviors),
@@ -289,6 +297,7 @@ const IMPLEMENTED: &[Implemented] = &[
         great_boar_sticker_greater::ID,
         great_boar_sticker_greater::behaviors,
     ),
+    (guiding_candle::ID, guiding_candle::behaviors),
     (heart_of_the_forest::ID, heart_of_the_forest::behaviors),
     (herald_sticker::ID, herald_sticker::behaviors),
     (herding_horn::ID, herding_horn::behaviors),
@@ -383,6 +392,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (wand_of_divination::ID, wand_of_divination::behaviors),
     (war_drum::ID, war_drum::behaviors),
+    (warband_whistle::ID, warband_whistle::behaviors),
     (warcry_totem::ID, warcry_totem::behaviors),
     (water_wheel::ID, water_wheel::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
@@ -895,6 +905,41 @@ pub fn triple_copies(auras: &PlayerAuras, card_id: CardId) -> Option<usize> {
         .filter_map(|t| hooks(t.card_id).trinket_triple_copies)
         .filter_map(|f| f(card_id))
         .min()
+}
+
+/// The Tiers a shop draw offers for a Refresh of `kind`, given `tiers` (1 to the player's Tier),
+/// folded over the trinkets' `trinket_shop_tiers` in pick order.
+pub fn shop_tiers(auras: &PlayerAuras, kind: RefreshKind, mut tiers: (u32, u32)) -> (u32, u32) {
+    for trinket in &auras.trinkets {
+        if let Some(shop_tiers) = hooks(trinket.card_id).trinket_shop_tiers {
+            tiers = shop_tiers(trinket, kind, tiers);
+        }
+    }
+    tiers
+}
+
+/// The minions a rolled shop holds, given `slots`, folded over the trinkets'
+/// `trinket_shop_slots` in pick order.
+pub fn shop_minion_slots(state: &TavernState, mut slots: usize) -> usize {
+    for trinket in &state.auras.trinkets {
+        if let Some(shop_slots) = hooks(trinket.card_id).trinket_shop_slots {
+            slots = shop_slots(state, slots);
+        }
+    }
+    slots
+}
+
+/// The `Refresh` action's new shop, if a trinket makes it (`trinket_refresh`, the first in pick
+/// order that does): whether one did.
+pub fn refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) -> bool {
+    for id in owned_ids(&state.auras) {
+        if let Some(refresh) = hooks(id).trinket_refresh {
+            if refresh(state, pool, rng) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// The player ends their turn: each trinket's `trinket_end_turn` hook, with the end-of-turn

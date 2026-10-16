@@ -1,0 +1,21 @@
+trinket: Glowing Gauntlet
+scenarios:
+  - name: minions_in_the_tavern_have_plus_three_plus_three
+    tavern: {turn: 6, shop: ["1/1", "2/2"]}
+    steps:
+      - give_trinket: Glowing Gauntlet
+    expect: {shop: ["4/4", "5/5"], auras: {tavern_all_atk: 3, tavern_all_hp: 3}}
+
+  - name: the_tavern_always_has_seven_cards
+    seeds: "1..=3"
+    tavern: {gold: 1, include_shop_spells: true, auras: {trinkets: [Glowing Gauntlet]}}
+    steps:
+      - refresh
+    expect: {shop: {count: 7, -1: {is_spell: true}}}
+
+  - name: seven_minions_without_the_spell_slot
+    seeds: "1..=3"
+    tavern: {gold: 1, auras: {trinkets: [Glowing Gauntlet], tavern_all_atk: 3, tavern_all_hp: 3}}
+    steps:
+      - refresh
+    expect: {shop: {count: 7, all: {attack: ">= 4", health: ">= 4"}}}
