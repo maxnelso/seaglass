@@ -5,7 +5,7 @@
 use crate::cards::{CardTemplate, Played};
 use crate::model::{CardId, Keyword, Tribe};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 527;
 
@@ -49,4 +49,5 @@ pub fn after_friendly_play(
         1
     };
     state.board[self_idx].add_stats(consumed.attack * mult, consumed.health * mult);
+    crate::trinkets::after_consume(state, MinionSlot::Board(self_idx), &consumed);
 }

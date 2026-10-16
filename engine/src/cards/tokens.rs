@@ -4,7 +4,7 @@ use crate::cards::hooks::CardEventFn;
 use crate::cards::{self, minions, spells, BoardCtx, CardFlags, CardHooks};
 use crate::model::{CardId, EffectDuration, Keyword, PlayerAuras, PlayerEffect, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState, MAX_SHOP_SIZE};
+use crate::tavern::{CardPool, MinionSlot, TavernState, MAX_SHOP_SIZE};
 
 pub const TOKEN_ABERRANT_TENTACLE: CardId = 901;
 pub const TOKEN_BEETLE: CardId = 902;
@@ -279,6 +279,8 @@ fn fodder_on_refresh(state: &mut TavernState, effect: &mut PlayerEffect, rng: &m
                 demon_indices[rng.below(demon_indices.len())]
             };
             state.board[idx].add_stats(fodder.attack, fodder.health);
+            // The Demon consumes it (`trinkets::after_consume`).
+            crate::trinkets::after_consume(state, MinionSlot::Board(idx), &fodder);
         } else if state.shop.len() < MAX_SHOP_SIZE {
             state.shop.push(fodder);
         } else {

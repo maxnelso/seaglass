@@ -5,7 +5,7 @@
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 455;
 pub const ACTIVATE_COST: u32 = 2;
@@ -17,13 +17,12 @@ pub fn template() -> CardTemplate {
         .on_activate(|state, source_pos, _, pool, rng| on_activate(state, source_pos, pool, rng))
 }
 
-pub fn on_activate(
-    state: &mut TavernState,
-    source_pos: usize,
-    pool: &mut CardPool,
-    rng: &mut Rng,
-) {
-    let mult = if state.board[source_pos].is_golden { 2 } else { 1 };
+pub fn on_activate(state: &mut TavernState, source_pos: usize, pool: &mut CardPool, rng: &mut Rng) {
+    let mult = if state.board[source_pos].is_golden {
+        2
+    } else {
+        1
+    };
     let demon_indices: Vec<usize> = state
         .board
         .iter()
@@ -50,5 +49,6 @@ pub fn on_activate(
         let consumed = state.shop.remove(pick);
         pool.return_unit(&consumed);
         state.board[d_idx].add_stats(consumed.attack * mult, consumed.health * mult);
+        crate::trinkets::after_consume(state, MinionSlot::Board(d_idx), &consumed);
     }
 }

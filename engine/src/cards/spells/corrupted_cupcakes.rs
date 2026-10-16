@@ -7,7 +7,7 @@ use super::targeted_tribe;
 use crate::cards::CardHooks;
 use crate::model::{Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 /// Hooks registered for this spell in [`super::behaviors`].
 pub fn hooks() -> CardHooks {
@@ -43,6 +43,7 @@ pub fn cast(
             let consumed = state.shop.remove(pick);
             pool.return_unit(&consumed);
             state.board[board_pos].add_stats(consumed.attack, consumed.health);
+            crate::trinkets::after_consume(state, MinionSlot::Board(board_pos), &consumed);
         }
     }
 }

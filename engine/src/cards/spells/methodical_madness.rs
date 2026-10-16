@@ -47,15 +47,16 @@ pub fn cast(
                     *idx -= 1;
                 }
             }
-            let Some(target) = state.minion_mut(target) else {
+            let Some(minion) = state.minion_mut(target) else {
                 break;
             };
-            target.add_stats(consumed.attack, consumed.health);
+            minion.add_stats(consumed.attack, consumed.health);
             for kw in BONUS_KEYWORDS {
                 if consumed.has_keyword(kw) {
-                    target.apply_keyword(kw, false);
+                    minion.apply_keyword(kw, false);
                 }
             }
+            crate::trinkets::after_consume(state, target, &consumed);
         }
     }
 }

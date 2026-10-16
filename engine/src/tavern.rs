@@ -1504,6 +1504,13 @@ impl TavernState {
         cards::after_shop_refresh(self, rng);
     }
 
+    /// Fill the shop's free slots as a turn start fills a kept shop ([`Self::fill_kept_shop`]:
+    /// up to `shop_minion_slots()` and the spell slot), without a Refresh (`Glowing Gauntlet`).
+    pub fn top_up_shop(&mut self, pool: &mut CardPool, rng: &mut Rng) {
+        let cap = self.shop_minion_slots();
+        self.fill_kept_shop(cap, pool, rng);
+    }
+
     /// Fill the free slots of a shop whose cards were kept (`docs/tavern.md` §4 step 4): every
     /// kept card fills a slot (`cap`, plus the spell slot); the spell slot refills with a spell
     /// only if no spell is left, the other free slots with minions.

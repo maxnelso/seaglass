@@ -4,7 +4,7 @@
 use crate::cards::{self, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 219;
 pub const NAME: &str = "Mind Muck";
@@ -22,12 +22,7 @@ pub fn template() -> CardTemplate {
 }
 
 /// The target Demon (the first friendly one) consumes a minion in the Tavern.
-pub fn on_battlecry(
-    state: &mut TavernState,
-    unit: &Unit,
-    pool: &mut CardPool,
-    rng: &mut Rng,
-) {
+pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     let Some(demon) = cards::battlecry_target_pos(&state.board) else {
         return;
     };
@@ -54,4 +49,5 @@ pub fn on_battlecry(
     let gain_hp = consumed.health * mult;
 
     state.board[demon].add_stats(gain_atk, gain_hp);
+    crate::trinkets::after_consume(state, MinionSlot::Board(demon), &consumed);
 }

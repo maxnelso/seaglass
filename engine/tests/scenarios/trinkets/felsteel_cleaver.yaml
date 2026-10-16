@@ -1,0 +1,17 @@
+trinket: Felsteel Cleaver
+scenarios:
+  - name: a_spell_on_a_tavern_minion_feeds_it_to_a_friendly_minion
+    tavern:
+      board: [Ominous Seer]   # 2/1
+      shop: [Lullabot, Risen Rider, Glim Guardian]
+      hand: [Methodical Madness]
+      auras: {trinkets: [Felsteel Cleaver]}
+    steps:
+      - play: {hand: Methodical Madness, shop: Lullabot}   # Lullabot becomes 5/7 Taunt Reborn
+    expect: {shop: [], board: ["Ominous Seer 7/8 -taunt -reborn"]}
+
+  - name: a_spell_on_a_friendly_minion_does_nothing
+    tavern: {board: [Ominous Seer], shop: [Lullabot], hand: [Methodical Madness], auras: {trinkets: [Felsteel Cleaver]}}
+    steps:
+      - play: {hand: Methodical Madness, pos: 0}
+    expect: {shop: [], board: ["Ominous Seer 4/3"]}

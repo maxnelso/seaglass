@@ -1035,11 +1035,15 @@ pub fn reborn(ctx: &mut BoardCtx<'_>, dying: &Unit) -> bool {
         return false;
     };
     let reborn_attack = ctx.board[pos].attack;
+    let reborn_id = ctx.board[pos].id;
     notify_board(
         ctx,
         |h| h.after_friendly_reborn,
         |c, idx, f| f(c, idx, reborn_attack),
     );
+    if let Some(pos) = ctx.board.iter().position(|u| u.id == reborn_id) {
+        crate::trinkets::after_reborn(ctx, pos);
+    }
     true
 }
 

@@ -1,0 +1,26 @@
+trinket: Consuming Claw
+scenarios:
+  - name: a_demon_that_consumes_gains_the_bonus_keywords_and_5_5
+    tavern: {board: [Insatiable Ur'zul], shop: [Risen Rider], auras: {trinkets: [Consuming Claw]}}   # 4/6; 2/1 Taunt Reborn
+    steps:
+      - add_to_hand: Ominous Seer   # a Demon
+      - play: Ominous Seer
+    expect:
+      shop: []
+      board: {0: "Insatiable Ur'zul 11/12 taunt reborn"}   # 4/6 + 2/1 + 5/5
+
+  - name: a_minion_that_is_not_a_demon_gains_nothing_more
+    tavern: {board: ["1/1"], shop: [Risen Rider], hand: [Methodical Madness], auras: {trinkets: [Consuming Claw]}}
+    steps:
+      - play: {hand: Methodical Madness, pos: 0}
+    expect: {shop: [], board: ["3/2 taunt reborn"]}
+
+  - name: a_demon_fodder_a_demon_takes_counts
+    description: Engine decision - the Demon that takes a Refresh's Demon Fodder consumes it.
+    tavern:
+      gold: 1
+      board: [Ominous Seer]   # 2/1
+      auras: {trinkets: [Consuming Claw], effects: [{card: Demon Fodder, stacks: 1, duration: {Refreshes: 1}}]}
+    steps:
+      - refresh
+    expect: {board: ["Ominous Seer 9/8"]}   # 2/1 + the 2/2 Fodder + 5/5

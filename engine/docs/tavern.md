@@ -87,7 +87,7 @@ The lobby is never part of the RL observation: a player doesn't see it, and the 
 ### 3.2 Card Zones
 1. **`board`**: Ordered list of `Unit`s (`0..=7` minions, index `0` = leftmost).
 2. **`hand`**: Ordered list of `Unit`s (`0..=10` cards: minions and hand spells).
-3. **`shop`**: Ordered list of `Unit`s currently offered by Bob: the minions of a roll (`0..=6`, §3.3), the shop spell, and the cards effects add to it (`Demon Fodder`, `Fishbait`). **Bob's Tavern holds at most 7 cards** **(confirmed)** (`MAX_SHOP_SIZE`), and a card an effect would add beyond 7 isn't added. A `Demon Fodder` that doesn't fit waits for a later Refresh with room, and the Refresh it didn't fit in doesn't use it up **(confirmed)**. `Snarky Shark`'s Refresh draws one fewer minion when the Tavern would be full, to leave room for its `Fishbait` **(confirmed)**.
+3. **`shop`**: Ordered list of `Unit`s currently offered by Bob: the minions of a roll (`0..=6`, §3.3), the shop spell, and the cards effects add to it (`Demon Fodder`, `Fishbait`). **Bob's Tavern holds at most 7 cards** **(confirmed)** (`MAX_SHOP_SIZE`), and a card an effect would add beyond 7 isn't added. A `Demon Fodder` that doesn't fit waits for a later Refresh with room, and the Refresh it didn't fit in doesn't use it up **(confirmed)**. `Snarky Shark`'s Refresh draws one fewer minion when the Tavern would be full, to leave room for its `Fishbait` **(confirmed)**. A trinket can fill a shop that lost cards back up without a Refresh (`TavernState::top_up_shop`, as a turn start fills a kept shop: `Glowing Gauntlet`, [`trinkets.md`](trinkets.md) §11.2).
 
 ### 3.3 Tavern Tier Table
 

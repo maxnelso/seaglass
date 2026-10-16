@@ -3,9 +3,12 @@
 //! Minions in the Tavern have +3/+3. The Tavern always has 7 cards.
 //!
 //! The Tavern's bonus +3/+3 as picked (`buff_tavern_minions`). `trinket_shop_slots`: every shop
-//! the Tavern rolls holds 7 cards, the spell slot among them (`TavernState::shop_minion_slots`);
-//! a shop with cards bought from it isn't filled again, and the shop as it is when picked stays
-//! **(engine decision)**.
+//! the Tavern rolls holds 7 cards, the spell slot among them (`TavernState::shop_minion_slots`).
+//! `trinket_after_action`: after each action (its pick too), a shop with fewer cards (a card
+//! bought, consumed, stolen) is filled back to 7 **(confirmed)**, as a turn start fills a kept
+//! shop (`TavernState::top_up_shop`: the spell slot with a spell if no spell is left, the other
+//! slots with minions, drawn as the turn start's shop draws them; not a Refresh: **engine
+//! decision**).
 
 use crate::cards::CardHooks;
 use crate::model::CardId;
@@ -20,7 +23,8 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         ID,
         CardHooks::EMPTY
             .on_trinket_bought(bought)
-            .on_trinket_shop_slots(slots),
+            .on_trinket_shop_slots(slots)
+            .on_trinket_after_action(keep_full),
     )]
 }
 
@@ -30,4 +34,10 @@ fn bought(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
 
 fn slots(state: &TavernState, _: usize) -> usize {
     MAX_SHOP_SIZE - usize::from(state.include_shop_spells)
+}
+
+fn keep_full(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    if state.shop.len() < MAX_SHOP_SIZE {
+        state.top_up_shop(pool, rng);
+    }
 }

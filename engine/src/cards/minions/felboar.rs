@@ -11,7 +11,7 @@
 use crate::cards::CardTemplate;
 use crate::model::{CardId, Tribe};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, TavernState};
+use crate::tavern::{CardPool, MinionSlot, TavernState};
 
 pub const ID: CardId = 519;
 
@@ -52,4 +52,5 @@ pub fn after_spell_cast(
     let consumed = state.shop.remove(pick);
     pool.return_unit(&consumed);
     state.board[self_idx].add_stats(consumed.attack * mult, consumed.health * mult);
+    crate::trinkets::after_consume(state, MinionSlot::Board(self_idx), &consumed);
 }

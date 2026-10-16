@@ -653,6 +653,13 @@ card_hooks! {
     /// The `Refresh` action's new shop, if this trinket makes it (returns `true` once it did):
     /// `(state, pool, rng)`.
     trinket_refresh(on_trinket_refresh): fn(&mut TavernState, &mut CardPool, &mut Rng) -> bool,
+    /// A friendly minion (`consumer`: on the board, or in the Tavern) consumed `consumed`, a
+    /// minion that left the Tavern, after the stats the consume gave: `(state, consumer,
+    /// consumed)`.
+    trinket_after_consume(on_trinket_after_consume): fn(&mut TavernState, MinionSlot, &Unit),
+    /// A friendly minion came back with Reborn (`cards::reborn`, in combat or in the Tavern), at
+    /// `ctx.board[pos]`, after the minions' `after_friendly_reborn`: `(ctx, pos)`.
+    trinket_after_reborn(on_trinket_after_reborn): fn(&mut BoardCtx<'_>, usize),
 }
 
 impl Default for CardHooks {

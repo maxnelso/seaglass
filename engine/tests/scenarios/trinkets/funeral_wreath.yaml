@@ -1,0 +1,15 @@
+trinket: Funeral Wreath
+scenarios:
+  - name: a_reborn_minion_gives_a_plain_copy
+    combat:
+      board_a: [Risen Rider]   # 2/1 Taunt Reborn
+      board_b: ["100/100"]
+      auras_a: {trinkets: [Funeral Wreath]}
+    expect: {outcome: b_win, hand_a: [{name: Risen Rider, attack: 2, health: 1}]}
+
+  - name: three_times_per_combat
+    combat:
+      board_a: [Risen Rider, Risen Rider, Risen Rider, Risen Rider]
+      board_b: ["100/1000"]
+      auras_a: {trinkets: [Funeral Wreath]}
+    expect: {outcome: b_win, hand_a: {count: 3, all: {name: Risen Rider}}}

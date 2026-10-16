@@ -1,0 +1,15 @@
+trinket: Ur'zul Sticker
+scenarios:
+  - name: another_demon_consumes_a_tavern_minion
+    tavern: {board: [Ominous Seer], shop: [Lullabot], auras: {trinkets: [Ur'zul Sticker]}}   # 2/1; 2/2
+    steps:
+      - add_to_hand: Ominous Seer
+      - play: Ominous Seer
+    expect: {shop: [], board: ["Ominous Seer 4/3", "Ominous Seer 2/1"]}
+
+  - name: nothing_without_another_demon
+    tavern: {board: ["1/1"], shop: [Lullabot], auras: {trinkets: [Ur'zul Sticker]}}
+    steps:
+      - add_to_hand: Ominous Seer
+      - play: Ominous Seer
+    expect: {shop: [Lullabot], board: ["1/1", "Ominous Seer 2/1"]}

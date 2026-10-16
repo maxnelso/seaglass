@@ -39,6 +39,7 @@ pub mod butchers_sickle;
 pub mod comfy_coffin;
 pub mod comfy_coffin_greater;
 pub mod conch_portrait;
+pub mod consuming_claw;
 pub mod converter_portrait;
 pub mod cookies_stirring_rod;
 pub mod corrupted_baton;
@@ -61,10 +62,12 @@ pub mod eternal_portrait;
 pub mod evil_experiment;
 pub mod explorers_binoculars;
 pub mod faerie_dragon_scale;
+pub mod felsteel_cleaver;
 pub mod fish_portrait;
 pub mod flighty_portrait;
 pub mod fridge_magnet;
 pub mod frigid_blossom;
+pub mod funeral_wreath;
 pub mod ghastly_sticker;
 pub mod glass_of_perspective;
 pub mod glass_of_perspective_greater;
@@ -129,6 +132,7 @@ pub mod shathyar_shrine;
 pub mod shrine_of_evolution;
 pub mod slamma_sticker;
 pub mod sludge_portrait;
+pub mod soul_fermenter;
 pub mod spell_powered_wrench;
 pub mod sphere_of_memory;
 pub mod splinter_of_aurum;
@@ -146,6 +150,7 @@ pub mod transcribing_typewriter_greater;
 pub mod tricksters_sleeve;
 pub mod trusty_crowbar;
 pub mod upstart_embers;
+pub mod urzul_sticker;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod wand_of_divination;
@@ -248,6 +253,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (comfy_coffin::ID, comfy_coffin::behaviors),
     (comfy_coffin_greater::ID, comfy_coffin_greater::behaviors),
     (conch_portrait::ID, conch_portrait::behaviors),
+    (consuming_claw::ID, consuming_claw::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
     (cookies_stirring_rod::ID, cookies_stirring_rod::behaviors),
     (corrupted_baton::ID, corrupted_baton::behaviors),
@@ -276,10 +282,12 @@ const IMPLEMENTED: &[Implemented] = &[
     (evil_experiment::ID, evil_experiment::behaviors),
     (explorers_binoculars::ID, explorers_binoculars::behaviors),
     (faerie_dragon_scale::ID, faerie_dragon_scale::behaviors),
+    (felsteel_cleaver::ID, felsteel_cleaver::behaviors),
     (fish_portrait::ID, fish_portrait::behaviors),
     (flighty_portrait::ID, flighty_portrait::behaviors),
     (fridge_magnet::ID, fridge_magnet::behaviors),
     (frigid_blossom::ID, frigid_blossom::behaviors),
+    (funeral_wreath::ID, funeral_wreath::behaviors),
     (ghastly_sticker::ID, ghastly_sticker::behaviors),
     (glass_of_perspective::ID, glass_of_perspective::behaviors),
     (
@@ -362,6 +370,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (sludge_portrait::ID, sludge_portrait::behaviors),
+    (soul_fermenter::ID, soul_fermenter::behaviors),
     (spell_powered_wrench::ID, spell_powered_wrench::behaviors),
     (sphere_of_memory::ID, sphere_of_memory::behaviors),
     (splinter_of_aurum::ID, splinter_of_aurum::behaviors),
@@ -385,6 +394,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (tricksters_sleeve::ID, tricksters_sleeve::behaviors),
     (trusty_crowbar::ID, trusty_crowbar::behaviors),
     (upstart_embers::ID, upstart_embers::behaviors),
+    (urzul_sticker::ID, urzul_sticker::behaviors),
     (volumizer_portrait::ID, volumizer_portrait::behaviors),
     (
         volumizer_portrait_greater::ID,
@@ -940,6 +950,41 @@ pub fn refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) -> b
         }
     }
     false
+}
+
+/// `consumer` consumed `consumed` (a minion that left the Tavern): each trinket's
+/// `trinket_after_consume` hook.
+pub fn after_consume(state: &mut TavernState, consumer: MinionSlot, consumed: &Unit) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_consume) = hooks(id).trinket_after_consume {
+            after_consume(state, consumer, consumed);
+        }
+    }
+}
+
+/// A friendly minion came back with Reborn at `ctx.board[pos]`: each trinket's
+/// `trinket_after_reborn` hook.
+pub fn after_reborn(ctx: &mut BoardCtx<'_>, pos: usize) {
+    for id in owned_ids(ctx.auras) {
+        if let Some(after_reborn) = hooks(id).trinket_after_reborn {
+            after_reborn(ctx, pos);
+        }
+    }
+}
+
+/// `state.board[consumer]` consumes `state.shop[shop_idx]` (a trinket's consume): the minion
+/// leaves the Tavern (its copy returns to the pool), the consumer gains its stats, then the
+/// consume observers ([`after_consume`]).
+pub fn consume_shop_minion(
+    state: &mut TavernState,
+    consumer: usize,
+    shop_idx: usize,
+    pool: &mut CardPool,
+) {
+    let consumed = state.shop.remove(shop_idx);
+    pool.return_unit(&consumed);
+    state.board[consumer].add_stats(consumed.attack, consumed.health);
+    after_consume(state, MinionSlot::Board(consumer), &consumed);
 }
 
 /// The player ends their turn: each trinket's `trinket_end_turn` hook, with the end-of-turn

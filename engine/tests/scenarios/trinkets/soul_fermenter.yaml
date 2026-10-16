@@ -1,0 +1,26 @@
+trinket: Soul Fermenter
+scenarios:
+  - name: start_of_combat_destroys_the_3_left_most_minions
+    combat:
+      board_a: ["1/1", "2/2", "3/3", "4/4"]
+      board_b: ["0/1"]
+      auras_a: {trinkets: [Soul Fermenter]}
+    expect: {outcome: a_win, survivors_a: ["4/4"]}
+
+  - name: after_the_last_minion_dies_they_come_back
+    combat:
+      board_a: ["5/5", "5/5", "5/5", "1/1"]
+      board_b: ["1/2"]
+      auras_a: {trinkets: [Soul Fermenter]}
+    expect: {outcome: a_win, survivors_a: {count: 3, all: {attack: 5}}}
+
+  - name: destroying_them_all_brings_them_back_at_once
+    description: Engine decision - the Start of Combat's own deaths leave no minion alive.
+    combat:
+      board_a: ["3/3", "3/3", "3/3"]
+      board_b: ["1/1"]
+      auras_a: {trinkets: [Soul Fermenter]}
+    expect:
+      outcome: a_win
+      survivors_a: {count: 3}
+      events: {where: {type: unit_summoned, side: a, reason: Soul Fermenter}, count: 3}
