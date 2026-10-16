@@ -266,6 +266,9 @@ When a minion at `board[board_pos]` is sold:
 When `EndTurn` is executed:
 1. Board end-of-turn triggers fire in left-to-right board order (self-buffs, adjacent buffs).
 2. Hand end-of-turn triggers fire in left-to-right hand order (e.g., summoning copies from hand onto `board` if `board.len() < 7`).
+3. The Hero Power's end-of-turn effect (`hero_end_turn`, `heroes.md` §4), then each trinket's (`trinket_end_turn`, `trinkets.md` §6).
+
+**Repeats** (`cards::end_of_turn_repeats`): "your end of turn effects trigger twice" (`Drakkari Enchanter`: twice, three times if Golden; several don't stack, the best counts) and "an extra time" (`Ghastly Sticker`: +1) apply to **every** end-of-turn effect: the minions', the Hero Power's and the trinkets' **(confirmed)**. The extras add, they don't multiply: 3 times with a `Drakkari Enchanter` and a `Ghastly Sticker` **(confirmed)**. The repeat count is taken once, before step 1. The minions' triggers resolve that many times in a row (all of them, then all again). The Hero Power's and the trinkets' hooks receive the count and repeat only their payoff: a turn counter ("at the end of every 3 turns") advances once per turn, and a charge (C'Thun's arming, once per turn) is used once, after all the repeats **(confirmed)**. So Rock Master Voone gives 2 copies on the turn it fires with a `Ghastly Sticker`, and C'Thun's Hero Power gives its buffs twice with a `Ghastly Sticker` or a `Drakkari Enchanter`, three times with both. No minion of the pool has an end-of-turn turn counter.
 
 ### 7.6 Persistent Game-Long Scaling (`PlayerAuras`)
 `TavernState` tracks game-long counters that persist across turns and apply to both Tavern actions and Combat simulations:
