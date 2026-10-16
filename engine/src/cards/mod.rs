@@ -986,8 +986,8 @@ pub fn on_tavern_summon(board: &mut [Unit], pos: usize) {
 }
 
 /// Apply all combat summon modifiers (persistent auras, the player effects'
-/// `player_combat_summon` hooks, the Hero Power's `hero_combat_summon`, the combat Beast bonus, `friendly_summon` observers, stat
-/// thresholds) to `token` before it joins `board`.
+/// `player_combat_summon` hooks, the Hero Power's `hero_combat_summon`, the combat Beast bonus, `friendly_summon` observers, the
+/// trinkets' `trinket_combat_summon`, stat thresholds) to `token` before it joins `board`.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],
     auras: &PlayerAuras,
@@ -1001,6 +1001,7 @@ pub fn apply_combat_summon_modifiers(
         token.add_stats(combat_beast_bonus_atk, 0);
     }
     notify_friendly_summon(board, None, token, true);
+    crate::trinkets::combat_summon(auras, token);
     token.sync_max_stats();
     check_stat_thresholds(token);
 }
@@ -2074,6 +2075,7 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
     );
     resolve_pending_effects(ctx.board, ctx.auras, ctx.rng);
     crate::heroes::on_friendly_attack(ctx, attacker_id);
+    crate::trinkets::on_friendly_attack(ctx, attacker_id);
 }
 
 /// Resolve damage-dealt triggers after the friendly unit `source_id` dealt `amount` damage: its

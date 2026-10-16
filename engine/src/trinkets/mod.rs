@@ -10,25 +10,41 @@
 
 mod table;
 
+pub mod all_purpose_kibble;
 pub mod baleful_incense;
+pub mod beetle_band;
+pub mod beetle_band_greater;
+pub mod bleeding_heart;
+pub mod blood_golem_sticker;
 pub mod bronze_timepiece;
 pub mod converter_portrait;
 pub mod dramaloc_sticker;
 pub mod eternal_portrait;
 pub mod evil_experiment;
+pub mod faerie_dragon_scale;
+pub mod fridge_magnet;
+pub mod herald_sticker;
 pub mod hoggy_bank;
 pub mod holy_mallet;
 pub mod ironforge_anvil;
+pub mod jar_o_gems;
 pub mod lightfeather_sticker;
+pub mod lionfish_portrait;
+pub mod lucky_tabby;
 pub mod protective_ring;
 pub mod rivendare_portrait;
+pub mod slamma_sticker;
+pub mod staff_of_the_scourge;
+pub mod stormcoil_sticker;
 pub mod summoning_sphere;
 pub mod training_certificate;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
 
 use crate::cards::{self, hooks, BoardCtx, CardHooks, HeroCombatCtx};
-use crate::model::{CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, LOBBY_TRIBES};
+use crate::model::{
+    CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, Unit, UnitId, LOBBY_TRIBES,
+};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
 
@@ -66,18 +82,32 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented trinket, by file name.
 const IMPLEMENTED: &[Implemented] = &[
+    (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
+    (beetle_band::ID, beetle_band::behaviors),
+    (beetle_band_greater::ID, beetle_band_greater::behaviors),
+    (bleeding_heart::ID, bleeding_heart::behaviors),
+    (blood_golem_sticker::ID, blood_golem_sticker::behaviors),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
     (evil_experiment::ID, evil_experiment::behaviors),
+    (faerie_dragon_scale::ID, faerie_dragon_scale::behaviors),
+    (fridge_magnet::ID, fridge_magnet::behaviors),
+    (herald_sticker::ID, herald_sticker::behaviors),
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
     (ironforge_anvil::ID, ironforge_anvil::behaviors),
+    (jar_o_gems::ID, jar_o_gems::behaviors),
     (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
+    (lionfish_portrait::ID, lionfish_portrait::behaviors),
+    (lucky_tabby::ID, lucky_tabby::behaviors),
     (protective_ring::ID, protective_ring::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
+    (slamma_sticker::ID, slamma_sticker::behaviors),
+    (staff_of_the_scourge::ID, staff_of_the_scourge::behaviors),
+    (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
 ];
@@ -391,6 +421,41 @@ pub fn on_turn_start(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng
     }
 }
 
+/// `true` if one of the player's trinkets reacts to their minions' deaths in combat.
+pub fn has_friendly_death(auras: &PlayerAuras) -> bool {
+    auras
+        .trinkets
+        .iter()
+        .any(|t| hooks(t.card_id).trinket_friendly_death.is_some())
+}
+
+/// A friendly minion died in combat: each trinket's `trinket_friendly_death` hook.
+pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
+    for id in owned_ids(ctx.auras) {
+        if let Some(friendly_death) = hooks(id).trinket_friendly_death {
+            friendly_death(ctx, dying);
+        }
+    }
+}
+
+/// A friendly minion attacks: each trinket's `trinket_friendly_attack` hook.
+pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
+    for id in owned_ids(ctx.auras) {
+        if let Some(friendly_attack) = hooks(id).trinket_friendly_attack {
+            friendly_attack(ctx, attacker_id);
+        }
+    }
+}
+
+/// A friendly minion is being summoned in combat: each trinket's `trinket_combat_summon` hook.
+pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
+    for trinket in &auras.trinkets {
+        if let Some(combat_summon) = hooks(trinket.card_id).trinket_combat_summon {
+            combat_summon(trinket, summoned);
+        }
+    }
+}
+
 /// The player's Deity awakened in combat at `ctx.board[idx]`: each trinket's
 /// `trinket_deity_awakened` hook.
 pub fn on_deity_awakened(ctx: &mut BoardCtx<'_>, idx: usize) {
@@ -413,6 +478,48 @@ pub fn give_minion(state: &mut TavernState, card_id: CardId) {
     }
 }
 
+/// A random minion of the player's Tier or lower from the game's catalog (Duos-exclusive ones in
+/// Duos) that `keep` accepts, one `rng.below(k)` (none when there is a single one), or `None`:
+/// the cards trinkets give in combat ("get a random Beast"; **engine decision**, as Ini
+/// Stormcoil's Mech: `docs/heroes.md` §11.1).
+pub fn random_minion(
+    ctx: &mut BoardCtx<'_>,
+    keep: impl Fn(&cards::CardTemplate) -> bool,
+) -> Option<Unit> {
+    let tier = ctx.hero_tier;
+    let pool: Vec<_> = cards::game_templates(ctx.auras)
+        .iter()
+        .filter(|t| t.tavern_tier <= tier && keep(t))
+        .collect();
+    match pool.len() {
+        0 => None,
+        k => Some(pool[ctx.rng.below(k)].instantiate()),
+    }
+}
+
+/// An Avenge or "after N friendly minions die" count: the trinket `id`'s `counter` goes up by 1,
+/// and `true` (the count starting again) every `every`th time.
+pub fn avenge(ctx: &mut BoardCtx<'_>, id: CardId, every: i32) -> bool {
+    let Some(t) = state_mut(ctx.auras, id) else {
+        return false;
+    };
+    t.counter += 1;
+    if t.counter < every {
+        return false;
+    }
+    t.counter -= every;
+    true
+}
+
+/// The start of turn reset of a trinket whose count or charges are per combat: its `counter`
+/// and `armed` start again (`docs/trinkets.md` §11.1).
+pub fn reset_per_combat(state: &mut TavernState, id: CardId) {
+    if let Some(t) = state_mut(&mut state.auras, id) {
+        t.counter = 0;
+        t.armed = 0;
+    }
+}
+
 /// The left- and right-most of `indexes` (in board order), once if there is only one.
 pub fn ends(indexes: &[usize]) -> Vec<usize> {
     match indexes {
@@ -425,7 +532,6 @@ pub fn ends(indexes: &[usize]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Unit;
     use std::fs;
     use std::path::Path;
 

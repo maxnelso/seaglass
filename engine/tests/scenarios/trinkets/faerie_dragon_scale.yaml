@@ -1,0 +1,20 @@
+trinket: Faerie Dragon Scale
+scenarios:
+  - name: a_dragons_first_three_attacks_each_get_a_divine_shield
+    description: >-
+      Each of the Dragon's attacks gives it a Divine Shield that the 1/100's counter-damage pops,
+      3 times in the combat.
+    seeds: "1..=3"
+    combat:
+      board_a: ["2/12 dragon"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Faerie Dragon Scale]}
+    expect:
+      events: {where: {type: divine_shield_popped, unit: 0}, count: 3}
+
+  - name: other_minions_get_nothing
+    combat:
+      board_a: ["2/12 beast"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Faerie Dragon Scale]}
+    expect: {events: {none: {type: divine_shield_popped}}}

@@ -1,0 +1,20 @@
+trinket: Lionfish Portrait
+scenarios:
+  - name: picking_it_gives_a_lurking_lionfish
+    tavern: {gold: 5}
+    steps:
+      - offer_trinkets: [Lionfish Portrait]
+      - choose_trinket: 0
+    expect: {gold: 4, hand: [Lurking Lionfish]}
+
+  - name: an_attacking_beast_gains_four_two
+    seeds: "1..=3"
+    combat:
+      board_a: ["1/10 beast", "1/10"]
+      board_b: ["0/100"]
+      auras_a: {trinkets: [Lionfish Portrait]}
+    expect:
+      events:
+        where: {type: stat_buff, reason: Lionfish Portrait}
+        count: ">= 1"
+        all: {unit: 0, atk_delta: 4, hp_delta: 2}

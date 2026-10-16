@@ -1,0 +1,12 @@
+trinket: Staff of the Scourge
+scenarios:
+  - name: the_fifth_death_gives_a_random_undead_reborn
+    description: >-
+      The five 1/1s die attacking the 1/100, the Undead gains Reborn, and is Reborn when it dies.
+    seeds: "1..=3"
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/20 undead"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Staff of the Scourge]}
+    expect:
+      events: {any: {type: unit_summoned, side: a, reason: Reborn}}

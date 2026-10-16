@@ -1,0 +1,19 @@
+trinket: Blood Golem Sticker
+scenarios:
+  - name: a_dead_quilboar_summons_a_golem_of_its_blood_gems
+    seeds: "1..=3"
+    combat:
+      board_a: [{card: "4/3 quilboar", blood_gem_stats_applied: [3, 2]}]
+      board_b: ["10/10"]
+      auras_a: {trinkets: [Blood Golem Sticker]}
+    expect:
+      events:
+        any: {type: unit_summoned, side: a, reason: Blood Golem Sticker, name: Blood Golem, attack: 3, health: 2}
+
+  - name: without_blood_gems_nothing
+    seeds: "1..=3"
+    combat:
+      board_a: ["1/1 quilboar"]
+      board_b: ["10/10"]
+      auras_a: {trinkets: [Blood Golem Sticker]}
+    expect: {events: {none: {type: unit_summoned}}}

@@ -29,7 +29,8 @@ use crate::cards::{
     TeammateWarband,
 };
 use crate::model::{
-    CardId, CombatResult, HeroPowerState, HeroState, PlayerAuras, PlayerEffect, Tribe, Unit, UnitId,
+    CardId, CombatResult, HeroPowerState, HeroState, PlayerAuras, PlayerEffect, Tribe,
+    TrinketState, Unit, UnitId,
 };
 use crate::rng::Rng;
 use crate::tavern::{CardPool, MinionSlot, TavernState};
@@ -562,6 +563,15 @@ card_hooks! {
     trinket_turn_start(on_trinket_turn_start): TavernEventFn,
     /// The player's Deity awakened in combat, after its own `awaken` hook: `(ctx, deity_idx)`.
     trinket_deity_awakened(on_trinket_deity_awakened): CombatFn,
+    /// A friendly minion died in combat, once its side's round of deaths resolved, after the Hero
+    /// Power's `hero_friendly_death` (summons go to the right end): `(ctx, dying)`.
+    trinket_friendly_death(on_trinket_friendly_death): fn(&mut BoardCtx<'_>, &Unit),
+    /// A friendly minion attacks (in combat or in the Tavern), after the Hero Power's
+    /// `hero_friendly_attack`: `(ctx, attacker_id)`.
+    trinket_friendly_attack(on_trinket_friendly_attack): fn(&mut BoardCtx<'_>, UnitId),
+    /// A friendly minion is being summoned in combat, after the other summon modifiers (the Hero
+    /// Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`.
+    trinket_combat_summon(on_trinket_combat_summon): fn(&TrinketState, &mut Unit),
 }
 
 impl Default for CardHooks {

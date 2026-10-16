@@ -128,6 +128,9 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_start_of_combat` | Start of Combat (§7): `(ctx)`, a `HeroCombatCtx` (the player's side as a `BoardCtx`, the enemy board, damage to enemy minions), as the Hero Power's. | `Holy Mallet`, `Training Certificate`, ... |
 | `trinket_turn_start` | Start of turn, after the Hero Power's `hero_turn_start` (before the Spellcraft spells): `(state, pool, rng)`. | "At the start of each turn, get another." |
 | `trinket_deity_awakened` | The player's Deity awakened in combat, after its own `awaken` hook: `(ctx, deity_idx)`. | `Evil Experiment`. |
+| `trinket_friendly_death` | A friendly minion died in combat, once its side's round of deaths resolved, after the Hero Power's `hero_friendly_death` (summons go to the right end): `(ctx, dying)`. | Avenge, "after N friendly minions die". |
+| `trinket_friendly_attack` | A friendly minion attacks (in combat or in the Tavern), after the Hero Power's `hero_friendly_attack`, before it strikes: `(ctx, attacker_id)`. | `Faerie Dragon Scale`, `Lionfish Portrait`. |
+| `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
 
 The dispatch functions (`trinkets::on_start_of_combat`, `trinkets::on_turn_start`, ...) run each owned trinket's hook in turn; the engines call them next to the matching Hero Power dispatch. Extra Deathrattles a trinket gives a minion in combat (`Jarred Frostling`) are cards too, as the Hero Powers' (`heroes.md` §4): `Unit::extra_deathrattles` lists them. More hooks are added with the trinkets that need them (§11).
 
@@ -230,6 +233,22 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) already reads e
 | `Lightfeather Sticker` (Greater) | Start of Combat: Give your Rally minions Divine Shield. | Every friendly minion with a Rally. |
 | `Dramaloc Sticker` (Greater) | Start of Combat: Give your Murlocs the Attack of the highest-Attack minion in your hand. | Each Murloc gains that much Attack (rather than its Attack becoming it) **(engine decision)**; spells don't count; nothing without a minion in the hand. |
 | `Evil Experiment` (Greater) | After your Deity awakens, give it Reborn. | `trinket_deity_awakened`: the Deity gains Reborn as it awakens. |
+| `Beetle Band` (Lesser) | Avenge (5): Summon a 2/2 Beetle. Give it Taunt. | Every 5th friendly death in a combat: a `Beetle` (with the player's Beetle bonus) with Taunt at the right end. |
+| `Staff of the Scourge` (Lesser) | Avenge (5): Give a random friendly Undead Reborn. | A random living Undead (one that has Reborn can be drawn **(engine decision)**), one draw. |
+| `Lucky Tabby` (Lesser) | After 7 friendly minions die, get a random Beast. | Counted across combats; a random Beast of the player's Tier or lower from the game's catalog **(engine decision**, as Ini Stormcoil's Mech**)** to the combat hand. |
+| `Stormcoil Sticker` (Lesser) | After 6 friendly minions die, get a random Mech. | As `Lucky Tabby`, a Mech. |
+| `Bleeding Heart` (Lesser) | After 8 friendly minions die, get a random Undead. | As `Lucky Tabby`, an Undead. |
+| `Lionfish Portrait` (Lesser) | Get a Lurking Lionfish. Whenever a friendly Beast attacks, give it +4/+2. | The attacker gains it before it strikes, in combat or in the Tavern (a Fishbait attack). |
+| `Beetle Band` (Greater) | Avenge (7): Summon two 2/2 Beetles. Give them Taunt. | As the Lesser one, two Beetles. |
+| `Fridge Magnet` (Greater) | Avenge (3): Get a random Magnetic minion. | Every 3rd friendly death in a combat: a random Magnetic minion of the player's Tier or lower from the catalog, to the combat hand. |
+| `Faerie Dragon Scale` (Greater) | Whenever a friendly Dragon attacks, give it Divine Shield. (3 times per combat.) | Before it strikes; a Dragon that still has one uses a charge too **(engine decision)**. |
+| `All-Purpose Kibble` (Greater) | Whenever a friendly Beast attacks, give it +3 Attack and permanently improve this. | `+(3 + stacks)` Attack, then each improvement is +1 for the rest of the game **(engine decision)**. |
+| `Slamma Sticker` (Greater) | After you summon a Beast in combat, double its Attack. | Every Beast summoned on the player's side in combat, after the other summon modifiers. |
+| `Blood Golem Sticker` (Greater) | Whenever a friendly Quilboar dies, summon a Golem with stats equal to its Blood Gems. | A `Blood Golem` with the stats its Blood Gems gave it (`blood_gem_stats_applied`) at the right end; none without them **(engine decision)**. |
+| `Jar o' Gems` (Greater) | After 2 friendly minions attack each combat, this plays a Blood Gem on all your Quilboar. | Once per combat, after the 2nd friendly attack **(engine decision**: not every 2 attacks**)**; the Gems are played, not cast. |
+| `Herald Sticker` (Greater) | Start of Combat: Trigger all friendly Deathrattles. | Each friendly minion with a Deathrattle (its own or one an effect gave it), left to right as the board was, if alive, triggers them as `Deathstrider` does (repeated by `Titus Rivendare`), summons to its right. |
+
+"Per combat" counts and charges (Avenge, "3 times per combat", "each combat") start again at the start of each turn **(engine decision**, as Onyxia's Avenge, `heroes.md` §11.1**)**; "after N friendly minions die" counts go across combats.
 
 ### 11.2 Tavern Trinkets
 
@@ -271,4 +290,5 @@ Engine decisions, pending the user's confirmation:
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
 | "Get a ..." | A plain copy from the catalog, not the pool (§11.1). | `trinkets::give_minion` |
+| Batch 2 | Per-combat counts restart each turn; Staff of the Scourge may draw an Undead with Reborn; random cards from the catalog of the player's Tier or lower; Faerie Dragon Scale spends a charge on a shielded Dragon; Kibble improves by +1; Blood Golem Sticker needs Blood Gem stats; Jar o' Gems once per combat. | their files |
 | Batch 1 | Training Certificate's ties to the left-most; Bronze Timepiece rounds down; Protective Ring may draw a shielded Pirate; Dramaloc Sticker's Murlocs gain the Attack. | their files |

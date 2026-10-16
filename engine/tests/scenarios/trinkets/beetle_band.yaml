@@ -1,0 +1,27 @@
+trinket: Beetle Band
+scenarios:
+  - name: every_fifth_friendly_death_summons_a_beetle_with_taunt
+    description: The five 1/1s die attacking the 1/100; the fifth death summons a 2/2 Beetle.
+    seeds: "1..=3"
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1", "1/1"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Beetle Band]}
+    expect:
+      events:
+        where: {type: unit_summoned, side: a, reason: Beetle Band}
+        count: 1
+        0: {name: Beetle, attack: 2, health: 2}
+
+  - name: four_deaths_summon_nothing
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Beetle Band]}
+    expect: {events: {none: {type: unit_summoned}}}
+
+  - name: the_count_starts_again_each_turn
+    tavern: {auras: {trinkets: [{trinket: Beetle Band, counter: 4}]}}
+    steps:
+      - start_turn
+    expect: {auras: {trinkets: [{counter: 0}]}}

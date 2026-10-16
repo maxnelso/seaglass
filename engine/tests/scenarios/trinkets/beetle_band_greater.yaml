@@ -1,0 +1,13 @@
+trinket: Beetle Band (Greater)
+scenarios:
+  - name: every_seventh_friendly_death_summons_two_beetles
+    seeds: "1..=3"
+    combat:
+      board_a: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Beetle Band (Greater)]}
+    expect:
+      events:
+        where: {type: unit_summoned, side: a, reason: Beetle Band}
+        count: 2
+        all: {name: Beetle, attack: 2, health: 2}

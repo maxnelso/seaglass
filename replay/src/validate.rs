@@ -54,7 +54,11 @@ pub fn trinket_simulated(card_id: &str) -> bool {
     trinkets::by_card_id(card_id).is_some_and(|t| {
         let h = cards::hooks(t.id);
         trinkets::is_implemented(t.id)
-            && (h.trinket_start_of_combat.is_some() || h.trinket_deity_awakened.is_some())
+            && (h.trinket_start_of_combat.is_some()
+                || h.trinket_deity_awakened.is_some()
+                || h.trinket_friendly_death.is_some()
+                || h.trinket_friendly_attack.is_some()
+                || h.trinket_combat_summon.is_some())
     })
 }
 

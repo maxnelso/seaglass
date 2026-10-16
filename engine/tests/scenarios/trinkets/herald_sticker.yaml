@@ -1,0 +1,10 @@
+trinket: Herald Sticker
+scenarios:
+  - name: every_friendly_deathrattle_triggers_at_start_of_combat
+    description: The Harmless Bonehead's Deathrattle summons two Skeletons to its right.
+    combat:
+      board_a: [Harmless Bonehead, "1/1"]
+      board_b: []
+      auras_a: {trinkets: [Herald Sticker]}
+    expect:
+      survivors_a: [Harmless Bonehead, Skeleton, Skeleton, "1/1"]

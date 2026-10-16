@@ -1,0 +1,12 @@
+trinket: Jar o' Gems
+scenarios:
+  - name: after_two_attacks_quilboar_get_a_blood_gem_once
+    description: >-
+      Once two friendly minions attacked, every friendly Quilboar gets one Blood Gem (+1/+1),
+      once per combat (an engine decision), however many attacks follow.
+    combat:
+      board_a: ["1/1 quilboar", "1/1", "1/1 quilboar"]
+      board_b: ["0/100"]
+      auras_a: {trinkets: [Jar o' Gems]}
+    expect:
+      survivors_a: ["2/2 quilboar", "1/1", "2/2 quilboar"]

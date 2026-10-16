@@ -2009,7 +2009,8 @@ fn resolve_deaths(
     let watch_kills = heroes::has_enemy_killed(&opp_side.auras);
     let mut kills: Vec<(UnitId, Unit)> = Vec::new();
     // This side's dead minions, for its player's Hero Power (`docs/heroes.md` §4).
-    let watch_deaths = heroes::has_friendly_death(&side_state.auras);
+    let watch_deaths = heroes::has_friendly_death(&side_state.auras)
+        || crate::trinkets::has_friendly_death(&side_state.auras);
     let mut died: Vec<Unit> = Vec::new();
 
     for unit in old_board {
@@ -2102,12 +2103,13 @@ fn resolve_deaths(
     // 6. Re-anchor the pointer if its unit died.
     side_state.ptr = reanchor_ptr(side_state.ptr, &old_ids, &slot_summons, &side_state.board);
 
-    // 7. The Hero Powers: this side's player's for its dead minions (summons at the right end),
-    // then the killers' player's (`docs/heroes.md` §4, §7.3).
+    // 7. The Hero Powers and trinkets: this side's player's for its dead minions (summons at the
+    // right end), then the killers' player's (`docs/heroes.md` §4, §7.3; `docs/trinkets.md` §6).
     for dying in died {
         let mut ctx = side_state.ctx(side, next_id, rng, events);
         ctx.cursor = ctx.board.len();
         heroes::on_friendly_death(&mut ctx, &dying);
+        crate::trinkets::on_friendly_death(&mut ctx, &dying);
     }
     for (killer, victim) in kills {
         heroes::on_enemy_killed(
