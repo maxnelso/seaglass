@@ -1,0 +1,19 @@
+trinket: Chromatic Tear (Greater)
+scenarios:
+  - name: picked_it_gives_two_random_chromadrakes
+    seeds: "1..=4"
+    steps:
+      - give_trinket: Chromatic Tear (Greater)
+    expect: {hand: {count: 2, all: {tribe: dragon, tavern_tier: 3}}}
+
+  - name: every_7th_battlecry_minion_played_gives_two_more
+    description: Tad has no Battlecry.
+    tavern:
+      hand: [Ominous Seer, Bubble Gunner, Tad]
+      auras: {trinkets: [{trinket: Chromatic Tear (Greater), counter: 5}]}
+    steps:
+      - play: Tad
+      - play: Ominous Seer
+      - expect: {hand: {count: 1}, auras: {trinkets: [{counter: 6}]}}
+      - play: Bubble Gunner
+    expect: {hand: {count: 2, all: {tribe: dragon}}, auras: {trinkets: [{counter: 0}]}}

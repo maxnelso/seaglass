@@ -1,0 +1,20 @@
+card: Rusted Reggie
+scenarios:
+  - name: is_a_tier_1_magnetic_mech_demon_in_no_pool
+    description: Only Mecha-Jaraxxus Sticker gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Rusted Reggie]}
+    expect:
+      hand: [{card: Rusted Reggie, stats: 5/5, tavern_tier: 1, tribe: mech_demon, keywords: [windfury, magnetic]}]
+      pool: {Rusted Reggie: null}
+
+  - name: it_magnetizes_to_a_demon
+    tavern: {board: [Wrath Weaver], hand: [Rusted Reggie]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: [{card: Wrath Weaver, keywords: {contains: windfury}}]}
+
+  - name: it_magnetizes_to_a_mech
+    tavern: {board: [Mechagnome Interpreter], hand: [Rusted Reggie]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: {count: 1, 0: {card: Mechagnome Interpreter}}}

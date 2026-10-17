@@ -1,0 +1,22 @@
+trinket: Bottle Sticker
+defaults:
+  duos_tavern: {catalog: duos}
+scenarios:
+  - name: picked_it_gives_a_portal_in_a_bottle
+    duos_tavern: {players: [{}, {}]}
+    steps:
+      - {player: 0, give_trinket: Bottle Sticker}
+    expect: {players: {0: {hand: [{name: Portal in a Bottle, is_spell: true}]}}}
+
+  - name: it_gives_another_at_the_start_of_each_turn
+    duos_tavern: {players: [{auras: {trinkets: [Bottle Sticker]}}, {}]}
+    steps:
+      - start_turn
+    expect: {players: {0: {hand: [{name: Portal in a Bottle}]}}}
+
+  - name: the_portal_passes_a_friendly_non_golden_minion
+    duos_tavern: {players: [{board: ["Tad 5/5"], auras: {trinkets: [Bottle Sticker]}}, {}]}
+    steps:
+      - start_turn
+      - {player: 0, play: {hand: 0, pos: 0}}
+    expect: {players: {0: {board: [], hand: []}, 1: {hand: ["Tad 5/5"]}}}

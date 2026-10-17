@@ -1,0 +1,23 @@
+card: Arcane Behemoth
+scenarios:
+  - name: is_a_tier_7_elemental_4_8_taunt_in_no_pool
+    description: Only Behemoth Portrait gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Arcane Behemoth]}
+    expect:
+      hand: [{card: Arcane Behemoth, stats: 4/8, tavern_tier: 7, tribe: elemental, keywords: [taunt]}]
+      pool: {Arcane Behemoth: null}
+
+  - name: selling_an_elemental_gives_it_its_stats
+    description: Selling another minion gives nothing.
+    tavern: {board: [Arcane Behemoth, Tad, "Dune Dweller 5/7"]}
+    steps:
+      - sell: 1
+      - expect: {board: ["Arcane Behemoth 4/8", "Dune Dweller 5/7"]}
+      - sell: 1
+    expect: {board: ["Arcane Behemoth 9/15"]}
+
+  - name: golden_gains_double
+    tavern: {board: ["golden Arcane Behemoth 8/16", "Dune Dweller 5/7"]}
+    steps:
+      - sell: 1
+    expect: {board: ["Arcane Behemoth 18/30"]}

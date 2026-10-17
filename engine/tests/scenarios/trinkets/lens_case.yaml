@@ -1,0 +1,19 @@
+trinket: Lens Case
+scenarios:
+  - name: picked_it_gives_a_duplicating_lens_then_one_every_2nd_turn_start
+    steps:
+      - give_trinket: Lens Case
+      - expect: {hand: [{name: Duplicating Lens, is_spell: true}]}
+      - end_turn
+      - start_turn
+      - expect: {hand: {count: 1}}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 2, all: {name: Duplicating Lens}}}
+
+  - name: the_lens_gives_a_plain_copy_of_a_minion_of_tier_3_or_lower
+    tavern: {board: ["Shoalfin Mystic 9/9"], auras: {trinkets: [Lens Case]}}
+    steps:
+      - give_trinket: Lens Case
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Shoalfin Mystic 9/9"], hand: ["Shoalfin Mystic 4/4"]}

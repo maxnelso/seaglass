@@ -1,0 +1,6 @@
+trinket: Morgl Portrait
+scenarios:
+  - name: picked_it_gives_a_tide_oracle_morgl
+    steps:
+      - give_trinket: Morgl Portrait
+    expect: {hand: [{card: Tide Oracle Morgl, stats: 1/10, is_golden: false}]}

@@ -1,0 +1,14 @@
+trinket: Mecha-Jaraxxus Sticker
+scenarios:
+  - name: picked_it_gives_two_random_mecha_demons
+    seeds: "1..=4"
+    steps:
+      - give_trinket: Mecha-Jaraxxus Sticker
+    expect: {hand: {count: 2, all: {tribe: mech_demon, tavern_tier: 1, keywords: {contains: magnetic}}}}
+
+  - name: it_gives_two_more_at_the_start_of_each_turn
+    seeds: "1..=4"
+    tavern: {auras: {trinkets: [Mecha-Jaraxxus Sticker]}}
+    steps:
+      - start_turn
+    expect: {hand: {count: 2, all: {tribe: mech_demon}}}

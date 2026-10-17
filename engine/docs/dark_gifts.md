@@ -18,6 +18,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The gifts implemented so far (§11); `Nightmare Lord Xavius` and `Tras'tath, Soul Parasite`, the trinkets `Ominous Stone`, `Sinister Invitation`, `Maldraxxus Dagger` and `Wax Lance`, and `Dark Paradox` (§12).
 
 ### Deferred
+[`deferred.md`](deferred.md) is the engine's single list of what it defers.
 - The Dark Gift anomaly (`BG36_Anomaly_002`) **(confirmed: out of scope)**.
 - A gift the engine doesn't implement is in the table but never offered (§4.4) **(engine decision, as for heroes and trinkets)**.
 

@@ -18,6 +18,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### Deferred
 Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Bounties, Triple Prizes, Quests and Buddies. Tier 7 minions and spells are in the game: the trinkets that give them are implemented **(confirmed)**. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets give their own Spellcraft spell (§11.6).
+[`deferred.md`](deferred.md) is the engine's single list of what it defers.
 
 ---
 
@@ -192,6 +193,7 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_modifies` | `true` if the trinket changes a card's text ("Your Living Azerites also give stats to friendly Elementals"): `(card_id)`. The card's own hooks read it (`trinkets::modifies(auras, card_id)`): the engine never names the card. | `Azerite Portrait`, `Bronzebeard Portrait`. |
 | `trinket_tavern_destroy` | A friendly minion was destroyed in the Tavern (`TavernState::destroy_board_unit`), once its Deathrattles resolved: `(state, destroyed, pool, rng)`. | `Maw Caster Portrait`, `Plaguerunner Portrait`. |
 | `trinket_shop_minion_died` | A minion in the Tavern died (a `Fishbait` a friendly minion attacked), once it left the Tavern: `(state, dead, pool, rng)`. | `Snarky Portrait`. |
+| `trinket_prevent_fatal` | The hero is about to take combat damage that would bring them (Duos: the team) to 0 Health or less, Armor counted: `(trinket)`; `true` prevents all of it, the first trinket in pick order that does (`trinkets::prevent_fatal`, in `TavernState::apply_post_combat_side` and `DuosTavern::take_combat_damage`). | `Safety Patch`'s Ice Block. |
 | `trinket_minion_bought` | A minion is being bought, before it reaches the hand (so before its Triple), after the board's `minion_bought` observers: `(state, bought)`, the minion mutable. | `Gold-plated Compass`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
@@ -480,12 +482,15 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 
 | Trinkets | Why |
 | :--- | :--- |
-| `Timeworn Candelabra` (both) and the other Timewarp trinkets | Timewarp **(confirmed)**. |
+| `Timeworn Candelabra` (both), `Poet Portrait` and the other Timewarp trinkets | Timewarp **(confirmed)**. |
 | `Tickatus Sticker` and the other Darkmoon Prize trinkets | Darkmoon Prizes **(confirmed)**. |
 | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets | Bounties **(confirmed)**. |
 | `Corrupted Tome` | Triple Prizes (the engine has none) **(confirmed)**. |
+| `Surprise Portrait` | Its hidden rule ("More appear when you least expect them") is unknown **(confirmed: deferred)**. |
+| `Wisdomball Supply` | Its spell's "helpful" Refreshes aren't worth a rule now **(confirmed: deferred)**. |
+| `Yogg-Tastic Pastry`, `Putricide Sticker` | The Wheel of Yogg-Saron and custom Undead creations **(confirmed: deferred)**. |
 
-The list grows as the batches go (§11.1, §11.2, §11.4–§11.8): every trinket of the table that isn't implemented is not offered.
+Every trinket of the table that isn't implemented is not offered. [`deferred.md`](deferred.md) lists everything the engine defers, these included.
 
 ### 11.4 Hero Power Trinkets
 
@@ -501,10 +506,10 @@ These use the core of §3.5.
 
 | Trinket | Text | How the engine reads it |
 | :--- | :--- | :--- |
-| `Mystery Cube` (Lesser) | Choose from 2 new Lesser Trinkets to replace this for free. At the start of each turn, repeat this. | Picked, and at each turn start while it is kept: an offer of 2 random Lesser trinkets (free, each replacing the Cube) and the Cube itself (free, keeping it): the choice can be declined, as the repeat says **(engine decision**: a third option, since offers can't be skipped**)**. |
-| `Orb of the Unknown` (Lesser) | Get a random Lesser Trinket. | Picked, it is replaced by a random Lesser trinket, whose text resolves: the Orb becomes it rather than a third trinket joining **(engine decision)**. |
+| `Mystery Cube` (Lesser) | Choose from 2 new Lesser Trinkets to replace this for free. At the start of each turn, repeat this. | Picked: an offer of 2 random Lesser trinkets, free, each replacing the Cube. The Cube can't be kept: one of the 2 must be picked **(confirmed)**, so it repeats at a turn start only if no Lesser trinket was left to offer. |
+| `Orb of the Unknown` (Lesser) | Get a random Lesser Trinket. | Picked, it is replaced by a random Lesser trinket, whose text resolves: the Orb becomes it rather than a third trinket joining **(confirmed)**. |
 | `Orb of the Unknown` (Greater) | Get a random Greater Trinket and 4 Gold. | 4 Gold, then as the Lesser one, a Greater trinket **(engine decision)**. |
-| `Souvenir Stand` (Lesser) | When you buy a Greater Trinket, this transforms into a copy of it. | `trinket_after_pick`: a Greater trinket picked from any offer makes the Stand a fresh copy of it (its minion type too), whose text resolves too **(engine decision)**; the two copies keep their own states (§2.3). |
+| `Souvenir Stand` (Lesser) | When you buy a Greater Trinket, this transforms into a copy of it. | `trinket_after_pick`: a Greater trinket picked from any offer makes the Stand a fresh copy of it (its minion type too), whose text resolves too **(confirmed)**; the two copies keep their own states (§2.3). |
 | `Trip Vouchers` (Lesser) | In 2 turns, choose a Greater Trinket to buy and replace this. | At the 2nd turn start after the pick: a Greater offer drawn as on turn 9 (§3.3, its prices), each option replacing the Vouchers; the turn 9 offer still comes **(engine decision)**. |
 | `Ornate Clock` (Lesser) | Gain 2 Gold. Buy your Greater Trinket next turn instead of Turn 9. | 2 Gold; `trinket_offer_kind`: the turn after the pick has the Greater offer and turn 9 none; picked on turn 8 or later, nothing changes **(engine decision)**. |
 | `Mysterious Orb` (Lesser) | Gain 10 Gold. Your next Trinket is a Lesser Trinket. | 10 Gold; `trinket_offer_kind`: the first scheduled offer after the pick (turn 9's) is a Lesser offer. |
@@ -560,11 +565,45 @@ A Spellcraft trinket gives its own Spellcraft spell (its data's related card, `<
 | `Snarky Portrait` (Greater) | Get 2 Snarky Sharks. Whenever a Fishbait dies, give your Beasts +4/+4 and improve this. | `trinket_shop_minion_died`: the board's Beasts gain `+(4 + 4 × stacks)`, then it improves **(engine decision**: by the base amount**)**. |
 | `Surveyor Portrait` (Greater) | Get a Hot-Air Surveyor. Blood Gems played from your hand give an extra +6/+6. | `trinket_after_spell`: a Blood Gem played from the hand gives its board target +6/+6 more per cast that resolved, once the casts are done **(engine decision)**. |
 
+### 11.9 Minions and Spells Only Trinkets Give
+
+Some Portraits and Stickers give minions that are in no pool (`cards::trinket_minion_catalog`, `catalog.yaml`'s `trinket_minions`): each has its own file in `src/cards/minions/` and its scenario, its id after the Duos ones (`10801`...), and is registered like any minion (its Golden, its plain copies, unit specs), but neither in a pool nor in a random draw; sold, it goes nowhere. The token spells they give are defined in the trinket's file (their dbfIds), as the Spellcraft spells are (§11.6), but they are not temporary. The RL vocabulary appends them all (`vocab::APPENDED`).
+
+| Minion | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Doubloon Grifter` (Tier 4 Pirate `6/6`) | Whenever you get 4 Pirates, increase your maximum Gold by 1 (2 if Golden). | A `card_gained` observer: each Pirate minion that enters the hand (bought, Discovered, given, a Triple's Golden) counts on it (`counter`); every 4th raises the maximum Gold at once and for the game, as `Strike Oil` **(engine decision)**. |
+| `Bassgill` (Tier 3 Murloc `5/2`) | Deathrattle: Summon the highest-Health Murloc from your hand for this combat only (2 if Golden). | As `Diremuck Forager`'s summons from hand, by Health; ties at random. |
+| `Arcane Behemoth` (Tier 7 Elemental `4/8`, Taunt) | After you sell an Elemental, gain its stats (double if Golden). | An `after_friendly_sell` observer: the sold minion's Attack and Health as it left. |
+| `Dr. Boom's Monster` (Tier 6 Mech `2/2`, Magnetic) | Has +2/+2 (+4/+4 if Golden) for each time you've Magnetized this game (wherever this is). | Its aura counts `PlayerAuras::magnetizations` (each Magnetization onto a friendly minion, the extra ones too). Magnetized itself, it gives its stats as they are then **(engine decision)**. |
+| `Flourishing Frostling` (Tier 5 Elemental `2/1`) | Has +2/+1 (+4/+2 if Golden) for each Elemental you played this game (wherever this is). | Its aura counts `PlayerAuras::elementals_played`, from the start of the game. |
+| `Faceless Manipulator` (Tier 1 Aberration `3/3`) | Battlecry: Choose a minion and become a copy of it. | A friendly minion, picked as `Captain Sanders`' target (the one where it is played, else to its left, else the first) **(engine decision)**: it becomes an exact copy (Golden too), the trinkets' marks staying on the original. |
+| `Tide Oracle Morgl` (Tier 7 Murloc `1/10`, Poisonous) | When this attacks and kills a minion, give its maximum stats (double if Golden) to a minion in your hand. | Poisonous is Venomous that is never used up (`CardFlags::POISONOUS`). Its `attack_kill` hook: when the minion it attacks dies of the attack, its `max_attack`/`max_health` go to a random minion in the combat hand (kept). Kills while defending don't count. |
+| `Mishmash` (Tier 3 All `4/4`) | Whenever your Amalgam gains stats, this gains them too (twice if Golden). | An `after_action` observer **(engine decision)**: after each Tavern action it gains what the friendly `Amalgam`s on the board gained since the last one (losses aren't gains; while their number changes it only takes note); not in combat. |
+| `Rusted Reggie` `5/5` Windfury, `Magtheridon Prime` `1/10` Taunt, `Baltharak` `10/1` Reborn, `Shield of the Legion` `7/3` Divine Shield (Tier 1 Mech/Demon, Magnetic) | Can Magnetize to Mechs and Demons. | `Tribe::MechDemon`: a Mech and a Demon, so they Magnetize onto either. |
+
+| Trinket | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Bassgill Portrait` (Greater) | Get a Bassgill. After you summon a Murloc in combat, give it Divine Shield. | `trinket_combat_summon`: every Murloc summoned in combat. |
+| `Behemoth Portrait` (Greater) | Get an Arcane Behemoth. | A plain one. |
+| `Boom's Monster Portrait` (Greater) | Get a Dr. Boom's Monster. At the start of every turn, get another. | Picked and at each turn start. |
+| `Bottle Sticker` (Lesser, Duos) | Get a Portal in a Bottle. At the start of each turn, get another. | Picked and at each turn start, `Portal in a Bottle` (`BGDUO_113`, a Tavern spell in no pool): it Passes a friendly non-Golden minion, as `Portal in a Crystal`. |
+| `Chromatic Tear` (Lesser) | Get a random Chromadrake. At the start of each turn, repeat this. | One of the 5 at random, picked and at each turn start. |
+| `Chromatic Tear` (Greater) | Get 2 random Chromadrakes. After you play 7 Battlecry minions, repeat this. | `trinket_after_play`: every 7th minion with a Battlecry played from the hand (`counter`). |
+| `Curator Sticker` (Greater) | Get a Golden Mishmash and a 10/10 Amalgam with Venomous. | The Amalgam is 10/10 as its own stats **(engine decision)**. |
+| `Goldenizer Supply` (Lesser) | At the end of every 3 turns, get a Goldenizer. | Every 3rd end of turn (the counter advances once a turn, the repeats repeat the payoff): `The Goldenizer` (`BG26_813t`, a token spell), which makes a friendly non-Golden minion Golden. |
+| `Grifter Portrait` (Lesser) | Get a Doubloon Grifter. The first Pirate you buy each turn is free. | `trinket_buy_price`: the first Pirate minion bought each turn (`armed`) costs nothing. |
+| `Jarred Frostling` (Greater) | Start of Combat: Give 3 friendly Elementals "Deathrattle: Summon a Flourishing Frostling". | Step 1c: 3 different random friendly Elementals gain the extra Deathrattle *Frosty Globe* (`BG30_MagicItem_952e`) for the combat. |
+| `Lens Case` (Lesser) | Get a Duplicating Lens. At the start of every 2 turns, repeat this. | `Duplicating Lens` (`BG35_MagicItem_817t`, a token spell): on a minion of Tier 3 or lower, friendly or in the Tavern, a plain copy of it to the hand. |
+| `Manipulator Portrait` (Greater) | Get a Faceless Manipulator. | A plain one. |
+| `Mecha-Jaraxxus Sticker` (Greater) | Get 2 random Magnetic Mecha-Demons. At the start of each turn, get 2 more. | Each one of the 4 at random. |
+| `Morgl Portrait` (Greater) | Get a Tide Oracle Morgl. | A plain one. |
+| `Safety Patch` (Greater) | Cast Ice Block. Gain 5 Gold. | 5 Gold and the Ice Block (`armed`): `trinket_prevent_fatal` prevents the first fatal combat damage, all of it; being Immune the rest of the turn changes nothing more **(engine decision)**. Not a spell cast. |
+
 ---
 
 ## 12. Decisions
 
-The rules the user settled are marked **(confirmed)** above: per-combat counts restarting every combat and "after N minions die" counts going across combats; Kibble's +1 improvements; Faerie Dragon Scale skipping a shielded Dragon; random cards as new copies of the player's Tier or lower; "Get a ..." cards as new copies, not from the pool; Blood Golem Sticker summoning nothing without Blood Gem stats; "after you Refresh" seeing only the Refreshes the player does, not the turn start's new shop; ties for "highest" / "lowest" broken at random; Innkeeper's Stein offering a Tier 6 minion at Tier 6; Ghastly Sticker repeating every end-of-turn effect, its extra adding to Drakkari Enchanter's (3 times with both), turn counters advancing once and charges used once, and Drakkari Enchanter repeating the Hero Power's and trinkets' end-of-turn effects too; Weighted Gauntlet without a cap, stats saturating at 2,147,483,647; Goblin Wallet above 10 Gold; Rascal Sticker counting the board; Booty Bay Brew on every spending, on 2 different random Pirates; spells a trinket casts counting as spells the player casts; Herding Horn counting Tavern attacks; the Lesser Baller Portrait picking at random; the Lesser offer on turn 6 and the Greater one on turn 9, 4 options each; the pick before anything else, and no skipping; the price paid in Gold as the trinket is picked, and the trinket kept for the rest of the game; at least one option of 2 Gold or less; the 2 (Lesser) and 3 (Greater) minions a typed trinket needs; at least one option without a type; at most one option of a type that isn't the most common one, 2 Gold cheaper; never a trinket the player owns; cards a trinket gives waiting for room in the hand; trinkets of the Naga type only never offered, those with a second type offered for it; HSReplay as the source of the pool; Glowing Gauntlet's shop filled back to 7 cards whenever it drops below; Warband Whistle's Refresh free; Dragon's Eye's extra trigger adding to Brann Bronzebeard's (3 times with both); Wolfhead Flail triggering the two left-most minions with a Deathrattle, all of each one's; Wildfeather Duster's Beast for a combat summon in the combat hand at once; Hammer of Twilight as a board aura (the board in the Tavern and in combat, not the hand or the Tavern), improved by every card discarded this game; the deferred systems.
+The rules the user settled are marked **(confirmed)** above: per-combat counts restarting every combat and "after N minions die" counts going across combats; Kibble's +1 improvements; Faerie Dragon Scale skipping a shielded Dragon; random cards as new copies of the player's Tier or lower; "Get a ..." cards as new copies, not from the pool; Blood Golem Sticker summoning nothing without Blood Gem stats; "after you Refresh" seeing only the Refreshes the player does, not the turn start's new shop; ties for "highest" / "lowest" broken at random; Innkeeper's Stein offering a Tier 6 minion at Tier 6; Ghastly Sticker repeating every end-of-turn effect, its extra adding to Drakkari Enchanter's (3 times with both), turn counters advancing once and charges used once, and Drakkari Enchanter repeating the Hero Power's and trinkets' end-of-turn effects too; Weighted Gauntlet without a cap, stats saturating at 2,147,483,647; Goblin Wallet above 10 Gold; Rascal Sticker counting the board; Booty Bay Brew on every spending, on 2 different random Pirates; spells a trinket casts counting as spells the player casts; Herding Horn counting Tavern attacks; the Lesser Baller Portrait picking at random; the Lesser offer on turn 6 and the Greater one on turn 9, 4 options each; the pick before anything else, and no skipping; the price paid in Gold as the trinket is picked, and the trinket kept for the rest of the game; at least one option of 2 Gold or less; the 2 (Lesser) and 3 (Greater) minions a typed trinket needs; at least one option without a type; at most one option of a type that isn't the most common one, 2 Gold cheaper; never a trinket the player owns; cards a trinket gives waiting for room in the hand; trinkets of the Naga type only never offered, those with a second type offered for it; HSReplay as the source of the pool; Glowing Gauntlet's shop filled back to 7 cards whenever it drops below; Warband Whistle's Refresh free; Dragon's Eye's extra trigger adding to Brann Bronzebeard's (3 times with both); Wolfhead Flail triggering the two left-most minions with a Deathrattle, all of each one's; Wildfeather Duster's Beast for a combat summon in the combat hand at once; Hammer of Twilight as a board aura (the board in the Tavern and in combat, not the hand or the Tavern), improved by every card discarded this game; the deferred systems; Mystery Cube that can't be kept; the Orbs of the Unknown replacing themselves; Souvenir Stand's copy resolving the copied trinket's text; Surprise Portrait, Wisdomball Supply, Yogg-Tastic Pastry and Putricide Sticker deferred.
 
 Engine decisions, pending the user's confirmation:
 
@@ -581,10 +620,11 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 21 | The minions only trinkets give and their rules (Doubloon Grifter's gotten Pirates and at-once Gold, Dr. Boom's Monster's Magnetized stats, Faceless Manipulator's target, Mishmash after each action); Curator Sticker's 10/10 Amalgam; Safety Patch's Ice Block. | §11.9, their files |
 | Batch 20 | Escapee Portrait checks Lockboxes after each action; Eternal Portrait (Greater) counts a Knight twice; Snarky Portrait's improvement; Surveyor Portrait adds after the casts. | §11.8, their files |
 | Batch 19 | Cho'gall Sticker counts the game's Golden plays; Moveout Box copies the teammate's final warband. | §11.7, their files |
 | Batch 18 | Chillmere Mosaic marks only its own Refresh's minions; Makeshift Master measures after each action; Token of the Old Gods' Tier 6 cap and Triple edge. | §11.6, their files |
-| Batch 17 | Replacing (fresh, the new trinket's text resolves, in the Tavern only); random trinkets uniform among the offerable ones of the kind, without the type rules; the offer queue; Mystery Cube's keep option; Orbs replace themselves; Souvenir Stand's copy resolves its text; Trip Vouchers' turn 9 offer still comes; Ornate Clock picked late changes nothing; Empowered Mirror copies a teammate who picks later. | §3.5, their files |
+| Batch 17 | Replacing (fresh, the new trinket's text resolves, in the Tavern only); random trinkets uniform among the offerable ones of the kind, without the type rules; the offer queue; Trip Vouchers' turn 9 offer still comes; Ornate Clock picked late changes nothing; Empowered Mirror copies a teammate who picks later. | §3.5, their files |
 | Batch 16 | A trinket's minion type: ties at random (§3.4); Shark Cannon keeps the Gold past 7; Ancient Wishbone repeats only active Hero Powers; Sous Chef Sticker's use the turn it is picked; Reinvigorating Light replaces a second Hero Power. | `trinkets::most_common_type`, their files |
 | Batch 15 | Sinstone Sticker's copy as offered; Portable Factory knowing its Discover by its options. | their files |
 | Batch 14 | Reinforced Shield only in combat; Fang Anklet's +1/+1 improvements and the Beasts summoned in combat; Wildfeather Duster's Tavern cards after the action. | their files |

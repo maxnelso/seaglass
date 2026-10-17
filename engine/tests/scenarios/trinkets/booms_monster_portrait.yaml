@@ -1,0 +1,15 @@
+trinket: Boom's Monster Portrait
+scenarios:
+  - name: picked_it_gives_a_dr_booms_monster
+    steps:
+      - give_trinket: Boom's Monster Portrait
+    expect: {hand: [{card: Dr. Boom's Monster, is_golden: false}]}
+
+  - name: it_gives_another_at_the_start_of_every_turn
+    tavern: {auras: {trinkets: [Boom's Monster Portrait]}}
+    steps:
+      - start_turn
+      - expect: {hand: [Dr. Boom's Monster]}
+      - end_turn
+      - start_turn
+    expect: {hand: [Dr. Boom's Monster, Dr. Boom's Monster]}

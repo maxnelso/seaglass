@@ -1,0 +1,28 @@
+card: Mishmash
+scenarios:
+  - name: is_a_tier_3_all_4_4_in_no_pool
+    description: Only Curator Sticker gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Mishmash]}
+    expect:
+      hand: [{card: Mishmash, stats: 4/4, tavern_tier: 3, tribe: all}]
+      pool: {Mishmash: null}
+
+  - name: when_your_amalgam_gains_stats_it_gains_them_too
+    description: >-
+      It sees the Amalgam after each action (engine decision): the Banana's +2/+2 on the Amalgam
+      reaches it after the play; the one on the Tad doesn't.
+    tavern: {board: [Mishmash, Tad, Amalgam], hand: [Tavern Dish Banana, Tavern Dish Banana]}
+    steps:
+      - end_turn
+      - start_turn
+      - play: {hand: 0, pos: 1}
+      - expect: {board: ["Mishmash 4/4", "Tad 4/4", "Amalgam 2/2"]}
+      - play: {hand: 0, pos: 2}
+    expect: {board: ["Mishmash 6/6", "Tad 4/4", "Amalgam 4/4"]}
+
+  - name: golden_gains_them_twice
+    tavern: {board: ["golden Mishmash 8/8", Amalgam], hand: [Tavern Dish Banana, Tavern Dish Banana]}
+    steps:
+      - play: {hand: 0, pos: 1}
+      - play: {hand: 0, pos: 1}
+    expect: {board: ["Mishmash 12/12", "Amalgam 6/6"]}

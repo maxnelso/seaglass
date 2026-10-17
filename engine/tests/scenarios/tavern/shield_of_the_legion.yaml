@@ -1,0 +1,20 @@
+card: Shield of the Legion
+scenarios:
+  - name: is_a_tier_1_magnetic_mech_demon_in_no_pool
+    description: Only Mecha-Jaraxxus Sticker gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Shield of the Legion]}
+    expect:
+      hand: [{card: Shield of the Legion, stats: 7/3, tavern_tier: 1, tribe: mech_demon, keywords: [divine_shield, magnetic]}]
+      pool: {Shield of the Legion: null}
+
+  - name: it_magnetizes_to_a_demon
+    tavern: {board: [Wrath Weaver], hand: [Shield of the Legion]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: [{card: Wrath Weaver, keywords: {contains: divine_shield}}]}
+
+  - name: it_magnetizes_to_a_mech
+    tavern: {board: [Mechagnome Interpreter], hand: [Shield of the Legion]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: {count: 1, 0: {card: Mechagnome Interpreter}}}

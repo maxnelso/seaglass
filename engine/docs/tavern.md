@@ -22,6 +22,7 @@ The Tavern Phase is modeled as a **card-agnostic sequential decision state machi
 - **General Tavern Hooks (Tiers 1–2)**: Battlecries, after-play/magnetize board observers (`Wrath Weaver`, `Mechagnome Interpreter`), Volumizer scaling (`Blue` / `Green` / `Red Volumizer`), `Activate` abilities targeting board/hand/shop (`Suspicious Prisonguard`, `Brain Rotter`, `Clever Castaway`, `Decoy Conjurer`, `Lurking Lionfish`), `Lockbox` countdown (`Bilgewater Breakout`), `Demon Fodder` refreshes (`Laboratory Assistant`), on-sell triggers (`Zoatroid`, `Fire Baller`, `Snow Baller`, `Patient Scout`, `Sellemental`, `Tad`, `Wandering Willbreaker`), end-of-turn triggers (`Lullabot`, `Surfing Sylvar`), and hero damage rewind (`Soul Rewinder`).
 
 ### Deferred to Later Phases
+[`deferred.md`](deferred.md) is the engine's single list of what it defers.
 - Buddy meters, Quests, Darkmoon Prizes, and Anomalies. (Heroes and Hero Powers are specified in [`heroes.md`](heroes.md), trinkets in [`trinkets.md`](trinkets.md), Dark Gifts and the Dark Discovery button in [`dark_gifts.md`](dark_gifts.md).)
 - Tier 3–6 minions and Tier 3–6 Tavern Spells.
 
@@ -226,6 +227,8 @@ If `hero_options` is non-empty, only `ChooseHero` is legal; else if `trinket_opt
 
 All card-specific Tavern abilities plug into one of the following hooks (with magnitudes or repetitions doubled when `is_golden == true`):
 
+Two board observers watch the hand and the actions themselves: `card_gained` (a card entered the hand in the Tavern, bought, Discovered, given or a Triple's Golden: `Doubloon Grifter`) and `after_action` (after each Tavern action, once the cards waiting for room are delivered: `Mishmash`). Without such a minion on the board, neither runs anything (`cards::on_card_gained`, `cards::after_action`).
+
 ### 7.1 On-Play (Battlecries & Board Observers)
 When a minion is played from `hand` to `board[board_pos]`:
 1. **Pre-insertion Battlecries & Global Aura Application**: Grants economy bonuses (`bonus_gold_next_turn`), generates hand spells/tokens (if `hand.len() < 10`), updates persistent `PlayerAuras`, and applies existing tribal/summon auras to the newly played minion.
@@ -245,7 +248,7 @@ When a Tavern trigger would deal damage to the friendly hero:
 - Otherwise, `state.health` is reduced by the damage amount. Triggered self-damage can kill: at `1` Health, `Wrath Weaver`'s 1 damage takes the hero to `0` (the hero dies). Only Health costs (Health Refreshes, Health-cost spells) must leave the hero above `0` to be payable.
 - Each damage instance is resolved on its own: an effect that deals `1` damage twice (Golden `Wrath Weaver`) triggers the hero-damage observers (`Ashen Corruptor`, `Tichondrius`, ...) twice.
 - A Discover that deals the chosen card's Tier as damage (`Imposing Percussionist`) deals it once the card is in the hand **(confirmed)**: with 9 cards, the Discovered card takes the 10th slot, and a card the damage gives (`Eredar Escapist`'s `Corrupted Cupcakes`) meets a full hand and is lost.
-- Combat damage (the hero damage of a lost combat, taken by Armor first, then Health) triggers no hero-damage observers: `Soul Rewinder` and `Ashen Corruptor` don't rewind it, `Tichondrius` doesn't trigger, and `Eredar Escapist` ("after your hero takes 4 damage") doesn't count it.
+- Combat damage (the hero damage of a lost combat, taken by Armor first, then Health) triggers no hero-damage observers: `Soul Rewinder` and `Ashen Corruptor` don't rewind it, `Tichondrius` doesn't trigger, and `Eredar Escapist` ("after your hero takes 4 damage") doesn't count it. A trinket may prevent it when it is fatal (`trinket_prevent_fatal`: `Safety Patch`'s Ice Block; [`trinkets.md`](trinkets.md) §6).
 
 ### 7.3 On-Sell Triggers
 Every sale goes through one path (`TavernState::sell_minion`): the `Sell` action and the effects that "sell a minion" (`Channel the Devourer`, Mutanus' Devour) **(confirmed**: both say "Sell"**)**. It removes the minion, returns its copies to the pool, gives `+1` Gold, runs its on-sell triggers and the Tavern's sell observers, then the hero's `hero_after_sell` (`heroes.md` §4), then passes the hats it wore (`Unit::hats`: the hat card's `sell` hook, whatever the player's Hero Power: `heroes.md` §11.2), and records the sale for the step (`sold_this_step`, read by a Duos team for the teammate's observers: `duos_tavern.md` §7.3).

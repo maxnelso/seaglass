@@ -8,7 +8,7 @@ use std::ops::Range;
 
 use serde::Serialize;
 
-use crate::cards::{self, BoardCtx, HeroCombatCtx, Passive, SocAction};
+use crate::cards::{self, BoardCtx, CardFlags, HeroCombatCtx, Passive, SocAction};
 use crate::events::Event;
 use crate::heroes;
 use crate::model::{BattleOutcome, DeityKind, GameState, PlayerAuras, Side, Tribe, Unit, UnitId};
@@ -1535,7 +1535,7 @@ fn perform_one_strike(
             )
         };
     if def_consumed_venom {
-        def_side.board[def_pos].venomous = false;
+        use_venomous(&mut def_side.board[def_pos]);
     }
     if atk_took_damage {
         cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
@@ -1576,7 +1576,7 @@ fn perform_one_strike(
         }
     }
     if atk_consumed_venom {
-        atk_side.board[atk_pos].venomous = false;
+        use_venomous(&mut atk_side.board[atk_pos]);
     }
 
     // 4b. Excess attack damage to adjacent enemies (e.g., `Wildfire Elemental`).
@@ -1664,6 +1664,11 @@ fn perform_one_strike(
         }
     }
 
+    // 4d. The attacker killed its target (`Tide Oracle Morgl`).
+    attack_kill(
+        side, atk_pos, def_pos, atk_side, def_side, next_id, rng, events,
+    );
+
     // 5. Emit Deaths (defending side first left->right, then attacking side left->right).
     for u in &def_side.board {
         if u.health <= 0 {
@@ -1691,6 +1696,40 @@ fn perform_one_strike(
     resolve_deaths(side.other(), def_side, atk_side, next_id, rng, events);
     resolve_deaths(side, atk_side, def_side, next_id, rng, events);
     resolve_pending_immediate_attacks(side, atk_side, def_side, next_id, rng, events);
+}
+
+/// A minion's Venomous is used up, unless it is Poisonous ([`CardFlags::POISONOUS`]: never used
+/// up).
+fn use_venomous(unit: &mut Unit) {
+    if !cards::hooks(unit.card_id).has(CardFlags::POISONOUS) {
+        unit.venomous = false;
+    }
+}
+
+/// The attacker at `atk_pos` attacked the minion at `def_pos`: if the attack killed it, the
+/// attacker's own `attack_kill` hook (before the deaths resolve; the attacker may be dying too).
+#[allow(clippy::too_many_arguments)]
+fn attack_kill(
+    side: Side,
+    atk_pos: usize,
+    def_pos: usize,
+    atk_side: &mut SideCombatState,
+    def_side: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    if def_side.board[def_pos].health > 0 {
+        return;
+    }
+    if let Some(attack_kill) = cards::hooks(atk_side.board[atk_pos].card_id).attack_kill {
+        let victim = def_side.board[def_pos].clone();
+        attack_kill(
+            &mut atk_side.ctx(side, next_id, rng, events),
+            atk_pos,
+            &victim,
+        );
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1753,7 +1792,7 @@ fn perform_forced_target_strike(
         events,
     );
     if atk_consumed_venom {
-        atk_side.board[atk_pos].venomous = false;
+        use_venomous(&mut atk_side.board[atk_pos]);
     }
     if def_took_damage {
         cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
@@ -1773,7 +1812,7 @@ fn perform_forced_target_strike(
         events,
     );
     if def_consumed_venom {
-        def_side.board[def_pos].venomous = false;
+        use_venomous(&mut def_side.board[def_pos]);
     }
     if atk_took_damage {
         cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
@@ -1783,6 +1822,11 @@ fn perform_forced_target_strike(
             target_attack,
         );
     }
+
+    // The attacker killed its target (`Tide Oracle Morgl`).
+    attack_kill(
+        side, atk_pos, def_pos, atk_side, def_side, next_id, rng, events,
+    );
 
     for u in &def_side.board {
         if u.health <= 0 {

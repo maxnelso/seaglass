@@ -1,0 +1,22 @@
+card: Faceless Manipulator
+scenarios:
+  - name: is_a_tier_1_aberration_3_3_in_no_pool
+    description: Only Manipulator Portrait gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Faceless Manipulator]}
+    expect:
+      hand: [{card: Faceless Manipulator, stats: 3/3, tavern_tier: 1, tribe: aberration}]
+      pool: {Faceless Manipulator: null}
+
+  - name: battlecry_becomes_a_copy_of_the_minion_to_its_right
+    description: Stats, keywords and Golden included (engine decision on the target).
+    tavern: {board: ["Tad 5/9 taunt", "Dune Dweller golden"], hand: [Faceless Manipulator]}
+    steps:
+      - play: {hand: 0, pos: 1}
+    expect:
+      board: ["Tad 5/9 taunt", {card: Dune Dweller, is_golden: true}, {card: Dune Dweller, is_golden: true}]
+
+  - name: played_at_the_right_end_it_copies_the_minion_to_its_left
+    tavern: {board: [Dune Dweller, "Tad 5/9"], hand: [Faceless Manipulator]}
+    steps:
+      - play: {hand: 0, pos: 2}
+    expect: {board: [Dune Dweller, "Tad 5/9", "Tad 5/9"]}

@@ -302,6 +302,13 @@ pub struct PlayerAuras {
     pub cards_discarded: u32,
     /// Total Golden minions played this game (`Maritime Extortionist`).
     pub golden_minions_played: u32,
+    /// Total Elementals played this game (`Flourishing Frostling`).
+    #[serde(default)]
+    pub elementals_played: u32,
+    /// Total Magnetizations onto friendly minions this game, extra ones included (`Dr. Boom's
+    /// Monster`).
+    #[serde(default)]
+    pub magnetizations: u32,
     /// The hero's current Health, kept in sync by the Tavern (`None` outside of a game, e.g. in
     /// standalone combats).
     pub hero_health: Option<i32>,

@@ -329,6 +329,26 @@ duos_out_of_pool:
   5:  # 1
     - Storm Splitter
 
+trinket_minions:
+  1:  # 5
+    - Faceless Manipulator
+    - Rusted Reggie
+    - Magtheridon Prime
+    - Baltharak
+    - Shield of the Legion
+  3:  # 2
+    - Bassgill
+    - Mishmash
+  4:  # 1
+    - Doubloon Grifter
+  5:  # 1
+    - Flourishing Frostling
+  6:  # 1
+    - Dr. Boom's Monster
+  7:  # 2
+    - Arcane Behemoth
+    - Tide Oracle Morgl
+
 tiers:
   1: {copies: 15, shop_capacity: 3, upgrade_cost: 5}
   2: {copies: 15, shop_capacity: 4, upgrade_cost: 7}

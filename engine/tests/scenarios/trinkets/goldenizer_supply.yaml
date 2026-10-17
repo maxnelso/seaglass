@@ -1,0 +1,20 @@
+trinket: Goldenizer Supply
+scenarios:
+  - name: the_end_of_every_3rd_turn_gives_a_goldenizer
+    tavern: {auras: {trinkets: [Goldenizer Supply]}}
+    steps:
+      - end_turn
+      - start_turn
+      - end_turn
+      - start_turn
+      - expect: {hand: [], auras: {trinkets: [{counter: 2}]}}
+      - end_turn
+    expect: {hand: [{name: The Goldenizer, is_spell: true}], auras: {trinkets: [{counter: 0}]}}
+
+  - name: the_goldenizer_makes_a_friendly_minion_golden
+    tavern: {board: [Tad], auras: {trinkets: [{trinket: Goldenizer Supply, counter: 2}]}}
+    steps:
+      - end_turn
+      - start_turn
+      - play: {hand: 0, pos: 0}
+    expect: {board: [{card: Tad, is_golden: true, stats: 4/4}], hand: []}

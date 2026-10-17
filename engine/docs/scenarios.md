@@ -402,7 +402,8 @@ The `catalog` test checks the card lists against `tests/scenarios/catalog.yaml`:
   tier's card id range;
 - `duos_minions`: the Duos-exclusive minions by tier (`duos_exclusive_catalog()`), and
   `catalog_for("duos")`: `full_catalog()` followed by them; `duos_out_of_pool`: those in no pool
-  (`duos_out_of_pool_catalog()`, the Naga-only ones);
+  (`duos_out_of_pool_catalog()`, the Naga-only ones); `trinket_minions`: the minions only
+  trinkets give, by tier (`trinket_minion_catalog()`, in no pool);
 - `tiers`: each tier's pool copies per minion (`base_copies_for_tier`), shop capacity
   (`shop_capacity`) and upgrade cost (`base_upgrade_cost`; Tier 7 has neither);
 - `spells`: each tier's Tavern spells (`spells::tierN_spells()`, `spells_up_to_tier`);

@@ -1,0 +1,6 @@
+trinket: Behemoth Portrait
+scenarios:
+  - name: picked_it_gives_an_arcane_behemoth
+    steps:
+      - give_trinket: Behemoth Portrait
+    expect: {hand: [{card: Arcane Behemoth, stats: 4/8, is_golden: false}]}

@@ -101,6 +101,8 @@ impl CardFlags {
     /// A trinket whose text names a minion type (`{0}`), assigned to it when it is offered
     /// (`TrinketState::tribe`; `docs/trinkets.md` §3.4).
     pub const TRINKET_MINION_TYPE: CardFlags = CardFlags(1 << 24);
+    /// Poisonous: its Venomous is never used up (`Tide Oracle Morgl`).
+    pub const POISONOUS: CardFlags = CardFlags(1 << 25);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -408,6 +410,8 @@ card_hooks! {
     after_friendly_magnetize(on_after_friendly_magnetize): MagnetizeObserverFn,
     /// After another friendly minion is sold.
     after_friendly_sell(on_after_friendly_sell): TavernFn,
+    /// After each Tavern action (once it and the cards it made wait have resolved).
+    after_action(on_after_action): TavernFn,
     /// A Tavern spell is cast.
     spell_cast(on_spell_cast): TavernFn,
     /// After any spell is cast.
@@ -427,6 +431,9 @@ card_hooks! {
     after_friendly_discard(on_after_friendly_discard): CardObserverFn,
     /// A card was added to hand (Tavern or Combat): `(self, auras)`.
     card_added_to_hand(on_card_added_to_hand): fn(&Unit, &mut PlayerAuras),
+    /// A card entered the hand in the Tavern (bought, Discovered, given, a triple's Golden):
+    /// `(state, self_idx, card)`.
+    card_gained(on_card_gained): fn(&mut TavernState, usize, &Unit),
     /// Hero is about to take Tavern damage: `(state, self_idx, amount)`. Whether the damage is
     /// rewound is decided by [`CardFlags::REWINDS_HERO_DAMAGE`].
     hero_damage(on_hero_damage): fn(&mut TavernState, usize, i32),
@@ -438,6 +445,9 @@ card_hooks! {
 
     // ---- Own card text: Combat ---------------------------------------------------------
     deathrattle(on_deathrattle): DeathrattleFn,
+    /// This minion attacked and killed the minion it attacked (before the deaths resolve):
+    /// `(ctx, self_idx, victim)`.
+    attack_kill(on_attack_kill): fn(&mut BoardCtx<'_>, usize, &Unit),
     rally(on_rally): RallyFn,
     start_of_combat(on_start_of_combat): SocFn,
     /// Engine-resolved Start-of-Combat action (destroys, AoE, immediate attacks).
@@ -729,6 +739,9 @@ card_hooks! {
     /// A minion in the Tavern died (a `Fishbait` a friendly minion attacked), once it left the
     /// Tavern: `(state, dead, pool, rng)`.
     trinket_shop_minion_died(on_trinket_shop_minion_died): CardEventFn,
+    /// The hero is about to take fatal combat damage (Solo, or the team's in Duos): `true` to
+    /// prevent all of it (using up what allowed it): `(trinket)`.
+    trinket_prevent_fatal(on_trinket_prevent_fatal): fn(&mut TrinketState) -> bool,
 
     // ---- Dark Gifts (fire for the minion that has the gift, in the order it got its gifts;
     // `docs/dark_gifts.md` §6) -----------------------------------------------------------------

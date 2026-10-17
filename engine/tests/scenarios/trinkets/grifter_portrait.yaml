@@ -1,0 +1,22 @@
+trinket: Grifter Portrait
+scenarios:
+  - name: picked_it_gives_a_doubloon_grifter
+    steps:
+      - give_trinket: Grifter Portrait
+    expect: {hand: [{card: Doubloon Grifter, stats: 6/6, is_golden: false}]}
+
+  - name: the_first_pirate_bought_each_turn_is_free
+    tavern:
+      gold: 10
+      shop: [Tad, Southsea Busker, Southsea Busker]
+      auras: {trinkets: [Grifter Portrait]}
+    steps:
+      - buy: 0
+      - expect: {gold: 7}
+      - buy: 0
+      - expect: {gold: 7}
+      - buy: 0
+      - expect: {gold: 4}
+      - end_turn
+      - start_turn
+    expect: {auras: {trinkets: [{armed: 0}]}}

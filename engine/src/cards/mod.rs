@@ -21,7 +21,7 @@ pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
 pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
 pub use registry::{
     all_templates, duos_exclusive_templates, duos_out_of_pool_templates, hooks, plain_instance,
-    template,
+    template, trinket_minion_templates,
 };
 
 use crate::combat::MAX_BOARD_SIZE;
@@ -701,6 +701,13 @@ pub fn duos_out_of_pool_catalog() -> Vec<CardTemplate> {
         .collect()
 }
 
+/// The minions only trinkets give (`docs/trinkets.md` §11.9): the Portraits' and Stickers'
+/// minions that are in no pool (`Doubloon Grifter`, the Mecha-Demons, ...). They are registered
+/// like any card, but neither in a pool nor in its random draws.
+pub fn trinket_minion_catalog() -> Vec<CardTemplate> {
+    minions::trinket_catalog()
+}
+
 /// The minions a player's effects that generate random minions draw from
 /// (`docs/duos_tavern.md` §8): the Duos catalog in a Duos game (`auras.duos_game`), else the
 /// Solo catalog ([`all_templates`]).
@@ -1267,6 +1274,7 @@ pub fn apply_magnetization(
     rng: &mut Rng,
 ) {
     merge_magnetization(&mut state.board[target_pos], card);
+    state.auras.magnetizations += 1;
     let played = Played {
         card_id: card.card_id,
         tribe: card.tribe,
@@ -1635,6 +1643,30 @@ pub fn on_card_added_to_hand(board: &[Unit], auras: &mut PlayerAuras) {
         if let Some(card_added_to_hand) = hooks(unit.card_id).card_added_to_hand {
             card_added_to_hand(unit, auras);
         }
+    }
+}
+
+/// After each Tavern action: the `after_action` observers (friendly board minions, left to
+/// right). Without one, nothing (not even the deferred triples' check).
+pub fn after_action(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    if state
+        .board
+        .iter()
+        .any(|u| hooks(u.card_id).after_action.is_some())
+    {
+        notify_tavern(state, |h| h.after_action, |s, idx, f| f(s, idx, pool, rng));
+    }
+}
+
+/// A card entered the hand in the Tavern: the `card_gained` observers (friendly board minions,
+/// left to right). Without one, nothing (not even the deferred triples' check).
+pub fn on_card_gained(state: &mut TavernState, card: &Unit) {
+    if state
+        .board
+        .iter()
+        .any(|u| hooks(u.card_id).card_gained.is_some())
+    {
+        notify_tavern(state, |h| h.card_gained, |s, idx, f| f(s, idx, card));
     }
 }
 

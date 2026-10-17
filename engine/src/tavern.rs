@@ -973,6 +973,7 @@ impl TavernState {
         let cid = card.card_id;
         let is_spell = card.is_spell;
         trinkets::card_added(self, &card);
+        cards::on_card_gained(self, &card);
         self.hand.push(card);
         cards::on_card_added_to_hand(&self.board, &mut self.auras);
         if !is_spell {
@@ -1088,6 +1089,7 @@ impl TavernState {
 
         if played_tribe.matches(Tribe::Elemental) {
             self.elementals_played_this_turn += 1;
+            self.auras.elementals_played += 1;
         }
 
         if was_golden_minion {
@@ -1797,8 +1799,12 @@ impl TavernState {
             // Combat damage triggers no hero-damage minion (`docs/tavern.md` §7.2).
             let dmg = res.hero_damage as i32;
             let absorbed = dmg.min(self.armor.max(0));
-            self.armor -= absorbed;
-            self.health -= dmg - absorbed;
+            // A trinket may prevent fatal damage (`docs/trinkets.md` §6).
+            let fatal = self.health - (dmg - absorbed) <= 0;
+            if !(fatal && trinkets::prevent_fatal(&mut self.auras)) {
+                self.armor -= absorbed;
+                self.health -= dmg - absorbed;
+            }
         }
         self.sync_all_auras();
     }
@@ -2330,6 +2336,7 @@ impl TavernState {
         self.sold_this_step.clear();
         let ended = self.apply_action(action, pool, rng)?;
         self.deliver_waiting_for_hand();
+        cards::after_action(self, pool, rng);
         trinkets::after_action(self, pool, rng);
         // Only a card in the shop is frozen on its own (`docs/tavern.md` §3.1).
         for card in self.board.iter_mut().chain(&mut self.hand) {
@@ -2364,6 +2371,7 @@ impl TavernState {
                     let costs_health = price.health;
                     obtained = unit.clone();
                     trinkets::card_added(self, &obtained);
+                    cards::on_card_gained(self, &obtained);
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     if costs_health {
@@ -2379,6 +2387,7 @@ impl TavernState {
                     let cid = unit.card_id;
                     obtained = unit.clone();
                     trinkets::card_added(self, &obtained);
+                    cards::on_card_gained(self, &obtained);
                     self.hand.push(unit);
                     cards::on_card_added_to_hand(&self.board, &mut self.auras);
                     self.check_and_resolve_triple(cid);
@@ -2853,6 +2862,7 @@ impl TavernState {
         cards::check_stat_thresholds(&mut golden);
 
         trinkets::card_added(self, &golden);
+        cards::on_card_gained(self, &golden);
         self.hand.push(golden);
         cards::on_card_added_to_hand(&self.board, &mut self.auras);
         self.sync_all_auras();

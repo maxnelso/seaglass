@@ -5,6 +5,7 @@
 //! after it, so the cards listed here are left out of the sorted part and appended last, in this
 //! order (do not reorder or remove; add new cards at the end).
 
+use crate::cards::minions;
 use crate::model::CardId;
 use crate::trinkets;
 
@@ -19,6 +20,23 @@ pub const APPENDED: &[CardId] = &[
     trinkets::ophidian_staff::SPELL,
     trinkets::token_of_the_old_gods::SPELL,
     trinkets::vibrant_bubble::SPELL,
+    // The minions only trinkets give (`docs/trinkets.md` §11.9).
+    minions::faceless_manipulator::ID,
+    minions::rusted_reggie::ID,
+    minions::magtheridon_prime::ID,
+    minions::baltharak::ID,
+    minions::shield_of_the_legion::ID,
+    minions::bassgill::ID,
+    minions::mishmash::ID,
+    minions::doubloon_grifter::ID,
+    minions::flourishing_frostling::ID,
+    minions::dr_booms_monster::ID,
+    minions::arcane_behemoth::ID,
+    minions::tide_oracle_morgl::ID,
+    // The trinkets' token spells (`docs/trinkets.md` §11.9).
+    trinkets::bottle_sticker::SPELL,
+    trinkets::goldenizer_supply::SPELL,
+    trinkets::lens_case::SPELL,
 ];
 
 #[cfg(test)]

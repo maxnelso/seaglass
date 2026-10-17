@@ -1,0 +1,6 @@
+trinket: Manipulator Portrait
+scenarios:
+  - name: picked_it_gives_a_faceless_manipulator
+    steps:
+      - give_trinket: Manipulator Portrait
+    expect: {hand: [{card: Faceless Manipulator, stats: 3/3, is_golden: false}]}

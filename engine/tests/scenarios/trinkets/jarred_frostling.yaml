@@ -1,0 +1,24 @@
+trinket: Jarred Frostling
+scenarios:
+  - name: three_friendly_elementals_summon_a_flourishing_frostling_when_they_die
+    description: The fourth Elemental and the Tad don't get the Deathrattle.
+    seeds: "1..=4"
+    tavern:
+      board: [Dune Dweller, Dune Dweller, Dune Dweller, Dune Dweller, Tad]
+      auras: {trinkets: [Jarred Frostling]}
+    steps:
+      - fight: {board: ["10/200"]}
+    expect:
+      combat:
+        events: {where: {type: unit_summoned, reason: Frosty Globe}, count: 3, all: {name: Flourishing Frostling}}
+
+  - name: the_frostling_has_its_elemental_bonus
+    seed: 1
+    tavern:
+      board: [Dune Dweller]
+      auras: {trinkets: [Jarred Frostling], elementals_played: 3}
+    steps:
+      - fight: {board: ["10/200"]}
+    expect:
+      combat:
+        events: {where: {type: unit_summoned, reason: Frosty Globe}, count: 1, all: {name: Flourishing Frostling, attack: 8, health: 4}}

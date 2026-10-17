@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use super::hooks::CardHooks;
 use super::{
     deities, duos_exclusive_catalog, duos_out_of_pool_catalog, full_catalog, spells, tokens,
-    CardTemplate,
+    trinket_minion_catalog, CardTemplate,
 };
 use crate::model::{CardId, PlayerAuras, Unit};
 
@@ -17,10 +17,12 @@ const NO_SLOT: u16 = u16::MAX;
 
 struct Registry {
     /// The full Solo catalog, then the Duos-exclusive minions of the Duos pool (from `solo_len`
-    /// on), then those in no pool (from `duos_len` on: the Naga-only ones).
+    /// on), then those in no pool (from `duos_len` on: the Naga-only ones), then the minions only
+    /// trinkets give (from `naga_end` on).
     templates: Vec<CardTemplate>,
     solo_len: usize,
     duos_len: usize,
+    naga_end: usize,
     template_slot: Vec<u16>,
     hooks: Vec<CardHooks>,
     hook_slot: Vec<u16>,
@@ -47,6 +49,8 @@ fn build() -> Registry {
     templates.extend(duos_exclusive_catalog());
     let duos_len = templates.len();
     templates.extend(duos_out_of_pool_catalog());
+    let naga_end = templates.len();
+    templates.extend(trinket_minion_catalog());
     let mut template_slot = Vec::new();
     let mut hooks = Vec::new();
     let mut hook_slot = Vec::new();
@@ -70,6 +74,7 @@ fn build() -> Registry {
         templates,
         solo_len,
         duos_len,
+        naga_end,
         template_slot,
         hooks,
         hook_slot,
@@ -152,5 +157,12 @@ pub fn duos_templates() -> &'static [CardTemplate] {
 /// `docs/duos_tavern.md` §8). Registered like any minion, so unit specs can name them.
 pub fn duos_out_of_pool_templates() -> &'static [CardTemplate] {
     let r = registry();
-    &r.templates[r.duos_len..]
+    &r.templates[r.duos_len..r.naga_end]
+}
+
+/// The minions only trinkets give, in no pool and no random draw, in catalog order
+/// (`docs/trinkets.md` §11.9). Registered like any minion, so unit specs can name them.
+pub fn trinket_minion_templates() -> &'static [CardTemplate] {
+    let r = registry();
+    &r.templates[r.naga_end..]
 }

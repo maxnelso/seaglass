@@ -1,0 +1,32 @@
+card: Tide Oracle Morgl
+scenarios:
+  - name: is_a_tier_7_murloc_1_10_in_no_pool
+    description: Only Morgl Portrait gives it (docs/trinkets.md §11.9). Poisonous is shown as Venomous.
+    tavern: {hand: [Tide Oracle Morgl]}
+    expect:
+      hand: [{card: Tide Oracle Morgl, stats: 1/10, tavern_tier: 7, tribe: murloc, keywords: [venomous]}]
+      pool: {Tide Oracle Morgl: null}
+
+  - name: poisonous_is_never_used_up
+    description: It kills both enemies, attacking twice (Venomous would be used up by the first).
+    seed: 1
+    combat:
+      board_a: [Tide Oracle Morgl]
+      board_b: ["Patient Scout 1/30", "Patient Scout 1/30"]
+    expect: {outcome: a_win, survivors_a: [{card: Tide Oracle Morgl, keywords: [venomous]}]}
+
+  - name: attacking_and_killing_gives_the_victims_maximum_stats_to_a_minion_in_hand
+    seed: 1
+    combat:
+      board_a: [Tide Oracle Morgl, "Patient Scout 0/1"]   # more minions: A attacks first
+      board_b: ["Patient Scout 3/30"]
+      hand_a: [Tad]
+    expect: {outcome: a_win, hand_a: ["Tad 5/32"]}
+
+  - name: golden_gives_double
+    seed: 1
+    combat:
+      board_a: ["golden Tide Oracle Morgl 2/20", "Patient Scout 0/1"]
+      board_b: ["Patient Scout 3/30"]
+      hand_a: [Tad]
+    expect: {outcome: a_win, hand_a: ["Tad 8/62"]}

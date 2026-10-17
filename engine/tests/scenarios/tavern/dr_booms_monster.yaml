@@ -1,0 +1,26 @@
+card: Dr. Boom's Monster
+scenarios:
+  - name: is_a_tier_6_magnetic_mech_2_2_in_no_pool
+    description: Only Boom's Monster Portrait gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Dr. Boom's Monster]}
+    expect:
+      hand: [{card: Dr. Boom's Monster, stats: 2/2, tavern_tier: 6, tribe: mech, keywords: [magnetic]}]
+      pool: {Dr. Boom's Monster: null}
+
+  - name: it_has_2_2_per_magnetization_this_game_wherever_it_is
+    tavern:
+      board: [Annoy-o-Module]
+      hand: [Dr. Boom's Monster, Annoy-o-Module, Annoy-o-Module]
+    steps:
+      - play: {hand: 1, pos: 0}
+      - expect: {hand: {0: {card: Dr. Boom's Monster, stats: 4/4}}, auras: {magnetizations: 1}}
+      - play: {hand: 1, pos: 0}
+    expect: {hand: [{card: Dr. Boom's Monster, stats: 6/6}], auras: {magnetizations: 2}}
+
+  - name: golden_has_4_4_per_magnetization
+    tavern:
+      board: [Annoy-o-Module]
+      hand: ["golden Dr. Boom's Monster 4/4", Annoy-o-Module]
+    steps:
+      - play: {hand: 1, pos: 0}
+    expect: {hand: [{card: Dr. Boom's Monster, stats: 8/8}]}

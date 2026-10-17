@@ -1,0 +1,20 @@
+card: Baltharak
+scenarios:
+  - name: is_a_tier_1_magnetic_mech_demon_in_no_pool
+    description: Only Mecha-Jaraxxus Sticker gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Baltharak]}
+    expect:
+      hand: [{card: Baltharak, stats: 10/1, tavern_tier: 1, tribe: mech_demon, keywords: [reborn, magnetic]}]
+      pool: {Baltharak: null}
+
+  - name: it_magnetizes_to_a_demon
+    tavern: {board: [Wrath Weaver], hand: [Baltharak]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: [{card: Wrath Weaver, keywords: {contains: reborn}}]}
+
+  - name: it_magnetizes_to_a_mech
+    tavern: {board: [Mechagnome Interpreter], hand: [Baltharak]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: {count: 1, 0: {card: Mechagnome Interpreter}}}

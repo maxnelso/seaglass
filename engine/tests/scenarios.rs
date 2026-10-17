@@ -123,6 +123,7 @@ struct Catalog {
     minion_ids: BTreeMap<u32, [u32; 2]>,
     duos_minions: BTreeMap<u32, Vec<String>>,
     duos_out_of_pool: BTreeMap<u32, Vec<String>>,
+    trinket_minions: BTreeMap<u32, Vec<String>>,
     tiers: BTreeMap<u32, TierRow>,
     spells: BTreeMap<u32, Vec<String>>,
     duos_spells: BTreeMap<u32, Vec<String>>,
@@ -327,6 +328,28 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
             }
         }
     }
+    // The minions only trinkets give: registered, in no catalog (`docs/trinkets.md` §11.9).
+    let trinket_minions = cards::trinket_minion_catalog();
+    check(list_diff(
+        "trinket_minion_catalog()",
+        &template_names(&trinket_minions),
+        &want
+            .trinket_minions
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ));
+    for (tier, names) in &want.trinket_minions {
+        for card in trinket_minions.iter().filter(|c| names.contains(&c.name)) {
+            if card.tavern_tier != *tier {
+                check(Some(format!(
+                    "{} is a Tier {tier} trinket minion in catalog.yaml but has tavern_tier {}",
+                    card.name, card.tavern_tier
+                )));
+            }
+        }
+    }
     let mut duos_all = all_minions.clone();
     duos_all.extend(duos_minions);
     for name in ["duos", "duos_full"] {
@@ -400,6 +423,7 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
         .into_iter()
         .chain(duos_exclusive)
         .chain(out_of_pool)
+        .chain(trinket_minions)
         .map(|t| (t.card_id, t.name))
         .chain(
             all_spells

@@ -1,0 +1,9 @@
+trinket: Curator Sticker
+scenarios:
+  - name: picked_it_gives_a_golden_mishmash_and_a_10_10_venomous_amalgam
+    steps:
+      - give_trinket: Curator Sticker
+    expect:
+      hand:
+        - {card: Mishmash, is_golden: true, stats: 8/8}
+        - {card: Amalgam, stats: 10/10, keywords: [venomous], is_golden: false}

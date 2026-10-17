@@ -1,0 +1,17 @@
+trinket: Bassgill Portrait
+scenarios:
+  - name: picked_it_gives_a_bassgill
+    steps:
+      - give_trinket: Bassgill Portrait
+    expect: {hand: [{card: Bassgill, stats: 5/2, is_golden: false}]}
+
+  - name: murlocs_summoned_in_combat_get_divine_shield
+    description: >-
+      The Tad the Bassgill summons from hand has Divine Shield, so it survives the trade it would
+      otherwise draw.
+    seeds: "1..=4"
+    tavern: {board: [Bassgill], hand: [Tad], auras: {trinkets: [Bassgill Portrait]}}
+    steps:
+      - fight: {board: ["2/7"]}
+    expect:
+      combat: {outcome: a_win, survivors_a: ["Tad 2/2 -divine_shield"]}

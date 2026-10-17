@@ -609,6 +609,15 @@ impl DuosTavern {
     fn take_combat_damage(&mut self, damage: u32) {
         let dmg = damage as i32;
         let absorbed = dmg.min(self.armor.max(0));
+        // A player's trinket may prevent the team's fatal damage (`docs/trinkets.md` §6).
+        if self.health - (dmg - absorbed) <= 0
+            && self
+                .players
+                .iter_mut()
+                .any(|p| crate::trinkets::prevent_fatal(&mut p.auras))
+        {
+            return;
+        }
         self.armor -= absorbed;
         self.health -= dmg - absorbed;
         self.mirror();

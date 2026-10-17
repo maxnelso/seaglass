@@ -1,0 +1,37 @@
+card: Bassgill
+scenarios:
+  - name: is_a_tier_3_murloc_5_2_in_no_pool
+    description: Only Bassgill Portrait gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Bassgill]}
+    expect:
+      hand: [{card: Bassgill, stats: 5/2, tavern_tier: 3, tribe: murloc}]
+      pool: {Bassgill: null}
+
+  - name: deathrattle_summons_the_highest_health_murloc_from_hand
+    description: Bubble Gunner (2/3) has more Health than Tad (2/2).
+    seeds: "1..=4"
+    combat:
+      board_a: [Bassgill]
+      board_b: ["Patient Scout 1/20"]
+      hand_a: [Tad, Bubble Gunner]
+    expect:
+      events: {where: {type: unit_summoned, reason: Bassgill}, count: 1, all: {name: Bubble Gunner}}
+
+  - name: golden_summons_the_two_highest_health_murlocs
+    seeds: "1..=4"
+    combat:
+      board_a: ["golden Bassgill 10/4"]
+      board_b: ["Patient Scout 1/40"]
+      hand_a: [Tad, Shoalfin Mystic, Bubble Gunner]
+    expect:
+      events: {where: {type: unit_summoned, reason: Bassgill}, count: 2, all: {name: {not: Tad}}}
+
+  - name: a_murloc_is_summoned_from_hand_once_per_combat
+    description: Two Bassgills and one Murloc in hand - the second finds it locked.
+    seeds: "1..=4"
+    combat:
+      board_a: [Bassgill, Bassgill]
+      board_b: ["Patient Scout 1/40"]
+      hand_a: [Tad]
+    expect:
+      events: {where: {type: unit_summoned, reason: Bassgill}, count: 1}

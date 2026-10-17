@@ -1,0 +1,32 @@
+card: Doubloon Grifter
+scenarios:
+  - name: is_a_tier_4_pirate_6_6_in_no_pool
+    description: Only Grifter Portrait gives it (docs/trinkets.md §11.9).
+    tavern: {hand: [Doubloon Grifter]}
+    expect:
+      hand: [{card: Doubloon Grifter, stats: 6/6, tavern_tier: 4, tribe: pirate}]
+      pool: {Doubloon Grifter: null}
+
+  - name: every_4th_pirate_gotten_raises_the_maximum_gold
+    description: Bought Pirates count, not other cards (and the fourth raises the maximum Gold at once).
+    tavern:
+      gold: 20
+      board: [Doubloon Grifter]
+      shop: [Tad, Southsea Busker, Southsea Busker, Blade Collector, Blade Collector]
+    steps:
+      - buy: 0
+      - expect: {board: [{card: Doubloon Grifter, counter: 0}]}
+      - buy: 0
+      - buy: 0
+      - buy: 0
+      - expect: {max_gold: 0, board: [{card: Doubloon Grifter, counter: 3}]}
+      - buy: 0
+    expect: {max_gold: 1, auras: {base_max_gold_bonus: 1}, board: [{card: Doubloon Grifter, counter: 0}]}
+
+  - name: golden_raises_it_by_2
+    tavern:
+      gold: 20
+      board: ["golden Doubloon Grifter 12/12"]
+      shop: [Southsea Busker, Southsea Busker, Blade Collector, Blade Collector]
+    steps: [{buy: 0}, {buy: 0}, {buy: 0}, {buy: 0}]
+    expect: {max_gold: 2, auras: {base_max_gold_bonus: 2}}

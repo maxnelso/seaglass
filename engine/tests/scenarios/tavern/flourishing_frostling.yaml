@@ -1,0 +1,22 @@
+card: Flourishing Frostling
+scenarios:
+  - name: is_a_tier_5_elemental_2_1_in_no_pool
+    description: Only Jarred Frostling summons it (docs/trinkets.md §11.9).
+    tavern: {hand: [Flourishing Frostling]}
+    expect:
+      hand: [{card: Flourishing Frostling, stats: 2/1, tavern_tier: 5, tribe: elemental}]
+      pool: {Flourishing Frostling: null}
+
+  - name: it_has_2_1_per_elemental_played_this_game_wherever_it_is
+    tavern: {hand: [Flourishing Frostling, Dune Dweller, Sellemental, Tad]}
+    steps:
+      - play: Dune Dweller
+      - play: Sellemental
+      - play: Tad
+    expect: {hand: ["Flourishing Frostling 6/3"], auras: {elementals_played: 2}}
+
+  - name: golden_has_4_2_per_elemental
+    tavern: {hand: ["golden Flourishing Frostling 4/2", Sellemental]}
+    steps:
+      - play: Sellemental
+    expect: {hand: ["Flourishing Frostling 8/4"]}

@@ -930,6 +930,8 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
             } else if u.tribe != t.tribe
                 // (A Dark Gift can give it every type: `Amalgamation`.)
                 && !(u.tribe == seaglass::Tribe::All && !u.dark_gifts.is_empty())
+                // (A trinket that changes its text can give it types: `Bronzebeard Portrait`.)
+                && !seaglass::trinkets::modifies(&s.auras, u.card_id)
             {
                 Some(format!("type {:?} (card: {:?})", u.tribe, t.tribe))
             } else if u.name != t.name && u.name != golden_name {

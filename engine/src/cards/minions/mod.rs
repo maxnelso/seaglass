@@ -1,5 +1,6 @@
 //! Minion card definitions: every active Solo minion (Tavern Tiers 1-7, Patch 36.6.3), and the
-//! implemented Duos-exclusive minions ([`duos_catalog`]), one module per card.
+//! implemented Duos-exclusive minions ([`duos_catalog`]) and the minions only trinkets give
+//! ([`trinket_catalog`]), one module per card.
 //!
 //! Each module declares its card's `ID`, `NAME` and `template()` (stats, tribe, keywords and
 //! [`CardHooks`](crate::cards::CardHooks)) plus the functions implementing its effects. All
@@ -11,14 +12,17 @@ pub mod air_baller;
 pub mod air_revenant;
 pub mod amber_guardian;
 pub mod annoy_o_module;
+pub mod arcane_behemoth;
 pub mod ashen_corruptor;
 pub mod aureate_laureate;
 pub mod auto_accelerator;
 pub mod auto_reveille;
 pub mod azsharan_cutlassier;
 pub mod balinda_stonehearth;
+pub mod baltharak;
 pub mod banana_slamma;
 pub mod barrier_banshee;
+pub mod bassgill;
 pub mod bigwig_bandit;
 pub mod bile_spitter;
 pub mod bilgewater_breakout;
@@ -67,6 +71,8 @@ pub mod devout_hellcaller;
 pub mod diremuck_forager;
 pub mod disguised_graverobber;
 pub mod doting_dracthyr;
+pub mod doubloon_grifter;
+pub mod dr_booms_monster;
 pub mod draconic_warden;
 pub mod drakkari_enchanter;
 pub mod drifting_sacrifice;
@@ -85,6 +91,7 @@ pub mod eternal_summoner;
 pub mod eternal_tycoon;
 pub mod expert_aviator;
 pub mod faceless_converter;
+pub mod faceless_manipulator;
 pub mod faceless_operative;
 pub mod falling_sky_golem;
 pub mod fearless_foodie;
@@ -98,6 +105,7 @@ pub mod firescale_hoarder;
 pub mod flaming_enforcer;
 pub mod flighty_scout;
 pub mod flittering_bat;
+pub mod flourishing_frostling;
 pub mod forest_rover;
 pub mod forsaken_weaver;
 pub mod friendly_geist;
@@ -159,6 +167,7 @@ pub mod lullabot;
 pub mod lurking_leviathan;
 pub mod lurking_lionfish;
 pub mod magicfin_mycologist;
+pub mod magtheridon_prime;
 pub mod malchezaar_prince_of_dance;
 pub mod manari_messenger;
 pub mod mangled_bandit;
@@ -170,6 +179,7 @@ pub mod mind_muck;
 pub mod mindbender_ghursha;
 pub mod mindbending_recruiter;
 pub mod mirror_monster;
+pub mod mishmash;
 pub mod mummifier;
 pub mod mysterious_kthir;
 pub mod nadina_the_red;
@@ -208,6 +218,7 @@ pub mod roadboar;
 pub mod roaring_recruiter;
 pub mod rodeo_performer;
 pub mod runic_arcanist;
+pub mod rusted_reggie;
 pub mod sacrificial_wrathguard;
 pub mod sandy;
 pub mod sanguine_champion;
@@ -221,6 +232,7 @@ pub mod sewer_escapee;
 pub mod sewer_lord;
 pub mod sha_of_fear;
 pub mod shamanic_tidecaller;
+pub mod shield_of_the_legion;
 pub mod shifty_snake;
 pub mod ship_master_eudora;
 pub mod shipwrecked_rascal;
@@ -254,6 +266,7 @@ pub mod the_last_one_standing;
 pub mod the_shadow_of_doubt;
 pub mod thorned_trailblazer;
 pub mod tichondrius;
+pub mod tide_oracle_morgl;
 pub mod timecapn_hooktail;
 pub mod titus_rivendare;
 pub mod tortollan_blue_shell;
@@ -600,5 +613,30 @@ pub fn duos_catalog() -> Vec<CardTemplate> {
         loyal_mobster::template(),
         // Tier 7
         sandy::template(),
+    ]
+}
+
+/// The minions only trinkets give (`docs/trinkets.md` §11.9), in no pool and no catalog, grouped
+/// by Tavern Tier. Add new cards at the end of their tier's group.
+pub fn trinket_catalog() -> Vec<CardTemplate> {
+    vec![
+        // Tier 1
+        faceless_manipulator::template(),
+        rusted_reggie::template(),
+        magtheridon_prime::template(),
+        baltharak::template(),
+        shield_of_the_legion::template(),
+        // Tier 3
+        bassgill::template(),
+        mishmash::template(),
+        // Tier 4
+        doubloon_grifter::template(),
+        // Tier 5
+        flourishing_frostling::template(),
+        // Tier 6
+        dr_booms_monster::template(),
+        // Tier 7
+        arcane_behemoth::template(),
+        tide_oracle_morgl::template(),
     ]
 }

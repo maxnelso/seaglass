@@ -1,0 +1,14 @@
+trinket: Chromatic Tear
+scenarios:
+  - name: picked_it_gives_a_random_chromadrake
+    seeds: "1..=4"
+    steps:
+      - give_trinket: Chromatic Tear
+    expect: {hand: {count: 1, all: {tribe: dragon, tavern_tier: 3}}}
+
+  - name: it_gives_another_at_the_start_of_each_turn
+    seeds: "1..=4"
+    tavern: {auras: {trinkets: [Chromatic Tear]}}
+    steps:
+      - start_turn
+    expect: {hand: {count: 1, all: {tribe: dragon}}}

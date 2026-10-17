@@ -22,10 +22,12 @@ pub mod baleful_incense;
 pub mod baller_portrait;
 pub mod baller_portrait_greater;
 pub mod bartend_o_trons_oilcan;
+pub mod bassgill_portrait;
 pub mod bazaar_sticker;
 pub mod beatboxer_portrait;
 pub mod beetle_band;
 pub mod beetle_band_greater;
+pub mod behemoth_portrait;
 pub mod bleeding_heart;
 pub mod blood_golem_sticker;
 pub mod bloodbound_earrings;
@@ -36,13 +38,17 @@ pub mod bob_blehead;
 pub mod bobs_tip_jar;
 pub mod book_of_medivh;
 pub mod book_of_medivh_greater;
+pub mod booms_monster_portrait;
 pub mod booty_bay_brew;
 pub mod booty_bay_brew_greater;
+pub mod bottle_sticker;
 pub mod bronze_timepiece;
 pub mod bronzebeard_portrait;
 pub mod butchers_sickle;
 pub mod chillmere_mosaic;
 pub mod chogall_sticker;
+pub mod chromatic_tear;
+pub mod chromatic_tear_greater;
 pub mod colorful_compass;
 pub mod colorful_compass_greater;
 pub mod comfy_coffin;
@@ -55,6 +61,7 @@ pub mod cookies_stirring_rod;
 pub mod corrupted_baton;
 pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
+pub mod curator_sticker;
 pub mod cursed_crystal;
 pub mod czarina_portrait;
 pub mod dalaran_cheese_wheel;
@@ -98,8 +105,10 @@ pub mod gold_mallet;
 pub mod gold_mallet_greater;
 pub mod gold_pendant;
 pub mod gold_plated_compass;
+pub mod goldenizer_supply;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
+pub mod grifter_portrait;
 pub mod guiding_candle;
 pub mod hackerfin_portrait;
 pub mod hammer_of_twilight;
@@ -119,8 +128,10 @@ pub mod ironforge_anvil;
 pub mod jailer_sticker;
 pub mod jailer_sticker_greater;
 pub mod jar_o_gems;
+pub mod jarred_frostling;
 pub mod jewelry_box;
 pub mod lava_lamp;
+pub mod lens_case;
 pub mod lightfeather_sticker;
 pub mod lionfish_portrait;
 pub mod lockbox_portrait;
@@ -132,11 +143,14 @@ pub mod magicians_top_hat;
 pub mod makeshift_master;
 pub mod maldraxxus_dagger;
 pub mod mama_bear_sticker;
+pub mod manipulator_portrait;
 pub mod mask_of_ancient_ones;
 pub mod maw_caster_portrait;
+pub mod mecha_jaraxxus_sticker;
 pub mod mindslasher_portrait;
 pub mod miniature_ship;
 pub mod minion_bait;
+pub mod morgl_portrait;
 pub mod moveout_box;
 pub mod multilayered_shield;
 pub mod murky_sticker;
@@ -176,6 +190,7 @@ pub mod rewinder_portrait;
 pub mod rivendare_portrait;
 pub mod rockin_music_box;
 pub mod ruby_tusk;
+pub mod safety_patch;
 pub mod scraper_sticker;
 pub mod secret_schematic;
 pub mod sellemental_portrait;
@@ -296,10 +311,12 @@ const IMPLEMENTED: &[Implemented] = &[
         bartend_o_trons_oilcan::ID,
         bartend_o_trons_oilcan::behaviors,
     ),
+    (bassgill_portrait::ID, bassgill_portrait::behaviors),
     (bazaar_sticker::ID, bazaar_sticker::behaviors),
     (beatboxer_portrait::ID, beatboxer_portrait::behaviors),
     (beetle_band::ID, beetle_band::behaviors),
     (beetle_band_greater::ID, beetle_band_greater::behaviors),
+    (behemoth_portrait::ID, behemoth_portrait::behaviors),
     (bleeding_heart::ID, bleeding_heart::behaviors),
     (blood_golem_sticker::ID, blood_golem_sticker::behaviors),
     (bloodbound_earrings::ID, bloodbound_earrings::behaviors),
@@ -316,16 +333,26 @@ const IMPLEMENTED: &[Implemented] = &[
         book_of_medivh_greater::ID,
         book_of_medivh_greater::behaviors,
     ),
+    (
+        booms_monster_portrait::ID,
+        booms_monster_portrait::behaviors,
+    ),
     (booty_bay_brew::ID, booty_bay_brew::behaviors),
     (
         booty_bay_brew_greater::ID,
         booty_bay_brew_greater::behaviors,
     ),
+    (bottle_sticker::ID, bottle_sticker::behaviors),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
     (bronzebeard_portrait::ID, bronzebeard_portrait::behaviors),
     (butchers_sickle::ID, butchers_sickle::behaviors),
     (chillmere_mosaic::ID, chillmere_mosaic::behaviors),
     (chogall_sticker::ID, chogall_sticker::behaviors),
+    (chromatic_tear::ID, chromatic_tear::behaviors),
+    (
+        chromatic_tear_greater::ID,
+        chromatic_tear_greater::behaviors,
+    ),
     (colorful_compass::ID, colorful_compass::behaviors),
     (
         colorful_compass_greater::ID,
@@ -347,6 +374,7 @@ const IMPLEMENTED: &[Implemented] = &[
         corrupted_coin_portrait::ID,
         corrupted_coin_portrait::behaviors,
     ),
+    (curator_sticker::ID, curator_sticker::behaviors),
     (cursed_crystal::ID, cursed_crystal::behaviors),
     (czarina_portrait::ID, czarina_portrait::behaviors),
     (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
@@ -399,11 +427,13 @@ const IMPLEMENTED: &[Implemented] = &[
     (gold_mallet_greater::ID, gold_mallet_greater::behaviors),
     (gold_pendant::ID, gold_pendant::behaviors),
     (gold_plated_compass::ID, gold_plated_compass::behaviors),
+    (goldenizer_supply::ID, goldenizer_supply::behaviors),
     (great_boar_sticker::ID, great_boar_sticker::behaviors),
     (
         great_boar_sticker_greater::ID,
         great_boar_sticker_greater::behaviors,
     ),
+    (grifter_portrait::ID, grifter_portrait::behaviors),
     (guiding_candle::ID, guiding_candle::behaviors),
     (hackerfin_portrait::ID, hackerfin_portrait::behaviors),
     (hammer_of_twilight::ID, hammer_of_twilight::behaviors),
@@ -435,8 +465,10 @@ const IMPLEMENTED: &[Implemented] = &[
         jailer_sticker_greater::behaviors,
     ),
     (jar_o_gems::ID, jar_o_gems::behaviors),
+    (jarred_frostling::ID, jarred_frostling::behaviors),
     (jewelry_box::ID, jewelry_box::behaviors),
     (lava_lamp::ID, lava_lamp::behaviors),
+    (lens_case::ID, lens_case::behaviors),
     (lightfeather_sticker::ID, lightfeather_sticker::behaviors),
     (lionfish_portrait::ID, lionfish_portrait::behaviors),
     (lockbox_portrait::ID, lockbox_portrait::behaviors),
@@ -448,11 +480,17 @@ const IMPLEMENTED: &[Implemented] = &[
     (makeshift_master::ID, makeshift_master::behaviors),
     (maldraxxus_dagger::ID, maldraxxus_dagger::behaviors),
     (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
+    (manipulator_portrait::ID, manipulator_portrait::behaviors),
     (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
     (maw_caster_portrait::ID, maw_caster_portrait::behaviors),
+    (
+        mecha_jaraxxus_sticker::ID,
+        mecha_jaraxxus_sticker::behaviors,
+    ),
     (mindslasher_portrait::ID, mindslasher_portrait::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
     (minion_bait::ID, minion_bait::behaviors),
+    (morgl_portrait::ID, morgl_portrait::behaviors),
     (moveout_box::ID, moveout_box::behaviors),
     (multilayered_shield::ID, multilayered_shield::behaviors),
     (murky_sticker::ID, murky_sticker::behaviors),
@@ -507,6 +545,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
     (rockin_music_box::ID, rockin_music_box::behaviors),
     (ruby_tusk::ID, ruby_tusk::behaviors),
+    (safety_patch::ID, safety_patch::behaviors),
     (scraper_sticker::ID, scraper_sticker::behaviors),
     (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
@@ -1724,6 +1763,16 @@ pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng
     }
 }
 
+/// The hero is about to take fatal combat damage: whether a trinket prevents it (the first in
+/// pick order whose `trinket_prevent_fatal` does; `Safety Patch`'s Ice Block).
+pub fn prevent_fatal(auras: &mut PlayerAuras) -> bool {
+    auras.trinkets.iter_mut().any(|trinket| {
+        hooks(trinket.card_id)
+            .trinket_prevent_fatal
+            .is_some_and(|prevent| prevent(trinket))
+    })
+}
+
 /// A friendly minion is being summoned in combat: each trinket's `trinket_combat_summon` hook.
 pub fn combat_summon(auras: &mut PlayerAuras, summoned: &mut Unit) {
     for trinket in &mut auras.trinkets {
@@ -1768,6 +1817,14 @@ pub fn named_type(auras: &PlayerAuras, id: CardId) -> Option<Tribe> {
 /// 0 Gold whose hooks (in the trinket's file) carry the Spellcraft flags (temporary, not a Tavern
 /// spell, never in a pool).
 pub fn spellcraft_spell(id: CardId, name: &str) -> Unit {
+    let mut spell = Unit::new(name, 0, 0).with_card_id(id);
+    spell.is_spell = true;
+    spell
+}
+
+/// A token spell a trinket gives, `id` named `name`: 0 Gold to cast, its hooks (in the trinket's
+/// file) saying what it is (`Portal in a Bottle`, `The Goldenizer`, `Duplicating Lens`).
+pub fn token_spell(id: CardId, name: &str) -> Unit {
     let mut spell = Unit::new(name, 0, 0).with_card_id(id);
     spell.is_spell = true;
     spell

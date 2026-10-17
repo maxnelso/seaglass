@@ -1,0 +1,17 @@
+trinket: Safety Patch
+scenarios:
+  - name: picked_it_gives_5_gold_and_ice_block_which_damage_that_isnt_fatal_doesnt_use
+    tavern: {gold: 3, health: 30}
+    steps:
+      - give_trinket: Safety Patch
+      - expect: {gold: 8, auras: {trinkets: [{name: Safety Patch, armed: 1}]}}
+      - fight: {board: ["10/10"], tier: 6}
+    expect: {health: "< 30", auras: {trinkets: [{armed: 1}]}}
+
+  - name: ice_block_prevents_fatal_combat_damage_once
+    tavern: {health: 3, auras: {trinkets: [{trinket: Safety Patch, armed: 1}]}}
+    steps:
+      - fight: {board: ["10/10"], tier: 6}
+      - expect: {health: 3, auras: {trinkets: [{armed: 0}]}}
+      - fight: {board: ["10/10"], tier: 6}
+    expect: {health: "<= 0"}
