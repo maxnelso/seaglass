@@ -1,0 +1,17 @@
+dark_gift: Harpy's Talons
+scenarios:
+  - name: gives_divine_shield_and_windfury
+    combat:
+      board_a: ["2/3 gift:harpys_talons"]
+      board_b: []
+    expect: {survivors_a: ["2/3 divine_shield windfury gift:harpys_talons"]}
+
+  - name: the_shield_takes_the_first_hit
+    description: >-
+      The 1/3s go first: the shield takes the first hit (and that 1/3 dies), the other one falls
+      to its first strike.
+    seeds: "1..=4"
+    combat:
+      board_a: ["3/10 gift:harpys_talons"]
+      board_b: ["1/3", "1/3"]
+    expect: {outcome: a_win, survivors_a: ["3/9 -divine_shield"]}

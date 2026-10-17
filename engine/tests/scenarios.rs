@@ -508,6 +508,9 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
                 Ok(Header::Trinket(_)) => {
                     errors.push(format!("{file}: trinket scenarios belong in trinkets/"));
                 }
+                Ok(Header::DarkGift(_)) => {
+                    errors.push(format!("{file}: Dark Gift scenarios belong in dark_gifts/"));
+                }
                 Err(e) => errors.push(format!("{file}: {e}")),
             }
         }
@@ -565,7 +568,40 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
         }
     }
 
-    let known = ["combat", "tavern", "heroes", "trinkets", "catalog.yaml"];
+    // Every gift file has its scenario file, `dark_gifts/<gift>.yaml`, starting with `dark_gift:`
+    // (`docs/dark_gifts.md` §9).
+    let mut gifts = stems(&src.join("../dark_gifts"), "rs");
+    gifts.remove("mod");
+    gifts.remove("table");
+    gifts.remove("vocab");
+    let gift_files = stems(&root.join("dark_gifts"), "yaml");
+    for stem in &gifts {
+        if !gift_files.contains(stem) {
+            errors.push(format!(
+                "dark_gifts/{stem}.yaml is missing (for src/dark_gifts/{stem}.rs)"
+            ));
+        }
+    }
+    for stem in &gift_files {
+        let file = format!("dark_gifts/{stem}.yaml");
+        match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
+            Ok(Header::DarkGift(_)) if gifts.contains(stem) => {}
+            Ok(Header::DarkGift(name)) => errors.push(format!(
+                "{file} is about {name}: there is no src/dark_gifts/{stem}.rs"
+            )),
+            Ok(_) => errors.push(format!("{file} must start with `dark_gift:`")),
+            Err(e) => errors.push(format!("{file}: {e}")),
+        }
+    }
+
+    let known = [
+        "combat",
+        "tavern",
+        "heroes",
+        "trinkets",
+        "dark_gifts",
+        "catalog.yaml",
+    ];
     for entry in fs::read_dir(root).map_err(|e| e.to_string())? {
         let name = entry
             .map_err(|e| e.to_string())?

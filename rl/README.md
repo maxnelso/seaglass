@@ -41,7 +41,7 @@ At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_
 
 ### 2. Action Space & Legality Mask
 During a Tavern turn, the agent repeatedly takes discrete micro-actions until selecting `EndTurn`.
-- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes), and `ChooseTrinket`: see [Trinkets](#trinkets)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
+- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes), `ChooseTrinket`: see [Trinkets](#trinkets), and `DarkDiscovery`: see [Dark Gifts](#dark-gifts)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
 - The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Discover is pending (the `Triple Reward` card cast, a Discover effect), all actions except `ChooseDiscover` are masked out. A Golden played from the hand gives a `Triple Reward` card (a 0-Gold spell in the hand, `engine/docs/tavern.md` §5.2); its locked-in Discover Tier is the card's `counter` (`seaglass.Unit.counter`), and casting it is a `Play`.
 
 ### 3. Reward Function
@@ -107,7 +107,26 @@ Trinkets ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md)) are optional:
 `TavernObservation` and `DuosObservation` have `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their counters), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices: 2 less for an option of a type that isn't the player's most common one). `features.py` appends six features to the `[PLAYER]` vector (`PLAYER_DIM` is 31): whether trinkets are offered, the number owned `/ 2`, and the 4 offered prices `/ 10` (0 for no option); and six card slots after the waiting ones (`NUM_SLOTS` is 37): the 2 owned trinkets (`MAX_TRINKETS`), then the 4 offered ones, each with its id and the present flag.
 
 ### Actions
-The table appends 4 `ChooseTrinket` actions last (`CHOOSE_TRINKET_INDICES`). A game without trinket offers never lists them as legal.
+The table appends 4 `ChooseTrinket` actions (`CHOOSE_TRINKET_INDICES`). A game without trinket offers never lists them as legal.
+
+---
+
+## Dark Gifts
+
+Dark Gifts ([`engine/docs/dark_gifts.md`](../engine/docs/dark_gifts.md)) are optional: a game without the Dark Discovery button (the default) is exactly as before.
+
+### Bindings
+- `TavernGame(..., dark_gifts=False)` and `DuosTavernGame(..., dark_gifts=False)`: `True` gives every player the Dark Discovery button (3 Gold, from turn 3, once per turn, 3 uses per game; per player in Duos). Only implemented gifts are offered.
+- `TavernAction.dark_discovery()` (kind `"dark_discovery"`, args `(None, None)`): use the button. It Discovers 1 of 3 minions, each with a different Dark Gift (a regular `choose_discover` prompt).
+- `Unit.dark_gifts`: the gift ids (dbfIds) on a card, in the order it got them.
+- `dark_gifts_table()`: `(id, name, min_turn, max_turn, weight, implemented)` for each of the 47 gifts (`max_turn` 0: none). `dark_gifts_vocabulary()`: their ids in a fixed append-only order, which are also appended at the end of `all_card_ids()`, after the trinkets.
+
+### Observation
+`TavernObservation` and `DuosObservation` have `dark_gifts_enabled`, `dark_discoveries_left` (the button's uses left this game, 0 without it) and `dark_discovery_usable` (`dark_discovery` is legal now). `features.py` appends two features to the `[PLAYER]` vector (`PLAYER_DIM` is 33): the uses left `/ 3` and whether it is usable; and to every card slot one feature per gift of the vocabulary (`DARK_GIFT_IDS`), the number of copies of that gift on the card, after the 14 earlier ones (`SLOT_NUM_DIM` is 14 + 47 = 61).
+
+### Actions
+The table appends the `dark_discovery` action last (`DARK_DISCOVERY_INDEX`). A game without Dark Gifts never lists it as legal.
+
 ---
 
 ## Model Architecture (`BattlegroundsActorCritic`)
@@ -141,7 +160,8 @@ rl/
     ├── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
     ├── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
     ├── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
-    └── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
+    ├── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
+    └── test_dark_gifts.py     # Dark Gifts: the Dark Discovery action, offers, observation fields
 ```
 
 ---

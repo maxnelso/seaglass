@@ -1,0 +1,8 @@
+dark_gift: Golemancy
+scenarios:
+  - name: its_deathrattle_summons_a_golem_with_its_stats
+    seeds: "1..=4"
+    combat:
+      board_a: ["3/4 beast gift:golemancy"]
+      board_b: ["10/2"]
+    expect: {outcome: a_win, survivors_a: ["Deserted Golem 3/4"]}

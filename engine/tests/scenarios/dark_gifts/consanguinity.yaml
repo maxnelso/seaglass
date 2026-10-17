@@ -1,0 +1,7 @@
+dark_gift: Consanguinity
+scenarios:
+  - name: rally_gets_2_blood_gems
+    combat:
+      board_a: ["1/5 quilboar gift:consanguinity"]
+      board_b: ["0/1"]
+    expect: {hand_a: [Blood Gem, Blood Gem]}

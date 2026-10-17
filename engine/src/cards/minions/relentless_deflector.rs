@@ -4,7 +4,7 @@
 //! It loses Taunt the moment its Divine Shield pops, unless an effect gave it Taunt
 //! (`granted_taunt`: `Fortify`, `Defender's Rites`, `Tricky Trousers`, ...), which it keeps.
 
-use crate::cards::{BoardCtx, CardTemplate};
+use crate::cards::{BoardCtx, CardFlags, CardTemplate};
 use crate::model::{CardId, Keyword, Tribe, Unit};
 
 pub const ID: CardId = 327;
@@ -12,6 +12,7 @@ pub const NAME: &str = "Relentless Deflector";
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 5, 4, 3)
+        .with_flags(CardFlags::AVENGE)
         .with_tribe(Tribe::Mech)
         .on_friendly_death(on_friendly_death)
         .on_sync_aura(|u, _| sync_taunt(u))

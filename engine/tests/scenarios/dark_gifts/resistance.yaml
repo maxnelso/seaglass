@@ -1,0 +1,7 @@
+dark_gift: Resistance
+scenarios:
+  - name: doubles_its_health
+    combat:
+      board_a: ["2/3 gift:resistance"]
+      board_b: []
+    expect: {survivors_a: ["2/6"]}

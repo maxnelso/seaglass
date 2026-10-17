@@ -1,0 +1,14 @@
+dark_gift: Battle Scars (early)
+scenarios:
+  - name: has_stats_for_each_one_this_game
+    combat:
+      board_a: ["1/1 gift:battle_scars_early"]
+      board_b: []
+      auras_a: {battlecries_triggered: 3}
+    expect: {survivors_a: ["7/7"]}
+
+  - name: grows_with_each_battlecry_in_the_tavern
+    tavern: {board: ["1/1 gift:battle_scars_early"], hand: [Forest Rover]}
+    steps:
+      - play: 0
+    expect: {board: ["3/3", Forest Rover], auras: {battlecries_triggered: 1}}

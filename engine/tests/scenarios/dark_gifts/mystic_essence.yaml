@@ -1,0 +1,8 @@
+dark_gift: Mystic Essence
+scenarios:
+  - name: its_deathrattle_gives_a_tavern_spell
+    seeds: "1..=10"
+    combat:
+      board_a: ["1/1 gift:mystic_essence"]
+      board_b: ["5/5"]
+    expect: {hand_a: [{is_spell: true}]}

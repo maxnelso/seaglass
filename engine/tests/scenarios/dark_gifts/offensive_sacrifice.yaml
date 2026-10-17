@@ -1,0 +1,15 @@
+dark_gift: Offensive Sacrifice
+scenarios:
+  - name: gives_10_attack
+    combat:
+      board_a: ["1/1 beast gift:offensive_sacrifice"]
+      board_b: []
+    expect: {survivors_a: ["11/1"]}
+
+  - name: its_deathrattle_gives_its_attack_to_another_minion
+    description: >-
+      The 11/1 hits the 1/30 and dies: the 1/5 gains 11 Attack and finishes the 1/30 off.
+    combat:
+      board_a: ["1/1 beast gift:offensive_sacrifice", "1/5"]
+      board_b: ["1/30"]
+    expect: {outcome: a_win, survivors_a: ["12/3"]}

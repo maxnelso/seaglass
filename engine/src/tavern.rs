@@ -2,6 +2,7 @@
 
 use crate::cards::{self, ActivateTargetKind, BoardCtx, CardFlags, CardTemplate, Passive, Played};
 use crate::combat::{resolve_battle, BattleResult};
+use crate::dark_gifts;
 use crate::heroes;
 use crate::model::{
     BattleOutcome, CardId, CombatResult, GameState, HeroId, HeroState, LobbyView, PlayerAuras,
@@ -399,6 +400,42 @@ impl CardPool {
         options
     }
 
+    /// `true` if the pool has a minion whose only type is `tribe`: the lobby has that type
+    /// (`docs/dark_gifts.md` §5.1).
+    pub fn lobby_has(&self, tribe: Tribe) -> bool {
+        self.entries.iter().any(|e| e.template.tribe == tribe)
+    }
+
+    /// Draw one minion whose template `keep` accepts, weighted by remaining copies, taken out of
+    /// the pool (a Dark Gift offer's minions, `docs/dark_gifts.md` §4.3). `None` (and no draw) if
+    /// the pool has none.
+    pub fn draw_template_where(
+        &mut self,
+        keep: impl Fn(&CardTemplate) -> bool,
+        rng: &mut Rng,
+    ) -> Option<Unit> {
+        let total_copies: u32 = self
+            .entries
+            .iter()
+            .filter(|e| e.remaining > 0 && keep(&e.template))
+            .map(|e| e.remaining)
+            .sum();
+        if total_copies == 0 {
+            return None;
+        }
+        let mut pick = rng.below(total_copies as usize) as u32;
+        for entry in &mut self.entries {
+            if entry.remaining > 0 && keep(&entry.template) {
+                if pick < entry.remaining {
+                    entry.remaining -= 1;
+                    return Some(entry.template.instantiate());
+                }
+                pick -= entry.remaining;
+            }
+        }
+        unreachable!("draw_template_where pick must land inside total_copies");
+    }
+
     /// Take 1 copy of `card_id` from the shared card pool if available (`Disguised Graverobber`).
     pub fn take_copy(&mut self, card_id: CardId) {
         for entry in &mut self.entries {
@@ -510,6 +547,8 @@ pub enum TavernAction {
     ChooseTrinket {
         option_index: usize,
     },
+    /// Use the Dark Discovery button (`docs/dark_gifts.md` §3).
+    DarkDiscovery,
 }
 
 /// What buying a card costs (`TavernState::buy_price`): `cost` Gold, or `cost` Health if `health`.
@@ -600,10 +639,22 @@ pub struct TavernState {
     /// legal action is `ChooseTrinket`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinket_options: Vec<TrinketOption>,
+    /// The player has the Dark Discovery button (`docs/dark_gifts.md` §3). Off by default.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub dark_gifts_enabled: bool,
+    /// The button's uses so far this game, and whether it was used this turn.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub dark_discoveries_used: u32,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub dark_discovery_used_this_turn: bool,
 }
 
 fn is_false(b: &bool) -> bool {
     !*b
+}
+
+fn is_zero_u32(n: &u32) -> bool {
+    *n == 0
 }
 
 impl Default for TavernState {
@@ -651,6 +702,9 @@ impl TavernState {
             lobby_gifts: Vec::new(),
             trinkets_enabled: false,
             trinket_options: Vec::new(),
+            dark_gifts_enabled: false,
+            dark_discoveries_used: 0,
+            dark_discovery_used_this_turn: false,
         }
     }
 
@@ -1536,6 +1590,7 @@ impl TavernState {
         self.last_combat_won = false;
         self.gold_spent_this_turn = 0;
         self.elementals_played_this_turn = 0;
+        self.dark_discovery_used_this_turn = false;
         self.auras.expire_turn_effects();
         heroes::turn_reset(self, pool);
         let turn_atk = std::mem::take(&mut self.auras.tavern_turn_atk);
@@ -1631,6 +1686,7 @@ impl TavernState {
         }
         heroes::on_turn_start(self, pool, rng);
         trinkets::on_turn_start(self, pool, rng);
+        dark_gifts::on_turn_start(self, pool, rng);
         cards::on_start_turn_spellcrafts(self);
         self.sync_all_auras();
         self.resolve_triples();
@@ -1997,6 +2053,7 @@ impl TavernState {
             TavernAction::ChooseHero { .. } => false,
             TavernAction::HeroPower2 { target } => heroes::can_use_2(self, target),
             TavernAction::ChooseTrinket { .. } => false,
+            TavernAction::DarkDiscovery => dark_gifts::can_use_button(self),
         }
     }
 
@@ -2208,6 +2265,9 @@ impl TavernState {
                 .into_iter()
                 .map(|target| TavernAction::HeroPower2 { target }),
         );
+        if dark_gifts::can_use_button(self) {
+            actions.push(TavernAction::DarkDiscovery);
+        }
         actions
     }
 
@@ -2294,6 +2354,7 @@ impl TavernState {
                 board_pos,
             } => {
                 let card = self.take_card_to_play(hand_index);
+                dark_gifts::on_card_played(self);
                 let group = card.willbreaker_group;
                 if card.is_spell {
                     cards::spells::cast_spell(self, card, board_pos, pool, rng);
@@ -2308,6 +2369,7 @@ impl TavernState {
                 shop_index,
             } => {
                 let card = self.take_card_to_play(hand_index);
+                dark_gifts::on_card_played(self);
                 let group = card.willbreaker_group;
                 let target = MinionSlot::Shop(shop_index);
                 cards::spells::cast_spell_on(self, card, target, pool, rng);
@@ -2442,6 +2504,7 @@ impl TavernState {
                 // Hero Power's and the trinkets' hooks repeat their payoffs themselves.
                 let repeats = cards::end_of_turn_repeats(self);
                 cards::on_end_turn(self, repeats, pool, rng);
+                dark_gifts::on_end_of_turn(self, repeats, pool, rng);
                 heroes::end_turn(self, repeats, pool, rng);
                 trinkets::end_turn(self, repeats, pool, rng);
                 self.discard_temporary_cards();
@@ -2465,6 +2528,10 @@ impl TavernState {
             }
             TavernAction::ChooseTrinket { option_index } => {
                 trinkets::choose(self, option_index, pool, rng);
+                Ok(false)
+            }
+            TavernAction::DarkDiscovery => {
+                dark_gifts::use_button(self, pool, rng);
                 Ok(false)
             }
         }
@@ -2735,6 +2802,9 @@ impl TavernState {
             golden.golden_copies = n as u8;
         }
         cards::on_merge_golden(&copies, &mut golden);
+        if copies.iter().any(|u| !u.dark_gifts.is_empty()) {
+            dark_gifts::merge_into_golden(&copies, &mut golden);
+        }
         cards::check_stat_thresholds(&mut golden);
 
         trinkets::card_added(self, &golden);

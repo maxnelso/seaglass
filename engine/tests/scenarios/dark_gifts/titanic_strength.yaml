@@ -1,0 +1,7 @@
+dark_gift: Titanic Strength
+scenarios:
+  - name: gives_1000_attack
+    combat:
+      board_a: ["1/1 gift:titanic_strength"]
+      board_b: []
+    expect: {survivors_a: ["1001/1"]}

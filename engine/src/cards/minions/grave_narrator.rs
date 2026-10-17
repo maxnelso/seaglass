@@ -8,7 +8,7 @@
 //! or lower, from the game's catalog (`cards::game_templates`), and are gifts: they go into the
 //! teammate's combat hand at once (`docs/duos.md` §2, `docs/duos_tavern.md` §8.2).
 
-use crate::cards::{self, spells, BoardCtx, CardTemplate};
+use crate::cards::{self, spells, BoardCtx, CardFlags, CardTemplate};
 use crate::model::{CardId, TeammateGift, Tribe, Unit};
 
 pub const ID: CardId = 10402;
@@ -16,6 +16,7 @@ pub const NAME: &str = "Grave Narrator";
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 7, 4)
+        .with_flags(CardFlags::AVENGE)
         .with_tribe(Tribe::Undead)
         .on_friendly_death(on_friendly_death)
 }

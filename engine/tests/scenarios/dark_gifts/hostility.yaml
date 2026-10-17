@@ -1,0 +1,7 @@
+dark_gift: Hostility
+scenarios:
+  - name: doubles_its_attack
+    combat:
+      board_a: ["2/3 gift:hostility"]
+      board_b: []
+    expect: {survivors_a: ["4/3"]}

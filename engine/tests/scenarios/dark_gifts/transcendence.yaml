@@ -1,0 +1,7 @@
+dark_gift: Transcendence
+scenarios:
+  - name: triples_its_stats
+    combat:
+      board_a: ["2/3 gift:transcendence"]
+      board_b: []
+    expect: {survivors_a: ["6/9"]}

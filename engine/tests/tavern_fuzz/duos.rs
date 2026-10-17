@@ -142,6 +142,8 @@ struct DuosConfig {
     offer_heroes: bool,
     /// The players are offered trinkets on turns 6 and 9 (`docs/trinkets.md` §8.1).
     trinkets: bool,
+    /// The players have the Dark Discovery button (`docs/dark_gifts.md` §8.1).
+    dark_gifts: bool,
 }
 
 impl DuosConfig {
@@ -152,7 +154,9 @@ impl DuosConfig {
         let action_cap = 25 + rng.below(40);
         let mut weights = BASE_WEIGHTS;
         weights[Kind::Pass as usize] = PASS_WEIGHT;
-        for w in weights.iter_mut() {
+        // (Not the Dark Discovery's weight, added later: every seed's other choices stay as they
+        // were.)
+        for w in weights.iter_mut().take(Kind::DarkDiscovery as usize) {
             *w = (*w * (2 + rng.below(7) as u32) / 4).max(1);
         }
         // Some games Pass a lot, so that cards go back and forth and queues fill up.
@@ -247,6 +251,8 @@ impl DuosConfig {
         };
         // Trinkets too, from an RNG of their own: offered in half the games.
         let trinkets = Rng::new(seed ^ 0x7121_4E75_D005_0002).below(2) == 0;
+        // The Dark Discovery button too, in half the games.
+        let dark_gifts = Rng::new(seed ^ 0xDA2C_61F7_D005_0002).below(2) == 0;
         Self {
             teams,
             shop_spells,
@@ -261,6 +267,7 @@ impl DuosConfig {
             heroes,
             offer_heroes,
             trinkets,
+            dark_gifts,
         }
     }
 }
@@ -1602,6 +1609,7 @@ impl DuosGame {
                     .with_armor(cfg.armor[t])
                     .with_shop_spells(cfg.shop_spells)
                     .with_trinkets(cfg.trinkets)
+                    .with_dark_gifts(cfg.dark_gifts)
                     .with_first_fighter_switch_chance(cfg.first_fighter_switch_chance);
                 for (p, s) in team.players.iter_mut().enumerate() {
                     s.auras.deity.kind = cfg.deities[t][p];

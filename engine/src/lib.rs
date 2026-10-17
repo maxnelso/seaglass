@@ -2,11 +2,12 @@
 //!
 //! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`, and Duos Taverns:
 //! `docs/duos_tavern.md`) and the **Combat Phase** (`docs/combat.md`, and Duos combats:
-//! `docs/duos.md`), with heroes and their Hero Powers (`docs/heroes.md`) and trinkets
-//! (`docs/trinkets.md`).
+//! `docs/duos.md`), with heroes and their Hero Powers (`docs/heroes.md`), trinkets
+//! (`docs/trinkets.md`) and Dark Gifts (`docs/dark_gifts.md`).
 
 pub mod cards;
 pub mod combat;
+pub mod dark_gifts;
 pub mod duos_tavern;
 pub mod events;
 pub mod heroes;
@@ -34,9 +35,9 @@ pub use combat::{
 pub use duos_tavern::DuosTavern;
 pub use events::Event;
 pub use model::{
-    BattleOutcome, CardId, DeityKind, DeityState, GameState, HeroId, HeroPowerState, HeroState,
-    Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe, TrinketOption,
-    TrinketState, Unit, UnitId,
+    BattleOutcome, CardId, DarkGift, DeityKind, DeityState, GameState, HeroId, HeroPowerState,
+    HeroState, Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe,
+    TrinketOption, TrinketState, Unit, UnitId,
 };
 pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};

@@ -1,0 +1,8 @@
+dark_gift: Death's Embrace (early)
+scenarios:
+  - name: has_stats_for_each_one_this_game
+    combat:
+      board_a: ["1/1 gift:deaths_embrace_early"]
+      board_b: []
+      auras_a: {deathrattles_triggered: 2}
+    expect: {survivors_a: ["3/3"]}

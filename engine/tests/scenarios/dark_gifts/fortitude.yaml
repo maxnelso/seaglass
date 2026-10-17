@@ -1,0 +1,14 @@
+dark_gift: Fortitude
+scenarios:
+  - name: gives_5_5
+    combat:
+      board_a: ["1/1 gift:fortitude"]
+      board_b: []
+    expect: {survivors_a: ["6/6"]}
+
+  - name: a_golden_keeps_it_as_a_buff
+    description: Two plain copies and one with Fortitude make a Golden 5/5 stronger (not 10/10).
+    tavern: {}
+    steps:
+      - add_to_hand: [Suspicious Prisonguard, Suspicious Prisonguard, "Suspicious Prisonguard gift:fortitude"]
+    expect: {hand: ["golden Suspicious Prisonguard 11/11 gift:fortitude"]}

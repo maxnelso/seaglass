@@ -1,0 +1,13 @@
+dark_gift: Defensive Sacrifice
+scenarios:
+  - name: gives_10_health
+    combat:
+      board_a: ["1/1 beast gift:defensive_sacrifice"]
+      board_b: []
+    expect: {survivors_a: ["1/11"]}
+
+  - name: its_deathrattle_gives_its_max_health_to_another_minion
+    combat:
+      board_a: ["1/1 beast gift:defensive_sacrifice", "0/1"]
+      board_b: ["15/1"]
+    expect: {outcome: a_win, survivors_a: ["0/12"]}

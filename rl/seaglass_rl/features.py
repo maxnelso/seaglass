@@ -20,8 +20,14 @@ MAX_TRINKETS: int = 2
 NUM_SLOTS: int = (
     MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING + MAX_TRINKETS + MAX_TRINKET_OPTIONS
 )  # 7 + 10 + 7 + 4 + 3 + 2 + 4 = 37
-PLAYER_DIM: int = 31
-SLOT_NUM_DIM: int = 14
+# The Dark Gifts (`engine/docs/dark_gifts.md` §8.2), in their append-only vocabulary order: each card
+# slot's last features count the copies of each gift on the card.
+DARK_GIFT_IDS: list[int] = seaglass.dark_gifts_vocabulary()
+DARK_GIFT_TO_FEATURE: dict[int, int] = {gid: i for i, gid in enumerate(DARK_GIFT_IDS)}
+# The Dark Discovery button's uses left (/ 3) and whether it is usable now, appended last.
+PLAYER_DIM: int = 33
+BASE_SLOT_NUM_DIM: int = 14
+SLOT_NUM_DIM: int = BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)
 
 
 def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
@@ -40,6 +46,10 @@ def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
     out_num[11] = 1.0 if u.magnetic else 0.0
     out_num[12] = 1.0 if u.frozen else 0.0  # a shop card frozen on its own
     out_num[13] = 1.0 if u.marked else 0.0  # marked by the Hero Power (a Silas ticket, Vol'jin's pick)
+    for gid in u.dark_gifts:  # the card's Dark Gifts, one feature per gift
+        feature = DARK_GIFT_TO_FEATURE.get(gid)
+        if feature is not None:
+            out_num[BASE_SLOT_NUM_DIM + feature] += 1.0
     return CARD_ID_TO_IDX.get(u.card_id, 0)
 
 
@@ -93,6 +103,9 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
             1.0 if obs.trinket_options else 0.0,
             len(obs.trinkets) / MAX_TRINKETS,
             *option_costs,
+            # The Dark Discovery button (`engine/docs/dark_gifts.md` §8.2); 0 without Dark Gifts.
+            obs.dark_discoveries_left / 3.0,
+            1.0 if obs.dark_discovery_usable else 0.0,
         ],
         dtype=np.float32,
     )

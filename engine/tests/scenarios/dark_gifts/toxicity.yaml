@@ -1,0 +1,8 @@
+dark_gift: Toxicity
+scenarios:
+  - name: its_venom_destroys_a_big_minion
+    seeds: "1..=4"
+    combat:
+      board_a: ["1/1 murloc gift:toxicity"]
+      board_b: ["10/10"]
+    expect: {outcome: draw}

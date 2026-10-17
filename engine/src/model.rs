@@ -338,6 +338,24 @@ pub struct PlayerAuras {
     /// player without trinkets. They live in the auras so that they travel into combat and back.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinkets: Vec<TrinketState>,
+    /// Friendly Battlecries triggered this game, each trigger (`Battle Scars`;
+    /// `docs/dark_gifts.md` §11.1).
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub battlecries_triggered: u32,
+}
+
+/// A Dark Gift on a minion (`docs/dark_gifts.md` §2.2). The engine reads only `card_id`; the rest
+/// belongs to the gift's own hooks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DarkGift {
+    /// The gift (its dbfId, the card whose hooks implement it).
+    pub card_id: CardId,
+    /// A countdown or count of the gift's own (`Replication`'s turns).
+    #[serde(default)]
+    pub counter: i32,
+    /// The gift's strength, set when it is given (the game turn it is given on).
+    #[serde(default)]
+    pub stacks: i32,
 }
 
 /// A trinket the player owns (`docs/trinkets.md` §2.2). The engine reads only `card_id`; the rest
@@ -682,6 +700,9 @@ pub struct Unit {
     /// passes them on, whatever the player's Hero Power (`docs/tavern.md` §7.3).
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub hats: u32,
+    /// The minion's Dark Gifts, in the order it got them (`docs/dark_gifts.md` §2.2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dark_gifts: Vec<DarkGift>,
 }
 
 /// The hat card (*Hats*, `TB_BaconShop_HP_042e`): [`Unit::hats`] counts its copies on a minion,
@@ -781,6 +802,7 @@ impl Unit {
             golden_copies: 0,
             until_next_turn_atk: 0,
             hats: 0,
+            dark_gifts: Vec::new(),
         }
     }
 

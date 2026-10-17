@@ -1,0 +1,8 @@
+dark_gift: Persisting Horror
+scenarios:
+  - name: it_is_reborn_with_full_stats
+    seeds: "1..=4"
+    combat:
+      board_a: ["4/4 beast gift:persisting_horror"]
+      board_b: ["5/1"]
+    expect: {outcome: a_win, survivors_a: ["4/4 -reborn gift:persisting_horror"]}

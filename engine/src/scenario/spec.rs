@@ -47,6 +47,8 @@ pub enum Header {
     Hero(String),
     /// `trinket: <name>`: one trinket (its display name; `docs/trinkets.md` §8.3).
     Trinket(String),
+    /// `dark_gift: <name>`: one Dark Gift (its display name; `docs/dark_gifts.md` §8.3).
+    DarkGift(String),
 }
 
 /// A parsed scenario file.
@@ -125,6 +127,8 @@ pub(super) enum StepKind {
     OfferTrinkets(Vec<CardId>),
     /// An offer drawn as on turn 6 (`false`) or 9 (`true`) (`docs/trinkets.md` §3.3).
     DrawTrinketOffer(bool),
+    /// A Discover of these minions, without the button (`docs/dark_gifts.md` §8.3).
+    OfferDarkGifts(Vec<Unit>),
     Fight(Box<FightPlan>),
     /// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
     DuosFight(Box<DuosFightPlan>),
@@ -215,6 +219,8 @@ pub(super) enum Action {
     ChooseHero(Index),
     /// Pick the trinket offered at this index (or with this name).
     ChooseTrinket(Index),
+    /// Use the Dark Discovery button (`docs/dark_gifts.md` §3).
+    DarkDiscovery,
 }
 
 /// Either given in the scenario, or `tavern` (copied from the Tavern when the step runs).
@@ -380,11 +386,13 @@ const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, ref
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
     expect_legal, expect_illegal, hero_power, hero_power_2, choose_hero, set_hero, offer_heroes, \
-    give_trinket, offer_trinkets, choose_trinket, if/then/else, repeat/steps";
+    give_trinket, offer_trinkets, choose_trinket, dark_discovery, offer_dark_gifts, if/then/else, \
+    repeat/steps";
 
 /// The steps that are only a name (`end_turn`); tagged with a player they are written
 /// `{player: 1, end_turn}`.
-const NAME_STEPS: [&str; 8] = [
+const NAME_STEPS: [&str; 9] = [
+    "dark_discovery",
     "start_turn",
     "sync_all_auras",
     "refresh",
@@ -415,10 +423,12 @@ impl ScenarioFile {
         for key in top.keys() {
             if !matches!(
                 key.as_str(),
-                Some("card" | "topic" | "hero" | "trinket" | "defaults" | "scenarios")
+                Some(
+                    "card" | "topic" | "hero" | "trinket" | "dark_gift" | "defaults" | "scenarios"
+                )
             ) {
                 return Err(format!(
-                    "unknown top-level key {} (keys: card, topic, hero, trinket, defaults, scenarios)",
+                    "unknown top-level key {} (keys: card, topic, hero, trinket, dark_gift, defaults, scenarios)",
                     show(key)
                 ));
             }
@@ -429,6 +439,23 @@ impl ScenarioFile {
             top.get("hero"),
             top.get("trinket"),
         ) {
+            _ if top.contains_key("dark_gift") => {
+                let others = ["card", "topic", "hero", "trinket"];
+                if others.iter().any(|k| top.contains_key(*k)) {
+                    return Err(
+                        "a scenario file needs exactly one of `card:`, `topic:`, `hero:`, \
+                        `trinket:` and `dark_gift:`"
+                            .to_string(),
+                    );
+                }
+                let name = top
+                    .get("dark_gift")
+                    .and_then(Value::as_str)
+                    .ok_or("`dark_gift:` must be a Dark Gift name")?;
+                let g = crate::dark_gifts::by_name(name)
+                    .ok_or_else(|| format!("unknown Dark Gift {name:?}"))?;
+                Header::DarkGift(crate::dark_gifts::display_name(g))
+            }
             (None, None, None, Some(trinket)) => {
                 let name = trinket
                     .as_str()
@@ -1006,6 +1033,7 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 "end_turn" => Ok(StepKind::Action(Action::EndTurn)),
                 "hero_power" => Ok(StepKind::Action(Action::HeroPower(None))),
                 "hero_power_2" => Ok(StepKind::Action(Action::HeroPower2(None))),
+                "dark_discovery" => Ok(StepKind::Action(Action::DarkDiscovery)),
                 other => Err(unknown_step(other)),
             };
         }
@@ -1076,6 +1104,7 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
         })),
         "choose_hero" => StepKind::Action(Action::ChooseHero(index(arg)?)),
         "choose_trinket" => StepKind::Action(Action::ChooseTrinket(index(arg)?)),
+        "offer_dark_gifts" => StepKind::OfferDarkGifts(units::build_list(arg)?),
         "give_trinket" => StepKind::GiveTrinket(trinket_id(
             arg.as_str().ok_or("`give_trinket` takes a trinket name")?,
         )?),

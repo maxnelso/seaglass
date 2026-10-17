@@ -1,0 +1,13 @@
+dark_gift: Admiration
+scenarios:
+  - name: gains_the_attack_of_the_minion_to_its_left
+    combat:
+      board_a: ["5/5", "1/1 gift:admiration"]
+      board_b: []
+    expect: {survivors_a: ["5/5", "6/1"]}
+
+  - name: the_left_most_gains_nothing
+    combat:
+      board_a: ["1/1 gift:admiration", "5/5", "1/1 gift:admiration"]
+      board_b: []
+    expect: {survivors_a: ["1/1", "5/5", "6/1"]}

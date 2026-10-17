@@ -1,0 +1,8 @@
+dark_gift: Battle Scars (late)
+scenarios:
+  - name: has_stats_for_each_one_this_game
+    combat:
+      board_a: ["1/1 gift:battle_scars_late"]
+      board_b: []
+      auras_a: {battlecries_triggered: 3}
+    expect: {survivors_a: ["10/10"]}

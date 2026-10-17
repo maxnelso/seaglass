@@ -23,13 +23,15 @@
 //!   card with hooks (`hero_power`, `hero_start_of_combat`, ...; `docs/heroes.md` §4).
 //! - **Trinket hooks** fire for the player who owns the trinket: a trinket is a card with hooks
 //!   (`trinket_bought`, `trinket_start_of_combat`, ...; `docs/trinkets.md` §6).
+//! - **Dark Gift hooks** fire for the minion that has the gift: a gift is a card with hooks
+//!   (`gift_given`, `gift_start_of_combat`, ...; `docs/dark_gifts.md` §6).
 
 use crate::cards::{
     ActivateTargetKind, BoardCtx, CombatCastCtx, CombatSides, HeroCombatCtx, RallyCtx,
     TeammateWarband,
 };
 use crate::model::{
-    CardId, CombatResult, HeroPowerState, HeroState, PlayerAuras, PlayerEffect, Tribe,
+    CardId, CombatResult, DarkGift, HeroPowerState, HeroState, PlayerAuras, PlayerEffect, Tribe,
     TrinketState, Unit, UnitId,
 };
 use crate::rng::Rng;
@@ -80,6 +82,19 @@ impl CardFlags {
     pub const NOT_DISCOVERABLE_POWER: CardFlags = CardFlags(1 << 15);
     /// A Hero Power not offered for a single turn (Master Nguyen; `docs/heroes.md` §11.2).
     pub const NOT_A_TURN_POWER: CardFlags = CardFlags(1 << 16);
+    /// An Avenge minion (the Dark Gift offer rules read it: `docs/dark_gifts.md` §5.2).
+    pub const AVENGE: CardFlags = CardFlags(1 << 17);
+    /// A Dark Gift that gives stats: never offered on a Deathrattle minion unless it is also
+    /// [`Self::GIFT_FOR_DEATHRATTLE`] (`docs/dark_gifts.md` §5.1).
+    pub const GIFT_GIVES_STATS: CardFlags = CardFlags(1 << 18);
+    /// A stat Dark Gift a Deathrattle minion can be offered (`Sharpened Sword`, `Death's Embrace`).
+    pub const GIFT_FOR_DEATHRATTLE: CardFlags = CardFlags(1 << 19);
+    /// A Dark Gift a Battlecry or Choose One minion can be offered (`docs/dark_gifts.md` §5.1).
+    pub const GIFT_FOR_BATTLECRY: CardFlags = CardFlags(1 << 20);
+    /// A Dark Gift whose minion takes no damage while attacking (`Invulnerability`).
+    pub const GIFT_IMMUNE_ATTACKING: CardFlags = CardFlags(1 << 21);
+    /// A Dark Gift whose minion's Spellcraft spell is not temporary (`Sunken Persistence`).
+    pub const GIFT_KEEPS_SPELLCRAFT: CardFlags = CardFlags(1 << 22);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -676,6 +691,48 @@ card_hooks! {
     /// A friendly minion was summoned in combat and is on the board (each `BoardCtx` summon; a
     /// Rally's summons once, after them): `(ctx)`.
     trinket_after_combat_summon(on_trinket_after_combat_summon): fn(&mut BoardCtx<'_>),
+
+    // ---- Dark Gifts (fire for the minion that has the gift, in the order it got its gifts;
+    // `docs/dark_gifts.md` §6) -----------------------------------------------------------------
+    /// The gift is given to a minion: `(unit, gift)` (keywords, stats, Golden, a type).
+    gift_given(on_gift_given): fn(&mut Unit, &mut DarkGift),
+    /// What the gift keeps giving its minion, applied again to a Golden a Triple made (`unit`).
+    gift_reapply(on_gift_reapply): UnitFn,
+    /// The gift's own offer rules (`docs/dark_gifts.md` §5.2): `(ctx, minion)`.
+    gift_offerable(on_gift_offerable): fn(&crate::dark_gifts::OfferCtx<'_>, &crate::cards::CardTemplate) -> bool,
+    /// The factor on the gift's weight for this minion (`Harpy's Talons` on a Rally minion).
+    gift_weight_factor(on_gift_weight_factor): fn(&crate::cards::CardTemplate) -> u32,
+    /// The gift's "most triggered" count (`docs/dark_gifts.md` §5.1 rule 4): `(auras)`.
+    gift_trigger_count(on_gift_trigger_count): fn(&PlayerAuras) -> u32,
+    /// The stats the gift gives its minion wherever it is: `(unit, gift, auras)`.
+    gift_aura(on_gift_aura): fn(&Unit, &DarkGift, &PlayerAuras) -> (i32, i32),
+    /// The minion was Discovered: `(state, card, pool, rng)` (`Double Vision`).
+    gift_obtained(on_gift_obtained): CardEventFn,
+    /// The player plays a card from the hand, for a board minion with the gift: `(state, pos,
+    /// gift_idx)`.
+    gift_card_played(on_gift_card_played): fn(&mut TavernState, usize, usize),
+    /// End of turn, for a board minion with the gift: `(state, pos, gift_idx, repeats, pool, rng)`.
+    gift_end_of_turn(on_gift_end_of_turn): fn(&mut TavernState, usize, usize, u32, &mut CardPool, &mut Rng),
+    /// Start of turn, for a minion with the gift on the board or in the hand: `(state, zone,
+    /// idx, gift_idx, pool, rng)`.
+    gift_turn_start(on_gift_turn_start): fn(&mut TavernState, crate::dark_gifts::Zone, usize, usize, &mut CardPool, &mut Rng),
+    /// The minion's Start of Combat trigger, after its card's: `(ctx, unit_id, gift_idx)`.
+    gift_start_of_combat(on_gift_start_of_combat): fn(&mut BoardCtx<'_>, UnitId, usize),
+    /// The minion's Deathrattle, after its card's and the given ones: `(dying, gift, ctx)`.
+    gift_deathrattle(on_gift_deathrattle): fn(&Unit, &DarkGift, &mut BoardCtx<'_>),
+    /// The minion's Rally, after its card's: summons to its right.
+    gift_rally(on_gift_rally): RallyFn,
+    /// The minion is Reborn: `(dying, copy)`, the Reborn copy.
+    gift_reborn(on_gift_reborn): fn(&Unit, &mut Unit),
+    /// Extra times the minion's `Activate` triggers: `(unit)`.
+    gift_extra_activations(on_gift_extra_activations): fn(&Unit) -> u32,
+    /// A combat starts (the combat copy is set up): `(gift)`, to restart per-combat counts.
+    gift_combat_start(on_gift_combat_start): fn(&mut DarkGift),
+    /// The minion's Divine Shield is hit in combat: `true` if the gift absorbs the hit (the
+    /// shield stays), using up its count: `(gift)`.
+    gift_absorb_shield_hit(on_gift_absorb_shield_hit): fn(&mut DarkGift) -> bool,
+    /// The multiplier with which the minion keeps the stats it gained in combat: `(unit)`.
+    gift_keep_combat_mult(on_gift_keep_combat_mult): fn(&Unit) -> i32,
 }
 
 impl Default for CardHooks {

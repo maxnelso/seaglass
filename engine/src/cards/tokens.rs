@@ -31,6 +31,8 @@ pub const TOKEN_RED_CHROMADRAKE: CardId = 924;
 pub const TOKEN_FISH_OF_NZOTH: CardId = 925;
 pub const TOKEN_SNEEDS_SHREDDER: CardId = 926;
 pub const TOKEN_AMALGAM: CardId = 927;
+// The Dark Gift `Golemancy`'s Golem (`docs/dark_gifts.md` §11.1).
+pub const TOKEN_DESERTED_GOLEM: CardId = 928;
 
 pub const CHROMADRAKE_IDS: [CardId; 5] = [
     TOKEN_BLUE_CHROMADRAKE,
@@ -534,6 +536,17 @@ pub fn make_blood_golem(atk: i32, hp: i32, is_golden: bool) -> Unit {
         .with_golden(is_golden)
 }
 
+/// `Deserted Golem` (`BG29_864t`, a `5/5` Tier 1 token): the Golem the Dark Gift `Golemancy`
+/// summons with the dying minion's stats (`docs/dark_gifts.md` §11.1).
+pub fn make_deserted_golem(atk: i32, hp: i32) -> Unit {
+    let mut golem = Unit::new("Deserted Golem", atk, hp)
+        .with_card_id(TOKEN_DESERTED_GOLEM)
+        .with_tavern_tier(1);
+    golem.base_attack = 5;
+    golem.base_health = 5;
+    golem
+}
+
 /// `Fish of N'Zoth` (`TB_BaconShop_HP_105t` — `2/2` Beast N'Zoth starts the game with; gains the
 /// Deathrattles of friendly minions that die in combat).
 pub fn make_fish_of_nzoth() -> Unit {
@@ -572,7 +585,7 @@ pub fn make_choice_option(card_id: CardId, name: &str, is_golden: bool) -> Unit 
 }
 
 /// Card ids of every token minion (each one instantiable with [`make_plain_token`]).
-pub const TOKEN_MINION_IDS: [CardId; 22] = [
+pub const TOKEN_MINION_IDS: [CardId; 23] = [
     TOKEN_ABERRANT_TENTACLE,
     TOKEN_BEETLE,
     TOKEN_MICROBOT,
@@ -595,6 +608,7 @@ pub const TOKEN_MINION_IDS: [CardId; 22] = [
     TOKEN_FISH_OF_NZOTH,
     TOKEN_SNEEDS_SHREDDER,
     TOKEN_AMALGAM,
+    TOKEN_DESERTED_GOLEM,
 ];
 
 /// A plain copy of every token minion (for lookups by name or `CardId`).
@@ -633,6 +647,7 @@ pub fn make_plain_token(unit: &Unit, auras: &PlayerAuras) -> Option<Unit> {
         TOKEN_FISH_OF_NZOTH => Some(make_fish_of_nzoth()),
         TOKEN_SNEEDS_SHREDDER => Some(make_sneeds_shredder()),
         TOKEN_AMALGAM => Some(make_amalgam()),
+        TOKEN_DESERTED_GOLEM => Some(make_deserted_golem(5, 5)),
         _ => None,
     }
 }

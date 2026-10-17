@@ -8,13 +8,14 @@
 //! is summoned once: an extra trigger (`Titus Rivendare`) summons nothing more. Its Avenge never
 //! gets a `Deathly Striker` (Golden or not).
 
-use crate::cards::{self, BoardCtx, CardTemplate, DeathrattleContext};
+use crate::cards::{self, BoardCtx, CardFlags, CardTemplate, DeathrattleContext};
 use crate::model::{CardId, Tribe, Unit, UnitId};
 
 pub const ID: CardId = 606;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Deathly Striker", 8, 8, 6)
+        .with_flags(CardFlags::AVENGE)
         .with_tribe(Tribe::Undead)
         .on_deathrattle(on_deathrattle)
         .on_friendly_death(on_friendly_death)

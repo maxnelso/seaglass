@@ -1074,9 +1074,9 @@ pub fn hammer_bonus(auras: &PlayerAuras, attack: i32, health: i32) -> (i32, i32)
     (attack.saturating_mul(times), health.saturating_mul(times))
 }
 
-/// `unit` has a Deathrattle (its card's, or one an effect gave it).
+/// `unit` has a Deathrattle (its card's, one an effect gave it, or a Dark Gift's).
 pub fn has_deathrattle(unit: &Unit) -> bool {
-    cards::is_deathrattle_minion(unit.card_id) || !unit.extra_deathrattles.is_empty()
+    cards::has_deathrattle(unit)
 }
 
 /// `times` Discovers of 3 Tavern spells of the player's Tier or lower (`Book of Medivh`; as

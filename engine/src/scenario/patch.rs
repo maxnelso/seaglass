@@ -45,7 +45,8 @@ const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
 /// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
 /// can still set them.
-const SKIPPED_UNIT_FIELDS: [&str; 7] = [
+const SKIPPED_UNIT_FIELDS: [&str; 8] = [
+    "dark_gifts",
     "marked",
     "extra_deathrattles",
     "temp_reborn",
@@ -56,7 +57,7 @@ const SKIPPED_UNIT_FIELDS: [&str; 7] = [
 ];
 
 /// `PlayerAuras` fields serde leaves out while they are 0: a patch can still set them.
-const SKIPPED_AURAS_FIELDS: [&str; 1] = ["next_minion_discount"];
+const SKIPPED_AURAS_FIELDS: [&str; 2] = ["next_minion_discount", "battlecries_triggered"];
 
 /// `TavernState` unit lists serde leaves out while they are empty: a patch can still set them.
 const SKIPPED_TAVERN_UNIT_LISTS: [&str; 2] = ["waiting_for_hand", "lobby_gifts"];
@@ -145,6 +146,14 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
         }
         if !fields.contains_key("trinket_options") {
             fields.insert(Value::from("trinket_options"), Value::Sequence(Vec::new()));
+        }
+        for name in ["dark_gifts_enabled", "dark_discovery_used_this_turn"] {
+            if !fields.contains_key(name) {
+                fields.insert(Value::from(name), Value::Bool(false));
+            }
+        }
+        if !fields.contains_key("dark_discoveries_used") {
+            fields.insert(Value::from("dark_discoveries_used"), Value::from(0));
         }
         if !fields.contains_key("lobby") {
             let lobby = serde_yaml::to_value(crate::model::LobbyView::default())

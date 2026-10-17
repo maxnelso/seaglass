@@ -1,0 +1,8 @@
+dark_gift: Worship
+scenarios:
+  - name: gains_the_stats_of_the_deity
+    combat:
+      board_a: ["1/1 gift:worship"]
+      board_b: []
+      auras_a: {deity: {kind: cthun, attack: 6, health: 7}}
+    expect: {survivors_a: ["7/8"]}

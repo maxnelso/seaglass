@@ -783,6 +783,7 @@ pub fn instantiate_plain_copy(unit: &Unit) -> Unit {
         copy.temp_divine_shield = false;
         copy.temp_reborn = false;
         copy.extra_deathrattles.clear();
+        copy.dark_gifts.clear();
         copy
     }
 }
@@ -919,6 +920,11 @@ fn sync_unit_auras_in(unit: &mut Unit, auras: &PlayerAuras, on_board: bool) {
         atk += board_atk;
         hp += board_hp;
     }
+    if !unit.dark_gifts.is_empty() {
+        let (gift_atk, gift_hp) = crate::dark_gifts::aura_bonus(unit, auras);
+        atk += gift_atk;
+        hp += gift_hp;
+    }
     let (d_atk, d_hp) = (atk - unit.aura_applied.0, hp - unit.aura_applied.1);
     if d_atk != 0 || d_hp != 0 {
         unit.aura_applied = (atk, hp);
@@ -990,6 +996,9 @@ pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
     };
     copy.health = 1;
     copy.reborn = false;
+    if !dying.dark_gifts.is_empty() {
+        crate::dark_gifts::on_reborn(dying, &mut copy);
+    }
     sync_unit_auras(&mut copy, auras);
     copy.sync_max_stats();
     check_stat_thresholds(&mut copy);
@@ -1158,6 +1167,7 @@ fn trigger_battlecry(
             break;
         }
         battlecry(state, unit, board_pos, pool, rng);
+        state.auras.battlecries_triggered += 1;
         notify_tavern(
             state,
             |h| h.after_friendly_battlecry,
@@ -1406,9 +1416,13 @@ pub fn on_player_turn_start(state: &mut TavernState) {
 
 /// The Spellcraft spell `unit` gives its player (its `spellcraft` hook), if it has one.
 pub fn spellcraft_spell(unit: &Unit) -> Option<Unit> {
-    hooks(unit.card_id)
-        .spellcraft
-        .map(|spellcraft| spellcraft(unit))
+    hooks(unit.card_id).spellcraft.map(|spellcraft| {
+        let mut spell = spellcraft(unit);
+        if !unit.dark_gifts.is_empty() {
+            crate::dark_gifts::mark_spellcraft(unit, &mut spell);
+        }
+        spell
+    })
 }
 
 /// Start of turn, once the shop is filled: each Spellcraft minion on the board gives its spell,
@@ -1423,7 +1437,7 @@ pub fn on_start_turn_spellcrafts(state: &mut TavernState) {
 /// `true` if `card` is a temporary card ([`CardFlags::TEMPORARY`]), discarded at the end of
 /// its player's turn.
 pub fn is_temporary(card: &Unit) -> bool {
-    hooks(card.card_id).has(CardFlags::TEMPORARY)
+    hooks(card.card_id).has(CardFlags::TEMPORARY) && !crate::dark_gifts::keeps_spellcraft(card)
 }
 
 /// The end-of-turn repeat count (`docs/tavern.md` §7.5): the board's
@@ -1516,6 +1530,9 @@ pub fn after_buy_card(state: &mut TavernState, bought: &Unit, pool: &mut CardPoo
 pub fn on_obtained(state: &mut TavernState, card: &Unit, pool: &mut CardPool, rng: &mut Rng) {
     if let Some(obtained) = hooks(card.card_id).obtained {
         obtained(state, card, pool, rng);
+    }
+    if !card.dark_gifts.is_empty() {
+        crate::dark_gifts::on_obtained(state, card, pool, rng);
     }
 }
 
@@ -1684,7 +1701,16 @@ pub fn on_activate(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if let Some(activate) = hooks(state.board[source_pos].card_id).activate {
+    let unit = &state.board[source_pos];
+    let Some(activate) = hooks(unit.card_id).activate else {
+        return;
+    };
+    // A Dark Gift can make it trigger more than once (`Efficiency`; `docs/dark_gifts.md` §11.2).
+    let (card_id, times) = (unit.card_id, 1 + crate::dark_gifts::extra_activations(unit));
+    for _ in 0..times {
+        if state.board.get(source_pos).is_none_or(|u| u.card_id != card_id) {
+            break;
+        }
         activate(state, source_pos, target_pos, pool, rng);
     }
 }
@@ -1757,11 +1783,13 @@ pub fn start_of_combat_summons(ctx: &mut BoardCtx<'_>) {
     effects::combat_space(ctx);
 }
 
-/// `true` if `unit` has a Start-of-Combat trigger: a `start_of_combat` hook or a
-/// `start_of_combat_action`.
+/// `true` if `unit` has a Start-of-Combat trigger: a `start_of_combat` hook, a
+/// `start_of_combat_action`, or a gift's `gift_start_of_combat` (`docs/dark_gifts.md` §7.2).
 pub fn has_start_of_combat(unit: &Unit) -> bool {
     let card = hooks(unit.card_id);
-    card.start_of_combat.is_some() || card.start_of_combat_action.is_some()
+    card.start_of_combat.is_some()
+        || card.start_of_combat_action.is_some()
+        || crate::dark_gifts::has_start_of_combat(unit)
 }
 
 /// `true` if the player has a Start-of-Combat effect of their own: a Hero Power or a trinket that
@@ -1823,32 +1851,40 @@ pub fn on_rally(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) -> (Vec<Unit>, bool) {
+    // Its own Rally, then its Dark Gifts' (`docs/dark_gifts.md` §7.3).
     let attacker = &board[attacker_pos];
-    let rallied = match hooks(attacker.card_id).rally {
-        Some(rally) => {
-            let mut ctx = RallyCtx {
-                side,
-                in_combat: def_target.is_some(),
-                attacker_id: attacker.id,
-                is_golden: attacker.is_golden,
-                board: &mut *board,
-                attacker_pos,
-                def_target,
-                def_hand,
-                auras: &mut *auras,
-                hand,
-                hand_summoned,
-                generated_hand,
-                tavern_casts,
-                summons_attack_target: false,
-                rng: &mut *rng,
-                events,
-            };
-            let summons = rally(&mut ctx);
-            (summons, ctx.summons_attack_target)
-        }
-        None => (Vec::new(), false),
-    };
+    let gift_rallies: Vec<hooks::RallyFn> = attacker
+        .dark_gifts
+        .iter()
+        .filter_map(|g| hooks(g.card_id).gift_rally)
+        .collect();
+    let mut def_target = def_target;
+    let mut rallied = (Vec::new(), false);
+    for rally in hooks(attacker.card_id).rally.into_iter().chain(gift_rallies) {
+        let Some(attacker) = board.get(attacker_pos) else {
+            break;
+        };
+        let mut ctx = RallyCtx {
+            side,
+            in_combat: def_target.is_some(),
+            attacker_id: attacker.id,
+            is_golden: attacker.is_golden,
+            board: &mut *board,
+            attacker_pos,
+            def_target: def_target.as_mut().map(|(b, i)| (&mut **b, *i)),
+            def_hand: &mut *def_hand,
+            auras: &mut *auras,
+            hand: &mut *hand,
+            hand_summoned: &mut *hand_summoned,
+            generated_hand: &mut *generated_hand,
+            tavern_casts: &mut *tavern_casts,
+            summons_attack_target: false,
+            rng: &mut *rng,
+            events: &mut *events,
+        };
+        rallied.0.extend(rally(&mut ctx));
+        rallied.1 |= ctx.summons_attack_target;
+    }
     resolve_pending_effects(board, auras, rng);
     rallied
 }
@@ -1981,7 +2017,7 @@ fn tavern_rally(
     if target_pos >= state.board.len() {
         return;
     }
-    let is_rally = is_rally_minion(state.board[target_pos].card_id);
+    let is_rally = has_rally(&state.board[target_pos]);
     let mut generated_hand = Vec::new();
     let mut tavern_casts = Vec::new();
     let mut hand_summoned = vec![false; state.hand.len()];
@@ -2247,18 +2283,41 @@ pub fn cast_tavern_spell_in_combat(
 /// apply at once, even when no minion dies (`Deathstrider`; `docs/combat.md` §1).
 pub fn on_deathrattle(dying: &Unit, ctx: &mut BoardCtx<'_>) {
     let own = hooks(dying.card_id).deathrattle;
-    // Deathrattles an effect gave it resolve after its own (`docs/heroes.md` §4).
+    // Deathrattles an effect gave it resolve after its own (`docs/heroes.md` §4), then its Dark
+    // Gifts' (`docs/dark_gifts.md` §7.3).
     let extra = dying
         .extra_deathrattles
         .iter()
         .filter_map(|&card_id| hooks(card_id).deathrattle);
-    for deathrattle in own.into_iter().chain(extra) {
-        ctx.auras.deathrattles_triggered += 1;
-        deathrattle(dying, ctx);
+    let after_resolving = |ctx: &mut BoardCtx<'_>| {
         let before = stat_snapshot(ctx.board);
         sync_combat_auras(ctx.board, ctx.hand, ctx.auras);
         push_stat_changes(ctx.side, ctx.board, &before, "Death Aura", ctx.events);
+    };
+    for deathrattle in own.into_iter().chain(extra) {
+        ctx.auras.deathrattles_triggered += 1;
+        deathrattle(dying, ctx);
+        after_resolving(ctx);
     }
+    for gift in &dying.dark_gifts {
+        if let Some(deathrattle) = hooks(gift.card_id).gift_deathrattle {
+            ctx.auras.deathrattles_triggered += 1;
+            deathrattle(dying, gift, ctx);
+            after_resolving(ctx);
+        }
+    }
+}
+
+/// `true` if `unit` has a Deathrattle: its card's, one an effect gave it, or a Dark Gift's.
+pub fn has_deathrattle(unit: &Unit) -> bool {
+    is_deathrattle_minion(unit.card_id)
+        || !unit.extra_deathrattles.is_empty()
+        || crate::dark_gifts::has_deathrattle(unit)
+}
+
+/// `true` if `unit` has a Rally: its card's or a Dark Gift's (`docs/dark_gifts.md` §6).
+pub fn has_rally(unit: &Unit) -> bool {
+    is_rally_minion(unit.card_id) || crate::dark_gifts::has_rally(unit)
 }
 
 /// Resolve effects that trigger after a round of combat deaths resolved for one side (player
@@ -2350,7 +2409,8 @@ pub fn on_post_combat_unit(
     };
     let self_mult = hooks(tavern_unit.card_id)
         .post_combat_keep_mult
-        .map_or(0, |f| f(tavern_unit));
+        .map_or(0, |f| f(tavern_unit))
+        .max(crate::dark_gifts::keep_combat_mult(tavern_unit));
     let neighbor_mult = [idx.checked_sub(1), Some(idx + 1)]
         .into_iter()
         .flatten()

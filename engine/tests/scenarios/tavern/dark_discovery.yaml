@@ -1,0 +1,62 @@
+topic: Dark Discovery (docs/dark_gifts.md §3)
+defaults:
+  tavern: {dark_gifts_enabled: true, gold: 10, turn: 3}
+scenarios:
+  - name: off_by_default
+    tavern: {dark_gifts_enabled: false}
+    steps:
+      - expect_illegal: dark_discovery
+    expect: {dark_discoveries_used: 0}
+
+  - name: locked_before_turn_3
+    tavern: {turn: 2}
+    steps:
+      - expect_illegal: dark_discovery
+
+  - name: needs_3_gold
+    tavern: {gold: 2}
+    steps:
+      - expect_illegal: dark_discovery
+
+  - name: costs_3_gold_and_discovers_3_tier_2_minions_with_a_gift_each
+    seeds: "1..=20"
+    steps:
+      - expect_legal: dark_discovery
+      - dark_discovery
+    expect:
+      gold: 7
+      dark_discoveries_used: 1
+      dark_discovery_used_this_turn: true
+      discover_pending: {count: 3, all: {tavern_tier: 2, dark_gifts: {count: 1}}}
+
+  - name: the_chosen_minion_reaches_the_hand_with_its_gift
+    seeds: "1..=5"
+    steps:
+      - dark_discovery
+      - choose_discover: 0
+    expect: {hand: [{dark_gifts: {count: 1}}], discover_pending: null}
+
+  - name: once_per_turn
+    steps:
+      - dark_discovery
+      - choose_discover: 0
+      - expect_illegal: dark_discovery
+
+  - name: three_uses_per_game
+    tavern: {dark_discoveries_used: 3}
+    steps:
+      - expect_illegal: dark_discovery
+
+  - name: the_start_of_turn_unlocks_it_again
+    steps:
+      - dark_discovery
+      - choose_discover: 0
+      - end_turn
+      - start_turn
+      - expect_legal: dark_discovery
+    expect: {dark_discovery_used_this_turn: false, dark_discoveries_used: 1}
+
+  - name: a_pending_discover_comes_first
+    steps:
+      - dark_discovery
+      - expect_illegal: dark_discovery

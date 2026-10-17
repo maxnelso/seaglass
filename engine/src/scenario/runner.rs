@@ -300,6 +300,7 @@ fn tavern_action(
                 }
             },
         },
+        Action::DarkDiscovery => TavernAction::DarkDiscovery,
         Action::ChooseHero(i) => TavernAction::ChooseHero {
             option_index: match i {
                 Index::At(n) => {
@@ -381,6 +382,7 @@ fn tavern_step(
             let options = crate::trinkets::draw_offer(state, *greater, rng);
             state.offer_trinkets(options);
         }
+        StepKind::OfferDarkGifts(units) => state.push_discover(units.clone()),
         StepKind::PlayBloodGems(z, index, count) => {
             let i = position(zone(state, *z), index, z.name(), captures)?;
             let auras = state.auras.clone();

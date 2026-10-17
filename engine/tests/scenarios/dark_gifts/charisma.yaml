@@ -1,0 +1,8 @@
+dark_gift: Charisma
+scenarios:
+  - name: rally_gets_a_minion_of_the_most_common_type
+    seeds: "1..=10"
+    combat:
+      board_a: ["1/5 beast gift:charisma", "1/1 beast"]
+      board_b: ["0/1"]
+    expect: {hand_a: [beast]}

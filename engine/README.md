@@ -41,6 +41,7 @@ The engine contains **only game rules and simulation**. All reinforcement learni
   - `Pass { hand_index }` (Duos only: passes a hand card to the teammate)
   - `HeroPower { target }` (uses the hero's Hero Power, `docs/heroes.md`)
   - `ChooseHero { option_index }` (chooses an offered hero)
+  - `DarkDiscovery` (the Dark Discovery button, `docs/dark_gifts.md`)
 - **Triples & Discover Sub-State**: Automatic combination of 3 non-golden copies across `board` and `hand` into a Golden minion with summed buffs, plus a `discover_pending` sub-state when playing a Golden minion.
 - **Spellcraft & Persistent Auras**: Turn-temporary and permanent (`Lava Lurker`) Spellcraft buffs, full-hand pending queue (`pending_spellcrafts`), and game-long scaling counters (`PlayerAuras`).
 - **Duos Taverns (`docs/duos_tavern.md`)**: A team of two players (`DuosTavern`), each with their own Tavern, sharing one Health pool and the card pool, acting in the same turn: `Pass` moves a hand card to the teammate for 1 Gold (free with `Wanderer Cho`), into an unbounded queue if their hand is full, and completes their triples; the team's combat brings each player's result back to their own Tavern.
@@ -49,6 +50,10 @@ The engine contains **only game rules and simulation**. All reinforcement learni
 - **The hero pool**: all 123 heroes of the pool (`heroes::table()`, generated from `CardDefs.xml` by `tools/gen_heroes.py`) with their Health, Solo and Duos Armor and Hero Power; a player's hero lives in their `PlayerAuras::hero` (none by default: a player without a hero plays exactly as before).
 - **Hero Powers** are cards with hooks: active ones are the `HeroPower` action (cost, uses per turn, targets), passive ones react to events, and Start of Combat ones resolve before every other Start of Combat effect. Each implemented hero has its own file, `src/heroes/<hero>.rs`, and scenario file, `tests/scenarios/heroes/<hero>.yaml`.
 - **Hero selection**: offers (2 per player, distinct across the lobby) and `ChooseHero`; in Duos the team's pool gets both heroes' Duos Armor.
+
+### Dark Gifts (`docs/dark_gifts.md`)
+- **The gifts**: the 47 Dark Gift cards (`dark_gifts::table()`, generated from `CardDefs.xml` by `tools/gen_dark_gifts.py`) with their turn windows and weights; a minion's gifts are `Unit::dark_gifts` (permanent enchantments that travel with it and combine on a Triple).
+- **The Dark Discovery button** (`TavernAction::DarkDiscovery`, behind `TavernState::dark_gifts_enabled`, off by default): 3 Gold, from turn 3, once per turn, 3 uses per game, a Discover of 3 minions each with a different gift, drawn by the offer rules (`dark_gifts::draw_offer`). Each implemented gift has its own file, `src/dark_gifts/<gift>.rs`, and scenario file, `tests/scenarios/dark_gifts/<gift>.yaml`.
 
 ### Combat Phase (`docs/combat.md`)
 - **Core Loop**: First-attacker determination (minion count after Start of Combat, then coin flip), alternating turns with identity-tracked attack pointers, Taunt-aware target selection, simultaneous damage, and hero damage (`hero_tier + sum(survivor_tiers)`).
@@ -85,6 +90,7 @@ The PyO3 bindings provide a **marshalling-only** layer exposing the engine to Py
   - `.step(action)` — Executes a `TavernAction` (or raises `ValueError` if illegal).
   - `.start_turn()` / `.end_turn()` — Advances turn lifecycle.
 - `seaglass.TavernGame(..., hero=None)` / `seaglass.DuosTavernGame(..., heroes=None)` give the players heroes (`docs/heroes.md`), and `seaglass.heroes_table()` lists the pool.
+- `seaglass.TavernGame(..., dark_gifts=False)` / `seaglass.DuosTavernGame(..., dark_gifts=False)` give the players the Dark Discovery button (`docs/dark_gifts.md`), and `seaglass.dark_gifts_table()` lists the gifts.
 - `seaglass.catalog(name="full")` — Returns the engine's `CardTemplate` list so Python never hardcodes card IDs or stats.
 - `seaglass.parse_unit(spec)` — Parses compact scenario strings such as `"3/2 divine_shield taunt"`.
 

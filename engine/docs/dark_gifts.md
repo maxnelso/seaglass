@@ -128,10 +128,10 @@ Each option gets one gift, drawn by weight among the gifts it can be offered (§
 ### 4.3 The Draw (`dark_gifts::draw_offer`) **(engine decision, agreed: the minions first, then a gift for each)**
 
 1. **Most common type** (turn 6 and later): `t = spells::most_common_tribe(board, rng)` (it draws only for a tie or a board without types).
-2. **Three minions**, one after another, from the pool as a Discover draws (`CardPool::draw_discover_filtered`: weighted by copies left, distinct cards, taken out of the pool). For each:
+2. **Three minions**, one after another, from the pool as a Discover draws (`CardPool::draw_template_where`: weighted by copies left, distinct cards, taken out of the pool). For each:
    - its Tier: one `rng.below(k)` among the turn's `k` Tiers (none for one Tier) **(engine decision: uniform per minion)**; if the pool has no minion for it at that Tier, the turn's other Tiers, from the lowest **(engine decision)**;
    - the candidates: the pool's minions of that Tier that pass the filters (§4.1) and aren't already offered; the first option, from turn 6, also of type `t` (if the pool has none of it, it is drawn like the others) **(engine decision)**.
-3. **Gifts**, in option order: for each option, one `rng.below(total weight)` among the gifts it can be offered and the offer hasn't given yet. `Gilding` can only go to an option of the offer's lowest Tier (§5.2), known once the three minions are drawn. An option left with no gift (the others took the only ones it could have) goes back to the pool and the offer has one option fewer **(engine decision)**.
+3. **Gifts**, in option order: for each option, one `rng.below(total weight)` among the gifts it can be offered and the offer hasn't given yet. `Gilding` can only go to an option of the offer's lowest Tier (§5.2), known once the three minions are drawn. An option left with no gift (the others took the only ones it could have) goes back to the pool and is replaced by a new draw as in step 2 (the same type rule, a minion not offered or tried yet, of the offer's lowest Tier or higher, with a gift the offer hasn't given), until one has a gift; if the pool has none, the offer has one option fewer **(engine decision)**.
 4. The options keep their draw order (no shuffle) **(engine decision)**. Each option has the player's "wherever this is" auras applied (`apply_global_unit_auras`), as every Discover option does.
 
 `dark_gifts::draw_offer(state, pool, rng, rules)` takes the turn and the Tiers from `OfferRules` so the heroes and trinkets reuse it (§12): `OfferRules::button(turn)` is §4.1.
@@ -197,7 +197,9 @@ Gifts reuse the card hook system (`src/cards/hooks.rs`): a gift is a card whose 
 | Hook | Fires | For |
 | :--- | :--- | :--- |
 | `gift_given` | The gift is given to a minion (§2.2): `(unit, gift)`. | Keywords, stats, Golden, a type. |
-| `gift_offerable` | Its own offer rules (§5.2): `(ctx, minion)`, an `OfferCtx` (the turn, the player's state, the lobby, the offer's lowest Tier). | §5.2. |
+| `gift_reapply` | What it keeps giving its minion, applied again to the Golden a Triple made: `(unit)`. | `Amalgamation`. |
+| `gift_offerable` | Its own offer rules (§5.2, and its lobby ban, §5.1 rule 5): `(ctx, minion)`, an `OfferCtx` (the turn, the player's auras and Tier, the lobby's types, the offer's lowest Tier). | §5.2. |
+| `gift_weight_factor` | The factor on its weight for a minion: `(minion)`. | `Harpy's Talons`. |
 | `gift_trigger_count` | Its "most triggered" count (§5.1 rule 4): `(auras)`. | `Battle Scars`, `Death's Embrace`, `Spell Siphon`. |
 | `gift_aura` | The stats the gift gives the minion wherever it is, kept in sync with the other auras (`Unit::aura_applied`): `(unit, gift, auras)`. | `Battle Scars`, `Desecration`, ... |
 | `gift_obtained` | The minion was Discovered (`cards::on_obtained`): `(state, card, pool, rng)`. | `Double Vision`. |
@@ -209,10 +211,11 @@ Gifts reuse the card hook system (`src/cards/hooks.rs`): a gift is a card whose 
 | `gift_rally` | The minion's Rally, after its card's: `(ctx)`, a `RallyCtx`. | `Charisma`, `Consanguinity`. |
 | `gift_reborn` | The minion is Reborn: the Reborn copy, given the dying minion: `(dying, copy)`. | `Persisting Horror`. |
 | `gift_extra_activations` | Extra times its `Activate` triggers: `(unit)`. | `Efficiency`. |
-| `gift_shield_hits` | Extra hits its Divine Shield takes to break, restarted each combat: `(unit)`. | `Toreth's Blessing`. |
-| `gift_immune_attacking` | It takes no damage while attacking. | `Invulnerability`. |
+| `gift_combat_start` | A combat starts (its minion's combat copy is set up): `(gift)`, to restart a per-combat count. | `Toreth's Blessing`. |
+| `gift_absorb_shield_hit` | Its minion's Divine Shield is hit in combat (`apply_damage`): `true` if the gift absorbs the hit (the shield stays), using up its count: `(gift)`. | `Toreth's Blessing`. |
 | `gift_keep_combat_mult` | The multiplier with which the minion keeps the stats it gained in combat (`cards::keep_combat_gains`; the largest of its card's, its neighbours' and its gifts'): `(unit)`. | `Tarecgosa's Blessing`. |
-| `gift_spellcraft_kept` | The Spellcraft spell this minion gives is not temporary. | `Sunken Persistence`. |
+
+Flags (`CardFlags`) mark the rest: `GIFT_GIVES_STATS`, `GIFT_FOR_DEATHRATTLE` and `GIFT_FOR_BATTLECRY` (§5.1), `GIFT_IMMUNE_ATTACKING` (its minion takes no damage while attacking: `Invulnerability`) and `GIFT_KEEPS_SPELLCRAFT` (its minion's Spellcraft spell is not temporary: `Sunken Persistence`). `AVENGE` marks the Avenge minions (§5.2).
 
 The dispatch functions (`dark_gifts::on_end_of_turn`, `dark_gifts::start_of_combat`, ...) run each gift's hook in turn; the engines call them next to the matching card dispatch. A minion with a gift that has a `gift_start_of_combat`, `gift_deathrattle` or `gift_rally` hook has a Start of Combat, a Deathrattle or a Rally for the engine (`cards::has_start_of_combat`, `cards::has_deathrattle`, `cards::has_rally`): it is listed at Start of Combat, `Titus Rivendare` and `Herald Sticker` repeat or trigger its gift's Deathrattle, and it is a Rally minion for `after_friendly_rally` **(engine decision)**.
 
@@ -256,7 +259,7 @@ The button is per player **(engine decision)**: each player of a team has their 
 ### 8.3 Scenarios
 
 - A gift's scenario file is `tests/scenarios/dark_gifts/<slug>.yaml`, starting with `dark_gift: <display name>` (`dark_gift: Battle Scars (late)`).
-- A unit spec token `gift:<gift>` (its slug or card ID: `"Wrath Weaver gift:harpys_talons"`) gives the unit that gift in a setup (`dark_gifts::give`, with its `gift_given` text, on the Tavern's turn, or turn 0 in a combat), and in an expectation checks that the unit has it (`-gift:<gift>`: that it doesn't).
+- A unit spec token `gift:<gift>` (its slug or card ID: `"Wrath Weaver gift:harpys_talons"`) gives the unit that gift in a setup (`dark_gifts::give`, with its `gift_given` text, as on turn 0; `gift:<gift>@<turn>` gives it as on that turn), and in an expectation checks that the unit has it (`-gift:<gift>`: that it doesn't). A unit's view has its `dark_gifts`.
 - `dark_gifts_enabled: true` on a Tavern enables the button; the step `dark_discovery: true` takes the action, and `offer_dark_gifts: [<unit spec>, ...]` offers those minions (their gifts given by `gift:` tokens) as a Discover without the button, for the tests of a gift's text.
 
 ---

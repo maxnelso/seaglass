@@ -1,0 +1,14 @@
+dark_gift: Doppelganger
+scenarios:
+  - name: summons_a_copy_of_itself
+    combat:
+      board_a: ["2/3 gift:doppelganger", "1/1"]
+      board_b: []
+    expect: {survivors_a: ["2/3 gift:doppelganger", "2/3 gift:doppelganger", "1/1"]}
+
+  - name: not_on_a_full_board
+    description: The first copy fills the board; the 4/4 has no room for its own.
+    combat:
+      board_a: ["2/3 gift:doppelganger", "4/4 gift:doppelganger", "1/1", "1/1", "1/1", "1/1"]
+      board_b: []
+    expect: {survivors_a: ["2/3", "2/3", "4/4", "1/1", "1/1", "1/1", "1/1"]}

@@ -135,6 +135,9 @@ impl SideCombatState {
             if let Some(combat_start) = cards::hooks(u.card_id).combat_start {
                 combat_start(u);
             }
+            if !u.dark_gifts.is_empty() {
+                crate::dark_gifts::combat_start(u);
+            }
             cards::sync_board_unit_auras(u, &auras);
             u.sync_max_stats();
             cards::check_stat_thresholds(u);
@@ -983,6 +986,28 @@ fn resolve_minion_start_of_combat(
         ),
         None => {}
     }
+    // Then its Dark Gifts' Start of Combat, in gift order (`docs/dark_gifts.md` §7.2).
+    let gift_hooks = own_side
+        .board
+        .iter()
+        .find(|u| u.id == src_id && u.health > 0)
+        .map(crate::dark_gifts::start_of_combat_hooks)
+        .unwrap_or_default();
+    for (gift_idx, hook) in gift_hooks {
+        if !own_side
+            .board
+            .iter()
+            .any(|u| u.id == src_id && u.health > 0)
+        {
+            break;
+        }
+        hook(
+            &mut own_side.ctx(side, next_id, rng, events),
+            src_id,
+            gift_idx,
+        );
+        resolve_effect_deaths(side, own_side, opp_side, next_id, rng, events);
+    }
 }
 
 /// Emit and resolve the deaths an effect of `side` caused (a Start-of-Combat effect or a Rally),
@@ -1346,7 +1371,7 @@ fn perform_one_strike(
     });
 
     // 2. Fire On-Attack (Rally) hook before damage.
-    let attacker_card_id = atk_side.board[initial_atk_pos].card_id;
+    let attacker_has_rally = cards::has_rally(&atk_side.board[initial_atk_pos]);
     let before_rally: Vec<(UnitId, i32, i32)> = atk_side
         .board
         .iter()
@@ -1433,7 +1458,7 @@ fn perform_one_strike(
         crate::trinkets::after_combat_summon(&mut atk_side.ctx(side, next_id, rng, events));
     }
 
-    if cards::is_rally_minion(attacker_card_id) {
+    if attacker_has_rally {
         cards::after_friendly_rally(&mut atk_side.ctx(side, next_id, rng, events));
     }
 
@@ -1494,14 +1519,20 @@ fn perform_one_strike(
         );
     }
 
-    let (def_consumed_venom, atk_took_damage) = apply_damage(
-        &mut atk_side.board,
-        atk_pos,
-        target_attack,
-        target_id,
-        target_venomous,
-        events,
-    );
+    // A minion Immune while attacking takes nothing (`Invulnerability`; `docs/dark_gifts.md`).
+    let (def_consumed_venom, atk_took_damage) =
+        if crate::dark_gifts::immune_attacking(&atk_side.board[atk_pos]) {
+            (false, false)
+        } else {
+            apply_damage(
+                &mut atk_side.board,
+                atk_pos,
+                target_attack,
+                target_id,
+                target_venomous,
+                events,
+            )
+        };
     if def_consumed_venom {
         def_side.board[def_pos].venomous = false;
     }
@@ -1909,7 +1940,12 @@ fn apply_damage(
         return (false, false);
     }
     if board[pos].divine_shield {
-        cards::pop_divine_shield(board, pos, events);
+        // A Dark Gift may make the shield take more hits (`Toreth's Blessing`).
+        if board[pos].dark_gifts.is_empty()
+            || !crate::dark_gifts::absorb_shield_hit(&mut board[pos])
+        {
+            cards::pop_divine_shield(board, pos, events);
+        }
         (false, false)
     } else {
         let unit = &mut board[pos];

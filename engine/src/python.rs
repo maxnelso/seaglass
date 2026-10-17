@@ -195,6 +195,12 @@ impl PyUnit {
         self.inner.marked
     }
 
+    /// The unit's Dark Gifts' ids (dbfIds), in the order it got them (`docs/dark_gifts.md` §8.2).
+    #[getter]
+    fn dark_gifts(&self) -> Vec<u32> {
+        self.inner.dark_gifts.iter().map(|g| g.card_id).collect()
+    }
+
     #[getter]
     fn unplayable(&self) -> bool {
         self.inner.unplayable || self.inner.lockbox_turns_left > 0 || self.inner.locked_turns > 0
@@ -467,6 +473,14 @@ impl PyTavernAction {
         }
     }
 
+    /// Use the Dark Discovery button (`docs/dark_gifts.md` §3).
+    #[staticmethod]
+    fn dark_discovery() -> Self {
+        Self {
+            inner: TavernAction::DarkDiscovery,
+        }
+    }
+
     #[getter]
     fn kind(&self) -> &'static str {
         match self.inner {
@@ -486,6 +500,7 @@ impl PyTavernAction {
             TavernAction::ChooseHero { .. } => "choose_hero",
             TavernAction::HeroPower2 { .. } => "hero_power_2",
             TavernAction::ChooseTrinket { .. } => "choose_trinket",
+            TavernAction::DarkDiscovery => "dark_discovery",
         }
     }
 
@@ -516,7 +531,8 @@ impl PyTavernAction {
             TavernAction::Refresh
             | TavernAction::UpgradeTavern
             | TavernAction::ToggleFreeze
-            | TavernAction::EndTurn => (None, None),
+            | TavernAction::EndTurn
+            | TavernAction::DarkDiscovery => (None, None),
         }
     }
 
@@ -625,6 +641,14 @@ pub struct PyTavernObservation {
     pub trinket_options: Vec<u32>,
     #[pyo3(get)]
     pub trinket_option_costs: Vec<u32>,
+    /// The Dark Discovery button (`docs/dark_gifts.md` §8.2): enabled, its uses left this game,
+    /// and whether `dark_discovery` is legal now.
+    #[pyo3(get)]
+    pub dark_gifts_enabled: bool,
+    #[pyo3(get)]
+    pub dark_discoveries_left: u32,
+    #[pyo3(get)]
+    pub dark_discovery_usable: bool,
 }
 
 impl From<&TavernState> for PyTavernObservation {
@@ -696,6 +720,9 @@ impl From<&TavernState> for PyTavernObservation {
             trinket_counters: s.auras.trinkets.iter().map(|t| t.counter).collect(),
             trinket_options: s.trinket_options.iter().map(|o| o.card_id).collect(),
             trinket_option_costs: s.trinket_options.iter().map(|o| o.cost).collect(),
+            dark_gifts_enabled: s.dark_gifts_enabled,
+            dark_discoveries_left: crate::dark_gifts::uses_left(s),
+            dark_discovery_usable: s.is_legal(&TavernAction::DarkDiscovery),
         }
     }
 }
@@ -731,9 +758,11 @@ pub struct PyTavernGame {
 impl PyTavernGame {
     /// `hero` (a name or id; `docs/heroes.md`) gives the player that hero: its Health, Armor and
     /// Hero Power. Without one (the default) the player has `armor` and no Hero Power. `trinkets`
-    /// enables the trinket offers of turns 6 and 9 (`docs/trinkets.md`); off by default.
+    /// enables the trinket offers of turns 6 and 9 (`docs/trinkets.md`), `dark_gifts` the Dark
+    /// Discovery button (`docs/dark_gifts.md`); both off by default.
     #[new]
-    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None, trinkets=false))]
+    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None, trinkets=false, dark_gifts=false))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         seed: u64,
         catalog: &str,
@@ -742,12 +771,14 @@ impl PyTavernGame {
         armor: i32,
         hero: Option<&Bound<'_, PyAny>>,
         trinkets: bool,
+        dark_gifts: bool,
     ) -> PyResult<Self> {
         let templates = cards::catalog_for(catalog).map_err(PyValueError::new_err)?;
         let pool = CardPool::new(templates);
         let rng = Rng::new(seed);
         let mut state = TavernState::new().with_shop_spells(shop_spells);
         state.trinkets_enabled = trinkets;
+        state.dark_gifts_enabled = dark_gifts;
         state.auras.deity.kind = parse_deity_kind(deity)?;
         match parse_hero(hero)? {
             Some(id) => state.set_hero(id).map_err(PyValueError::new_err)?,
@@ -1300,6 +1331,14 @@ pub struct PyDuosObservation {
     pub trinket_options: Vec<u32>,
     #[pyo3(get)]
     pub trinket_option_costs: Vec<u32>,
+    /// This player's Dark Discovery button (`docs/dark_gifts.md` §8.2), as in
+    /// `TavernObservation`.
+    #[pyo3(get)]
+    pub dark_gifts_enabled: bool,
+    #[pyo3(get)]
+    pub dark_discoveries_left: u32,
+    #[pyo3(get)]
+    pub dark_discovery_usable: bool,
 }
 
 impl PyDuosObservation {
@@ -1368,6 +1407,9 @@ impl PyDuosObservation {
             trinket_counters: own.trinket_counters,
             trinket_options: own.trinket_options,
             trinket_option_costs: own.trinket_option_costs,
+            dark_gifts_enabled: own.dark_gifts_enabled,
+            dark_discoveries_left: own.dark_discoveries_left,
+            dark_discovery_usable: own.dark_discovery_usable && !team.ended[player],
         }
     }
 }
@@ -1398,9 +1440,10 @@ impl PyDuosTavernGame {
     /// `armor` is each hero's starting Armor: the team starts with their sum (§3). `heroes` (a
     /// name or id for each player, or `None`; `docs/heroes.md`) gives the players heroes instead:
     /// the team gets their Duos Armor (and Patchwerk's extra Health) and each its Hero Power.
-    /// `trinkets` enables both players' trinket offers (`docs/trinkets.md` §8.1).
+    /// `trinkets` enables both players' trinket offers (`docs/trinkets.md` §8.1), `dark_gifts`
+    /// their Dark Discovery buttons (`docs/dark_gifts.md` §8.1).
     #[new]
-    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None, trinkets=false))]
+    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None, trinkets=false, dark_gifts=false))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         seed: u64,
@@ -1411,6 +1454,7 @@ impl PyDuosTavernGame {
         deity: Option<&str>,
         heroes: Option<HeroPair<'_>>,
         trinkets: bool,
+        dark_gifts: bool,
     ) -> PyResult<Self> {
         if !(0.0..=1.0).contains(&first_fighter_switch_chance) {
             return Err(PyValueError::new_err(format!(
@@ -1422,6 +1466,7 @@ impl PyDuosTavernGame {
         let mut team = DuosTavern::new()
             .with_shop_spells(shop_spells)
             .with_trinkets(trinkets)
+            .with_dark_gifts(dark_gifts)
             .with_first_fighter_switch_chance(first_fighter_switch_chance);
         for state in &mut team.players {
             state.auras.deity.kind = kind;
@@ -1739,7 +1784,41 @@ fn all_card_ids() -> Vec<u32> {
             ids.push(id);
         }
     }
+    // Then the Dark Gifts (`docs/dark_gifts.md` §8.2), in their append-only order
+    // (`dark_gifts::vocabulary`).
+    for id in crate::dark_gifts::vocabulary() {
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
     ids
+}
+
+/// The Dark Gifts (`docs/dark_gifts.md` §2.1): `(id, name, min_turn, max_turn, weight,
+/// implemented)` for every gift, by name (`max_turn` 0: none; the display name, `Battle Scars
+/// (late)`), and the gifts' vocabulary order (`dark_gifts_vocabulary`).
+#[pyfunction]
+fn dark_gifts_table() -> Vec<(u32, String, u32, u32, u32, bool)> {
+    crate::dark_gifts::table()
+        .iter()
+        .map(|g| {
+            (
+                g.id,
+                crate::dark_gifts::display_name(g),
+                g.min_turn,
+                g.max_turn.unwrap_or(0),
+                g.weight,
+                crate::dark_gifts::is_implemented(g.id),
+            )
+        })
+        .collect()
+}
+
+/// The Dark Gifts' ids in their RL vocabulary order (append-only; `docs/dark_gifts.md` §8.2):
+/// the slot features' order.
+#[pyfunction]
+fn dark_gifts_vocabulary() -> Vec<u32> {
+    crate::dark_gifts::vocabulary()
 }
 
 /// The trinket pool (`docs/trinkets.md` §2.1): `(id, name, greater, cost, implemented)` for every
@@ -1796,6 +1875,8 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
     m.add_function(wrap_pyfunction!(heroes_table, m)?)?;
     m.add_function(wrap_pyfunction!(trinkets_table, m)?)?;
+    m.add_function(wrap_pyfunction!(dark_gifts_table, m)?)?;
+    m.add_function(wrap_pyfunction!(dark_gifts_vocabulary, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
     Ok(())
 }

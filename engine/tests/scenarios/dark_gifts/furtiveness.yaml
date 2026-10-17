@@ -1,0 +1,11 @@
+dark_gift: Furtiveness
+scenarios:
+  - name: gives_stealth
+    combat:
+      board_a: ["1/1 gift:furtiveness"]
+      board_b: []
+    expect: {survivors_a: ["1/1 stealth"]}
+
+  - name: the_tavern_minion_keeps_it
+    tavern: {hand: ["1/1 gift:furtiveness"]}
+    expect: {hand: ["1/1 stealth gift:furtiveness"]}

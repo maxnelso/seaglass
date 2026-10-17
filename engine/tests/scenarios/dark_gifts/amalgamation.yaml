@@ -1,0 +1,14 @@
+dark_gift: Amalgamation
+scenarios:
+  - name: it_has_every_type
+    combat:
+      board_a: ["1/1 gift:amalgamation"]
+      board_b: []
+    expect: {survivors_a: ["1/1 dragon murloc undead"]}
+
+  - name: a_golden_made_from_it_keeps_every_type
+    description: The copy with the gift isn't the first one; the Golden still has every type.
+    tavern: {}
+    steps:
+      - add_to_hand: [Suspicious Prisonguard, Suspicious Prisonguard, "Suspicious Prisonguard gift:amalgamation"]
+    expect: {hand: ["golden Suspicious Prisonguard beast pirate gift:amalgamation"]}

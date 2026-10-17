@@ -1,0 +1,8 @@
+dark_gift: Gilding
+scenarios:
+  - name: it_is_golden_without_a_triple_reward
+    tavern: {gold: 10, hand: ["Suspicious Prisonguard gift:gilding"]}
+    steps:
+      - expect: {hand: [{stats: "6/6", is_golden: true, intrinsic_golden: true}]}
+      - play: 0
+    expect: {board: ["golden Suspicious Prisonguard"], discover_pending: null, hand: []}

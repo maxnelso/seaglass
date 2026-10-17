@@ -1,0 +1,13 @@
+dark_gift: Jaws of Death
+scenarios:
+  - name: start_of_combat_triggers_its_deathrattle
+    combat:
+      board_a: ["Harmless Bonehead gift:jaws_of_death"]
+      board_b: []
+    expect: {survivors_a: [Harmless Bonehead, Skeleton, Skeleton]}
+
+  - name: titus_repeats_it
+    combat:
+      board_a: ["Harmless Bonehead gift:jaws_of_death", Titus Rivendare]
+      board_b: []
+    expect: {survivors_a: {count: 6}}

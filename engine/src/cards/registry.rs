@@ -60,7 +60,8 @@ fn build() -> Registry {
         .chain(spells::behaviors())
         .chain(deities::behaviors())
         .chain(crate::heroes::behaviors())
-        .chain(crate::trinkets::behaviors());
+        .chain(crate::trinkets::behaviors())
+        .chain(crate::dark_gifts::behaviors());
     for (card_id, h) in extra {
         set_slot(&mut hook_slot, card_id, hooks.len(), "hooks");
         hooks.push(h);

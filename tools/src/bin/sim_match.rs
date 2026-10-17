@@ -454,6 +454,7 @@ fn describe_action(state: &TavernState, action: &TavernAction) -> String {
                 None => format!("Choose trinket {option_index}"),
             }
         }
+        TavernAction::DarkDiscovery => "Dark Discovery for 3g".to_string(),
     }
 }
 

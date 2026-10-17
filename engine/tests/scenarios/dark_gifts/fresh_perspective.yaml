@@ -1,0 +1,14 @@
+dark_gift: Fresh Perspective
+scenarios:
+  - name: its_deathrattle_gives_2_free_refreshes
+    seeds: "1..=4"
+    combat:
+      board_a: ["1/1 gift:fresh_perspective"]
+      board_b: ["5/5"]
+    expect: {auras_a: {free_refreshes: 2}}
+
+  - name: the_refreshes_reach_the_tavern
+    tavern: {board: ["1/1 gift:fresh_perspective"]}
+    steps:
+      - fight: {board: ["5/5"]}
+    expect: {auras: {free_refreshes: 2}}

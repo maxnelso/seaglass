@@ -89,6 +89,7 @@ use std::sync::{Mutex, Once};
 use std::time::{Duration, Instant};
 
 use seaglass::cards::{self, CardFlags};
+use seaglass::dark_gifts;
 use seaglass::heroes;
 use seaglass::lobby::Lobby;
 use seaglass::model::{HeroId, TeammateGift};
@@ -182,6 +183,8 @@ struct Config {
     heroes: Vec<Option<HeroId>>,
     /// The players are offered trinkets on turns 6 and 9 (`docs/trinkets.md` §3).
     trinkets: bool,
+    /// The players have the Dark Discovery button (`docs/dark_gifts.md` §3).
+    dark_gifts: bool,
 }
 
 impl Config {
@@ -244,6 +247,8 @@ impl Config {
         };
         // Trinkets too, from an RNG of their own: offered in half the games.
         let trinkets = Rng::new(seed ^ 0x7121_4E75_0000_0001).below(2) == 0;
+        // The Dark Discovery button too, in half the games.
+        let dark_gifts = Rng::new(seed ^ 0xDA2C_61F7_0000_0001).below(2) == 0;
         Self {
             players,
             catalog,
@@ -257,6 +262,7 @@ impl Config {
             gifts,
             heroes,
             trinkets,
+            dark_gifts,
         }
     }
 }
@@ -289,16 +295,18 @@ enum Kind {
     ChooseHero,
     /// Picking a trinket (`docs/trinkets.md` §4).
     ChooseTrinket,
+    /// Using the Dark Discovery button (`docs/dark_gifts.md` §3).
+    DarkDiscovery,
 }
 
-const KINDS: usize = 17;
+const KINDS: usize = 18;
 
 /// The kinds there were before heroes: only their weights vary per game, so that adding heroes
 /// left every seed's configuration as it was.
 const PRE_HERO_KINDS: usize = 14;
 
 /// Base weights, indexed by `Kind as usize`: mostly buying and playing, so games develop.
-const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0, 12, 1, 1];
+const BASE_WEIGHTS: [u32; KINDS] = [30, 15, 40, 30, 12, 8, 2, 15, 6, 8, 2, 3, 1, 0, 12, 1, 1, 6];
 
 fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
     match *action {
@@ -329,6 +337,7 @@ fn kind_of(s: &TavernState, action: &TavernAction) -> Kind {
         TavernAction::HeroPower { .. } | TavernAction::HeroPower2 { .. } => Kind::HeroPower,
         TavernAction::ChooseHero { .. } => Kind::ChooseHero,
         TavernAction::ChooseTrinket { .. } => Kind::ChooseTrinket,
+        TavernAction::DarkDiscovery => Kind::DarkDiscovery,
     }
 }
 
@@ -679,7 +688,85 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
             ),
         ));
     }
-    check_trinkets(s)
+    check_trinkets(s)?;
+    check_dark_gifts(s)
+}
+
+/// The Dark Gifts (`docs/dark_gifts.md` §2.2, §3): the button's uses within the rules (none
+/// without the button), and every gift on a card an implemented one.
+fn check_dark_gifts(s: &TavernState) -> Result<(), Violation> {
+    let uses_ok = if s.dark_gifts_enabled {
+        s.dark_discoveries_used <= dark_gifts::USES_PER_GAME
+            && (s.dark_discoveries_used > 0 || !s.dark_discovery_used_this_turn)
+    } else {
+        s.dark_discoveries_used == 0 && !s.dark_discovery_used_this_turn
+    };
+    if !uses_ok {
+        return Err(broken(
+            "the Dark Discovery button's uses break its rules",
+            format!(
+                "enabled {}, used {} (this turn: {})",
+                s.dark_gifts_enabled, s.dark_discoveries_used, s.dark_discovery_used_this_turn
+            ),
+        ));
+    }
+    let prompts = s.discover_pending.iter().chain(&s.discover_queue).flatten();
+    let cards = s.board.iter().chain(&s.hand).chain(&s.shop).chain(prompts);
+    for unit in cards.chain(&s.waiting_for_hand) {
+        if let Some(g) = unit
+            .dark_gifts
+            .iter()
+            .find(|g| !dark_gifts::is_implemented(g.card_id))
+        {
+            return Err(broken(
+                "a card has a Dark Gift the engine doesn't implement",
+                format!("{} has gift {}", unit.name, g.card_id),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The options the Dark Discovery button just offered (`docs/dark_gifts.md` §4): at most 3,
+/// different minions with one gift each, different gifts, of the turn's Tiers, passing the
+/// minion filters, each gift one the minion could be offered on that turn.
+fn check_dark_offer(s: &TavernState, opts: &[Unit], pool: &CardPool) -> Result<(), Violation> {
+    let tiers = dark_gifts::button_tiers(s.turn);
+    let mut ctx = dark_gifts::offer_ctx(s, pool, s.turn);
+    ctx.lowest_tier = opts.iter().map(|u| u.tavern_tier).min().unwrap_or(0);
+    let bad = opts.iter().enumerate().find_map(|(i, u)| {
+        let t = cards::template(u.card_id)?;
+        let gift = u
+            .dark_gifts
+            .first()
+            .and_then(|g| dark_gifts::data(g.card_id));
+        let ok = u.dark_gifts.len() == 1
+            && tiers.contains(&u.tavern_tier)
+            && dark_gifts::minion_allowed(s.turn, t)
+            && opts[..i].iter().all(|o| o.card_id != u.card_id)
+            && gift.is_some_and(|g| {
+                opts[..i].iter().all(|o| o.dark_gifts[0].card_id != g.id)
+                    && dark_gifts::offerable(&ctx, g, t, dark_gifts::GiftPool::Turn)
+            });
+        (!ok).then(|| format!("{} with gifts {:?}", u.name, u.dark_gifts))
+    });
+    let bad = bad.or_else(|| {
+        opts.iter()
+            .find(|u| cards::template(u.card_id).is_none())
+            .map(|u| format!("{} is no catalog minion", u.name))
+    });
+    if opts.len() > dark_gifts::OFFER_COUNT || bad.is_some() {
+        return Err(broken(
+            "a Dark Discovery offer breaks its rules",
+            format!(
+                "turn {}: {} ({})",
+                s.turn,
+                units_desc(opts),
+                bad.unwrap_or_default()
+            ),
+        ));
+    }
+    Ok(())
 }
 
 /// The player's trinkets and their offer (`docs/trinkets.md` §2.2, §3): owned trinkets are
@@ -815,7 +902,10 @@ fn check_units(s: &TavernState) -> Result<(), Violation> {
             let golden_name = format!("Golden {}", t.name);
             let problem = if u.tavern_tier != t.tavern_tier {
                 Some(format!("Tier {} (card: {})", u.tavern_tier, t.tavern_tier))
-            } else if u.tribe != t.tribe {
+            } else if u.tribe != t.tribe
+                // (A Dark Gift can give it every type: `Amalgamation`.)
+                && !(u.tribe == seaglass::Tribe::All && !u.dark_gifts.is_empty())
+            {
                 Some(format!("type {:?} (card: {:?})", u.tribe, t.tribe))
             } else if u.name != t.name && u.name != golden_name {
                 Some(format!("name {:?}", u.name))
@@ -1210,6 +1300,7 @@ fn candidate_actions(s: &TavernState) -> Vec<TavernAction> {
         out.push(TavernAction::ChooseTrinket { option_index });
     }
     out.extend([
+        TavernAction::DarkDiscovery,
         TavernAction::Refresh,
         TavernAction::UpgradeTavern,
         TavernAction::ToggleFreeze,
@@ -1845,6 +1936,7 @@ impl Expect {
             TavernAction::UpgradeTavern => Some(s.upgrade_price()),
             // (A trinket that gives Gold as it is picked gives it back: `gold_back`.)
             TavernAction::ChooseTrinket { option_index } => trinkets::option_price(s, option_index),
+            TavernAction::DarkDiscovery => Some(dark_gifts::PRICE),
             // (Not an Activate: its effect can give Gold, a Kelp Keeper triggering a Battlecry
             // that casts a Tavern Coin.)
             _ => None,
@@ -2041,6 +2133,18 @@ impl Expect {
             }
             checks.push(check_refilled_shop(s, pool, catalog, "Refresh"));
         }
+        if action == TavernAction::DarkDiscovery {
+            // Its offer is the last prompt (a Gold-spent effect may have offered one first).
+            let last = s.discover_queue.last().or(s.discover_pending.as_ref());
+            if !s.dark_discovery_used_this_turn {
+                checks.push(Err(broken("a Dark Discovery wasn't counted", "")));
+            }
+            if let Some(opts) = last.filter(|_| {
+                s.discover_pending.iter().chain(&s.discover_queue).count() > self.prompts
+            }) {
+                checks.push(check_dark_offer(s, opts, pool));
+            }
+        }
         checks
     }
 }
@@ -2106,6 +2210,7 @@ enum Act {
     HeroPower2(Option<usize>),
     ChooseHero(usize),
     ChooseTrinket(usize),
+    DarkDiscovery,
 }
 
 impl From<TavernAction> for Act {
@@ -2136,6 +2241,7 @@ impl From<TavernAction> for Act {
             TavernAction::HeroPower2 { target } => Act::HeroPower2(target),
             TavernAction::ChooseHero { option_index } => Act::ChooseHero(option_index),
             TavernAction::ChooseTrinket { option_index } => Act::ChooseTrinket(option_index),
+            TavernAction::DarkDiscovery => Act::DarkDiscovery,
         }
     }
 }
@@ -2168,6 +2274,7 @@ impl From<Act> for TavernAction {
             Act::HeroPower2(target) => TavernAction::HeroPower2 { target },
             Act::ChooseHero(option_index) => TavernAction::ChooseHero { option_index },
             Act::ChooseTrinket(option_index) => TavernAction::ChooseTrinket { option_index },
+            Act::DarkDiscovery => TavernAction::DarkDiscovery,
         }
     }
 }
@@ -2279,6 +2386,7 @@ impl Game {
                 p.auras.deity.kind = cfg.deities[i];
                 p.auras.base_max_gold_bonus = cfg.rich;
                 p.trinkets_enabled = cfg.trinkets;
+                p.dark_gifts_enabled = cfg.dark_gifts;
                 if let Some(hero) = cfg.heroes[i] {
                     p.set_hero(hero).expect("an implemented hero");
                 }

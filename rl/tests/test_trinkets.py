@@ -6,9 +6,14 @@ import numpy as np
 import seaglass
 
 from seaglass_rl import NUM_SLOTS, PLAYER_DIM, encode_observation
+
+# The six trinket features of the player vector (`engine/docs/trinkets.md` §8.2), before the Dark
+# Discovery button's two (`engine/docs/dark_gifts.md` §8.2).
+TRINKET_PLAYER_FEATURES = slice(PLAYER_DIM - 8, PLAYER_DIM - 2)
 from seaglass_rl.actions import (
     ACTION_SPACE_SIZE,
     CHOOSE_TRINKET_INDICES,
+    DARK_DISCOVERY_INDEX,
     action_mask,
     index_from_action,
 )
@@ -16,7 +21,9 @@ from seaglass_rl.actions import (
 
 def test_trinket_actions_are_appended_last() -> None:
     n = len(CHOOSE_TRINKET_INDICES)
-    assert CHOOSE_TRINKET_INDICES == list(range(ACTION_SPACE_SIZE - n, ACTION_SPACE_SIZE))
+    # The trinket picks come last but for the Dark Discovery button (`engine/docs/dark_gifts.md`).
+    end = DARK_DISCOVERY_INDEX
+    assert CHOOSE_TRINKET_INDICES == list(range(end - n, end)) and end == ACTION_SPACE_SIZE - 1
     act = seaglass.TavernAction.choose_trinket(2)
     assert act.kind == "choose_trinket" and act.args == (2, None)
     assert index_from_action(act) == CHOOSE_TRINKET_INDICES[2]
@@ -50,7 +57,8 @@ def test_a_game_without_trinkets_is_unchanged() -> None:
     assert not np.any(mask[CHOOSE_TRINKET_INDICES])
     player_vec, slot_card_ids, _ = encode_observation(obs)
     assert player_vec.shape == (PLAYER_DIM,) and slot_card_ids.shape == (NUM_SLOTS,)
-    assert not np.any(player_vec[-6:]) and not np.any(slot_card_ids[-6:])
+    trinket_feats = player_vec[TRINKET_PLAYER_FEATURES]
+    assert not np.any(trinket_feats) and not np.any(slot_card_ids[-6:])
 
 
 def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
@@ -65,7 +73,7 @@ def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
     mask = action_mask(game, allow_reposition=True, allow_freeze=True)
     assert np.flatnonzero(mask).tolist() == [CHOOSE_TRINKET_INDICES[a.args[0]] for a in legal]
     player_vec, slot_card_ids, _ = encode_observation(obs)
-    assert player_vec[-6] == 1.0 and slot_card_ids[-4] != 0
+    assert player_vec[TRINKET_PLAYER_FEATURES.start] == 1.0 and slot_card_ids[-4] != 0
 
     pick = legal[0].args[0]
     chosen, cost, gold = obs.trinket_options[pick], obs.trinket_option_costs[pick], obs.gold

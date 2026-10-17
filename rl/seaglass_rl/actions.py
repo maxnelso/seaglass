@@ -96,6 +96,10 @@ def _build_action_table() -> tuple[list[seaglass.TavernAction], dict[tuple[str, 
     for opt_idx in range(MAX_TRINKET_OPTIONS):
         register(seaglass.TavernAction.choose_trinket(opt_idx))
 
+    # 15. Use the Dark Discovery button (`engine/docs/dark_gifts.md` §3). Last; a game without Dark
+    #     Gifts never lists it as legal.
+    register(seaglass.TavernAction.dark_discovery())
+
     return actions, lookup
 
 
@@ -116,6 +120,7 @@ HERO_POWER_2_INDICES = [ACTION_TO_INDEX[("hero_power_2", None, None)]] + [
 CHOOSE_TRINKET_INDICES = [
     ACTION_TO_INDEX[("choose_trinket", i, None)] for i in range(MAX_TRINKET_OPTIONS)
 ]
+DARK_DISCOVERY_INDEX = ACTION_TO_INDEX[("dark_discovery", None, None)]
 
 
 def action_from_index(index: int) -> seaglass.TavernAction:

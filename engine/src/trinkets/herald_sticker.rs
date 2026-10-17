@@ -25,7 +25,7 @@ fn start_of_combat(ctx: &mut HeroCombatCtx<'_>) {
     let ids: Vec<UnitId> = ctx
         .board
         .iter()
-        .filter(|u| cards::is_deathrattle_minion(u.card_id) || !u.extra_deathrattles.is_empty())
+        .filter(|u| cards::has_deathrattle(u))
         .map(|u| u.id)
         .collect();
     for id in ids {

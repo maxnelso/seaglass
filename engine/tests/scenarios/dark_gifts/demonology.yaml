@@ -1,0 +1,7 @@
+dark_gift: Demonology
+scenarios:
+  - name: rally_adds_a_fodder_to_the_next_3_refreshes
+    combat:
+      board_a: ["1/5 demon gift:demonology"]
+      board_b: ["0/1"]
+    expect: {auras_a: {effect_stacks: {Demon Fodder: 1}}}

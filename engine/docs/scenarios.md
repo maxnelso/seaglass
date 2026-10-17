@@ -16,7 +16,9 @@ tests/scenarios/
 ├── catalog.yaml          # the expected card lists (§7)
 ├── combat/<card|topic>.yaml   # combat-phase minions and combat mechanics
 ├── tavern/<card|topic>.yaml   # tavern-phase minions, spells, and Tavern mechanics
-└── heroes/<hero>.yaml         # one hero and its Hero Power (docs/heroes.md)
+├── heroes/<hero>.yaml         # one hero and its Hero Power (docs/heroes.md)
+├── trinkets/<trinket>.yaml   # one trinket (docs/trinkets.md)
+└── dark_gifts/<gift>.yaml    # one Dark Gift (docs/dark_gifts.md)
 ```
 
 Every scenario is its own test, named `<dir>::<file>::<scenario>`:
@@ -36,7 +38,7 @@ not load is reported as the test `<dir>::<file>::<file>`.
 ## 2. Scenario files
 
 ```yaml
-card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>`, `trinket: <name>` or `topic: <text>`
+card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>`, `trinket: <name>`, `dark_gift: <name>` or `topic: <text>`
 defaults:                      # optional: merged into every scenario
   seed: 101
 scenarios:
@@ -185,6 +187,8 @@ step also has `player:` (§2.1).
 | `give_trinket: <trinket name>` | `TavernState::give_trinket`: the trinket joins, with its `trinket_bought` text, for no Gold (`docs/trinkets.md` §4). `Eternal Portrait (Greater)` names a Greater trinket that shares its name with a Lesser one. |
 | `offer_trinkets: [<trinket names>]` or `offer_trinkets: lesser \| greater` | Offer those trinkets at their cost, or an offer drawn as on turn 6 or 9 (`docs/trinkets.md` §3.3). |
 | `choose_trinket: <option index or trinket name>` | `TavernAction::ChooseTrinket` (indexes `trinket_options`). |
+| `dark_discovery` | `TavernAction::DarkDiscovery`: the Dark Discovery button (`docs/dark_gifts.md` §3). |
+| `offer_dark_gifts: <unit spec(s)>` | A Discover of these cards (their gifts given by `gift:` tokens), without the button (`docs/dark_gifts.md` §8.3). |
 | `add_to_hand: <unit spec(s)>` | `TavernState::add_to_hand` for each card (as if it were gained: triples, hand limit). |
 | `push_board` / `push_hand` / `push_shop: <unit spec(s)>` | Append the cards directly: no triggers, no auras, no triples. |
 | `clear: <zone>` or `clear: [<zones>]` | Empty `board`, `hand` and/or `shop`. |
@@ -232,6 +236,8 @@ a plain copy of the card. Tokens, applied in order:
 | `-<keyword>` | Remove it. | Lacks it. |
 | `beast`, `demon`, ..., `naga`, `all`, `none`, or two types (`beast_pirate`, `dragon_naga`, ...) | Set the tribe. | `Tribe::matches` (`none`: exactly no tribe). |
 | `tN` / `tier:N` | Set the Tavern Tier. | Has that tier. |
+| `gift:<gift>` (`gift:<gift>@<turn>`) | Give the Dark Gift (its slug or card ID), with its text, as on turn 0 (or that turn) (`docs/dark_gifts.md` §8.3). | Has the gift. |
+| `-gift:<gift>` | Remove it. | Lacks it. |
 
 A vanilla `A/H` unit is built like a matchup unit (§9.1), so `card:<slug>` also works there:
 `"3/2 card:zoatroid"` is a 3/2 with Zoatroid's card id, name, tier, tribe and keywords.
@@ -406,7 +412,9 @@ The `coverage` test checks that every
 `src/cards/spells/<card>.rs` has a `tests/scenarios/tavern/<card>.yaml`
 starting with `card: <Card Name>`, that every `src/heroes/<hero>.rs` has a
 `tests/scenarios/heroes/<hero>.yaml` starting with `hero: <Hero Name>` (the file name is the card's slug: `Fandral's Fortune` ->
-`fandrals_fortune`), that every scenario file belongs to a card or a topic, and that
+`fandrals_fortune`), that every `src/trinkets/<trinket>.rs` and `src/dark_gifts/<gift>.rs` has its
+`tests/scenarios/trinkets/<trinket>.yaml` or `tests/scenarios/dark_gifts/<gift>.yaml` (starting with
+`trinket:` or `dark_gift:`), that every scenario file belongs to a card or a topic, and that
 `tests/scenarios/` holds nothing else.
 
 ---

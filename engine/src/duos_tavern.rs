@@ -140,6 +140,14 @@ impl DuosTavern {
         self
     }
 
+    /// Enable or disable the Dark Discovery button for both players (`docs/dark_gifts.md` §8.1).
+    pub fn with_dark_gifts(mut self, enabled: bool) -> Self {
+        for state in &mut self.players {
+            state.dark_gifts_enabled = enabled;
+        }
+        self
+    }
+
     /// Set the chance that the first fighter switches each turn (§4.3).
     pub fn with_first_fighter_switch_chance(mut self, chance: f64) -> Self {
         self.first_fighter_switch_chance = chance;

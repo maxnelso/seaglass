@@ -1,0 +1,11 @@
+dark_gift: Toreth's Blessing
+scenarios:
+  - name: the_shield_takes_3_hits_to_break
+    description: >-
+      Four hits on the 2/1: two absorbed, the third breaks the shield, the fourth kills it; by
+      then the 1/7 took 2 four times (without the gift, the 2/1 dies at the second hit).
+    seeds: "1..=4"
+    combat:
+      board_a: ["2/1 divine_shield gift:toreths_blessing"]
+      board_b: ["1/7"]
+    expect: {outcome: draw}

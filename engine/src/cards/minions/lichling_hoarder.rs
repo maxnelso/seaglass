@@ -5,13 +5,14 @@
 //! Each copy is of a random minion of the starting warband (`docs/combat.md` §2): the board as the
 //! combat started, dead or alive, this included; never one summoned during the combat.
 
-use crate::cards::{instantiate_plain_copy, BoardCtx, CardTemplate};
+use crate::cards::{instantiate_plain_copy, BoardCtx, CardFlags, CardTemplate};
 use crate::model::{CardId, Tribe, Unit};
 
 pub const ID: CardId = 530;
 
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Lichling Hoarder", 6, 9, 5)
+        .with_flags(CardFlags::AVENGE)
         .with_tribe(Tribe::Undead)
         .on_friendly_death(on_friendly_death)
 }

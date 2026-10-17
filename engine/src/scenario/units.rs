@@ -9,13 +9,15 @@
 //!
 //! Card names match any minion, spell, token or deity, case-insensitively. Tokens: `A/H` (set
 //! the current Attack/Health, like assigning the fields), `+A/+H` (a buff: `Unit::add_stats`),
-//! a keyword (`taunt`) or `-keyword`, `golden` / `-golden`, a tribe (`beast`), `tN` (Tavern Tier).
+//! a keyword (`taunt`) or `-keyword`, `golden` / `-golden`, a tribe (`beast`), `tN` (Tavern Tier),
+//! `gift:<gift>` (a Dark Gift, by slug or card ID, given as on turn 0, or `gift:<gift>@<turn>`;
+//! `docs/dark_gifts.md` §8.3).
 //! An `A/H` spec is built exactly like a matchup unit ([`parse_unit`](super::parse_unit), so
 //! `card:<slug>` and `tier:<n>` work there too).
 //!
 //! In expectations the same string is a matcher: it checks the card, the stats, `golden`, the
-//! listed keywords (present, or absent for `-keyword`), the tribe (`Tribe::matches`) and the
-//! tier, and nothing else.
+//! listed keywords (present, or absent for `-keyword`), the tribe (`Tribe::matches`), the tier
+//! and the listed Dark Gifts (`gift:<gift>`, or absent for `-gift:<gift>`), and nothing else.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -261,6 +263,8 @@ enum Mod {
     Keyword(Keyword, bool),
     Tribe(Tribe),
     Tier(u32),
+    /// A Dark Gift (given, or checked present / absent) and the turn it is given on.
+    Gift(CardId, u32, bool),
 }
 
 /// Split `spec` into its head, whether it starts with `golden`, and the remaining tokens.
@@ -322,6 +326,24 @@ fn parse_mod(tok: &str) -> Result<Mod, String> {
         Some(name) => (name, false),
         None => (tok.as_str(), true),
     };
+    if let Some(gift) = name.strip_prefix("gift:") {
+        let (gift, turn) = match gift.split_once('@') {
+            Some((gift, turn)) => (
+                gift,
+                turn.parse()
+                    .map_err(|_| format!("bad turn in {tok:?} (`gift:<gift>@<turn>`)"))?,
+            ),
+            None => (gift, 0),
+        };
+        let data = crate::dark_gifts::by_name(gift)
+            .or_else(|| {
+                crate::dark_gifts::table()
+                    .iter()
+                    .find(|g| g.card_id.eq_ignore_ascii_case(gift))
+            })
+            .ok_or_else(|| format!("unknown Dark Gift {gift:?}"))?;
+        return Ok(Mod::Gift(data.id, turn, on));
+    }
     if let Some(kw) = named::<Keyword>(name) {
         return Ok(Mod::Keyword(kw, on));
     }
@@ -416,6 +438,8 @@ fn build_str(spec: &str) -> Result<Unit, String> {
             Mod::Keyword(kw, false) => remove_keyword(&mut unit, kw),
             Mod::Tribe(tribe) => unit.tribe = tribe,
             Mod::Tier(tier) => unit.tavern_tier = tier,
+            Mod::Gift(id, turn, true) => crate::dark_gifts::give(&mut unit, id, turn),
+            Mod::Gift(id, _, false) => unit.dark_gifts.retain(|g| g.card_id != id),
         }
     }
     Ok(unit)
@@ -434,6 +458,7 @@ fn build_vanilla(spec: &str, attack: i32, health: i32, rest: &str) -> Result<Uni
             Mod::Buff(a, h) => unit.add_stats(a, h),
             Mod::Keyword(kw, false) => remove_keyword(&mut unit, kw),
             Mod::Tribe(tribe) => unit.tribe = tribe,
+            Mod::Gift(id, turn, true) => crate::dark_gifts::give(&mut unit, id, turn),
             _ => return Err(format!("token {tok:?} is not valid in unit spec {spec:?}")),
         }
     }
@@ -485,6 +510,15 @@ pub fn check(spec: &str, unit: &Unit) -> Result<(), Failure> {
             }
             Mod::Tier(tier) if unit.tavern_tier != tier => {
                 wrong.push(format!("is not tier {tier}"))
+            }
+            Mod::Gift(id, _, want) if crate::dark_gifts::has(unit, id) != want => {
+                let name = crate::dark_gifts::data(id)
+                    .map_or_else(String::new, crate::dark_gifts::display_name);
+                wrong.push(if want {
+                    format!("lacks the Dark Gift {name}")
+                } else {
+                    format!("has the Dark Gift {name}")
+                })
             }
             _ => {}
         }

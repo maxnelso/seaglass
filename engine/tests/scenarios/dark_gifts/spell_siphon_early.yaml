@@ -1,0 +1,8 @@
+dark_gift: Spell Siphon (early)
+scenarios:
+  - name: has_stats_for_each_one_this_game
+    combat:
+      board_a: ["1/1 gift:spell_siphon_early"]
+      board_b: []
+      auras_a: {tavern_spells_cast: 2}
+    expect: {survivors_a: ["5/5"]}

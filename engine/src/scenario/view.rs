@@ -166,6 +166,13 @@ fn from_value(value: &Value) -> View {
             with_default(&mut view, "lobby_gifts", View::List(Vec::new()));
             with_default(&mut view, "trinkets_enabled", View::Bool(false));
             with_default(&mut view, "trinket_options", View::List(Vec::new()));
+            with_default(&mut view, "dark_gifts_enabled", View::Bool(false));
+            with_default(&mut view, "dark_discoveries_used", View::Int(0));
+            with_default(
+                &mut view,
+                "dark_discovery_used_this_turn",
+                View::Bool(false),
+            );
             if let Some((_, View::List(options))) =
                 view.iter_mut().find(|(k, _)| k == "trinket_options")
             {
@@ -224,6 +231,7 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     with_default(&mut view, "until_next_turn_atk", View::Int(0));
     with_default(&mut view, "hats", View::Int(0));
     with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));
+    with_default(&mut view, "dark_gifts", View::List(Vec::new()));
     let id = unit.card_id;
     let keywords = KEYWORDS
         .iter()
@@ -265,6 +273,7 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
     let mut view = fields(m);
     with_default(&mut view, "hero", View::Null);
     with_default(&mut view, "next_minion_discount", View::Int(0));
+    with_default(&mut view, "battlecries_triggered", View::Int(0));
     with_default(&mut view, "trinkets", View::List(Vec::new()));
     if let Some((_, View::List(trinkets))) = view.iter_mut().find(|(k, _)| k == "trinkets") {
         for trinket in trinkets {
