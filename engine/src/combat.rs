@@ -347,10 +347,12 @@ fn run_attack_turns(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) -> bool {
+    combat_checkpoint(side_a, side_b, next_id, rng, events);
     while !side_a.is_empty() && !side_b.is_empty() {
         let (atk_side, def_side) = sides_mut(current, side_a, side_b);
         if atk_side.can_attack() {
             perform_attack_turn(current, atk_side, def_side, next_id, rng, events);
+            combat_checkpoint(side_a, side_b, next_id, rng, events);
             current = current.other();
         } else if !def_side.can_attack() {
             return true;
@@ -360,6 +362,19 @@ fn run_attack_turns(
         }
     }
     false
+}
+
+/// A combat checkpoint for both sides (`cards::on_combat_checkpoint`, `Mishmash`): before and
+/// after Start of Combat, and after each attack turn.
+fn combat_checkpoint(
+    side_a: &mut SideCombatState,
+    side_b: &mut SideCombatState,
+    next_id: &mut UnitId,
+    rng: &mut Rng,
+    events: &mut Vec<Event>,
+) {
+    cards::on_combat_checkpoint(&mut side_a.ctx(Side::A, next_id, rng, events));
+    cards::on_combat_checkpoint(&mut side_b.ctx(Side::B, next_id, rng, events));
 }
 
 /// The most cards a hand holds: a card given to a teammate whose combat hand is full waits for
@@ -836,6 +851,7 @@ fn resolve_start_of_combat(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
+    combat_checkpoint(side_a, side_b, next_id, rng, events);
     // The side with more minions goes first; on a tie the order only needs a coin flip if both
     // sides have something to resolve.
     let (len_a, len_b) = (side_a.board.len(), side_b.board.len());

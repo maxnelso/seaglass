@@ -26,3 +26,14 @@ scenarios:
       - play: {hand: 0, pos: 1}
       - play: {hand: 0, pos: 1}
     expect: {board: ["Mishmash 12/12", "Amalgam 6/6"]}
+
+  - name: it_grows_in_combat_too
+    description: >-
+      The Golden Amber Guardian's Start of Combat gives the Mishmash and the Amalgam +2/+2; the
+      Mishmash then gains the Amalgam's +2/+2 too (confirmed), for the combat only.
+    tavern: {board: [Mishmash, Amalgam, "golden Amber Guardian 6/4"]}
+    steps:
+      - fight: {board: ["0/50"]}
+    expect:
+      combat: {outcome: a_win, survivors_a: {0: {card: Mishmash, attack: 8, health: 8}, 1: {card: Amalgam, attack: 4, health: 4}}}
+      board: ["Mishmash 4/4", "Amalgam 2/2", "golden Amber Guardian 6/4"]

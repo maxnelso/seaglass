@@ -470,6 +470,9 @@ card_hooks! {
     // ---- Observers: Combat (fire for each living friendly unit, left to right) ------------
     /// After a friendly Rally minion attacks: `(ctx, self_idx)`.
     after_friendly_rally(on_after_friendly_rally): CombatFn,
+    /// A combat checkpoint: before and after Start of Combat, and after each attack turn (either
+    /// side's): `(ctx, self_idx)`.
+    combat_checkpoint(on_combat_checkpoint): CombatFn,
     /// A friendly minion attacks: `(ctx, self_idx, attacker_id)`.
     friendly_attack(on_friendly_attack): fn(&mut BoardCtx<'_>, usize, UnitId),
     /// Another friendly minion dealt damage: `(ctx, self_idx, source_id, source_tribe)`.

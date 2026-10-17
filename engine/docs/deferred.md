@@ -15,7 +15,6 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 | :--- | :--- | :--- |
 | Buddies (companions, the Buddy meter) | Deferred **(confirmed)** | No Buddy system: `E.T.C., Band Manager`, the Buddy trinkets. `Mishmash` (The Curator's Buddy) exists only as the minion `Curator Sticker` gives ([`trinkets.md`](trinkets.md) §11.9). |
 | Quests | Deferred **(confirmed)** | `Sire Denathrius`, the Quest trinkets. |
-| Bounties | Deferred **(confirmed)** | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets. |
 | Darkmoon Prizes | Deferred **(confirmed)** | `Tickatus`, `Tickatus Sticker` and the other Darkmoon Prize trinkets. |
 | Timewarp | Deferred **(confirmed)** | `Morchie`, `Murozond, Unbounded`, `Timeworn Candelabra` (both), `Poet Portrait` and the other Timewarp trinkets. |
 | Triple Prizes | Deferred **(confirmed)** | `Corrupted Tome`. |
@@ -28,6 +27,8 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 | Naga | Out of scope: no lobby of Patch 36.6.3 has Naga **(confirmed)** | `Queen Azshara`; the Naga-only minions are implemented but in no pool (`Private Chef`, `Storm Splitter`: [`duos_tavern.md`](duos_tavern.md) §8); a trinket whose only type is Naga is never offered ([`trinkets.md`](trinkets.md) §1). |
 | 4-team Duos matches and their pairings | Out of scope | The engine has one team's Tavern; a match of four teams is the caller's job ([`duos_tavern.md`](duos_tavern.md) §1). |
 | Duos gift delivery during combat | Out of scope | The incoming queue is delivered in the Tavern ([`duos_tavern.md`](duos_tavern.md) §6). |
+
+Bounties are not a missing system: the engine has the 5 Bounty spells (`spells::BOUNTY_SPELL_IDS`, `CardFlags::BOUNTY`), so `Sunken Anchor` and `Privateer Portrait` are implemented. The systems above have no code in the engine (only their cards' table rows); `Silas Darkmoon`'s Darkmoon Tickets are his Hero Power, not Darkmoon Prizes.
 
 ## 2. Heroes
 
@@ -54,7 +55,6 @@ In the trinket table, not implemented, never offered ([`trinkets.md`](trinkets.m
 | :--- | :--- | :--- |
 | `Timeworn Candelabra` (Lesser and Greater) | Deferred **(confirmed)** | Timewarp. |
 | `Tickatus Sticker` | Deferred **(confirmed)** | Darkmoon Prizes. |
-| `Sunken Anchor`, `Privateer Portrait` | Deferred **(confirmed)** | Bounties. |
 | `Corrupted Tome` | Deferred **(confirmed)** | Triple Prizes. |
 | `Poet Portrait` | Deferred **(confirmed)** | Timewarp (it gives a Timewarped Poet). |
 | `Surprise Portrait` | Deferred **(confirmed)** | Its hidden rule ("More appear when you least expect them") is unknown. |

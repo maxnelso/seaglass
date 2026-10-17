@@ -1,0 +1,15 @@
+trinket: Privateer Portrait
+scenarios:
+  - name: picked_it_gives_a_proud_privateer_and_two_bounties_then_two_each_turn
+    seeds: "1..=4"
+    steps:
+      - give_trinket: Privateer Portrait
+      - expect:
+          hand:
+            count: 3
+            0: {card: Proud Privateer, is_golden: false}
+            1: {name: {any_of: [Friendly Bounty, Healthy Bounty, Hostile Bounty, Selfish Bounty, Wealthy Bounty]}}
+            2: {name: {any_of: [Friendly Bounty, Healthy Bounty, Hostile Bounty, Selfish Bounty, Wealthy Bounty]}}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 5}}

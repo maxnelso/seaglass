@@ -253,6 +253,7 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     with_default(&mut view, "hats", View::Int(0));
     with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));
     with_default(&mut view, "trinket_marks", View::List(Vec::new()));
+    with_default(&mut view, "magnetized_auras", View::List(Vec::new()));
     with_default(&mut view, "dark_gifts", View::List(Vec::new()));
     let id = unit.card_id;
     let keywords = KEYWORDS

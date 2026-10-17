@@ -6,7 +6,7 @@
 //! (`trinket_friendly_death`) or destroyed in the Tavern (`trinket_tavern_destroy`), counts as an
 //! Eternal Knight that died for the Eternal Knights' bonus (+4/+2 each, doubled for a Golden one;
 //! their card's counter), on top of the Knight's own count: a Knight that dies counts twice
-//! **(engine decision)**.
+//! **(confirmed)**.
 
 use crate::cards::minions::eternal_knight;
 use crate::cards::{BoardCtx, CardHooks};

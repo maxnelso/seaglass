@@ -2847,6 +2847,10 @@ impl TavernState {
         golden.perm_hp_gained = copies.iter().map(|u| u.perm_hp_gained).sum();
         golden.perm_blood_gems_gained = copies.iter().map(|u| u.perm_blood_gems_gained).sum();
         golden.magnetizations_count = copies.iter().map(|u| u.magnetizations_count).sum();
+        golden.magnetized_auras = copies
+            .iter()
+            .flat_map(|u| u.magnetized_auras.iter().copied())
+            .collect();
         golden.blood_gems_played = copies.iter().map(|u| u.blood_gems_played).sum();
         golden.blood_gem_stats_applied = (
             copies.iter().map(|u| u.blood_gem_stats_applied.0).sum(),

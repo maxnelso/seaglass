@@ -1,0 +1,13 @@
+trinket: Sunken Anchor
+scenarios:
+  - name: picked_it_gives_two_random_bounties_and_two_more_each_turn
+    seeds: "1..=4"
+    steps:
+      - give_trinket: Sunken Anchor
+      - expect:
+          hand:
+            count: 2
+            all: {name: {any_of: [Friendly Bounty, Healthy Bounty, Hostile Bounty, Selfish Bounty, Wealthy Bounty]}, is_spell: true}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 4, all: {name: {any_of: [Friendly Bounty, Healthy Bounty, Hostile Bounty, Selfish Bounty, Wealthy Bounty]}}}}

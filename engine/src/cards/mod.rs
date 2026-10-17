@@ -806,6 +806,7 @@ pub fn instantiate_plain_copy(unit: &Unit) -> Unit {
         copy.temp_divine_shield = false;
         copy.temp_reborn = false;
         copy.extra_deathrattles.clear();
+        copy.magnetized_auras.clear();
         copy.dark_gifts.clear();
         copy
     }
@@ -937,6 +938,17 @@ fn sync_unit_auras_in(unit: &mut Unit, auras: &PlayerAuras, on_board: bool) {
         let (card_atk, card_hp) = aura_bonus(unit, auras);
         atk += card_atk;
         hp += card_hp;
+    }
+    // The auras of the cards Magnetized onto it keep applying (`Dr. Boom's Monster`).
+    for &(card_id, golden) in &unit.magnetized_auras {
+        if let Some(aura_bonus) = hooks(card_id).aura_bonus {
+            let source = Unit::new("", 0, 0)
+                .with_card_id(card_id)
+                .with_golden(golden);
+            let (card_atk, card_hp) = aura_bonus(&source, auras);
+            atk += card_atk;
+            hp += card_hp;
+        }
     }
     if on_board {
         let (board_atk, board_hp) = crate::trinkets::board_aura(unit, auras);
@@ -1655,6 +1667,19 @@ pub fn after_action(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng)
         .any(|u| hooks(u.card_id).after_action.is_some())
     {
         notify_tavern(state, |h| h.after_action, |s, idx, f| f(s, idx, pool, rng));
+    }
+}
+
+/// A combat checkpoint (before and after Start of Combat, and after each attack turn): the
+/// `combat_checkpoint` hooks of the living units on `ctx.board`, left to right
+/// (`docs/combat.md` §1). Without one, nothing.
+pub fn on_combat_checkpoint(ctx: &mut BoardCtx<'_>) {
+    if ctx
+        .board
+        .iter()
+        .any(|u| u.health > 0 && hooks(u.card_id).combat_checkpoint.is_some())
+    {
+        notify_board(ctx, |h| h.combat_checkpoint, |c, idx, f| f(c, idx));
     }
 }
 

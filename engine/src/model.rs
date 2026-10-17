@@ -714,6 +714,10 @@ pub struct Unit {
     /// (`Chillmere Mosaic`). Only those trinkets' hooks read it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinket_marks: Vec<CardId>,
+    /// The cards Magnetized onto it whose own "wherever this is" aura keeps applying to it, each
+    /// `(card, golden)` (`Dr. Boom's Monster`): their `aura_bonus` hooks add to its aura.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub magnetized_auras: Vec<(CardId, bool)>,
     /// True if this unit's Reborn is temporary until next turn (The Lich King's Reborn Rites;
     /// `docs/heroes.md` §11), as `temp_divine_shield` for Divine Shield.
     #[serde(default, skip_serializing_if = "is_false")]
@@ -836,6 +840,7 @@ impl Unit {
             marked: false,
             extra_deathrattles: Vec::new(),
             trinket_marks: Vec::new(),
+            magnetized_auras: Vec::new(),
             temp_reborn: false,
             frozen: false,
             to_hero_power: false,

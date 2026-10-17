@@ -24,3 +24,16 @@ scenarios:
     steps:
       - play: {hand: 1, pos: 0}
     expect: {hand: [{card: Dr. Boom's Monster, stats: 8/8}]}
+
+  - name: magnetized_its_bonus_keeps_growing_on_the_minion_it_joins
+    description: >-
+      Annoy-o-Module (2/4) gains the Monster's 2/2 and its bonus (+2/+2 for the 1 Magnetization
+      so far), then the second Module's 2/4 and the bonus's growth to +4/+4 (confirmed).
+    tavern:
+      board: [Annoy-o-Module]
+      hand: [Dr. Boom's Monster, Annoy-o-Module]
+    steps:
+      - play: {hand: 0, pos: 0}
+      - expect: {board: ["Annoy-o-Module 6/8"], auras: {magnetizations: 1}}
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Annoy-o-Module 10/14"], auras: {magnetizations: 2}}

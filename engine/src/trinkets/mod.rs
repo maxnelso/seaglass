@@ -174,6 +174,7 @@ pub mod pocket_cyclone;
 pub mod pocket_cyclone_greater;
 pub mod portable_factory;
 pub mod portable_factory_greater;
+pub mod privateer_portrait;
 pub mod protective_ring;
 pub mod quartermasters_hook;
 pub mod quilligraphy_set;
@@ -214,6 +215,7 @@ pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
+pub mod sunken_anchor;
 pub mod surveyor_portrait;
 pub mod tableware_portrait;
 pub mod the_eye_of_dalaran;
@@ -526,6 +528,7 @@ const IMPLEMENTED: &[Implemented] = &[
         portable_factory_greater::ID,
         portable_factory_greater::behaviors,
     ),
+    (privateer_portrait::ID, privateer_portrait::behaviors),
     (protective_ring::ID, protective_ring::behaviors),
     (quartermasters_hook::ID, quartermasters_hook::behaviors),
     (quilligraphy_set::ID, quilligraphy_set::behaviors),
@@ -569,6 +572,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
+    (sunken_anchor::ID, sunken_anchor::behaviors),
     (surveyor_portrait::ID, surveyor_portrait::behaviors),
     (tableware_portrait::ID, tableware_portrait::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
