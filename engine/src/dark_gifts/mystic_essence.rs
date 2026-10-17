@@ -3,7 +3,8 @@
 //! Deathrattle: Get a random Tavern spell.
 //!
 //! Deathrattle: a random Tavern spell of the player's Tier or lower, drawn as the shop draws one,
-//! to the hand (the combat hand in combat) (`docs/dark_gifts.md` §11.1).
+//! to the hand, or waiting for room in a full hand (confirmed); in combat, to the combat hand
+//! (`docs/dark_gifts.md` §2.2, §11.1).
 
 use crate::cards::{spells, BoardCtx, CardHooks};
 use crate::model::{CardId, DarkGift, Unit};
@@ -17,5 +18,5 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 
 fn deathrattle(_: &Unit, _: &DarkGift, ctx: &mut BoardCtx<'_>) {
     let spell = spells::draw_shop_spell(ctx.hero_tier, ctx.auras.duos_game, ctx.rng);
-    ctx.add_to_hand(spell);
+    ctx.add_to_hand_or_wait(spell);
 }

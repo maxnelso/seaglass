@@ -99,6 +99,10 @@ pub struct BoardCtx<'a> {
     /// Minions (on either board) this effect destroys, resolved by the engine after the hook
     /// returns.
     pub destroys: Vec<UnitId>,
+    /// Cards given outside combat that wait for room in a full hand
+    /// ([`add_to_hand_or_wait`](Self::add_to_hand_or_wait)), queued by the Tavern once the effect
+    /// resolves (`TavernState::add_to_hand_or_wait`).
+    pub waiting: Vec<Unit>,
     pub next_id: &'a mut UnitId,
     pub rng: &'a mut Rng,
     pub events: &'a mut Vec<Event>,
@@ -182,6 +186,18 @@ impl<'a> BoardCtx<'a> {
     /// Add `card` to the player's `hand` if `hand.len() < 10`.
     pub fn add_to_hand(&mut self, card: Unit) {
         self.push_to_hand(card, None);
+    }
+
+    /// A card that waits for room in a full hand instead of being lost (a Dark Gift's card:
+    /// `docs/dark_gifts.md` §2.2): outside combat it is queued for the Tavern's
+    /// `add_to_hand_or_wait` once the effect resolves; in combat it goes to the combat hand like
+    /// [`add_to_hand`](Self::add_to_hand).
+    pub fn add_to_hand_or_wait(&mut self, card: Unit) {
+        if self.in_combat {
+            self.add_to_hand(card);
+        } else {
+            self.waiting.push(card);
+        }
     }
 
     /// [`add_to_hand`](Self::add_to_hand), recording that the friendly unit `giver` gave the
@@ -1946,7 +1962,7 @@ fn with_tavern_ctx<R>(
     let mut beast_bonus_atk = 0;
     let mut pending_attacks = Vec::new();
     let mut events = Vec::new();
-    let out = f(&mut BoardCtx {
+    let mut ctx = BoardCtx {
         side: Side::A,
         in_combat: false,
         board: &mut state.board,
@@ -1964,10 +1980,16 @@ fn with_tavern_ctx<R>(
         hero_tier: state.tavern_tier,
         pending_attacks: &mut pending_attacks,
         destroys: Vec::new(),
+        waiting: Vec::new(),
         next_id,
         rng: &mut *rng,
         events: &mut events,
-    });
+    };
+    let out = f(&mut ctx);
+    let waiting = std::mem::take(&mut ctx.waiting);
+    for card in waiting {
+        state.add_to_hand_or_wait(card);
+    }
     let d_atk = state.auras.tavern_all_atk - old_tavern_all.0;
     let d_hp = state.auras.tavern_all_hp - old_tavern_all.1;
     if d_atk != 0 || d_hp != 0 {

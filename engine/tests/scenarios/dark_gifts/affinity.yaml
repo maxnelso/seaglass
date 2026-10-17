@@ -9,3 +9,16 @@ scenarios:
       - start_turn
       - end_turn
     expect: {hand: [beast]}
+
+  - name: with_a_full_hand_the_minion_waits_for_room
+    description: (confirmed)
+    seeds: "1..=5"
+    tavern:
+      board: ["1/1 beast gift:affinity"]
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+      tavern_tier: 3
+    steps:
+      - end_turn
+      - start_turn
+      - end_turn
+    expect: {hand: {count: 10}, waiting_for_hand: [beast]}

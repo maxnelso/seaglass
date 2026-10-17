@@ -8,3 +8,14 @@ scenarios:
       - start_turn
       - end_turn
     expect: {hand: ["Harmless Bonehead 1/1 -gift:replication"], board: ["Harmless Bonehead 3/3"]}
+
+  - name: with_a_full_hand_the_copy_waits_for_room
+    description: (confirmed)
+    tavern:
+      board: ["Harmless Bonehead gift:replication"]
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]
+    steps:
+      - end_turn
+      - start_turn
+      - end_turn
+    expect: {hand: {count: 10}, waiting_for_hand: ["Harmless Bonehead -gift:replication"]}

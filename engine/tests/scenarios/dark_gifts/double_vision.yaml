@@ -6,3 +6,13 @@ scenarios:
       - choose_discover: 0
     expect:
       hand: ["Harmless Bonehead gift:double_vision", "Harmless Bonehead -gift:double_vision"]
+
+  - name: with_a_full_hand_the_extra_copy_waits_for_room
+    description: (confirmed)
+    tavern: {hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - offer_dark_gifts: ["Harmless Bonehead gift:double_vision", "Cord Puller gift:fortitude"]
+      - choose_discover: 0
+    expect:
+      hand: {count: 10, -1: "Harmless Bonehead gift:double_vision"}
+      waiting_for_hand: ["Harmless Bonehead -gift:double_vision"]

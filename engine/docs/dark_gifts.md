@@ -59,6 +59,7 @@ The engine reads only `card_id`; the gift's own hooks read the rest. A gift is a
 - **Wherever it goes.** The gifts are part of the minion: they stay on it in the hand, on the board, through a combat and back, when it is returned to the hand, Passed to a teammate (Duos) or copied as it is ("a copy of this": `Doppelganger`, `Double Vision`) **(engine decision)**. A plain copy (`cards::instantiate_plain_copy`, "a plain copy") and a Reborn copy have none (`Persisting Horror` aside, §11). A sold minion's gifts leave with it.
 - **Triples.** The Golden a Triple makes has every copy's gifts, in copy order **(confirmed: tripling combines the gifts)**. What a gift gave as stats are buffs, which the Golden keeps as it keeps every buff (`tavern.md` §5.1): a `Fortitude` copy makes a Golden `+5/+5` stronger, not `+10/+10` **(engine decision)**.
 - **Golden.** A gift's effect is the same on a Golden minion: gifts are not card text, and Golden doesn't double them (as for trinkets) **(engine decision)**. `Dark Paradox`'s own gift is card text and doubles (§12.4).
+- **Cards it gives.** A card a gift gives in the Tavern (`Affinity`, `Replication`, `Double Vision`, a `Mystic Essence` Deathrattle in the Tavern) waits for room in a full hand instead of being lost, like a trinket's card: it joins the player's `waiting_for_hand` queue (`TavernState::add_to_hand_or_wait`, [`trinkets.md`](trinkets.md) §5) **(confirmed)**. A Tavern Deathrattle's card (a `BoardCtx` outside combat) is queued once the Deathrattle resolves (`BoardCtx::add_to_hand_or_wait`). In combat, a gift's card goes to the combat hand like any card a combat effect gives (`Mystic Essence`, `Consanguinity`, `Charisma`), as a trinket's does.
 
 ### 2.3 The Gift's Turn
 
@@ -403,7 +404,7 @@ Engine decisions, pending the user's confirmation:
 | Price and empty offers | Gold spent like any price; an empty offer still costs (§3.2). | `dark_gifts::use_button` |
 | Order | A minion's card's Start of Combat, then its gifts'; Deathrattles and Rallies the same (§7). | `cards` |
 | Gift readings | §11's "engine decision"s. | their files |
-| Cards a gift gets | `Affinity`, `Replication`, `Double Vision` and `Mystic Essence` add to the hand like any card a minion gets: lost with a full hand; the Rally gifts' cards go to the hand as a Rally minion's do. | their files |
+| Cards a gift gets | Wait for room in a full hand (`waiting_for_hand`) like a trinket's **(confirmed)**; in combat, the combat hand (§2.2). | their files, `BoardCtx::add_to_hand_or_wait` |
 | `Steady Growth` | The strength by offering turn: `+1/+2`, `+2/+2`, `+3/+3` on turns 3, 4, 5 (the post's numbers; the card's text has no tag for them). | `steady_growth.rs` |
 | Heroes, trinkets | §12. | their files |
 | Their offers | The Dark Gift heroes and trinkets are offered only with Dark Gifts (§12). | `CardFlags::DARK_GIFTS`, `heroes::offerable`, `trinkets::candidates` |

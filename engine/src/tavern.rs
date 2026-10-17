@@ -909,6 +909,7 @@ impl TavernState {
             hero_tier: self.tavern_tier,
             pending_attacks: &mut pending_attacks,
             destroys: Vec::new(),
+            waiting: Vec::new(),
             next_id: &mut next_id,
             rng,
             events: &mut events,
@@ -920,6 +921,10 @@ impl TavernState {
         }
         let reborn = dying.reborn && cards::reborn(&mut dr_ctx, &dying);
         let summoned_in_place = dr_ctx.cursor.saturating_sub(board_pos);
+        let waiting = std::mem::take(&mut dr_ctx.waiting);
+        for card in waiting {
+            self.add_to_hand_or_wait(card);
+        }
         if let Some(slot) = &mut self.play_slot {
             if board_pos < *slot {
                 *slot = *slot - 1 + summoned_in_place;

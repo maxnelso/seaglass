@@ -194,6 +194,7 @@ impl SideCombatState {
             hero_tier: self.hero_tier,
             pending_attacks: &mut self.pending_immediate_attacks,
             destroys: Vec::new(),
+            waiting: Vec::new(),
             next_id,
             rng,
             events,

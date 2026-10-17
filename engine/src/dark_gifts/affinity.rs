@@ -5,8 +5,7 @@
 //! `gift_end_of_turn`: on the board, every 2nd end of turn (`counter`, advanced once per end of
 //! turn; the payoff repeats with the end-of-turn repeat count), a random minion of one of its types
 //! (one draw among its types, then one among the game's catalog of the player's Tier or lower) to
-//! the hand (lost if the hand is full, as a minion's own card text; engine decision;
-//! `docs/dark_gifts.md` §11.2). Only on minions with a type (§5.2).
+//! the hand, or waiting for room in a full hand (confirmed; `docs/dark_gifts.md` §2.2, §11.2). Only on minions with a type (§5.2).
 
 use crate::cards::{self, CardHooks, CardTemplate};
 use crate::dark_gifts::OfferCtx;
@@ -54,7 +53,7 @@ fn end_of_turn(
             .collect();
         if !pool.is_empty() {
             let card = pool[rng.below(pool.len())].instantiate();
-            state.add_to_hand(card);
+            state.add_to_hand_or_wait(card);
         }
     }
 }

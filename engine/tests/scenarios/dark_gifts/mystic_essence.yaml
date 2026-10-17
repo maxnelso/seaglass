@@ -6,3 +6,14 @@ scenarios:
       board_a: ["1/1 gift:mystic_essence"]
       board_b: ["5/5"]
     expect: {hand_a: [{is_spell: true}]}
+
+  - name: in_the_tavern_with_a_full_hand_the_spell_waits_for_room
+    description: >-
+      (confirmed) Destroyed in the Tavern with two Mystic Essences: the first spell fills the hand,
+      the second waits for room.
+    tavern:
+      board: ["1/1 undead gift:mystic_essence gift:mystic_essence"]
+      hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", Disguised Graverobber]
+    steps:
+      - play: {hand: Disguised Graverobber, pos: 0}
+    expect: {hand: {count: 10, -1: {is_spell: true}}, waiting_for_hand: [{is_spell: true}]}
