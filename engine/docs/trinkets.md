@@ -64,7 +64,7 @@ A trinket is kept for the rest of the game **(confirmed)**. Trinkets that replac
 ### 3.1 When and What
 
 - A **Lesser** offer at the start of turn 6 and a **Greater** offer at the start of turn 9, 4 options each **(confirmed)**: the player's `turn` (`tavern.md` §3.1), at the end of the start of turn (`tavern.md` §4 step 6), after the Spellcraft spells and the Triples, so the board and the hand are as the turn starts.
-- Only for a player with offers enabled (`TavernState::trinkets_enabled`; `DuosTavern::with_trinkets`, Python `trinkets=True`). The default is off.
+- Only for a player with offers enabled (`TavernState::trinkets_enabled`; `DuosTavern::with_trinkets`, Python `trinkets=True`). The Rust default is off; the Python default is on, as RL plays with trinkets **(confirmed)**.
 - The options come from the **offerable** trinkets of that kind (`trinkets::offerable(duos)`): implemented, not deferred, not of the Naga type only, Duos-only ones only in Duos, and not one the player owns **(confirmed)**; the Dark Gift trinkets (`CardFlags::DARK_GIFTS`) only for a player with Dark Gifts (`dark_gifts.md` §12) **(engine decision)**. Only implemented trinkets are offered, as for heroes.
 
 ### 3.2 The Rules an Offer Follows
@@ -195,7 +195,7 @@ Trinkets are per player **(engine decision)**: each player of a team is offered 
 
 ### 8.2 Python / RL
 
-- `TavernGame(..., trinkets=False)` and `DuosTavernGame(..., trinkets=False)` enable the offers. The default (`False`) is no offer, so existing code is unchanged.
+- `TavernGame(..., trinkets=True)` and `DuosTavernGame(..., trinkets=True)` enable the offers: on by default, as RL plays with trinkets (and Dark Gifts) **(confirmed)**; `trinkets=False` turns them off. The Rust default stays off.
 - `TavernAction.choose_trinket(option_index)`, whose `kind` is `"choose_trinket"`.
 - The observation (`TavernObservation`, `DuosObservation`) appends `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their `counter`s), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices).
 - The RL action table (`rl/seaglass_rl/actions.py`) appends, at the end, `choose_trinket(i)` for `i` in `0..4`.

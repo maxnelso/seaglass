@@ -79,7 +79,8 @@ def _play_until_a_golden_is_in_hand(game: seaglass.TavernGame) -> int | None:
 def test_a_golden_played_gives_a_triple_reward_card() -> None:
     # `engine/docs/tavern.md` §5.2: the card's `counter` is its locked-in Discover Tier.
     for seed in range(200):
-        game = seaglass.TavernGame(seed=seed)
+        # Without trinket offers and Dark Gifts (on by default), which the helper doesn't play.
+        game = seaglass.TavernGame(seed=seed, trinkets=False, dark_gifts=False)
         idx = _play_until_a_golden_is_in_hand(game)
         if idx is None or len(game.observe().board) >= 7:
             continue
@@ -173,3 +174,32 @@ def test_env_and_mlp_step() -> None:
         steps += 1
     assert steps > 0
     assert info["winner"] in ("agent", "opponent", "draw")
+
+
+def test_env_episodes_end_with_trinkets_and_dark_gifts() -> None:
+    # Every env game has trinkets and Dark Gifts; the agent (random masked actions) and each
+    # opponent bot pick trinkets, use the button and resolve their prompts, so episodes end.
+    import random
+
+    from seaglass_rl.actions import CHOOSE_TRINKET_INDICES, DARK_DISCOVERY_INDEX
+    from seaglass_rl.env import BattlegroundsEnv
+    from seaglass_rl.model import BattlegroundsMLP
+
+    for kind in ("random", "heuristic", "self"):
+        env = BattlegroundsEnv(opponent=kind, seed=500, model=BattlegroundsMLP(), max_turns=12)
+        rng = random.Random(1)
+        picked = used = opp_trinkets = 0
+        for _ in range(4):
+            _, mask = env.reset()
+            done, steps = False, 0
+            while not done:
+                legal = np.flatnonzero(mask)
+                assert len(legal) > 0
+                a = int(rng.choice(list(legal)))
+                picked += a in CHOOSE_TRINKET_INDICES
+                used += a == DARK_DISCOVERY_INDEX
+                _, _, done, mask, _ = env.step(a)
+                steps += 1
+                assert steps < 2000, f"{kind}: stuck"
+            opp_trinkets += len(env.opp_game.observe().trinkets)
+        assert picked > 0 and used > 0 and opp_trinkets > 0, kind

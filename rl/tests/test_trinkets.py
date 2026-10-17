@@ -47,8 +47,22 @@ def _play_to_turn(game: seaglass.TavernGame, turn: int) -> None:
         game.start_turn()
 
 
-def test_a_game_without_trinkets_is_unchanged() -> None:
+def test_trinkets_are_on_by_default() -> None:
+    # RL plays with trinkets (and Dark Gifts): the Python default (`engine/docs/trinkets.md` §8.2).
     game = seaglass.TavernGame(seed=7)
+    _play_to_turn(game, 6)
+    assert len(game.observe().trinket_options) == 4
+    duos = seaglass.DuosTavernGame(seed=7)
+    duos.start_turn()
+    while duos.observe(0).turn < 6:
+        for p in (0, 1):
+            duos.end_turn(p)
+        duos.start_turn()
+    assert len(duos.observe(0).trinket_options) == 4
+
+
+def test_a_game_without_trinkets_is_unchanged() -> None:
+    game = seaglass.TavernGame(seed=7, trinkets=False)
     _play_to_turn(game, 9)
     obs = game.observe()
     assert obs.trinkets == [] and obs.trinket_options == [] and obs.trinket_option_costs == []

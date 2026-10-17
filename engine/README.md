@@ -90,7 +90,7 @@ The PyO3 bindings provide a **marshalling-only** layer exposing the engine to Py
   - `.step(action)` — Executes a `TavernAction` (or raises `ValueError` if illegal).
   - `.start_turn()` / `.end_turn()` — Advances turn lifecycle.
 - `seaglass.TavernGame(..., hero=None)` / `seaglass.DuosTavernGame(..., heroes=None)` give the players heroes (`docs/heroes.md`), and `seaglass.heroes_table()` lists the pool.
-- `seaglass.TavernGame(..., dark_gifts=False)` / `seaglass.DuosTavernGame(..., dark_gifts=False)` give the players the Dark Discovery button (`docs/dark_gifts.md`), and `seaglass.dark_gifts_table()` lists the gifts.
+- `seaglass.TavernGame(..., dark_gifts=True)` / `seaglass.DuosTavernGame(..., dark_gifts=True)` (the Python default; `False` turns it off) give the players the Dark Discovery button (`docs/dark_gifts.md`), and `seaglass.dark_gifts_table()` lists the gifts.
 - `seaglass.catalog(name="full")` — Returns the engine's `CardTemplate` list so Python never hardcodes card IDs or stats.
 - `seaglass.parse_unit(spec)` — Parses compact scenario strings such as `"3/2 divine_shield taunt"`.
 

@@ -4,7 +4,7 @@ This document specifies Battlegrounds **Dark Gifts** in Seaglass: the **Dark Dis
 
 Rules marked **(confirmed)** were settled with the user. Rules marked **(engine decision)** are details nobody has settled yet: the engine implements them as written, each in one place, so that it is a small change if the answer differs (§13). The rules source is the Battlegrounds team's Dark Gift post (with Hotfix 36.2.1) for eligibility, and the card data (`CardDefs.xml`, Patch 36.6.3, newer than the post) for every number: stats, turn windows, weights.
 
-**A game without Dark Gifts** (the default: `TavernState::dark_gifts_enabled` is `false`, no minion has a gift) plays exactly as before this document: no new legal action, no RNG draw, no new field in any serialized state. Solo and Duos results are byte-identical for it **(engine decision: the button is behind a flag, off by default in `TavernState::new`, `DuosTavern` and the Python constructors, so existing tests and RL runs are unchanged; the fuzzers turn it on in half their games)**.
+**A game without Dark Gifts** (the default: `TavernState::dark_gifts_enabled` is `false`, no minion has a gift) plays exactly as before this document: no new legal action, no RNG draw, no new field in any serialized state. Solo and Duos results are byte-identical for it **(engine decision: the button is behind a flag, off by default in `TavernState::new` and `DuosTavern`, so existing tests are unchanged; the fuzzers turn it on in half their games)**. The Python constructors default to on, as RL plays with Dark Gifts **(confirmed)** (§8.2).
 
 ---
 
@@ -248,7 +248,7 @@ The button is per player **(engine decision)**: each player of a team has their 
 
 ### 8.2 Python / RL
 
-- `TavernGame(..., dark_gifts=False)` and `DuosTavernGame(..., dark_gifts=False)` enable the button. The default (`False`) is no button, so existing code is unchanged.
+- `TavernGame(..., dark_gifts=True)` and `DuosTavernGame(..., dark_gifts=True)` give the button: on by default, as RL plays with Dark Gifts (and trinkets) **(confirmed)**; `dark_gifts=False` turns it off. The Rust default (`TavernState::new`, `DuosTavern::new`) stays off, so the scenarios and metamorphic tests are unchanged.
 - `TavernAction.dark_discovery()`, whose `kind` is `"dark_discovery"`.
 - `Unit.dark_gifts`: the gift ids (dbfIds) on a unit, in order. The observation (`TavernObservation`, `DuosObservation`) appends `dark_gifts_enabled`, `dark_discoveries_left` (uses left this game) and `dark_discovery_usable` (`DarkDiscovery` is legal now).
 - `seaglass.dark_gifts_table()`: `(id, name, min_turn, max_turn, weight, implemented)` for every gift. The gift ids are appended to `seaglass.all_card_ids()` after the trinkets, append-only (`dark_gifts::vocabulary` keeps the first table's order; a new gift is appended).
@@ -393,7 +393,7 @@ Engine decisions, pending the user's confirmation:
 
 | Decision | Rule | Where |
 | :--- | :--- | :--- |
-| The flag | `dark_gifts_enabled`, off by default; on in half the fuzz games. | `tavern.rs`, `python.rs` |
+| The flag | `dark_gifts_enabled`, off by default in Rust; on by default in Python (confirmed); on in half the fuzz games. | `tavern.rs`, `python.rs` |
 | The draw | Minions first, then a gift each by weight, none twice (agreed); minions from the pool like a Discover (agreed); a uniform Tier per minion; the turn's other Tiers if one has none; no shuffle (§4.3). | `dark_gifts::draw_offer` |
 | Most common type | The board's, ties at random (`spells::most_common_tribe`) (§4.1). | `dark_gifts::draw_offer` |
 | Filters | "Meant to stay in hand" = a hand hook; the ban list adds `Dark Paradox`; a minion no gift fits is not drawn; an option left without a gift drops (§4.1, §4.3). | `dark_gifts` |

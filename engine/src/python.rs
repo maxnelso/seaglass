@@ -759,9 +759,9 @@ impl PyTavernGame {
     /// `hero` (a name or id; `docs/heroes.md`) gives the player that hero: its Health, Armor and
     /// Hero Power. Without one (the default) the player has `armor` and no Hero Power. `trinkets`
     /// enables the trinket offers of turns 6 and 9 (`docs/trinkets.md`), `dark_gifts` the Dark
-    /// Discovery button (`docs/dark_gifts.md`); both off by default.
+    /// Discovery button (`docs/dark_gifts.md`); both on by default (RL plays with them).
     #[new]
-    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None, trinkets=false, dark_gifts=false))]
+    #[pyo3(signature = (seed=0, catalog="full", deity=None, shop_spells=true, armor=5, hero=None, trinkets=true, dark_gifts=true))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         seed: u64,
@@ -1441,9 +1441,9 @@ impl PyDuosTavernGame {
     /// name or id for each player, or `None`; `docs/heroes.md`) gives the players heroes instead:
     /// the team gets their Duos Armor (and Patchwerk's extra Health) and each its Hero Power.
     /// `trinkets` enables both players' trinket offers (`docs/trinkets.md` §8.1), `dark_gifts`
-    /// their Dark Discovery buttons (`docs/dark_gifts.md` §8.1).
+    /// their Dark Discovery buttons (`docs/dark_gifts.md` §8.1); both on by default.
     #[new]
-    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None, trinkets=false, dark_gifts=false))]
+    #[pyo3(signature = (seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=true, deity=None, heroes=None, trinkets=true, dark_gifts=true))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         seed: u64,

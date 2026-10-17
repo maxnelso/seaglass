@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 from .actions import ACTION_SPACE_SIZE, END_TURN_INDEX, action_from_index, action_mask
+from .bots import finish_turn
 from .env import BattlegroundsEnv, compute_board_power
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from .model import BattlegroundsMLP
@@ -111,6 +112,8 @@ def collect_selfplay_rollouts(
             seed=seed_base + i,
             catalog="full",
             deity="cthun" if i % 2 == 0 else "yshaarj",
+            trinkets=True,
+            dark_gifts=True,
         )
         for i in range(P)
     ]
@@ -199,9 +202,7 @@ def collect_selfplay_rollouts(
                 games[p].step(eng_act)
                 ended = a == END_TURN_INDEX
                 if not ended and steps + 1 >= max_steps_per_turn:
-                    while games[p].observe().discover_pending is not None:
-                        games[p].step(seaglass.TavernAction.choose_discover(0))
-                    games[p].end_turn()
+                    finish_turn(games[p])
                     ended = True
 
                 post_raw = games[p].observe()

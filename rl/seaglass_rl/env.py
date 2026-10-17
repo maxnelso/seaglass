@@ -7,7 +7,7 @@ import numpy as np
 import seaglass
 
 from .actions import END_TURN_INDEX, action_from_index, action_mask
-from .bots import HeuristicBot, PolicyBot, RandomBot
+from .bots import HeuristicBot, PolicyBot, RandomBot, finish_turn
 from .features import encode_observation
 
 
@@ -80,8 +80,13 @@ class BattlegroundsEnv:
             seed = self.base_seed + self.episode_count * 2
         self.episode_count += 1
 
-        self.player = seaglass.TavernGame(seed=seed, catalog=self.catalog, deity="cthun")
-        self.opp_game = seaglass.TavernGame(seed=seed + 1, catalog=self.catalog, deity="yshaarj")
+        # Every game has trinkets and Dark Gifts (`engine/docs/trinkets.md`, `dark_gifts.md`).
+        self.player = seaglass.TavernGame(
+            seed=seed, catalog=self.catalog, deity="cthun", trinkets=True, dark_gifts=True
+        )
+        self.opp_game = seaglass.TavernGame(
+            seed=seed + 1, catalog=self.catalog, deity="yshaarj", trinkets=True, dark_gifts=True
+        )
         self.opp_bot = self._make_opponent(seed)
         self.lobby = seaglass.Lobby(2)
 
@@ -106,12 +111,11 @@ class BattlegroundsEnv:
         self.player.step(act)
         self.steps_this_turn += 1
 
-        # Force EndTurn if the agent hits the per-turn micro-step cap (and no Discover is pending)
+        # Force EndTurn if the agent hits the per-turn micro-step cap (pending prompts resolved
+        # first: a Discover, a trinket offer, ...)
         turn_ended = action_idx == END_TURN_INDEX
         if not turn_ended and self.steps_this_turn >= self.max_steps_per_turn:
-            while self.player.observe().discover_pending is not None:
-                self.player.step(seaglass.TavernAction.choose_discover(0))
-            self.player.end_turn()
+            finish_turn(self.player)
             turn_ended = True
 
         reward = self._board_power(self.player.observe()) - pre_power

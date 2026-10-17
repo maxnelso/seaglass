@@ -33,8 +33,15 @@ def _play_to_turn(game: seaglass.TavernGame, turn: int) -> None:
         game.start_turn()
 
 
+def test_dark_gifts_are_on_by_default() -> None:
+    # RL plays with Dark Gifts (and trinkets): the Python default (`engine/docs/dark_gifts.md` §8.2).
+    for game in (seaglass.TavernGame(seed=7), seaglass.DuosTavernGame(seed=7)):
+        obs = game.observe() if isinstance(game, seaglass.TavernGame) else game.observe(0)
+        assert obs.dark_gifts_enabled and obs.dark_discoveries_left == 3
+
+
 def test_a_game_without_dark_gifts_is_unchanged() -> None:
-    game = seaglass.TavernGame(seed=7)
+    game = seaglass.TavernGame(seed=7, dark_gifts=False)
     _play_to_turn(game, 4)
     obs = game.observe()
     assert not obs.dark_gifts_enabled and obs.dark_discoveries_left == 0

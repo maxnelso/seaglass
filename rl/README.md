@@ -10,7 +10,7 @@ This package never reimplements a card, cost, legality check, or combat step—i
 ## Responsibilities of `rl/`
 
 1. **RL Environment (`env.py`)**
-   Wraps the Rust engine's tavern state machine and batch combat simulator into a single-player or multi-agent RL environment (`BattlegroundsEnv`) with deterministic seeding.
+   Wraps the Rust engine's tavern state machine and batch combat simulator into a single-player or multi-agent RL environment (`BattlegroundsEnv`) with deterministic seeding. Every game it plays has trinkets and Dark Gifts on; the agent and the bots (`RandomBot`, `HeuristicBot`, `PolicyBot`) pick trinkets, use the Dark Discovery button and resolve every pending prompt (`bots.resolve_prompts`) before a turn ends.
 2. **Action Space & Masking (`actions.py`)**
    Defines the discrete action space consumed by the policy network, queries the engine for legal actions at every micro-step, and produces boolean action masks. Illegal actions raise `ValueError` immediately rather than silently no-oping.
 3. **Reward Shaping (`rewards.py`)**
@@ -99,7 +99,7 @@ After the Duos `Pass` actions, the table appends 11 `HeroPower` actions (`HERO_P
 Trinkets ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md)) are optional: a game without trinket offers (the default) is exactly as before.
 
 ### Bindings
-- `TavernGame(..., trinkets=False)` and `DuosTavernGame(..., trinkets=False)`: `True` enables the offers, a Lesser one at the start of turn 6 and a Greater one at the start of turn 9 (4 options each; per player in Duos). Only implemented trinkets are offered.
+- `TavernGame(..., trinkets=True)` and `DuosTavernGame(..., trinkets=True)`: on by default (`trinkets=False` turns them off), the offers: a Lesser one at the start of turn 6 and a Greater one at the start of turn 9 (4 options each; per player in Duos). Only implemented trinkets are offered.
 - `TavernAction.choose_trinket(option_index)` (kind `"choose_trinket"`, args `(option_index, None)`): pick an offered trinket, paying its price in Gold. While trinkets are offered, it is the only legal action (no skipping); an unaffordable option is illegal (if none is affordable, the cheapest ones are free).
 - `trinkets_table()`: `(id, name, greater, cost, implemented)` for each of the 246 trinkets of the pool (HSReplay's 237 Solo trinkets and the 9 Duos-exclusive ones). Their ids are appended at the end of `all_card_ids()`, so they are in the card vocabulary, in a fixed append-only order: the 18 trinkets that left the pool keep their index.
 
@@ -116,7 +116,7 @@ The table appends 4 `ChooseTrinket` actions (`CHOOSE_TRINKET_INDICES`). A game w
 Dark Gifts ([`engine/docs/dark_gifts.md`](../engine/docs/dark_gifts.md)) are optional: a game without the Dark Discovery button (the default) is exactly as before.
 
 ### Bindings
-- `TavernGame(..., dark_gifts=False)` and `DuosTavernGame(..., dark_gifts=False)`: `True` gives every player the Dark Discovery button (3 Gold, from turn 3, once per turn, 3 uses per game; per player in Duos). Only implemented gifts are offered.
+- `TavernGame(..., dark_gifts=True)` and `DuosTavernGame(..., dark_gifts=True)`: on by default (`dark_gifts=False` turns it off), every player has the Dark Discovery button (3 Gold, from turn 3, once per turn, 3 uses per game; per player in Duos). Only implemented gifts are offered.
 - `TavernAction.dark_discovery()` (kind `"dark_discovery"`, args `(None, None)`): use the button. It Discovers 1 of 3 minions, each with a different Dark Gift (a regular `choose_discover` prompt).
 - `Unit.dark_gifts`: the gift ids (dbfIds) on a card, in the order it got them.
 - `dark_gifts_table()`: `(id, name, min_turn, max_turn, weight, implemented)` for each of the 47 gifts (`max_turn` 0: none). `dark_gifts_vocabulary()`: their ids in a fixed append-only order, which are also appended at the end of `all_card_ids()`, after the trinkets.
