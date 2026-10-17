@@ -1,0 +1,16 @@
+trinket: Tableware Portrait
+scenarios:
+  - name: gets_a_menagerie_tableware_then_another_each_turn
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Tableware Portrait
+      - expect: {hand: [Menagerie Tableware]}
+      - end_turn
+      - start_turn
+    expect: {hand: [Menagerie Tableware, Menagerie Tableware]}
+
+  - name: with_a_full_hand_it_waits_for_room
+    tavern: {turn: 9, hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - give_trinket: Tableware Portrait
+    expect: {hand: {count: 10}, waiting_for_hand: [Menagerie Tableware]}

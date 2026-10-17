@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The trinkets implemented so far: §11.
 
 ### Deferred
-Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Bounties, Tier 7 minions, Quests and Buddies. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
+Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Bounties, Triple Prizes, Quests and Buddies. Tier 7 minions and spells are in the game: the trinkets that give them are implemented **(confirmed)**. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
 
 ---
 
@@ -433,6 +433,8 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Sinister Invitation` (Greater) | Discover a Golden minion of your most common type with a Dark Gift. It doesn't give a Triple Reward. | As picked: a Dark Gift offer of Golden minions (`dark_gifts.md` §12.3). |
 | `Maldraxxus Dagger` (Greater) | Discover a plain copy of a friendly minion with a Dark Gift. Repeat at the start of every 2 turns. | As picked and every 2nd turn start: an offer of plain copies of board minions with Dark Gifts (`dark_gifts.md` §12.3). |
 | `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: a Dark Gift offer of Tier 7 minions from the pool (`dark_gifts.md` §12.3). |
+| `Pagle's Fishing Rod` (Greater) | Get a random Tier 7 minion. At the start of each turn, get another. | Picked, and at each turn start: a random minion of exactly Tier 7 from the game's catalog (`trinkets::give_random_minion_of_tier`), to the hand or waiting for room **(confirmed: Tier 7 is in the game)**. |
+| `Tableware Portrait` (Greater) | Get a Menagerie Tableware. At the start of each turn, get another. | Picked, and at each turn start: a fresh `Menagerie Tableware` (the Tier 7 Tavern spell), to the hand or waiting for room. |
 
 ### 11.3 Deferred
 
@@ -441,7 +443,7 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Timeworn Candelabra` (both) and the other Timewarp trinkets | Timewarp **(confirmed)**. |
 | `Tickatus Sticker` and the other Darkmoon Prize trinkets | Darkmoon Prizes **(confirmed)**. |
 | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets | Bounties **(confirmed)**. |
-| The Tier 7 trinkets | Tier 7 minions **(confirmed)**. |
+| `Corrupted Tome` | Triple Prizes (the engine has none) **(confirmed)**. |
 | `Mystery Cube`, `Trip Vouchers`, `Souvenir Stand`, `Empowered Mirror`, `Orb of the Unknown`, `Soul Battery`, `Dragonhead Staff`, `Ornate Clock` | They replace, copy or add trinkets, or move an offer (**engine decision**: later). |
 
 The list grows as the batches go (§11.1, §11.2): every trinket of the table that isn't implemented is not offered.

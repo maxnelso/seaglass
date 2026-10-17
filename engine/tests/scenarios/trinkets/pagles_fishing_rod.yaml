@@ -1,0 +1,18 @@
+trinket: Pagle's Fishing Rod
+scenarios:
+  - name: gets_a_random_tier_7_minion_then_another_each_turn
+    description: "(confirmed: Tier 7 is in the game)"
+    seeds: "1..=5"
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Pagle's Fishing Rod
+      - expect: {hand: [{tavern_tier: 7, is_spell: false}]}
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 2, all: {tavern_tier: 7, is_spell: false}}}
+
+  - name: with_a_full_hand_it_waits_for_room
+    tavern: {turn: 9, hand: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - give_trinket: Pagle's Fishing Rod
+    expect: {hand: {count: 10}, waiting_for_hand: [{tavern_tier: 7}]}

@@ -376,7 +376,7 @@ Each offer is a `dark_gifts::discover` by `OfferRules` of its own (the minion fi
 | `Ominous Stone` (Lesser) | Discover a Tier 4 minion of your most common type with a Dark Gift. | As picked: an offer of Tier 4 minions, all of the most common type (as far as the pool has them), gifts by §5 for the turn **(engine decision)**. |
 | `Sinister Invitation` (Greater) | Discover a Golden minion of your most common type with a Dark Gift. It doesn't give a Triple Reward. | As picked: an offer by the button's Tiers for the turn (§4.1), all of the most common type (as far as the pool has them), each made Golden as an intrinsic Golden (no Triple Reward) **(engine decision)**. |
 | `Maldraxxus Dagger` (Greater) | Discover a plain copy of a friendly minion with a Dark Gift. Repeat at the start of every 2 turns. | As picked and every 2nd turn start after (the trinket's `counter`): an offer of up to 3 different board minions (distinct cards, drawn uniformly), each a plain copy taken out of the pool as a Discover's minion is (a card with no copy left in the pool isn't offered; the unchosen ones go back to the pool, as every Discover's do), each with a different gift by §5 for the turn; a minion no gift fits is dropped (`dark_gifts::gift_options`) **(engine decision)**. |
-| `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: an offer of Tier 7 minions from the pool (the full catalog's 12 Tier 7 minions, 5 copies each), gifts by §5 for the turn. |
+| `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: an offer of Tier 7 minions from the pool (the full catalog's 12 Tier 7 minions, 5 copies each), gifts by §5 for the turn **(confirmed: Tier 7 is in the game)**. |
 
 ### 12.4 `Dark Paradox`
 

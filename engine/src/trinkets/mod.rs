@@ -119,6 +119,7 @@ pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
 pub mod ominous_stone;
 pub mod orc_estra_portrait;
+pub mod pagles_fishing_rod;
 pub mod pilgrimp_sticker;
 pub mod pocket_cyclone;
 pub mod pocket_cyclone_greater;
@@ -153,6 +154,7 @@ pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
+pub mod tableware_portrait;
 pub mod the_eye_of_dalaran;
 pub mod the_eye_of_sargeras;
 pub mod tome_of_the_ancients;
@@ -372,6 +374,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
     (ominous_stone::ID, ominous_stone::behaviors),
     (orc_estra_portrait::ID, orc_estra_portrait::behaviors),
+    (pagles_fishing_rod::ID, pagles_fishing_rod::behaviors),
     (pilgrimp_sticker::ID, pilgrimp_sticker::behaviors),
     (pocket_cyclone::ID, pocket_cyclone::behaviors),
     (
@@ -415,6 +418,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
+    (tableware_portrait::ID, tableware_portrait::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
     (the_eye_of_sargeras::ID, the_eye_of_sargeras::behaviors),
     (tome_of_the_ancients::ID, tome_of_the_ancients::behaviors),
