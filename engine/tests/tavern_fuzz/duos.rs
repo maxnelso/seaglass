@@ -1364,7 +1364,16 @@ fn check_combat_applied(
     let damage = res.hero_damage as i32;
     let loss = if lost { damage } else { 0 };
     let (hp_before, hp_after) = (before.health + before.armor, after.health + after.armor);
-    if hp_after != hp_before - loss {
+    let prevented = (0..2).any(|p| {
+        prevented_fatal(
+            &before.players[p].auras,
+            &after.players[p].auras,
+            hp_before,
+            hp_after,
+            loss,
+        )
+    });
+    if hp_after != hp_before - loss && !prevented {
         return Err(broken(
             "the team lost other than the combat's damage",
             format!(

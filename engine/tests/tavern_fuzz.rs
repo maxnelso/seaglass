@@ -1014,6 +1014,25 @@ fn out_of_pool_ids() -> &'static BTreeSet<u32> {
     })
 }
 
+/// A trinket prevented fatal combat damage (`trinket_prevent_fatal`: `Safety Patch`'s Ice Block,
+/// `docs/trinkets.md` §6): the loss would have been fatal, nothing was lost, and the state of a
+/// trinket with that hook changed (what allowed it was used up).
+fn prevented_fatal(
+    before: &seaglass::PlayerAuras,
+    after: &seaglass::PlayerAuras,
+    hp_before: i32,
+    hp_after: i32,
+    loss: i32,
+) -> bool {
+    hp_before - loss <= 0
+        && hp_after == hp_before
+        && before
+            .trinkets
+            .iter()
+            .zip(&after.trinkets)
+            .any(|(b, a)| cards::hooks(b.card_id).trinket_prevent_fatal.is_some() && b != a)
+}
+
 /// The cards come from the game's catalog (`docs/duos_tavern.md` §8): no Duos card in a Solo game
 /// (its pool, its random cards and its shop spells are Solo ones), and no minion of no pool (the
 /// Naga-only ones) offered by a Duos game's Discovers, unless the player's Hero Power kept it from
@@ -1851,6 +1870,9 @@ struct Expect {
     /// The player's Hero Power acts after a minion is played (`hero_after_play`): it may give
     /// `Triple Reward` cards too (Cho and Gall).
     hero_after_play: bool,
+    /// A trinket of the player sees the teammate after each action: it may give `Triple Reward`
+    /// cards for any Golden played, an intrinsic one too (`Cho'gall Sticker`).
+    trinket_rewards: bool,
     casts_tavern_spell: bool,
     gold: u32,
     /// What the action costs in Gold, when nothing else changes the Gold.
@@ -2008,6 +2030,11 @@ impl Expect {
                         .as_ref()
                         .is_some_and(|sp| cards::hooks(sp.card_id).hero_after_play.is_some())
             }),
+            trinket_rewards: s
+                .auras
+                .trinkets
+                .iter()
+                .any(|t| cards::hooks(t.card_id).trinket_teammate.is_some()),
             casts_tavern_spell: false,
             gold: s.gold,
             cost,
@@ -2126,10 +2153,10 @@ impl Expect {
             let full = s.hand.len() >= 10;
             let (ok, what) = if !gives {
                 (
-                    new == 0,
+                    new == 0 || self.trinket_rewards,
                     "an intrinsic Golden played from hand gave a Triple Reward card",
                 )
-            } else if self.hero_after_play {
+            } else if self.hero_after_play || self.trinket_rewards {
                 (
                     new_of_tier >= 1 || (new == 0 && full),
                     "a Golden played from hand gave no Triple Reward card of the next Tier",
@@ -2885,7 +2912,10 @@ impl Game {
             ];
             self.tolerate(checks)?;
             let after = hit_points(&self.players[p]);
-            if after != before - loss {
+            let prior = if p == a { &before_a } else { &before_b };
+            let prevented =
+                prevented_fatal(&prior.auras, &self.players[p].auras, before, after, loss);
+            if after != before - loss && !prevented {
                 return Err(broken(
                     "the hero lost other than the combat's damage",
                     format!(
@@ -2954,7 +2984,8 @@ impl Game {
             0
         };
         let after = hit_points(&self.players[p]);
-        if after != hp - loss {
+        let prevented = prevented_fatal(&before.auras, &self.players[p].auras, hp, after, loss);
+        if after != hp - loss && !prevented {
             return Err(broken(
                 "the hero lost other than the combat's damage",
                 format!(
