@@ -1430,6 +1430,7 @@ fn perform_one_strike(
                 insert_pos += 1;
             }
         }
+        crate::trinkets::after_combat_summon(&mut atk_side.ctx(side, next_id, rng, events));
     }
 
     if cards::is_rally_minion(attacker_card_id) {

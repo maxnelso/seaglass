@@ -151,7 +151,9 @@ impl<'a> BoardCtx<'a> {
         let pos = self.cursor.min(self.board.len());
         self.board.insert(pos, token);
         self.cursor = pos + 1;
-        if !self.in_combat {
+        if self.in_combat {
+            crate::trinkets::after_combat_summon(self);
+        } else {
             on_tavern_summon(self.board, self.auras, pos);
         }
         Some(pos)

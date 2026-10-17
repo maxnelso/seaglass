@@ -4,11 +4,12 @@
 //!
 //! Every 6th friendly Beast summoned (`counter`, across turns and combats; in the Tavern, played or
 //! summoned by a card, and in combat: `trinket_tavern_summon`, `trinket_combat_summon`) owes a
-//! random Beast of the player's Tier or lower (`stacks`, the cards owed). The owed cards come after
-//! the Tavern action (`trinket_after_action`), or for a combat's summons at the next turn start
-//! (`trinket_turn_start`), not in the combat hand **(engine decision)**.
+//! random Beast of the player's Tier or lower (`stacks`, the cards owed). One owed for a combat
+//! summon comes at once, to the combat hand (`trinket_after_combat_summon`) **(confirmed)**; one
+//! owed for a Tavern summon after the Tavern action (`trinket_after_action`) **(engine decision)**.
+//! Any still owed (a summon without a context to pay it) comes at the next turn start.
 
-use crate::cards::CardHooks;
+use crate::cards::{BoardCtx, CardHooks};
 use crate::model::{CardId, Tribe, TrinketState, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -25,6 +26,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         CardHooks::EMPTY
             .on_trinket_combat_summon(summon)
             .on_trinket_tavern_summon(summon)
+            .on_trinket_after_combat_summon(pay_in_combat)
             .on_trinket_after_action(pay)
             .on_trinket_turn_start(pay),
     )]
@@ -38,6 +40,18 @@ fn summon(trinket: &mut TrinketState, summoned: &mut Unit) {
     if trinket.counter >= BEASTS {
         trinket.counter = 0;
         trinket.stacks += 1;
+    }
+}
+
+fn pay_in_combat(ctx: &mut BoardCtx<'_>) {
+    let Some(trinket) = super::state_mut(ctx.auras, ID) else {
+        return;
+    };
+    let owed = std::mem::take(&mut trinket.stacks);
+    for _ in 0..owed {
+        if let Some(card) = super::random_minion(ctx, |t| t.tribe.matches(Tribe::Beast)) {
+            ctx.add_to_hand(card);
+        }
     }
 }
 

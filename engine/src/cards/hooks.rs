@@ -673,6 +673,9 @@ card_hooks! {
     /// an aura (`cards::sync_board_unit_auras`, kept in `Unit::aura_applied`): `(trinket, unit,
     /// auras)`.
     trinket_board_aura(on_trinket_board_aura): fn(&TrinketState, &Unit, &PlayerAuras) -> (i32, i32),
+    /// A friendly minion was summoned in combat and is on the board (each `BoardCtx` summon; a
+    /// Rally's summons once, after them): `(ctx)`.
+    trinket_after_combat_summon(on_trinket_after_combat_summon): fn(&mut BoardCtx<'_>),
 }
 
 impl Default for CardHooks {

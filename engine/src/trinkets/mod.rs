@@ -1030,6 +1030,15 @@ pub fn extra_deathrattles(auras: &mut PlayerAuras, unit: &Unit) -> u32 {
     extra
 }
 
+/// A friendly minion was summoned in combat: each trinket's `trinket_after_combat_summon` hook.
+pub fn after_combat_summon(ctx: &mut BoardCtx<'_>) {
+    for id in owned_ids(ctx.auras) {
+        if let Some(after_summon) = hooks(id).trinket_after_combat_summon {
+            after_summon(ctx);
+        }
+    }
+}
+
 /// The stats the player's trinkets give `unit`, a minion on the board, as an aura (each one's
 /// `trinket_board_aura`; none without trinkets).
 pub fn board_aura(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {

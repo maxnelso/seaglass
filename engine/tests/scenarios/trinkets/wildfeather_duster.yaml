@@ -9,7 +9,17 @@ scenarios:
       hand: {count: 1, all: {tavern_tier: "<= 3", tribe: {any_of: [beast, beast_pirate, all]}}}
       auras: {trinkets: [{counter: 0, stacks: 0}]}
 
-  - name: a_combats_beasts_pay_at_the_next_turn_start
+  - name: a_beast_summoned_in_combat_gives_it_in_the_combat_hand
+    description: Confirmed - the Sewer Lord's first Sewer Rat is the 6th Beast; the Beast comes at once, to the combat hand.
+    seeds: "1..=3"
+    combat:
+      board_a: [Sewer Lord]
+      board_b: [Cataclysmic Harbinger]
+      auras_a: {trinkets: [{trinket: Wildfeather Duster, counter: 5}]}
+    expect:
+      hand_a: {count: 1, all: {tribe: {any_of: [beast, beast_pirate, all]}}}
+
+  - name: one_still_owed_comes_at_the_next_turn_start
     seeds: "1..=3"
     tavern: {auras: {trinkets: [{trinket: Wildfeather Duster, stacks: 1}]}}
     steps:
