@@ -63,7 +63,9 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
             let mut copy = Unit::new(name, base_atk, base_hp)
                 .with_card_id(destroyed.card_id)
                 .with_tavern_tier(destroyed.tavern_tier)
-                .with_tribe(destroyed.tribe);
+                .with_tribe(
+                    cards::template(destroyed.card_id).map_or(destroyed.tribe, |t| t.tribe),
+                );
             copy.divine_shield = destroyed.inherent_divine_shield;
             copy.inherent_divine_shield = destroyed.inherent_divine_shield;
             copy

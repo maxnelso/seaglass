@@ -43,3 +43,14 @@ scenarios:
     expect:
       board: [Skeleton, Skeleton, Disguised Graverobber]   # the Skeletons take the Bonehead's place
       hand: [Harmless Bonehead]
+
+  - name: the_plain_copy_has_its_cards_type
+    description: >-
+      A Duos-only Undead by the Dark Gift Amalgamation (no Solo template: the copy is built from
+      it) comes back with its card's type, without the gift.
+    tavern:
+      board: ["Well Wisher gift:amalgamation"]
+      hand: [Disguised Graverobber]
+    steps:
+      - play: {hand: Disguised Graverobber, pos: 0}
+    expect: {hand: [{name: Well Wisher, tribe: none, dark_gifts: []}]}
