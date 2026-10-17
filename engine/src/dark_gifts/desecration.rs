@@ -3,8 +3,8 @@
 //! Has +3/+3 for each card you've discarded this game. ({1})
 //!
 //! `gift_aura`: +3/+3 for each card the player discarded this game (`auras.cards_discarded`),
-//! wherever it is. Only once the player discarded a card (engine decision; `docs/dark_gifts.md`
-//! §5.2). A stat gift.
+//! wherever it is. Only once the player discarded at least one card (confirmed;
+//! `docs/dark_gifts.md` §5.2). A stat gift.
 
 use crate::cards::{CardFlags, CardHooks, CardTemplate};
 use crate::dark_gifts::OfferCtx;

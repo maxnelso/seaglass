@@ -4,7 +4,7 @@
 //!
 //! Start of Combat: summon a copy of it as it is (its gifts too) to its right, if there is room;
 //! the copy's own Start of Combat doesn't trigger (it wasn't listed). No offer rule of its own
-//! (engine decision; `docs/dark_gifts.md` §5.2).
+//! (confirmed; `docs/dark_gifts.md` §5.2).
 
 use crate::cards::{BoardCtx, CardHooks};
 use crate::model::{CardId, UnitId};

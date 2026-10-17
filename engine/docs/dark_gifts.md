@@ -181,10 +181,10 @@ A gift can be offered on a minion, on turn `turn`, to a player, if every rule be
 | `Persisting Horror` | Not on minions with no type. |
 | `Titanic Strength` | Not on Dragons. |
 | `Invulnerability` | Not on Taunt minions or minions with no type. |
-| `Worship` | Only for a player with a Deity (`auras.deity.kind` isn't `None`) in a lobby with Aberrations **(engine decision: the post predates it)**. |
-| `Efficiency` | Only on Activate minions **(engine decision)**. |
-| `Desecration` | Only once the player discarded a card this game **(engine decision)**. |
-| `Doppelganger` | No rule of its own **(engine decision)**. |
+| `Worship` | Only for a player with a Deity (`auras.deity.kind` isn't `None`) **(confirmed)**. |
+| `Efficiency` | Only on Activate minions **(confirmed)**. |
+| `Desecration` | Only once the player discarded at least one card this game **(confirmed)**. |
+| `Doppelganger` | No rule of its own **(confirmed)**. |
 
 What a minion is: "with a type" — its tribe isn't `None` (an `All` minion has every type); "a Demon" — `Tribe::matches`; a Battlecry / Choose One / Deathrattle / Rally / Activate / Spellcraft / end of turn minion — its card has that hook (`battlecry`, `choose_one`, `deathrattle`, `rally`, `activate`, `spellcraft`, `end_of_turn`); an Avenge minion — its card has the `AVENGE` flag; Taunt, Divine Shield, Venomous — its card's printed keyword. The minion is judged as a plain card (its template), not as the copy in the pool **(engine decision)**.
 
@@ -399,7 +399,6 @@ Engine decisions, pending the user's confirmation:
 | Harpy's Talons | Weight ×2 on Rally minions (§4.2). | `harpys_talons.rs` |
 | Stat gifts | The list of §11 (§5.1 rule 3). | the gifts' flags |
 | Lobby types | A type the pool has a minion of alone (§5.1 rule 5). | `CardPool::lobby_has` |
-| New gifts | `Worship`, `Efficiency`, `Desecration` need their mechanic; `Doppelganger` has no rule (§5.2). | their files |
 | Gifts on a minion | Kept wherever the minion goes, on exact copies and Passes; not on plain or Reborn copies; no doubling for Golden; tripled stats are buffs (§2.2). | `model.rs`, `cards` |
 | Price and empty offers | Gold spent like any price; an empty offer still costs (§3.2). | `dark_gifts::use_button` |
 | Order | A minion's card's Start of Combat, then its gifts'; Deathrattles and Rallies the same (§7). | `cards` |

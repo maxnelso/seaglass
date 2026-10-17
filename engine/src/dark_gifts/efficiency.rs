@@ -3,7 +3,7 @@
 //! This minion's Activate triggers twice.
 //!
 //! `gift_extra_activations`: its `Activate` triggers once more, for one price. Only on Activate
-//! minions (engine decision; `docs/dark_gifts.md` §5.2).
+//! minions (confirmed; `docs/dark_gifts.md` §5.2).
 
 use crate::cards::{CardHooks, CardTemplate};
 use crate::dark_gifts::OfferCtx;

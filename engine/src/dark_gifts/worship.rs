@@ -3,13 +3,12 @@
 //! Start of Combat: Gain the stats of your Deity.
 //!
 //! Start of Combat: it gains the Attack and Health of the player's Deity (`auras.deity`). Only for
-//! a player with a Deity in a lobby with Aberrations (engine decision; `docs/dark_gifts.md` §5.2).
-//! A stat gift.
+//! a player with a Deity (confirmed; `docs/dark_gifts.md` §5.2). A stat gift.
 
 use crate::cards::{BoardCtx, CardFlags, CardHooks, CardTemplate};
 use crate::dark_gifts::OfferCtx;
-use crate::model::{CardId, UnitId};
-use crate::model::{DeityKind, Tribe};
+use crate::model::{CardId, DeityKind, UnitId};
+
 pub const ID: CardId = 134732;
 
 /// The gift's hooks, for the card registry.
@@ -32,5 +31,5 @@ fn start_of_combat(ctx: &mut BoardCtx<'_>, id: UnitId, _: usize) {
 }
 
 fn offerable(ctx: &OfferCtx<'_>, _: &CardTemplate) -> bool {
-    ctx.auras.deity.kind != DeityKind::None && ctx.lobby_has(Tribe::Aberration)
+    ctx.auras.deity.kind != DeityKind::None
 }
