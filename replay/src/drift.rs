@@ -267,6 +267,11 @@ fn tribe_names(tribe: Tribe) -> Vec<String> {
     v
 }
 
+/// Tokens whose stats are copied from another minion when made, so their template stats are
+/// placeholders: Deserted Golem (the Dark Gift Golemancy's Golem, made with the dying minion's
+/// stats).
+const DYNAMIC_STATS: &[&str] = &["BG29_864t"];
+
 /// The cards whose most common log data differs from the engine's.
 pub fn card_drift(obs: &BTreeMap<String, CardObservation>) -> Vec<CardDrift> {
     let mut out = Vec::new();
@@ -283,7 +288,10 @@ pub fn card_drift(obs: &BTreeMap<String, CardObservation>) -> Vec<CardDrift> {
         let mult = if o.golden { 2 } else { 1 };
         let mut diffs = Vec::new();
         let (ea, eh) = (u.attack * mult, u.health * mult);
-        if card.kind != CardKind::Deity && !o.stats.contains_key(&(ea, eh)) {
+        if card.kind != CardKind::Deity
+            && !DYNAMIC_STATS.contains(&cid.as_str())
+            && !o.stats.contains_key(&(ea, eh))
+        {
             if let Some(((a, h), n)) = mode(&o.stats) {
                 diffs.push(format!(
                     "stats {a}/{h} ({n} of {} creations) vs engine {ea}/{eh}",

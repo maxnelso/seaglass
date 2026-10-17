@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use serde::Serialize;
 
 use seaglass::cards::{self, ballers, tokens, volumizers};
+use seaglass::dark_gifts;
 use seaglass::heroes;
 use seaglass::model::{
     BattleOutcome, DeityKind, DeityState, EffectDuration, GameState, HeroPowerState, HeroState,
@@ -202,6 +203,11 @@ impl Builder {
             .enchantments
             .iter()
             .any(|e| MARKED_BY_HERO_POWER.contains(&e.as_str()));
+        // Its Dark Gifts, from their enchantments, without their `gift_given` text: the log's
+        // stats and keywords already include it (`engine/docs/dark_gifts.md` §10).
+        for id in log_dark_gifts(&m.enchantments) {
+            dark_gifts::attach(&mut u, id);
+        }
         // The log's stats already include the "wherever this is" auras: mark them applied.
         cards::sync_unit_auras(&mut u, auras);
         u.attack = m.attack;
@@ -222,6 +228,32 @@ impl Builder {
         }
         card_index().by_id(card.card_id).map(|c| c.proto.clone())
     }
+}
+
+/// The Dark Gifts a minion with the enchantments `enchantments` has (`engine/docs/dark_gifts.md`
+/// §10): each gift as many times as its most attached enchantment (a gift can attach several:
+/// `Offensive Sacrifice`'s `...000te` and `...000te2`), in table order.
+pub fn log_dark_gifts(enchantments: &[String]) -> Vec<seaglass::CardId> {
+    let mut out = Vec::new();
+    for g in dark_gifts::table() {
+        let n = g
+            .enchantments
+            .iter()
+            .map(|e| enchantments.iter().filter(|x| x == e).count())
+            .max()
+            .unwrap_or(0);
+        out.extend(std::iter::repeat_n(g.id, n));
+    }
+    out
+}
+
+/// `true` if the engine simulates every Dark Gift among `enchantments`: each gift enchantment
+/// (`BG36_MidGameEffect_000t*`) is a known gift's, and the gift is implemented.
+pub fn dark_gifts_simulated(enchantments: &[String]) -> bool {
+    enchantments
+        .iter()
+        .filter(|e| e.starts_with("BG36_MidGameEffect_000t"))
+        .all(|e| dark_gifts::by_enchantment(e).is_some_and(|g| dark_gifts::is_implemented(g.id)))
 }
 
 /// Which Deity a game's `BACON_GLOBAL_OLD_GOD_DBID` / Deity minion card names.
@@ -338,7 +370,8 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
                 ));
             }
             for m in &p.board {
-                if !m.dark_gifts.is_empty() {
+                // A gift the engine doesn't simulate: unimplemented, or an unknown enchantment.
+                if !m.dark_gifts.is_empty() && !dark_gifts_simulated(&m.enchantments) {
                     gaps.push(format!(
                         "{} (player {}): {} has Dark Gift(s) {} (not simulated)",
                         p.hero_name,

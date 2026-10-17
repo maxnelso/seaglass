@@ -294,7 +294,9 @@ pub fn diagnose(
         .iter()
         .chain(&setup.team_b.players)
         .flat_map(|p| p.board.iter())
-        .filter(|m| !m.dark_gifts.is_empty())
+        .filter(|m| {
+            !m.dark_gifts.is_empty() && !crate::validate::dark_gifts_simulated(&m.enchantments)
+        })
         .map(|m| (m.entity_id, (m.name.as_str(), m.dark_gifts.as_slice())))
         .collect();
     for (i, e) in setup.events.iter().enumerate().take(end) {
