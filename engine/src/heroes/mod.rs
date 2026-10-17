@@ -72,6 +72,7 @@ pub mod mister_clocksworth;
 pub mod mr_bigglesworth;
 pub mod murloc_holmes;
 pub mod mutanus_the_devourer;
+pub mod nightmare_lord_xavius;
 pub mod nozdormu;
 pub mod nzoth;
 pub mod onyxia;
@@ -108,6 +109,7 @@ pub mod the_rat_king;
 pub mod thorim_stormlord;
 pub mod time_twister_chromie;
 pub mod trade_prince_gallywix;
+pub mod trastath_soul_parasite;
 pub mod vanndar_stormpike;
 pub mod varden_dawngrasp;
 pub mod voljin;
@@ -249,6 +251,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (mr_bigglesworth::ID, mr_bigglesworth::behaviors),
     (murloc_holmes::ID, murloc_holmes::behaviors),
     (mutanus_the_devourer::ID, mutanus_the_devourer::behaviors),
+    (nightmare_lord_xavius::ID, nightmare_lord_xavius::behaviors),
     (nozdormu::ID, nozdormu::behaviors),
     (nzoth::ID, nzoth::behaviors),
     (onyxia::ID, onyxia::behaviors),
@@ -288,6 +291,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (thorim_stormlord::ID, thorim_stormlord::behaviors),
     (time_twister_chromie::ID, time_twister_chromie::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
+    (trastath_soul_parasite::ID, trastath_soul_parasite::behaviors),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (varden_dawngrasp::ID, varden_dawngrasp::behaviors),
     (voljin::ID, voljin::behaviors),
@@ -350,11 +354,13 @@ pub fn is_implemented(id: HeroId) -> bool {
 }
 
 /// The heroes a game can offer (`docs/heroes.md` §6): the implemented ones, Duos-only heroes only
-/// in Duos, in table order.
-pub fn offerable(duos: bool) -> Vec<HeroId> {
+/// in Duos, the Dark Gift ones (`CardFlags::DARK_GIFTS`) only in a game with Dark Gifts
+/// (`docs/dark_gifts.md` §12), in table order.
+pub fn offerable(duos: bool, dark_gifts: bool) -> Vec<HeroId> {
     HEROES
         .iter()
         .filter(|h| is_implemented(h.id) && (duos || !h.duos_only))
+        .filter(|h| dark_gifts || !hooks(h.power.id).has(CardFlags::DARK_GIFTS))
         .map(|h| h.id)
         .collect()
 }
@@ -367,9 +373,10 @@ pub fn draw_offers(
     players: usize,
     per_player: usize,
     duos: bool,
+    dark_gifts: bool,
     rng: &mut Rng,
 ) -> Vec<Vec<HeroId>> {
-    let mut left = offerable(duos);
+    let mut left = offerable(duos, dark_gifts);
     (0..players)
         .map(|_| {
             let mut offered = Vec::with_capacity(per_player);
@@ -1171,8 +1178,8 @@ pub fn power_mut_for(auras: &mut PlayerAuras, card_id: CardId) -> Option<&mut He
 
 /// The Hero Powers a Discover of Hero Powers can offer (`Sir Finley Mrrgglton`, `Master Nguyen`,
 /// `Genn, Worgen King`; `docs/heroes.md` §11.2): the implemented ones (Duos-only ones only in
-/// Duos) but `exclude`, the player's current ones and those flagged
-/// [`CardFlags::NOT_DISCOVERABLE_POWER`]. For a single turn (`temporary`: Master Nguyen), not those
+/// Duos; the Dark Gift ones only with `dark_gifts_enabled`) but `exclude`, the player's current
+/// ones and those flagged [`CardFlags::NOT_DISCOVERABLE_POWER`]. For a single turn (`temporary`: Master Nguyen), not those
 /// flagged [`CardFlags::NOT_A_TURN_POWER`] either, nor an active one its `hero_power_usable` hook
 /// says can't be used now.
 pub fn offerable_powers(
@@ -1193,6 +1200,7 @@ pub fn offerable_powers(
         .filter(|h| {
             let card = hooks(h.power.id);
             !card.has(CardFlags::NOT_DISCOVERABLE_POWER)
+                && (state.dark_gifts_enabled || !card.has(CardFlags::DARK_GIFTS))
                 && (!temporary
                     || (!card.has(CardFlags::NOT_A_TURN_POWER)
                         && card.hero_power_usable.is_none_or(|usable| usable(state))))
@@ -1499,7 +1507,7 @@ mod tests {
     #[test]
     fn offers_are_distinct_across_the_lobby() {
         let mut rng = Rng::new(7);
-        let offers = draw_offers(4, OFFER_COUNT, false, &mut rng);
+        let offers = draw_offers(4, OFFER_COUNT, false, false, &mut rng);
         let all: Vec<HeroId> = offers.iter().flatten().copied().collect();
         let mut unique = all.clone();
         unique.sort();

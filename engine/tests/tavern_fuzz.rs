@@ -233,12 +233,15 @@ impl Config {
                 }
             }
         }
+        // The Dark Discovery button, from an RNG of its own: in half the games. (Drawn before the
+        // heroes, which offer the Dark Gift heroes only with it.)
+        let dark_gifts = Rng::new(seed ^ 0xDA2C_61F7_0000_0001).below(2) == 0;
         // Heroes come from an RNG of their own, so that adding them left every seed's other
         // choices as they were: in half the games, every player gets a random implemented hero.
         let mut hero_rng = Rng::new(seed ^ 0x4E20_E5ED_0000_0001);
         let heroes = if hero_rng.below(2) == 0 {
             let duos = catalog.starts_with("duos");
-            heroes::draw_offers(players, 1, duos, &mut hero_rng)
+            heroes::draw_offers(players, 1, duos, dark_gifts, &mut hero_rng)
                 .into_iter()
                 .map(|offer| offer.first().copied())
                 .collect()
@@ -247,8 +250,6 @@ impl Config {
         };
         // Trinkets too, from an RNG of their own: offered in half the games.
         let trinkets = Rng::new(seed ^ 0x7121_4E75_0000_0001).below(2) == 0;
-        // The Dark Discovery button too, in half the games.
-        let dark_gifts = Rng::new(seed ^ 0xDA2C_61F7_0000_0001).below(2) == 0;
         Self {
             players,
             catalog,
@@ -1526,14 +1527,21 @@ fn check_pool_leaks_with(
 
 /// Whether the player's Hero Power acts at the start of the turn once the shop is rolled
 /// (`hero_turn_start`): the shop may no longer be as rolled (Yogg-Saron's random Tavern spell
-/// can take a minion from it).
+/// can take a minion from it). A board minion's Dark Gift with a start of turn effect does too
+/// (`Time Turning` repeats a `Flaming Enforcer`'s end of turn, which eats a Tavern minion).
 fn hero_acts_after_the_roll(s: &TavernState) -> bool {
-    s.hero().is_some_and(|h| {
-        cards::hooks(h.power.card_id).hero_turn_start.is_some()
-            || h.second_power
-                .as_ref()
-                .is_some_and(|sp| cards::hooks(sp.card_id).hero_turn_start.is_some())
-    })
+    let gift_acts = s
+        .board
+        .iter()
+        .flat_map(|u| &u.dark_gifts)
+        .any(|g| cards::hooks(g.card_id).gift_turn_start.is_some());
+    gift_acts
+        || s.hero().is_some_and(|h| {
+            cards::hooks(h.power.card_id).hero_turn_start.is_some()
+                || h.second_power
+                    .as_ref()
+                    .is_some_and(|sp| cards::hooks(sp.card_id).hero_turn_start.is_some())
+        })
 }
 
 /// A shop just rolled (unfrozen `start_turn`, `Refresh`) holds `shop_minion_slots` minions from the

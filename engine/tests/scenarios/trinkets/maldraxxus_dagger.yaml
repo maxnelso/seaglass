@@ -1,0 +1,45 @@
+trinket: Maldraxxus Dagger
+scenarios:
+  - name: discovers_plain_copies_of_board_minions_with_a_dark_gift
+    description: (engine decision)
+    seeds: "1..=10"
+    tavern:
+      turn: 9
+      board: ["Harmless Bonehead +5/+5", "Wrath Weaver", "Wrath Weaver", "Risen Rider", "Buzzing Vermin"]
+    steps:
+      - give_trinket: Maldraxxus Dagger
+    expect:
+      discover_pending:
+        count: 3
+        all: {name: {any_of: [Harmless Bonehead, Wrath Weaver, Risen Rider, Buzzing Vermin]}, dark_gifts: {count: 1}}
+
+  - name: a_plain_copy_with_its_own_gift
+    seeds: "1..=5"
+    description: The copy is plain (not Golden, without the original's buff and gift).
+    tavern: {turn: 9, board: ["Golden Harmless Bonehead +5/+5 gift:offensive_sacrifice"]}
+    steps:
+      - give_trinket: Maldraxxus Dagger
+      - choose_discover: 0
+    expect:
+      hand: {0: {name: Harmless Bonehead, is_golden: false, dark_gifts: {count: 1}}}
+      board: [{dark_gifts: [{card_id: 132192}]}]
+
+  - name: again_at_the_start_of_every_2_turns
+    seeds: "1..=5"
+    tavern: {turn: 9, board: ["Harmless Bonehead", "Wrath Weaver"]}
+    steps:
+      - give_trinket: Maldraxxus Dagger
+      - choose_discover: 0
+      - end_turn
+      - start_turn
+      - expect: {discover_pending: null}
+      - end_turn
+      - start_turn
+      - expect: {discover_pending: {all: {dark_gifts: {count: 1}}}}
+      - choose_discover: 0
+      - end_turn
+      - start_turn
+      - expect: {discover_pending: null}
+      - end_turn
+      - start_turn
+    expect: {discover_pending: {all: {dark_gifts: {count: 1}}}}

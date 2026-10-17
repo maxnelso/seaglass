@@ -1,0 +1,10 @@
+trinket: Wax Lance
+scenarios:
+  - name: discovers_tier_7_minions_with_a_dark_gift
+    seeds: "1..=10"
+    tavern: {turn: 9}
+    steps:
+      - give_trinket: Wax Lance
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 7, dark_gifts: {count: 1}}}}
+      - choose_discover: 0
+    expect: {hand: {0: {tavern_tier: 7, dark_gifts: {count: 1}}}}

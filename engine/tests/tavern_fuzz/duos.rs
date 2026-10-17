@@ -235,13 +235,17 @@ impl DuosConfig {
                 })
             })
             .collect();
+        // The Dark Discovery button, from an RNG of its own: in half the games. (Drawn before the
+        // heroes, which offer the Dark Gift heroes only with it.)
+        let dark_gifts = Rng::new(seed ^ 0xDA2C_61F7_D005_0002).below(2) == 0;
         // Heroes come from an RNG of their own, so that they leave the rest of the setup as it is.
         let mut hero_rng = Rng::new(seed ^ 0x4E20_E5ED_D005_0002);
         let (heroes, offer_heroes) = if hero_rng.below(2) == 0 {
             let offer = hero_rng.below(3) == 0;
             let per_player = if offer { 2 } else { 1 };
             let mut offers =
-                heroes::draw_offers(2 * teams, per_player, true, &mut hero_rng).into_iter();
+                heroes::draw_offers(2 * teams, per_player, true, dark_gifts, &mut hero_rng)
+                    .into_iter();
             let heroes = (0..teams)
                 .map(|_| [0, 1].map(|_| offers.next().unwrap_or_default()))
                 .collect();
@@ -251,8 +255,6 @@ impl DuosConfig {
         };
         // Trinkets too, from an RNG of their own: offered in half the games.
         let trinkets = Rng::new(seed ^ 0x7121_4E75_D005_0002).below(2) == 0;
-        // The Dark Discovery button too, in half the games.
-        let dark_gifts = Rng::new(seed ^ 0xDA2C_61F7_D005_0002).below(2) == 0;
         Self {
             teams,
             shop_spells,
@@ -2540,7 +2542,7 @@ impl DuosBattleCase {
             // Half the warbands have a hero, whose combat Hero Power (if it has one) acts at its
             // warband's Start of Combat, also when it steps in (`docs/heroes.md` §7).
             if rng.below(2) == 0 {
-                let ids = heroes::offerable(true);
+                let ids = heroes::offerable(true, false);
                 let hero = heroes::data(ids[rng.below(ids.len())]).expect("an offerable hero");
                 auras.hero = Some(heroes::new_state(hero));
             }

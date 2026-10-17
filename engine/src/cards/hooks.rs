@@ -95,6 +95,9 @@ impl CardFlags {
     pub const GIFT_IMMUNE_ATTACKING: CardFlags = CardFlags(1 << 21);
     /// A Dark Gift whose minion's Spellcraft spell is not temporary (`Sunken Persistence`).
     pub const GIFT_KEEPS_SPELLCRAFT: CardFlags = CardFlags(1 << 22);
+    /// A Hero Power or trinket of Dark Gift games: offered only to a player with
+    /// `dark_gifts_enabled` (`docs/dark_gifts.md` §12).
+    pub const DARK_GIFTS: CardFlags = CardFlags(1 << 23);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {

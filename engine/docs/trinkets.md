@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The trinkets implemented so far: §11.
 
 ### Deferred
-Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Dark Gifts (until [`dark_gifts.md`](dark_gifts.md) implements them), Timewarp, Darkmoon Prizes, Bounties, Tier 7 minions, Quests and Buddies. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
+Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Bounties, Tier 7 minions, Quests and Buddies. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
 
 ---
 
@@ -65,7 +65,7 @@ A trinket is kept for the rest of the game **(confirmed)**. Trinkets that replac
 
 - A **Lesser** offer at the start of turn 6 and a **Greater** offer at the start of turn 9, 4 options each **(confirmed)**: the player's `turn` (`tavern.md` §3.1), at the end of the start of turn (`tavern.md` §4 step 6), after the Spellcraft spells and the Triples, so the board and the hand are as the turn starts.
 - Only for a player with offers enabled (`TavernState::trinkets_enabled`; `DuosTavern::with_trinkets`, Python `trinkets=True`). The default is off.
-- The options come from the **offerable** trinkets of that kind (`trinkets::offerable(duos)`): implemented, not deferred, not of the Naga type only, Duos-only ones only in Duos, and not one the player owns **(confirmed)**. Only implemented trinkets are offered, as for heroes.
+- The options come from the **offerable** trinkets of that kind (`trinkets::offerable(duos)`): implemented, not deferred, not of the Naga type only, Duos-only ones only in Duos, and not one the player owns **(confirmed)**; the Dark Gift trinkets (`CardFlags::DARK_GIFTS`) only for a player with Dark Gifts (`dark_gifts.md` §12) **(engine decision)**. Only implemented trinkets are offered, as for heroes.
 
 ### 3.2 The Rules an Offer Follows
 
@@ -429,12 +429,15 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Sinstone Sticker` (Greater) | The first 2 times you Discover a card each turn, get an extra copy of it. | `trinket_after_discover`: the first 2 Discovers resolved each turn (a Triple Reward's too) give a copy of the chosen card as offered. |
 | `Hammer of Twilight` (Lesser) | Your minions have +1 Attack. (Improved by each card you've discarded this game!) | `trinket_board_aura`: every minion on the board, in the Tavern and in combat (played or summoned later too), has +1 Attack × (1 + the cards discarded this game, those before the pick too); not the hand or the Tavern; it grows as the player discards **(confirmed)**. |
 | `Hammer of Twilight` (Greater) | Your minions have +2/+1. (Improved by each card you've discarded this game!) | As the Lesser one, +2/+1 × (1 + the cards discarded) **(confirmed)**. |
+| `Ominous Stone` (Lesser) | Discover a Tier 4 minion of your most common type with a Dark Gift. | As picked: a Dark Gift offer ([`dark_gifts.md`](dark_gifts.md) §12.3). |
+| `Sinister Invitation` (Greater) | Discover a Golden minion of your most common type with a Dark Gift. It doesn't give a Triple Reward. | As picked: a Dark Gift offer of Golden minions (`dark_gifts.md` §12.3). |
+| `Maldraxxus Dagger` (Greater) | Discover a plain copy of a friendly minion with a Dark Gift. Repeat at the start of every 2 turns. | As picked and every 2nd turn start: an offer of plain copies of board minions with Dark Gifts (`dark_gifts.md` §12.3). |
+| `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: a Dark Gift offer of Tier 7 minions from the pool (`dark_gifts.md` §12.3). |
 
 ### 11.3 Deferred
 
 | Trinkets | Why |
 | :--- | :--- |
-| `Ominous Stone`, `Wax Lance`, `Sinister Invitation`, `Maldraxxus Dagger` | Dark Gifts: specified in [`dark_gifts.md`](dark_gifts.md) §12.3, implemented with them. |
 | `Timeworn Candelabra` (both) and the other Timewarp trinkets | Timewarp **(confirmed)**. |
 | `Tickatus Sticker` and the other Darkmoon Prize trinkets | Darkmoon Prizes **(confirmed)**. |
 | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets | Bounties **(confirmed)**. |

@@ -106,6 +106,7 @@ pub mod lovely_locket;
 pub mod lucky_tabby;
 pub mod magicfin_sticker;
 pub mod magicians_top_hat;
+pub mod maldraxxus_dagger;
 pub mod mama_bear_sticker;
 pub mod mask_of_ancient_ones;
 pub mod miniature_ship;
@@ -116,6 +117,7 @@ pub mod nerglish_phrasebook_greater;
 pub mod nether_pendant;
 pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
+pub mod ominous_stone;
 pub mod orc_estra_portrait;
 pub mod pilgrimp_sticker;
 pub mod pocket_cyclone;
@@ -139,6 +141,7 @@ pub mod secret_schematic;
 pub mod sellemental_portrait;
 pub mod shathyar_shrine;
 pub mod shrine_of_evolution;
+pub mod sinister_invitation;
 pub mod sinstone_sticker;
 pub mod slamma_sticker;
 pub mod sludge_portrait;
@@ -168,6 +171,7 @@ pub mod war_drum;
 pub mod warband_whistle;
 pub mod warcry_totem;
 pub mod water_wheel;
+pub mod wax_lance;
 pub mod weighted_gauntlet;
 pub mod wicked_tome;
 pub mod wildfeather_duster;
@@ -180,7 +184,7 @@ pub mod young_murk_eye_sticker;
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
 pub use vocab::vocabulary;
 
-use crate::cards::{self, hooks, BoardCtx, CardHooks, HeroCombatCtx, Passive, Played};
+use crate::cards::{self, hooks, BoardCtx, CardFlags, CardHooks, HeroCombatCtx, Passive, Played};
 use crate::model::{
     CardId, PlayerAuras, Tribe, TrinketOption, TrinketState, Unit, UnitId, LOBBY_TRIBES,
 };
@@ -352,6 +356,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (lucky_tabby::ID, lucky_tabby::behaviors),
     (magicfin_sticker::ID, magicfin_sticker::behaviors),
     (magicians_top_hat::ID, magicians_top_hat::behaviors),
+    (maldraxxus_dagger::ID, maldraxxus_dagger::behaviors),
     (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
     (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
@@ -365,6 +370,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (nether_pendant::ID, nether_pendant::behaviors),
     (nomi_sticker::ID, nomi_sticker::behaviors),
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
+    (ominous_stone::ID, ominous_stone::behaviors),
     (orc_estra_portrait::ID, orc_estra_portrait::behaviors),
     (pilgrimp_sticker::ID, pilgrimp_sticker::behaviors),
     (pocket_cyclone::ID, pocket_cyclone::behaviors),
@@ -397,6 +403,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
     (shathyar_shrine::ID, shathyar_shrine::behaviors),
     (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
+    (sinister_invitation::ID, sinister_invitation::behaviors),
     (sinstone_sticker::ID, sinstone_sticker::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (sludge_portrait::ID, sludge_portrait::behaviors),
@@ -435,6 +442,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (warband_whistle::ID, warband_whistle::behaviors),
     (warcry_totem::ID, warcry_totem::behaviors),
     (water_wheel::ID, water_wheel::behaviors),
+    (wax_lance::ID, wax_lance::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (wicked_tome::ID, wicked_tome::behaviors),
     (wildfeather_duster::ID, wildfeather_duster::behaviors),
@@ -612,6 +620,7 @@ fn candidates_in<'a>(
             .map_or(0, |i| counts[i])
     };
     pool.filter(|t| t.greater == greater && !owns(&state.auras, t.id))
+        .filter(|t| state.dark_gifts_enabled || !hooks(t.id).has(CardFlags::DARK_GIFTS))
         .filter_map(|t| {
             if t.tribes.is_empty() {
                 return Some((t.id, OfferClass::Neutral, t.cost));

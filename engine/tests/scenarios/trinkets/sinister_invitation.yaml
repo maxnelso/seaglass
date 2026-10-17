@@ -1,0 +1,19 @@
+trinket: Sinister Invitation
+scenarios:
+  - name: discovers_golden_minions_with_a_dark_gift_without_a_triple_reward
+    description: (engine decision)
+    seeds: "1..=10"
+    tavern: {turn: 7, board: ["1/1 beast", "1/1 beast"]}
+    steps:
+      - give_trinket: Sinister Invitation
+      - expect:
+          discover_pending:
+            count: 3
+            all:
+              tavern_tier: 4
+              tribe: {any_of: [beast, all]}
+              is_golden: true
+              intrinsic_golden: true
+              dark_gifts: {count: 1}
+      - choose_discover: 0
+    expect: {hand: {0: {is_golden: true, intrinsic_golden: true, dark_gifts: {count: 1}}}}

@@ -888,6 +888,44 @@ pub fn draw_offer(
     options
 }
 
+/// Discover one of an offer drawn by `rules` (a hero's or a trinket's; `docs/dark_gifts.md` §12).
+pub fn discover(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng, rules: &OfferRules) {
+    let options = draw_offer(state, pool, rng, rules);
+    state.push_discover(options);
+}
+
+/// Give each of `units` (minions taken out of the pool) a different gift by `rules`, in order
+/// (`docs/dark_gifts.md` §12.3, `Maldraxxus Dagger`): one weighted draw each, as
+/// [`draw_offer`]'s step 3; a unit no gift is left for goes back to the pool and is dropped.
+pub fn gift_options(
+    state: &TavernState,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+    units: Vec<Unit>,
+    rules: &OfferRules,
+) -> Vec<Unit> {
+    let mut ctx = offer_ctx(state, pool, rules.turn);
+    ctx.lowest_tier = units.iter().map(|u| u.tavern_tier).min().unwrap_or(0);
+    let mut used: Vec<CardId> = Vec::with_capacity(units.len());
+    let mut options = Vec::with_capacity(units.len());
+    for mut unit in units {
+        let gift =
+            cards::template(unit.card_id).and_then(|t| draw_gift(&ctx, t, rules.gifts, &used, rng));
+        let Some(gift) = gift else {
+            pool.return_unit(&unit);
+            continue;
+        };
+        used.push(gift);
+        if rules.golden {
+            make_intrinsic_golden(&mut unit);
+        }
+        give(&mut unit, gift, rules.turn);
+        state.apply_global_unit_auras(&mut unit);
+        options.push(unit);
+    }
+    options
+}
+
 /// Make `unit` Golden without a Triple Reward (`Gilding`, `Sinister Invitation`): an intrinsic
 /// Golden (`Unit::make_golden`, `intrinsic_golden`).
 pub fn make_intrinsic_golden(unit: &mut Unit) {
@@ -1249,5 +1287,42 @@ mod tests {
         for (turn, tiers) in expected {
             assert_eq!(button_tiers(turn), tiers, "turn {turn}");
         }
+    }
+
+    /// The Dark Gift heroes and trinkets are offered only with Dark Gifts (§12).
+    #[test]
+    fn dark_gift_heroes_and_trinkets_need_dark_gifts() {
+        use crate::{heroes, trinkets};
+        let xavius = heroes::nightmare_lord_xavius::ID;
+        let trastath = heroes::trastath_soul_parasite::ID;
+        for duos in [false, true] {
+            let without = heroes::offerable(duos, false);
+            let with = heroes::offerable(duos, true);
+            assert!(!without.contains(&xavius) && !without.contains(&trastath));
+            assert!(with.contains(&xavius) && with.contains(&trastath));
+            assert_eq!(with.len(), without.len() + 2);
+        }
+        let mut state = TavernState::new();
+        state.turn = 9;
+        let lance = trinkets::wax_lance::ID;
+        let has_lance = |s: &TavernState| {
+            trinkets::candidates(s, true)
+                .iter()
+                .any(|&(id, _, _)| id == lance)
+        };
+        assert!(!has_lance(&state));
+        state.dark_gifts_enabled = true;
+        assert!(has_lance(&state));
+        let power = |id| heroes::data(id).expect("hero").power.id;
+        let offered = |s: &TavernState| -> Vec<CardId> {
+            heroes::offerable_powers(s, None, false)
+                .iter()
+                .map(|h| h.power.id)
+                .collect()
+        };
+        assert!(offered(&state).contains(&power(xavius)));
+        assert!(!offered(&state).contains(&power(trastath)), "start of game");
+        state.dark_gifts_enabled = false;
+        assert!(!offered(&state).contains(&power(xavius)));
     }
 }

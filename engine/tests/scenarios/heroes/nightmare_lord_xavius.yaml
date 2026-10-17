@@ -1,0 +1,43 @@
+hero: Nightmare Lord Xavius
+defaults:
+  tavern: {auras: {hero: Nightmare Lord Xavius}}
+scenarios:
+  - name: turn_4_discovers_a_minion_with_a_dark_gift_for_free
+    description: "(confirmed: the button's Tiers and filters)"
+    seeds: "1..=10"
+    tavern: {turn: 3}
+    steps:
+      - start_turn
+    expect:
+      turn: 4
+      dark_discoveries_used: 0
+      discover_pending: {count: 3, all: {dark_gifts: {count: 1}}}
+
+  - name: then_every_4th_turn
+    seeds: "1..=5"
+    tavern: {turn: 3}
+    steps:
+      - start_turn
+      - choose_discover: 0
+      - expect: {hand: [{dark_gifts: {count: 1}}]}
+      - end_turn
+      - start_turn
+      - expect: {turn: 5, discover_pending: null}
+      - end_turn
+      - start_turn
+      - end_turn
+      - start_turn
+      - expect: {turn: 7, discover_pending: null}
+      - end_turn
+      - start_turn
+    expect:
+      turn: 8
+      discover_pending: {count: 3, all: {dark_gifts: {count: 1}}}
+
+  - name: with_the_button_too
+    tavern: {turn: 3, dark_gifts_enabled: true}
+    steps:
+      - start_turn
+      - choose_discover: 0
+      - dark_discovery
+    expect: {dark_discoveries_used: 1, hand: {count: 1}, discover_pending: {count: 3}}

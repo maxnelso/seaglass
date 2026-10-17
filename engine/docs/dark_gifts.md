@@ -215,7 +215,7 @@ Gifts reuse the card hook system (`src/cards/hooks.rs`): a gift is a card whose 
 | `gift_absorb_shield_hit` | Its minion's Divine Shield is hit in combat (`apply_damage`): `true` if the gift absorbs the hit (the shield stays), using up its count: `(gift)`. | `Toreth's Blessing`. |
 | `gift_keep_combat_mult` | The multiplier with which the minion keeps the stats it gained in combat (`cards::keep_combat_gains`; the largest of its card's, its neighbours' and its gifts'): `(unit)`. | `Tarecgosa's Blessing`. |
 
-Flags (`CardFlags`) mark the rest: `GIFT_GIVES_STATS`, `GIFT_FOR_DEATHRATTLE` and `GIFT_FOR_BATTLECRY` (§5.1), `GIFT_IMMUNE_ATTACKING` (its minion takes no damage while attacking: `Invulnerability`) and `GIFT_KEEPS_SPELLCRAFT` (its minion's Spellcraft spell is not temporary: `Sunken Persistence`). `AVENGE` marks the Avenge minions (§5.2).
+Flags (`CardFlags`) mark the rest: `GIFT_GIVES_STATS`, `GIFT_FOR_DEATHRATTLE` and `GIFT_FOR_BATTLECRY` (§5.1), `GIFT_IMMUNE_ATTACKING` (its minion takes no damage while attacking: `Invulnerability`) and `GIFT_KEEPS_SPELLCRAFT` (its minion's Spellcraft spell is not temporary: `Sunken Persistence`). `AVENGE` marks the Avenge minions (§5.2), `DARK_GIFTS` the Hero Powers and trinkets offered only with Dark Gifts (§12).
 
 The dispatch functions (`dark_gifts::on_end_of_turn`, `dark_gifts::start_of_combat`, ...) run each gift's hook in turn; the engines call them next to the matching card dispatch. A minion with a gift that has a `gift_start_of_combat`, `gift_deathrattle` or `gift_rally` hook has a Start of Combat, a Deathrattle or a Rally for the engine (`cards::has_start_of_combat`, `cards::has_deathrattle`, `cards::has_rally`): it is listed at Start of Combat, `Titus Rivendare` and `Herald Sticker` repeat or trigger its gift's Deathrattle, and it is a Rally minion for `after_friendly_rally` **(engine decision)**.
 
@@ -357,9 +357,11 @@ The gifts listed in `IMPLEMENTED` (`src/dark_gifts/mod.rs`) are implemented and 
 
 ## 12. Heroes, Trinkets and Minions with Dark Gifts
 
+The two heroes and four trinkets below exist only in games with Dark Gifts: their cards are flagged `CardFlags::DARK_GIFTS`, and a game offers them (a hero offer, a Discover of Hero Powers, a trinket offer) only to a player with `dark_gifts_enabled` (`heroes::offerable(duos, dark_gifts)`, `heroes::offerable_powers`, `trinkets::candidates`) **(engine decision: so that a game without Dark Gifts draws its heroes and trinkets as before)**. A scenario or a Python game can still give them to anyone by name.
+
 ### 12.1 `Nightmare Lord Xavius` — Feel Devastation
 
-"Every 4 turns, Discover a minion with a Dark Gift. (4 turns left!)" Passive: at the start of every 4th turn (turns 4, 8, 12, ...), after the trinket offers, a Dark Discovery offer by the button's rules for that turn (§4, **confirmed**: the same Tiers and filters), free, without using the button **(engine decision: the start of turn, counted from turn 0)**.
+"Every 4 turns, Discover a minion with a Dark Gift. (4 turns left!)" Passive: at the start of every 4th turn (turns 4, 8, 12, ...), in its `hero_turn_start` hook (with the other Hero Powers' start of turn effects, before the trinket offer and the gifts' start of turn), a Dark Discovery offer by the button's rules for that turn (§4, **confirmed**: the same Tiers and filters), free, without using the button **(engine decision: the start of turn, counted from turn 0)**.
 
 ### 12.2 `Tras'tath, Soul Parasite` — Void Power
 
@@ -367,12 +369,14 @@ The gifts listed in `IMPLEMENTED` (`src/dark_gifts/mod.rs`) are implemented and 
 
 ### 12.3 Trinkets
 
+Each offer is a `dark_gifts::discover` by `OfferRules` of its own (the minion filters and gift windows of the current turn), but `Maldraxxus Dagger`'s.
+
 | Trinket | Text | How the engine reads it |
 | :--- | :--- | :--- |
 | `Ominous Stone` (Lesser) | Discover a Tier 4 minion of your most common type with a Dark Gift. | As picked: an offer of Tier 4 minions, all of the most common type (as far as the pool has them), gifts by §5 for the turn **(engine decision)**. |
-| `Sinister Invitation` (Greater) | Discover a Golden minion of your most common type with a Dark Gift. It doesn't give a Triple Reward. | As picked: an offer by the turn's Tiers, all of the most common type, each made Golden as an intrinsic Golden (no Triple Reward) **(engine decision)**. |
-| `Maldraxxus Dagger` (Greater) | Discover a plain copy of a friendly minion with a Dark Gift. Repeat at the start of every 2 turns. | As picked and every 2nd turn start: an offer of plain copies of up to 3 different board minions (not from the pool; unchosen ones vanish), each with a gift by §5 **(engine decision)**. |
-| `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: an offer of Tier 7 minions from the pool, gifts by §5 for the turn. |
+| `Sinister Invitation` (Greater) | Discover a Golden minion of your most common type with a Dark Gift. It doesn't give a Triple Reward. | As picked: an offer by the button's Tiers for the turn (§4.1), all of the most common type (as far as the pool has them), each made Golden as an intrinsic Golden (no Triple Reward) **(engine decision)**. |
+| `Maldraxxus Dagger` (Greater) | Discover a plain copy of a friendly minion with a Dark Gift. Repeat at the start of every 2 turns. | As picked and every 2nd turn start after (the trinket's `counter`): an offer of up to 3 different board minions (distinct cards, drawn uniformly), each a plain copy taken out of the pool as a Discover's minion is (a card with no copy left in the pool isn't offered; the unchosen ones go back to the pool, as every Discover's do), each with a different gift by §5 for the turn; a minion no gift fits is dropped (`dark_gifts::gift_options`) **(engine decision)**. |
+| `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: an offer of Tier 7 minions from the pool (the full catalog's 12 Tier 7 minions, 5 copies each), gifts by §5 for the turn. |
 
 ### 12.4 `Dark Paradox`
 
@@ -403,3 +407,4 @@ Engine decisions, pending the user's confirmation:
 | Cards a gift gets | `Affinity`, `Replication`, `Double Vision` and `Mystic Essence` add to the hand like any card a minion gets: lost with a full hand; the Rally gifts' cards go to the hand as a Rally minion's do. | their files |
 | `Steady Growth` | The strength by offering turn: `+1/+2`, `+2/+2`, `+3/+3` on turns 3, 4, 5 (the post's numbers; the card's text has no tag for them). | `steady_growth.rs` |
 | Heroes, trinkets | §12. | their files |
+| Their offers | The Dark Gift heroes and trinkets are offered only with Dark Gifts (§12). | `CardFlags::DARK_GIFTS`, `heroes::offerable`, `trinkets::candidates` |
