@@ -2,7 +2,8 @@
 //!
 //! Gain a free Refresh that contains plain copies of minions in your warband.
 //!
-//! A free Refresh as picked (`free_refreshes`, which carries over) and a charge (`armed`).
+//! A free Refresh as picked **(confirmed)** (`free_refreshes`, which carries over) and a charge
+//! (`armed`).
 //! `trinket_refresh`: the player's next `Refresh` action, with the charge left, is the Refresh of
 //! plain copies of the board's minions (`TavernState::refresh_shop_with_warband`, as Tess
 //! Greymane's: up to the shop's minion slots, chosen at random beyond them) **(engine decision)**.
