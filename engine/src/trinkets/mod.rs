@@ -84,6 +84,8 @@ pub mod gold_pendant;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
 pub mod guiding_candle;
+pub mod hammer_of_twilight;
+pub mod hammer_of_twilight_greater;
 pub mod heart_of_the_forest;
 pub mod herald_sticker;
 pub mod herding_horn;
@@ -322,6 +324,11 @@ const IMPLEMENTED: &[Implemented] = &[
         great_boar_sticker_greater::behaviors,
     ),
     (guiding_candle::ID, guiding_candle::behaviors),
+    (hammer_of_twilight::ID, hammer_of_twilight::behaviors),
+    (
+        hammer_of_twilight_greater::ID,
+        hammer_of_twilight_greater::behaviors,
+    ),
     (heart_of_the_forest::ID, heart_of_the_forest::behaviors),
     (herald_sticker::ID, herald_sticker::behaviors),
     (herding_horn::ID, herding_horn::behaviors),
@@ -1021,6 +1028,41 @@ pub fn extra_deathrattles(auras: &mut PlayerAuras, unit: &Unit) -> u32 {
         }
     }
     extra
+}
+
+/// The stats the player's trinkets give `unit`, a minion on the board, as an aura (each one's
+/// `trinket_board_aura`; none without trinkets).
+pub fn board_aura(unit: &Unit, auras: &PlayerAuras) -> (i32, i32) {
+    let (mut atk, mut hp) = (0, 0);
+    for trinket in &auras.trinkets {
+        if let Some(f) = hooks(trinket.card_id).trinket_board_aura {
+            let (a, h) = f(trinket, unit, auras);
+            atk += a;
+            hp += h;
+        }
+    }
+    (atk, hp)
+}
+
+/// `Hammer of Twilight`: the trinket `id`'s hooks, the board aura `aura`, brought up to date as
+/// picked and after each discard.
+pub fn hammer_of_twilight(
+    id: CardId,
+    aura: fn(&TrinketState, &Unit, &PlayerAuras) -> (i32, i32),
+) -> Vec<(CardId, CardHooks)> {
+    vec![(
+        id,
+        CardHooks::EMPTY
+            .on_trinket_board_aura(aura)
+            .on_trinket_bought(|s, _, _| s.sync_all_auras())
+            .on_trinket_after_discard(|s, _, _, _| s.sync_all_auras()),
+    )]
+}
+
+/// `Hammer of Twilight`'s bonus: `+attack/+health` × (1 + the cards discarded this game).
+pub fn hammer_bonus(auras: &PlayerAuras, attack: i32, health: i32) -> (i32, i32) {
+    let times = 1 + auras.cards_discarded.min(i32::MAX as u32 / 4) as i32;
+    (attack.saturating_mul(times), health.saturating_mul(times))
 }
 
 /// `unit` has a Deathrattle (its card's, or one an effect gave it).

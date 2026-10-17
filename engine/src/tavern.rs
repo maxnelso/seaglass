@@ -791,7 +791,7 @@ impl TavernState {
         self.auras.hero_health = Some(self.health);
         cards::sync_board_spell_auras(&self.board, &mut self.auras);
         for u in &mut self.board {
-            cards::sync_unit_auras(u, &self.auras);
+            cards::sync_board_unit_auras(u, &self.auras);
         }
         for u in &mut self.hand {
             cards::sync_unit_auras(u, &self.auras);

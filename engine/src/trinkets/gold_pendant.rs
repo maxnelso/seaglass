@@ -32,6 +32,6 @@ fn goldenize(state: &mut TavernState, _: &mut CardPool, rng: &mut Rng) {
     }
     let pick = candidates[rng.below(candidates.len())];
     state.board[pick].make_golden();
-    cards::sync_unit_auras(&mut state.board[pick], &state.auras);
+    cards::sync_board_unit_auras(&mut state.board[pick], &state.auras);
     state.sync_all_auras();
 }

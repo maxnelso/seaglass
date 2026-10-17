@@ -135,7 +135,7 @@ impl SideCombatState {
             if let Some(combat_start) = cards::hooks(u.card_id).combat_start {
                 combat_start(u);
             }
-            cards::sync_unit_auras(u, &auras);
+            cards::sync_board_unit_auras(u, &auras);
             u.sync_max_stats();
             cards::check_stat_thresholds(u);
         }

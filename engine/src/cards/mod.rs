@@ -135,7 +135,7 @@ impl<'a> BoardCtx<'a> {
                 &mut token,
             );
         } else {
-            sync_unit_auras(&mut token, self.auras);
+            sync_board_unit_auras(&mut token, self.auras);
             token.sync_max_stats();
             check_stat_thresholds(&mut token);
         }
@@ -891,6 +891,17 @@ pub fn check_stat_thresholds(unit: &mut Unit) {
 /// effects plus its card's `aura_bonus`, tracked in `aura_applied`), its board-aura spell bonus,
 /// and its card's own `sync_aura` hook.
 pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
+    sync_unit_auras_in(unit, auras, false);
+}
+
+/// [`sync_unit_auras`] for a minion on the board (in the Tavern or in combat), which the board
+/// auras of the player's trinkets reach too (`trinkets::board_aura`: `Hammer of Twilight`); a
+/// minion that leaves the board loses them at its next [`sync_unit_auras`].
+pub fn sync_board_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
+    sync_unit_auras_in(unit, auras, true);
+}
+
+fn sync_unit_auras_in(unit: &mut Unit, auras: &PlayerAuras, on_board: bool) {
     if unit.is_spell {
         return;
     }
@@ -900,6 +911,11 @@ pub fn sync_unit_auras(unit: &mut Unit, auras: &PlayerAuras) {
         let (card_atk, card_hp) = aura_bonus(unit, auras);
         atk += card_atk;
         hp += card_hp;
+    }
+    if on_board {
+        let (board_atk, board_hp) = crate::trinkets::board_aura(unit, auras);
+        atk += board_atk;
+        hp += board_hp;
     }
     let (d_atk, d_hp) = (atk - unit.aura_applied.0, hp - unit.aura_applied.1);
     if d_atk != 0 || d_hp != 0 {
@@ -996,7 +1012,7 @@ pub fn apply_combat_summon_modifiers(
     combat_beast_bonus_atk: i32,
     token: &mut Unit,
 ) {
-    sync_unit_auras(token, auras);
+    sync_board_unit_auras(token, auras);
     effects::combat_summon(auras, token);
     crate::heroes::combat_summon(auras, token);
     if token.tribe.matches(Tribe::Beast) && combat_beast_bonus_atk != 0 {
@@ -2253,7 +2269,7 @@ pub fn after_combat_deaths(ctx: &mut BoardCtx<'_>) {
 /// Synchronize dynamic combat/player auras across `board` and `hand` after deaths resolve.
 pub fn sync_combat_auras(board: &mut [Unit], hand: &mut [Unit], auras: &PlayerAuras) {
     for u in board.iter_mut() {
-        sync_unit_auras(u, auras);
+        sync_board_unit_auras(u, auras);
     }
     for h in hand.iter_mut() {
         sync_unit_auras(h, auras);

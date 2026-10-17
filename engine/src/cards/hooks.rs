@@ -669,6 +669,10 @@ card_hooks! {
     /// A friendly minion's Deathrattles are about to trigger in combat: extra triggers this trinket
     /// adds (it may use up a charge): `(trinket, unit)`.
     trinket_extra_deathrattles(on_trinket_extra_deathrattles): fn(&mut TrinketState, &Unit) -> u32,
+    /// The stats this trinket gives `unit`, a minion on the board (in the Tavern or in combat), as
+    /// an aura (`cards::sync_board_unit_auras`, kept in `Unit::aura_applied`): `(trinket, unit,
+    /// auras)`.
+    trinket_board_aura(on_trinket_board_aura): fn(&TrinketState, &Unit, &PlayerAuras) -> (i32, i32),
 }
 
 impl Default for CardHooks {

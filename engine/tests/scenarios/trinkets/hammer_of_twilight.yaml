@@ -1,0 +1,51 @@
+trinket: Hammer of Twilight
+scenarios:
+  - name: minions_on_the_board_have_plus_one_attack
+    description: Confirmed - the board only, not the hand or the Tavern.
+    tavern: {turn: 6, board: ["1/1"], hand: ["2/2"], shop: ["3/3"]}
+    steps:
+      - give_trinket: Hammer of Twilight
+    expect: {board: ["2/1"], hand: ["2/2"], shop: ["3/3"]}
+
+  - name: improved_by_the_cards_discarded_before_the_pick
+    tavern: {turn: 6, board: ["1/1"], auras: {cards_discarded: 2}}
+    steps:
+      - give_trinket: Hammer of Twilight
+    expect: {board: ["4/1"]}
+
+  - name: a_minion_played_after_has_it
+    tavern: {turn: 6, hand: ["2/2"]}
+    steps:
+      - give_trinket: Hammer of Twilight
+      - expect: {hand: ["2/2"]}
+      - play: 0
+    expect: {board: ["3/2"]}
+
+  - name: it_grows_after_a_discard
+    tavern: {turn: 6, board: [Brain Rotter], hand: ["1/1"]}   # 3/4
+    steps:
+      - give_trinket: Hammer of Twilight
+      - expect: {board: ["Brain Rotter 4/4"]}
+      - activate: {pos: Brain Rotter, target: 0}
+    expect: {board: ["Brain Rotter 5/4"], auras: {cards_discarded: 1}}
+
+  - name: minions_summoned_in_combat_have_it
+    combat:
+      board_a: [Harmless Bonehead]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Hammer of Twilight]}
+    expect:
+      events:
+        where: {type: unit_summoned, side: a, name: Skeleton}
+        count: 2
+        all: {attack: 2, health: 1}
+
+  - name: a_golden_made_from_board_copies_is_net_of_it
+    tavern: {turn: 6, board: [Wrath Weaver, Wrath Weaver]}   # 1/3
+    steps:
+      - give_trinket: Hammer of Twilight
+      - expect: {board: ["Wrath Weaver 2/3", "Wrath Weaver 2/3"]}
+      - add_to_hand: Wrath Weaver
+      - expect: {board: [], hand: ["Golden Wrath Weaver 2/6"]}
+      - play: 0
+    expect: {board: ["Golden Wrath Weaver 3/6"]}

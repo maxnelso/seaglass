@@ -1,0 +1,14 @@
+trinket: Hammer of Twilight (Greater)
+scenarios:
+  - name: minions_on_the_board_have_plus_two_plus_one
+    tavern: {turn: 9, board: ["1/1"], hand: ["2/2"], auras: {cards_discarded: 1}}
+    steps:
+      - give_trinket: Hammer of Twilight (Greater)
+    expect: {board: ["5/3"], hand: ["2/2"]}
+
+  - name: the_board_has_it_in_combat
+    combat:
+      board_a: ["1/1"]
+      board_b: []
+      auras_a: {trinkets: [Hammer of Twilight (Greater)]}
+    expect: {survivors_a: ["3/2"]}
