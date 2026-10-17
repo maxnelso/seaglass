@@ -28,7 +28,12 @@ pub fn after_friendly_rally(ctx: &mut BoardCtx<'_>, self_idx: usize) {
         };
         let dr_unit = ctx.board[dr_idx].clone();
         ctx.cursor = dr_idx + 1;
-        for _ in 0..dr_mult {
+        let extra = if ctx.in_combat {
+            crate::trinkets::extra_deathrattles(ctx.auras, &dr_unit)
+        } else {
+            0
+        };
+        for _ in 0..dr_mult + extra {
             cards::on_deathrattle(&dr_unit, ctx);
         }
     }

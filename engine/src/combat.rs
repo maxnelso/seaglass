@@ -2049,7 +2049,9 @@ fn resolve_deaths(
         }
 
         // 1. Unified Deathrattle (summons at `cursor` and/or board buffs)
-        let dr_repeats = 1 + cards::board_passive(&side_state.board, Passive::ExtraDeathrattles);
+        let dr_repeats = 1
+            + cards::board_passive(&side_state.board, Passive::ExtraDeathrattles)
+            + crate::trinkets::extra_deathrattles(&mut side_state.auras, &unit);
         let mut destroys = Vec::new();
         let first_summon = *next_id;
         for _ in 0..dr_repeats {

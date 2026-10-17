@@ -3,7 +3,7 @@
 //! Your Dragons' Battlecries trigger an extra time.
 //!
 //! `trinket_extra_battlecries`: a Dragon's Battlecry (played or triggered in the Tavern) triggers
-//! once more, added to `Brann Bronzebeard`'s (3 times with both: **engine decision**).
+//! once more, added to `Brann Bronzebeard`'s (3 times with both) **(confirmed)**.
 
 use crate::cards::CardHooks;
 use crate::model::{CardId, Tribe, TrinketState, Unit};

@@ -1487,7 +1487,7 @@ fn check_refilled_shop(
         .shop
         .iter()
         .filter(rolled)
-        .find(|u| u.tavern_tier > if own_tiers { s.tavern_tier } else { 6 })
+        .find(|u| own_tiers && u.tavern_tier > s.tavern_tier)
     {
         return Err(broken(
             format!("the shop rolled by {what} offers a card above its Tier"),

@@ -33,7 +33,9 @@ fn start_of_combat(ctx: &mut HeroCombatCtx<'_>) {
             continue;
         };
         let unit = ctx.board[pos].clone();
-        let repeats = 1 + cards::board_passive(ctx.board, Passive::ExtraDeathrattles);
+        let repeats = 1
+            + cards::board_passive(ctx.board, Passive::ExtraDeathrattles)
+            + super::extra_deathrattles(ctx.auras, &unit);
         ctx.cursor = pos + 1;
         for _ in 0..repeats {
             cards::on_deathrattle(&unit, ctx);

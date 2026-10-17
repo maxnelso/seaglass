@@ -32,6 +32,8 @@ pub mod bloodfury_shield;
 pub mod bluegill_flippers;
 pub mod bob_blehead;
 pub mod bobs_tip_jar;
+pub mod book_of_medivh;
+pub mod book_of_medivh_greater;
 pub mod booty_bay_brew;
 pub mod booty_bay_brew_greater;
 pub mod bronze_timepiece;
@@ -47,6 +49,7 @@ pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
 pub mod cursed_crystal;
 pub mod dalaran_cheese_wheel;
+pub mod deathly_phylactery;
 pub mod defensive_shell;
 pub mod demonic_bloodletter;
 pub mod demonic_tapestry;
@@ -115,6 +118,8 @@ pub mod orc_estra_portrait;
 pub mod pilgrimp_sticker;
 pub mod pocket_cyclone;
 pub mod pocket_cyclone_greater;
+pub mod portable_factory;
+pub mod portable_factory_greater;
 pub mod protective_ring;
 pub mod quilligraphy_set;
 pub mod quilligraphy_set_greater;
@@ -132,6 +137,7 @@ pub mod secret_schematic;
 pub mod sellemental_portrait;
 pub mod shathyar_shrine;
 pub mod shrine_of_evolution;
+pub mod sinstone_sticker;
 pub mod slamma_sticker;
 pub mod sludge_portrait;
 pub mod soul_fermenter;
@@ -246,6 +252,11 @@ const IMPLEMENTED: &[Implemented] = &[
     (bluegill_flippers::ID, bluegill_flippers::behaviors),
     (bob_blehead::ID, bob_blehead::behaviors),
     (bobs_tip_jar::ID, bobs_tip_jar::behaviors),
+    (book_of_medivh::ID, book_of_medivh::behaviors),
+    (
+        book_of_medivh_greater::ID,
+        book_of_medivh_greater::behaviors,
+    ),
     (booty_bay_brew::ID, booty_bay_brew::behaviors),
     (
         booty_bay_brew_greater::ID,
@@ -270,6 +281,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (cursed_crystal::ID, cursed_crystal::behaviors),
     (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
+    (deathly_phylactery::ID, deathly_phylactery::behaviors),
     (defensive_shell::ID, defensive_shell::behaviors),
     (demonic_bloodletter::ID, demonic_bloodletter::behaviors),
     (demonic_tapestry::ID, demonic_tapestry::behaviors),
@@ -353,6 +365,11 @@ const IMPLEMENTED: &[Implemented] = &[
         pocket_cyclone_greater::ID,
         pocket_cyclone_greater::behaviors,
     ),
+    (portable_factory::ID, portable_factory::behaviors),
+    (
+        portable_factory_greater::ID,
+        portable_factory_greater::behaviors,
+    ),
     (protective_ring::ID, protective_ring::behaviors),
     (quilligraphy_set::ID, quilligraphy_set::behaviors),
     (
@@ -373,6 +390,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
     (shathyar_shrine::ID, shathyar_shrine::behaviors),
     (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
+    (sinstone_sticker::ID, sinstone_sticker::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (sludge_portrait::ID, sludge_portrait::behaviors),
     (soul_fermenter::ID, soul_fermenter::behaviors),
@@ -975,6 +993,103 @@ pub fn after_reborn(ctx: &mut BoardCtx<'_>, pos: usize) {
         if let Some(after_reborn) = hooks(id).trinket_after_reborn {
             after_reborn(ctx, pos);
         }
+    }
+}
+
+/// A Discover was resolved: each trinket's `trinket_after_discover` hook.
+pub fn after_discover(
+    state: &mut TavernState,
+    chosen: &Unit,
+    offered: &[CardId],
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    for id in owned_ids(&state.auras) {
+        if let Some(after_discover) = hooks(id).trinket_after_discover {
+            after_discover(state, chosen, offered, pool, rng);
+        }
+    }
+}
+
+/// The extra triggers the trinkets give the Deathrattles of `unit`, about to trigger in combat
+/// (`trinket_extra_deathrattles`, which may use up their charges).
+pub fn extra_deathrattles(auras: &mut PlayerAuras, unit: &Unit) -> u32 {
+    let mut extra = 0;
+    for trinket in &mut auras.trinkets {
+        if let Some(f) = hooks(trinket.card_id).trinket_extra_deathrattles {
+            extra += f(trinket, unit);
+        }
+    }
+    extra
+}
+
+/// `unit` has a Deathrattle (its card's, or one an effect gave it).
+pub fn has_deathrattle(unit: &Unit) -> bool {
+    cards::is_deathrattle_minion(unit.card_id) || !unit.extra_deathrattles.is_empty()
+}
+
+/// `times` Discovers of 3 Tavern spells of the player's Tier or lower (`Book of Medivh`; as
+/// `Clever Castaway`'s).
+pub fn discover_tavern_spells(state: &mut TavernState, times: u32, rng: &mut Rng) {
+    for _ in 0..times {
+        let opts = cards::spells::draw_discover_tavern_spells(state.tavern_tier, 3, rng);
+        state.push_discover(opts);
+    }
+}
+
+/// `Portable Factory`: a Discover of 3 minions of exactly `tier` with a type, from the pool; the
+/// trinket `id` keeps the options (`stored`, `armed` 1) until it is resolved.
+pub fn factory_discover(
+    state: &mut TavernState,
+    id: CardId,
+    tier: u32,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let typed = |cid: CardId| {
+        cards::template(cid).is_some_and(|t| t.tavern_tier == tier && t.tribe != Tribe::None)
+    };
+    let mut opts = pool.draw_discover_filtered(tier, 3, typed, rng);
+    for opt in &mut opts {
+        state.apply_global_unit_auras(opt);
+    }
+    if let Some(t) = state_mut(&mut state.auras, id) {
+        t.stored = opts.clone();
+        t.armed = u32::from(!opts.is_empty());
+    }
+    state.push_discover(opts);
+}
+
+/// `Portable Factory`: a resolved Discover whose options are the ones the trinket `id` kept is
+/// its own; it keeps a plain copy of the chosen minion instead.
+pub fn factory_chosen(state: &mut TavernState, id: CardId, chosen: &Unit, offered: &[CardId]) {
+    let Some(t) = state_mut(&mut state.auras, id) else {
+        return;
+    };
+    if t.armed == 0 {
+        return;
+    }
+    let mut kept: Vec<CardId> = t.stored.iter().map(|u| u.card_id).collect();
+    let mut seen = offered.to_vec();
+    kept.sort_unstable();
+    seen.sort_unstable();
+    if kept != seen {
+        return;
+    }
+    t.armed = 0;
+    t.stored = vec![cards::instantiate_plain_copy(chosen)];
+}
+
+/// `Portable Factory`: at the turn start, a plain copy of the minion the trinket `id` keeps.
+pub fn factory_copy(state: &mut TavernState, id: CardId) {
+    let Some(t) = self::state(&state.auras, id) else {
+        return;
+    };
+    if t.armed != 0 {
+        return;
+    }
+    if let Some(copy) = t.stored.first().map(cards::instantiate_plain_copy) {
+        state.add_to_hand_or_wait(copy);
     }
 }
 

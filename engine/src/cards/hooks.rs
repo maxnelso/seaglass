@@ -184,6 +184,8 @@ pub enum SpellTarget {
 pub type PlayFn = fn(&mut TavernState, &mut Unit, usize, &mut CardPool, &mut Rng);
 /// Activate: `(state, source_pos, target_pos, pool, rng)`.
 pub type ActivateFn = fn(&mut TavernState, usize, Option<usize>, &mut CardPool, &mut Rng);
+/// A trinket's `trinket_after_discover`: `(state, chosen, offered card ids, pool, rng)`.
+pub type DiscoverFn = fn(&mut TavernState, &Unit, &[CardId], &mut CardPool, &mut Rng);
 /// A trinket's `trinket_shop_tiers`: `(trinket, kind, (min, max))` to the Tiers a shop draw
 /// offers.
 pub type ShopTiersFn = fn(&TrinketState, crate::tavern::RefreshKind, (u32, u32)) -> (u32, u32);
@@ -660,6 +662,13 @@ card_hooks! {
     /// A friendly minion came back with Reborn (`cards::reborn`, in combat or in the Tavern), at
     /// `ctx.board[pos]`, after the minions' `after_friendly_reborn`: `(ctx, pos)`.
     trinket_after_reborn(on_trinket_after_reborn): fn(&mut BoardCtx<'_>, usize),
+    /// A Discover was resolved (not a Choose One, not an option a Hero Power keeps), after the
+    /// chosen card went to the hand: `(state, chosen, offered, pool, rng)`, `offered` the card ids
+    /// of all its options, the chosen one first ([`DiscoverFn`]).
+    trinket_after_discover(on_trinket_after_discover): DiscoverFn,
+    /// A friendly minion's Deathrattles are about to trigger in combat: extra triggers this trinket
+    /// adds (it may use up a charge): `(trinket, unit)`.
+    trinket_extra_deathrattles(on_trinket_extra_deathrattles): fn(&mut TrinketState, &Unit) -> u32,
 }
 
 impl Default for CardHooks {

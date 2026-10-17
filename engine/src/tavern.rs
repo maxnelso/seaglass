@@ -2411,6 +2411,9 @@ impl TavernState {
                     self.pending_choice_target = None;
                 }
 
+                let offered: Vec<CardId> = std::iter::once(chosen.card_id)
+                    .chain(opts.iter().map(|u| u.card_id))
+                    .collect();
                 for mut unchosen in opts {
                     if std::mem::take(&mut unchosen.unchosen_to_teammate) {
                         // Duos `Bargain Bundle`: the teammate gets the other options.
@@ -2431,6 +2434,7 @@ impl TavernState {
                     self.deal_hero_damage(dmg);
                 }
                 cards::on_card_discovered(self, pool, rng);
+                trinkets::after_discover(self, &obtained, &offered, pool, rng);
                 Ok(false)
             }
             TavernAction::EndTurn => {

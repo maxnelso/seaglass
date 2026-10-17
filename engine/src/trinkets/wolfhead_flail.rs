@@ -5,7 +5,8 @@
 //! `trinket_end_turn`: the two left-most minions on the board with a Deathrattle (their own or one
 //! an effect gave them) each trigger their Deathrattles, left to right, in the Tavern
 //! (`cards::trigger_tavern_deathrattle`: summons to the minion's right, repeated by `Titus
-//! Rivendare`). "Two Deathrattles" counts minions, not Deathrattles (**engine decision**).
+//! Rivendare`). "Two Deathrattles" counts minions, not Deathrattles, each
+//! triggering all of its own **(confirmed)**.
 
 use crate::cards::{self, CardHooks};
 use crate::model::{CardId, UnitId};

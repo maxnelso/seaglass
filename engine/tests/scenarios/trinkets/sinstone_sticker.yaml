@@ -1,0 +1,22 @@
+trinket: Sinstone Sticker
+scenarios:
+  - name: the_first_two_discovers_each_turn_give_an_extra_copy
+    description: Three Discovers (the Book of Medivh's); the first two give a copy of the chosen spell.
+    seeds: "1..=3"
+    tavern: {turn: 9, auras: {trinkets: [Sinstone Sticker]}}
+    steps:
+      - give_trinket: Book of Medivh (Greater)
+      - give_trinket: Book of Medivh
+      - choose_discover: 0
+      - expect: {hand: {count: 2}, auras: {trinkets: [{counter: 1}, {}, {}]}}
+      - choose_discover: 0
+      - expect: {hand: {count: 4}, auras: {trinkets: [{counter: 2}, {}, {}]}}
+      - choose_discover: 0
+    expect: {hand: {count: 5}}
+
+  - name: the_count_starts_again_each_turn
+    tavern: {auras: {trinkets: [{trinket: Sinstone Sticker, counter: 2}]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {auras: {trinkets: [{counter: 0}]}}

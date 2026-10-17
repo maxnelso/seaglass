@@ -76,4 +76,6 @@ def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
     names = {tid: name for (tid, name, *_rest) in seaglass.trinkets_table()}
     gained = 4 if names[chosen] == "Bob's Tip Jar" else 0  # "Gain 4 Gold"
     assert obs.gold == gold - cost + gained
-    assert any(a.kind == "end_turn" for a in game.legal_actions())
+    # A trinket that Discovers as it is picked (Book of Medivh, ...) leaves its prompt first.
+    after = {a.kind for a in game.legal_actions()}
+    assert "end_turn" in after or after == {"choose_discover"}
