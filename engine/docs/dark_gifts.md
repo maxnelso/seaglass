@@ -365,7 +365,7 @@ The two heroes and four trinkets below exist only in games with Dark Gifts: thei
 
 ### 12.2 `Tras'tath, Soul Parasite` — Void Power
 
-"At the start of the game, Discover a Tier 5 minion with a Dark Gift. It unlocks on Turn 7. (6 turns left!)" On the hero's first turn, an offer of 3 Tier 5 minions, each with a different gift from `Tras'tath`'s pool (the gifts with `trastath`: the post's list; the data drops `Toxicity` and adds `Doppelganger`), whatever their turn windows (the post), the other rules of §5 holding for turn 7 **(engine decision)**. The chosen minion is locked in the hand until turn 7 (`Unit::locked_turns`: it can't be played, sold from the hand or Passed) **(engine decision)**.
+"At the start of the game, Discover a Tier 5 minion with a Dark Gift. It unlocks on Turn 7. (6 turns left!)" On the hero's first turn, an offer of 3 Tier 5 minions, each with a different gift from `Tras'tath`'s pool (the gifts with `trastath`: the post's list; the data drops `Toxicity` and adds `Doppelganger`), whatever their turn windows (the post), the other rules of §5 holding for turn 7 **(engine decision)**. The chosen minion is locked in the hand until turn 7 (`Unit::locked_turns`: it can't be played, sold from the hand or Passed) **(confirmed)**.
 
 ### 12.3 Trinkets
 

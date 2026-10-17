@@ -6,7 +6,7 @@
 //! each with a different gift of Tras'tath's pool (the gifts flagged `trastath`), whatever their
 //! turn windows, by turn 7's other rules (engine decision). The options are locked
 //! (`Unit::locked_turns`) until turn 7: the chosen one can't be played, sold from the hand or
-//! Passed before (engine decision; `docs/dark_gifts.md` §12.2). Offered only in games with Dark
+//! Passed before (confirmed; `docs/dark_gifts.md` §12.2). Offered only in games with Dark
 //! Gifts (`CardFlags::DARK_GIFTS`); never by a Discover of Hero Powers
 //! (`CardFlags::NOT_DISCOVERABLE_POWER`): its start of game would be past.
 
