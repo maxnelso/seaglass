@@ -951,8 +951,21 @@ pub fn choose(state: &mut TavernState, option_index: usize, pool: &mut CardPool,
             after_pick(state, option.card_id, pool, rng);
         }
     }
-    if state.trinket_options.is_empty() && !state.trinket_offer_queue.is_empty() {
-        state.trinket_options = state.trinket_offer_queue.remove(0);
+    next_offer(state);
+}
+
+/// The next waiting offer becomes the offer (`trinket_offer_queue`, `docs/trinkets.md` §3.5),
+/// without the options that no longer apply: a trinket the player owns by now, or one replacing a
+/// trinket they no longer own **(engine decision)**. An offer left with no option is skipped.
+fn next_offer(state: &mut TavernState) {
+    while state.trinket_options.is_empty() && !state.trinket_offer_queue.is_empty() {
+        let mut options = state.trinket_offer_queue.remove(0);
+        let auras = &state.auras;
+        options.retain(|o| {
+            let kept = o.replaces == Some(o.card_id);
+            (kept || !owns(auras, o.card_id)) && o.replaces.is_none_or(|r| owns(auras, r))
+        });
+        state.trinket_options = options;
     }
 }
 

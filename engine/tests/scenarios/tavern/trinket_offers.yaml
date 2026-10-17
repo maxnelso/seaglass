@@ -80,3 +80,19 @@ scenarios:
     steps:
       - start_turn
       - expect: {turn: 6, trinket_options: []}
+
+  - name: a_waiting_offer_leaves_out_what_no_longer_applies
+    description: >-
+      Trip Vouchers' offer and the turn 9 offer both have Innkeeper's Hearth: picked from the
+      first, it is left out of the second when it comes up (engine decision).
+    tavern:
+      gold: 10
+      auras: {trinkets: [Trip Vouchers]}
+      trinket_options: [{card_id: 121684, cost: 0, replaces: 112991}]
+      trinket_offer_queue: [[{card_id: 121684, cost: 0}, {card_id: 134321, cost: 0}]]
+    steps:
+      - choose_trinket: 0
+    expect:
+      auras: {trinkets: [{name: Innkeeper's Hearth}]}
+      trinket_options: {count: 1, 0: {card_id: 134321}}
+      trinket_offer_queue: []
