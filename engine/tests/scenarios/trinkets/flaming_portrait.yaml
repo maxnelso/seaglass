@@ -1,0 +1,6 @@
+trinket: Flaming Portrait
+scenarios:
+  - name: a_flaming_enforcers_stats_also_go_to_its_neighbors
+    tavern: {board: ["1/1", Flaming Enforcer, "2/2", "3/3"], shop: ["3/7"], auras: {trinkets: [Flaming Portrait]}}
+    steps: [end_turn]
+    expect: {board: ["4/8", "7/12", "5/9", "3/3"], shop: []}

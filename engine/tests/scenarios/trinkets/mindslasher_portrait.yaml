@@ -1,0 +1,16 @@
+trinket: Mindslasher Portrait
+scenarios:
+  - name: vicious_mindslashers_also_buff_adjacent_minions
+    tavern:
+      board: ["1/1", Vicious Mindslasher, "1/1", "1/1"]
+      hand: [Fortify]
+      auras: {trinkets: [Mindslasher Portrait]}
+    steps:
+      - play: {hand: 0, pos: 3}
+    expect: {board: ["2/3", "2/4", "2/3", "1/4"]}
+
+  - name: picked_it_gives_a_vicious_mindslasher
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Mindslasher Portrait
+    expect: {hand: [Vicious Mindslasher]}

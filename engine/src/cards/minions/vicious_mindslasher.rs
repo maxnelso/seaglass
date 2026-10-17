@@ -4,6 +4,9 @@
 //! It also reacts to the Tavern spells your minions cast in combat (`Runic Arcanist`, `Crimson
 //! Vindicator`; `docs/combat.md` §2), before each takes effect: its own stats are for that combat
 //! only, while the Deity's are kept (an awakened Deity also gets them on the board).
+//!
+//! With `Mindslasher Portrait` (`trinkets::modifies`, `docs/trinkets.md` §11.8), its adjacent
+//! minions gain the same stats (for that combat only in combat).
 
 use crate::cards::{CardTemplate, CombatCastCtx};
 use crate::model::{CardId, Tribe};
@@ -25,6 +28,13 @@ pub fn on_spell_cast(state: &mut TavernState, self_idx: usize, _: &mut CardPool,
     state.board[self_idx].add_stats(m, 2 * m);
     state.auras.deity.attack += m;
     state.auras.deity.health += 2 * m;
+    if crate::trinkets::modifies(&state.auras, ID) {
+        for idx in [self_idx.wrapping_sub(1), self_idx + 1] {
+            if let Some(unit) = state.board.get_mut(idx) {
+                unit.add_stats(m, 2 * m);
+            }
+        }
+    }
 }
 
 /// A Tavern spell cast in combat: this, the Deity's stats, and the Deity on the board if it has
@@ -37,6 +47,13 @@ pub fn on_combat_spell_cast(ctx: &mut CombatCastCtx<'_>, self_idx: usize) {
     for idx in 0..ctx.board.len() {
         if ctx.board[idx].is_deity && ctx.board[idx].health > 0 {
             ctx.buff_unit(idx, m, 2 * m, NAME);
+        }
+    }
+    if crate::trinkets::modifies(ctx.auras, ID) {
+        for idx in [self_idx.wrapping_sub(1), self_idx + 1] {
+            if ctx.board.get(idx).is_some_and(|u| u.health > 0) {
+                ctx.buff_unit(idx, m, 2 * m, NAME);
+            }
         }
     }
 }

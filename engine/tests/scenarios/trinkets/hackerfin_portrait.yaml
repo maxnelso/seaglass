@@ -1,0 +1,12 @@
+trinket: Hackerfin Portrait
+scenarios:
+  - name: end_of_turn_triggers_the_hackerfins_battlecries
+    tavern: {board: [Hackerfin, "1/1"], auras: {trinkets: [Hackerfin Portrait]}}
+    steps: [end_turn]
+    expect: {board: [Hackerfin, "4/3"]}
+
+  - name: picked_it_gives_a_hackerfin
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Hackerfin Portrait
+    expect: {hand: [Hackerfin]}

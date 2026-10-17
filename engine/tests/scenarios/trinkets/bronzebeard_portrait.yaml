@@ -1,0 +1,13 @@
+trinket: Bronzebeard Portrait
+scenarios:
+  - name: picked_it_gives_brann_a_dragon_and_murloc_and_a_battlecry_minion
+    seeds: "1..=3"
+    tavern: {gold: 10, tavern_tier: 3}
+    steps:
+      - give_trinket: Bronzebeard Portrait
+    expect: {hand: {count: 2, 0: {name: Brann Bronzebeard, tribe: dragon_murloc}, 1: {battlecry: true, tavern_tier: "<= 3"}}}
+
+  - name: brann_on_the_board_is_a_dragon_and_a_murloc
+    tavern: {board: [Brann Bronzebeard], auras: {trinkets: [Bronzebeard Portrait]}}
+    steps: [sync_all_auras]
+    expect: {board: [{name: Brann Bronzebeard, tribe: dragon_murloc}]}

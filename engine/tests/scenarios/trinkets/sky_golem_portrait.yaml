@@ -1,0 +1,13 @@
+trinket: Sky Golem Portrait
+scenarios:
+  - name: friendly_deathrattles_give_the_minions_2_2_permanently
+    tavern: {board: ["1/1", "5/20"], auras: {trinkets: [Sky Golem Portrait]}}
+    steps:
+      - fight: {board: ["1/90 taunt"]}
+    expect: {board: ["1/1", "7/22"]}
+
+  - name: picked_it_gives_a_falling_sky_golem
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Sky Golem Portrait
+    expect: {hand: [Falling Sky Golem]}

@@ -1417,6 +1417,8 @@ fn format_tribe(t: Tribe) -> &'static str {
         Tribe::Naga => "Naga",
         Tribe::DragonNaga => "Dragon/Naga",
         Tribe::DemonNaga => "Demon/Naga",
+        Tribe::DragonMurloc => "Dragon/Murloc",
+        Tribe::MechDemon => "Mech/Demon",
     }
 }
 

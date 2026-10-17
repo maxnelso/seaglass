@@ -1,0 +1,16 @@
+trinket: Azerite Portrait
+scenarios:
+  - name: picked_it_gives_a_living_azerite
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Azerite Portrait
+    expect: {hand: [Living Azerite]}
+
+  - name: living_azerites_also_buff_friendly_elementals
+    tavern:
+      board: [Living Azerite, "1/1 elemental", "1/1 beast"]
+      hand: [Fortify]
+      auras: {trinkets: [Azerite Portrait]}
+    steps:
+      - play: {hand: 0, pos: 2}
+    expect: {board: ["12/9", "5/4", "1/4"]}

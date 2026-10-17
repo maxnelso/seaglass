@@ -1,0 +1,10 @@
+trinket: Czarina Portrait
+scenarios:
+  - name: charging_czarinas_also_give_health
+    tavern:
+      board: [Charging Czarina, "1/1 divine_shield"]
+      hand: [Fortify]
+      auras: {trinkets: [Czarina Portrait]}
+    steps:
+      - play: {hand: 0, pos: 1}
+    expect: {board: ["8/5", "5/8"], hand: []}

@@ -189,6 +189,9 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_after_pick` | The player picked a trinket from an offer (it joined, or replaced one), after its own text: `(state, picked, pool, rng)`. | `Souvenir Stand`. |
 | `trinket_teammate` | Duos: the teammate, after each of the team's actions (`DuosTavern::step`) and at the end of the team's turn start: `(state, teammate, pool, rng)`, a `TeammateView` (the teammate's Tavern, and whether the team's turn is over) (§8.1). | `Empowered Mirror`, `Cho'gall Sticker`, `Moveout Box`. |
 | `trinket_skips_turn` | Whether the player skips the current turn, as a Hero Power's `hero_skips_turn` (only `EndTurn` and the prompts are legal): `(trinket, state)`. | `Moveout Box`. |
+| `trinket_modifies` | `true` if the trinket changes a card's text ("Your Living Azerites also give stats to friendly Elementals"): `(card_id)`. The card's own hooks read it (`trinkets::modifies(auras, card_id)`): the engine never names the card. | `Azerite Portrait`, `Bronzebeard Portrait`. |
+| `trinket_tavern_destroy` | A friendly minion was destroyed in the Tavern (`TavernState::destroy_board_unit`), once its Deathrattles resolved: `(state, destroyed, pool, rng)`. | `Maw Caster Portrait`, `Plaguerunner Portrait`. |
+| `trinket_shop_minion_died` | A minion in the Tavern died (a `Fishbait` a friendly minion attacked), once it left the Tavern: `(state, dead, pool, rng)`. | `Snarky Portrait`. |
 | `trinket_minion_bought` | A minion is being bought, before it reaches the hand (so before its Triple), after the board's `minion_bought` observers: `(state, bought)`, the minion mutable. | `Gold-plated Compass`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
@@ -482,7 +485,7 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets | Bounties **(confirmed)**. |
 | `Corrupted Tome` | Triple Prizes (the engine has none) **(confirmed)**. |
 
-The list grows as the batches go (§11.1, §11.2, §11.4–§11.7): every trinket of the table that isn't implemented is not offered.
+The list grows as the batches go (§11.1, §11.2, §11.4–§11.8): every trinket of the table that isn't implemented is not offered.
 
 ### 11.4 Hero Power Trinkets
 
@@ -536,6 +539,27 @@ A Spellcraft trinket gives its own Spellcraft spell (its data's related card, `<
 | `Cho'gall Sticker` (Greater, Duos) | Whenever your team plays a Golden minion, both you and your teammate get a Triple Reward. | `trinket_teammate`, after each of the team's actions: each Golden minion played from the hand since by either player (`golden_minions_played`, the game's count: Magnetized and intrinsic ones too **(engine decision)**) gives the player a `Triple Reward` of their Tier plus one and the teammate one that locks in their Tier as it arrives (as `Cho`'s Double Trouble); counted from when it first sees the teammate. |
 | `Moveout Box` (Greater, Duos) | Skip this turn. At the end of it, replace your warband with a copy of your teammate's. | `trinket_skips_turn`: the turn it is picked, only `EndTurn` (and the prompts); once the team's turn is over, the board becomes exact copies of the teammate's board as it is then, the player's minions going back to the pool **(engine decision**: the teammate's final warband**)**. |
 
+### 11.8 Portraits That Change Their Minion
+
+"Get a X. Your Xs ..." trinkets give a plain copy of the minion (a Golden one for "a Golden X") and, for the second half, either act themselves or change the minion's text: `trinket_modifies` names the card, whose own file reads `trinkets::modifies` and says what changes. The engine core never names the card.
+
+| Trinket | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Azerite Portrait` (Greater) | Get a Living Azerite. Your Living Azerites also give stats to friendly Elementals. | `trinket_modifies`: a Living Azerite's Tavern spell cast also gives its stats to the friendly Elementals on the board (in combat, to those of the combat board, for that combat). |
+| `Bronzebeard Portrait` (Greater) | Get a Brann Bronzebeard and a random Battlecry minion. Your Brann Bronzebeards are both Murlocs and Dragons. | A plain Brann and a random Battlecry minion of the player's Tier or lower; `trinket_modifies`: Brann is a Dragon and a Murloc (`Tribe::DragonMurloc`, appended to `Tribe`; its `sync_aura`). |
+| `Czarina Portrait` (Greater) | Get a Charging Czarina. Your Charging Czarinas also give Health. | `trinket_modifies`: as much Health as Attack. |
+| `Escapee Portrait` (Greater) | Get a Golden Enterprising Escapee. Your Lockboxes open 1 turn sooner. | Each `Lockbox` in the hand counts down 1 more, once (marked), as picked, at each turn start and after each action; one at 0 opens **(engine decision)**. |
+| `Eternal Portrait` (Greater) | Get a Golden Eternal Knight. After a friendly Undead dies, your Eternal Knights have +4/+2 this game. | Each friendly Undead that dies (in combat, or destroyed in the Tavern) counts as a Knight death for the Knights' bonus (doubled for a Golden Knight); a Knight counts twice **(engine decision)**. |
+| `Flaming Portrait` (Greater) | Get a Flaming Enforcer. Whenever your Flaming Enforcers trigger, also give the stats to their neighbors. | `trinket_modifies`: the stats it consumes also go to its board neighbors. |
+| `Hackerfin Portrait` (Greater) | Get a Hackerfin. At the end of each turn, trigger your Hackerfins' Battlecries. | Each board Hackerfin, left to right (`cards::trigger_board_battlecry`); repeated by the end-of-turn repeat count. |
+| `Maw Caster Portrait` (Greater) | Get a Maw Caster. Whenever you destroy a minion outside combat, gain 2 Gold. | `trinket_tavern_destroy`: 2 Gold per friendly minion destroyed in the Tavern. |
+| `Mindslasher Portrait` (Lesser) | Get a Vicious Mindslasher. Your Vicious Mindslashers also give stats to adjacent minions. | `trinket_modifies`: its adjacent minions gain its stats too (in combat, for that combat). |
+| `Plaguerunner Portrait` (Greater) | Get a Plaguerunner. After you destroy a Plaguerunner outside combat, get a plain copy. | `trinket_tavern_destroy`: a plain Plaguerunner per Plaguerunner destroyed in the Tavern. |
+| `Rewinder Portrait` (Lesser) | Get a Soul Rewinder and a Wrath Weaver. Your Soul Rewinders also gain Attack. | `trinket_modifies`: as much Attack as Health. |
+| `Sky Golem Portrait` (Greater) | Get a Falling Sky Golem. Start of Combat: Give your minions "Deathrattle: Give your minions +2/+2 permanently." | Step 1c: every friendly minion gains the extra Deathrattle *Skyward* (`BG35_MagicItem_740e`): the living friendly minions gain +2/+2, kept after the combat (`perm_atk_gained`). |
+| `Snarky Portrait` (Greater) | Get 2 Snarky Sharks. Whenever a Fishbait dies, give your Beasts +4/+4 and improve this. | `trinket_shop_minion_died`: the board's Beasts gain `+(4 + 4 × stacks)`, then it improves **(engine decision**: by the base amount**)**. |
+| `Surveyor Portrait` (Greater) | Get a Hot-Air Surveyor. Blood Gems played from your hand give an extra +6/+6. | `trinket_after_spell`: a Blood Gem played from the hand gives its board target +6/+6 more per cast that resolved, once the casts are done **(engine decision)**. |
+
 ---
 
 ## 12. Decisions
@@ -557,6 +581,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 20 | Escapee Portrait checks Lockboxes after each action; Eternal Portrait (Greater) counts a Knight twice; Snarky Portrait's improvement; Surveyor Portrait adds after the casts. | §11.8, their files |
 | Batch 19 | Cho'gall Sticker counts the game's Golden plays; Moveout Box copies the teammate's final warband. | §11.7, their files |
 | Batch 18 | Chillmere Mosaic marks only its own Refresh's minions; Makeshift Master measures after each action; Token of the Old Gods' Tier 6 cap and Triple edge. | §11.6, their files |
 | Batch 17 | Replacing (fresh, the new trinket's text resolves, in the Tavern only); random trinkets uniform among the offerable ones of the kind, without the type rules; the offer queue; Mystery Cube's keep option; Orbs replace themselves; Souvenir Stand's copy resolves its text; Trip Vouchers' turn 9 offer still comes; Ornate Clock picked late changes nothing; Empowered Mirror copies a teammate who picks later. | §3.5, their files |

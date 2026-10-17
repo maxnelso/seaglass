@@ -1,0 +1,10 @@
+trinket: Escapee Portrait
+scenarios:
+  - name: picked_it_gives_a_golden_escapee_and_lockboxes_open_a_turn_sooner_once
+    description: Each Lockbox counts down once more, once (engine decision).
+    tavern: {gold: 0, hand: [{card: Lockbox, lockbox_turns_left: 3}]}
+    steps:
+      - give_trinket: Escapee Portrait
+      - expect: {hand: [{name: Lockbox, lockbox_turns_left: 2}, "golden Enterprising Escapee"]}
+      - start_turn
+    expect: {hand: [{name: Lockbox, lockbox_turns_left: 1}, "golden Enterprising Escapee"]}

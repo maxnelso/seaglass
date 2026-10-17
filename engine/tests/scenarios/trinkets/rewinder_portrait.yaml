@@ -1,0 +1,13 @@
+trinket: Rewinder Portrait
+scenarios:
+  - name: picked_it_gives_a_soul_rewinder_and_a_wrath_weaver
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Rewinder Portrait
+    expect: {hand: [Soul Rewinder, Wrath Weaver]}
+
+  - name: soul_rewinders_also_gain_attack
+    tavern: {board: [Soul Rewinder], auras: {trinkets: [Rewinder Portrait]}}
+    steps:
+      - deal_hero_damage: 3
+    expect: {health: 30, board: ["6/4"]}

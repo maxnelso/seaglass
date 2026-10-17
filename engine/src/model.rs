@@ -64,6 +64,12 @@ pub enum Tribe {
     Naga,
     DragonNaga,
     DemonNaga,
+    /// Not a minion's own type: `Brann Bronzebeard`'s with `Bronzebeard Portrait`
+    /// (`docs/trinkets.md` §11.8).
+    DragonMurloc,
+    /// Not a pool minion's type: the Mecha-Demons' (`Mecha-Jaraxxus Sticker`, `docs/trinkets.md`
+    /// §11.9), which can Magnetize to Mechs and Demons.
+    MechDemon,
 }
 
 /// The 10 lobby types of Patch 36.6.3: every base single minion tribe but `Naga`, which no lobby
@@ -127,6 +133,8 @@ impl Tribe {
             Tribe::DemonQuilboar => matches!(single, Tribe::Demon | Tribe::Quilboar),
             Tribe::DragonNaga => matches!(single, Tribe::Dragon | Tribe::Naga),
             Tribe::DemonNaga => matches!(single, Tribe::Demon | Tribe::Naga),
+            Tribe::DragonMurloc => matches!(single, Tribe::Dragon | Tribe::Murloc),
+            Tribe::MechDemon => matches!(single, Tribe::Mech | Tribe::Demon),
             other => other == single,
         }
     }
@@ -167,6 +175,8 @@ impl Tribe {
             Tribe::Naga => "naga",
             Tribe::DragonNaga => "dragon_naga",
             Tribe::DemonNaga => "demon_naga",
+            Tribe::DragonMurloc => "dragon_murloc",
+            Tribe::MechDemon => "mech_demon",
         }
     }
 }

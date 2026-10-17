@@ -16,6 +16,7 @@ pub mod aggem_sticker;
 pub mod all_purpose_kibble;
 pub mod ancient_wishbone;
 pub mod artisanal_urn;
+pub mod azerite_portrait;
 pub mod azeroth_model_globe;
 pub mod baleful_incense;
 pub mod baller_portrait;
@@ -38,6 +39,7 @@ pub mod book_of_medivh_greater;
 pub mod booty_bay_brew;
 pub mod booty_bay_brew_greater;
 pub mod bronze_timepiece;
+pub mod bronzebeard_portrait;
 pub mod butchers_sickle;
 pub mod chillmere_mosaic;
 pub mod chogall_sticker;
@@ -54,6 +56,7 @@ pub mod corrupted_baton;
 pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
 pub mod cursed_crystal;
+pub mod czarina_portrait;
 pub mod dalaran_cheese_wheel;
 pub mod deathly_phylactery;
 pub mod defensive_shell;
@@ -70,13 +73,16 @@ pub mod emergency_gearblade;
 pub mod empowered_mirror;
 pub mod empowered_mirror_greater;
 pub mod enigmatic_headstone;
+pub mod escapee_portrait;
 pub mod eternal_portrait;
+pub mod eternal_portrait_greater;
 pub mod evil_experiment;
 pub mod explorers_binoculars;
 pub mod faerie_dragon_scale;
 pub mod fang_anklet;
 pub mod felsteel_cleaver;
 pub mod fish_portrait;
+pub mod flaming_portrait;
 pub mod flighty_portrait;
 pub mod floating_candle_set;
 pub mod fridge_magnet;
@@ -95,6 +101,7 @@ pub mod gold_plated_compass;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
 pub mod guiding_candle;
+pub mod hackerfin_portrait;
 pub mod hammer_of_twilight;
 pub mod hammer_of_twilight_greater;
 pub mod heart_of_the_forest;
@@ -126,6 +133,8 @@ pub mod makeshift_master;
 pub mod maldraxxus_dagger;
 pub mod mama_bear_sticker;
 pub mod mask_of_ancient_ones;
+pub mod maw_caster_portrait;
+pub mod mindslasher_portrait;
 pub mod miniature_ship;
 pub mod minion_bait;
 pub mod moveout_box;
@@ -146,6 +155,7 @@ pub mod orc_estra_portrait;
 pub mod ornate_clock;
 pub mod pagles_fishing_rod;
 pub mod pilgrimp_sticker;
+pub mod plaguerunner_portrait;
 pub mod pocket_cyclone;
 pub mod pocket_cyclone_greater;
 pub mod portable_factory;
@@ -162,6 +172,7 @@ pub mod reinvigorating_light;
 pub mod rendle_sticker;
 pub mod replica_cathedral;
 pub mod reusable_batteries;
+pub mod rewinder_portrait;
 pub mod rivendare_portrait;
 pub mod rockin_music_box;
 pub mod ruby_tusk;
@@ -173,8 +184,10 @@ pub mod shathyar_shrine;
 pub mod shrine_of_evolution;
 pub mod sinister_invitation;
 pub mod sinstone_sticker;
+pub mod sky_golem_portrait;
 pub mod slamma_sticker;
 pub mod sludge_portrait;
+pub mod snarky_portrait;
 pub mod soul_battery;
 pub mod soul_fermenter;
 pub mod sous_chef_sticker;
@@ -186,6 +199,7 @@ pub mod staff_of_the_scourge;
 pub mod stormcoil_sticker;
 pub mod stuffed_coin_purse;
 pub mod summoning_sphere;
+pub mod surveyor_portrait;
 pub mod tableware_portrait;
 pub mod the_eye_of_dalaran;
 pub mod the_eye_of_sargeras;
@@ -270,6 +284,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
     (ancient_wishbone::ID, ancient_wishbone::behaviors),
     (artisanal_urn::ID, artisanal_urn::behaviors),
+    (azerite_portrait::ID, azerite_portrait::behaviors),
     (azeroth_model_globe::ID, azeroth_model_globe::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
     (baller_portrait::ID, baller_portrait::behaviors),
@@ -307,6 +322,7 @@ const IMPLEMENTED: &[Implemented] = &[
         booty_bay_brew_greater::behaviors,
     ),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
+    (bronzebeard_portrait::ID, bronzebeard_portrait::behaviors),
     (butchers_sickle::ID, butchers_sickle::behaviors),
     (chillmere_mosaic::ID, chillmere_mosaic::behaviors),
     (chogall_sticker::ID, chogall_sticker::behaviors),
@@ -332,6 +348,7 @@ const IMPLEMENTED: &[Implemented] = &[
         corrupted_coin_portrait::behaviors,
     ),
     (cursed_crystal::ID, cursed_crystal::behaviors),
+    (czarina_portrait::ID, czarina_portrait::behaviors),
     (dalaran_cheese_wheel::ID, dalaran_cheese_wheel::behaviors),
     (deathly_phylactery::ID, deathly_phylactery::behaviors),
     (defensive_shell::ID, defensive_shell::behaviors),
@@ -351,13 +368,19 @@ const IMPLEMENTED: &[Implemented] = &[
         empowered_mirror_greater::behaviors,
     ),
     (enigmatic_headstone::ID, enigmatic_headstone::behaviors),
+    (escapee_portrait::ID, escapee_portrait::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
+    (
+        eternal_portrait_greater::ID,
+        eternal_portrait_greater::behaviors,
+    ),
     (evil_experiment::ID, evil_experiment::behaviors),
     (explorers_binoculars::ID, explorers_binoculars::behaviors),
     (faerie_dragon_scale::ID, faerie_dragon_scale::behaviors),
     (fang_anklet::ID, fang_anklet::behaviors),
     (felsteel_cleaver::ID, felsteel_cleaver::behaviors),
     (fish_portrait::ID, fish_portrait::behaviors),
+    (flaming_portrait::ID, flaming_portrait::behaviors),
     (flighty_portrait::ID, flighty_portrait::behaviors),
     (floating_candle_set::ID, floating_candle_set::behaviors),
     (fridge_magnet::ID, fridge_magnet::behaviors),
@@ -382,6 +405,7 @@ const IMPLEMENTED: &[Implemented] = &[
         great_boar_sticker_greater::behaviors,
     ),
     (guiding_candle::ID, guiding_candle::behaviors),
+    (hackerfin_portrait::ID, hackerfin_portrait::behaviors),
     (hammer_of_twilight::ID, hammer_of_twilight::behaviors),
     (
         hammer_of_twilight_greater::ID,
@@ -425,6 +449,8 @@ const IMPLEMENTED: &[Implemented] = &[
     (maldraxxus_dagger::ID, maldraxxus_dagger::behaviors),
     (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
     (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
+    (maw_caster_portrait::ID, maw_caster_portrait::behaviors),
+    (mindslasher_portrait::ID, mindslasher_portrait::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
     (minion_bait::ID, minion_bait::behaviors),
     (moveout_box::ID, moveout_box::behaviors),
@@ -451,6 +477,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (ornate_clock::ID, ornate_clock::behaviors),
     (pagles_fishing_rod::ID, pagles_fishing_rod::behaviors),
     (pilgrimp_sticker::ID, pilgrimp_sticker::behaviors),
+    (plaguerunner_portrait::ID, plaguerunner_portrait::behaviors),
     (pocket_cyclone::ID, pocket_cyclone::behaviors),
     (
         pocket_cyclone_greater::ID,
@@ -476,6 +503,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (rendle_sticker::ID, rendle_sticker::behaviors),
     (replica_cathedral::ID, replica_cathedral::behaviors),
     (reusable_batteries::ID, reusable_batteries::behaviors),
+    (rewinder_portrait::ID, rewinder_portrait::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
     (rockin_music_box::ID, rockin_music_box::behaviors),
     (ruby_tusk::ID, ruby_tusk::behaviors),
@@ -487,8 +515,10 @@ const IMPLEMENTED: &[Implemented] = &[
     (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
     (sinister_invitation::ID, sinister_invitation::behaviors),
     (sinstone_sticker::ID, sinstone_sticker::behaviors),
+    (sky_golem_portrait::ID, sky_golem_portrait::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (sludge_portrait::ID, sludge_portrait::behaviors),
+    (snarky_portrait::ID, snarky_portrait::behaviors),
     (soul_battery::ID, soul_battery::behaviors),
     (soul_fermenter::ID, soul_fermenter::behaviors),
     (sous_chef_sticker::ID, sous_chef_sticker::behaviors),
@@ -500,6 +530,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (stormcoil_sticker::ID, stormcoil_sticker::behaviors),
     (stuffed_coin_purse::ID, stuffed_coin_purse::behaviors),
     (summoning_sphere::ID, summoning_sphere::behaviors),
+    (surveyor_portrait::ID, surveyor_portrait::behaviors),
     (tableware_portrait::ID, tableware_portrait::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
     (the_eye_of_sargeras::ID, the_eye_of_sargeras::behaviors),
@@ -1200,6 +1231,39 @@ pub fn extra_hero_power_uses(auras: &PlayerAuras) -> u32 {
         .sum()
 }
 
+/// `true` if one of the player's trinkets changes the card `card_id`'s text
+/// (`trinket_modifies`, `docs/trinkets.md` §11.8): the card's hooks read it.
+pub fn modifies(auras: &PlayerAuras, card_id: CardId) -> bool {
+    auras.trinkets.iter().any(|t| {
+        hooks(t.card_id)
+            .trinket_modifies
+            .is_some_and(|f| f(card_id))
+    })
+}
+
+/// A friendly minion was destroyed in the Tavern: each trinket's `trinket_tavern_destroy` hook.
+pub fn tavern_destroy(
+    state: &mut TavernState,
+    destroyed: &Unit,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    for (slot, id) in owned_slots(&state.auras) {
+        if let Some(destroy) = hooks(id).trinket_tavern_destroy {
+            in_slot(slot, || destroy(state, destroyed, pool, rng));
+        }
+    }
+}
+
+/// A minion in the Tavern died: each trinket's `trinket_shop_minion_died` hook.
+pub fn shop_minion_died(state: &mut TavernState, dead: &Unit, pool: &mut CardPool, rng: &mut Rng) {
+    for (slot, id) in owned_slots(&state.auras) {
+        if let Some(died) = hooks(id).trinket_shop_minion_died {
+            in_slot(slot, || died(state, dead, pool, rng));
+        }
+    }
+}
+
 /// After the player used a Hero Power: each trinket's `trinket_after_hero_power` hook.
 pub fn after_hero_power(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     for (slot, id) in owned_slots(&state.auras) {
@@ -1818,6 +1882,16 @@ pub fn count_spell_this_turn(state: &mut TavernState, id: CardId) {
 pub fn give_minion(state: &mut TavernState, card_id: CardId) {
     if let Some(template) = cards::template(card_id) {
         state.add_to_hand_or_wait(template.instantiate());
+    }
+}
+
+/// A trinket's "Get a Golden ...": a plain copy of the minion `card_id` from the catalog, made
+/// Golden (`Unit::make_golden`, as `Golden Touch`'s), goes to the hand, or waits for room.
+pub fn give_golden_minion(state: &mut TavernState, card_id: CardId) {
+    if let Some(template) = cards::template(card_id) {
+        let mut golden = template.instantiate();
+        golden.make_golden();
+        state.add_to_hand_or_wait(golden);
     }
 }
 

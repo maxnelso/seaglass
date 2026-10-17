@@ -1,0 +1,8 @@
+trinket: Plaguerunner Portrait
+scenarios:
+  - name: a_plaguerunner_destroyed_outside_combat_gives_a_plain_copy
+    tavern: {tavern_tier: 2, board: [{card: Plaguerunner, attack: 9}], auras: {trinkets: [Plaguerunner Portrait, Jailer Sticker]}}
+    steps:
+      - start_turn
+      - play: {hand: 0, pos: 0}
+    expect: {board: [], hand: {count: 2, contains: [Plaguerunner]}}

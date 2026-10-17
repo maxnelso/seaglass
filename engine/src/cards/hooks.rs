@@ -720,6 +720,15 @@ card_hooks! {
     /// Whether the player skips the current turn (only `EndTurn`, and the prompts, are legal), as
     /// a Hero Power's `hero_skips_turn`: `(trinket, state)`.
     trinket_skips_turn(on_trinket_skips_turn): fn(&TrinketState, &TavernState) -> bool,
+    /// `true` if this trinket changes the card `card_id`'s text ("Your Living Azerites also give
+    /// stats to friendly Elementals"); the card's own hooks read it (`trinkets::modifies`).
+    trinket_modifies(on_trinket_modifies): fn(CardId) -> bool,
+    /// A friendly minion was destroyed in the Tavern (`TavernState::destroy_board_unit`), once its
+    /// Deathrattles resolved: `(state, destroyed, pool, rng)`.
+    trinket_tavern_destroy(on_trinket_tavern_destroy): CardEventFn,
+    /// A minion in the Tavern died (a `Fishbait` a friendly minion attacked), once it left the
+    /// Tavern: `(state, dead, pool, rng)`.
+    trinket_shop_minion_died(on_trinket_shop_minion_died): CardEventFn,
 
     // ---- Dark Gifts (fire for the minion that has the gift, in the order it got its gifts;
     // `docs/dark_gifts.md` §6) -----------------------------------------------------------------

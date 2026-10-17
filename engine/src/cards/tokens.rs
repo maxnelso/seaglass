@@ -338,6 +338,7 @@ pub fn left_most_beast_attacks_fishbait(
         let buff = if bait.is_golden { 10 } else { 5 };
         state.board[killer].add_stats(buff, buff);
     }
+    crate::trinkets::shop_minion_died(state, &bait, pool, rng);
 }
 
 /// `Blood Gem` (`+1/+1` targeted spell card, scaled by `blood_gem_bonus_atk / hp` when cast).

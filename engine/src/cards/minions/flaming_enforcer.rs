@@ -31,7 +31,16 @@ pub fn on_end_turn(state: &mut TavernState, self_idx: usize, pool: &mut CardPool
         } else {
             1
         };
-        state.board[self_idx].add_stats(consumed.attack * mult, consumed.health * mult);
+        let (atk, hp) = (consumed.attack * mult, consumed.health * mult);
+        state.board[self_idx].add_stats(atk, hp);
+        // With `Flaming Portrait` (`docs/trinkets.md` §11.8), its neighbors gain them too.
+        if crate::trinkets::modifies(&state.auras, ID) {
+            for idx in [self_idx.wrapping_sub(1), self_idx + 1] {
+                if let Some(unit) = state.board.get_mut(idx) {
+                    unit.add_stats(atk, hp);
+                }
+            }
+        }
         crate::trinkets::after_consume(state, MinionSlot::Board(self_idx), &consumed);
     }
 }

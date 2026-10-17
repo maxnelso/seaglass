@@ -1,0 +1,16 @@
+trinket: Snarky Portrait
+scenarios:
+  - name: picked_it_gives_two_snarky_sharks
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Snarky Portrait
+    expect: {hand: [Snarky Shark, Snarky Shark]}
+
+  - name: a_fishbait_dying_buffs_the_beasts_and_improves_it
+    description: +4/+4, then +8/+8 (engine decision).
+    tavern: {board: [Snarky Shark, "5/5 beast", Snarky Shark, "1/1"], auras: {trinkets: [Snarky Portrait]}}
+    steps:
+      - sell: 0
+      - expect: {board: ["14/14", Snarky Shark, "1/1"], auras: {trinkets: [{stacks: 1}]}}
+      - sell: 1
+    expect: {board: ["27/27", "1/1"], auras: {trinkets: [{stacks: 2}]}}

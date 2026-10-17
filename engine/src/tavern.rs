@@ -960,6 +960,7 @@ impl TavernState {
         for cid in hand_cids {
             self.check_and_resolve_triple(cid);
         }
+        trinkets::tavern_destroy(self, &dying, pool, rng);
     }
 
     /// Add a card (minion or spell) to `hand` (if `hand.len() < 10`), syncing global auras and checking triples.

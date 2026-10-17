@@ -337,7 +337,11 @@ impl DuosTavern {
                 state: &mate,
                 turn_over: self.turn_over(),
             };
-            crate::trinkets::teammate(&mut self.players[player], &view, pool, rng);
+            let state = &mut self.players[player];
+            crate::trinkets::teammate(state, &view, pool, rng);
+            // What they changed forms its Triples, as after the player's own action.
+            state.resolve_triples();
+            state.sync_all_auras();
         }
     }
 

@@ -1,0 +1,13 @@
+trinket: Surveyor Portrait
+scenarios:
+  - name: blood_gems_played_from_hand_give_6_6_more
+    tavern: {board: ["1/1 quilboar"], hand: [Blood Gem], auras: {trinkets: [Surveyor Portrait]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["8/8"]}
+
+  - name: picked_it_gives_a_hot_air_surveyor
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Surveyor Portrait
+    expect: {hand: [Hot-Air Surveyor]}

@@ -1,0 +1,15 @@
+trinket: Maw Caster Portrait
+scenarios:
+  - name: destroying_a_minion_outside_combat_gives_2_gold
+    tavern: {board: ["1/1 undead"], auras: {trinkets: [Maw Caster Portrait, Jailer Sticker]}}
+    steps:
+      - start_turn
+      - expect: {gold: 3}
+      - play: {hand: 0, pos: 0}
+    expect: {gold: 5, board: []}
+
+  - name: picked_it_gives_a_maw_caster
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Maw Caster Portrait
+    expect: {hand: [Maw Caster]}
