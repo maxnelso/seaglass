@@ -4,7 +4,7 @@ This is the exact specification of how Seaglass resolves a single battle. It is 
 
 The combat loop is **card-agnostic**: it knows only about units, keywords, and general trigger hooks. Individual card definitions live in the card catalog ([`tavern.md`](tavern.md)) and plug into the phases defined below.
 
-**Duos** combats (a team of two players against another, fought as a relay of the players' warbands) are specified in [`duos.md`](duos.md), which builds on this document.
+**Duos** combats (a team of two players against another, fought as a relay of the players' warbands) are specified in [`duos.md`](duos.md), which builds on this document. A minion's **Dark Gifts** act through its own triggers (its Start of Combat, Deathrattles, Rally, Divine Shield and attacks: [`dark_gifts.md`](dark_gifts.md) §7).
 
 ---
 

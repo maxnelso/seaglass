@@ -22,7 +22,7 @@ The Tavern Phase is modeled as a **card-agnostic sequential decision state machi
 - **General Tavern Hooks (Tiers 1–2)**: Battlecries, after-play/magnetize board observers (`Wrath Weaver`, `Mechagnome Interpreter`), Volumizer scaling (`Blue` / `Green` / `Red Volumizer`), `Activate` abilities targeting board/hand/shop (`Suspicious Prisonguard`, `Brain Rotter`, `Clever Castaway`, `Decoy Conjurer`, `Lurking Lionfish`), `Lockbox` countdown (`Bilgewater Breakout`), `Demon Fodder` refreshes (`Laboratory Assistant`), on-sell triggers (`Zoatroid`, `Fire Baller`, `Snow Baller`, `Patient Scout`, `Sellemental`, `Tad`, `Wandering Willbreaker`), end-of-turn triggers (`Lullabot`, `Surfing Sylvar`), and hero damage rewind (`Soul Rewinder`).
 
 ### Deferred to Later Phases
-- Buddy meters, Quests, Darkmoon Prizes, and Anomalies. (Heroes and Hero Powers are specified in [`heroes.md`](heroes.md), trinkets in [`trinkets.md`](trinkets.md).)
+- Buddy meters, Quests, Darkmoon Prizes, and Anomalies. (Heroes and Hero Powers are specified in [`heroes.md`](heroes.md), trinkets in [`trinkets.md`](trinkets.md), Dark Gifts and the Dark Discovery button in [`dark_gifts.md`](dark_gifts.md).)
 - Tier 3–6 minions and Tier 3–6 Tavern Spells.
 
 ---
@@ -205,6 +205,7 @@ If `hero_options` is non-empty, only `ChooseHero` is legal; else if `trinket_opt
 | `HeroPower2 { target }` | The player's hero has a second Hero Power (`second_power`, Genn, Worgen King) that is active with uses left, `gold >= cost`, a valid target ([`heroes.md`](heroes.md) §5) | Use the second Hero Power. |
 | `ChooseHero { option_index }` | `hero_options` is non-empty (then it is the only legal action), `option_index < hero_options.len()` | Get that hero ([`heroes.md`](heroes.md) §6). |
 | `ChooseTrinket { option_index }` | `trinket_options` is non-empty (then it is the only legal action), `option_index < trinket_options.len()`, the player has the option's price in Gold (or no option is affordable and it is one of the cheapest) | Pay its price and get that trinket ([`trinkets.md`](trinkets.md) §4). |
+| `DarkDiscovery` | Dark Gifts are enabled (`dark_gifts_enabled`), `turn >= 3`, the button wasn't used this turn, fewer than 3 uses this game, `gold >= 3` ([`dark_gifts.md`](dark_gifts.md) §3) | Pay 3 Gold and Discover 1 of 3 minions, each with a different Dark Gift. |
 | `EndTurn` | Always legal when `discover_pending.is_none()`; during a turn the hero skips (`hero_skips_turn`: A. F. Kay, Ambassador Faelin; `heroes.md` §4) it is the only legal action besides `ChooseDiscover` | Run end-of-turn triggers, discard the temporary cards still in `hand` or waiting for room (Spellcraft spells, §7.4) without discard effects, and conclude the Tavern turn. |
 
 **Buying a minion** costs 3 Gold (a Hero Power can change it, §3.3), less `auras.next_minion_discount` (never below 0), which the purchase uses up: an effect that makes "the next minion you buy" cheaper or free adds to it (Aranna Starseeker, `heroes.md` §11.2). Without such an effect it is 0 and a minion costs 3.

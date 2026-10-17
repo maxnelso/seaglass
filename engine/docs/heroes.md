@@ -19,7 +19,8 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### Deferred
 - `Queen Azshara`: her Naga Conquest Discovers Naga, and Naga aren't in the game **(confirmed)**; she is in the table but not implemented, and not offered (§6).
-- Buddies (companions), Quests, Darkmoon Prizes, Anomalies, Dark Gifts, Timewarp, Spellcraft outside Duos, Secrets, custom Undead creations, and StarCraft multi-piece boards/upgrade spells: the heroes that need them (E.T.C.; Buttons, Marin; Sire Denathrius; Tickatus; Nightmare Lord Xavius, Tras'tath; Morchie, Murozond; Lady Vashj; The Great Akazamzarak; Professor Putricide; Jim Raynor, Kerrigan, Queen of Blades, Artanis) **(confirmed)** are in the table but not implemented, and not offered (§6).
+- Dark Gifts are specified in [`dark_gifts.md`](dark_gifts.md), with Nightmare Lord Xavius and Tras'tath (§12 there).
+- Buddies (companions), Quests, Darkmoon Prizes, Anomalies, Timewarp, Spellcraft outside Duos, Secrets, custom Undead creations, and StarCraft multi-piece boards/upgrade spells: the heroes that need them (E.T.C.; Buttons, Marin; Sire Denathrius; Tickatus; Morchie, Murozond; Lady Vashj; The Great Akazamzarak; Professor Putricide; Jim Raynor, Kerrigan, Queen of Blades, Artanis) **(confirmed)** are in the table but not implemented, and not offered (§6).
 
 ---
 

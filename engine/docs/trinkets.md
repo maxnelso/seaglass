@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The trinkets implemented so far: §11.
 
 ### Deferred
-Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Dark Gifts, Timewarp, Darkmoon Prizes, Bounties, Tier 7 minions, Quests and Buddies. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
+Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Dark Gifts (until [`dark_gifts.md`](dark_gifts.md) implements them), Timewarp, Darkmoon Prizes, Bounties, Tier 7 minions, Quests and Buddies. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
 
 ---
 
@@ -434,7 +434,7 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 
 | Trinkets | Why |
 | :--- | :--- |
-| `Wax Lance`, `Sinister Invitation`, `Maldraxxus Dagger`, and every trinket that gives or reads a Dark Gift | Dark Gifts **(confirmed)**. |
+| `Ominous Stone`, `Wax Lance`, `Sinister Invitation`, `Maldraxxus Dagger` | Dark Gifts: specified in [`dark_gifts.md`](dark_gifts.md) §12.3, implemented with them. |
 | `Timeworn Candelabra` (both) and the other Timewarp trinkets | Timewarp **(confirmed)**. |
 | `Tickatus Sticker` and the other Darkmoon Prize trinkets | Darkmoon Prizes **(confirmed)**. |
 | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets | Bounties **(confirmed)**. |
