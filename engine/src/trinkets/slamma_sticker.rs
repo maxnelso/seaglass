@@ -16,7 +16,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(ID, CardHooks::EMPTY.on_trinket_combat_summon(combat_summon))]
 }
 
-fn combat_summon(_: &TrinketState, summoned: &mut Unit) {
+fn combat_summon(_: &mut TrinketState, summoned: &mut Unit) {
     if summoned.tribe.matches(Tribe::Beast) {
         let attack = summoned.attack.max(0);
         summoned.add_stats(attack, 0);

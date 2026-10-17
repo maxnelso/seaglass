@@ -1,0 +1,18 @@
+trinket: Wildfeather Duster
+scenarios:
+  - name: the_sixth_beast_summoned_gives_a_random_beast
+    seeds: "1..=3"
+    tavern: {tavern_tier: 3, hand: ["1/1 beast"], auras: {trinkets: [{trinket: Wildfeather Duster, counter: 5}]}}
+    steps:
+      - play: 0
+    expect:
+      hand: {count: 1, all: {tavern_tier: "<= 3", tribe: {any_of: [beast, beast_pirate, all]}}}
+      auras: {trinkets: [{counter: 0, stacks: 0}]}
+
+  - name: a_combats_beasts_pay_at_the_next_turn_start
+    seeds: "1..=3"
+    tavern: {auras: {trinkets: [{trinket: Wildfeather Duster, stacks: 1}]}}
+    steps:
+      - end_turn
+      - start_turn
+    expect: {hand: {count: 1}, auras: {trinkets: [{stacks: 0}]}}

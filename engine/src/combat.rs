@@ -200,7 +200,7 @@ impl SideCombatState {
     fn prepare_summoned_unit(&mut self, token: &mut Unit) {
         cards::apply_combat_summon_modifiers(
             &mut self.board,
-            &self.auras,
+            &mut self.auras,
             self.combat_beast_bonus_atk,
             token,
         );
@@ -2157,7 +2157,7 @@ fn awaken_deity_if_due(
     *next_id += 1;
     cards::apply_combat_summon_modifiers(
         &mut side_state.board,
-        &side_state.auras,
+        &mut side_state.auras,
         side_state.combat_beast_bonus_atk,
         &mut deity_unit,
     );

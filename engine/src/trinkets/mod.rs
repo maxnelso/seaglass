@@ -62,6 +62,7 @@ pub mod eternal_portrait;
 pub mod evil_experiment;
 pub mod explorers_binoculars;
 pub mod faerie_dragon_scale;
+pub mod fang_anklet;
 pub mod felsteel_cleaver;
 pub mod fish_portrait;
 pub mod flighty_portrait;
@@ -120,6 +121,7 @@ pub mod quilligraphy_set_greater;
 pub mod rascal_sticker;
 pub mod recycling_sticker;
 pub mod reflective_pendant;
+pub mod reinforced_shield;
 pub mod rendle_sticker;
 pub mod replica_cathedral;
 pub mod reusable_batteries;
@@ -160,6 +162,7 @@ pub mod warcry_totem;
 pub mod water_wheel;
 pub mod weighted_gauntlet;
 pub mod wicked_tome;
+pub mod wildfeather_duster;
 pub mod willbreaker_sticker;
 pub mod wolfhead_flail;
 pub mod worn_treasure_map;
@@ -282,6 +285,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (evil_experiment::ID, evil_experiment::behaviors),
     (explorers_binoculars::ID, explorers_binoculars::behaviors),
     (faerie_dragon_scale::ID, faerie_dragon_scale::behaviors),
+    (fang_anklet::ID, fang_anklet::behaviors),
     (felsteel_cleaver::ID, felsteel_cleaver::behaviors),
     (fish_portrait::ID, fish_portrait::behaviors),
     (flighty_portrait::ID, flighty_portrait::behaviors),
@@ -358,6 +362,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (rascal_sticker::ID, rascal_sticker::behaviors),
     (recycling_sticker::ID, recycling_sticker::behaviors),
     (reflective_pendant::ID, reflective_pendant::behaviors),
+    (reinforced_shield::ID, reinforced_shield::behaviors),
     (rendle_sticker::ID, rendle_sticker::behaviors),
     (replica_cathedral::ID, replica_cathedral::behaviors),
     (reusable_batteries::ID, reusable_batteries::behaviors),
@@ -407,6 +412,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (water_wheel::ID, water_wheel::behaviors),
     (weighted_gauntlet::ID, weighted_gauntlet::behaviors),
     (wicked_tome::ID, wicked_tome::behaviors),
+    (wildfeather_duster::ID, wildfeather_duster::behaviors),
     (willbreaker_sticker::ID, willbreaker_sticker::behaviors),
     (wolfhead_flail::ID, wolfhead_flail::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
@@ -1059,8 +1065,8 @@ pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng
 }
 
 /// A friendly minion is being summoned in combat: each trinket's `trinket_combat_summon` hook.
-pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
-    for trinket in &auras.trinkets {
+pub fn combat_summon(auras: &mut PlayerAuras, summoned: &mut Unit) {
+    for trinket in &mut auras.trinkets {
         if let Some(combat_summon) = hooks(trinket.card_id).trinket_combat_summon {
             combat_summon(trinket, summoned);
         }
@@ -1068,8 +1074,8 @@ pub fn combat_summon(auras: &PlayerAuras, summoned: &mut Unit) {
 }
 
 /// A friendly minion was summoned in the Tavern: each trinket's `trinket_tavern_summon` hook.
-pub fn tavern_summon(auras: &PlayerAuras, summoned: &mut Unit) {
-    for trinket in &auras.trinkets {
+pub fn tavern_summon(auras: &mut PlayerAuras, summoned: &mut Unit) {
+    for trinket in &mut auras.trinkets {
         if let Some(tavern_summon) = hooks(trinket.card_id).trinket_tavern_summon {
             tavern_summon(trinket, summoned);
         }

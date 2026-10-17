@@ -1,0 +1,16 @@
+trinket: Fang Anklet
+scenarios:
+  - name: start_of_combat_gives_beasts_the_bonus
+    description: +1/+1 and +1/+1 per improvement (engine decision) - 2 improvements, +3/+3.
+    combat:
+      board_a: ["1/1 beast", "1/1"]
+      board_b: []
+      auras_a: {trinkets: [{trinket: Fang Anklet, stacks: 2}]}
+    expect: {survivors_a: [{attack: 4, health: 4}, "1/1"]}
+
+  - name: a_beast_summoned_in_the_tavern_improves_it
+    tavern: {hand: ["1/1 beast", "1/1"], auras: {trinkets: [Fang Anklet]}}
+    steps:
+      - play: 0
+      - play: 0
+    expect: {auras: {trinkets: [{stacks: 1}]}}

@@ -1,0 +1,16 @@
+trinket: Reinforced Shield
+scenarios:
+  - name: a_minion_summoned_in_combat_gains_divine_shield
+    description: The Harmless Bonehead's two Skeletons have Divine Shield, which the 1/100 pops.
+    combat:
+      board_a: [Harmless Bonehead]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Reinforced Shield]}
+    expect: {events: {where: {type: divine_shield_popped}, count: 2}}
+
+  - name: five_times_per_combat
+    combat:
+      board_a: [Harmless Bonehead, Harmless Bonehead, Harmless Bonehead]
+      board_b: ["1/100"]
+      auras_a: {trinkets: [Reinforced Shield]}
+    expect: {events: {where: {type: divine_shield_popped}, count: 5}}

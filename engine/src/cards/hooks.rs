@@ -583,7 +583,7 @@ card_hooks! {
     trinket_friendly_attack(on_trinket_friendly_attack): fn(&mut BoardCtx<'_>, UnitId),
     /// A friendly minion is being summoned in combat, after the other summon modifiers (the Hero
     /// Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`.
-    trinket_combat_summon(on_trinket_combat_summon): fn(&TrinketState, &mut Unit),
+    trinket_combat_summon(on_trinket_combat_summon): fn(&mut TrinketState, &mut Unit),
     /// After a card is bought, after the Hero Power's `hero_after_buy`: `(state, bought, pool,
     /// rng)`.
     trinket_after_buy(on_trinket_after_buy): CardEventFn,
@@ -616,7 +616,7 @@ card_hooks! {
     trinket_gold_spent(on_trinket_gold_spent): fn(&mut TavernState, u32, &mut CardPool, &mut Rng),
     /// A friendly minion is summoned in the Tavern (played, or summoned by a card), after the
     /// minions' `friendly_summon` observers: `(trinket, summoned)`.
-    trinket_tavern_summon(on_trinket_tavern_summon): fn(&TrinketState, &mut Unit),
+    trinket_tavern_summon(on_trinket_tavern_summon): fn(&mut TrinketState, &mut Unit),
     /// A spell was cast in the Tavern (all its casts resolved): `(state, cast, pool, rng)`.
     trinket_after_spell(on_trinket_after_spell): fn(&mut TavernState, &crate::trinkets::SpellCast, &mut CardPool, &mut Rng),
     /// A spell is about to be cast in the Tavern: extra casts this trinket adds, using up its

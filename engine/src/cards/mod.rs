@@ -980,7 +980,7 @@ pub fn make_reborn_copy(dying: &Unit, auras: &PlayerAuras) -> Unit {
 
 /// Apply friendly-summon observers, then the trinkets' `trinket_tavern_summon`, to the minion just
 /// summoned at `board[pos]` in the Tavern.
-pub fn on_tavern_summon(board: &mut [Unit], auras: &PlayerAuras, pos: usize) {
+pub fn on_tavern_summon(board: &mut [Unit], auras: &mut PlayerAuras, pos: usize) {
     let mut summoned = board[pos].clone();
     notify_friendly_summon(board, Some(pos), &mut summoned, false);
     crate::trinkets::tavern_summon(auras, &mut summoned);
@@ -992,7 +992,7 @@ pub fn on_tavern_summon(board: &mut [Unit], auras: &PlayerAuras, pos: usize) {
 /// trinkets' `trinket_combat_summon`, stat thresholds) to `token` before it joins `board`.
 pub fn apply_combat_summon_modifiers(
     board: &mut [Unit],
-    auras: &PlayerAuras,
+    auras: &mut PlayerAuras,
     combat_beast_bonus_atk: i32,
     token: &mut Unit,
 ) {
@@ -1308,7 +1308,7 @@ pub fn after_play_minion(
     rng: &mut Rng,
 ) {
     if !played.magnetized && played.board_pos < state.board.len() {
-        on_tavern_summon(&mut state.board, &state.auras, played.board_pos);
+        on_tavern_summon(&mut state.board, &mut state.auras, played.board_pos);
     }
     notify_tavern(
         state,
@@ -1993,7 +1993,7 @@ fn tavern_rally(
             *next_id += 1;
             let cid = token.card_id;
             state.board.insert(insert_pos, token);
-            on_tavern_summon(&mut state.board, &state.auras, insert_pos);
+            on_tavern_summon(&mut state.board, &mut state.auras, insert_pos);
             insert_pos += 1;
             state.check_and_resolve_triple(cid);
         }

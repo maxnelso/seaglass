@@ -41,6 +41,6 @@ fn cloning_gallery(state: &mut TavernState, target: Option<usize>, _: &mut CardP
     copy.marked = false;
     let card_id = copy.card_id;
     state.board.insert(t + 1, copy);
-    cards::on_tavern_summon(&mut state.board, &state.auras, t + 1);
+    cards::on_tavern_summon(&mut state.board, &mut state.auras, t + 1);
     state.check_and_resolve_triple(card_id);
 }

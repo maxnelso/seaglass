@@ -139,7 +139,7 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_after_refresh` | The Tavern was Refreshed, by any Refresh (the turn start's new shop too: tavern.md §4.1), after the Hero Power's `hero_after_refresh`, before the cards' after-Refresh effects: `(state, pool, rng)`. | `Innkeeper's Stein`. |
 | `trinket_after_player_refresh` | The player Refreshed (the `Refresh` action, or a Refresh one of their cards or Hero Powers does; not the turn start's new shop: tavern.md §4.1), after every trinket's `trinket_after_refresh`: `(state, pool, rng)`. | `Frigid Blossom`, `Upstart Embers`, `Dalaran Cheese Wheel`. |
 | `trinket_gold_spent` | Gold was spent (`TavernState::spend_gold`: a buy, a Refresh, an Upgrade, ...), after the Hero Power's `hero_gold_spent`: `(state, amount, pool, rng)`. | `Booty Bay Brew`. |
-| `trinket_tavern_summon` | A friendly minion is summoned in the Tavern (played, or summoned by a card), after the minions' `friendly_summon` observers: `(trinket, summoned)`. | `Mama Bear Sticker`. |
+| `trinket_tavern_summon` | A friendly minion is summoned in the Tavern (played, or summoned by a card), after the minions' `friendly_summon` observers: `(trinket, summoned)`, the trinket's state mutable (a count of summons). | `Mama Bear Sticker`, `Fang Anklet`, `Wildfeather Duster`. |
 | `trinket_after_spell` | A spell was cast in the Tavern, once all its casts are done (after the target is unmarked): `(state, cast, pool, rng)`, a `SpellCast` (the card, whether it is cast on a minion, where that target now is, whether it was played from the hand, the casts that resolved). | `Bloodbound Earrings`, `Lovely Locket`. |
 | `trinket_extra_spell_casts` | A spell is about to be cast in the Tavern: the extra casts this trinket adds (it may use up a charge): `(trinket)`. | `Replica Cathedral`. |
 | `trinket_before_spell` | A spell is about to be cast in the Tavern, before its extra casts are counted: `(state)`. | `Multilayered Shield`. |
@@ -158,7 +158,7 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_after_reborn` | A friendly minion came back with Reborn (`cards::reborn`: in combat or in the Tavern), after the minions' `after_friendly_reborn`: `(ctx, pos)`, the minion at `ctx.board[pos]`. | `Funeral Wreath`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
-| `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`. | `Slamma Sticker`. |
+| `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`, the trinket's state mutable (a per-combat charge, a count of summons, kept after the combat). | `Slamma Sticker`, `Reinforced Shield`, `Fang Anklet`, `Wildfeather Duster`. |
 
 The dispatch functions (`trinkets::on_start_of_combat`, `trinkets::on_turn_start`, ...) run each owned trinket's hook in turn; the engines call them next to the matching Hero Power dispatch. Extra Deathrattles a trinket gives a minion in combat (`Jarred Frostling`) are cards too, as the Hero Powers' (`heroes.md` §4): `Unit::extra_deathrattles` lists them. More hooks are added with the trinkets that need them (§11).
 
@@ -287,6 +287,9 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Wicked Tome` (Greater) | Avenge (4): Your Tavern spells give an extra +1/+1 this game. | `spell_bonus_atk` / `spell_bonus_hp` +1/+1 (as `Intrepid Botanist`'s); the count starts again each combat **(confirmed)**. |
 | `Funeral Wreath` (Greater) | After a friendly minion is Reborn, get a plain copy of it. (3 times per combat.) | `trinket_after_reborn`: a plain copy (`cards::instantiate_plain_copy`) to the hand (the combat hand in combat), 3 times per combat. |
 | `Soul Fermenter` (Greater) | Start of Combat: Destroy your 3 left-most minions. After your last minion dies, resummon them. | The 3 left-most destroyed (their Deathrattles trigger), kept as they were (`stored`); once no friendly minion is alive after a round of deaths (the Start of Combat's own too), they are summoned again at the right end, once per combat **(engine decision)**. |
+| `Reinforced Shield` (Greater) | Whenever you summon a minion, give it Divine Shield. (5 times per combat.) | `trinket_combat_summon`: the first 5 minions summoned each combat; Tavern summons don't count **(engine decision)**. |
+| `Fang Anklet` (Greater) | Start of Combat: Your Beasts have +1/+1 this combat. After you summon a Beast, improve this permanently. | +1/+1, and +1/+1 more per improvement **(engine decision)**: to the Beasts at Start of Combat and to the Beasts summoned later in the combat; each Beast summoned (in the Tavern or in combat) improves it. |
+| `Wildfeather Duster` (Greater) | After you summon 6 Beasts, get a random Beast. (6 left!) | Every 6th Beast summoned (in the Tavern or in combat, across turns) owes a random Beast of the player's Tier or lower, given after the Tavern action, or for a combat's summons at the next turn start, not in the combat hand **(engine decision)**. |
 
 "Per combat" counts and charges (Avenge, "3 times per combat", "each combat") start again every combat (`trinket_combat_start`) **(confirmed)**; "after N friendly minions die" counts go across combats **(confirmed)**.
 
@@ -449,6 +452,7 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 14 | Reinforced Shield only in combat; Fang Anklet's +1/+1 improvements and the Beasts summoned in combat; Wildfeather Duster's cards after the action or at the next turn start. | their files |
 | Batch 13 | Consuming Claw counts Demon Fodder; Glowing Gauntlet's refill isn't a Refresh; Soul Fermenter's resummon (as kept, once, at once if the Start of Combat empties the board). | their files |
 | Batch 12 | Guiding Candle counts the player's Refreshes; Bob-blehead's Tier 3 below Tier 3; Warband Whistle's next Refresh action. | their files |
 | Batch 11 | Demonic Tapestry repeats every 4th Refresh. | its file |

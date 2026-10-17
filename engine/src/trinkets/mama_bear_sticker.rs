@@ -20,7 +20,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     )]
 }
 
-fn summon(_: &TrinketState, summoned: &mut Unit) {
+fn summon(_: &mut TrinketState, summoned: &mut Unit) {
     if summoned.tribe.matches(Tribe::Beast) {
         summoned.add_stats(6, 6);
     }
