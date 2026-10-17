@@ -951,21 +951,26 @@ pub fn choose(state: &mut TavernState, option_index: usize, pool: &mut CardPool,
             after_pick(state, option.card_id, pool, rng);
         }
     }
-    next_offer(state);
+    prune_offers(state);
 }
 
-/// The next waiting offer becomes the offer (`trinket_offer_queue`, `docs/trinkets.md` §3.5),
-/// without the options that no longer apply: a trinket the player owns by now, or one replacing a
-/// trinket they no longer own **(engine decision)**. An offer left with no option is skipped.
-fn next_offer(state: &mut TavernState) {
-    while state.trinket_options.is_empty() && !state.trinket_offer_queue.is_empty() {
-        let mut options = state.trinket_offer_queue.remove(0);
-        let auras = &state.auras;
-        options.retain(|o| {
-            let kept = o.replaces == Some(o.card_id);
-            (kept || !owns(auras, o.card_id)) && o.replaces.is_none_or(|r| owns(auras, r))
-        });
-        state.trinket_options = options;
+/// The offers leave out the options that no longer apply (`docs/trinkets.md` §3.5): a trinket
+/// the player owns by now (picked from an offer before, or one of theirs became it), or one
+/// replacing a trinket they no longer own **(engine decision)**. An offer left with no option is
+/// dropped, and the next waiting one (`trinket_offer_queue`) comes up.
+fn prune_offers(state: &mut TavernState) {
+    let auras = &state.auras;
+    let applies = |o: &TrinketOption| {
+        let kept = o.replaces == Some(o.card_id);
+        (kept || !owns(auras, o.card_id)) && o.replaces.is_none_or(|r| owns(auras, r))
+    };
+    state.trinket_options.retain(applies);
+    for offer in &mut state.trinket_offer_queue {
+        offer.retain(applies);
+    }
+    state.trinket_offer_queue.retain(|offer| !offer.is_empty());
+    if state.trinket_options.is_empty() && !state.trinket_offer_queue.is_empty() {
+        state.trinket_options = state.trinket_offer_queue.remove(0);
     }
 }
 
@@ -1008,6 +1013,7 @@ pub fn give_typed(
         in_slot(slot, || bought(state, pool, rng));
     }
     state.sync_all_auras();
+    prune_offers(state);
 }
 
 /// Replace the player's trinket `old` with `new` (`docs/trinkets.md` §3.5): `new` takes its place
@@ -1038,6 +1044,7 @@ pub fn replace(
         in_slot(slot, || bought(state, pool, rng));
     }
     state.sync_all_auras();
+    prune_offers(state);
 }
 
 /// `count` different random trinkets (`docs/trinkets.md` §3.5): each uniform, one
