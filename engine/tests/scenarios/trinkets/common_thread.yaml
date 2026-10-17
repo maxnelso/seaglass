@@ -1,0 +1,11 @@
+trinket: Common Thread
+scenarios:
+  - name: the_first_card_bought_each_turn_is_passed_as_a_copy
+    duos_tavern:
+      players:
+        - {gold: 10, shop: ["2/3 beast", "4/4"], auras: {trinkets: [Common Thread]}}
+        - {}
+    steps:
+      - {player: 0, buy: 0}
+      - {player: 0, buy: 0}
+    expect: {passes_this_turn: 1, players: {0: {gold: 4, hand: ["2/3", "4/4"]}, 1: {hand: ["2/3"]}}}

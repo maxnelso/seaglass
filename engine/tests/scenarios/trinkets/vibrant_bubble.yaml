@@ -1,0 +1,11 @@
+trinket: Vibrant Bubble
+scenarios:
+  - name: the_spell_gives_a_murloc_a_random_bonus_keyword
+    seeds: "1..=4"
+    tavern: {board: ["1/1 murloc", "1/1 beast"], auras: {trinkets: [Vibrant Bubble]}}
+    steps:
+      - start_turn
+      - expect: {hand: [{name: Vibrant Bubble, is_spell: true}]}
+      - expect_illegal: {play: {hand: 0, pos: 1}}
+      - play: {hand: 0, pos: 0}
+    expect: {board: [{keywords: {count: 1}}, {keywords: []}], hand: []}

@@ -1,0 +1,16 @@
+trinket: Moveout Box
+scenarios:
+  - name: picked_it_skips_the_turn_and_copies_the_teammates_warband
+    description: The teammate's warband as the team's turn ends (engine decision).
+    duos_tavern:
+      players:
+        - {gold: 20, board: [Joyous], trinket_options: [{card_id: 117939, cost: 10}]}
+        - {board: ["5/5"]}
+    steps:
+      - {player: 0, choose_trinket: 0}
+      - {player: 0, expect_illegal: refresh}
+      - {player: 0, end_turn}
+      - expect: {players: {0: {gold: 10, board: [Joyous]}}}
+      - {player: 1, set: {board: ["5/5", "3/3 taunt"]}}
+      - {player: 1, end_turn}
+    expect: {players: {0: {board: ["5/5", "3/3 taunt"]}, 1: {board: ["5/5", "3/3 taunt"]}}}

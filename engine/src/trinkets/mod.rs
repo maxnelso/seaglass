@@ -14,6 +14,7 @@ mod vocab;
 pub mod accord_o_tron_portrait;
 pub mod aggem_sticker;
 pub mod all_purpose_kibble;
+pub mod ancient_wishbone;
 pub mod artisanal_urn;
 pub mod azeroth_model_globe;
 pub mod baleful_incense;
@@ -38,8 +39,13 @@ pub mod booty_bay_brew;
 pub mod booty_bay_brew_greater;
 pub mod bronze_timepiece;
 pub mod butchers_sickle;
+pub mod chillmere_mosaic;
+pub mod chogall_sticker;
+pub mod colorful_compass;
+pub mod colorful_compass_greater;
 pub mod comfy_coffin;
 pub mod comfy_coffin_greater;
+pub mod common_thread;
 pub mod conch_portrait;
 pub mod consuming_claw;
 pub mod converter_portrait;
@@ -55,11 +61,14 @@ pub mod demonic_bloodletter;
 pub mod demonic_tapestry;
 pub mod designer_eyepatch;
 pub mod dragon_skull;
+pub mod dragonhead_staff;
 pub mod dragons_eye;
 pub mod dragonwing_glider;
 pub mod dramaloc_sticker;
 pub mod electrode_attractor;
 pub mod emergency_gearblade;
+pub mod empowered_mirror;
+pub mod empowered_mirror_greater;
 pub mod enigmatic_headstone;
 pub mod eternal_portrait;
 pub mod evil_experiment;
@@ -69,6 +78,7 @@ pub mod fang_anklet;
 pub mod felsteel_cleaver;
 pub mod fish_portrait;
 pub mod flighty_portrait;
+pub mod floating_candle_set;
 pub mod fridge_magnet;
 pub mod frigid_blossom;
 pub mod funeral_wreath;
@@ -81,6 +91,7 @@ pub mod goblin_wallet;
 pub mod gold_mallet;
 pub mod gold_mallet_greater;
 pub mod gold_pendant;
+pub mod gold_plated_compass;
 pub mod great_boar_sticker;
 pub mod great_boar_sticker_greater;
 pub mod guiding_candle;
@@ -92,10 +103,14 @@ pub mod herding_horn;
 pub mod hoggy_bank;
 pub mod holy_mallet;
 pub mod honeycomb_ring;
+pub mod inductive_gyroblade;
+pub mod inductive_gyroblade_greater;
 pub mod innkeepers_hearth;
 pub mod innkeepers_stein;
 pub mod insurrectionists_blade;
 pub mod ironforge_anvil;
+pub mod jailer_sticker;
+pub mod jailer_sticker_greater;
 pub mod jar_o_gems;
 pub mod jewelry_box;
 pub mod lava_lamp;
@@ -104,21 +119,31 @@ pub mod lionfish_portrait;
 pub mod lockbox_portrait;
 pub mod lovely_locket;
 pub mod lucky_tabby;
+pub mod magic_road_sign;
 pub mod magicfin_sticker;
 pub mod magicians_top_hat;
+pub mod makeshift_master;
 pub mod maldraxxus_dagger;
 pub mod mama_bear_sticker;
 pub mod mask_of_ancient_ones;
 pub mod miniature_ship;
+pub mod minion_bait;
+pub mod moveout_box;
 pub mod multilayered_shield;
 pub mod murky_sticker;
+pub mod mysterious_orb;
+pub mod mystery_cube;
 pub mod nerglish_phrasebook;
 pub mod nerglish_phrasebook_greater;
 pub mod nether_pendant;
 pub mod nomi_sticker;
 pub mod nomi_sticker_greater;
 pub mod ominous_stone;
+pub mod ophidian_staff;
+pub mod orb_of_the_unknown;
+pub mod orb_of_the_unknown_greater;
 pub mod orc_estra_portrait;
+pub mod ornate_clock;
 pub mod pagles_fishing_rod;
 pub mod pilgrimp_sticker;
 pub mod pocket_cyclone;
@@ -126,27 +151,34 @@ pub mod pocket_cyclone_greater;
 pub mod portable_factory;
 pub mod portable_factory_greater;
 pub mod protective_ring;
+pub mod quartermasters_hook;
 pub mod quilligraphy_set;
 pub mod quilligraphy_set_greater;
 pub mod rascal_sticker;
 pub mod recycling_sticker;
 pub mod reflective_pendant;
 pub mod reinforced_shield;
+pub mod reinvigorating_light;
 pub mod rendle_sticker;
 pub mod replica_cathedral;
 pub mod reusable_batteries;
 pub mod rivendare_portrait;
 pub mod rockin_music_box;
+pub mod ruby_tusk;
 pub mod scraper_sticker;
 pub mod secret_schematic;
 pub mod sellemental_portrait;
+pub mod shark_cannon;
 pub mod shathyar_shrine;
 pub mod shrine_of_evolution;
 pub mod sinister_invitation;
 pub mod sinstone_sticker;
 pub mod slamma_sticker;
 pub mod sludge_portrait;
+pub mod soul_battery;
 pub mod soul_fermenter;
+pub mod sous_chef_sticker;
+pub mod souvenir_stand;
 pub mod spell_powered_wrench;
 pub mod sphere_of_memory;
 pub mod splinter_of_aurum;
@@ -157,15 +189,18 @@ pub mod summoning_sphere;
 pub mod tableware_portrait;
 pub mod the_eye_of_dalaran;
 pub mod the_eye_of_sargeras;
+pub mod token_of_the_old_gods;
 pub mod tome_of_the_ancients;
 pub mod trailblazer_sticker;
 pub mod training_certificate;
 pub mod transcribing_typewriter;
 pub mod transcribing_typewriter_greater;
 pub mod tricksters_sleeve;
+pub mod trip_vouchers;
 pub mod trusty_crowbar;
 pub mod upstart_embers;
 pub mod urzul_sticker;
+pub mod vibrant_bubble;
 pub mod volumizer_portrait;
 pub mod volumizer_portrait_greater;
 pub mod wand_of_divination;
@@ -233,6 +268,7 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (aggem_sticker::ID, aggem_sticker::behaviors),
     (all_purpose_kibble::ID, all_purpose_kibble::behaviors),
+    (ancient_wishbone::ID, ancient_wishbone::behaviors),
     (artisanal_urn::ID, artisanal_urn::behaviors),
     (azeroth_model_globe::ID, azeroth_model_globe::behaviors),
     (baleful_incense::ID, baleful_incense::behaviors),
@@ -272,8 +308,16 @@ const IMPLEMENTED: &[Implemented] = &[
     ),
     (bronze_timepiece::ID, bronze_timepiece::behaviors),
     (butchers_sickle::ID, butchers_sickle::behaviors),
+    (chillmere_mosaic::ID, chillmere_mosaic::behaviors),
+    (chogall_sticker::ID, chogall_sticker::behaviors),
+    (colorful_compass::ID, colorful_compass::behaviors),
+    (
+        colorful_compass_greater::ID,
+        colorful_compass_greater::behaviors,
+    ),
     (comfy_coffin::ID, comfy_coffin::behaviors),
     (comfy_coffin_greater::ID, comfy_coffin_greater::behaviors),
+    (common_thread::ID, common_thread::behaviors),
     (conch_portrait::ID, conch_portrait::behaviors),
     (consuming_claw::ID, consuming_claw::behaviors),
     (converter_portrait::ID, converter_portrait::behaviors),
@@ -295,11 +339,17 @@ const IMPLEMENTED: &[Implemented] = &[
     (demonic_tapestry::ID, demonic_tapestry::behaviors),
     (designer_eyepatch::ID, designer_eyepatch::behaviors),
     (dragon_skull::ID, dragon_skull::behaviors),
+    (dragonhead_staff::ID, dragonhead_staff::behaviors),
     (dragons_eye::ID, dragons_eye::behaviors),
     (dragonwing_glider::ID, dragonwing_glider::behaviors),
     (dramaloc_sticker::ID, dramaloc_sticker::behaviors),
     (electrode_attractor::ID, electrode_attractor::behaviors),
     (emergency_gearblade::ID, emergency_gearblade::behaviors),
+    (empowered_mirror::ID, empowered_mirror::behaviors),
+    (
+        empowered_mirror_greater::ID,
+        empowered_mirror_greater::behaviors,
+    ),
     (enigmatic_headstone::ID, enigmatic_headstone::behaviors),
     (eternal_portrait::ID, eternal_portrait::behaviors),
     (evil_experiment::ID, evil_experiment::behaviors),
@@ -309,6 +359,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (felsteel_cleaver::ID, felsteel_cleaver::behaviors),
     (fish_portrait::ID, fish_portrait::behaviors),
     (flighty_portrait::ID, flighty_portrait::behaviors),
+    (floating_candle_set::ID, floating_candle_set::behaviors),
     (fridge_magnet::ID, fridge_magnet::behaviors),
     (frigid_blossom::ID, frigid_blossom::behaviors),
     (funeral_wreath::ID, funeral_wreath::behaviors),
@@ -324,6 +375,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (gold_mallet::ID, gold_mallet::behaviors),
     (gold_mallet_greater::ID, gold_mallet_greater::behaviors),
     (gold_pendant::ID, gold_pendant::behaviors),
+    (gold_plated_compass::ID, gold_plated_compass::behaviors),
     (great_boar_sticker::ID, great_boar_sticker::behaviors),
     (
         great_boar_sticker_greater::ID,
@@ -341,6 +393,11 @@ const IMPLEMENTED: &[Implemented] = &[
     (hoggy_bank::ID, hoggy_bank::behaviors),
     (holy_mallet::ID, holy_mallet::behaviors),
     (honeycomb_ring::ID, honeycomb_ring::behaviors),
+    (inductive_gyroblade::ID, inductive_gyroblade::behaviors),
+    (
+        inductive_gyroblade_greater::ID,
+        inductive_gyroblade_greater::behaviors,
+    ),
     (innkeepers_hearth::ID, innkeepers_hearth::behaviors),
     (innkeepers_stein::ID, innkeepers_stein::behaviors),
     (
@@ -348,6 +405,11 @@ const IMPLEMENTED: &[Implemented] = &[
         insurrectionists_blade::behaviors,
     ),
     (ironforge_anvil::ID, ironforge_anvil::behaviors),
+    (jailer_sticker::ID, jailer_sticker::behaviors),
+    (
+        jailer_sticker_greater::ID,
+        jailer_sticker_greater::behaviors,
+    ),
     (jar_o_gems::ID, jar_o_gems::behaviors),
     (jewelry_box::ID, jewelry_box::behaviors),
     (lava_lamp::ID, lava_lamp::behaviors),
@@ -356,14 +418,20 @@ const IMPLEMENTED: &[Implemented] = &[
     (lockbox_portrait::ID, lockbox_portrait::behaviors),
     (lovely_locket::ID, lovely_locket::behaviors),
     (lucky_tabby::ID, lucky_tabby::behaviors),
+    (magic_road_sign::ID, magic_road_sign::behaviors),
     (magicfin_sticker::ID, magicfin_sticker::behaviors),
     (magicians_top_hat::ID, magicians_top_hat::behaviors),
+    (makeshift_master::ID, makeshift_master::behaviors),
     (maldraxxus_dagger::ID, maldraxxus_dagger::behaviors),
     (mama_bear_sticker::ID, mama_bear_sticker::behaviors),
     (mask_of_ancient_ones::ID, mask_of_ancient_ones::behaviors),
     (miniature_ship::ID, miniature_ship::behaviors),
+    (minion_bait::ID, minion_bait::behaviors),
+    (moveout_box::ID, moveout_box::behaviors),
     (multilayered_shield::ID, multilayered_shield::behaviors),
     (murky_sticker::ID, murky_sticker::behaviors),
+    (mysterious_orb::ID, mysterious_orb::behaviors),
+    (mystery_cube::ID, mystery_cube::behaviors),
     (nerglish_phrasebook::ID, nerglish_phrasebook::behaviors),
     (
         nerglish_phrasebook_greater::ID,
@@ -373,7 +441,14 @@ const IMPLEMENTED: &[Implemented] = &[
     (nomi_sticker::ID, nomi_sticker::behaviors),
     (nomi_sticker_greater::ID, nomi_sticker_greater::behaviors),
     (ominous_stone::ID, ominous_stone::behaviors),
+    (ophidian_staff::ID, ophidian_staff::behaviors),
+    (orb_of_the_unknown::ID, orb_of_the_unknown::behaviors),
+    (
+        orb_of_the_unknown_greater::ID,
+        orb_of_the_unknown_greater::behaviors,
+    ),
     (orc_estra_portrait::ID, orc_estra_portrait::behaviors),
+    (ornate_clock::ID, ornate_clock::behaviors),
     (pagles_fishing_rod::ID, pagles_fishing_rod::behaviors),
     (pilgrimp_sticker::ID, pilgrimp_sticker::behaviors),
     (pocket_cyclone::ID, pocket_cyclone::behaviors),
@@ -387,6 +462,7 @@ const IMPLEMENTED: &[Implemented] = &[
         portable_factory_greater::behaviors,
     ),
     (protective_ring::ID, protective_ring::behaviors),
+    (quartermasters_hook::ID, quartermasters_hook::behaviors),
     (quilligraphy_set::ID, quilligraphy_set::behaviors),
     (
         quilligraphy_set_greater::ID,
@@ -396,21 +472,27 @@ const IMPLEMENTED: &[Implemented] = &[
     (recycling_sticker::ID, recycling_sticker::behaviors),
     (reflective_pendant::ID, reflective_pendant::behaviors),
     (reinforced_shield::ID, reinforced_shield::behaviors),
+    (reinvigorating_light::ID, reinvigorating_light::behaviors),
     (rendle_sticker::ID, rendle_sticker::behaviors),
     (replica_cathedral::ID, replica_cathedral::behaviors),
     (reusable_batteries::ID, reusable_batteries::behaviors),
     (rivendare_portrait::ID, rivendare_portrait::behaviors),
     (rockin_music_box::ID, rockin_music_box::behaviors),
+    (ruby_tusk::ID, ruby_tusk::behaviors),
     (scraper_sticker::ID, scraper_sticker::behaviors),
     (secret_schematic::ID, secret_schematic::behaviors),
     (sellemental_portrait::ID, sellemental_portrait::behaviors),
+    (shark_cannon::ID, shark_cannon::behaviors),
     (shathyar_shrine::ID, shathyar_shrine::behaviors),
     (shrine_of_evolution::ID, shrine_of_evolution::behaviors),
     (sinister_invitation::ID, sinister_invitation::behaviors),
     (sinstone_sticker::ID, sinstone_sticker::behaviors),
     (slamma_sticker::ID, slamma_sticker::behaviors),
     (sludge_portrait::ID, sludge_portrait::behaviors),
+    (soul_battery::ID, soul_battery::behaviors),
     (soul_fermenter::ID, soul_fermenter::behaviors),
+    (sous_chef_sticker::ID, sous_chef_sticker::behaviors),
+    (souvenir_stand::ID, souvenir_stand::behaviors),
     (spell_powered_wrench::ID, spell_powered_wrench::behaviors),
     (sphere_of_memory::ID, sphere_of_memory::behaviors),
     (splinter_of_aurum::ID, splinter_of_aurum::behaviors),
@@ -421,6 +503,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (tableware_portrait::ID, tableware_portrait::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
     (the_eye_of_sargeras::ID, the_eye_of_sargeras::behaviors),
+    (token_of_the_old_gods::ID, token_of_the_old_gods::behaviors),
     (tome_of_the_ancients::ID, tome_of_the_ancients::behaviors),
     (trailblazer_sticker::ID, trailblazer_sticker::behaviors),
     (training_certificate::ID, training_certificate::behaviors),
@@ -433,9 +516,11 @@ const IMPLEMENTED: &[Implemented] = &[
         transcribing_typewriter_greater::behaviors,
     ),
     (tricksters_sleeve::ID, tricksters_sleeve::behaviors),
+    (trip_vouchers::ID, trip_vouchers::behaviors),
     (trusty_crowbar::ID, trusty_crowbar::behaviors),
     (upstart_embers::ID, upstart_embers::behaviors),
     (urzul_sticker::ID, urzul_sticker::behaviors),
+    (vibrant_bubble::ID, vibrant_bubble::behaviors),
     (volumizer_portrait::ID, volumizer_portrait::behaviors),
     (
         volumizer_portrait_greater::ID,
@@ -558,12 +643,13 @@ pub fn owns(auras: &PlayerAuras, id: CardId) -> bool {
 /// The player's state of the trinket `id` (a player never owns two copies of a trinket, so a
 /// trinket's hooks find their state by its id: `docs/trinkets.md` §2.2).
 pub fn state_mut(auras: &mut PlayerAuras, id: CardId) -> Option<&mut TrinketState> {
-    auras.trinkets.iter_mut().find(|t| t.card_id == id)
+    let slot = slot_of(auras, id)?;
+    auras.trinkets.get_mut(slot)
 }
 
 /// The player's state of the trinket `id`.
 pub fn state(auras: &PlayerAuras, id: CardId) -> Option<&TrinketState> {
-    auras.trinkets.iter().find(|t| t.card_id == id)
+    auras.trinkets.get(slot_of(auras, id)?)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -650,7 +736,49 @@ fn candidates_in<'a>(
 /// if none is yet, then the rest up to [`OFFER_COUNT`] (at most one Off option), each a uniform
 /// `rng.below(k)` over what is left; then a Fisher-Yates shuffle.
 pub fn draw_offer(state: &TavernState, greater: bool, rng: &mut Rng) -> Vec<TrinketOption> {
-    draw_from(&candidates(state, greater), rng)
+    let mut options = draw_from(&candidates(state, greater), rng);
+    for option in &mut options {
+        option.tribe = assigned_type(state, option.card_id, rng);
+    }
+    options
+}
+
+/// `true` if the trinket `id`'s text names a minion type, assigned when it is offered
+/// (`CardFlags::TRINKET_MINION_TYPE`, `docs/trinkets.md` §3.4).
+pub fn is_typed(id: CardId) -> bool {
+    hooks(id).has(CardFlags::TRINKET_MINION_TYPE)
+}
+
+/// The minion type a trinket offered to the player now names (`docs/trinkets.md` §3.4,
+/// confirmed): their most common type, counted as for the offer rules ([`type_counts`]); a tie
+/// (no minion at all too) is broken at random among the tied types, one `rng.below(k)`
+/// (**engine decision**).
+pub fn most_common_type(state: &TavernState, rng: &mut Rng) -> Tribe {
+    let counts = type_counts(state);
+    let best = counts.iter().copied().max().unwrap_or(0);
+    let tied: Vec<usize> = (0..counts.len()).filter(|&i| counts[i] == best).collect();
+    LOBBY_TRIBES[pick_tied(&tied, rng)]
+}
+
+/// The type the trinket `id` gets as it is offered: [`most_common_type`] for a typed trinket
+/// (nothing drawn for the others).
+fn assigned_type(state: &TavernState, id: CardId, rng: &mut Rng) -> Tribe {
+    if is_typed(id) {
+        most_common_type(state, rng)
+    } else {
+        Tribe::None
+    }
+}
+
+/// The typed options of the offer that have no type yet get theirs (`docs/trinkets.md` §3.4):
+/// an offer made without a draw (`TavernState::offer_trinkets`).
+pub fn assign_offer_types(state: &mut TavernState, rng: &mut Rng) {
+    for i in 0..state.trinket_options.len() {
+        if state.trinket_options[i].tribe == Tribe::None {
+            let tribe = assigned_type(state, state.trinket_options[i].card_id, rng);
+            state.trinket_options[i].tribe = tribe;
+        }
+    }
 }
 
 /// The draw of [`draw_offer`] among `candidates`.
@@ -685,6 +813,8 @@ fn draw_from(candidates: &[(CardId, OfferClass, u32)], rng: &mut Rng) -> Vec<Tri
         .map(|i| TrinketOption {
             card_id: candidates[i].0,
             cost: candidates[i].2,
+            tribe: Tribe::None,
+            replaces: None,
         })
         .collect()
 }
@@ -695,12 +825,21 @@ pub fn offer_at_turn_start(state: &mut TavernState, rng: &mut Rng) {
     if !state.trinkets_enabled {
         return;
     }
-    let greater = match state.turn {
-        LESSER_TURN => false,
-        GREATER_TURN => true,
-        _ => return,
+    let scheduled = match state.turn {
+        LESSER_TURN => Some(false),
+        GREATER_TURN => Some(true),
+        _ => None,
     };
-    state.trinket_options = draw_offer(state, greater, rng);
+    let mut kind = scheduled;
+    for t in &state.auras.trinkets {
+        if let Some(offer_kind) = hooks(t.card_id).trinket_offer_kind {
+            kind = offer_kind(t, state, kind);
+        }
+    }
+    if let Some(greater) = kind {
+        let options = draw_offer(state, greater, rng);
+        push_offer(state, options);
+    }
 }
 
 /// The Gold the offered option `option_index` costs the player now (`docs/trinkets.md` §4), or
@@ -722,30 +861,269 @@ pub fn choose(state: &mut TavernState, option_index: usize, pool: &mut CardPool,
     let Some(price) = option_price(state, option_index) else {
         return;
     };
-    let id = state.trinket_options[option_index].card_id;
+    let option = state.trinket_options[option_index];
     state.trinket_options.clear();
-    state.spend_gold(price, pool, rng);
-    give(state, id, pool, rng);
+    match option.replaces {
+        // The very trinket it would replace: kept, for nothing (`docs/trinkets.md` §3.5).
+        Some(old) if old == option.card_id => {}
+        Some(old) => {
+            state.spend_gold(price, pool, rng);
+            replace(state, old, option.card_id, option.tribe, pool, rng);
+            after_pick(state, option.card_id, pool, rng);
+        }
+        None => {
+            state.spend_gold(price, pool, rng);
+            give_typed(state, option.card_id, option.tribe, pool, rng);
+            after_pick(state, option.card_id, pool, rng);
+        }
+    }
+    if state.trinket_options.is_empty() && !state.trinket_offer_queue.is_empty() {
+        state.trinket_options = state.trinket_offer_queue.remove(0);
+    }
+}
+
+/// The player picked the trinket `picked` from an offer: each trinket's `trinket_after_pick`
+/// hook.
+fn after_pick(state: &mut TavernState, picked: CardId, pool: &mut CardPool, rng: &mut Rng) {
+    for (slot, id) in owned_slots(&state.auras) {
+        if let Some(after) = hooks(id).trinket_after_pick {
+            in_slot(slot, || after(state, picked, pool, rng));
+        }
+    }
 }
 
 /// Give the player the trinket `id` (`docs/trinkets.md` §4): it joins their trinkets and its
 /// `trinket_bought` hook resolves. No price, no offer.
 pub fn give(state: &mut TavernState, id: CardId, pool: &mut CardPool, rng: &mut Rng) {
-    state.auras.trinkets.push(new_state(id));
+    give_typed(state, id, Tribe::None, pool, rng);
+}
+
+/// [`give`], the trinket naming the minion type `tribe` (`docs/trinkets.md` §3.4): a typed
+/// trinket given without one gets the player's most common type now.
+pub fn give_typed(
+    state: &mut TavernState,
+    id: CardId,
+    tribe: Tribe,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let tribe = if tribe == Tribe::None {
+        assigned_type(state, id, rng)
+    } else {
+        tribe
+    };
+    state.auras.trinkets.push(TrinketState {
+        tribe,
+        ..new_state(id)
+    });
+    let slot = state.auras.trinkets.len() - 1;
     if let Some(bought) = hooks(id).trinket_bought {
-        bought(state, pool, rng);
+        in_slot(slot, || bought(state, pool, rng));
     }
     state.sync_all_auras();
+}
+
+/// Replace the player's trinket `old` with `new` (`docs/trinkets.md` §3.5): `new` takes its place
+/// in pick order, fresh (naming `tribe`, or the player's most common type now if it is typed and
+/// `tribe` is `None`), and its `trinket_bought` text resolves. Nothing if the player doesn't own
+/// `old`.
+pub fn replace(
+    state: &mut TavernState,
+    old: CardId,
+    new: CardId,
+    tribe: Tribe,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let Some(slot) = slot_of(&state.auras, old) else {
+        return;
+    };
+    let tribe = if tribe == Tribe::None {
+        assigned_type(state, new, rng)
+    } else {
+        tribe
+    };
+    state.auras.trinkets[slot] = TrinketState {
+        tribe,
+        ..new_state(new)
+    };
+    if let Some(bought) = hooks(new).trinket_bought {
+        in_slot(slot, || bought(state, pool, rng));
+    }
+    state.sync_all_auras();
+}
+
+/// `count` different random trinkets (`docs/trinkets.md` §3.5): each uniform, one
+/// `rng.below(k)`, among the offerable trinkets of the kind (`greater`) the player doesn't own
+/// and not drawn yet, of `tribe` if it isn't `None`. Fewer if there aren't enough.
+pub fn random_trinkets(
+    state: &TavernState,
+    greater: bool,
+    tribe: Tribe,
+    count: usize,
+    rng: &mut Rng,
+) -> Vec<CardId> {
+    let mut left: Vec<CardId> = offerable(state.auras.duos_game)
+        .filter(|t| t.greater == greater && !owns(&state.auras, t.id))
+        .filter(|t| state.dark_gifts_enabled || !hooks(t.id).has(CardFlags::DARK_GIFTS))
+        .filter(|t| tribe == Tribe::None || t.tribes.contains(&tribe))
+        .map(|t| t.id)
+        .collect();
+    let mut drawn = Vec::with_capacity(count);
+    while drawn.len() < count && !left.is_empty() {
+        drawn.push(left.remove(rng.below(left.len())));
+    }
+    drawn
+}
+
+/// Replace the player's trinket `old` with a random trinket of the kind `greater` (and of
+/// `tribe`, unless it is `None`): [`random_trinkets`], then [`replace`]. Nothing if there is
+/// none.
+pub fn replace_with_random(
+    state: &mut TavernState,
+    old: CardId,
+    greater: bool,
+    tribe: Tribe,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if let Some(&new) = random_trinkets(state, greater, tribe, 1, rng).first() {
+        replace(state, old, new, Tribe::None, pool, rng);
+    }
+}
+
+/// "After N ..., replace this with a random Greater `tribe` Trinket": once the trinket `id`'s
+/// `counter` has reached `count`, [`replace_with_random`].
+pub fn replace_at_count(
+    state: &mut TavernState,
+    id: CardId,
+    count: i32,
+    tribe: Tribe,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if self::state(&state.auras, id).is_some_and(|t| t.counter >= count) {
+        replace_with_random(state, id, true, tribe, pool, rng);
+    }
+}
+
+/// An offer option of the trinket `id` at `cost` that replaces the player's trinket `old`
+/// (`docs/trinkets.md` §3.5), its minion type assigned.
+pub fn option_replacing(
+    state: &TavernState,
+    id: CardId,
+    cost: u32,
+    old: CardId,
+    rng: &mut Rng,
+) -> TrinketOption {
+    TrinketOption {
+        card_id: id,
+        cost,
+        tribe: assigned_type(state, id, rng),
+        replaces: Some(old),
+    }
+}
+
+/// Offer the player `options` (`docs/trinkets.md` §3.5): at once, or, if an offer is pending or
+/// waiting, after them (`trinket_offer_queue`). Nothing for no options.
+pub fn push_offer(state: &mut TavernState, options: Vec<TrinketOption>) {
+    if options.is_empty() {
+        return;
+    }
+    if state.trinket_options.is_empty() && state.trinket_offer_queue.is_empty() {
+        state.trinket_options = options;
+    } else {
+        state.trinket_offer_queue.push(options);
+    }
+}
+
+/// What a trinket sees of the player's teammate in Duos (`trinket_teammate`, `docs/trinkets.md`
+/// §8.1): their Tavern, and whether the team's turn is over (both players ended it).
+pub struct TeammateView<'a> {
+    pub state: &'a TavernState,
+    pub turn_over: bool,
+}
+
+/// Duos: each of the player's trinkets' `trinket_teammate` hook sees the teammate
+/// (`docs/trinkets.md` §8.1).
+pub fn teammate(
+    state: &mut TavernState,
+    mate: &TeammateView<'_>,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    for (slot, id) in owned_slots(&state.auras) {
+        if let Some(teammate) = hooks(id).trinket_teammate {
+            in_slot(slot, || teammate(state, mate, pool, rng));
+        }
+    }
+}
+
+/// `Empowered Mirror`: the trinket `id` becomes a copy of the teammate's first trinket of the
+/// kind `greater` that isn't a Mirror, naming the same minion type ([`replace`]).
+pub fn become_teammates(
+    state: &mut TavernState,
+    id: CardId,
+    greater: bool,
+    mate: &TeammateView<'_>,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    let mirrors = [empowered_mirror::ID, empowered_mirror_greater::ID];
+    let copied = mate.state.auras.trinkets.iter().find(|t| {
+        !mirrors.contains(&t.card_id) && data(t.card_id).is_some_and(|d| d.greater == greater)
+    });
+    if let Some(t) = copied {
+        let (copy, tribe) = (t.card_id, t.tribe);
+        replace(state, id, copy, tribe, pool, rng);
+    }
+}
+
+/// `true` if one of the player's trinkets skips their current turn (`trinket_skips_turn`).
+pub fn skips_turn(state: &TavernState) -> bool {
+    state.auras.trinkets.iter().any(|t| {
+        hooks(t.card_id)
+            .trinket_skips_turn
+            .is_some_and(|f| f(t, state))
+    })
 }
 
 // ---------------------------------------------------------------------------------------------
 // Dispatch: the player's trinkets' hooks, in the order they were picked
 // ---------------------------------------------------------------------------------------------
 
-/// The ids of the player's trinkets, in the order they were picked (a snapshot: a hook may change
-/// the list).
-fn owned_ids(auras: &PlayerAuras) -> Vec<CardId> {
-    auras.trinkets.iter().map(|t| t.card_id).collect()
+/// The slots (pick-order indexes) and ids of the player's trinkets, in the order they were picked
+/// (a snapshot: a hook may change the list).
+fn owned_slots(auras: &PlayerAuras) -> Vec<(usize, CardId)> {
+    auras
+        .trinkets
+        .iter()
+        .map(|t| t.card_id)
+        .enumerate()
+        .collect()
+}
+
+std::thread_local! {
+    /// The slot of the trinket whose hook is running (`docs/trinkets.md` §2.3): a player can own
+    /// two copies of a trinket, and each copy's hooks find their own state ([`state_mut`]).
+    static SLOT: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `f`, a hook of the player's trinket in `slot` (its index in pick order), so that
+/// [`state_mut`] finds that copy's state.
+pub fn in_slot<R>(slot: usize, f: impl FnOnce() -> R) -> R {
+    let previous = SLOT.with(|s| s.replace(Some(slot)));
+    let out = f();
+    SLOT.with(|s| s.set(previous));
+    out
+}
+
+/// The slot of the player's trinket `id`: the trinket whose hook is running if it is that one,
+/// else its first copy.
+pub fn slot_of(auras: &PlayerAuras, id: CardId) -> Option<usize> {
+    SLOT.with(std::cell::Cell::get)
+        .filter(|&i| auras.trinkets.get(i).is_some_and(|t| t.card_id == id))
+        .or_else(|| auras.trinkets.iter().position(|t| t.card_id == id))
 }
 
 /// `true` if one of the player's trinkets acts at Start of Combat (`docs/trinkets.md` §7.2).
@@ -769,9 +1147,9 @@ pub fn start_of_combat_hooks(auras: &PlayerAuras) -> Vec<fn(&mut HeroCombatCtx<'
 
 /// Start of turn, after the Hero Power's: each trinket's `trinket_turn_start` hook.
 pub fn on_turn_start(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(turn_start) = hooks(id).trinket_turn_start {
-            turn_start(state, pool, rng);
+            in_slot(slot, || turn_start(state, pool, rng));
         }
     }
 }
@@ -786,54 +1164,93 @@ pub fn has_friendly_death(auras: &PlayerAuras) -> bool {
 
 /// A friendly minion died in combat: each trinket's `trinket_friendly_death` hook.
 pub fn on_friendly_death(ctx: &mut BoardCtx<'_>, dying: &Unit) {
-    for id in owned_ids(ctx.auras) {
+    for (slot, id) in owned_slots(ctx.auras) {
         if let Some(friendly_death) = hooks(id).trinket_friendly_death {
-            friendly_death(ctx, dying);
+            in_slot(slot, || friendly_death(ctx, dying));
         }
     }
 }
 
 /// A friendly minion attacks: each trinket's `trinket_friendly_attack` hook.
 pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
-    for id in owned_ids(ctx.auras) {
+    for (slot, id) in owned_slots(ctx.auras) {
         if let Some(friendly_attack) = hooks(id).trinket_friendly_attack {
-            friendly_attack(ctx, attacker_id);
+            in_slot(slot, || friendly_attack(ctx, attacker_id));
+        }
+    }
+}
+
+/// Extra times the effect of a `HeroPower` action resolves, summed over the trinkets'
+/// `trinket_hero_power_triggers` (0 without trinkets).
+pub fn extra_hero_power_triggers(auras: &PlayerAuras) -> u32 {
+    auras
+        .trinkets
+        .iter()
+        .filter_map(|t| hooks(t.card_id).trinket_hero_power_triggers.map(|f| f(t)))
+        .sum()
+}
+
+/// Extra uses an active Hero Power gets each turn, summed over the trinkets'
+/// `trinket_hero_power_uses` (0 without trinkets).
+pub fn extra_hero_power_uses(auras: &PlayerAuras) -> u32 {
+    auras
+        .trinkets
+        .iter()
+        .filter_map(|t| hooks(t.card_id).trinket_hero_power_uses.map(|f| f(t)))
+        .sum()
+}
+
+/// After the player used a Hero Power: each trinket's `trinket_after_hero_power` hook.
+pub fn after_hero_power(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    for (slot, id) in owned_slots(&state.auras) {
+        if let Some(after) = hooks(id).trinket_after_hero_power {
+            in_slot(slot, || after(state, pool, rng));
+        }
+    }
+}
+
+/// A minion is being bought (before it reaches the hand): each trinket's `trinket_minion_bought`
+/// hook.
+pub fn minion_bought(state: &mut TavernState, bought: &mut Unit) {
+    for (slot, id) in owned_slots(&state.auras) {
+        if let Some(minion_bought) = hooks(id).trinket_minion_bought {
+            in_slot(slot, || minion_bought(state, bought));
         }
     }
 }
 
 /// After a card was bought: each trinket's `trinket_after_buy` hook.
 pub fn after_buy(state: &mut TavernState, bought: &Unit, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_buy) = hooks(id).trinket_after_buy {
-            after_buy(state, bought, pool, rng);
+            in_slot(slot, || after_buy(state, bought, pool, rng));
         }
     }
 }
 
 /// After a minion was played or Magnetized: each trinket's `trinket_after_play` hook.
 pub fn after_play(state: &mut TavernState, played: &Played, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_play) = hooks(id).trinket_after_play {
-            after_play(state, played, pool, rng);
+            in_slot(slot, || after_play(state, played, pool, rng));
         }
     }
 }
 
 /// After a minion was sold: each trinket's `trinket_after_sell` hook.
 pub fn after_sell(state: &mut TavernState, sold: &Unit, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_sell) = hooks(id).trinket_after_sell {
-            after_sell(state, sold, pool, rng);
+            in_slot(slot, || after_sell(state, sold, pool, rng));
         }
     }
 }
 
 /// Gold was spent: each trinket's `trinket_gold_spent` hook.
 pub fn gold_spent(state: &mut TavernState, amount: u32, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(gold_spent) = hooks(id).trinket_gold_spent {
-            gold_spent(state, amount, pool, rng);
+            in_slot(slot, || gold_spent(state, amount, pool, rng));
         }
     }
 }
@@ -856,45 +1273,45 @@ pub struct SpellCast {
 
 /// A spell was cast: each trinket's `trinket_after_spell` hook.
 pub fn after_spell(state: &mut TavernState, spell: &SpellCast, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_spell) = hooks(id).trinket_after_spell {
-            after_spell(state, spell, pool, rng);
+            in_slot(slot, || after_spell(state, spell, pool, rng));
         }
     }
 }
 
 /// A spell is about to be cast: each trinket's `trinket_before_spell` hook.
 pub fn before_spell(state: &mut TavernState) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(before_spell) = hooks(id).trinket_before_spell {
-            before_spell(state);
+            in_slot(slot, || before_spell(state));
         }
     }
 }
 
 /// The hero took damage in the Tavern: each trinket's `trinket_hero_damage` hook.
 pub fn hero_damage(state: &mut TavernState, amount: i32) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(hero_damage) = hooks(id).trinket_hero_damage {
-            hero_damage(state, amount);
+            in_slot(slot, || hero_damage(state, amount));
         }
     }
 }
 
 /// A card entered the hand: each trinket's `trinket_card_added` hook.
 pub fn card_added(state: &mut TavernState, card: &Unit) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(card_added) = hooks(id).trinket_card_added {
-            card_added(state, card);
+            in_slot(slot, || card_added(state, card));
         }
     }
 }
 
 /// After each Tavern action: each trinket's `trinket_after_action` hook.
 pub fn after_action(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_action) = hooks(id).trinket_after_action {
-            after_action(state, pool, rng);
+            in_slot(slot, || after_action(state, pool, rng));
         }
     }
 }
@@ -913,18 +1330,18 @@ pub fn extra_battlecries(auras: &mut PlayerAuras, unit: &Unit) -> u32 {
 
 /// A friendly Battlecry triggered: each trinket's `trinket_battlecry_triggered` hook.
 pub fn battlecry_triggered(state: &mut TavernState, unit: &Unit) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(triggered) = hooks(id).trinket_battlecry_triggered {
-            triggered(state, unit);
+            in_slot(slot, || triggered(state, unit));
         }
     }
 }
 
 /// A card was discarded from the hand: each trinket's `trinket_after_discard` hook.
 pub fn after_discard(state: &mut TavernState, card: &Unit, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_discard) = hooks(id).trinket_after_discard {
-            after_discard(state, card, pool, rng);
+            in_slot(slot, || after_discard(state, card, pool, rng));
         }
     }
 }
@@ -986,9 +1403,9 @@ pub fn shop_minion_slots(state: &TavernState, mut slots: usize) -> usize {
 /// The `Refresh` action's new shop, if a trinket makes it (`trinket_refresh`, the first in pick
 /// order that does): whether one did.
 pub fn refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) -> bool {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(refresh) = hooks(id).trinket_refresh {
-            if refresh(state, pool, rng) {
+            if in_slot(slot, || refresh(state, pool, rng)) {
                 return true;
             }
         }
@@ -999,9 +1416,9 @@ pub fn refresh(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) -> b
 /// `consumer` consumed `consumed` (a minion that left the Tavern): each trinket's
 /// `trinket_after_consume` hook.
 pub fn after_consume(state: &mut TavernState, consumer: MinionSlot, consumed: &Unit) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_consume) = hooks(id).trinket_after_consume {
-            after_consume(state, consumer, consumed);
+            in_slot(slot, || after_consume(state, consumer, consumed));
         }
     }
 }
@@ -1009,9 +1426,9 @@ pub fn after_consume(state: &mut TavernState, consumer: MinionSlot, consumed: &U
 /// A friendly minion came back with Reborn at `ctx.board[pos]`: each trinket's
 /// `trinket_after_reborn` hook.
 pub fn after_reborn(ctx: &mut BoardCtx<'_>, pos: usize) {
-    for id in owned_ids(ctx.auras) {
+    for (slot, id) in owned_slots(ctx.auras) {
         if let Some(after_reborn) = hooks(id).trinket_after_reborn {
-            after_reborn(ctx, pos);
+            in_slot(slot, || after_reborn(ctx, pos));
         }
     }
 }
@@ -1024,9 +1441,9 @@ pub fn after_discover(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_discover) = hooks(id).trinket_after_discover {
-            after_discover(state, chosen, offered, pool, rng);
+            in_slot(slot, || after_discover(state, chosen, offered, pool, rng));
         }
     }
 }
@@ -1045,9 +1462,9 @@ pub fn extra_deathrattles(auras: &mut PlayerAuras, unit: &Unit) -> u32 {
 
 /// A friendly minion was summoned in combat: each trinket's `trinket_after_combat_summon` hook.
 pub fn after_combat_summon(ctx: &mut BoardCtx<'_>) {
-    for id in owned_ids(ctx.auras) {
+    for (slot, id) in owned_slots(ctx.auras) {
         if let Some(after_summon) = hooks(id).trinket_after_combat_summon {
-            after_summon(ctx);
+            in_slot(slot, || after_summon(ctx));
         }
     }
 }
@@ -1175,18 +1592,18 @@ pub fn consume_shop_minion(
 /// The player ends their turn: each trinket's `trinket_end_turn` hook, with the end-of-turn
 /// repeat count (`docs/tavern.md` §7.5).
 pub fn end_turn(state: &mut TavernState, repeats: u32, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(end_turn) = hooks(id).trinket_end_turn {
-            end_turn(state, repeats, pool, rng);
+            in_slot(slot, || end_turn(state, repeats, pool, rng));
         }
     }
 }
 
 /// A Tavern spell was cast in the Tavern: each trinket's `trinket_spell_cast` hook.
 pub fn spell_cast(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(spell_cast) = hooks(id).trinket_spell_cast {
-            spell_cast(state, pool, rng);
+            in_slot(slot, || spell_cast(state, pool, rng));
         }
     }
 }
@@ -1199,17 +1616,17 @@ pub fn after_refresh(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_refresh) = hooks(id).trinket_after_refresh {
-            after_refresh(state, pool, rng);
+            in_slot(slot, || after_refresh(state, pool, rng));
         }
     }
     if kind != RefreshKind::Player {
         return;
     }
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_refresh) = hooks(id).trinket_after_player_refresh {
-            after_refresh(state, pool, rng);
+            in_slot(slot, || after_refresh(state, pool, rng));
         }
     }
 }
@@ -1236,9 +1653,9 @@ pub fn combat_start(auras: &mut PlayerAuras) {
 
 /// After the Tavern was upgraded: each trinket's `trinket_after_upgrade` hook.
 pub fn after_upgrade(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
-    for id in owned_ids(&state.auras) {
+    for (slot, id) in owned_slots(&state.auras) {
         if let Some(after_upgrade) = hooks(id).trinket_after_upgrade {
-            after_upgrade(state, pool, rng);
+            in_slot(slot, || after_upgrade(state, pool, rng));
         }
     }
 }
@@ -1264,9 +1681,9 @@ pub fn tavern_summon(auras: &mut PlayerAuras, summoned: &mut Unit) {
 /// The player's Deity awakened in combat at `ctx.board[idx]`: each trinket's
 /// `trinket_deity_awakened` hook.
 pub fn on_deity_awakened(ctx: &mut BoardCtx<'_>, idx: usize) {
-    for id in owned_ids(ctx.auras) {
+    for (slot, id) in owned_slots(ctx.auras) {
         if let Some(awakened) = hooks(id).trinket_deity_awakened {
-            awakened(ctx, idx);
+            in_slot(slot, || awakened(ctx, idx));
         }
     }
 }
@@ -1274,6 +1691,127 @@ pub fn on_deity_awakened(ctx: &mut BoardCtx<'_>, idx: usize) {
 // ---------------------------------------------------------------------------------------------
 // Helpers for the trinkets' hooks
 // ---------------------------------------------------------------------------------------------
+
+/// The minion type the player's trinket `id` names (`TrinketState::tribe`, `docs/trinkets.md`
+/// §3.4), or `None` if it has none.
+pub fn named_type(auras: &PlayerAuras, id: CardId) -> Option<Tribe> {
+    state(auras, id)
+        .map(|t| t.tribe)
+        .filter(|&t| t != Tribe::None)
+}
+
+/// A trinket's Spellcraft spell `id`, named `name` (`docs/trinkets.md` §11.6): a token spell for
+/// 0 Gold whose hooks (in the trinket's file) carry the Spellcraft flags (temporary, not a Tavern
+/// spell, never in a pool).
+pub fn spellcraft_spell(id: CardId, name: &str) -> Unit {
+    let mut spell = Unit::new(name, 0, 0).with_card_id(id);
+    spell.is_spell = true;
+    spell
+}
+
+/// The board position of the minion the trinket `id` marked (`Unit::trinket_marks`), if any.
+pub fn marked(state: &TavernState, id: CardId) -> Option<usize> {
+    state
+        .board
+        .iter()
+        .position(|u| u.trinket_marks.contains(&id))
+}
+
+/// "Destroy a friendly Undead to get `count` random Undead" (`Jailer Sticker`'s spell, as `The
+/// Jailer`'s Rune of Damnation): `state.board[pos]` is destroyed, then each Undead, of the player's
+/// Tier or lower from the pool, goes to the hand.
+pub fn destroy_for_undead(
+    state: &mut TavernState,
+    pos: usize,
+    count: u32,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) {
+    if pos >= state.board.len() {
+        return;
+    }
+    state.destroy_board_unit(pos, pool, rng);
+    for _ in 0..count {
+        if let Some(undead) = pool.draw_by_tribe(Tribe::Undead, None, state.tavern_tier, rng) {
+            state.add_pool_card_to_hand(undead, pool);
+        }
+    }
+}
+
+/// `true` if the resolved Discover whose options were `offered` is the one the trinket `id` keeps
+/// (`stored`, `armed` 1: `Token of the Old Gods`); it then stops keeping it.
+pub fn own_discover(state: &mut TavernState, id: CardId, offered: &[CardId]) -> bool {
+    let Some(t) = state_mut(&mut state.auras, id) else {
+        return false;
+    };
+    if t.armed == 0 {
+        return false;
+    }
+    let mut kept: Vec<CardId> = t.stored.iter().map(|u| u.card_id).collect();
+    let mut seen = offered.to_vec();
+    kept.sort_unstable();
+    seen.sort_unstable();
+    if kept != seen {
+        return false;
+    }
+    t.armed = 0;
+    t.stored.clear();
+    true
+}
+
+/// The trinket `id` marks `state.board[pos]` and no other card.
+pub fn mark(state: &mut TavernState, pos: usize, id: CardId) {
+    unmark(state, id);
+    if let Some(unit) = state.board.get_mut(pos) {
+        unit.trinket_marks.push(id);
+    }
+}
+
+/// The trinket `id`'s marks leave every card of the board, the hand and the Tavern.
+pub fn unmark(state: &mut TavernState, id: CardId) {
+    for unit in state
+        .board
+        .iter_mut()
+        .chain(&mut state.hand)
+        .chain(&mut state.shop)
+    {
+        unit.trinket_marks.retain(|&m| m != id);
+    }
+}
+
+/// `count` random minions of the type the trinket `id` names ([`give_random_minion`]; nothing
+/// without a type).
+pub fn give_random_of_named_type(state: &mut TavernState, id: CardId, count: u32, rng: &mut Rng) {
+    let Some(tribe) = named_type(&state.auras, id) else {
+        return;
+    };
+    for _ in 0..count {
+        give_random_minion(state, rng, |t| t.tribe.matches(tribe));
+    }
+}
+
+/// `Inductive Gyroblade`'s end of turn: `repeats` times, a `Satellite` of `stats/stats` plus
+/// `+stats/+stats` per Tavern spell cast this turn (the trinket `id`'s `counter`).
+pub fn gyroblade_satellites(state: &mut TavernState, id: CardId, stats: i32, repeats: u32) {
+    let spells = self::state(&state.auras, id).map_or(0, |t| t.counter);
+    let size = stats.saturating_mul(spells.saturating_add(1));
+    for _ in 0..repeats {
+        let mut satellite = cards::tokens::make_satellite(false);
+        satellite.attack = size;
+        satellite.health = size;
+        satellite.base_attack = size;
+        satellite.base_health = size;
+        satellite.sync_max_stats();
+        state.add_to_hand_or_wait(satellite);
+    }
+}
+
+/// One more Tavern spell cast this turn for the trinket `id` (`counter`).
+pub fn count_spell_this_turn(state: &mut TavernState, id: CardId) {
+    if let Some(t) = state_mut(&mut state.auras, id) {
+        t.counter = t.counter.saturating_add(1);
+    }
+}
 
 /// A trinket's "Get a ..." (`docs/trinkets.md` §5): a plain copy of the minion `card_id` from the
 /// catalog (not the pool) goes to the hand, or waits for room in a full hand.

@@ -649,6 +649,21 @@ pub struct PyTavernObservation {
     pub dark_discoveries_left: u32,
     #[pyo3(get)]
     pub dark_discovery_usable: bool,
+    /// The minion type each owned trinket names, then each offered one (`docs/trinkets.md`
+    /// §3.4, §8.2): its index in `LOBBY_TRIBES` plus 1, 0 for none.
+    #[pyo3(get)]
+    pub trinket_tribes: Vec<u32>,
+    #[pyo3(get)]
+    pub trinket_option_tribes: Vec<u32>,
+}
+
+/// A trinket's minion type in the observation (`docs/trinkets.md` §8.2): its index in
+/// `LOBBY_TRIBES` plus 1, 0 for none.
+fn trinket_tribe_index(tribe: crate::model::Tribe) -> u32 {
+    crate::model::LOBBY_TRIBES
+        .iter()
+        .position(|&t| t == tribe)
+        .map_or(0, |i| i as u32 + 1)
 }
 
 impl From<&TavernState> for PyTavernObservation {
@@ -723,6 +738,17 @@ impl From<&TavernState> for PyTavernObservation {
             dark_gifts_enabled: s.dark_gifts_enabled,
             dark_discoveries_left: crate::dark_gifts::uses_left(s),
             dark_discovery_usable: s.is_legal(&TavernAction::DarkDiscovery),
+            trinket_tribes: s
+                .auras
+                .trinkets
+                .iter()
+                .map(|t| trinket_tribe_index(t.tribe))
+                .collect(),
+            trinket_option_tribes: s
+                .trinket_options
+                .iter()
+                .map(|o| trinket_tribe_index(o.tribe))
+                .collect(),
         }
     }
 }
@@ -1339,6 +1365,12 @@ pub struct PyDuosObservation {
     pub dark_discoveries_left: u32,
     #[pyo3(get)]
     pub dark_discovery_usable: bool,
+    /// This player's trinkets' minion types (`docs/trinkets.md` §8.2), as in
+    /// `TavernObservation`.
+    #[pyo3(get)]
+    pub trinket_tribes: Vec<u32>,
+    #[pyo3(get)]
+    pub trinket_option_tribes: Vec<u32>,
 }
 
 impl PyDuosObservation {
@@ -1410,6 +1442,8 @@ impl PyDuosObservation {
             dark_gifts_enabled: own.dark_gifts_enabled,
             dark_discoveries_left: own.dark_discoveries_left,
             dark_discovery_usable: own.dark_discovery_usable && !team.ended[player],
+            trinket_tribes: own.trinket_tribes,
+            trinket_option_tribes: own.trinket_option_tribes,
         }
     }
 }
@@ -1749,6 +1783,7 @@ fn all_card_ids() -> Vec<u32> {
         .iter()
         .map(|c| c.card_id)
         .filter(|&id| !(961..=963).contains(&id))
+        .filter(|id| !crate::vocab::APPENDED.contains(id))
         .collect();
     ids.sort_unstable();
     ids.dedup();
@@ -1787,6 +1822,12 @@ fn all_card_ids() -> Vec<u32> {
     // Then the Dark Gifts (`docs/dark_gifts.md` §8.2), in their append-only order
     // (`dark_gifts::vocabulary`).
     for id in crate::dark_gifts::vocabulary() {
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    // Then the cards added since (`vocab::APPENDED`), in the order they were added.
+    for &id in crate::vocab::APPENDED {
         if !ids.contains(&id) {
             ids.push(id);
         }

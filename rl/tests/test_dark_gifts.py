@@ -22,8 +22,11 @@ def test_the_gift_table_and_vocabulary() -> None:
     assert len(table) == 47
     assert sorted(DARK_GIFT_IDS) == sorted(gid for (gid, *_rest) in table)
     ids = seaglass.all_card_ids()
-    assert ids[-len(DARK_GIFT_IDS):] == DARK_GIFT_IDS
-    assert SLOT_NUM_DIM == BASE_SLOT_NUM_DIM + 47
+    # Right after the trinkets; the cards added since come after them (`engine/src/vocab.rs`).
+    start = ids.index(DARK_GIFT_IDS[0])
+    assert ids[start : start + len(DARK_GIFT_IDS)] == DARK_GIFT_IDS
+    # Then the 10 trinket type features (`engine/docs/trinkets.md` §3.4).
+    assert SLOT_NUM_DIM == BASE_SLOT_NUM_DIM + 47 + 10
 
 
 def _play_to_turn(game: seaglass.TavernGame, turn: int) -> None:

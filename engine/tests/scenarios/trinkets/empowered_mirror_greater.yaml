@@ -1,0 +1,10 @@
+trinket: Empowered Mirror (Greater)
+scenarios:
+  - name: it_becomes_a_copy_of_the_teammates_greater_trinket
+    duos_tavern:
+      players:
+        - {gold: 10, trinket_options: [{card_id: 117942, cost: 3}]}
+        - {auras: {trinkets: [Lucky Tabby, Lava Lamp]}}
+    steps:
+      - {player: 0, choose_trinket: 0}
+    expect: {players: {0: {auras: {trinkets: [{name: Lava Lamp}]}}}}

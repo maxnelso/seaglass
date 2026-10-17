@@ -98,6 +98,9 @@ impl CardFlags {
     /// A Hero Power or trinket of Dark Gift games: offered only to a player with
     /// `dark_gifts_enabled` (`docs/dark_gifts.md` §12).
     pub const DARK_GIFTS: CardFlags = CardFlags(1 << 23);
+    /// A trinket whose text names a minion type (`{0}`), assigned to it when it is offered
+    /// (`TrinketState::tribe`; `docs/trinkets.md` §3.4).
+    pub const TRINKET_MINION_TYPE: CardFlags = CardFlags(1 << 24);
 
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
@@ -694,6 +697,29 @@ card_hooks! {
     /// A friendly minion was summoned in combat and is on the board (each `BoardCtx` summon; a
     /// Rally's summons once, after them): `(ctx)`.
     trinket_after_combat_summon(on_trinket_after_combat_summon): fn(&mut BoardCtx<'_>),
+    /// A minion is being bought (before it reaches the hand), after the board's `minion_bought`
+    /// observers: `(state, bought)`.
+    trinket_minion_bought(on_trinket_minion_bought): fn(&mut TavernState, &mut Unit),
+    /// Extra times the effect of a `HeroPower` action resolves (its `hero_power` hook), per use:
+    /// `(trinket)`.
+    trinket_hero_power_triggers(on_trinket_hero_power_triggers): fn(&TrinketState) -> u32,
+    /// Extra uses an active Hero Power gets each turn (on top of its 1): `(trinket)`.
+    trinket_hero_power_uses(on_trinket_hero_power_uses): fn(&TrinketState) -> u32,
+    /// After the player used a Hero Power (its effect and its cost resolved): `(state, pool,
+    /// rng)`.
+    trinket_after_hero_power(on_trinket_after_hero_power): TavernEventFn,
+    /// The kind of the turn start's scheduled offer, given the kind so far (`None`: no offer,
+    /// `Some(greater)`), folded in pick order: `(trinket, state, kind)`.
+    trinket_offer_kind(on_trinket_offer_kind): fn(&TrinketState, &TavernState, Option<bool>) -> Option<bool>,
+    /// The player picked a trinket from an offer (it joined or replaced one), after its own text:
+    /// `(state, picked, pool, rng)`.
+    trinket_after_pick(on_trinket_after_pick): fn(&mut TavernState, CardId, &mut CardPool, &mut Rng),
+    /// Duos: the teammate's Tavern, after each of the team's actions and at the team's turn
+    /// start: `(state, teammate, pool, rng)`.
+    trinket_teammate(on_trinket_teammate): fn(&mut TavernState, &crate::trinkets::TeammateView<'_>, &mut CardPool, &mut Rng),
+    /// Whether the player skips the current turn (only `EndTurn`, and the prompts, are legal), as
+    /// a Hero Power's `hero_skips_turn`: `(trinket, state)`.
+    trinket_skips_turn(on_trinket_skips_turn): fn(&TrinketState, &TavernState) -> bool,
 
     // ---- Dark Gifts (fire for the minion that has the gift, in the order it got its gifts;
     // `docs/dark_gifts.md` §6) -----------------------------------------------------------------

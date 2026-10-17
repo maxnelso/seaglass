@@ -1,0 +1,8 @@
+trinket: Inductive Gyroblade (Greater)
+scenarios:
+  - name: a_12_12_satellite_improved_by_12_per_spell
+    tavern: {gold: 10, board: ["1/1"], hand: [Fortify], auras: {trinkets: [Inductive Gyroblade (Greater)]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - end_turn
+    expect: {hand: [{name: Satellite, attack: 24, health: 24}]}

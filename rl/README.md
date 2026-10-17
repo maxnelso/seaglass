@@ -101,10 +101,12 @@ Trinkets ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md)) are optional:
 ### Bindings
 - `TavernGame(..., trinkets=True)` and `DuosTavernGame(..., trinkets=True)`: on by default (`trinkets=False` turns them off), the offers: a Lesser one at the start of turn 6 and a Greater one at the start of turn 9 (4 options each; per player in Duos). Only implemented trinkets are offered.
 - `TavernAction.choose_trinket(option_index)` (kind `"choose_trinket"`, args `(option_index, None)`): pick an offered trinket, paying its price in Gold. While trinkets are offered, it is the only legal action (no skipping); an unaffordable option is illegal (if none is affordable, the cheapest ones are free).
-- `trinkets_table()`: `(id, name, greater, cost, implemented)` for each of the 246 trinkets of the pool (HSReplay's 237 Solo trinkets and the 9 Duos-exclusive ones). Their ids are appended at the end of `all_card_ids()`, so they are in the card vocabulary, in a fixed append-only order: the 18 trinkets that left the pool keep their index.
+- `trinkets_table()`: `(id, name, greater, cost, implemented)` for each of the 246 trinkets of the pool (HSReplay's 237 Solo trinkets and the 9 Duos-exclusive ones). Their ids are appended at the end of `all_card_ids()`, so they are in the card vocabulary, in a fixed append-only order: the 18 trinkets that left the pool keep their index. The cards added to the engine since (the trinkets' Spellcraft spells, new tokens) come last, after the Dark Gifts, in the order they were added (`engine/src/vocab.rs`): `tests/test_vocabulary.py` checks that `all_card_ids()` still starts with the first vocabulary (`tests/data/card_ids_v1.txt`).
 
 ### Observation
 `TavernObservation` and `DuosObservation` have `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their counters), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices: 2 less for an option of a type that isn't the player's most common one). `features.py` appends six features to the `[PLAYER]` vector (`PLAYER_DIM` is 31): whether trinkets are offered, the number owned `/ 2`, and the 4 offered prices `/ 10` (0 for no option); and six card slots after the waiting ones (`NUM_SLOTS` is 37): the 2 owned trinkets (`MAX_TRINKETS`), then the 4 offered ones, each with its id and the present flag.
+
+A trinket whose text names a minion type (`Colorful Compass`, `Gold-plated Compass`, `Minion Bait`: "Get a random Beast") gets the player's most common type as it is offered ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md) §3.4). Both observations have `trinket_tribes` and `trinket_option_tribes` (each owned and offered trinket's type: its index in the 10 lobby types plus 1, 0 for none), and every card slot's numeric features end with a one-hot of the 10 lobby types (`TRINKET_TRIBE_OFFSET`, after the Dark Gift features; `SLOT_NUM_DIM` is 14 + 47 + 10 = 71), set only in the trinket slots.
 
 ### Actions
 The table appends 4 `ChooseTrinket` actions (`CHOOSE_TRINKET_INDICES`). A game without trinket offers never lists them as legal.
@@ -161,6 +163,7 @@ rl/
     ├── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
     ├── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
     ├── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
+    ├── test_vocabulary.py     # The card vocabulary only grows at the end (data/card_ids_v1.txt)
     └── test_dark_gifts.py     # Dark Gifts: the Dark Discovery action, offers, observation fields
 ```
 

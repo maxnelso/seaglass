@@ -1,0 +1,19 @@
+trinket: Ophidian Staff
+scenarios:
+  - name: picked_and_each_turn_start_it_gives_its_temporary_spell
+    tavern: {gold: 10}
+    steps:
+      - give_trinket: Ophidian Staff
+      - expect: {hand: [{name: Ophidian Staff, is_spell: true}]}
+      - end_turn
+      - expect: {hand: []}
+      - start_turn
+    expect: {hand: [{name: Ophidian Staff}]}
+
+  - name: the_spell_gives_a_beast_2_2_and_reborn
+    tavern: {board: ["1/1 beast", "1/1 murloc"], auras: {trinkets: [Ophidian Staff]}}
+    steps:
+      - start_turn
+      - expect_illegal: {play: {hand: 0, pos: 1}}
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["3/3 reborn", "1/1 -reborn"], hand: []}

@@ -1,0 +1,20 @@
+trinket: Sous Chef Sticker
+scenarios:
+  - name: a_second_use_each_turn_and_1_gold_after_each
+    tavern: {gold: 10, board: ["1/1"], auras: {hero: Edwin VanCleef, trinkets: [Sous Chef Sticker]}}
+    steps:
+      - start_turn
+      - expect: {auras: {hero: {power: {uses_left: 2}}}}
+      - set: {gold: 5}
+      - hero_power: 0
+      - hero_power: 0
+      - expect_illegal: {hero_power: 0}
+    expect: {gold: 5, board: ["5/5"]}
+
+  - name: picked_it_gives_a_use_this_turn
+    description: Engine decision.
+    tavern: {gold: 10, auras: {hero: Edwin VanCleef}}
+    steps:
+      - give_trinket: Sous Chef Sticker
+    expect: {auras: {hero: {power: {uses_left: 2}}}}
+

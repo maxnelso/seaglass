@@ -177,7 +177,19 @@ fn from_value(value: &Value) -> View {
                 view.iter_mut().find(|(k, _)| k == "trinket_options")
             {
                 for option in options {
-                    name_trinket(option);
+                    option_defaults(option);
+                }
+            }
+            with_default(&mut view, "trinket_offer_queue", View::List(Vec::new()));
+            if let Some((_, View::List(offers))) =
+                view.iter_mut().find(|(k, _)| k == "trinket_offer_queue")
+            {
+                for offer in offers {
+                    if let View::List(options) = offer {
+                        for option in options {
+                            option_defaults(option);
+                        }
+                    }
                 }
             }
             with_default(
@@ -196,6 +208,15 @@ fn from_value(value: &Value) -> View {
 }
 
 /// Add the trinket's display name (`name`) to the view of a `TrinketState` or `TrinketOption`.
+/// A trinket option's view: its name, and its fields serde leaves out at their default.
+fn option_defaults(option: &mut View) {
+    if let View::Map(fields) = option {
+        with_default(fields, "tribe", View::Str("none".to_string()));
+        with_default(fields, "replaces", View::Null);
+    }
+    name_trinket(option);
+}
+
 fn name_trinket(view: &mut View) {
     let id = match view {
         View::Map(fields) => fields.iter().find_map(|(k, v)| match (k.as_str(), v) {
@@ -204,10 +225,10 @@ fn name_trinket(view: &mut View) {
         }),
         _ => None,
     };
-    let name = id
-        .and_then(crate::trinkets::data)
-        .map_or_else(|| "?".to_string(), crate::trinkets::display_name);
+    let data = id.and_then(crate::trinkets::data);
+    let name = data.map_or_else(|| "?".to_string(), crate::trinkets::display_name);
     view.push("name", View::Str(name));
+    view.push("greater", View::Bool(data.is_some_and(|t| t.greater)));
 }
 
 /// Add `key: default` to `view` if serde skipped it (a field left out while it has its default).
@@ -231,6 +252,7 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     with_default(&mut view, "until_next_turn_atk", View::Int(0));
     with_default(&mut view, "hats", View::Int(0));
     with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));
+    with_default(&mut view, "trinket_marks", View::List(Vec::new()));
     with_default(&mut view, "dark_gifts", View::List(Vec::new()));
     let id = unit.card_id;
     let keywords = KEYWORDS
@@ -279,6 +301,7 @@ fn auras_view(value: &Value, m: &Mapping) -> View {
         for trinket in trinkets {
             if let View::Map(fields) = trinket {
                 with_default(fields, "stored", View::List(Vec::new()));
+                with_default(fields, "tribe", View::Str("none".to_string()));
             }
             name_trinket(trinket);
         }

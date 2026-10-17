@@ -92,7 +92,7 @@ use seaglass::cards::{self, CardFlags};
 use seaglass::dark_gifts;
 use seaglass::heroes;
 use seaglass::lobby::Lobby;
-use seaglass::model::{HeroId, TeammateGift};
+use seaglass::model::{HeroId, TeammateGift, TrinketOption};
 use seaglass::trinkets::{self, OfferClass};
 use seaglass::{
     base_copies_for_tier, catalog_for, BattleOutcome, BattleResult, CardPool, CardTemplate,
@@ -771,14 +771,15 @@ fn check_dark_offer(s: &TavernState, opts: &[Unit], pool: &CardPool) -> Result<(
 }
 
 /// The player's trinkets and their offer (`docs/trinkets.md` §2.2, §3): owned trinkets are
-/// implemented and never duplicate; an offer is only for a player with offers enabled, and holds
-/// at most 4 different offerable trinkets they don't own, at their cost or 2 less.
+/// implemented (two copies only of a copied one, §2.3); an offer is only for a player with offers
+/// enabled, and holds at most 4 different offerable trinkets they don't own, at their cost or 2
+/// less; an option that replaces a trinket (§3.5) may be free, and may be that trinket (kept).
 fn check_trinkets(s: &TavernState) -> Result<(), Violation> {
     let owned: Vec<u32> = s.auras.trinkets.iter().map(|t| t.card_id).collect();
-    for (i, &id) in owned.iter().enumerate() {
-        if owned[..i].contains(&id) || !trinkets::is_implemented(id) {
+    for &id in &owned {
+        if owned.iter().filter(|&&o| o == id).count() > 2 || !trinkets::is_implemented(id) {
             return Err(broken(
-                "the player owns a trinket twice, or one that isn't implemented",
+                "the player owns a trinket three times, or one that isn't implemented",
                 format!("{owned:?}"),
             ));
         }
@@ -792,10 +793,14 @@ fn check_trinkets(s: &TavernState) -> Result<(), Violation> {
         .collect();
     let bad = options.iter().enumerate().find(|(i, o)| {
         let cost = trinkets::data(o.card_id).map_or(0, |t| t.cost);
+        let kept = o.replaces == Some(o.card_id);
         options[..*i].iter().any(|p| p.card_id == o.card_id)
-            || owned.contains(&o.card_id)
-            || !offerable.contains(&o.card_id)
-            || !(o.cost == cost || o.cost == cost.saturating_sub(trinkets::OFF_TYPE_DISCOUNT))
+            || (owned.contains(&o.card_id) && !kept)
+            || o.replaces.is_some_and(|r| !owned.contains(&r))
+            || !(offerable.contains(&o.card_id) || kept)
+            || !(o.cost == cost
+                || o.cost == cost.saturating_sub(trinkets::OFF_TYPE_DISCOUNT)
+                || (o.cost == 0 && o.replaces.is_some()))
     });
     if !s.trinkets_enabled || options.len() > trinkets::OFFER_COUNT || bad.is_some() {
         return Err(broken(
@@ -812,11 +817,30 @@ fn check_trinkets(s: &TavernState) -> Result<(), Violation> {
 /// A trinket offer just drawn at the start of turn 6 or 9 follows the offer rules
 /// (`docs/trinkets.md` §3.2, §3.3) for the player's board and hand: its options are candidates at
 /// their price, with a Neutral one and a cheap one if there are such candidates, at most one Off
-/// one, and as many options as the candidates allow, up to 4. No other turn start offers any.
+/// one, and as many options as the candidates allow, up to 4. No other turn start offers any,
+/// but for a trinket's own offer (its options replace it, `docs/trinkets.md` §3.5) or an offer a
+/// trinket moved (`trinket_offer_kind`), whose kind is its options'.
 fn check_trinket_offer(s: &TavernState) -> Result<(), Violation> {
-    let greater = match s.turn {
-        trinkets::LESSER_TURN => false,
-        trinkets::GREATER_TURN => true,
+    if s.trinket_options.iter().any(|o| o.replaces.is_some()) {
+        return Ok(());
+    }
+    let moved = s
+        .auras
+        .trinkets
+        .iter()
+        .any(|t| cards::hooks(t.card_id).trinket_offer_kind.is_some());
+    if moved && s.trinket_options.is_empty() {
+        return Ok(());
+    }
+    let kind = s
+        .trinket_options
+        .first()
+        .and_then(|o| trinkets::data(o.card_id))
+        .map(|t| t.greater);
+    let greater = match (s.turn, kind) {
+        (_, Some(greater)) if moved => greater,
+        (trinkets::LESSER_TURN, _) => false,
+        (trinkets::GREATER_TURN, _) => true,
         _ if s.trinket_options.is_empty() => return Ok(()),
         _ => return Err(broken("trinkets are offered on another turn", "")),
     };
@@ -1894,8 +1918,11 @@ fn trinket_gold_back(s: &TavernState, action: TavernAction, pool: &CardPool) -> 
             let Some(option) = s.trinket_options.get(option_index) else {
                 return 0;
             };
-            probe.trinket_options.clear();
-            trinkets::give(&mut probe, option.card_id, &mut pool, &mut rng);
+            // As picked for nothing (a replacing option replaces, a kept one keeps, the other
+            // trinkets see the pick: `docs/trinkets.md` §3.5).
+            probe.trinket_options = vec![TrinketOption { cost: 0, ..*option }];
+            probe.trinket_offer_queue.clear();
+            trinkets::choose(&mut probe, 0, &mut pool, &mut rng);
         }
         TavernAction::Buy { shop_index } if !s.auras.trinkets.is_empty() => {
             let Some(bought) = s.shop.get(shop_index) else {
@@ -1942,8 +1969,18 @@ impl Expect {
             }),
             TavernAction::Refresh => Some(if free_refresh { 0 } else { s.refresh_cost() }),
             TavernAction::UpgradeTavern => Some(s.upgrade_price()),
-            // (A trinket that gives Gold as it is picked gives it back: `gold_back`.)
-            TavernAction::ChooseTrinket { option_index } => trinkets::option_price(s, option_index),
+            // (A trinket that gives Gold as it is picked gives it back: `gold_back`; but not one
+            // that becomes a random trinket, whose own Gold the probe can't know.)
+            TavernAction::ChooseTrinket { option_index } => {
+                let random = s.trinket_options.get(option_index).is_some_and(|o| {
+                    [
+                        trinkets::orb_of_the_unknown::ID,
+                        trinkets::orb_of_the_unknown_greater::ID,
+                    ]
+                    .contains(&o.card_id)
+                });
+                trinkets::option_price(s, option_index).filter(|_| !random)
+            }
             TavernAction::DarkDiscovery => Some(dark_gifts::PRICE),
             // (Not an Activate: its effect can give Gold, a Kelp Keeper triggering a Battlecry
             // that casts a Tavern Coin.)
@@ -1993,7 +2030,9 @@ impl Expect {
                     .filter(|u| !u.is_spell && !is_wildcard(u) && !cards::is_option_card(u.card_id))
                     .filter(|u| !u.to_hero_power)
                     .map(|u| u.card_id)
-                    .filter(|_| room);
+                    .filter(|_| room)
+                    // (`Token of the Old Gods`' Discover transforms a minion into the card.)
+                    .filter(|_| !trinkets::owns(&s.auras, trinkets::token_of_the_old_gods::ID));
             }
             TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } => {
                 if let Some(card) = s.hand.get(hand_index) {

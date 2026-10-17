@@ -696,8 +696,8 @@ mod tests {
     fn a_trinket_summoning_the_attacker_is_not_simulated() {
         let trinket = Source {
             entity_id: 50,
-            card_id: "BG36_MagicItem_407".into(),
-            name: "Dragonhead Staff".into(),
+            card_id: "BG35_MagicItem_712".into(),
+            name: "Privateer Portrait".into(),
             kind: "BATTLEGROUND_TRINKET".into(),
         };
         let summoned = unit(30, "BGS_004", "Wrath Weaver");
@@ -712,7 +712,7 @@ mod tests {
         );
         assert_eq!(d.cause, Cause::NotSimulated, "{d:?}");
         assert!(d.evidence[0].strong);
-        assert!(d.evidence[0].what.contains("Dragonhead Staff"), "{d:?}");
+        assert!(d.evidence[0].what.contains("Privateer Portrait"), "{d:?}");
     }
 
     #[test]

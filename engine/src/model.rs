@@ -376,6 +376,15 @@ pub struct TrinketState {
     /// Cards the trinket keeps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stored: Vec<Unit>,
+    /// The minion type its text names (`{0}`: "Get a random Beast"), assigned when it was offered
+    /// (`docs/trinkets.md` §3.4); `None` for the other trinkets.
+    #[serde(default, skip_serializing_if = "is_no_tribe")]
+    pub tribe: Tribe,
+}
+
+/// `true` for `Tribe::None` (a field serde leaves out while it has no type).
+fn is_no_tribe(t: &Tribe) -> bool {
+    *t == Tribe::None
 }
 
 /// A trinket offered to the player (`docs/trinkets.md` §3.3): which one, and its price.
@@ -385,6 +394,14 @@ pub struct TrinketOption {
     /// Its price in Gold (2 less than its cost for an option of a type that isn't the player's
     /// most common one).
     pub cost: u32,
+    /// The minion type its text names, assigned as it is offered (`docs/trinkets.md` §3.4);
+    /// `None` for the other trinkets.
+    #[serde(default, skip_serializing_if = "is_no_tribe")]
+    pub tribe: Tribe,
+    /// The trinket picking it replaces (`docs/trinkets.md` §3.5): `Mystery Cube`'s options;
+    /// `None` for an option that joins the player's trinkets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<CardId>,
 }
 
 /// A hero's identity: the hero card's dbfId (`64403` for `Al'Akir`; `docs/heroes.md` §2.1).
@@ -675,6 +692,11 @@ pub struct Unit {
     /// (`docs/heroes.md` §4).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_deathrattles: Vec<CardId>,
+    /// The trinkets that marked it (`docs/trinkets.md` §11.6): a trinket's spell chose it
+    /// (`Makeshift Master`, `Token of the Old Gods`), or a trinket's Refresh put it in the Tavern
+    /// (`Chillmere Mosaic`). Only those trinkets' hooks read it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trinket_marks: Vec<CardId>,
     /// True if this unit's Reborn is temporary until next turn (The Lich King's Reborn Rites;
     /// `docs/heroes.md` §11), as `temp_divine_shield` for Divine Shield.
     #[serde(default, skip_serializing_if = "is_false")]
@@ -796,6 +818,7 @@ impl Unit {
             unchosen_to_teammate: false,
             marked: false,
             extra_deathrattles: Vec::new(),
+            trinket_marks: Vec::new(),
             temp_reborn: false,
             frozen: false,
             to_hero_power: false,

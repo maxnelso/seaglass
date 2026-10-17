@@ -1,0 +1,10 @@
+trinket: Quartermaster's Hook
+scenarios:
+  - name: fifty_gold_spent_replace_it
+    seeds: "1..=3"
+    tavern: {gold: 20, auras: {trinkets: [{trinket: Quartermaster's Hook, counter: 48}]}}
+    steps:
+      - refresh
+      - expect: {auras: {trinkets: [{name: Quartermaster's Hook, counter: 49}]}}
+      - refresh
+    expect: {auras: {trinkets: {count: 1, 0: {name: {not: Quartermaster's Hook}, greater: true}}}}

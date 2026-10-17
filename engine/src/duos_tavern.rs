@@ -207,6 +207,7 @@ impl DuosTavern {
             }
             self.settle();
         }
+        self.trinkets_see_teammates(pool, rng);
         self.deliver_gifts(0, Some(pool), rng);
         self.deliver();
         self.draw_first_fighter(rng);
@@ -317,10 +318,27 @@ impl DuosTavern {
         for sold in std::mem::take(&mut self.players[player].sold_this_step) {
             cards::after_teammate_sell(&mut self.players[mate], &sold, pool, rng);
         }
+        self.trinkets_see_teammates(pool, rng);
         self.settle();
         self.deliver_gifts(player, Some(pool), rng);
         self.deliver();
         Ok(ended)
+    }
+
+    /// Each player's trinkets see their teammate's (`docs/trinkets.md` §8.1: `Empowered
+    /// Mirror`): player 0's, then player 1's.
+    fn trinkets_see_teammates(&mut self, pool: &mut CardPool, rng: &mut Rng) {
+        for player in 0..2 {
+            if self.players[player].auras.trinkets.is_empty() {
+                continue;
+            }
+            let mate = self.players[Self::teammate(player)].clone();
+            let view = crate::trinkets::TeammateView {
+                state: &mate,
+                turn_over: self.turn_over(),
+            };
+            crate::trinkets::teammate(&mut self.players[player], &view, pool, rng);
+        }
     }
 
     /// `player` Passes `hand[hand_index]` to their teammate (§5.6). A card of a group counts down

@@ -1,0 +1,10 @@
+trinket: Orb of the Unknown (Greater)
+scenarios:
+  - name: picked_it_gives_4_gold_and_becomes_a_random_greater_trinket
+    seeds: "1..=6"
+    tavern: {gold: 0}
+    steps:
+      - give_trinket: Orb of the Unknown (Greater)
+    expect:
+      gold: ">= 4"
+      auras: {trinkets: {count: 1, 0: {name: {not: Orb of the Unknown (Greater)}, greater: true}}}

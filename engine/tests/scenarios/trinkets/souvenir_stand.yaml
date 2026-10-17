@@ -1,0 +1,23 @@
+trinket: Souvenir Stand
+scenarios:
+  - name: buying_a_greater_trinket_makes_it_a_copy_with_its_own_state
+    description: >-
+      A Lesser trinket doesn't; a Greater one does, and the copy counts on its own (engine
+      decision: a fresh copy whose text resolves too).
+    tavern: {gold: 10, board: ["1/1", "1/1"], auras: {trinkets: [Souvenir Stand]}}
+    steps:
+      - offer_trinkets: [Lucky Tabby]
+      - choose_trinket: 0
+      - expect: {auras: {trinkets: [{name: Souvenir Stand}, {name: Lucky Tabby}]}}
+      - set: {auras: {trinkets: [Souvenir Stand]}}
+      - offer_trinkets: [Lava Lamp]
+      - choose_trinket: 0
+      - sell: 0
+    expect: {gold: 9, auras: {trinkets: [{name: Lava Lamp, counter: 1}, {name: Lava Lamp, counter: 1}]}}
+
+  - name: the_copys_text_resolves_too
+    tavern: {gold: 1, auras: {trinkets: [Souvenir Stand]}}
+    steps:
+      - offer_trinkets: [Bob's Tip Jar]
+      - choose_trinket: 0
+    expect: {gold: 9, auras: {base_max_gold_bonus: 8, trinkets: [{name: Bob's Tip Jar}, {name: Bob's Tip Jar}]}}

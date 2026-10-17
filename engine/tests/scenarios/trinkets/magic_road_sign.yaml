@@ -1,0 +1,11 @@
+trinket: Magic Road Sign
+scenarios:
+  - name: the_first_minion_sold_each_turn_is_passed
+    duos_tavern:
+      players:
+        - {gold: 0, board: [Joyous, "2/2"], auras: {trinkets: [Magic Road Sign]}}
+        - {}
+    steps:
+      - {player: 0, sell: 0}
+      - {player: 0, sell: 0}
+    expect: {passes_this_turn: 1, players: {0: {gold: 2, board: []}, 1: {hand: [Joyous]}}}

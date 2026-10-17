@@ -892,7 +892,7 @@ fn check_like_solo(
                 .trinket_card_added
                 .is_some()
         });
-    if team_wide || sees_deliveries || goldens(a) != goldens(solo) {
+    if team_wide || sees_deliveries || goldens(a) != goldens(solo) || sees_teammate(before, solo) {
         return Ok(());
     }
     let stats = |units: &[Unit]| -> Vec<(u32, bool, i32, i32)> {
@@ -954,6 +954,18 @@ fn check_like_solo(
     }
 }
 
+/// `true` if a player of the team owns a trinket that sees the teammate's after each of the team's
+/// actions (`trinket_teammate`: `Empowered Mirror`, `docs/trinkets.md` §8.1), or just picked one
+/// (`solo` owns it): a channel of the team's of its own.
+fn sees_teammate(team: &DuosTavern, solo: &TavernState) -> bool {
+    team.players.iter().chain(std::iter::once(solo)).any(|s| {
+        s.auras
+            .trinkets
+            .iter()
+            .any(|t| seaglass::cards::hooks(t.card_id).trinket_teammate.is_some())
+    })
+}
+
 /// Teammates are not friendly (`docs/duos_tavern.md` §2, §7): a player's action other than a
 /// Pass reaches their teammate's Tavern only through the team's channels: a gift, the
 /// `after_teammate_sell` observers of the step's sales (whatever made them: a Sell, Mutanus'
@@ -971,7 +983,8 @@ fn check_teammate_untouched(
 ) -> Result<(), Violation> {
     let channel = !solo.auras.to_teammate.is_empty()
         || (after.health, after.armor) != (before.health, before.armor)
-        || solo.auras.card_counters != before.players[p].auras.card_counters;
+        || solo.auras.card_counters != before.players[p].auras.card_counters
+        || sees_teammate(before, solo);
     if channel {
         return Ok(());
     }

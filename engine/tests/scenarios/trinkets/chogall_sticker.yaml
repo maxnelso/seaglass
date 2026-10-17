@@ -1,0 +1,28 @@
+trinket: Cho'gall Sticker
+scenarios:
+  - name: the_teammate_plays_a_golden_minion
+    description: >-
+      Both get a Triple Reward: the player's of their Tier plus one, the teammate's locked in as
+      it arrives (the teammate also gets their own for playing it).
+    duos_tavern:
+      players:
+        - {tavern_tier: 2, auras: {trinkets: [{trinket: Cho'gall Sticker, armed: 1}]}}
+        - {tavern_tier: 3, hand: ["golden Joyous"]}
+    steps:
+      - {player: 1, play: 0}
+    expect:
+      players:
+        0: {hand: [{name: Triple Reward, counter: 3}]}
+        1: {hand: {count: 2, all: {name: Triple Reward, counter: 4}}}
+
+  - name: the_player_plays_a_golden_minion
+    duos_tavern:
+      players:
+        - {tavern_tier: 2, hand: ["golden Joyous"], auras: {trinkets: [{trinket: Cho'gall Sticker, armed: 1}]}}
+        - {tavern_tier: 3}
+    steps:
+      - {player: 0, play: 0}
+    expect:
+      players:
+        0: {hand: {count: 2, all: {name: Triple Reward, counter: 3}}}
+        1: {hand: [{name: Triple Reward, counter: 4}]}

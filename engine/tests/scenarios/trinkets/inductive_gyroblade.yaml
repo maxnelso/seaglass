@@ -1,0 +1,18 @@
+trinket: Inductive Gyroblade
+scenarios:
+  - name: end_of_turn_gives_a_4_4_satellite
+    tavern: {auras: {trinkets: [Inductive Gyroblade]}}
+    steps: [end_turn]
+    expect: {hand: [{name: Satellite, attack: 4, health: 4, magnetic: true}]}
+
+  - name: improved_by_each_tavern_spell_cast_this_turn
+    description: +4/+4 per Tavern spell cast this turn (confirmed); the count starts again each turn.
+    tavern: {gold: 10, board: ["1/1"], hand: [Fortify, Fortify], auras: {trinkets: [Inductive Gyroblade]}}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - play: {hand: 0, pos: 0}
+      - end_turn
+      - expect: {hand: [{name: Satellite, attack: 12, health: 12}]}
+      - start_turn
+      - end_turn
+    expect: {hand: [{name: Satellite, attack: 12}, {name: Satellite, attack: 4, health: 4}]}

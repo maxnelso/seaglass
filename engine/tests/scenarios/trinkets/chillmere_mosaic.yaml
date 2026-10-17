@@ -1,0 +1,14 @@
+trinket: Chillmere Mosaic
+scenarios:
+  - name: the_spell_refreshes_with_battlecry_minions_that_cost_1
+    seeds: "1..=3"
+    tavern: {turn: 4, tavern_tier: 3, auras: {trinkets: [Chillmere Mosaic]}}
+    steps:
+      - start_turn
+      - expect: {gold: 7, hand: [{name: Chillmere Mosaic, is_spell: true}]}
+      - play: 0
+      - expect:
+          gold: 7
+          shop: {where: {is_spell: false}, count: 4, all: {battlecry: true, tavern_tier: "<= 3", trinket_marks: [131308]}}
+      - buy: 0
+    expect: {gold: 6, hand: [{battlecry: true, trinket_marks: []}]}

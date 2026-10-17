@@ -605,10 +605,46 @@ pub fn use_power(
     hero.power.uses_left -= 1;
     let (cost, card_id) = (hero.power.cost, hero.power.card_id);
     // As a Buy, what the power gives arrives before the Gold is paid (`docs/heroes.md` §5).
-    if let Some(hero_power) = hooks(card_id).hero_power {
+    let card = hooks(card_id);
+    if let Some(hero_power) = card.hero_power {
+        let targeted = target_card(state, card.activate_target, target);
         hero_power(state, target, pool, rng);
+        // A trinket makes it trigger again (`docs/trinkets.md` §11.4): while its target is
+        // still there (the same card in the same place) and a valid one, and it is usable.
+        for _ in 0..crate::trinkets::extra_hero_power_triggers(&state.auras) {
+            let target_still_ok = target_card(state, card.activate_target, target) == targeted
+                && target_ok(state, card.activate_target, target)
+                && card.hero_power_usable.is_none_or(|usable| usable(state))
+                && match (target, card.hero_power_target) {
+                    (Some(t), Some(filter)) => filter(state, t),
+                    _ => true,
+                };
+            if target_still_ok {
+                hero_power(state, target, pool, rng);
+            }
+        }
     }
     state.spend_gold(cost, pool, rng);
+    crate::trinkets::after_hero_power(state, pool, rng);
+}
+
+/// The card a Hero Power's `target` names in its zone (`kind`): its card id and Golden flag, or
+/// `None` for no card.
+fn target_card(
+    state: &TavernState,
+    kind: ActivateTargetKind,
+    target: Option<usize>,
+) -> Option<(CardId, bool)> {
+    let t = target?;
+    let unit = match kind {
+        ActivateTargetKind::BoardAny => state.board.get(t),
+        ActivateTargetKind::ShopCard => state.shop.get(t),
+        ActivateTargetKind::HandCard => state.hand.get(t),
+        ActivateTargetKind::BoardOrShopMinion if t < 7 => state.board.get(t),
+        ActivateTargetKind::BoardOrShopMinion => state.shop.get(t - 7),
+        _ => None,
+    }?;
+    Some((unit.card_id, unit.is_golden))
 }
 
 /// Use the player's second Hero Power (`HeroPower2`) on `target`.
@@ -635,24 +671,41 @@ pub fn turn_reset(state: &mut TavernState, pool: &mut CardPool) {
     if let Some(base_reset) = own_power.and_then(|id| hooks(id).hero_base_turn_reset) {
         base_reset(state, pool);
     }
+    let extra_uses = crate::trinkets::extra_hero_power_uses(&state.auras);
     let Some(hero) = state.auras.hero.as_mut() else {
         return;
     };
     let card = hooks(hero.power.card_id);
-    hero.power.uses_left = u32::from(card.hero_power.is_some());
+    hero.power.uses_left = active_uses(card, extra_uses);
     if let Some(reset) = card.hero_turn_reset {
         reset(hero);
     }
     if let Some(second) = hero.second_power.as_mut() {
         std::mem::swap(&mut hero.power, second);
         let card = hooks(hero.power.card_id);
-        hero.power.uses_left = u32::from(card.hero_power.is_some());
+        hero.power.uses_left = active_uses(card, extra_uses);
         if let Some(reset) = card.hero_turn_reset {
             reset(hero);
         }
         if let Some(second) = hero.second_power.as_mut() {
             std::mem::swap(&mut hero.power, second);
         }
+    }
+}
+
+/// `true` if the Hero Power `card_id` is active (it has a `hero_power` hook: the `HeroPower`
+/// action uses it), `false` if it is passive.
+pub fn is_active(card_id: CardId) -> bool {
+    hooks(card_id).hero_power.is_some()
+}
+
+/// The uses a Hero Power with hooks `card` has at the start of a turn: 1 if it is active (plus
+/// the trinkets' `extra` uses: `docs/trinkets.md` §11.4), 0 if passive.
+fn active_uses(card: &CardHooks, extra: u32) -> u32 {
+    if card.hero_power.is_some() {
+        1 + extra
+    } else {
+        0
     }
 }
 

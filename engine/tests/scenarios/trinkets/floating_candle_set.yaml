@@ -1,0 +1,10 @@
+trinket: Floating Candle Set
+scenarios:
+  - name: the_spell_triggers_a_friendly_deathrattle
+    tavern: {board: [Harmless Bonehead, "1/1"], auras: {trinkets: [Floating Candle Set]}}
+    steps:
+      - start_turn
+      - expect: {hand: [{name: Floating Candle Set, is_spell: true}]}
+      - expect_illegal: {play: {hand: 0, pos: 1}}
+      - play: {hand: 0, pos: 0}
+    expect: {board: [Harmless Bonehead, Skeleton, Skeleton, "1/1"], hand: []}

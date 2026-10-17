@@ -1,0 +1,18 @@
+trinket: Ancient Wishbone
+scenarios:
+  - name: the_hero_power_triggers_twice_for_one_cost
+    tavern: {gold: 10, board: ["1/1", "3/3"], auras: {hero: Edwin VanCleef, trinkets: [Ancient Wishbone]}}
+    steps:
+      - hero_power: 1
+    expect: {gold: 9, board: ["1/1", "7/7"], auras: {hero: {power: {uses_left: 0}}}}
+
+  - name: the_second_hero_power_too
+    tavern:
+      gold: 10
+      board: ["1/1"]
+      auras:
+        hero: {hero: "Genn, Worgen King", second_power: {card_id: 57567, cost: 1, uses_left: 1}}
+        trinkets: [Ancient Wishbone]
+    steps:
+      - hero_power_2: 0
+    expect: {gold: 9, board: ["5/5"]}

@@ -1,0 +1,13 @@
+trinket: Trip Vouchers
+scenarios:
+  - name: two_turns_later_a_greater_offer_replaces_it
+    seeds: "1..=3"
+    tavern: {turn: 6, auras: {trinkets: [Trip Vouchers]}}
+    steps:
+      - start_turn
+      - expect: {trinket_options: [], auras: {trinkets: [{counter: 1}]}}
+      - end_turn
+      - start_turn
+      - expect: {trinket_options: {count: ">= 1", all: {greater: true, replaces: 112991}}}
+      - choose_trinket: 0
+    expect: {auras: {trinkets: {count: 1, 0: {name: {not: Trip Vouchers}, greater: true}}}}

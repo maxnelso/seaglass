@@ -1,0 +1,30 @@
+trinket: Colorful Compass
+scenarios:
+  - name: offered_it_names_the_most_common_type
+    description: >-
+      The type is the player's most common type when the trinket is offered, counting the board
+      and the hand (confirmed); picked, it gives a random minion of that type, of the player's
+      Tier or lower.
+    seeds: "1..=4"
+    tavern: {gold: 10, tavern_tier: 3, board: ["1/1 beast", "1/1 beast", "1/1 mech"], hand: ["1/1 beast_pirate"]}
+    steps:
+      - offer_trinkets: [Colorful Compass]
+      - expect: {trinket_options: [{tribe: beast}]}
+      - choose_trinket: 0
+    expect:
+      gold: 8
+      auras: {trinkets: [{tribe: beast}]}
+      hand: {count: 2, 1: {tribe: {any_of: [beast, beast_pirate, all]}, tavern_tier: "<= 3"}}
+
+  - name: a_tie_is_broken_at_random
+    description: Without minions, every type is tied; one is drawn at random (engine decision).
+    seeds: "1..=6"
+    tavern: {gold: 10}
+    steps:
+      - offer_trinkets: [Colorful Compass]
+    expect: {trinket_options: [{tribe: {not: none}}]}
+
+  - name: each_turn_start_gives_another
+    tavern: {auras: {trinkets: [{trinket: Colorful Compass, tribe: demon}]}}
+    steps: [start_turn]
+    expect: {hand: {count: 1, all: {tribe: {any_of: [demon, elemental_demon, demon_dragon, demon_quilboar, all]}, tavern_tier: 1}}}

@@ -1,0 +1,27 @@
+trinket: Makeshift Master
+scenarios:
+  - name: the_chosen_minions_gains_this_turn_go_to_the_deity
+    tavern:
+      board: ["1/1", "1/1"]
+      hand: [Fortify]
+      auras: {trinkets: [Makeshift Master], deity: {kind: cthun, attack: 1, health: 1}}
+    steps:
+      - start_turn
+      - play: {hand: 1, pos: 0}
+      - expect: {board: [{trinket_marks: [134758]}, {trinket_marks: []}]}
+      - play: {hand: 0, pos: 0}
+      - expect: {auras: {deity: {attack: 1, health: 4}}}
+      - end_turn
+      - start_turn
+    expect: {board: [{trinket_marks: []}, {trinket_marks: []}], hand: [{name: Makeshift Master}]}
+
+  - name: another_minions_gains_dont_count
+    tavern:
+      board: ["1/1", "1/1"]
+      hand: [Fortify]
+      auras: {trinkets: [Makeshift Master], deity: {kind: cthun, attack: 1, health: 1}}
+    steps:
+      - start_turn
+      - play: {hand: 1, pos: 0}
+      - play: {hand: 0, pos: 1}
+    expect: {auras: {deity: {attack: 1, health: 1}}, board: ["1/1", "1/4"]}

@@ -27,7 +27,11 @@ DARK_GIFT_TO_FEATURE: dict[int, int] = {gid: i for i, gid in enumerate(DARK_GIFT
 # The Dark Discovery button's uses left (/ 3) and whether it is usable now, appended last.
 PLAYER_DIM: int = 33
 BASE_SLOT_NUM_DIM: int = 14
-SLOT_NUM_DIM: int = BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)
+# The minion type a trinket names (`engine/docs/trinkets.md` §3.4): a one-hot of the 10 lobby types,
+# appended after the Dark Gift features, set only in the trinket slots (owned and offered).
+NUM_TRINKET_TRIBES: int = 10
+TRINKET_TRIBE_OFFSET: int = BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)
+SLOT_NUM_DIM: int = TRINKET_TRIBE_OFFSET + NUM_TRINKET_TRIBES
 
 
 def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
@@ -51,6 +55,12 @@ def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
         if feature is not None:
             out_num[BASE_SLOT_NUM_DIM + feature] += 1.0
     return CARD_ID_TO_IDX.get(u.card_id, 0)
+
+
+def _encode_trinket_tribe(tribes: list[int], i: int, out_num: np.ndarray) -> None:
+    """Set the one-hot of the minion type the `i`th trinket names, if it names one."""
+    if i < len(tribes) and 1 <= tribes[i] <= NUM_TRINKET_TRIBES:
+        out_num[TRINKET_TRIBE_OFFSET + tribes[i] - 1] = 1.0
 
 
 def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -134,14 +144,17 @@ def encode_observation(obs: seaglass.TavernObservation) -> tuple[np.ndarray, np.
     for i, u in enumerate(obs.waiting_for_hand[:MAX_WAITING]):
         slot_card_ids[offset + i] = _encode_unit_into(u, slot_num_feats[offset + i])
 
-    # Trinkets: a present flag and the card id (their ids are in the vocabulary).
+    # Trinkets: a present flag, the card id (their ids are in the vocabulary) and the minion type
+    # the trinket names (`trinket_tribes`: 1 + its index in the lobby types, 0 for none).
     offset += MAX_WAITING
     for i, tid in enumerate(obs.trinkets[:MAX_TRINKETS]):
         slot_card_ids[offset + i] = CARD_ID_TO_IDX.get(tid, 0)
         slot_num_feats[offset + i, 0] = 1.0
+        _encode_trinket_tribe(obs.trinket_tribes, i, slot_num_feats[offset + i])
     offset += MAX_TRINKETS
     for i, tid in enumerate(obs.trinket_options[:MAX_TRINKET_OPTIONS]):
         slot_card_ids[offset + i] = CARD_ID_TO_IDX.get(tid, 0)
         slot_num_feats[offset + i, 0] = 1.0
+        _encode_trinket_tribe(obs.trinket_option_tribes, i, slot_num_feats[offset + i])
 
     return player_vec, slot_card_ids, slot_num_feats

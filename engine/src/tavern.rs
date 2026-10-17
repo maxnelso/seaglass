@@ -639,6 +639,9 @@ pub struct TavernState {
     /// legal action is `ChooseTrinket`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinket_options: Vec<TrinketOption>,
+    /// The trinket offers waiting behind `trinket_options`, in order (`docs/trinkets.md` §3.5).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trinket_offer_queue: Vec<Vec<TrinketOption>>,
     /// The player has the Dark Discovery button (`docs/dark_gifts.md` §3). Off by default.
     #[serde(default, skip_serializing_if = "is_false")]
     pub dark_gifts_enabled: bool,
@@ -702,6 +705,7 @@ impl TavernState {
             lobby_gifts: Vec::new(),
             trinkets_enabled: false,
             trinket_options: Vec::new(),
+            trinket_offer_queue: Vec::new(),
             dark_gifts_enabled: false,
             dark_discoveries_used: 0,
             dark_discovery_used_this_turn: false,
@@ -1500,6 +1504,40 @@ impl TavernState {
         cards::after_shop_refresh(self, rng);
     }
 
+    /// Refresh the Tavern with minions of the player's Tier or lower from the pool that `keep`
+    /// accepts (`Chillmere Mosaic`'s spell: `docs/trinkets.md` §11.6), each `prepare`d as it
+    /// joins, then the shop's spell: a Refresh the player does.
+    pub fn refresh_shop_with_minions(
+        &mut self,
+        keep: impl Fn(CardId) -> bool,
+        prepare: impl Fn(&mut Unit),
+        pool: &mut CardPool,
+        rng: &mut Rng,
+    ) {
+        self.is_frozen = false;
+        for old in self.shop.drain(..) {
+            pool.return_unit(&old);
+        }
+        let cap = self.shop_minion_slots();
+        for _ in 0..cap {
+            if let Some(mut drawn) = pool
+                .draw_discover_filtered(self.tavern_tier, 1, &keep, rng)
+                .pop()
+            {
+                self.apply_shop_auras(&mut drawn);
+                prepare(&mut drawn);
+                self.shop.push(drawn);
+            }
+        }
+        if self.include_shop_spells {
+            let spell = self.draw_shop_spell(RefreshKind::Player, rng);
+            self.shop.push(spell);
+        }
+        heroes::after_refresh(self, pool, rng);
+        trinkets::after_refresh(self, RefreshKind::Player, pool, rng);
+        cards::after_shop_refresh(self, rng);
+    }
+
     /// Refresh the Tavern with minions of `tribe` (`Lost Staff of Hamuul`).
     pub fn refresh_shop_with_tribe(&mut self, tribe: Tribe, pool: &mut CardPool, rng: &mut Rng) {
         self.is_frozen = false;
@@ -1915,7 +1953,7 @@ impl TavernState {
             );
         }
         // A turn the hero skips (`docs/tavern.md` §6): only `EndTurn`.
-        if heroes::skips_turn(self) {
+        if heroes::skips_turn(self) || trinkets::skips_turn(self) {
             return action == &TavernAction::EndTurn;
         }
 
@@ -2082,7 +2120,7 @@ impl TavernState {
             }
             return actions;
         }
-        if heroes::skips_turn(self) {
+        if heroes::skips_turn(self) || trinkets::skips_turn(self) {
             return vec![TavernAction::EndTurn];
         }
 
@@ -2336,6 +2374,7 @@ impl TavernState {
                     let cost = price.cost;
                     self.auras.next_minion_discount = 0;
                     cards::on_minion_bought(self, &mut unit);
+                    trinkets::minion_bought(self, &mut unit);
                     let cid = unit.card_id;
                     obtained = unit.clone();
                     trinkets::card_added(self, &obtained);

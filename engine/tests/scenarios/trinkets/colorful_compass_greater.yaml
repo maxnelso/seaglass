@@ -1,0 +1,15 @@
+trinket: Colorful Compass (Greater)
+scenarios:
+  - name: picked_it_gives_two_of_the_type
+    tavern: {gold: 10, tavern_tier: 2, board: ["1/1 pirate", "1/1 pirate", "1/1 pirate"]}
+    steps:
+      - offer_trinkets: [Colorful Compass (Greater)]
+      - choose_trinket: 0
+    expect:
+      auras: {trinkets: [{tribe: pirate}]}
+      hand: {count: 2, all: {tribe: {any_of: [pirate, beast_pirate, dragon_pirate, all]}, tavern_tier: "<= 2"}}
+
+  - name: each_turn_start_gives_two_more
+    tavern: {auras: {trinkets: [{trinket: Colorful Compass (Greater), tribe: murloc}]}}
+    steps: [start_turn]
+    expect: {hand: {count: 2, all: {tribe: {any_of: [murloc, mech_murloc, all]}}}}

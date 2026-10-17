@@ -1,0 +1,12 @@
+trinket: Mysterious Orb
+scenarios:
+  - name: picked_it_gives_10_gold_and_the_next_offer_is_lesser
+    tavern: {turn: 5, trinkets_enabled: true}
+    steps:
+      - start_turn
+      - set: {trinket_options: []}
+      - give_trinket: Mysterious Orb
+      - expect: {gold: 18, auras: {trinkets: [{counter: 6}]}}
+      - repeat: 3
+        steps: [end_turn, start_turn]
+    expect: {turn: 9, trinket_options: {count: ">= 1", all: {greater: false}}}

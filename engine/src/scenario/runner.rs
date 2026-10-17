@@ -370,14 +370,19 @@ fn tavern_step(
         StepKind::SetHero(id) => state.set_hero(*id).map_err(Failure::Invalid)?,
         StepKind::OfferHeroes(ids) => state.offer_heroes(ids.clone()),
         StepKind::GiveTrinket(id) => state.give_trinket(*id, pool, rng),
-        StepKind::OfferTrinkets(ids) => state.offer_trinkets(
-            ids.iter()
-                .map(|&card_id| TrinketOption {
-                    card_id,
-                    cost: crate::trinkets::data(card_id).map_or(0, |t| t.cost),
-                })
-                .collect(),
-        ),
+        StepKind::OfferTrinkets(ids) => {
+            state.offer_trinkets(
+                ids.iter()
+                    .map(|&card_id| TrinketOption {
+                        card_id,
+                        cost: crate::trinkets::data(card_id).map_or(0, |t| t.cost),
+                        tribe: crate::model::Tribe::None,
+                        replaces: None,
+                    })
+                    .collect(),
+            );
+            crate::trinkets::assign_offer_types(state, rng);
+        }
         StepKind::DrawTrinketOffer(greater) => {
             let options = crate::trinkets::draw_offer(state, *greater, rng);
             state.offer_trinkets(options);

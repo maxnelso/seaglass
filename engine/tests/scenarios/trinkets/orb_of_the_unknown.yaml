@@ -1,0 +1,10 @@
+trinket: Orb of the Unknown
+scenarios:
+  - name: picked_it_becomes_a_random_lesser_trinket
+    description: The Orb is replaced rather than a third trinket joining (engine decision).
+    seeds: "1..=6"
+    tavern: {gold: 10, auras: {trinkets: [Lucky Tabby]}}
+    steps:
+      - give_trinket: Orb of the Unknown
+    expect:
+      auras: {trinkets: {count: 2, 0: {name: Lucky Tabby}, 1: {name: {not: {any_of: [Orb of the Unknown, Lucky Tabby]}}, greater: false}}}

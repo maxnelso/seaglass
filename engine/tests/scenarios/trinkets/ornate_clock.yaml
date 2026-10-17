@@ -1,0 +1,16 @@
+trinket: Ornate Clock
+scenarios:
+  - name: the_greater_offer_comes_the_next_turn_and_not_on_turn_9
+    tavern: {turn: 5, gold: 0, trinkets_enabled: true}
+    steps:
+      - start_turn
+      - set: {trinket_options: []}
+      - give_trinket: Ornate Clock
+      - expect: {gold: 10, auras: {trinkets: [{counter: 6}]}}
+      - end_turn
+      - start_turn
+      - expect: {turn: 7, trinket_options: {count: ">= 1", all: {greater: true}}}
+      - choose_trinket: 0
+      - repeat: 2
+        steps: [end_turn, start_turn]
+    expect: {turn: 9, trinket_options: []}

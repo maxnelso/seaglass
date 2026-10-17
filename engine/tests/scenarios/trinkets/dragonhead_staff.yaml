@@ -1,0 +1,10 @@
+trinket: Dragonhead Staff
+scenarios:
+  - name: thirteen_attacks_in_combat_replace_it_at_the_next_turn_start
+    seeds: "1..=3"
+    tavern: {board: ["1/50", "1/50"], auras: {trinkets: [{trinket: Dragonhead Staff, counter: 11}]}}
+    steps:
+      - fight: {board: ["0/100 taunt"]}
+      - expect: {auras: {trinkets: [{name: Dragonhead Staff, counter: 13}]}}
+      - start_turn
+    expect: {auras: {trinkets: {count: 1, 0: {name: {not: Dragonhead Staff}, greater: true}}}}

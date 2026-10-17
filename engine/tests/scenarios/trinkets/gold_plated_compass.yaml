@@ -1,0 +1,34 @@
+trinket: Gold-plated Compass
+scenarios:
+  - name: picked_it_gives_five_free_refreshes
+    tavern: {gold: 10, board: ["1/1 undead", "1/1 undead"]}
+    steps:
+      - offer_trinkets: [Gold-plated Compass]
+      - choose_trinket: 0
+    expect: {gold: 10, auras: {free_refreshes: 5, trinkets: [{tribe: undead}]}}
+
+  - name: the_next_minion_of_the_type_bought_is_golden
+    description: >-
+      Only a minion of the type it names, and only the next one; it is Golden before it reaches
+      the hand, so it makes no Triple with the two copies there.
+    tavern:
+      gold: 20
+      shop: ["2/2 beast", "Harmless Bonehead", "3/3 undead"]
+      hand: ["Harmless Bonehead", "Harmless Bonehead"]
+      auras: {trinkets: [{trinket: Gold-plated Compass, tribe: undead}]}
+    steps:
+      - buy: 0
+      - buy: 0
+      - buy: 0
+    expect:
+      hand: ["Harmless Bonehead -golden", "Harmless Bonehead -golden", "2/2 beast -golden", "golden Harmless Bonehead", "3/3 -golden"]
+      auras: {trinkets: [{armed: 1}]}
+
+  - name: a_two_type_minion_counts
+    tavern:
+      gold: 20
+      shop: ["2/2 undead_mech"]
+      auras: {trinkets: [{trinket: Gold-plated Compass, tribe: mech}]}
+    steps:
+      - buy: 0
+    expect: {hand: ["golden 4/4"]}

@@ -6,6 +6,7 @@ import numpy as np
 import seaglass
 
 from seaglass_rl import NUM_SLOTS, PLAYER_DIM, encode_observation
+from seaglass_rl.features import TRINKET_TRIBE_OFFSET
 
 # The six trinket features of the player vector (`engine/docs/trinkets.md` §8.2), before the Dark
 # Discovery button's two (`engine/docs/dark_gifts.md` §8.2).
@@ -89,15 +90,45 @@ def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
     player_vec, slot_card_ids, _ = encode_observation(obs)
     assert player_vec[TRINKET_PLAYER_FEATURES.start] == 1.0 and slot_card_ids[-4] != 0
 
-    pick = legal[0].args[0]
+    names = {tid: name for (tid, name, *_rest) in seaglass.trinkets_table()}
+    # Not a trinket that replaces itself as it is picked (`engine/docs/trinkets.md` §3.5).
+    plain = [a for a in legal if names[obs.trinket_options[a.args[0]]] != "Orb of the Unknown"]
+    pick = (plain or legal)[0].args[0]
     chosen, cost, gold = obs.trinket_options[pick], obs.trinket_option_costs[pick], obs.gold
     owned = list(obs.trinkets)  # the Lesser one picked on turn 6, if there was an offer
     game.step(seaglass.TavernAction.choose_trinket(pick))
     obs = game.observe()
     assert obs.trinket_options == [] and obs.trinkets == owned + [chosen]
-    names = {tid: name for (tid, name, *_rest) in seaglass.trinkets_table()}
     gained = 4 if names[chosen] == "Bob's Tip Jar" else 0  # "Gain 4 Gold"
     assert obs.gold == gold - cost + gained
     # A trinket that Discovers as it is picked (Book of Medivh, ...) leaves its prompt first.
     after = {a.kind for a in game.legal_actions()}
     assert "end_turn" in after or after == {"choose_discover"}
+
+
+def test_offered_trinkets_show_the_type_they_name() -> None:
+    # A trinket whose text names a minion type (Colorful Compass, Minion Bait) gets the player's
+    # most common type as it is offered (`engine/docs/trinkets.md` §3.4): `trinket_option_tribes`
+    # (1 + its index in the lobby types, 0 for none) and a one-hot in the option's slot.
+    names = {tid: name for (tid, name, *_rest) in seaglass.trinkets_table()}
+    typed = {"Colorful Compass", "Gold-plated Compass", "Minion Bait"}
+    seen = 0
+    for seed in range(40):
+        game = seaglass.TavernGame(seed=seed)
+        _play_to_turn(game, 6)
+        obs = game.observe()
+        assert len(obs.trinket_option_tribes) == len(obs.trinket_options)
+        _, _, feats = encode_observation(obs)
+        for i, (tid, tribe) in enumerate(zip(obs.trinket_options, obs.trinket_option_tribes)):
+            row = feats[NUM_SLOTS - 4 + i, TRINKET_TRIBE_OFFSET:]
+            assert (tribe != 0) == (names[tid] in typed)
+            assert row.sum() == (1.0 if tribe else 0.0)
+            if tribe:
+                assert row[tribe - 1] == 1.0
+                seen += 1
+                game.step(seaglass.TavernAction.choose_trinket(i))
+                picked = game.observe()
+                if tid in picked.trinkets:
+                    assert picked.trinket_tribes[picked.trinkets.index(tid)] == tribe
+                break
+    assert seen > 0

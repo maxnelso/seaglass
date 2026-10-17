@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The trinkets implemented so far: §11.
 
 ### Deferred
-Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Bounties, Triple Prizes, Quests and Buddies. Tier 7 minions and spells are in the game: the trinkets that give them are implemented **(confirmed)**. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets are implemented when the Spellcraft queue (`tavern.md` §7.4) supports them.
+Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Bounties, Triple Prizes, Quests and Buddies. Tier 7 minions and spells are in the game: the trinkets that give them are implemented **(confirmed)**. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets give their own Spellcraft spell (§11.6).
 
 ---
 
@@ -55,7 +55,9 @@ All are generic: the engine never reads `counter`, `stacks`, `armed` or `stored`
 
 ### 2.3 Owning a Trinket
 
-A trinket is kept for the rest of the game **(confirmed)**. Trinkets that replace or copy themselves (`Mystery Cube`, `Trip Vouchers`, `Souvenir Stand`, `Empowered Mirror`, ...) are deferred (§11.3).
+A trinket is kept for the rest of the game **(confirmed)**, unless a trinket's own text replaces it (§3.5: `Mystery Cube`, `Trip Vouchers`, `Souvenir Stand`, `Empowered Mirror`, ...).
+
+A player can own two copies of a trinket (`Souvenir Stand` becomes a copy of the Greater trinket just bought): each copy keeps its own `TrinketState`, and each copy's hooks find their own (`trinkets::state_mut` looks first at the trinket whose hook is running, by its place in pick order; `trinkets::in_slot`).
 
 ---
 
@@ -93,7 +95,27 @@ Every rule below is **(confirmed)** but where it says otherwise.
 
 Every trinket is equally likely among those a step draws from (uniform weights) **(engine decision)**. With a pool too small (early in the engine's life, few implemented trinkets of a kind), an offer can have fewer than 4 options or break rule 2 or 4; an empty offer is no offer.
 
-`TavernState::trinket_options: Vec<TrinketOption>` holds the offer: each option's `card_id` and `cost` (its price, rule 5 applied).
+`TavernState::trinket_options: Vec<TrinketOption>` holds the offer: each option's `card_id`, `cost` (its price, rule 5 applied) and `tribe` (§3.4).
+
+### 3.4 Trinkets That Name a Minion Type
+
+Some trinkets' texts name a minion type that the data leaves as a placeholder (`{0}`, CardDefs tag 2 = 92; HearthstoneJSON renders it `92`): `Colorful Compass` (both), `Gold-plated Compass` and `Minion Bait` ("Get a random 92"). Their hooks carry `CardFlags::TRINKET_MINION_TYPE`.
+
+- The type is assigned to the trinket **when it is offered** **(confirmed)**: the player's most common type at that moment, counted as for rule 3 (the board and the hand; a two-type minion counts for both types, an `All` minion for every type). Ties, and a player without minions (every type tied), are broken at random among the tied lobby types, one `rng.below(k)` (none for a single type) **(engine decision)** (`trinkets::most_common_type`).
+- It is stored on the option (`TrinketOption::tribe`) and, once picked, on the trinket (`TrinketState::tribe`); `Tribe::None` for every other trinket (serde leaves it out). The draw of §3.3 assigns it after the shuffle, one draw per typed option, so an offer without typed trinkets draws nothing more. An offer made without a draw (`offer_trinkets`, the scenario step) assigns it at once (`trinkets::assign_offer_types`); a trinket given without an offer (`give_trinket`) gets it as it is given.
+- The trinket's hooks read it (`trinkets::named_type`); without one (a scenario trinket given with `auras: {trinkets: [...]}` and no `tribe:`) they do nothing.
+- RL sees it (§8.2): `trinket_tribes` and `trinket_option_tribes`.
+
+### 3.5 Trinkets That Replace, Copy or Add Trinkets, or Move an Offer
+
+The trinket core supports these generically (`src/trinkets/mod.rs`); the trinkets' files say when.
+
+- **Replacing** (`trinkets::replace`): the new trinket takes the old one's place in pick order, with a fresh state, and its `trinket_bought` text resolves, as if it were picked (no price) **(engine decision)**. A typed new trinket (§3.4) gets the player's most common type now, a copy the type of the trinket it copies. It happens in the Tavern only: a count a trinket reaches in combat (`Dragonhead Staff`, `Soul Battery`) replaces it at the start of the next turn **(engine decision)**.
+- **A random trinket** of a kind (and a type: "a random Greater Dragon Trinket") is drawn uniformly, one `rng.below(k)`, among the offerable trinkets of that kind (§3.1: implemented, Duos-only ones only in Duos, Dark Gift ones only with Dark Gifts) the player doesn't own, of that type if one is named; the offer rules of §3.2 (the minions a typed trinket needs) don't apply **(engine decision)** (`trinkets::random_trinket`). Nothing if there is none.
+- **Extra offers**: a trinket's offer (`Mystery Cube`, `Trip Vouchers`) is an offer like §4's (`ChooseTrinket`, no skipping, the same RL actions). One made while another is pending waits in `TavernState::trinket_offer_queue` and follows, in order, once the pending one is picked **(engine decision)**; the turn start's offers come in the order their trinkets' `trinket_turn_start` hooks run, then the scheduled one (§3.1). An option can **replace** a trinket the player owns (`TrinketOption::replaces`): picking it replaces that trinket rather than adding one; an option that is the very trinket it would replace keeps it, for no Gold (`Mystery Cube`'s third option).
+- **Moving an offer** (`trinket_offer_kind`): each trinket in pick order can change the kind of the turn start's scheduled offer (`None`, Lesser or Greater) (`Ornate Clock`, `Mysterious Orb`).
+- **Copies**: `Souvenir Stand` and `Empowered Mirror` become copies (a replacement by the same trinket, fresh): the player can then own two copies of a trinket (§2.3).
+- After a pick from any offer, every other trinket's `trinket_after_pick` hook sees the picked trinket (`Souvenir Stand`: "when you buy a Greater Trinket").
 
 ---
 
@@ -160,6 +182,14 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_extra_deathrattles` | A friendly minion's Deathrattles are about to trigger in combat (on its death, or triggered by `Deathstrider` or `Herald Sticker`): extra triggers this trinket adds, on top of `Titus Rivendare`'s (it may use up a charge): `(trinket, unit)`. | `Deathly Phylactery`. |
 | `trinket_board_aura` | The stats this trinket gives a minion on the board (in the Tavern or in combat) as an aura (`cards::sync_board_unit_auras`, kept in `Unit::aura_applied`; a minion that leaves the board loses them): `(trinket, unit, auras)`. | `Hammer of Twilight`. |
 | `trinket_after_combat_summon` | A friendly minion was summoned in combat and is on the board (each `BoardCtx` summon; a Rally's summons once, after them): `(ctx)`. | `Wildfeather Duster`. |
+| `trinket_hero_power_triggers` | Extra times a `HeroPower` / `HeroPower2` action's effect (its `hero_power` hook) resolves, per use, on the same target while it is still valid: `(trinket)`. | `Ancient Wishbone`. |
+| `trinket_hero_power_uses` | Extra uses an active Hero Power gets at each turn start (`heroes::turn_reset`: 1 plus these): `(trinket)`. | `Sous Chef Sticker`. |
+| `trinket_after_hero_power` | After a Hero Power was used (its effect, then its cost): `(state, pool, rng)`. | `Sous Chef Sticker`. |
+| `trinket_offer_kind` | The kind of the turn start's scheduled offer (§3.1), given the kind so far (`None`, `Some(greater)`), folded in pick order: `(trinket, state, kind)` (§3.5). | `Ornate Clock`, `Mysterious Orb`. |
+| `trinket_after_pick` | The player picked a trinket from an offer (it joined, or replaced one), after its own text: `(state, picked, pool, rng)`. | `Souvenir Stand`. |
+| `trinket_teammate` | Duos: the teammate, after each of the team's actions (`DuosTavern::step`) and at the end of the team's turn start: `(state, teammate, pool, rng)`, a `TeammateView` (the teammate's Tavern, and whether the team's turn is over) (§8.1). | `Empowered Mirror`, `Cho'gall Sticker`, `Moveout Box`. |
+| `trinket_skips_turn` | Whether the player skips the current turn, as a Hero Power's `hero_skips_turn` (only `EndTurn` and the prompts are legal): `(trinket, state)`. | `Moveout Box`. |
+| `trinket_minion_bought` | A minion is being bought, before it reaches the hand (so before its Triple), after the board's `minion_bought` observers: `(state, bought)`, the minion mutable. | `Gold-plated Compass`. |
 | `trinket_extra_triggers` | Extra times the effects a `Passive` counts trigger: `(passive)`. Only `EndOfTurnTriggers` is read: added to the board's for the end-of-turn repeat count of every end-of-turn effect (tavern.md §7.5). | `Ghastly Sticker`. |
 | `trinket_combat_start` | The player's side of a combat is set up: `(trinket)`, to restart per-combat counts. | Avenge, "3 times per combat". |
 | `trinket_combat_summon` | A friendly minion is being summoned in combat, after the other summon modifiers (the auras, the Hero Power's `hero_combat_summon`, the `friendly_summon` observers): `(trinket, summoned)`, the trinket's state mutable (a per-combat charge, a count of summons, kept after the combat). | `Slamma Sticker`, `Reinforced Shield`, `Fang Anklet`, `Wildfeather Duster`. |
@@ -191,15 +221,15 @@ In Duos, a warband stepping in resolves step 1c for its own trinkets after its s
 
 ### 8.1 Duos
 
-Trinkets are per player **(engine decision)**: each player of a team is offered their own trinkets on their turn 6 and 9 (`DuosTavern::with_trinkets` enables both), counts their own board and hand, pays with their own Gold, and owns their own; Duos-only trinkets are offered only in Duos. `DuosTavern::is_legal` / `step` allow `ChooseTrinket` for the player's own Tavern like every action but Pass; a pending offer blocks the player's Passes too. Each warband carries its player's trinkets into a Duos combat.
+Trinkets are per player **(engine decision)**: each player of a team is offered their own trinkets on their turn 6 and 9 (`DuosTavern::with_trinkets` enables both), counts their own board and hand, pays with their own Gold, and owns their own; Duos-only trinkets are offered only in Duos. `DuosTavern::is_legal` / `step` allow `ChooseTrinket` for the player's own Tavern like every action but Pass; a pending offer blocks the player's Passes too. Each warband carries its player's trinkets into a Duos combat. After each of the team's actions and at the end of the team's turn start, each player's trinkets see the teammate (`trinket_teammate`: their Tavern, as a copy, and whether the team's turn is over), player 0's first; nothing for a player without trinkets. A trinket reaches the teammate through the team's channels (`TeammateGift`, `duos_tavern.md` §7.2): a Pass by a card effect, a card.
 
 ### 8.2 Python / RL
 
 - `TavernGame(..., trinkets=True)` and `DuosTavernGame(..., trinkets=True)` enable the offers: on by default, as RL plays with trinkets (and Dark Gifts) **(confirmed)**; `trinkets=False` turns them off. The Rust default stays off.
 - `TavernAction.choose_trinket(option_index)`, whose `kind` is `"choose_trinket"`.
-- The observation (`TavernObservation`, `DuosObservation`) appends `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their `counter`s), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices).
+- The observation (`TavernObservation`, `DuosObservation`) appends `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their `counter`s), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices); then `trinket_tribes` and `trinket_option_tribes`: the minion type each owned and each offered trinket names (§3.4), as its index in `LOBBY_TRIBES` plus 1, 0 for none.
 - The RL action table (`rl/seaglass_rl/actions.py`) appends, at the end, `choose_trinket(i)` for `i` in `0..4`.
-- The features (`rl/seaglass_rl/features.py`) append to the player vector a pending-offer flag, the number of trinkets owned (/ 2) and the 4 offered prices (/ 10, 0 for none), and 6 card slots at the end: the 2 owned trinkets, then the 4 offered ones (their ids are appended to `seaglass.all_card_ids()`, append-only: `trinkets::vocabulary` keeps the order of the first table, the 264 trinkets of the CardDefs pool, so a trinket that left the pool keeps its index, and a new one is appended).
+- The features (`rl/seaglass_rl/features.py`) append to the player vector a pending-offer flag, the number of trinkets owned (/ 2) and the 4 offered prices (/ 10, 0 for none), and 6 card slots at the end: the 2 owned trinkets, then the 4 offered ones (their ids are appended to `seaglass.all_card_ids()`, append-only: `trinkets::vocabulary` keeps the order of the first table, the 264 trinkets of the CardDefs pool, so a trinket that left the pool keeps its index, and a new one is appended). Every card slot's numeric features end with a one-hot of the 10 lobby types (after the Dark Gift features): the type a trinket names (§3.4), set only in the trinket slots.
 
 `rl/README.md` describes the encoding.
 
@@ -435,6 +465,13 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Wax Lance` (Greater) | Discover a Tier 7 minion with a Dark Gift. | As picked: a Dark Gift offer of Tier 7 minions from the pool (`dark_gifts.md` §12.3). |
 | `Pagle's Fishing Rod` (Greater) | Get a random Tier 7 minion. At the start of each turn, get another. | Picked, and at each turn start: a random minion of exactly Tier 7 from the game's catalog (`trinkets::give_random_minion_of_tier`), to the hand or waiting for room **(confirmed: Tier 7 is in the game)**. |
 | `Tableware Portrait` (Greater) | Get a Menagerie Tableware. At the start of each turn, get another. | Picked, and at each turn start: a fresh `Menagerie Tableware` (the Tier 7 Tavern spell), to the hand or waiting for room. |
+| `Colorful Compass` (Lesser) | Get a random {type}. At the start of each turn, get another. | The type assigned as it was offered (§3.4, confirmed); picked and at each turn start, a random minion of that type of the player's Tier or lower from the catalog. |
+| `Colorful Compass` (Greater) | Get 2 random {type}. At the start of each turn, get 2 more. | As the Lesser one, 2 each time (confirmed). |
+| `Gold-plated Compass` (Greater) | Make the next {type} you buy Golden. Gain 5 free Refreshes. | 5 `free_refreshes` as picked; `trinket_minion_bought`: the next minion of the type (§3.4, confirmed; a two-type or `All` one too) bought is made Golden (`Unit::make_golden`) before it reaches the hand, so it makes no Triple; once. |
+| `Minion Bait` (Lesser) | The Tavern offers 2 extra {type} whenever it is Refreshed. | Every Refresh (the turn start's too) adds 2 minions of the type (§3.4, confirmed) of the player's Tier or lower from the pool (`CardPool::draw_by_tribe`) at the end of the Tavern while it has room. |
+| `Shark Cannon` (Greater) | After you spend 7 Gold, give your Pirates +1/+1 and improve this. | The data's numbers are broken: every 7 Gold spent, the board's Pirates gain `+(1 + stacks)/+(1 + stacks)` and it improves by +1/+1 (+1/+1, then +2/+2, ...); the count starts again after each trigger **(confirmed)**. Each Gold counts, across turns: a spending that passes 7 keeps the rest toward the next **(engine decision)**. |
+| `Inductive Gyroblade` (Lesser) | At the end of your turn, get a 4/4 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!) | A `Satellite` of `4/4` plus `+4/+4` per Tavern spell cast this turn (every cast, repeats too; counted from each turn start) **(confirmed)**; repeated by the end-of-turn repeat count. |
+| `Inductive Gyroblade` (Greater) | At the end of your turn, get a 12/12 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!) | As the Lesser one: `12/12`, `+12/+12` per spell **(confirmed)**. |
 
 ### 11.3 Deferred
 
@@ -444,9 +481,60 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Tickatus Sticker` and the other Darkmoon Prize trinkets | Darkmoon Prizes **(confirmed)**. |
 | `Sunken Anchor`, `Privateer Portrait` and the other Bounty trinkets | Bounties **(confirmed)**. |
 | `Corrupted Tome` | Triple Prizes (the engine has none) **(confirmed)**. |
-| `Mystery Cube`, `Trip Vouchers`, `Souvenir Stand`, `Empowered Mirror`, `Orb of the Unknown`, `Soul Battery`, `Dragonhead Staff`, `Ornate Clock` | They replace, copy or add trinkets, or move an offer (**engine decision**: later). |
 
-The list grows as the batches go (§11.1, §11.2): every trinket of the table that isn't implemented is not offered.
+The list grows as the batches go (§11.1, §11.2, §11.4–§11.7): every trinket of the table that isn't implemented is not offered.
+
+### 11.4 Hero Power Trinkets
+
+| Trinket | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Ancient Wishbone` (Lesser) | Your Hero Power triggers twice. | `trinket_hero_power_triggers`: each use of an active Hero Power (the second one's too) resolves its effect twice, the second time on the same target if it is still valid; the cost is paid once. A passive Hero Power's effects don't repeat **(engine decision)**. |
+| `Sous Chef Sticker` (Lesser) | You can use your Hero Power an extra time each turn. After you use your Hero Power, gain (1) Gold. | `trinket_hero_power_uses`: an active Hero Power (each of the hero's) has 2 uses each turn, and picked, one more use this turn **(engine decision)**; `trinket_after_hero_power`: 1 Gold after each use. |
+| `Reinvigorating Light` (Lesser) | Discover a second Hero Power. Gain 3 Gold. | 3 Gold, then a Discover of 3 Hero Powers as `Genn, Worgen King`'s second one (`heroes::offer_power_discover`): the chosen one becomes `hero.second_power` (used with `HeroPower2`), replacing one the hero had **(engine decision)**; only the Gold without a hero. |
+
+### 11.5 Trinkets That Replace, Copy or Add Trinkets, or Move an Offer
+
+These use the core of §3.5.
+
+| Trinket | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Mystery Cube` (Lesser) | Choose from 2 new Lesser Trinkets to replace this for free. At the start of each turn, repeat this. | Picked, and at each turn start while it is kept: an offer of 2 random Lesser trinkets (free, each replacing the Cube) and the Cube itself (free, keeping it): the choice can be declined, as the repeat says **(engine decision**: a third option, since offers can't be skipped**)**. |
+| `Orb of the Unknown` (Lesser) | Get a random Lesser Trinket. | Picked, it is replaced by a random Lesser trinket, whose text resolves: the Orb becomes it rather than a third trinket joining **(engine decision)**. |
+| `Orb of the Unknown` (Greater) | Get a random Greater Trinket and 4 Gold. | 4 Gold, then as the Lesser one, a Greater trinket **(engine decision)**. |
+| `Souvenir Stand` (Lesser) | When you buy a Greater Trinket, this transforms into a copy of it. | `trinket_after_pick`: a Greater trinket picked from any offer makes the Stand a fresh copy of it (its minion type too), whose text resolves too **(engine decision)**; the two copies keep their own states (§2.3). |
+| `Trip Vouchers` (Lesser) | In 2 turns, choose a Greater Trinket to buy and replace this. | At the 2nd turn start after the pick: a Greater offer drawn as on turn 9 (§3.3, its prices), each option replacing the Vouchers; the turn 9 offer still comes **(engine decision)**. |
+| `Ornate Clock` (Lesser) | Gain 2 Gold. Buy your Greater Trinket next turn instead of Turn 9. | 2 Gold; `trinket_offer_kind`: the turn after the pick has the Greater offer and turn 9 none; picked on turn 8 or later, nothing changes **(engine decision)**. |
+| `Mysterious Orb` (Lesser) | Gain 10 Gold. Your next Trinket is a Lesser Trinket. | 10 Gold; `trinket_offer_kind`: the first scheduled offer after the pick (turn 9's) is a Lesser offer. |
+| `Dragonhead Staff` (Lesser) | After 13 friendly minions attack, replace this with a random Greater Dragon Trinket. | Each friendly attack (in combat or in the Tavern) counts, across combats; at 13, a random Greater Dragon trinket replaces it, after the Tavern action, or at the next turn start for a count reached in combat **(engine decision)**. |
+| `Quartermaster's Hook` (Lesser) | After you spend 50 Gold, replace this with a random Greater Pirate Trinket. | Every Gold spent counts, across turns; at 50, at once. |
+| `Ruby Tusk` (Lesser) | After you play 10 Blood Gems from hand, replace this with a random Greater Quilboar Trinket. | Each Blood Gem played from the hand counts once (not its extra casts, nor a card's Gems); at 10, at once. |
+| `Soul Battery` (Lesser) | After you summon 25 minions, replace this with a random Greater Undead Trinket. | Every friendly minion summoned, in the Tavern (played too) or in combat, counts, across turns; at 25, as `Dragonhead Staff`. |
+| `Empowered Mirror` (Lesser, Duos) | Become a copy of your teammate's Lesser Trinket. | `trinket_teammate`: as soon as the teammate owns a Lesser trinket (not a Mirror), the Mirror becomes a fresh copy of it (its type too), whose text resolves; a teammate who picks later is copied then **(engine decision)**. |
+| `Empowered Mirror` (Greater, Duos) | Become a copy of your teammate's Greater Trinket. | As the Lesser one, the teammate's Greater trinket. |
+
+### 11.6 Spellcraft Trinkets
+
+A Spellcraft trinket gives its own Spellcraft spell (its data's related card, `<card ID>t`, with its dbfId as engine id) as it is picked and at the start of each turn (`trinket_turn_start`), to the hand or waiting for room (§5). As every Spellcraft spell (`tavern.md` §7.4), it is a temporary token spell for 0 Gold (`CardFlags::TEMPORARY`, not a Tavern spell, never in a pool): still in the hand or waiting at the end of the turn, it is discarded. Its hooks are in the trinket's file (`trinkets::spellcraft_spell`); its id is appended to the RL vocabulary (`src/vocab.rs`, §8.2). A spell that chooses a minion for later marks it (`Unit::trinket_marks`, read only by that trinket's hooks).
+
+| Trinket | Its spell | How the engine reads it |
+| :--- | :--- | :--- |
+| `Ophidian Staff` (Lesser) | Give a Beast +2/+2 and Reborn. | On a friendly Beast; no spell bonus (not a Tavern spell). |
+| `Vibrant Bubble` (Lesser) | Give a Murloc a random Bonus Keyword. | On a friendly Murloc: a random Bonus Keyword it lacks (as `Bubble Gunner`'s), none if it has them all. |
+| `Floating Candle Set` (Lesser) | Trigger a friendly minion's Deathrattle. | On a friendly minion with a Deathrattle (its own or given): `cards::trigger_tavern_deathrattle`. |
+| `Jailer Sticker` (Lesser) | Destroy a friendly Undead to get a random Undead. | On a friendly Undead: destroyed (`destroy_board_unit`), then a random Undead of the player's Tier or lower from the pool to the hand (as `The Jailer`'s Rune of Damnation). |
+| `Jailer Sticker` (Greater) | Destroy a friendly Undead to get 2 random Undead. | As the Lesser one, 2 Undead. |
+| `Chillmere Mosaic` (Greater) | Refresh the Tavern with Battlecry minions. They cost (1). | Untargeted: a Refresh the player does (`TavernState::refresh_shop_with_minions`) with Battlecry minions of the player's Tier or lower from the pool, each marked; a marked minion costs 1 Gold while it stays in the Tavern (`trinket_buy_price`; the minions other effects add to that Refresh are not marked) **(engine decision)**. |
+| `Makeshift Master` (Greater) | Choose a minion. After it gains stats outside combat this turn, your Deity also gains them. | On a friendly minion, marked until the next turn start: after each Tavern action, the Attack and Health it gained since (each one's rise, auras too) go to the Deity **(engine decision**: measured after each action**)**. |
+| `Token of the Old Gods` (Lesser) | Choose a minion. Then choose a minion from a Tier higher to transform it into. | On a friendly minion, marked: a Discover of 3 minions of its Tier plus one (6 at most) from the pool, whose options the trinket keeps; resolved, the chosen minion leaves the hand and the marked one transforms into it in its place (its copy back to the pool); a chosen card that already made a Triple in the hand stays there **(engine decision)**. |
+
+### 11.7 Duos Teammate Trinkets
+
+| Trinket | Text | How the engine reads it |
+| :--- | :--- | :--- |
+| `Common Thread` (Lesser, Duos) | Pass a copy of the first card you buy each turn. | `trinket_after_buy`: the first card bought each turn (minion or spell) is Passed as a copy of it as bought (`TeammateGift::Pass`: free, the team's Pass); the card stays in the hand. |
+| `Magic Road Sign` (Greater, Duos) | After you sell your first minion each turn, Pass it. | `trinket_after_sell`: the first minion sold each turn, once its sell triggers resolved, is Passed as it was sold instead of going back to the pool (its copies leave it again); the Gold stays. |
+| `Cho'gall Sticker` (Greater, Duos) | Whenever your team plays a Golden minion, both you and your teammate get a Triple Reward. | `trinket_teammate`, after each of the team's actions: each Golden minion played from the hand since by either player (`golden_minions_played`, the game's count: Magnetized and intrinsic ones too **(engine decision)**) gives the player a `Triple Reward` of their Tier plus one and the teammate one that locks in their Tier as it arrives (as `Cho`'s Double Trouble); counted from when it first sees the teammate. |
+| `Moveout Box` (Greater, Duos) | Skip this turn. At the end of it, replace your warband with a copy of your teammate's. | `trinket_skips_turn`: the turn it is picked, only `EndTurn` (and the prompts); once the team's turn is over, the board becomes exact copies of the teammate's board as it is then, the player's minions going back to the pool **(engine decision**: the teammate's final warband**)**. |
 
 ---
 
@@ -469,6 +557,10 @@ Engine decisions, pending the user's confirmation:
 | The waiting queue | One queue in giving order; a trinket's card keeps waiting across turns (§5). | `tavern.rs` |
 | Start of Combat | Step 1c, after both sides' Hero Powers, in pick order (§7.2). | `combat.rs` |
 | Duos | Per player (§8.1). | `trinkets`, `duos_tavern.rs` |
+| Batch 19 | Cho'gall Sticker counts the game's Golden plays; Moveout Box copies the teammate's final warband. | §11.7, their files |
+| Batch 18 | Chillmere Mosaic marks only its own Refresh's minions; Makeshift Master measures after each action; Token of the Old Gods' Tier 6 cap and Triple edge. | §11.6, their files |
+| Batch 17 | Replacing (fresh, the new trinket's text resolves, in the Tavern only); random trinkets uniform among the offerable ones of the kind, without the type rules; the offer queue; Mystery Cube's keep option; Orbs replace themselves; Souvenir Stand's copy resolves its text; Trip Vouchers' turn 9 offer still comes; Ornate Clock picked late changes nothing; Empowered Mirror copies a teammate who picks later. | §3.5, their files |
+| Batch 16 | A trinket's minion type: ties at random (§3.4); Shark Cannon keeps the Gold past 7; Ancient Wishbone repeats only active Hero Powers; Sous Chef Sticker's use the turn it is picked; Reinvigorating Light replaces a second Hero Power. | `trinkets::most_common_type`, their files |
 | Batch 15 | Sinstone Sticker's copy as offered; Portable Factory knowing its Discover by its options. | their files |
 | Batch 14 | Reinforced Shield only in combat; Fang Anklet's +1/+1 improvements and the Beasts summoned in combat; Wildfeather Duster's Tavern cards after the action. | their files |
 | Batch 13 | Consuming Claw counts Demon Fodder; Glowing Gauntlet's refill isn't a Refresh; Soul Fermenter's resummon (as kept, once, at once if the Start of Combat empties the board). | their files |

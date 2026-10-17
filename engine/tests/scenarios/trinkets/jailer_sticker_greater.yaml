@@ -1,0 +1,11 @@
+trinket: Jailer Sticker (Greater)
+scenarios:
+  - name: the_spell_destroys_an_undead_for_two_random_undead
+    seeds: "1..=3"
+    tavern: {tavern_tier: 3, board: ["2/2 undead"], auras: {trinkets: [Jailer Sticker (Greater)]}}
+    steps:
+      - start_turn
+      - play: {hand: 0, pos: 0}
+    expect:
+      board: []
+      hand: {count: 2, all: {tribe: {any_of: [undead, undead_mech, all]}, tavern_tier: "<= 3"}}

@@ -1,0 +1,20 @@
+trinket: Shark Cannon
+scenarios:
+  - name: every_7_gold_spent_buffs_pirates_and_improves
+    description: >-
+      +1/+1 after the first 7 Gold, then +2/+2 after the next 7 (confirmed); the Gold past 7 counts
+      toward the next (engine decision).
+    tavern: {gold: 20, board: ["1/1 pirate", "1/1 beast"], auras: {trinkets: [{trinket: Shark Cannon, counter: 5}]}}
+    steps:
+      - set: {upgrade_cost: 3}
+      - upgrade_tavern
+      - expect: {board: ["2/2", "1/1"], auras: {trinkets: [{counter: 1, stacks: 1}]}}
+      - set: {upgrade_cost: 6}
+      - upgrade_tavern
+    expect: {board: ["4/4", "1/1"], auras: {trinkets: [{counter: 0, stacks: 2}]}}
+
+  - name: less_than_7_gold_does_nothing
+    tavern: {gold: 10, board: ["1/1 pirate"], auras: {trinkets: [Shark Cannon]}}
+    steps:
+      - refresh
+    expect: {board: ["1/1"], auras: {trinkets: [{counter: 1, stacks: 0}]}}

@@ -1,0 +1,13 @@
+trinket: Jailer Sticker
+scenarios:
+  - name: the_spell_destroys_an_undead_for_a_random_undead
+    seeds: "1..=3"
+    tavern: {tavern_tier: 2, board: ["2/2 undead", "1/1 beast"], auras: {trinkets: [Jailer Sticker]}}
+    steps:
+      - start_turn
+      - expect: {hand: [{name: Jailer Sticker, is_spell: true}]}
+      - expect_illegal: {play: {hand: 0, pos: 1}}
+      - play: {hand: 0, pos: 0}
+    expect:
+      board: ["1/1 beast"]
+      hand: {count: 1, all: {tribe: {any_of: [undead, undead_mech, all]}, tavern_tier: "<= 2"}}

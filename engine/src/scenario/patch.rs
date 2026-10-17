@@ -45,10 +45,11 @@ const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
 /// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
 /// can still set them.
-const SKIPPED_UNIT_FIELDS: [&str; 8] = [
+const SKIPPED_UNIT_FIELDS: [&str; 9] = [
     "dark_gifts",
     "marked",
     "extra_deathrattles",
+    "trinket_marks",
     "temp_reborn",
     "until_next_turn_atk",
     "hats",
@@ -147,6 +148,12 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
         if !fields.contains_key("trinket_options") {
             fields.insert(Value::from("trinket_options"), Value::Sequence(Vec::new()));
         }
+        if !fields.contains_key("trinket_offer_queue") {
+            fields.insert(
+                Value::from("trinket_offer_queue"),
+                Value::Sequence(Vec::new()),
+            );
+        }
         for name in ["dark_gifts_enabled", "dark_discovery_used_this_turn"] {
             if !fields.contains_key(name) {
                 fields.insert(Value::from(name), Value::Bool(false));
@@ -168,13 +175,17 @@ fn merge_fields(fields: &mut Mapping, changes: &Mapping, path: &str) -> Result<(
     {
         fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
     }
-    // A trinket's kept cards, left out while there are none.
+    // A trinket's kept cards and minion type, left out while there are none.
     if fields.contains_key("stacks")
         && fields.contains_key("armed")
         && !fields.contains_key("uses_left")
-        && !fields.contains_key("stored")
     {
-        fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
+        if !fields.contains_key("stored") {
+            fields.insert(Value::from("stored"), Value::Sequence(Vec::new()));
+        }
+        if !fields.contains_key("tribe") {
+            fields.insert(Value::from("tribe"), Value::from("none"));
+        }
     }
     // A hero's second Hero Power, left out while there is none.
     if fields.contains_key("hero_id") && fields.contains_key("power") {

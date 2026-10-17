@@ -1,0 +1,21 @@
+trinket: Minion Bait
+scenarios:
+  - name: a_refresh_offers_two_minions_of_the_type
+    seeds: "1..=3"
+    tavern: {tavern_tier: 2, gold: 5, auras: {trinkets: [{trinket: Minion Bait, tribe: mech}]}}
+    steps:
+      - refresh
+    expect:
+      shop: {count: 6, 4: {tribe: {any_of: [mech, mech_murloc, undead_mech, all]}, tavern_tier: "<= 2"}, 5: {tribe: {any_of: [mech, mech_murloc, undead_mech, all]}}}
+
+  - name: the_turn_start_refresh_too
+    tavern: {tavern_tier: 1, auras: {trinkets: [{trinket: Minion Bait, tribe: beast}]}}
+    steps: [start_turn]
+    expect: {shop: {where: {tribe: {any_of: [beast, beast_pirate, all]}}, count: ">= 2"}}
+
+  - name: offered_it_names_the_most_common_type
+    tavern: {gold: 10, board: ["1/1 dragon", "1/1 dragon"]}
+    steps:
+      - offer_trinkets: [Minion Bait]
+      - choose_trinket: 0
+    expect: {auras: {trinkets: [{tribe: dragon}]}}

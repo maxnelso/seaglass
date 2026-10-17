@@ -19,6 +19,7 @@ pub mod sim;
 pub mod tavern;
 pub mod trinkets;
 pub mod types;
+pub mod vocab;
 
 #[cfg(feature = "python")]
 pub mod python;

@@ -1,0 +1,42 @@
+trinket: Mystery Cube
+scenarios:
+  - name: picked_it_offers_two_new_lesser_trinkets_to_replace_it
+    seeds: "1..=4"
+    tavern: {gold: 10}
+    steps:
+      - offer_trinkets: [Mystery Cube]
+      - choose_trinket: 0
+      - expect:
+          gold: 5
+          auras: {trinkets: [{name: Mystery Cube}]}
+          trinket_options:
+            count: 3
+            all: {cost: 0, replaces: 117801}
+            0: {name: {not: Mystery Cube}, greater: false}
+            1: {name: {not: Mystery Cube}, greater: false}
+            2: {name: Mystery Cube}
+      - choose_trinket: 0
+    expect:
+      auras: {trinkets: {count: 1, 0: {name: {not: Mystery Cube}, greater: false}}}
+      trinket_offer_queue: []
+
+  - name: kept_it_repeats_the_offer_each_turn
+    description: Picking the Cube itself keeps it, for no Gold (engine decision).
+    tavern: {auras: {trinkets: [Mystery Cube]}}
+    steps:
+      - start_turn
+      - expect: {trinket_options: {count: 3, 2: {name: Mystery Cube}}}
+      - choose_trinket: 2
+      - expect: {gold: 3, trinket_options: [], auras: {trinkets: [{name: Mystery Cube}]}}
+      - end_turn
+      - start_turn
+    expect: {trinket_options: {count: 3, 2: {name: Mystery Cube}}}
+
+  - name: the_scheduled_offer_waits_behind_it
+    description: The turn 6 Lesser offer follows once the Cube's offer is picked (engine decision).
+    tavern: {turn: 5, trinkets_enabled: true, auras: {trinkets: [Mystery Cube]}}
+    steps:
+      - start_turn
+      - expect: {trinket_options: {count: 3, 2: {name: Mystery Cube}}, trinket_offer_queue: {count: 1}}
+      - choose_trinket: 2
+    expect: {trinket_options: {count: ">= 1", all: {greater: false, replaces: null}}, trinket_offer_queue: []}
