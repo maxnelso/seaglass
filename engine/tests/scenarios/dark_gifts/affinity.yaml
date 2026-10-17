@@ -1,0 +1,11 @@
+dark_gift: Affinity
+scenarios:
+  - name: every_2_turns_gets_a_minion_of_its_type
+    seeds: "1..=10"
+    tavern: {board: ["1/1 beast gift:affinity"], tavern_tier: 3}
+    steps:
+      - end_turn
+      - expect: {hand: []}
+      - start_turn
+      - end_turn
+    expect: {hand: [beast]}

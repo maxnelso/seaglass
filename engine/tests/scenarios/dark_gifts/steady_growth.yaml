@@ -1,0 +1,21 @@
+dark_gift: Steady Growth
+scenarios:
+  - name: given_on_turn_3_it_grows_1_2
+    tavern: {board: ["1/1 gift:steady_growth@3"]}
+    steps:
+      - end_turn
+    expect: {board: ["2/3"]}
+
+  - name: given_on_turn_4_it_grows_2_2
+    tavern: {board: ["1/1 gift:steady_growth@4"]}
+    steps:
+      - end_turn
+    expect: {board: ["3/3"]}
+
+  - name: given_on_turn_5_it_grows_3_3
+    tavern: {board: ["1/1 gift:steady_growth@5"]}
+    steps:
+      - end_turn
+      - start_turn
+      - end_turn
+    expect: {board: ["7/7"]}

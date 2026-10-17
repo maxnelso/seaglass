@@ -1,0 +1,7 @@
+dark_gift: Dexterity (late)
+scenarios:
+  - name: each_card_played_gives_4_4
+    tavern: {board: ["1/1 beast gift:dexterity_late"], hand: ["1/1"]}
+    steps:
+      - play: 0
+    expect: {board: ["5/5", "1/1"]}

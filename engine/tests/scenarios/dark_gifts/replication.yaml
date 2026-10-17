@@ -1,0 +1,10 @@
+dark_gift: Replication
+scenarios:
+  - name: every_2_turns_gets_a_plain_copy
+    tavern: {board: ["Harmless Bonehead +2/+2 gift:replication"]}
+    steps:
+      - end_turn
+      - expect: {hand: []}
+      - start_turn
+      - end_turn
+    expect: {hand: ["Harmless Bonehead 1/1 -gift:replication"], board: ["Harmless Bonehead 3/3"]}

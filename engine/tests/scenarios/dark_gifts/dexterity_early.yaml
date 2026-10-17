@@ -1,0 +1,7 @@
+dark_gift: Dexterity (early)
+scenarios:
+  - name: each_card_played_gives_2_2
+    tavern: {board: ["1/1 beast gift:dexterity_early"], hand: ["1/1"]}
+    steps:
+      - play: 0
+    expect: {board: ["3/3", "1/1"]}

@@ -1,0 +1,8 @@
+dark_gift: Toughened Shield
+scenarios:
+  - name: each_card_played_gives_3_health
+    tavern: {board: ["1/1 gift:toughened_shield"], hand: ["1/1", "1/1"]}
+    steps:
+      - play: 0
+      - play: 0
+    expect: {board: ["1/7", "1/1", "1/1"]}

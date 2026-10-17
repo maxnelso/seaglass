@@ -15,6 +15,7 @@ mod table;
 mod vocab;
 
 pub mod admiration;
+pub mod affinity;
 pub mod amalgamation;
 pub mod battle_scars_early;
 pub mod battle_scars_late;
@@ -25,7 +26,12 @@ pub mod deaths_embrace_late;
 pub mod defensive_sacrifice;
 pub mod demonology;
 pub mod desecration;
+pub mod dexterity_early;
+pub mod dexterity_late;
 pub mod doppelganger;
+pub mod double_vision;
+pub mod echoing_voice;
+pub mod efficiency;
 pub mod fortitude;
 pub mod fresh_perspective;
 pub mod furtiveness;
@@ -33,17 +39,25 @@ pub mod gilding;
 pub mod golemancy;
 pub mod harpys_talons;
 pub mod hostility;
+pub mod incubation;
 pub mod invulnerability;
 pub mod jaws_of_death;
 pub mod mystic_essence;
 pub mod offensive_sacrifice;
 pub mod persisting_horror;
+pub mod polarization;
+pub mod replication;
 pub mod resistance;
+pub mod sharpened_sword;
 pub mod spell_siphon_early;
 pub mod spell_siphon_late;
+pub mod steady_growth;
+pub mod sunken_persistence;
 pub mod tarecgosas_blessing;
+pub mod time_turning;
 pub mod titanic_strength;
 pub mod toreths_blessing;
+pub mod toughened_shield;
 pub mod toxicity;
 pub mod transcendence;
 pub mod worship;
@@ -106,6 +120,7 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 /// Every implemented gift, by file name.
 const IMPLEMENTED: &[Implemented] = &[
     (admiration::ID, admiration::behaviors),
+    (affinity::ID, affinity::behaviors),
     (amalgamation::ID, amalgamation::behaviors),
     (battle_scars_early::ID, battle_scars_early::behaviors),
     (battle_scars_late::ID, battle_scars_late::behaviors),
@@ -116,7 +131,12 @@ const IMPLEMENTED: &[Implemented] = &[
     (defensive_sacrifice::ID, defensive_sacrifice::behaviors),
     (demonology::ID, demonology::behaviors),
     (desecration::ID, desecration::behaviors),
+    (dexterity_early::ID, dexterity_early::behaviors),
+    (dexterity_late::ID, dexterity_late::behaviors),
     (doppelganger::ID, doppelganger::behaviors),
+    (double_vision::ID, double_vision::behaviors),
+    (echoing_voice::ID, echoing_voice::behaviors),
+    (efficiency::ID, efficiency::behaviors),
     (fortitude::ID, fortitude::behaviors),
     (fresh_perspective::ID, fresh_perspective::behaviors),
     (furtiveness::ID, furtiveness::behaviors),
@@ -124,17 +144,25 @@ const IMPLEMENTED: &[Implemented] = &[
     (golemancy::ID, golemancy::behaviors),
     (harpys_talons::ID, harpys_talons::behaviors),
     (hostility::ID, hostility::behaviors),
+    (incubation::ID, incubation::behaviors),
     (invulnerability::ID, invulnerability::behaviors),
     (jaws_of_death::ID, jaws_of_death::behaviors),
     (mystic_essence::ID, mystic_essence::behaviors),
     (offensive_sacrifice::ID, offensive_sacrifice::behaviors),
     (persisting_horror::ID, persisting_horror::behaviors),
+    (polarization::ID, polarization::behaviors),
+    (replication::ID, replication::behaviors),
     (resistance::ID, resistance::behaviors),
+    (sharpened_sword::ID, sharpened_sword::behaviors),
     (spell_siphon_early::ID, spell_siphon_early::behaviors),
     (spell_siphon_late::ID, spell_siphon_late::behaviors),
+    (steady_growth::ID, steady_growth::behaviors),
+    (sunken_persistence::ID, sunken_persistence::behaviors),
     (tarecgosas_blessing::ID, tarecgosas_blessing::behaviors),
+    (time_turning::ID, time_turning::behaviors),
     (titanic_strength::ID, titanic_strength::behaviors),
     (toreths_blessing::ID, toreths_blessing::behaviors),
+    (toughened_shield::ID, toughened_shield::behaviors),
     (toxicity::ID, toxicity::behaviors),
     (transcendence::ID, transcendence::behaviors),
     (worship::ID, worship::behaviors),
@@ -1111,6 +1139,98 @@ mod tests {
         assert!(!is_avenge(&by_name("Harmless Bonehead")));
         assert!(is_deathrattle(&by_name("Harmless Bonehead")));
         assert!(is_battlecry(&by_name("Forest Rover")));
+    }
+
+    /// A few of the gifts' own rules (`docs/dark_gifts.md` §5).
+    #[test]
+    fn gift_rules_hold() {
+        let by_name = |name: &str| {
+            cards::full_catalog()
+                .into_iter()
+                .find(|t| t.name == name)
+                .unwrap_or_else(|| panic!("{name}"))
+        };
+        let gift = |name: &str| super::by_name(name).unwrap_or_else(|| panic!("{name}"));
+        let state = TavernState::new();
+        let full = CardPool::new(cards::full_catalog());
+        let no_quilboar = CardPool::new(
+            cards::full_catalog()
+                .into_iter()
+                .filter(|t| t.tribe != Tribe::Quilboar)
+                .collect(),
+        );
+        let prisonguard = by_name("Suspicious Prisonguard");
+        let bonehead = by_name("Harmless Bonehead");
+        let ctx = offer_ctx(&state, &full, 5);
+        // Lobby bans (§5.1 rule 5): a full lobby has every type.
+        let shield = gift("Toughened Shield");
+        assert!(!offerable(&ctx, shield, &prisonguard, GiftPool::Turn));
+        let ctx2 = offer_ctx(&state, &no_quilboar, 5);
+        assert!(offerable(&ctx2, shield, &prisonguard, GiftPool::Turn));
+        // A Deathrattle minion: no stat gift but Sharpened Sword and Death's Embrace (§5.1).
+        assert!(!offerable(&ctx2, shield, &bonehead, GiftPool::Turn));
+        assert!(offerable(
+            &ctx,
+            gift("Sharpened Sword"),
+            &bonehead,
+            GiftPool::Turn
+        ));
+        // Turn windows (§5.1 rule 1).
+        assert!(!offerable(
+            &offer_ctx(&state, &full, 7),
+            gift("Sharpened Sword"),
+            &bonehead,
+            GiftPool::Turn
+        ));
+        // Only on Deathrattle minions; only on Quilboar.
+        assert!(offerable(
+            &ctx,
+            gift("Jaws of Death"),
+            &bonehead,
+            GiftPool::Turn
+        ));
+        assert!(!offerable(
+            &ctx,
+            gift("Jaws of Death"),
+            &prisonguard,
+            GiftPool::Turn
+        ));
+        assert!(!offerable(
+            &ctx,
+            gift("Consanguinity"),
+            &bonehead,
+            GiftPool::Turn
+        ));
+        // The most triggered (§5.1 rule 4).
+        let mut state = TavernState::new();
+        state.auras.battlecries_triggered = 2;
+        state.auras.tavern_spells_cast = 3;
+        let ctx = offer_ctx(&state, &full, 8);
+        assert!(!offerable(
+            &ctx,
+            gift("Battle Scars (late)"),
+            &prisonguard,
+            GiftPool::Turn
+        ));
+        assert!(offerable(
+            &ctx,
+            gift("Spell Siphon (late)"),
+            &prisonguard,
+            GiftPool::Turn
+        ));
+        // Tras'tath's pool, whatever the windows.
+        assert!(offerable(
+            &ctx,
+            gift("Harpy's Talons"),
+            &prisonguard,
+            GiftPool::Trastath
+        ));
+        assert!(!offerable(
+            &ctx,
+            gift("Fortitude"),
+            &prisonguard,
+            GiftPool::Trastath
+        ));
     }
 
     #[test]

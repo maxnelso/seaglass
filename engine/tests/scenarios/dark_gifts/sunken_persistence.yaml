@@ -1,0 +1,8 @@
+dark_gift: Sunken Persistence
+scenarios:
+  - name: its_spellcraft_spell_stays_in_the_hand
+    tavern: {board: ["Well Wisher gift:sunken_persistence"]}
+    steps:
+      - start_turn
+      - end_turn
+    expect: {hand: [Well Wishes]}

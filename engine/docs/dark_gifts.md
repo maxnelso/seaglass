@@ -351,7 +351,7 @@ The Power.log validator (`replay/src/{reconstruct,validate}.rs`) reads each comb
 
 ### 11.3 Implemented
 
-The gifts listed in `IMPLEMENTED` (`src/dark_gifts/mod.rs`) are implemented and offered; the list grows as the batches go (§13).
+The gifts listed in `IMPLEMENTED` (`src/dark_gifts/mod.rs`) are implemented and offered: all 47 gift cards of §11.1 and §11.2. Each has a scenario under `tests/scenarios/dark_gifts/` that fails with the gift knocked out. `Sunken Persistence` is implemented, but no offer gives it: it goes only on Spellcraft minions, and no minion pool of Patch 36.6.3 has one.
 
 ---
 
@@ -400,4 +400,6 @@ Engine decisions, pending the user's confirmation:
 | Price and empty offers | Gold spent like any price; an empty offer still costs (§3.2). | `dark_gifts::use_button` |
 | Order | A minion's card's Start of Combat, then its gifts'; Deathrattles and Rallies the same (§7). | `cards` |
 | Gift readings | §11's "engine decision"s. | their files |
+| Cards a gift gets | `Affinity`, `Replication`, `Double Vision` and `Mystic Essence` add to the hand like any card a minion gets: lost with a full hand; the Rally gifts' cards go to the hand as a Rally minion's do. | their files |
+| `Steady Growth` | The strength by offering turn: `+1/+2`, `+2/+2`, `+3/+3` on turns 3, 4, 5 (the post's numbers; the card's text has no tag for them). | `steady_growth.rs` |
 | Heroes, trinkets | §12. | their files |

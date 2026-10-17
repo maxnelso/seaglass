@@ -1,0 +1,8 @@
+dark_gift: Polarization
+scenarios:
+  - name: end_of_turn_magnetizes_a_random_mech_onto_it
+    seeds: "1..=5"
+    tavern: {board: ["Cord Puller gift:polarization"], tavern_tier: 6}
+    steps:
+      - end_turn
+    expect: {board: [{magnetizations_count: 1}]}

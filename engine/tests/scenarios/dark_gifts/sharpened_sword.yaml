@@ -1,0 +1,15 @@
+dark_gift: Sharpened Sword
+scenarios:
+  - name: each_card_played_gives_3_attack
+    tavern: {board: ["1/1 gift:sharpened_sword"], hand: ["1/1", "1/1"]}
+    steps:
+      - play: 0
+      - play: 0
+    expect: {board: ["7/1", "1/1", "1/1"]}
+
+  - name: not_for_its_own_play
+    tavern: {hand: ["1/1 gift:sharpened_sword", "1/1"]}
+    steps:
+      - play: 0
+      - play: 0
+    expect: {board: ["4/1", "1/1"]}

@@ -1,0 +1,7 @@
+dark_gift: Echoing Voice
+scenarios:
+  - name: end_of_turn_triggers_its_battlecry
+    tavern: {board: ["Forest Rover gift:echoing_voice"]}
+    steps:
+      - end_turn
+    expect: {auras: {battlecries_triggered: 1}}

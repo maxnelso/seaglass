@@ -1,0 +1,8 @@
+dark_gift: Double Vision
+scenarios:
+  - name: discovered_it_gives_an_extra_copy
+    steps:
+      - offer_dark_gifts: ["Harmless Bonehead gift:double_vision", "Cord Puller gift:fortitude"]
+      - choose_discover: 0
+    expect:
+      hand: ["Harmless Bonehead gift:double_vision", "Harmless Bonehead -gift:double_vision"]

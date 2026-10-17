@@ -1,0 +1,7 @@
+dark_gift: Efficiency
+scenarios:
+  - name: its_activate_triggers_twice
+    tavern: {gold: 1, board: ["Suspicious Prisonguard gift:efficiency", "1/1"]}
+    steps:
+      - activate: {pos: 0, target: 1}
+    expect: {gold: 0, board: [Suspicious Prisonguard, "7/7"]}

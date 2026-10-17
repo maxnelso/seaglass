@@ -1,0 +1,7 @@
+dark_gift: Time Turning
+scenarios:
+  - name: its_end_of_turn_effect_also_triggers_at_start_of_turn
+    tavern: {board: ["Lullabot gift:time_turning"]}
+    steps:
+      - start_turn
+    expect: {board: ["2/3"]}
