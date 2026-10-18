@@ -132,6 +132,7 @@ struct Catalog {
     token_spells: Vec<String>,
     duos_token_spells: Vec<String>,
     deities: Vec<String>,
+    prize_spells: BTreeMap<u32, Vec<String>>,
 }
 
 /// One Tavern Tier's row of `catalog.yaml`'s `tiers` (Tier 7 is never a Tavern's tier: it
@@ -415,6 +416,28 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
     let deities = [DeityKind::CThun, DeityKind::YShaarj]
         .map(|kind| cards::instantiate_deity(&DeityState::new(kind)));
     check(list_diff("deities", &unit_names(&deities), &want.deities));
+    // The Darkmoon Prize spells by prize Tier (`docs/darkmoon_prizes.md` §2.2).
+    let prize_spells = seaglass::darkmoon::prize_spells();
+    check(list_diff(
+        "darkmoon::prize_spells()",
+        &unit_names(&prize_spells),
+        &want
+            .prize_spells
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ));
+    for (tier, names) in &want.prize_spells {
+        for spell in prize_spells.iter().filter(|s| names.contains(&s.name)) {
+            if spell.tavern_tier != *tier {
+                check(Some(format!(
+                    "{} is a Tier {tier} prize in catalog.yaml but has tavern_tier {}",
+                    spell.name, spell.tavern_tier
+                )));
+            }
+        }
+    }
 
     // Card ids and names are unique across every card.
     let mut ids: BTreeMap<u32, String> = BTreeMap::new();
@@ -432,6 +455,7 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
                 .chain(&duos_token_spells)
                 .chain(&token_minions)
                 .chain(&deities)
+                .chain(&prize_spells)
                 .map(|u| (u.card_id, u.name.clone())),
         );
     for (id, name) in everything {
@@ -535,6 +559,11 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
                 Ok(Header::DarkGift(_)) => {
                     errors.push(format!("{file}: Dark Gift scenarios belong in dark_gifts/"));
                 }
+                Ok(Header::Prize(_)) => {
+                    errors.push(format!(
+                        "{file}: Darkmoon Prize scenarios belong in darkmoon/"
+                    ));
+                }
                 Err(e) => errors.push(format!("{file}: {e}")),
             }
         }
@@ -618,12 +647,38 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
         }
     }
 
+    // Every prize file has its scenario file, `darkmoon/<prize>.yaml`, starting with `prize:`
+    // (`docs/darkmoon_prizes.md` §9).
+    let mut prizes = stems(&src.join("../darkmoon"), "rs");
+    prizes.remove("mod");
+    prizes.remove("table");
+    let prize_files = stems(&root.join("darkmoon"), "yaml");
+    for stem in &prizes {
+        if !prize_files.contains(stem) {
+            errors.push(format!(
+                "darkmoon/{stem}.yaml is missing (for src/darkmoon/{stem}.rs)"
+            ));
+        }
+    }
+    for stem in &prize_files {
+        let file = format!("darkmoon/{stem}.yaml");
+        match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
+            Ok(Header::Prize(_)) if prizes.contains(stem) => {}
+            Ok(Header::Prize(name)) => errors.push(format!(
+                "{file} is about {name}: there is no src/darkmoon/{stem}.rs"
+            )),
+            Ok(_) => errors.push(format!("{file} must start with `prize:`")),
+            Err(e) => errors.push(format!("{file}: {e}")),
+        }
+    }
+
     let known = [
         "combat",
         "tavern",
         "heroes",
         "trinkets",
         "dark_gifts",
+        "darkmoon",
         "catalog.yaml",
     ];
     for entry in fs::read_dir(root).map_err(|e| e.to_string())? {

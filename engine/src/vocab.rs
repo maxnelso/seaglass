@@ -37,6 +37,40 @@ pub const APPENDED: &[CardId] = &[
     trinkets::bottle_sticker::SPELL,
     trinkets::goldenizer_supply::SPELL,
     trinkets::lens_case::SPELL,
+    // The Darkmoon Prizes (`docs/darkmoon_prizes.md` §8.2), in the table's order when they were
+    // added (CardDefs build 255026): the 31 spells and the minion `All-Seeing Elder`.
+    92337,  // Banana Bunch
+    129551, // Crystallization
+    65236,  // Gacha Gift
+    66463,  // New Recruit
+    66427,  // Rocking and Rolling
+    65254,  // The Good Stuff
+    129192, // Unfurled Codex
+    66458,  // Big Brann Play
+    65238,  // Evolving Tavern
+    65246,  // Gruul Rules
+    65262,  // I'm Still Just a Rat in a Cage
+    129193, // Mageroyal Blossom
+    65250,  // On the House
+    65380,  // The Bouncer
+    65256,  // The Unlimited Coin
+    65248,  // Time Thief
+    66947,  // All That Glitters
+    65264,  // B.A.N.A.N.A.S.
+    65259,  // Buy the Holy Light
+    92336,  // Mindflayer Goggles
+    66495,  // Repeat Customer
+    129198, // Reserve Prices
+    65265,  // Top Shelf
+    65249,  // Training Session
+    122104, // All-Seeing Elder
+    66460,  // Big Winner!
+    65274,  // Fresh Tab
+    65270,  // Friends and Family Discount
+    66424,  // Give a Dog a Bone
+    129197, // Gorgeous Goblet
+    65277,  // Open Bar
+    65260,  // Raise the Stakes
 ];
 
 #[cfg(test)]

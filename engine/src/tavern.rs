@@ -1180,7 +1180,8 @@ impl TavernState {
     }
 
     pub fn minion_buy_cost(&self) -> u32 {
-        let price = heroes::tavern_rules(&self.auras).minion_cost as i32;
+        let price = heroes::tavern_rules(&self.auras).minion_cost;
+        let price = cards::player_minion_cost(&self.auras, price) as i32;
         (price - self.auras.next_minion_discount).max(0) as u32
     }
 
@@ -1211,6 +1212,7 @@ impl TavernState {
     pub fn shop_minion_slots(&self) -> usize {
         let fewer = heroes::tavern_rules(&self.auras).fewer_shop_minions;
         let slots = shop_capacity(self.tavern_tier).saturating_sub(fewer);
+        let slots = cards::player_shop_slots(self, slots);
         trinkets::shop_minion_slots(self, slots)
     }
 
@@ -1352,7 +1354,8 @@ impl TavernState {
     /// Effective cost to buy spell `card` from `shop`, in Gold or, if it `costs_health`, in Health
     /// (taking `next_spell_discount` into account).
     pub fn effective_spell_buy_cost(&self, card: &Unit) -> u32 {
-        (card.spell_cost as i32 - self.auras.next_spell_discount).max(0) as u32
+        let cost = cards::player_spell_cost(&self.auras, card.spell_cost) as i32;
+        (cost - self.auras.next_spell_discount).max(0) as u32
     }
 
     /// Deal `amount` damage to the friendly hero during the Tavern Phase.
@@ -2561,6 +2564,7 @@ impl TavernState {
                 dark_gifts::on_end_of_turn(self, repeats, pool, rng);
                 heroes::end_turn(self, repeats, pool, rng);
                 trinkets::end_turn(self, repeats, pool, rng);
+                cards::on_player_end_turn(self, pool, rng);
                 self.discard_temporary_cards();
                 Ok(true)
             }

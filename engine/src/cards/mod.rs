@@ -1190,7 +1190,8 @@ fn trigger_battlecry(
         return;
     };
     let repeats = board_passive(&state.board, Passive::BattlecryTriggers)
-        + crate::trinkets::extra_battlecries(&mut state.auras, unit);
+        + crate::trinkets::extra_battlecries(&mut state.auras, unit)
+        + effects::extra_battlecries(&state.auras);
     let target = card
         .battlecry_target
         .and_then(|pick| pick(state, unit, board_pos))
@@ -2517,6 +2518,29 @@ pub fn on_post_combat_unit(
 /// `player_after_combat` hooks.
 pub fn on_player_after_combat(state: &mut TavernState, result: CombatResult) {
     effects::after_combat(state, result);
+}
+
+/// The price of a minion in the Tavern, given `price` so far: the player effects'
+/// `player_minion_cost` hooks (`docs/darkmoon_prizes.md` §4.1).
+pub fn player_minion_cost(auras: &PlayerAuras, price: u32) -> u32 {
+    effects::minion_cost(auras, price)
+}
+
+/// The price of a spell in the Tavern, given `cost` so far: the player effects'
+/// `player_spell_cost` hooks.
+pub fn player_spell_cost(auras: &PlayerAuras, cost: u32) -> u32 {
+    effects::spell_cost(auras, cost)
+}
+
+/// The minions a rolled shop holds, given `slots` so far: the player effects'
+/// `player_shop_slots` hooks.
+pub fn player_shop_slots(state: &TavernState, slots: usize) -> usize {
+    effects::shop_slots(state, slots)
+}
+
+/// The player ends their turn: the player effects' `player_end_turn` hooks.
+pub fn on_player_end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    effects::end_turn(state, pool, rng);
 }
 
 /// `true` if the player effect `effect` acts at Start of Combat (its card has a

@@ -13,6 +13,8 @@
 #   spells by tier (`spells::duos_spells()`), in no Solo list.
 # - token_minions, token_spells, duos_token_spells, deities: the other cards that unit specs can
 #   name.
+# - prize_spells: the Darkmoon Prize spells by prize Tier (`darkmoon::prize_spells()`; the minion
+#   prize, `All-Seeing Elder`, is in trinket_minions).
 #
 # Card ids are unique across all of these.
 
@@ -494,3 +496,40 @@ duos_token_spells:
 deities:
   - C'Thun
   - Y'Shaarj
+
+prize_spells:
+  1:  # 7
+    - Banana Bunch
+    - Crystallization
+    - Gacha Gift
+    - New Recruit
+    - Rocking and Rolling
+    - The Good Stuff
+    - Unfurled Codex
+  2:  # 9
+    - Big Brann Play
+    - Evolving Tavern
+    - Gruul Rules
+    - "I'm Still Just a Rat in a Cage"
+    - Mageroyal Blossom
+    - On the House
+    - The Bouncer
+    - The Unlimited Coin
+    - Time Thief
+  3:  # 8
+    - All That Glitters
+    - B.A.N.A.N.A.S.
+    - Buy the Holy Light
+    - Mindflayer Goggles
+    - Repeat Customer
+    - Reserve Prices
+    - Top Shelf
+    - Training Session
+  4:  # 7
+    - "Big Winner!"
+    - Fresh Tab
+    - Friends and Family Discount
+    - Give a Dog a Bone
+    - Gorgeous Goblet
+    - Open Bar
+    - Raise the Stakes

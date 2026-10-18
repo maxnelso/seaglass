@@ -81,6 +81,7 @@ impl CardIndex {
         }
         let mut spell_cards = spells::all_spells();
         spell_cards.extend(spells::all_duos_spells());
+        spell_cards.extend(crate::darkmoon::prize_spells());
         let others = [
             (CardKind::Spell, spell_cards),
             (CardKind::Token, tokens::all_token_minions()),

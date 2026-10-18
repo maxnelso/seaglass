@@ -388,6 +388,7 @@ fn tavern_step(
             state.offer_trinkets(options);
         }
         StepKind::OfferDarkGifts(units) => state.push_discover(units.clone()),
+        StepKind::DiscoverPrize(tier) => crate::darkmoon::discover_prize(state, *tier, pool, rng),
         StepKind::PlayBloodGems(z, index, count) => {
             let i = position(zone(state, *z), index, z.name(), captures)?;
             let auras = state.auras.clone();

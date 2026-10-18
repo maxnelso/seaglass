@@ -8,6 +8,7 @@
 pub mod cards;
 pub mod combat;
 pub mod dark_gifts;
+pub mod darkmoon;
 pub mod duos_tavern;
 pub mod events;
 pub mod heroes;

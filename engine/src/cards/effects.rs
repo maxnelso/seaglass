@@ -12,7 +12,7 @@ use crate::cards::{hooks, BoardCtx, CardHooks, CombatSides};
 use crate::events::Event;
 use crate::model::{CombatResult, PlayerAuras, PlayerEffect, Side, Tribe, Unit};
 use crate::rng::Rng;
-use crate::tavern::TavernState;
+use crate::tavern::{CardPool, TavernState};
 
 /// Stats the player-wide "wherever this is" auras give `unit` (the Undead bonus from
 /// `Nerubian Deathswarmer` and `Butchering`; in Duos, the team's Passes for a unit a `Transport
@@ -151,6 +151,59 @@ pub fn after_combat(state: &mut TavernState, result: CombatResult) {
         state,
         |h| h.player_after_combat,
         |state, effect, f| f(state, effect, result),
+    );
+}
+
+/// The price of a minion in the Tavern, given `price` so far: the player's effects'
+/// `player_minion_cost` hooks, in the order they were recorded.
+pub fn minion_cost(auras: &PlayerAuras, price: u32) -> u32 {
+    auras.effects.iter().fold(price, |price, effect| {
+        hooks(effect.card_id)
+            .player_minion_cost
+            .map_or(price, |cost| cost(effect, price))
+    })
+}
+
+/// The price of a spell in the Tavern, given `cost` so far: the player's effects'
+/// `player_spell_cost` hooks, in the order they were recorded.
+pub fn spell_cost(auras: &PlayerAuras, cost: u32) -> u32 {
+    auras.effects.iter().fold(cost, |cost, effect| {
+        hooks(effect.card_id)
+            .player_spell_cost
+            .map_or(cost, |spell_cost| spell_cost(effect, cost))
+    })
+}
+
+/// The minions a rolled shop holds, given `slots` so far: the player's effects'
+/// `player_shop_slots` hooks, in the order they were recorded.
+pub fn shop_slots(state: &TavernState, slots: usize) -> usize {
+    state.auras.effects.iter().fold(slots, |slots, effect| {
+        hooks(effect.card_id)
+            .player_shop_slots
+            .map_or(slots, |shop_slots| shop_slots(effect, state, slots))
+    })
+}
+
+/// The extra triggers the player's effects add to a friendly Battlecry in the Tavern (their
+/// `player_extra_battlecries` hooks).
+pub fn extra_battlecries(auras: &PlayerAuras) -> u32 {
+    auras
+        .effects
+        .iter()
+        .filter_map(|effect| {
+            hooks(effect.card_id)
+                .player_extra_battlecries
+                .map(|f| f(effect))
+        })
+        .sum()
+}
+
+/// The player ends their turn: the player's effects' `player_end_turn` hooks.
+pub fn end_turn(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    notify_effects(
+        state,
+        |h| h.player_end_turn,
+        |state, effect, f| f(state, effect, pool, rng),
     );
 }
 

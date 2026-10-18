@@ -255,6 +255,8 @@ pub type EffectRefreshFn = fn(&mut TavernState, &mut PlayerEffect, &mut Rng);
 pub type EffectSocFn = fn(&mut CombatSides<'_>, &mut PlayerEffect);
 /// Player effect after combat: `(state, effect, result)`.
 pub type EffectAfterCombatFn = fn(&mut TavernState, &mut PlayerEffect, CombatResult);
+/// Player effect at the end of the turn: `(state, effect, pool, rng)`.
+pub type EffectEndTurnFn = fn(&mut TavernState, &mut PlayerEffect, &mut CardPool, &mut Rng);
 /// Observer of a card event (a Pass, a sale): `(state, self_idx, card, pool, rng)`.
 pub type CardObserverFn = fn(&mut TavernState, usize, &Unit, &mut CardPool, &mut Rng);
 /// A Tavern event for the player's Hero Power: `(state, pool, rng)`.
@@ -504,6 +506,20 @@ card_hooks! {
     player_combat_summon(on_player_combat_summon): fn(&PlayerEffect, &mut Unit),
     /// After combat.
     player_after_combat(on_player_after_combat): EffectAfterCombatFn,
+    /// The price of a minion in the Tavern, given the price so far (after the Hero Power's rule,
+    /// before `next_minion_discount`): `(effect, price) -> price` (`docs/darkmoon_prizes.md` §4.1).
+    player_minion_cost(on_player_minion_cost): fn(&PlayerEffect, u32) -> u32,
+    /// The price of a spell in the Tavern, given the price so far (before
+    /// `next_spell_discount`): `(effect, cost) -> cost`.
+    player_spell_cost(on_player_spell_cost): fn(&PlayerEffect, u32) -> u32,
+    /// The minions a rolled shop holds, given the count so far (after the Hero Power's rule,
+    /// before the trinkets'): `(effect, state, slots) -> slots`.
+    player_shop_slots(on_player_shop_slots): fn(&PlayerEffect, &TavernState, usize) -> usize,
+    /// A friendly Battlecry is about to resolve in the Tavern: the extra triggers this effect
+    /// adds: `(effect) -> triggers`.
+    player_extra_battlecries(on_player_extra_battlecries): fn(&PlayerEffect) -> u32,
+    /// The player ends their turn, after the trinkets' end-of-turn hooks (not repeated).
+    player_end_turn(on_player_end_turn): EffectEndTurnFn,
 
     // ---- Duos: Passes and the teammate (`docs/duos_tavern.md` §7) ------------------------
     /// This card was Passed to the teammate (its own text: "After this is Passed"), as it leaves

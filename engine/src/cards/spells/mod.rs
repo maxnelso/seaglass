@@ -507,12 +507,14 @@ pub fn make_well_wishes() -> Unit {
     make_tavern_spell(SPELL_WELL_WISHES, "Well Wishes", 5, 0, false)
 }
 
-/// Look up a spell (Tavern spell or token spell, Solo or Duos) by `CardId`.
+/// Look up a spell (Tavern spell or token spell, Solo or Duos, or a Darkmoon Prize spell:
+/// `docs/darkmoon_prizes.md` §2.2) by `CardId`.
 pub fn spell_by_id(card_id: CardId) -> Option<Unit> {
     all_spells()
         .into_iter()
         .chain(all_duos_spells())
         .find(|s| s.card_id == card_id)
+        .or_else(|| crate::darkmoon::make_prize(card_id).filter(|s| s.is_spell))
 }
 
 /// Look up a spell (Tavern spell or token spell, Solo or Duos) by exact name.

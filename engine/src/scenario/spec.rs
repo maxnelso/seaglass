@@ -49,6 +49,8 @@ pub enum Header {
     Trinket(String),
     /// `dark_gift: <name>`: one Dark Gift (its display name; `docs/dark_gifts.md` §8.3).
     DarkGift(String),
+    /// `prize: <name>`: one Darkmoon Prize (its name; `docs/darkmoon_prizes.md` §8.3).
+    Prize(String),
 }
 
 /// A parsed scenario file.
@@ -129,6 +131,8 @@ pub(super) enum StepKind {
     DrawTrinketOffer(bool),
     /// A Discover of these minions, without the button (`docs/dark_gifts.md` §8.3).
     OfferDarkGifts(Vec<Unit>),
+    /// A prize Discover of this Tier (`docs/darkmoon_prizes.md` §8.3).
+    DiscoverPrize(u32),
     Fight(Box<FightPlan>),
     /// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
     DuosFight(Box<DuosFightPlan>),
@@ -386,8 +390,8 @@ const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, ref
     push_hand, push_shop, clear, set, deal_hero_damage, apply_global_unit_auras, \
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
     expect_legal, expect_illegal, hero_power, hero_power_2, choose_hero, set_hero, offer_heroes, \
-    give_trinket, offer_trinkets, choose_trinket, dark_discovery, offer_dark_gifts, if/then/else, \
-    repeat/steps";
+    give_trinket, offer_trinkets, choose_trinket, dark_discovery, offer_dark_gifts, discover_prize, \
+    if/then/else, repeat/steps";
 
 /// The steps that are only a name (`end_turn`); tagged with a player they are written
 /// `{player: 1, end_turn}`.
@@ -424,11 +428,19 @@ impl ScenarioFile {
             if !matches!(
                 key.as_str(),
                 Some(
-                    "card" | "topic" | "hero" | "trinket" | "dark_gift" | "defaults" | "scenarios"
+                    "card"
+                        | "topic"
+                        | "hero"
+                        | "trinket"
+                        | "dark_gift"
+                        | "prize"
+                        | "defaults"
+                        | "scenarios"
                 )
             ) {
                 return Err(format!(
-                    "unknown top-level key {} (keys: card, topic, hero, trinket, dark_gift, defaults, scenarios)",
+                    "unknown top-level key {} (keys: card, topic, hero, trinket, dark_gift, prize, defaults, \
+                     scenarios)",
                     show(key)
                 ));
             }
@@ -439,6 +451,23 @@ impl ScenarioFile {
             top.get("hero"),
             top.get("trinket"),
         ) {
+            _ if top.contains_key("prize") => {
+                let others = ["card", "topic", "hero", "trinket", "dark_gift"];
+                if others.iter().any(|k| top.contains_key(*k)) {
+                    return Err(
+                        "a scenario file needs exactly one of `card:`, `topic:`, `hero:`, \
+                        `trinket:`, `dark_gift:` and `prize:`"
+                            .to_string(),
+                    );
+                }
+                let name = top
+                    .get("prize")
+                    .and_then(Value::as_str)
+                    .ok_or("`prize:` must be a Darkmoon Prize name")?;
+                let p = crate::darkmoon::by_name(name)
+                    .ok_or_else(|| format!("unknown Darkmoon Prize {name:?}"))?;
+                Header::Prize(p.name.to_string())
+            }
             _ if top.contains_key("dark_gift") => {
                 let others = ["card", "topic", "hero", "trinket"];
                 if others.iter().any(|k| top.contains_key(*k)) {
@@ -1105,6 +1134,12 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
         "choose_hero" => StepKind::Action(Action::ChooseHero(index(arg)?)),
         "choose_trinket" => StepKind::Action(Action::ChooseTrinket(index(arg)?)),
         "offer_dark_gifts" => StepKind::OfferDarkGifts(units::build_list(arg)?),
+        "discover_prize" => StepKind::DiscoverPrize(
+            arg.as_u64()
+                .and_then(|t| u32::try_from(t).ok())
+                .filter(|t| (1..=crate::darkmoon::MAX_TIER).contains(t))
+                .ok_or("`discover_prize` takes a prize Tier, 1 to 4")?,
+        ),
         "give_trinket" => StepKind::GiveTrinket(trinket_id(
             arg.as_str().ok_or("`give_trinket` takes a trinket name")?,
         )?),
