@@ -258,6 +258,8 @@ cast it.
 - The prize ids, the `Triple Prize` and the minion prize are appended to `seaglass.all_card_ids()`
   (`vocab::APPENDED`, append-only), so they have card embeddings in the hand and Discover slots.
 - Tickatus's turns and Tier are the observation's `hero_power_counter` and `hero_power_stacks`.
+- `Unit.end_of_turn_stats` (`Gruul Rules`, visible on the card) is every card slot's last numeric
+  feature, `log1p(n) / 5` (`rl/README.md`).
 
 ### 8.3 Scenarios
 
