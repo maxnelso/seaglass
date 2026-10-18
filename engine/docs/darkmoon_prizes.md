@@ -236,7 +236,9 @@ left!)* Picked: a Tier 3 prize Discover; then every 3rd turn start after the pic
   (`trinkets.md` §5).
 - `trinket_replace_gained` (§4.4): every `Triple Reward` card that would enter the player's hand,
   from any source (a Golden played, a Hero Power, a teammate; in the Tavern or the combat hand),
-  is a `Triple Prize` instead **(engine decision: any source)**.
+  is a `Triple Prize` instead **(engine decision: any source)**. The `Triple Reward` cards the
+  player holds (or that wait for room) when they pick it stay as they are; one that waits for
+  room becomes a `Triple Prize` as it reaches the hand **(engine decision)**.
 - `Triple Prize`: a 0-Gold token spell (not a Tavern spell, in no pool): *Discover a Tier 3 Darkmoon
   Prize.* It always Discovers a **Tier 3** prize, whatever the Tavern Tier **(confirmed)**.
 
@@ -321,4 +323,4 @@ Prize spells are Tavern cards and never act in combat.
 | `Big Winner!` | Tiers 1, 2, 3 in that order. | its file |
 | `All-Seeing Elder` | Itself counts as the left-most or right-most; Golden reads the stats again for its second gain. | its file |
 | Tickatus picked later | Counts its 4 turns from the turn it arrives (the Tier reads the game turn: confirmed). | `heroes/tickatus.rs` |
-| `Corrupted Tome` | Every Triple Reward entering the hand, from any source, in the Tavern or combat. | `trinkets/corrupted_tome.rs` |
+| `Corrupted Tome` | Every Triple Reward entering the hand, from any source, in the Tavern or combat; those already held stay. | `trinkets/corrupted_tome.rs` |

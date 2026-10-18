@@ -629,8 +629,9 @@ fn check_pass(
             ),
         ));
     }
-    let id = identity(card);
     let (mb, ma) = (&before.players[mate], &after.players[mate]);
+    // The teammate's trinkets may change it as it reaches the hand (`Corrupted Tome`).
+    let id = identity(&seaglass::trinkets::replace_gained(&mb.auras, card.clone()));
     let held = |s: &TavernState, queue: &[Unit]| count(&s.hand, id) + count(queue, id);
     let arrived = held(ma, &after.incoming[mate]) > held(mb, &before.incoming[mate]);
     // (Two copies of a minion there make a Triple: the Golden goes to the hand. A wildcard

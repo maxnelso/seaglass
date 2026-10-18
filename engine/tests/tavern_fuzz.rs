@@ -90,6 +90,7 @@ use std::time::{Duration, Instant};
 
 use seaglass::cards::{self, CardFlags};
 use seaglass::dark_gifts;
+use seaglass::darkmoon;
 use seaglass::heroes;
 use seaglass::lobby::Lobby;
 use seaglass::model::{HeroId, TeammateGift, TrinketOption};
@@ -690,7 +691,48 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
         ));
     }
     check_trinkets(s)?;
-    check_dark_gifts(s)
+    check_dark_gifts(s)?;
+    check_darkmoon(s)
+}
+
+/// Darkmoon Prizes (`docs/darkmoon_prizes.md` §2.2, §3, §7.3): a prize spell costs 0 and is never
+/// in the Tavern; a Discover whose options are all prizes offers different prizes of one Tier.
+fn check_darkmoon(s: &TavernState) -> Result<(), Violation> {
+    let prompts = s.discover_pending.iter().chain(&s.discover_queue);
+    let cards = s.board.iter().chain(&s.hand).chain(&s.waiting_for_hand);
+    for unit in cards.chain(prompts.clone().flatten()) {
+        if darkmoon::data(unit.card_id).is_some_and(|p| !p.minion)
+            && (!unit.is_spell || unit.spell_cost != 0)
+        {
+            return Err(broken(
+                "a prize spell isn't a 0-Gold spell",
+                format!(
+                    "{} (spell {}, cost {})",
+                    unit.name, unit.is_spell, unit.spell_cost
+                ),
+            ));
+        }
+    }
+    if let Some(prize) = s.shop.iter().find(|u| darkmoon::is_prize(u.card_id)) {
+        return Err(broken("a prize is in the Tavern", prize.name.clone()));
+    }
+    for options in prompts {
+        let tiers: BTreeSet<u32> = options
+            .iter()
+            .filter_map(|u| darkmoon::data(u.card_id).map(|p| p.tier))
+            .collect();
+        if tiers.is_empty() || options.iter().any(|u| !darkmoon::is_prize(u.card_id)) {
+            continue;
+        }
+        let ids: BTreeSet<u32> = options.iter().map(|u| u.card_id).collect();
+        if tiers.len() != 1 || ids.len() != options.len() || options.len() > darkmoon::OFFER_COUNT {
+            return Err(broken(
+                "a prize Discover isn't different prizes of one Tier",
+                format!("{:?}", options.iter().map(|u| &u.name).collect::<Vec<_>>()),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// The Dark Gifts (`docs/dark_gifts.md` §2.2, §3): the button's uses within the rules (none
@@ -1873,12 +1915,23 @@ struct Expect {
     /// A trinket of the player sees the teammate after each action: it may give `Triple Reward`
     /// cards for any Golden played, an intrinsic one too (`Cho'gall Sticker`).
     trinket_rewards: bool,
+    /// The `Triple Prize`s in the hand before the action, for a player whose trinket replaces
+    /// the `Triple Reward` cards they get (`Corrupted Tome`, `docs/darkmoon_prizes.md` §7.3):
+    /// `None` for any other player.
+    triple_prizes: Option<usize>,
     casts_tavern_spell: bool,
     gold: u32,
     /// What the action costs in Gold, when nothing else changes the Gold.
     cost: Option<u32>,
     /// The Gold the player's Hero Power gives back for it ([`hero_gold_back`]).
     gold_back: u32,
+}
+
+/// The `Triple Prize`s (`Corrupted Tome`'s) in `hand`.
+fn triple_prizes(hand: &[Unit]) -> usize {
+    hand.iter()
+        .filter(|u| u.card_id == trinkets::corrupted_tome::SPELL)
+        .count()
 }
 
 /// The locked-in Tiers (`counter`, 0 for none) of the `Triple Reward` cards in `hand`, sorted.
@@ -2035,6 +2088,12 @@ impl Expect {
                 .trinkets
                 .iter()
                 .any(|t| cards::hooks(t.card_id).trinket_teammate.is_some()),
+            triple_prizes: s
+                .auras
+                .trinkets
+                .iter()
+                .any(|t| cards::hooks(t.card_id).trinket_replace_gained.is_some())
+                .then(|| triple_prizes(&s.hand)),
             casts_tavern_spell: false,
             gold: s.gold,
             cost,
@@ -2151,7 +2210,13 @@ impl Expect {
             let new = after.len() as i64 - self.reward_cards.len() as i64;
             let new_of_tier = of_tier(&after) as i64 - of_tier(&self.reward_cards) as i64;
             let full = s.hand.len() >= 10;
-            let (ok, what) = if !gives {
+            let (ok, what) = if let Some(before) = self.triple_prizes.filter(|_| gives) {
+                // `Corrupted Tome`: a `Triple Prize` instead (`docs/darkmoon_prizes.md` §7.3).
+                (
+                    new == 0 && (triple_prizes(&s.hand) > before || full),
+                    "a Golden played from hand didn't give a Corrupted Tome player a Triple Prize",
+                )
+            } else if !gives {
                 (
                     new == 0 || self.trinket_rewards,
                     "an intrinsic Golden played from hand gave a Triple Reward card",
@@ -3301,6 +3366,7 @@ fn report(groups: &Groups, settings: &Settings) -> String {
         .chain(
             cards::spells::all_spells()
                 .iter()
+                .chain(&darkmoon::prize_spells())
                 .map(|u| (u.card_id, u.name.clone())),
         )
         .collect();
