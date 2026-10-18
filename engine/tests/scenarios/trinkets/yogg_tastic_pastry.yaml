@@ -1,0 +1,54 @@
+trinket: Yogg-Tastic Pastry
+defaults:
+  tavern: {board: ["2/3", "5/7"], shop: [Joyous, "1/1"]}
+scenarios:
+  - name: picked_it_spins_the_wheel
+    description: Every outcome but a Rod of Roasting that hits the hero or Bob at once shows (seeds 0 to 12 don't land on the Rod).
+    seeds: "0..13"
+    steps:
+      - give_trinket: Yogg-Tastic Pastry
+    expect:
+      any_of:
+        - {shop: {any: {is_golden: true}}}               # Mysterybox
+        - {hand: {count: 2}}                             # Hand of Fate
+        - {board: {sum: {attack: "> 7"}}}                # Curse of Flesh, Devouring Hunger
+        - {auras: {tavern_spells_cast: "> 0"}}           # Mindflayer Goggles
+
+  - name: seed_2_lands_on_mysterybox
+    description: The spin's one draw picks the outcome - seed 2 lands on Mysterybox, seed 0 on Hand of Fate, seed 3 on Curse of Flesh.
+    seed: 2
+    steps:
+      - give_trinket: Yogg-Tastic Pastry
+    expect: {shop: ["golden Joyous", "1/1"], hand: [], board: ["2/3", "5/7"]}
+
+  - name: seed_0_lands_on_hand_of_fate
+    seed: 0
+    steps:
+      - give_trinket: Yogg-Tastic Pastry
+    expect: {hand: {count: 2}, board: ["2/3", "5/7"], shop: [Joyous, "1/1"]}
+
+  - name: seed_3_lands_on_curse_of_flesh
+    seed: 3
+    steps:
+      - give_trinket: Yogg-Tastic Pastry
+    expect: {board: {any_of: [["7/10", "5/7"], ["2/3", "7/10"]]}, hand: []}
+
+  - name: at_the_start_of_each_turn_it_spins_again
+    seeds: "0..13"
+    tavern: {turn: 6, board: ["2/3", "5/7"], auras: {trinkets: [Yogg-Tastic Pastry]}}
+    steps:
+      - start_turn
+    expect:
+      any_of:
+        - {shop: {any: {is_golden: true}}}
+        - {hand: {count: 2}}
+        - {board: {sum: {attack: "> 7"}}}
+        - {auras: {tavern_spells_cast: "> 0"}}
+
+  - name: it_is_offered_for_5_gold
+    seed: 2
+    tavern: {gold: 5}
+    steps:
+      - offer_trinkets: [Yogg-Tastic Pastry]
+      - choose_trinket: Yogg-Tastic Pastry
+    expect: {gold: 0, auras: {trinkets: [{name: Yogg-Tastic Pastry}]}, shop: ["golden Joyous", "1/1"]}

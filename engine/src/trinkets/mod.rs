@@ -249,6 +249,7 @@ pub mod willbreaker_sticker;
 pub mod wolfhead_flail;
 pub mod worn_treasure_map;
 pub mod writhing_tentacles;
+pub mod yogg_tastic_pastry;
 pub mod young_murk_eye_sticker;
 
 pub use table::{CARD_DEFS_BUILD, TRINKETS};
@@ -617,6 +618,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (wolfhead_flail::ID, wolfhead_flail::behaviors),
     (worn_treasure_map::ID, worn_treasure_map::behaviors),
     (writhing_tentacles::ID, writhing_tentacles::behaviors),
+    (yogg_tastic_pastry::ID, yogg_tastic_pastry::behaviors),
     (
         young_murk_eye_sticker::ID,
         young_murk_eye_sticker::behaviors,
