@@ -23,7 +23,7 @@ The Tavern Phase is modeled as a **card-agnostic sequential decision state machi
 
 ### Deferred to Later Phases
 [`deferred.md`](deferred.md) is the engine's single list of what it defers.
-- Buddy meters, Quests, Darkmoon Prizes, and Anomalies. (Heroes and Hero Powers are specified in [`heroes.md`](heroes.md), trinkets in [`trinkets.md`](trinkets.md), Dark Gifts and the Dark Discovery button in [`dark_gifts.md`](dark_gifts.md).)
+- Buddy meters, Quests, and Anomalies. (Heroes and Hero Powers are specified in [`heroes.md`](heroes.md), trinkets in [`trinkets.md`](trinkets.md), Dark Gifts and the Dark Discovery button in [`dark_gifts.md`](dark_gifts.md), Darkmoon Prizes in [`darkmoon_prizes.md`](darkmoon_prizes.md).)
 - Tier 3–6 minions and Tier 3–6 Tavern Spells.
 
 ---
