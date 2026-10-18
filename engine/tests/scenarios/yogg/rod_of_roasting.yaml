@@ -1,0 +1,24 @@
+wheel: Rod of Roasting
+scenarios:
+  - name: minions_gain_10_10_until_the_hero_or_bob_is_hit
+    description: Each target is drawn among the 7 minions, the hero and Bob; seed 3 buffs 4 minions, then hits the hero or Bob.
+    seed: 3
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - spin_wheel: Rod of Roasting
+    expect: {board: ["21/21", "1/1", "1/1", "21/21", "1/1", "11/11", "1/1"]}
+
+  - name: every_buff_is_10_10
+    seeds: [1, 2, 4, 6, 7, 8, 9, 10, 11]
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"]}
+    steps:
+      - spin_wheel: Rod of Roasting
+    expect: {board: {count: 7, all: {attack: "== @health", health: {any_of: [1, 11, 21, 31, 41]}}, sum: {attack: "> 7"}}}
+
+  - name: no_spell_bonus
+    description: Engine decision - Pyrobuff's +10/+10 is not a Tavern spell's.
+    seed: 3
+    tavern: {board: ["1/1", "1/1", "1/1", "1/1", "1/1", "1/1", "1/1"], auras: {spell_bonus_atk: 5, spell_bonus_hp: 5}}
+    steps:
+      - spin_wheel: Rod of Roasting
+    expect: {board: ["21/21", "1/1", "1/1", "21/21", "1/1", "11/11", "1/1"]}

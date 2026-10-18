@@ -51,6 +51,9 @@ pub enum Header {
     DarkGift(String),
     /// `prize: <name>`: one Darkmoon Prize (its name; `docs/darkmoon_prizes.md` §8.3).
     Prize(String),
+    /// `wheel: <name>`: one outcome of the Wheel of Yogg-Saron (its name;
+    /// `docs/wheel_of_yogg.md` §6).
+    Wheel(String),
 }
 
 /// A parsed scenario file.
@@ -133,6 +136,9 @@ pub(super) enum StepKind {
     OfferDarkGifts(Vec<Unit>),
     /// A prize Discover of this Tier (`docs/darkmoon_prizes.md` §8.3).
     DiscoverPrize(u32),
+    /// A spin of the Wheel of Yogg-Saron, or this outcome without the draw
+    /// (`docs/wheel_of_yogg.md` §6).
+    SpinWheel(Option<CardId>),
     Fight(Box<FightPlan>),
     /// A Duos team's combat against an opponent team (`DuosTavern::resolve_combat_against`).
     DuosFight(Box<DuosFightPlan>),
@@ -391,12 +397,13 @@ const STEP_NAMES: &str = "start_turn, buy, play, sell, reposition, activate, ref
     sync_all_auras, take_from_pool, play_blood_gems, fight, simulate, expect, expect_error, \
     expect_legal, expect_illegal, hero_power, hero_power_2, choose_hero, set_hero, offer_heroes, \
     give_trinket, offer_trinkets, choose_trinket, dark_discovery, offer_dark_gifts, discover_prize, \
-    if/then/else, repeat/steps";
+    spin_wheel, if/then/else, repeat/steps";
 
 /// The steps that are only a name (`end_turn`); tagged with a player they are written
 /// `{player: 1, end_turn}`.
-const NAME_STEPS: [&str; 9] = [
+const NAME_STEPS: [&str; 10] = [
     "dark_discovery",
+    "spin_wheel",
     "start_turn",
     "sync_all_auras",
     "refresh",
@@ -434,12 +441,13 @@ impl ScenarioFile {
                         | "trinket"
                         | "dark_gift"
                         | "prize"
+                        | "wheel"
                         | "defaults"
                         | "scenarios"
                 )
             ) {
                 return Err(format!(
-                    "unknown top-level key {} (keys: card, topic, hero, trinket, dark_gift, prize, defaults, \
+                    "unknown top-level key {} (keys: card, topic, hero, trinket, dark_gift, prize, wheel, defaults, \
                      scenarios)",
                     show(key)
                 ));
@@ -451,6 +459,23 @@ impl ScenarioFile {
             top.get("hero"),
             top.get("trinket"),
         ) {
+            _ if top.contains_key("wheel") => {
+                let others = ["card", "topic", "hero", "trinket", "dark_gift", "prize"];
+                if others.iter().any(|k| top.contains_key(*k)) {
+                    return Err(
+                        "a scenario file needs exactly one of `card:`, `topic:`, `hero:`, \
+                        `trinket:`, `dark_gift:`, `prize:` and `wheel:`"
+                            .to_string(),
+                    );
+                }
+                let name = top
+                    .get("wheel")
+                    .and_then(Value::as_str)
+                    .ok_or("`wheel:` must be a Wheel of Yogg-Saron outcome")?;
+                let o = crate::yogg::by_name(name)
+                    .ok_or_else(|| format!("unknown Wheel of Yogg-Saron outcome {name:?}"))?;
+                Header::Wheel(o.name.to_string())
+            }
             _ if top.contains_key("prize") => {
                 let others = ["card", "topic", "hero", "trinket", "dark_gift"];
                 if others.iter().any(|k| top.contains_key(*k)) {
@@ -1063,6 +1088,7 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 "hero_power" => Ok(StepKind::Action(Action::HeroPower(None))),
                 "hero_power_2" => Ok(StepKind::Action(Action::HeroPower2(None))),
                 "dark_discovery" => Ok(StepKind::Action(Action::DarkDiscovery)),
+                "spin_wheel" => Ok(StepKind::SpinWheel(None)),
                 other => Err(unknown_step(other)),
             };
         }
@@ -1140,6 +1166,14 @@ fn step_kind(value: &Value, prefix: &str) -> Result<StepKind, String> {
                 .filter(|t| (1..=crate::darkmoon::MAX_TIER).contains(t))
                 .ok_or("`discover_prize` takes a prize Tier, 1 to 4")?,
         ),
+        "spin_wheel" => {
+            let name = arg
+                .as_str()
+                .ok_or("`spin_wheel` takes a Wheel of Yogg-Saron outcome, or nothing")?;
+            let o = crate::yogg::by_name(name)
+                .ok_or_else(|| format!("unknown Wheel of Yogg-Saron outcome {name:?}"))?;
+            StepKind::SpinWheel(Some(o.id))
+        }
         "give_trinket" => StepKind::GiveTrinket(trinket_id(
             arg.as_str().ok_or("`give_trinket` takes a trinket name")?,
         )?),

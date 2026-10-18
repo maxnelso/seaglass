@@ -1,0 +1,24 @@
+wheel: Hand of Fate
+scenarios:
+  - name: it_gives_two_random_darkmoon_prizes
+    seeds: "1..20"
+    steps:
+      - spin_wheel: Hand of Fate
+    expect:
+      hand:
+        count: 2
+        all: {any_of: [{is_spell: true, spell_cost: 0, tavern_tier: "1..=4"}, All-Seeing Elder]}
+
+  - name: prizes_of_any_tier
+    description: Engine decision - each prize is drawn among every implemented prize, of any Tier.
+    seeds: "1..10"
+    steps:
+      - repeat: 5
+        steps: [{spin_wheel: Hand of Fate}]
+    expect: {hand: {count: 10, any: {tavern_tier: "3..=4"}}}
+
+  - name: with_a_full_hand_the_second_one_waits_for_room
+    tavern: {hand: [Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana, Tavern Dish Banana]}
+    steps:
+      - spin_wheel: Hand of Fate
+    expect: {hand: {count: 10}, waiting_for_hand: {count: 1}}

@@ -3,7 +3,8 @@
 //! Models both the **Tavern (Recruit) Phase** (`docs/tavern.md`, and Duos Taverns:
 //! `docs/duos_tavern.md`) and the **Combat Phase** (`docs/combat.md`, and Duos combats:
 //! `docs/duos.md`), with heroes and their Hero Powers (`docs/heroes.md`), trinkets
-//! (`docs/trinkets.md`) and Dark Gifts (`docs/dark_gifts.md`).
+//! (`docs/trinkets.md`), Dark Gifts (`docs/dark_gifts.md`), Darkmoon Prizes
+//! (`docs/darkmoon_prizes.md`) and the Wheel of Yogg-Saron (`docs/wheel_of_yogg.md`).
 
 pub mod cards;
 pub mod combat;
@@ -21,6 +22,7 @@ pub mod tavern;
 pub mod trinkets;
 pub mod types;
 pub mod vocab;
+pub mod yogg;
 
 #[cfg(feature = "python")]
 pub mod python;

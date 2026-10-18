@@ -1,0 +1,28 @@
+wheel: Curse of Flesh
+scenarios:
+  - name: a_random_minion_gains_the_stats_of_another
+    seeds: "1..20"
+    tavern: {board: ["2/3", "5/7"]}
+    steps:
+      - spin_wheel: Curse of Flesh
+    expect: {board: {any_of: [["7/10", "5/7"], ["2/3", "7/10"]]}}
+
+  - name: the_giver_keeps_its_stats
+    seeds: "1..30"
+    tavern: {board: ["1/1", "2/2", "4/4"]}
+    steps:
+      - spin_wheel: Curse of Flesh
+    expect:
+      board:
+        count: 3
+        sum: {attack: "8..=11"}
+        any: {attack: "2..=8"}
+
+  - name: nothing_with_one_minion
+    tavern: {board: ["2/3"]}
+    steps:
+      - spin_wheel: Curse of Flesh
+      - expect: {board: ["2/3"]}
+      - push_board: "1/1"
+      - spin_wheel: Curse of Flesh
+    expect: {board: {any_of: [["3/4", "1/1"], ["2/3", "3/4"]]}}

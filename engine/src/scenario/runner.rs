@@ -389,6 +389,10 @@ fn tavern_step(
         }
         StepKind::OfferDarkGifts(units) => state.push_discover(units.clone()),
         StepKind::DiscoverPrize(tier) => crate::darkmoon::discover_prize(state, *tier, pool, rng),
+        StepKind::SpinWheel(None) => {
+            crate::yogg::spin_wheel(state, pool, rng);
+        }
+        StepKind::SpinWheel(Some(id)) => crate::yogg::resolve(state, *id, pool, rng),
         StepKind::PlayBloodGems(z, index, count) => {
             let i = position(zone(state, *z), index, z.name(), captures)?;
             let auras = state.auras.clone();

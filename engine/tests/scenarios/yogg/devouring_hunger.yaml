@@ -1,0 +1,30 @@
+wheel: Devouring Hunger
+scenarios:
+  - name: a_friendly_minion_consumes_the_tavern_then_it_is_refreshed
+    tavern: {board: ["1/1"], shop: ["2/3", "4/5", Tavern Dish Banana]}
+    steps:
+      - spin_wheel: Devouring Hunger
+    expect: {board: ["7/9"], shop: {count: "> 0", none: {any_of: ["2/3", "4/5"]}}}
+
+  - name: one_random_minion_gets_all_the_stats
+    seeds: "1..20"
+    tavern: {board: ["1/1", "1/1"], shop: ["2/2", "3/3"]}
+    steps:
+      - spin_wheel: Devouring Hunger
+    expect: {board: {any_of: [["6/6", "1/1"], ["1/1", "6/6"]]}}
+
+  - name: each_minion_is_a_consume_consuming_claw_sees
+    tavern:
+      board: [Ominous Seer]   # a 2/1 Demon
+      shop: [Risen Rider, "3/3"]   # 2/1 Taunt Reborn
+      auras: {trinkets: [Consuming Claw]}
+    steps:
+      - spin_wheel: Devouring Hunger
+    expect: {board: ["Ominous Seer 17/15 taunt reborn"]}   # 2/1 + (2/1 + 5/5) + (3/3 + 5/5)
+
+  - name: the_refresh_is_one_the_player_does
+    description: A card's Refresh is a Refresh the player does (docs/tavern.md §4.1); with no friendly minion nothing is consumed (engine decision).
+    tavern: {tavern_tier: 2, upgrade_cost: 6, shop: ["2/3"], auras: {trinkets: [Frigid Blossom]}}
+    steps:
+      - spin_wheel: Devouring Hunger
+    expect: {upgrade_cost: 5, board: [], shop: {none: "2/3"}}

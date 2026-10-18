@@ -5,13 +5,13 @@
 //! Passive. At the start of each turn from the 3rd on (`hero_turn_start`), a Tavern spell drawn as
 //! the shop draws one is cast (`spells::cast_spell_by_effect`); a targeted one on a random valid
 //! target (a friendly minion, or a minion in the Tavern for a spell that only targets those; one
-//! `rng.below(k)`), and with none it is not cast (engine decision).
+//! `rng.below(k)`), and with none it is not cast (engine decision). The cast is
+//! `spells::cast_random_tavern_spell`, which the Wheel of Yogg-Saron's `Mindflayer Goggles` shares.
 
-use crate::cards::hooks::SpellTarget;
-use crate::cards::{hooks, spells, CardHooks};
+use crate::cards::{spells, CardHooks};
 use crate::model::{CardId, HeroId};
 use crate::rng::Rng;
-use crate::tavern::{CardPool, MinionSlot, TavernState};
+use crate::tavern::{CardPool, TavernState};
 
 pub const ID: HeroId = 59805;
 pub const POWER: CardId = 122958;
@@ -29,36 +29,5 @@ fn puzzle_box(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
     if state.turn < UNLOCK_TURN {
         return;
     }
-    let spell = spells::draw_shop_spell(state.tavern_tier, state.auras.duos_game, rng);
-    let target = match hooks(spell.card_id).spell_target {
-        SpellTarget::None => MinionSlot::Board(0),
-        SpellTarget::TavernMinion => {
-            let slots: Vec<usize> = (0..state.shop.len())
-                .filter(|&i| spells::can_target_in_shop(spell.card_id, &state.shop[i]))
-                .collect();
-            let Some(&t) = pick(&slots, rng) else {
-                return;
-            };
-            MinionSlot::Shop(t)
-        }
-        _ => {
-            let slots: Vec<usize> = (0..state.board.len())
-                .filter(|&i| spells::can_target(spell.card_id, &state.board[i]))
-                .collect();
-            let Some(&t) = pick(&slots, rng) else {
-                return;
-            };
-            MinionSlot::Board(t)
-        }
-    };
-    spells::cast_spell_by_effect(state, spell, target, pool, rng);
-}
-
-/// A random item of `items` (no draw for 0 or 1).
-fn pick<'a>(items: &'a [usize], rng: &mut Rng) -> Option<&'a usize> {
-    match items.len() {
-        0 => None,
-        1 => items.first(),
-        k => items.get(rng.below(k)),
-    }
+    spells::cast_random_tavern_spell(state, pool, rng);
 }

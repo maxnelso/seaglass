@@ -1,0 +1,14 @@
+wheel: Mindflayer Goggles
+scenarios:
+  - name: it_casts_four_random_tavern_spells
+    seeds: "1..20"
+    tavern: {board: ["3/3 all", "3/3 all"], shop: ["1/1", "1/1"]}
+    steps:
+      - spin_wheel: Mindflayer Goggles
+    expect: {auras: {tavern_spells_cast: 4, last_tavern_spell_cast: "> 0"}}
+
+  - name: the_spells_are_casts_the_trinkets_see
+    tavern: {board: ["3/3 all"], shop: ["1/1"], auras: {trinkets: [Corrupted Baton]}}
+    steps:
+      - spin_wheel: Mindflayer Goggles
+    expect: {auras: {deity: {attack: "> 1"}}}

@@ -211,6 +211,22 @@ pub fn prize_spells() -> Vec<Unit> {
         .collect()
 }
 
+/// A new card of a random prize (the Wheel of Yogg-Saron's `Hand of Fate`;
+/// `docs/wheel_of_yogg.md` §4): one `rng.below(k)` among every implemented prize of any Tier, in
+/// table order (engine decision), with the player's "wherever this is" auras for a minion. `None`
+/// if no prize is implemented.
+pub fn random_prize(state: &TavernState, rng: &mut Rng) -> Option<Unit> {
+    let candidates: Vec<&PrizeData> = PRIZES.iter().filter(|p| is_implemented(p.id)).collect();
+    let p = match candidates.len() {
+        0 => return None,
+        1 => candidates[0],
+        k => candidates[rng.below(k)],
+    };
+    let mut card = make_prize(p.id)?;
+    state.apply_global_unit_auras(&mut card);
+    Some(card)
+}
+
 /// A random Tavern spell for a prize (`docs/darkmoon_prizes.md` §5): uniformly among the Tavern
 /// spells the shop can offer (the Duos ones in Duos) of the player's Tier or lower that `keep`
 /// keeps, one `rng.below(k)` (none for a single one). `None` if there is none.

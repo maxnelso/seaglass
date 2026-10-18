@@ -564,6 +564,11 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
                         "{file}: Darkmoon Prize scenarios belong in darkmoon/"
                     ));
                 }
+                Ok(Header::Wheel(_)) => {
+                    errors.push(format!(
+                        "{file}: Wheel of Yogg-Saron scenarios belong in yogg/"
+                    ));
+                }
                 Err(e) => errors.push(format!("{file}: {e}")),
             }
         }
@@ -672,6 +677,30 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
         }
     }
 
+    // Every outcome file of the Wheel of Yogg-Saron has its scenario file, `yogg/<outcome>.yaml`,
+    // starting with `wheel:` (`docs/wheel_of_yogg.md` §6).
+    let mut outcomes = stems(&src.join("../yogg"), "rs");
+    outcomes.remove("mod");
+    let outcome_files = stems(&root.join("yogg"), "yaml");
+    for stem in &outcomes {
+        if !outcome_files.contains(stem) {
+            errors.push(format!(
+                "yogg/{stem}.yaml is missing (for src/yogg/{stem}.rs)"
+            ));
+        }
+    }
+    for stem in &outcome_files {
+        let file = format!("yogg/{stem}.yaml");
+        match ScenarioFile::load(&root.join(&file)).map(|f| f.header) {
+            Ok(Header::Wheel(_)) if outcomes.contains(stem) => {}
+            Ok(Header::Wheel(name)) => errors.push(format!(
+                "{file} is about {name}: there is no src/yogg/{stem}.rs"
+            )),
+            Ok(_) => errors.push(format!("{file} must start with `wheel:`")),
+            Err(e) => errors.push(format!("{file}: {e}")),
+        }
+    }
+
     let known = [
         "combat",
         "tavern",
@@ -679,6 +708,7 @@ fn check_coverage(src: &Path, root: &Path) -> Result<(), Failed> {
         "trinkets",
         "dark_gifts",
         "darkmoon",
+        "yogg",
         "catalog.yaml",
     ];
     for entry in fs::read_dir(root).map_err(|e| e.to_string())? {

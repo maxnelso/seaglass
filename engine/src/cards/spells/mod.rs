@@ -578,6 +578,33 @@ pub fn draw_shop_spell_in(min_tier: u32, max_tier: u32, duos: bool, rng: &mut Rn
     pool[idx].clone()
 }
 
+/// Cast a random Tavern spell on a random target (Yogg-Saron's `Puzzle Box`, the Wheel of
+/// Yogg-Saron's `Mindflayer Goggles`; `docs/heroes.md` §11, `docs/wheel_of_yogg.md` §4): a spell
+/// drawn as the shop draws one ([`draw_shop_spell`]: the player's Tier or lower, the Duos spells
+/// in Duos), cast by an effect ([`cast_spell_by_effect`]); a targeted one on a random valid target
+/// (a friendly minion, or a minion in the Tavern for a spell that only targets those; one
+/// `rng.below(k)`, none for one). With no valid target it is not cast (engine decision).
+pub fn cast_random_tavern_spell(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng) {
+    let spell = draw_shop_spell(state.tavern_tier, state.auras.duos_game, rng);
+    let slots: Vec<MinionSlot> = match hooks(spell.card_id).spell_target {
+        SpellTarget::None => vec![MinionSlot::Board(0)],
+        SpellTarget::TavernMinion => (0..state.shop.len())
+            .filter(|&i| can_target_in_shop(spell.card_id, &state.shop[i]))
+            .map(MinionSlot::Shop)
+            .collect(),
+        _ => (0..state.board.len())
+            .filter(|&i| can_target(spell.card_id, &state.board[i]))
+            .map(MinionSlot::Board)
+            .collect(),
+    };
+    let target = match slots.len() {
+        0 => return,
+        1 => slots[0],
+        k => slots[rng.below(k)],
+    };
+    cast_spell_by_effect(state, spell, target, pool, rng);
+}
+
 /// Draw a uniformly random Bounty spell (`Bigwig Bandit`).
 pub fn draw_random_bounty(rng: &mut Rng) -> Unit {
     let cid = BOUNTY_SPELL_IDS[rng.below(BOUNTY_SPELL_IDS.len())];
