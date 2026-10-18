@@ -18,7 +18,9 @@ tests/scenarios/
 ├── tavern/<card|topic>.yaml   # tavern-phase minions, spells, and Tavern mechanics
 ├── heroes/<hero>.yaml         # one hero and its Hero Power (docs/heroes.md)
 ├── trinkets/<trinket>.yaml   # one trinket (docs/trinkets.md)
-└── dark_gifts/<gift>.yaml    # one Dark Gift (docs/dark_gifts.md)
+├── dark_gifts/<gift>.yaml    # one Dark Gift (docs/dark_gifts.md)
+├── darkmoon/<prize>.yaml     # one Darkmoon Prize (docs/darkmoon_prizes.md)
+└── yogg/<outcome>.yaml       # one outcome of the Wheel of Yogg-Saron (docs/wheel_of_yogg.md)
 ```
 
 Every scenario is its own test, named `<dir>::<file>::<scenario>`:
@@ -38,7 +40,7 @@ not load is reported as the test `<dir>::<file>::<file>`.
 ## 2. Scenario files
 
 ```yaml
-card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>`, `trinket: <name>`, `dark_gift: <name>` or `topic: <text>`
+card: Joyous                   # what the file is about: `card: <name>`, `hero: <name>`, `trinket: <name>`, `dark_gift: <name>`, `prize: <name>`, `wheel: <outcome>` or `topic: <text>`
 defaults:                      # optional: merged into every scenario
   seed: 101
 scenarios:
@@ -189,6 +191,8 @@ step also has `player:` (§2.1).
 | `choose_trinket: <option index or trinket name>` | `TavernAction::ChooseTrinket` (indexes `trinket_options`). |
 | `dark_discovery` | `TavernAction::DarkDiscovery`: the Dark Discovery button (`docs/dark_gifts.md` §3). |
 | `offer_dark_gifts: <unit spec(s)>` | A Discover of these cards (their gifts given by `gift:` tokens), without the button (`docs/dark_gifts.md` §8.3). |
+| `discover_prize: <tier>` | A prize Discover of that Tier (`docs/darkmoon_prizes.md` §8.3). |
+| `spin_wheel` or `spin_wheel: <outcome>` | Spin the Wheel of Yogg-Saron (`yogg::spin_wheel`: one weighted draw), or resolve that outcome without the draw (`yogg::resolve`) (`docs/wheel_of_yogg.md` §6). |
 | `add_to_hand: <unit spec(s)>` | `TavernState::add_to_hand` for each card (as if it were gained: triples, hand limit). |
 | `push_board` / `push_hand` / `push_shop: <unit spec(s)>` | Append the cards directly: no triggers, no auras, no triples. |
 | `clear: <zone>` or `clear: [<zones>]` | Empty `board`, `hand` and/or `shop`. |
@@ -419,7 +423,9 @@ starting with `card: <Card Name>`, that every `src/heroes/<hero>.rs` has a
 `tests/scenarios/heroes/<hero>.yaml` starting with `hero: <Hero Name>` (the file name is the card's slug: `Fandral's Fortune` ->
 `fandrals_fortune`), that every `src/trinkets/<trinket>.rs` and `src/dark_gifts/<gift>.rs` has its
 `tests/scenarios/trinkets/<trinket>.yaml` or `tests/scenarios/dark_gifts/<gift>.yaml` (starting with
-`trinket:` or `dark_gift:`), that every scenario file belongs to a card or a topic, and that
+`trinket:` or `dark_gift:`), that every `src/darkmoon/<prize>.rs` and `src/yogg/<outcome>.rs` has its
+`tests/scenarios/darkmoon/<prize>.yaml` or `tests/scenarios/yogg/<outcome>.yaml` (starting with `prize:`
+or `wheel:`), that every scenario file belongs to a card or a topic, and that
 `tests/scenarios/` holds nothing else.
 
 ---
