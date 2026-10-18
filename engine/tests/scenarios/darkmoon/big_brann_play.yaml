@@ -1,0 +1,26 @@
+prize: Big Brann Play
+scenarios:
+  - name: battlecries_trigger_an_extra_time_this_turn
+    tavern: {hand: [Big Brann Play, Razorfen Geomancer]}   # Battlecry: get 2 Blood Gems
+    steps:
+      - play: Big Brann Play
+      - play: Razorfen Geomancer
+    expect: {hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem]}
+
+  - name: it_adds_to_brann
+    tavern: {board: [Brann Bronzebeard], hand: [Big Brann Play, Razorfen Geomancer]}
+    steps:
+      - play: {hand: Big Brann Play, pos: 0}
+      - play: Razorfen Geomancer
+    expect: {hand: {count: 6, all: Blood Gem}}
+
+  - name: only_this_turn
+    tavern: {hand: [Big Brann Play, Razorfen Geomancer, Razorfen Geomancer]}
+    steps:
+      - play: Big Brann Play
+      - play: Razorfen Geomancer
+      - expect: {hand: {where: {name: Blood Gem}, count: 4}}
+      - end_turn
+      - start_turn
+      - play: Razorfen Geomancer
+    expect: {hand: {where: {name: Blood Gem}, count: 6}, auras: {effect_stacks: {Big Brann Play: 0}}}

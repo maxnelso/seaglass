@@ -1,0 +1,31 @@
+prize: Evolving Tavern
+scenarios:
+  - name: each_card_in_the_tavern_becomes_one_of_a_tier_higher
+    seeds: "1..20"
+    tavern: {shop: [Joyous, Iron Groundskeeper, Zoatroid, "Tavern Dish Banana"]}
+    steps:
+      - add_to_hand: Evolving Tavern
+      - play: Evolving Tavern
+    expect:
+      shop:
+        count: 4
+        0: {tavern_tier: 2, is_spell: false}
+        2: {tavern_tier: 2, is_spell: false}
+        3: {tavern_tier: 2, is_spell: true}
+
+  - name: up_to_tier_7
+    seeds: "1..10"
+    tavern: {shop: [Choral Mrrrglr, Arcane Behemoth]}
+    steps:
+      - add_to_hand: Evolving Tavern
+      - play: Evolving Tavern
+    expect: {shop: {count: 2, all: {tavern_tier: 7}}}
+
+  - name: the_old_minions_go_back_to_the_pool
+    tavern: {catalog: tier1_2}
+    steps:
+      - start_turn
+      - expect: {pool_size: {capture: before}}
+      - add_to_hand: Evolving Tavern
+      - play: Evolving Tavern
+    expect: {pool_size: "$before", shop: {count: 3, all: {tavern_tier: 2}}}

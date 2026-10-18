@@ -1,0 +1,31 @@
+prize: The Unlimited Coin
+scenarios:
+  - name: a_gold_and_it_returns_at_the_end_of_the_turn
+    tavern: {gold: 0, hand: [The Unlimited Coin]}
+    steps:
+      - play: The Unlimited Coin
+      - expect: {gold: 1, hand: []}
+      - end_turn
+      - expect: {hand: [The Unlimited Coin]}
+      - start_turn
+      - set: {gold: 0}
+      - play: The Unlimited Coin
+    expect: {gold: 1, hand: []}
+
+  - name: it_waits_for_room_in_a_full_hand
+    tavern: {hand: [The Unlimited Coin]}
+    steps:
+      - play: The Unlimited Coin
+      - add_to_hand: [Joyous, Joyous, Zoatroid, Zoatroid, Wrath Weaver, Wrath Weaver, Glim Guardian, Glim Guardian, Dune Dweller, Dune Dweller]
+      - end_turn
+    expect: {hand: {count: 10}, waiting_for_hand: [The Unlimited Coin]}
+
+  - name: not_cast_it_stays_and_nothing_more_comes
+    tavern: {hand: [The Unlimited Coin]}
+    steps:
+      - end_turn
+      - expect: {hand: [The Unlimited Coin]}
+      - start_turn
+      - set: {gold: 0}
+      - play: The Unlimited Coin
+    expect: {gold: 1}

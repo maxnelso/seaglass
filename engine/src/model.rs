@@ -746,6 +746,15 @@ pub struct Unit {
     /// The minion's Dark Gifts, in the order it got them (`docs/dark_gifts.md` §2.2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dark_gifts: Vec<DarkGift>,
+    /// `+N/+N` it gains at the end of each of its player's turns, from an effect given to it
+    /// (`Gruul Rules`; `docs/darkmoon_prizes.md` §4.2).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub end_of_turn_stats: i32,
+    /// A Discover option that is a copy rather than a card drawn from the pool (`Time Thief`):
+    /// unchosen, or chosen into a full hand, it returns nothing to the pool
+    /// (`docs/darkmoon_prizes.md` §4.2).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub not_from_pool: bool,
 }
 
 /// The hat card (*Hats*, `TB_BaconShop_HP_042e`): [`Unit::hats`] counts its copies on a minion,
@@ -848,6 +857,8 @@ impl Unit {
             until_next_turn_atk: 0,
             hats: 0,
             dark_gifts: Vec::new(),
+            end_of_turn_stats: 0,
+            not_from_pool: false,
         }
     }
 

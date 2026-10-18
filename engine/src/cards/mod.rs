@@ -803,6 +803,8 @@ pub fn instantiate_plain_copy(unit: &Unit) -> Unit {
         copy.frozen = false;
         copy.hats = 0;
         copy.until_next_turn_atk = 0;
+        copy.end_of_turn_stats = 0;
+        copy.not_from_pool = false;
         copy.temp_divine_shield = false;
         copy.temp_reborn = false;
         copy.extra_deathrattles.clear();
@@ -1493,6 +1495,9 @@ pub fn on_end_turn(state: &mut TavernState, repeats: u32, pool: &mut CardPool, r
         for unit in &mut state.board {
             if unit.eot_health_bonus > 0 {
                 unit.add_stats(0, unit.eot_health_bonus);
+            }
+            if unit.end_of_turn_stats != 0 {
+                unit.add_stats(unit.end_of_turn_stats, unit.end_of_turn_stats);
             }
         }
         notify_tavern(state, |h| h.end_of_turn, |s, idx, f| f(s, idx, pool, rng));

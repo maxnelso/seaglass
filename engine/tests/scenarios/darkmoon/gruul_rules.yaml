@@ -1,0 +1,32 @@
+prize: Gruul Rules
+scenarios:
+  - name: the_minion_gains_4_4_at_the_end_of_each_turn
+    tavern: {board: ["Joyous 2/3"], hand: [Gruul Rules]}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - expect: {board: ["Joyous 2/3"]}
+      - end_turn
+      - expect: {board: ["Joyous 6/7"]}
+      - start_turn
+      - end_turn
+    expect: {board: ["Joyous 10/11"]}
+
+  - name: golden_or_not_it_is_4_4
+    tavern: {board: ["golden Joyous 4/6"], hand: [Gruul Rules]}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - end_turn
+    expect: {board: ["golden Joyous 8/10"]}
+
+  - name: it_repeats_with_the_end_of_turn_effects
+    tavern: {board: ["Joyous 2/3", Drakkari Enchanter], hand: [Gruul Rules]}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - end_turn
+    expect: {board: {0: "Joyous 10/11"}}
+
+  - name: the_effect_is_on_the_minion
+    tavern: {board: ["Joyous 2/3"], hand: [Gruul Rules]}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - expect: {board: [{end_of_turn_stats: 4}]}

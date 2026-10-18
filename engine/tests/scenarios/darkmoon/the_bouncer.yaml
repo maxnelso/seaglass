@@ -1,0 +1,14 @@
+prize: The Bouncer
+scenarios:
+  - name: taunt_then_double_its_health
+    tavern: {board: ["Joyous 2/5"], hand: [The Bouncer]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Joyous 2/10 taunt"]}
+
+  - name: only_a_friendly_minion
+    tavern: {board: ["Joyous 2/5"], shop: [Zoatroid], hand: [The Bouncer]}
+    steps:
+      - expect_illegal: {play: {hand: 0, shop: 0}}
+      - play: {hand: 0, pos: 0}
+    expect: {hand: [], shop: ["Zoatroid -taunt"], board: ["Joyous 2/10 taunt"]}

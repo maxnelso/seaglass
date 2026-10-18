@@ -45,8 +45,10 @@ const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
 /// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
 /// can still set them.
-const SKIPPED_UNIT_FIELDS: [&str; 10] = [
+const SKIPPED_UNIT_FIELDS: [&str; 12] = [
     "dark_gifts",
+    "end_of_turn_stats",
+    "not_from_pool",
     "marked",
     "extra_deathrattles",
     "trinket_marks",

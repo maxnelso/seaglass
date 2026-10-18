@@ -13,11 +13,20 @@
 mod table;
 
 pub mod banana_bunch;
+pub mod big_brann_play;
 pub mod crystallization;
+pub mod evolving_tavern;
 pub mod gacha_gift;
+pub mod gruul_rules;
+pub mod im_still_just_a_rat_in_a_cage;
+pub mod mageroyal_blossom;
 pub mod new_recruit;
+pub mod on_the_house;
 pub mod rocking_and_rolling;
+pub mod the_bouncer;
 pub mod the_good_stuff;
+pub mod the_unlimited_coin;
+pub mod time_thief;
 pub mod unfurled_codex;
 
 pub use table::{CARD_DEFS_BUILD, PRIZES};
@@ -60,11 +69,23 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 /// Every implemented prize, by file name.
 const IMPLEMENTED: &[Implemented] = &[
     (banana_bunch::ID, banana_bunch::behaviors),
+    (big_brann_play::ID, big_brann_play::behaviors),
     (crystallization::ID, crystallization::behaviors),
+    (evolving_tavern::ID, evolving_tavern::behaviors),
     (gacha_gift::ID, gacha_gift::behaviors),
+    (gruul_rules::ID, gruul_rules::behaviors),
+    (
+        im_still_just_a_rat_in_a_cage::ID,
+        im_still_just_a_rat_in_a_cage::behaviors,
+    ),
+    (mageroyal_blossom::ID, mageroyal_blossom::behaviors),
     (new_recruit::ID, new_recruit::behaviors),
+    (on_the_house::ID, on_the_house::behaviors),
     (rocking_and_rolling::ID, rocking_and_rolling::behaviors),
+    (the_bouncer::ID, the_bouncer::behaviors),
     (the_good_stuff::ID, the_good_stuff::behaviors),
+    (the_unlimited_coin::ID, the_unlimited_coin::behaviors),
+    (time_thief::ID, time_thief::behaviors),
     (unfurled_codex::ID, unfurled_codex::behaviors),
 ];
 

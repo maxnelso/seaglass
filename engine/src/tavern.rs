@@ -2537,7 +2537,7 @@ impl TavernState {
                     if std::mem::take(&mut unchosen.unchosen_to_teammate) {
                         // Duos `Bargain Bundle`: the teammate gets the other options.
                         self.auras.give_teammate(TeammateGift::Card(unchosen));
-                    } else {
+                    } else if !unchosen.not_from_pool {
                         pool.return_unit(&unchosen);
                     }
                 }
@@ -2545,8 +2545,16 @@ impl TavernState {
                 // The card reaches the hand before its Tier damage (`docs/tavern.md` §7.2).
                 let tier_damage = std::mem::take(&mut chosen.discover_deals_tier_damage)
                     .then_some(chosen.tavern_tier as i32);
+                let from_pool = !std::mem::take(&mut chosen.not_from_pool);
                 let obtained = chosen.clone();
-                if self.add_pool_card_to_hand(chosen, pool) {
+                let reached = if from_pool {
+                    self.add_pool_card_to_hand(chosen, pool)
+                } else {
+                    let room = self.hand.len() < 10;
+                    self.add_to_hand(chosen);
+                    room
+                };
+                if reached {
                     cards::on_obtained(self, &obtained, pool, rng);
                 }
                 if let Some(dmg) = tier_damage {
@@ -2838,6 +2846,7 @@ impl TavernState {
         golden.pass_aura = copies.iter().map(|u| u.pass_aura).sum();
         golden.until_next_turn_atk = copies.iter().map(|u| u.until_next_turn_atk).sum();
         golden.hats = copies.iter().map(|u| u.hats).sum();
+        golden.end_of_turn_stats = copies.iter().map(|u| u.end_of_turn_stats).sum();
         cards::init_unit_turn_charges(&mut golden);
         // The Golden's own spell aura comes from its card; what the copies gained on top of
         // theirs carries over.

@@ -1,0 +1,13 @@
+prize: I'm Still Just a Rat in a Cage
+scenarios:
+  - name: plus_2_attack_then_double_it
+    tavern: {board: ["Joyous 3/3"], hand: ["I'm Still Just a Rat in a Cage"]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Joyous 10/3"]}
+
+  - name: it_can_target_a_minion_in_the_tavern
+    tavern: {shop: ["Zoatroid 1/1"], hand: ["I'm Still Just a Rat in a Cage"]}
+    steps:
+      - play: {hand: 0, shop: 0}
+    expect: {shop: ["Zoatroid 6/1"]}

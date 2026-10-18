@@ -255,6 +255,8 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     with_default(&mut view, "trinket_marks", View::List(Vec::new()));
     with_default(&mut view, "magnetized_auras", View::List(Vec::new()));
     with_default(&mut view, "dark_gifts", View::List(Vec::new()));
+    with_default(&mut view, "end_of_turn_stats", View::Int(0));
+    with_default(&mut view, "not_from_pool", View::Bool(false));
     let id = unit.card_id;
     let keywords = KEYWORDS
         .iter()

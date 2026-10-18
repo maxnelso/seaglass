@@ -1,0 +1,17 @@
+prize: Mageroyal Blossom
+scenarios:
+  - name: it_discovers_a_tavern_spell_of_your_tier
+    seeds: "1..20"
+    tavern: {tavern_tier: 3}
+    steps:
+      - add_to_hand: Mageroyal Blossom
+      - play: Mageroyal Blossom
+    expect: {discover_pending: {count: 3, all: {is_spell: true, tavern_tier: 3}}}
+
+  - name: the_chosen_spell_goes_to_the_hand
+    tavern: {tavern_tier: 1}
+    steps:
+      - add_to_hand: Mageroyal Blossom
+      - play: Mageroyal Blossom
+      - choose_discover: 0
+    expect: {hand: [{is_spell: true, tavern_tier: 1}], discover_pending: null}
