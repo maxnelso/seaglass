@@ -106,7 +106,7 @@ Trinkets ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md)) are optional:
 ### Observation
 `TavernObservation` and `DuosObservation` have `trinkets` (the owned trinkets' ids, in the order picked), `trinket_counters` (their counters), `trinket_options` (the offered trinkets' ids) and `trinket_option_costs` (their prices: 2 less for an option of a type that isn't the player's most common one). `features.py` appends six features to the `[PLAYER]` vector (`PLAYER_DIM` is 31): whether trinkets are offered, the number owned `/ 2`, and the 4 offered prices `/ 10` (0 for no option); and six card slots after the waiting ones (`NUM_SLOTS` is 37): the 2 owned trinkets (`MAX_TRINKETS`), then the 4 offered ones, each with its id and the present flag.
 
-A trinket whose text names a minion type (`Colorful Compass`, `Gold-plated Compass`, `Minion Bait`: "Get a random Beast") gets the player's most common type as it is offered ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md) §3.4). Both observations have `trinket_tribes` and `trinket_option_tribes` (each owned and offered trinket's type: its index in the 10 lobby types plus 1, 0 for none), and every card slot's numeric features end with a one-hot of the 10 lobby types (`TRINKET_TRIBE_OFFSET`, after the Dark Gift features; `SLOT_NUM_DIM` is 14 + 47 + 10 = 71), set only in the trinket slots.
+A trinket whose text names a minion type (`Colorful Compass`, `Gold-plated Compass`, `Minion Bait`: "Get a random Beast") gets the player's most common type as it is offered ([`engine/docs/trinkets.md`](../engine/docs/trinkets.md) §3.4). Both observations have `trinket_tribes` and `trinket_option_tribes` (each owned and offered trinket's type: its index in the 10 lobby types plus 1, 0 for none), and every card slot's numeric features end with a one-hot of the 10 lobby types (`TRINKET_TRIBE_OFFSET`, after the Dark Gift features; `SLOT_NUM_DIM` was 14 + 47 + 10 = 71), set only in the trinket slots.
 
 ### Actions
 The table appends 4 `ChooseTrinket` actions (`CHOOSE_TRINKET_INDICES`). A game without trinket offers never lists them as legal.
@@ -131,7 +131,7 @@ The table appends the `dark_discovery` action last (`DARK_DISCOVERY_INDEX`). A g
 
 ## Darkmoon Prizes
 
-Darkmoon Prizes ([`engine/docs/darkmoon_prizes.md`](../engine/docs/darkmoon_prizes.md)) need no new action or feature: a prize is a 0-Gold spell (or the minion `All-Seeing Elder`) cast with the existing `play` actions, and a prize Discover is a regular `choose_discover` prompt. The prize ids and `Corrupted Tome`'s `Triple Prize` are appended to `all_card_ids()` (`engine/src/vocab.rs`), so they have card embeddings in the hand and Discover slots. `Tickatus`'s turns toward the next prize are `hero_power_counter`.
+Darkmoon Prizes ([`engine/docs/darkmoon_prizes.md`](../engine/docs/darkmoon_prizes.md)) need no new action or feature: a prize is a 0-Gold spell (or the minion `All-Seeing Elder`) cast with the existing `play` actions, and a prize Discover is a regular `choose_discover` prompt. The prize ids and `Corrupted Tome`'s `Triple Prize` are appended to `all_card_ids()` (`engine/src/vocab.rs`), so they have card embeddings in the hand and Discover slots. `Tickatus`'s turns toward the next prize are `hero_power_counter`. `Gruul Rules` gives a minion `+4/+4` at each end of turn (`Unit.end_of_turn_stats`, visible on the card): every card slot's last numeric feature is `log1p(end_of_turn_stats) / 5` (`END_OF_TURN_STATS_OFFSET`, after the trinket types; `SLOT_NUM_DIM` is 14 + 47 + 10 + 1 = 72).
 
 ---
 
@@ -168,7 +168,8 @@ rl/
     ├── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
     ├── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
     ├── test_vocabulary.py     # The card vocabulary only grows at the end (data/card_ids_v1.txt)
-    └── test_dark_gifts.py     # Dark Gifts: the Dark Discovery action, offers, observation fields
+    ├── test_dark_gifts.py     # Dark Gifts: the Dark Discovery action, offers, observation fields
+    └── test_darkmoon.py       # Darkmoon Prizes: the vocabulary, the Gruul Rules slot feature
 ```
 
 ---

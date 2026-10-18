@@ -31,7 +31,10 @@ BASE_SLOT_NUM_DIM: int = 14
 # appended after the Dark Gift features, set only in the trinket slots (owned and offered).
 NUM_TRINKET_TRIBES: int = 10
 TRINKET_TRIBE_OFFSET: int = BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)
-SLOT_NUM_DIM: int = TRINKET_TRIBE_OFFSET + NUM_TRINKET_TRIBES
+# The stats a card gains at the end of each turn from an effect given to it (`Gruul Rules`,
+# `engine/docs/darkmoon_prizes.md` §4.2), log-scaled, appended after the trinket types.
+END_OF_TURN_STATS_OFFSET: int = TRINKET_TRIBE_OFFSET + NUM_TRINKET_TRIBES
+SLOT_NUM_DIM: int = END_OF_TURN_STATS_OFFSET + 1
 
 
 def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
@@ -54,6 +57,7 @@ def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
         feature = DARK_GIFT_TO_FEATURE.get(gid)
         if feature is not None:
             out_num[BASE_SLOT_NUM_DIM + feature] += 1.0
+    out_num[END_OF_TURN_STATS_OFFSET] = math.log1p(max(0, u.end_of_turn_stats)) / 5.0
     return CARD_ID_TO_IDX.get(u.card_id, 0)
 
 

@@ -26,7 +26,7 @@ def test_the_gift_table_and_vocabulary() -> None:
     start = ids.index(DARK_GIFT_IDS[0])
     assert ids[start : start + len(DARK_GIFT_IDS)] == DARK_GIFT_IDS
     # Then the 10 trinket type features (`engine/docs/trinkets.md` §3.4).
-    assert SLOT_NUM_DIM == BASE_SLOT_NUM_DIM + 47 + 10
+    assert SLOT_NUM_DIM == BASE_SLOT_NUM_DIM + 47 + 10 + 1
 
 
 def _play_to_turn(game: seaglass.TavernGame, turn: int) -> None:

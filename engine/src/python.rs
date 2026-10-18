@@ -195,6 +195,18 @@ impl PyUnit {
         self.inner.marked
     }
 
+    /// `+N/+N` it gains at the end of each turn from an effect given to it (`Gruul Rules`;
+    /// `docs/darkmoon_prizes.md` §4.2): visible on the card.
+    #[getter]
+    fn end_of_turn_stats(&self) -> i32 {
+        self.inner.end_of_turn_stats
+    }
+
+    #[setter]
+    fn set_end_of_turn_stats(&mut self, stats: i32) {
+        self.inner.end_of_turn_stats = stats;
+    }
+
     /// The unit's Dark Gifts' ids (dbfIds), in the order it got them (`docs/dark_gifts.md` §8.2).
     #[getter]
     fn dark_gifts(&self) -> Vec<u32> {
