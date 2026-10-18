@@ -1,0 +1,7 @@
+prize: Give a Dog a Bone
+scenarios:
+  - name: divine_shield_windfury_and_15_15
+    tavern: {board: ["Joyous 2/3"], hand: [Give a Dog a Bone]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Joyous 17/18 divine_shield windfury"]}

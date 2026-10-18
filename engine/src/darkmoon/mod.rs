@@ -12,20 +12,28 @@
 
 mod table;
 
+pub mod all_seeing_elder;
 pub mod all_that_glitters;
 pub mod b_a_n_a_n_a_s;
 pub mod banana_bunch;
 pub mod big_brann_play;
+pub mod big_winner;
 pub mod buy_the_holy_light;
 pub mod crystallization;
 pub mod evolving_tavern;
+pub mod fresh_tab;
+pub mod friends_and_family_discount;
 pub mod gacha_gift;
+pub mod give_a_dog_a_bone;
+pub mod gorgeous_goblet;
 pub mod gruul_rules;
 pub mod im_still_just_a_rat_in_a_cage;
 pub mod mageroyal_blossom;
 pub mod mindflayer_goggles;
 pub mod new_recruit;
 pub mod on_the_house;
+pub mod open_bar;
+pub mod raise_the_stakes;
 pub mod repeat_customer;
 pub mod reserve_prices;
 pub mod rocking_and_rolling;
@@ -76,14 +84,23 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented prize, by file name.
 const IMPLEMENTED: &[Implemented] = &[
+    (all_seeing_elder::ID, all_seeing_elder::behaviors),
     (all_that_glitters::ID, all_that_glitters::behaviors),
     (b_a_n_a_n_a_s::ID, b_a_n_a_n_a_s::behaviors),
     (banana_bunch::ID, banana_bunch::behaviors),
     (big_brann_play::ID, big_brann_play::behaviors),
+    (big_winner::ID, big_winner::behaviors),
     (buy_the_holy_light::ID, buy_the_holy_light::behaviors),
     (crystallization::ID, crystallization::behaviors),
     (evolving_tavern::ID, evolving_tavern::behaviors),
+    (fresh_tab::ID, fresh_tab::behaviors),
+    (
+        friends_and_family_discount::ID,
+        friends_and_family_discount::behaviors,
+    ),
     (gacha_gift::ID, gacha_gift::behaviors),
+    (give_a_dog_a_bone::ID, give_a_dog_a_bone::behaviors),
+    (gorgeous_goblet::ID, gorgeous_goblet::behaviors),
     (gruul_rules::ID, gruul_rules::behaviors),
     (
         im_still_just_a_rat_in_a_cage::ID,
@@ -93,6 +110,8 @@ const IMPLEMENTED: &[Implemented] = &[
     (mindflayer_goggles::ID, mindflayer_goggles::behaviors),
     (new_recruit::ID, new_recruit::behaviors),
     (on_the_house::ID, on_the_house::behaviors),
+    (open_bar::ID, open_bar::behaviors),
+    (raise_the_stakes::ID, raise_the_stakes::behaviors),
     (repeat_customer::ID, repeat_customer::behaviors),
     (reserve_prices::ID, reserve_prices::behaviors),
     (rocking_and_rolling::ID, rocking_and_rolling::behaviors),

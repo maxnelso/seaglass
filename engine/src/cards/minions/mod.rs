@@ -10,6 +10,7 @@ pub mod abyssal_envoy;
 pub mod accord_o_tron;
 pub mod air_baller;
 pub mod air_revenant;
+pub mod all_seeing_elder;
 pub mod amber_guardian;
 pub mod annoy_o_module;
 pub mod arcane_behemoth;
@@ -616,8 +617,9 @@ pub fn duos_catalog() -> Vec<CardTemplate> {
     ]
 }
 
-/// The minions only trinkets give (`docs/trinkets.md` §11.9), in no pool and no catalog, grouped
-/// by Tavern Tier. Add new cards at the end of their tier's group.
+/// The minions only trinkets give (`docs/trinkets.md` §11.9) and the minion Darkmoon Prize
+/// (`All-Seeing Elder`, `docs/darkmoon_prizes.md` §2.2), in no pool and no catalog, grouped by
+/// Tavern Tier. Add new cards at the end of their tier's group.
 pub fn trinket_catalog() -> Vec<CardTemplate> {
     vec![
         // Tier 1
@@ -631,6 +633,7 @@ pub fn trinket_catalog() -> Vec<CardTemplate> {
         mishmash::template(),
         // Tier 4
         doubloon_grifter::template(),
+        all_seeing_elder::template(),
         // Tier 5
         flourishing_frostling::template(),
         // Tier 6

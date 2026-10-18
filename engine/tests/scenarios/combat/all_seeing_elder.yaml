@@ -1,0 +1,25 @@
+card: All-Seeing Elder
+scenarios:
+  - name: it_gains_the_left_most_attack_and_the_right_most_health
+    combat:
+      board_a: ["Joyous 5/2", All-Seeing Elder, "Zoatroid 1/9"]
+      board_b: ["Wrath Weaver 1/50"]
+    expect:
+      events: {contains: {type: stat_buff, reason: All-Seeing Elder, atk_delta: 5, hp_delta: 9}}
+
+  - name: itself_when_it_is_left_most
+    combat:
+      board_a: [All-Seeing Elder, "Zoatroid 1/9"]
+      board_b: ["Wrath Weaver 1/50"]
+    expect:
+      events: {contains: {type: stat_buff, reason: All-Seeing Elder, atk_delta: 1, hp_delta: 9, attack: 2, health: 10}}
+
+  - name: golden_it_gains_them_twice_as_they_are_then
+    combat:
+      board_a: ["golden All-Seeing Elder 2/2", "Zoatroid 1/9"]
+      board_b: ["Wrath Weaver 1/50"]
+    expect:
+      events:
+        sequence:
+          - {type: stat_buff, reason: All-Seeing Elder, atk_delta: 2, hp_delta: 9, attack: 4}
+          - {type: stat_buff, reason: All-Seeing Elder, atk_delta: 4, hp_delta: 9, attack: 8}

@@ -1,0 +1,20 @@
+prize: Raise the Stakes
+scenarios:
+  - name: the_minion_becomes_golden_and_returns_to_the_hand
+    tavern: {board: ["Joyous 3/4", Zoatroid], hand: [Raise the Stakes]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: [Zoatroid], hand: [{card: Joyous, is_golden: true, golden_from_effect: true}]}
+
+  - name: played_it_gives_a_triple_reward
+    tavern: {board: [Joyous], hand: [Raise the Stakes]}
+    steps:
+      - play: {hand: 0, pos: 0}
+      - play: 0
+    expect: {board: ["golden Joyous"], hand: [Triple Reward]}
+
+  - name: a_golden_minion_is_no_target
+    tavern: {board: ["golden Joyous"], hand: [Raise the Stakes]}
+    steps:
+      - expect_illegal: {play: {hand: 0, pos: 0}}
+    expect: {hand: [Raise the Stakes]}

@@ -1,0 +1,14 @@
+prize: Big Winner!
+scenarios:
+  - name: a_prize_discover_of_tier_1_then_2_then_3
+    seeds: "1..10"
+    tavern: {hand: ["Big Winner!"]}
+    steps:
+      - play: "Big Winner!"
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 1, is_spell: true}}, discover_queue: {count: 2}}
+      - choose_discover: 0
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 2}}}
+      - choose_discover: 0
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 3}}}
+      - choose_discover: 0
+    expect: {hand: [{tavern_tier: 1}, {tavern_tier: 2}, {tavern_tier: 3}], discover_pending: null}

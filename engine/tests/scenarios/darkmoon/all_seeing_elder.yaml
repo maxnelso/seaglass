@@ -1,0 +1,20 @@
+prize: All-Seeing Elder
+scenarios:
+  - name: a_tier_4_prize_discover_offers_it_and_played_it_acts_at_start_of_combat
+    description: >-
+      The minion prize has no hooks of its own (its minion's are its template's), so the
+      scenario also plays it into a combat.
+    seeds: "1..40"
+    tavern: {board: ["Joyous 5/2", "Zoatroid 1/9"]}
+    steps:
+      - discover_prize: 4
+      - expect: {discover_pending: {count: 3, all: {tavern_tier: 4}}}
+      - if: {discover_pending: {any: {name: All-Seeing Elder}}}
+        then:
+          - choose_discover: All-Seeing Elder
+          - expect: {hand: ["All-Seeing Elder 1/1"]}
+          - play: {hand: 0, pos: 1}
+          - fight: {board: ["Wrath Weaver 1/50"]}
+          - expect:
+              combat:
+                events: {contains: {type: stat_buff, reason: All-Seeing Elder, atk_delta: 5, hp_delta: 9}}

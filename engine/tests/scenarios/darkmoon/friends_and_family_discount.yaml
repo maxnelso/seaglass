@@ -1,0 +1,22 @@
+prize: Friends and Family Discount
+scenarios:
+  - name: minions_cost_2_for_the_rest_of_the_game
+    tavern: {shop: [Joyous, Zoatroid], hand: [Friends and Family Discount], gold: 4}
+    steps:
+      - play: Friends and Family Discount
+      - buy: 0
+      - expect: {gold: 2}
+      - end_turn
+      - start_turn
+      - set: {gold: 2}
+      - buy: 0
+    expect: {gold: 0}
+
+  - name: spells_cost_the_same
+    tavern: {shop: [Joyous, Tavern Dish Banana], hand: [Friends and Family Discount], gold: 3}
+    steps:
+      - play: Friends and Family Discount
+      - buy: 1
+      - expect: {gold: 2}
+      - buy: 0
+    expect: {gold: 0, hand: [Tavern Dish Banana, Joyous]}

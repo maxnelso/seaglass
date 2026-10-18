@@ -1,0 +1,8 @@
+prize: Fresh Tab
+scenarios:
+  - name: it_gives_12_gold
+    tavern: {gold: 3}
+    steps:
+      - add_to_hand: Fresh Tab
+      - play: Fresh Tab
+    expect: {gold: 15, hand: []}

@@ -1,0 +1,19 @@
+prize: Open Bar
+scenarios:
+  - name: five_free_refreshes_now_and_five_more_each_turn
+    steps:
+      - add_to_hand: Open Bar
+      - play: Open Bar
+      - expect: {auras: {free_refreshes: 5}}
+      - end_turn
+      - start_turn
+    expect: {auras: {free_refreshes: 10}}
+
+  - name: the_free_refreshes_cost_no_gold
+    tavern: {gold: 0}
+    steps:
+      - add_to_hand: Open Bar
+      - play: Open Bar
+      - refresh
+      - refresh
+    expect: {gold: 0, auras: {free_refreshes: 3}}

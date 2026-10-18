@@ -1,0 +1,12 @@
+prize: Gorgeous Goblet
+scenarios:
+  - name: it_fills_the_hand_with_random_tavern_spells
+    seeds: "1..10"
+    tavern: {tavern_tier: 2, hand: [Gorgeous Goblet, Joyous]}
+    steps:
+      - play: Gorgeous Goblet
+    expect:
+      hand:
+        all_of:
+          - {count: 10, 0: Joyous}
+          - {where: {is_spell: true}, count: 9, all: {tavern_tier: "<= 2"}}
