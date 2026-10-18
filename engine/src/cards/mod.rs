@@ -206,8 +206,9 @@ impl<'a> BoardCtx<'a> {
         self.push_to_hand(card, Some(giver));
     }
 
-    fn push_to_hand(&mut self, mut card: Unit, giver: Option<UnitId>) {
+    fn push_to_hand(&mut self, card: Unit, giver: Option<UnitId>) {
         if self.hand.len() < 10 {
+            let mut card = crate::trinkets::replace_gained(self.auras, card);
             sync_unit_auras(&mut card, self.auras);
             self.hand.push(card);
             self.hand_summoned.push(false);

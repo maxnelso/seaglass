@@ -680,6 +680,10 @@ card_hooks! {
     trinket_hero_damage(on_trinket_hero_damage): fn(&mut TavernState, i32),
     /// A card entered the hand (`TavernState::add_to_hand`): `(state, card)`.
     trinket_card_added(on_trinket_card_added): fn(&mut TavernState, &Unit),
+    /// A card is about to enter the hand (`TavernState::add_to_hand`, the combat hand's
+    /// `BoardCtx::add_to_hand`): the card it becomes instead, if this trinket changes it:
+    /// `(card) -> Option<card>` (`docs/darkmoon_prizes.md` §4.4).
+    trinket_replace_gained(on_trinket_replace_gained): fn(&Unit) -> Option<Unit>,
     /// After each Tavern action (`TavernState::step`), once the waiting cards are delivered:
     /// `(state, pool, rng)`.
     trinket_after_action(on_trinket_after_action): TavernEventFn,

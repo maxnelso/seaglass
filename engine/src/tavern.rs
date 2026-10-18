@@ -964,10 +964,11 @@ impl TavernState {
     }
 
     /// Add a card (minion or spell) to `hand` (if `hand.len() < 10`), syncing global auras and checking triples.
-    pub fn add_to_hand(&mut self, mut card: Unit) {
+    pub fn add_to_hand(&mut self, card: Unit) {
         if self.hand.len() >= 10 {
             return;
         }
+        let mut card = trinkets::replace_gained(&self.auras, card);
         card.frozen = false;
         self.apply_global_unit_auras(&mut card);
         let cid = card.card_id;

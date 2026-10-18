@@ -16,7 +16,6 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 | Buddies (companions, the Buddy meter) | Deferred **(confirmed)** | No Buddy system: `E.T.C., Band Manager`, the Buddy trinkets, `Ticket Collector` (Tickatus's Buddy). `Mishmash` (The Curator's Buddy) exists only as the minion `Curator Sticker` gives ([`trinkets.md`](trinkets.md) §11.9). |
 | Quests | Deferred **(confirmed)** | `Sire Denathrius`, the Quest trinkets. |
 | Timewarp | Deferred **(confirmed)** | `Timewarped Big Winner!` ([`darkmoon_prizes.md`](darkmoon_prizes.md) §1), `Morchie`, `Murozond, Unbounded`, `Timeworn Candelabra` (both), `Poet Portrait` and the other Timewarp trinkets. |
-| Triple Prizes | Deferred **(confirmed)** | `Corrupted Tome`. |
 | Anomalies | Deferred **(confirmed)**; the Dark Gift anomaly (`BG36_Anomaly_002`) is out of scope **(confirmed)** | Lobby-wide rule changes, the Darkmoon Prize anomalies `Up-Prizing` and `A Faire Reward` included ([`darkmoon_prizes.md`](darkmoon_prizes.md) §1). |
 | Secrets | Deferred **(confirmed)** | `The Great Akazamzarak`. (`Safety Patch`'s Ice Block is the trinket's own state, not a Secret: [`trinkets.md`](trinkets.md) §11.9.) |
 | Spellcraft outside Duos | Deferred **(confirmed)** | `Lady Vashj`. The Duos Spellcraft minions and the Spellcraft trinkets are implemented ([`duos_tavern.md`](duos_tavern.md) §8.3, [`trinkets.md`](trinkets.md) §11.6). |
@@ -52,8 +51,6 @@ In the trinket table, not implemented, never offered ([`trinkets.md`](trinkets.m
 | Trinket | Status | Why |
 | :--- | :--- | :--- |
 | `Timeworn Candelabra` (Lesser and Greater) | Deferred **(confirmed)** | Timewarp. |
-| `Tickatus Sticker` | Deferred **(confirmed)** | Darkmoon Prizes. |
-| `Corrupted Tome` | Deferred **(confirmed)** | Triple Prizes. |
 | `Poet Portrait` | Deferred **(confirmed)** | Timewarp (it gives a Timewarped Poet). |
 | `Surprise Portrait` | Deferred **(confirmed)** | Its hidden rule ("More appear when you least expect them") is unknown. |
 | `Wisdomball Supply` | Deferred **(confirmed)** | Its spell's "helpful" Refreshes aren't worth a rule now. |

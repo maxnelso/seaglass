@@ -61,6 +61,7 @@ pub mod cookies_stirring_rod;
 pub mod corrupted_baton;
 pub mod corrupted_baton_greater;
 pub mod corrupted_coin_portrait;
+pub mod corrupted_tome;
 pub mod curator_sticker;
 pub mod cursed_crystal;
 pub mod czarina_portrait;
@@ -220,6 +221,7 @@ pub mod surveyor_portrait;
 pub mod tableware_portrait;
 pub mod the_eye_of_dalaran;
 pub mod the_eye_of_sargeras;
+pub mod tickatus_sticker;
 pub mod token_of_the_old_gods;
 pub mod tome_of_the_ancients;
 pub mod trailblazer_sticker;
@@ -376,6 +378,7 @@ const IMPLEMENTED: &[Implemented] = &[
         corrupted_coin_portrait::ID,
         corrupted_coin_portrait::behaviors,
     ),
+    (corrupted_tome::ID, corrupted_tome::behaviors),
     (curator_sticker::ID, curator_sticker::behaviors),
     (cursed_crystal::ID, cursed_crystal::behaviors),
     (czarina_portrait::ID, czarina_portrait::behaviors),
@@ -577,6 +580,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (tableware_portrait::ID, tableware_portrait::behaviors),
     (the_eye_of_dalaran::ID, the_eye_of_dalaran::behaviors),
     (the_eye_of_sargeras::ID, the_eye_of_sargeras::behaviors),
+    (tickatus_sticker::ID, tickatus_sticker::behaviors),
     (token_of_the_old_gods::ID, token_of_the_old_gods::behaviors),
     (tome_of_the_ancients::ID, tome_of_the_ancients::behaviors),
     (trailblazer_sticker::ID, trailblazer_sticker::behaviors),
@@ -1432,6 +1436,20 @@ pub fn card_added(state: &mut TavernState, card: &Unit) {
             in_slot(slot, || card_added(state, card));
         }
     }
+}
+
+/// The card `card` becomes as it is about to enter the hand: each trinket's
+/// `trinket_replace_gained` hook in pick order, each seeing the card as the earlier ones left it
+/// (`docs/darkmoon_prizes.md` §4.4: `Corrupted Tome`).
+pub fn replace_gained(auras: &PlayerAuras, mut card: Unit) -> Unit {
+    for trinket in &auras.trinkets {
+        if let Some(replace) = hooks(trinket.card_id).trinket_replace_gained {
+            if let Some(new) = replace(&card) {
+                card = new;
+            }
+        }
+    }
+    card
 }
 
 /// After each Tavern action: each trinket's `trinket_after_action` hook.

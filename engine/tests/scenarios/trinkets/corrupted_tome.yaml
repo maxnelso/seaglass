@@ -1,0 +1,25 @@
+trinket: Corrupted Tome
+scenarios:
+  - name: picked_it_gives_a_triple_prize
+    steps:
+      - give_trinket: Corrupted Tome
+    expect: {hand: [{name: Triple Prize, is_spell: true, spell_cost: 0}]}
+
+  - name: the_triple_prize_discovers_a_tier_3_prize_whatever_the_tier
+    tavern: {tavern_tier: 6}
+    steps:
+      - give_trinket: Corrupted Tome
+      - play: 0
+    expect: {hand: [], discover_pending: {count: 3, all: {tavern_tier: 3, is_spell: true}}, auras: {tavern_spells_cast: 0}}
+
+  - name: a_golden_played_gives_a_triple_prize_instead_of_a_triple_reward
+    tavern: {hand: ["golden Joyous"], auras: {trinkets: [Corrupted Tome]}}
+    steps:
+      - play: 0
+    expect: {hand: [{name: Triple Prize}]}
+
+  - name: any_triple_reward_entering_the_hand_becomes_one
+    tavern: {auras: {trinkets: [Corrupted Tome]}}
+    steps:
+      - add_to_hand: Triple Reward
+    expect: {hand: [{name: Triple Prize}]}

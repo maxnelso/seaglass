@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 - The trinkets implemented so far: §11.
 
 ### Deferred
-Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Darkmoon Prizes, Triple Prizes, Quests and Buddies. (Bounties aren't one of them: the engine has the 5 Bounty spells, `spells::BOUNTY_SPELL_IDS`, so the Bounty trinkets are implemented.) Tier 7 minions and spells are in the game: the trinkets that give them are implemented **(confirmed)**. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets give their own Spellcraft spell (§11.6).
+Trinkets that need systems the engine doesn't have are in the table but not implemented, and not offered (§3.1) **(confirmed)**: Timewarp, Quests and Buddies. (The Darkmoon Prize trinkets, `Tickatus Sticker` and `Corrupted Tome`, are implemented: [`darkmoon_prizes.md`](darkmoon_prizes.md) §7.) (Bounties aren't one of them: the engine has the 5 Bounty spells, `spells::BOUNTY_SPELL_IDS`, so the Bounty trinkets are implemented.) Tier 7 minions and spells are in the game: the trinkets that give them are implemented **(confirmed)**. §11.3 lists them. A trinket whose only type is Naga is never offered (Naga aren't in the game **(confirmed)**); one with a second type (`Wand of Divination`: Quilboar and Naga; `Heart of the Forest`: Pirate and Naga) is, for its other type **(confirmed)**: Naga counts no minions, so its other type does the type gating (§3.2). Spellcraft trinkets give their own Spellcraft spell (§11.6).
 [`deferred.md`](deferred.md) is the engine's single list of what it defers.
 
 ---
@@ -168,6 +168,7 @@ Trinkets reuse the card hook system (`src/cards/hooks.rs`): a trinket is a card 
 | `trinket_before_spell` | A spell is about to be cast in the Tavern, before its extra casts are counted: `(state)`. | `Multilayered Shield`. |
 | `trinket_hero_damage` | The hero took damage in the Tavern (`TavernState::deal_hero_damage`, not rewound): `(state, amount)`. | `Nether Pendant`. |
 | `trinket_card_added` | A card entered the hand (`add_to_hand`, a buy, a Triple's Golden): `(state, card)`. | `Trusty Crowbar`. |
+| `trinket_replace_gained` | A card is about to enter the hand (`TavernState::add_to_hand`, the combat hand's `BoardCtx::add_to_hand`): `(card) -> Option<card>`, the card it becomes instead, each trinket in pick order seeing the card as the earlier ones left it. | `Corrupted Tome`. |
 | `trinket_after_action` | After each Tavern action (`TavernState::step`), once the waiting cards are delivered: `(state, pool, rng)`. | `Splinter of Aurum`. |
 | `trinket_extra_battlecries` | A friendly Battlecry is about to resolve in the Tavern (played, or triggered by a card): extra triggers this trinket adds, on top of the board's `Passive::BattlecryTriggers` (it may use up a charge): `(trinket, unit)`. | `Dragon's Eye`, `War Drum`. |
 | `trinket_battlecry_triggered` | A friendly Battlecry triggered in the Tavern, after the `after_friendly_battlecry` observers (each trigger): `(state, unit)`. | `Dragon Skull`, `Murky Sticker`. |
@@ -479,14 +480,14 @@ Trinkets that count or choose "different minion types" follow the Menagerie rule
 | `Inductive Gyroblade` (Greater) | At the end of your turn, get a 12/12 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!) | As the Lesser one: `12/12`, `+12/+12` per spell **(confirmed)**. |
 | `Sunken Anchor` (Lesser) | Get 2 random Bounties. At the start of each turn, repeat this. | Picked and at each turn start, 2 Bounty Tavern spells, each one of the 5 at random (`spells::draw_random_bounty`, as `Bigwig Bandit`'s). |
 | `Privateer Portrait` (Greater) | Get a Proud Privateer and 2 random Bounties. At the start of each turn, get another 2 Bounties. | A plain `Proud Privateer` and 2 random Bounties; 2 more at each turn start. |
+| `Tickatus Sticker` (Lesser) | Discover a Tier 3 Darkmoon Prize. At the start of every three turns, repeat this. (3 turns left!) | Picked: a Tier 3 prize Discover; then every 3rd turn start after the pick (turns 9, 12, ... for one picked on turn 6), another ([`darkmoon_prizes.md`](darkmoon_prizes.md) §7.2). |
+| `Corrupted Tome` (Greater) | Get a Triple Prize. Whenever you would get a Triple Reward, get a Triple Prize instead. | Picked: a `Triple Prize` (0-Gold token spell: Discover a Tier 3 Darkmoon Prize, whatever the Tavern Tier **(confirmed)**), to the hand or waiting for room; `trinket_replace_gained`: every `Triple Reward` about to enter the hand, from any source, in the Tavern or the combat hand, is a `Triple Prize` instead **(engine decision)** ([`darkmoon_prizes.md`](darkmoon_prizes.md) §7.3). |
 
 ### 11.3 Deferred
 
 | Trinkets | Why |
 | :--- | :--- |
 | `Timeworn Candelabra` (both), `Poet Portrait` and the other Timewarp trinkets | Timewarp **(confirmed)**. |
-| `Tickatus Sticker` and the other Darkmoon Prize trinkets | Darkmoon Prizes **(confirmed)**. |
-| `Corrupted Tome` | Triple Prizes (the engine has none) **(confirmed)**. |
 | `Surprise Portrait` | Its hidden rule ("More appear when you least expect them") is unknown **(confirmed: deferred)**. |
 | `Wisdomball Supply` | Its spell's "helpful" Refreshes aren't worth a rule now **(confirmed: deferred)**. |
 | `Yogg-Tastic Pastry`, `Putricide Sticker` | The Wheel of Yogg-Saron and custom Undead creations **(confirmed: deferred)**. |
