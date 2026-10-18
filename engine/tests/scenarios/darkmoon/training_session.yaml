@@ -1,0 +1,35 @@
+prize: Training Session
+scenarios:
+  - name: the_chosen_hero_power_replaces_the_players
+    steps:
+      - set_hero: Patchwerk
+      - expect: {auras: {hero: {power: {card_id: {capture: before}}}}}
+      - add_to_hand: Training Session
+      - play: Training Session
+      - expect: {discover_pending: {count: 3, all: {to_hero_power: true}}}
+      - choose_discover: 0
+    expect:
+      discover_pending: null
+      hand: []
+      auras: {hero: {power: {card_id: {not: {same_as: before}}}, second_power: null}}
+
+  - name: it_replaces_a_hero_power_that_keeps_its_options
+    description: Sir Finley's Hero Power chooses Hero Powers itself; Training Session's still replaces it.
+    tavern: {turn: 3}
+    steps:
+      - set_hero: Sir Finley Mrrgglton
+      - expect: {auras: {hero: {power: {card_id: {capture: before}}}}}
+      - add_to_hand: Training Session
+      - play: Training Session
+      - choose_discover: 0
+    expect: {auras: {hero: {power: {card_id: {not: {same_as: before}}}, second_power: null}}}
+
+  - name: nothing_without_a_hero
+    steps:
+      - add_to_hand: Training Session
+      - play: Training Session
+      - expect: {discover_pending: null, hand: []}
+      - set_hero: Patchwerk
+      - add_to_hand: Training Session
+      - play: Training Session
+    expect: {discover_pending: {count: 3}}

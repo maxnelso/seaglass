@@ -1,0 +1,16 @@
+prize: All That Glitters
+scenarios:
+  - name: a_random_minion_in_the_tavern_becomes_golden
+    seeds: "1..10"
+    tavern: {shop: [Joyous, "golden Zoatroid", Tavern Dish Banana], hand: [All That Glitters]}
+    steps:
+      - play: All That Glitters
+    expect: {shop: ["golden Joyous", "golden Zoatroid", Tavern Dish Banana]}
+
+  - name: bought_and_played_it_gives_a_triple_reward
+    tavern: {shop: [Joyous], hand: [All That Glitters], gold: 3}
+    steps:
+      - play: All That Glitters
+      - buy: 0
+      - play: 0
+    expect: {hand: [Triple Reward]}

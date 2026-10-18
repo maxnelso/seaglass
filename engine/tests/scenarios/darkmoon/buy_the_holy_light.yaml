@@ -1,0 +1,13 @@
+prize: Buy the Holy Light
+scenarios:
+  - name: plus_10_attack_and_divine_shield
+    tavern: {board: ["Joyous 2/3"], hand: [Buy the Holy Light]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Joyous 12/3 divine_shield"]}
+
+  - name: the_tavern_spell_bonus_doesnt_apply
+    tavern: {board: ["Joyous 2/3"], hand: [Buy the Holy Light], auras: {spell_bonus_atk: 3, spell_bonus_hp: 3}}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: ["Joyous 12/3 divine_shield"]}

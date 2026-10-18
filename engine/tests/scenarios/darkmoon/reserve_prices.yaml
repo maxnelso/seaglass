@@ -1,0 +1,28 @@
+prize: Reserve Prices
+scenarios:
+  - name: tavern_spells_cost_1_less_this_turn
+    tavern: {shop: [Tavern Dish Banana, Hasty Excavation], hand: [Reserve Prices], gold: 0}
+    steps:
+      - play: Reserve Prices
+      - buy: 0
+    expect: {gold: 0, hand: [Tavern Dish Banana]}
+
+  - name: only_this_turn
+    tavern: {hand: [Reserve Prices], shop: [Tavern Dish Banana], gold: 0}
+    steps:
+      - play: Reserve Prices
+      - buy: 0
+      - expect: {gold: 0, hand: [Tavern Dish Banana]}
+      - end_turn
+      - start_turn
+      - set: {shop: [Tavern Dish Banana], gold: 1}
+      - buy: 0
+    expect: {gold: 0}
+
+  - name: minions_cost_the_same
+    tavern: {shop: [Joyous, Tavern Dish Banana], hand: [Reserve Prices], gold: 3}
+    steps:
+      - play: Reserve Prices
+      - buy: 1
+      - buy: 0
+    expect: {gold: 0, hand: [Tavern Dish Banana, Joyous]}

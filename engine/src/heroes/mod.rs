@@ -891,8 +891,13 @@ pub fn keep_chosen(
     pool: &mut CardPool,
     rng: &mut Rng,
 ) {
-    if chosen.counter == 1 && HEROES.iter().any(|h| h.power.id == chosen.card_id) {
+    let is_power = HEROES.iter().any(|h| h.power.id == chosen.card_id);
+    if chosen.counter == SECOND_POWER_OPTION && is_power {
         install_power(state, chosen.card_id, true, pool, rng);
+        return;
+    }
+    if chosen.counter == REPLACING_POWER_OPTION && is_power {
+        install_power(state, chosen.card_id, false, pool, rng);
         return;
     }
     let for_second = state
@@ -1282,11 +1287,37 @@ pub fn offer_power_discover(
         opt.spell_cost = h.power.cost;
         opt.to_hero_power = true;
         if for_second_power {
-            opt.counter = 1;
+            opt.counter = SECOND_POWER_OPTION;
         }
         options.push(opt);
     }
     state.push_discover(options);
+}
+
+/// The `counter` of a Hero Power Discover option whose chosen power becomes the second Hero Power
+/// (Genn's second Discover).
+pub const SECOND_POWER_OPTION: i32 = 1;
+/// The `counter` of a Hero Power Discover option whose chosen power replaces the Hero Power,
+/// whatever it is (`Training Session`; `docs/darkmoon_prizes.md` §4.3).
+pub const REPLACING_POWER_OPTION: i32 = 2;
+
+/// Offer a Discover of `count` distinct Hero Powers ([`offer_power_discover`]) whose chosen one
+/// replaces the player's Hero Power ([`install_power`]), whatever their Hero Power is
+/// (`Training Session`).
+pub fn offer_replacing_power_discover(state: &mut TavernState, count: usize, rng: &mut Rng) {
+    let pending_before = state.discover_pending.is_some();
+    let queued_before = state.discover_queue.len();
+    offer_power_discover(state, count, None, false, false, rng);
+    let options = if !pending_before {
+        state.discover_pending.as_mut()
+    } else if state.discover_queue.len() > queued_before {
+        state.discover_queue.last_mut()
+    } else {
+        None
+    };
+    for option in options.into_iter().flatten() {
+        option.counter = REPLACING_POWER_OPTION;
+    }
 }
 
 /// Replace the player's Hero Power (`hero.power`, or `hero.second_power` if `into_second`) with

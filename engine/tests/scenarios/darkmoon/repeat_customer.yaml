@@ -1,0 +1,19 @@
+prize: Repeat Customer
+scenarios:
+  - name: the_minion_gains_6_6_and_returns_to_the_hand
+    tavern: {board: ["Joyous 2/3", Zoatroid], hand: [Repeat Customer]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: [Zoatroid], hand: ["Joyous 8/9"]}
+
+  - name: a_golden_minion_is_no_target
+    tavern: {board: ["golden Joyous"], hand: [Repeat Customer]}
+    steps:
+      - expect_illegal: {play: {hand: 0, pos: 0}}
+    expect: {board: ["golden Joyous"], hand: [Repeat Customer]}
+
+  - name: back_in_the_hand_it_can_complete_a_triple
+    tavern: {board: [Joyous], hand: [Repeat Customer, Joyous, Joyous]}
+    steps:
+      - play: {hand: 0, pos: 0}
+    expect: {board: [], hand: [{card: Joyous, is_golden: true, attack: ">= 10"}]}

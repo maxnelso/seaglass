@@ -1,0 +1,24 @@
+prize: Mindflayer Goggles
+scenarios:
+  - name: it_steals_every_card_then_refreshes
+    tavern: {shop: [Joyous, Zoatroid, Tavern Dish Banana], hand: [Mindflayer Goggles], gold: 0}
+    steps:
+      - play: Mindflayer Goggles
+    expect:
+      gold: 0
+      hand: [Joyous, Zoatroid, Tavern Dish Banana]
+      shop: {count: 3, none: {name: Tavern Dish Banana}}
+
+  - name: only_while_the_hand_has_room
+    tavern:
+      shop: [Joyous, Zoatroid, Wrath Weaver]
+      hand: [Mindflayer Goggles, Dune Dweller, Glim Guardian, Scarlet Survivor, Buzzing Vermin, Flittering Bat, Crackling Cyclone, Ominous Seer, Iron Groundskeeper]
+    steps:
+      - play: Mindflayer Goggles
+    expect: {hand: {count: 10, -2: Joyous, -1: Zoatroid}, shop: {count: 3}}
+
+  - name: it_is_a_refresh_the_player_does
+    tavern: {shop: [Joyous], hand: [Mindflayer Goggles], upgrade_cost: 5, auras: {trinkets: [Frigid Blossom]}}
+    steps:
+      - play: Mindflayer Goggles
+    expect: {upgrade_cost: 4}

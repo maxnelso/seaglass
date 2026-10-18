@@ -1,0 +1,17 @@
+prize: Top Shelf
+scenarios:
+  - name: it_discovers_a_minion_from_a_tier_higher
+    seeds: "1..20"
+    tavern: {tavern_tier: 3}
+    steps:
+      - add_to_hand: Top Shelf
+      - play: Top Shelf
+    expect: {discover_pending: {count: 3, all: {tavern_tier: 4, is_spell: false}}}
+
+  - name: up_to_tier_7
+    seeds: "1..10"
+    tavern: {tavern_tier: 6}
+    steps:
+      - add_to_hand: Top Shelf
+      - play: Top Shelf
+    expect: {discover_pending: {count: ">= 1", all: {tavern_tier: 7}}}

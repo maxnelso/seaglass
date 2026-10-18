@@ -12,21 +12,29 @@
 
 mod table;
 
+pub mod all_that_glitters;
+pub mod b_a_n_a_n_a_s;
 pub mod banana_bunch;
 pub mod big_brann_play;
+pub mod buy_the_holy_light;
 pub mod crystallization;
 pub mod evolving_tavern;
 pub mod gacha_gift;
 pub mod gruul_rules;
 pub mod im_still_just_a_rat_in_a_cage;
 pub mod mageroyal_blossom;
+pub mod mindflayer_goggles;
 pub mod new_recruit;
 pub mod on_the_house;
+pub mod repeat_customer;
+pub mod reserve_prices;
 pub mod rocking_and_rolling;
 pub mod the_bouncer;
 pub mod the_good_stuff;
 pub mod the_unlimited_coin;
 pub mod time_thief;
+pub mod top_shelf;
+pub mod training_session;
 pub mod unfurled_codex;
 
 pub use table::{CARD_DEFS_BUILD, PRIZES};
@@ -68,8 +76,11 @@ type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented prize, by file name.
 const IMPLEMENTED: &[Implemented] = &[
+    (all_that_glitters::ID, all_that_glitters::behaviors),
+    (b_a_n_a_n_a_s::ID, b_a_n_a_n_a_s::behaviors),
     (banana_bunch::ID, banana_bunch::behaviors),
     (big_brann_play::ID, big_brann_play::behaviors),
+    (buy_the_holy_light::ID, buy_the_holy_light::behaviors),
     (crystallization::ID, crystallization::behaviors),
     (evolving_tavern::ID, evolving_tavern::behaviors),
     (gacha_gift::ID, gacha_gift::behaviors),
@@ -79,13 +90,18 @@ const IMPLEMENTED: &[Implemented] = &[
         im_still_just_a_rat_in_a_cage::behaviors,
     ),
     (mageroyal_blossom::ID, mageroyal_blossom::behaviors),
+    (mindflayer_goggles::ID, mindflayer_goggles::behaviors),
     (new_recruit::ID, new_recruit::behaviors),
     (on_the_house::ID, on_the_house::behaviors),
+    (repeat_customer::ID, repeat_customer::behaviors),
+    (reserve_prices::ID, reserve_prices::behaviors),
     (rocking_and_rolling::ID, rocking_and_rolling::behaviors),
     (the_bouncer::ID, the_bouncer::behaviors),
     (the_good_stuff::ID, the_good_stuff::behaviors),
     (the_unlimited_coin::ID, the_unlimited_coin::behaviors),
     (time_thief::ID, time_thief::behaviors),
+    (top_shelf::ID, top_shelf::behaviors),
+    (training_session::ID, training_session::behaviors),
     (unfurled_codex::ID, unfurled_codex::behaviors),
 ];
 
@@ -206,6 +222,16 @@ pub fn random_shop_spell(
 /// the cards already waiting for room.
 pub fn hand_room(state: &TavernState) -> usize {
     HAND_LIMIT.saturating_sub(state.hand.len() + state.waiting_for_hand.len())
+}
+
+/// Return the friendly minion at `board[pos]` to the hand (`Repeat Customer`, `Raise the Stakes`;
+/// `docs/darkmoon_prizes.md` §6): it leaves the board (not a sale, not a death: its copies stay
+/// with it) for the hand, where it can complete a Triple. With a full hand, it stays.
+pub fn return_to_hand(state: &mut TavernState, pos: usize) {
+    if pos < state.board.len() && state.hand.len() < HAND_LIMIT {
+        let unit = state.board.remove(pos);
+        state.add_to_hand(unit);
+    }
 }
 
 /// Offer a Discover of prizes of `tier` (`docs/darkmoon_prizes.md` §3): 3 different implemented

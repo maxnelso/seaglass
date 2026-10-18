@@ -1,0 +1,17 @@
+prize: B.A.N.A.N.A.S.
+scenarios:
+  - name: it_fills_the_hand_with_tavern_dish_bananas
+    tavern: {hand: [B.A.N.A.N.A.S., Joyous]}
+    steps:
+      - play: B.A.N.A.N.A.S.
+    expect:
+      hand:
+        all_of:
+          - {count: 10, 0: Joyous}
+          - {where: {name: Tavern Dish Banana}, count: 9}
+
+  - name: the_cards_waiting_for_room_take_their_slots
+    tavern: {hand: [B.A.N.A.N.A.S.], waiting_for_hand: [Joyous, Zoatroid]}
+    steps:
+      - play: B.A.N.A.N.A.S.
+    expect: {hand: {count: 10}, waiting_for_hand: []}

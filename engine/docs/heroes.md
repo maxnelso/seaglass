@@ -369,7 +369,7 @@ Golden doesn't apply to Hero Powers. "Your Tier" is the player's Tavern Tier (`h
 
 ### 11.3 Hero Powers Offered by a Discover
 
-Sir Finley, Master Nguyen and Genn Discover Hero Powers (`heroes::offerable_powers`, `heroes::offer_power_discover`): distinct options, no repeats within one offer **(confirmed)**, among the implemented heroes' Hero Powers, Duos-only ones only in Duos, the Dark Gift ones only for a player with Dark Gifts, but not the player's current Hero Power(s) (nor Genn's first pick in his second Discover) **(confirmed)**. A Hero Power's own file flags it when it is never offered (`CardFlags::NOT_DISCOVERABLE_POWER`) or not offered for a single turn (`CardFlags::NOT_A_TURN_POWER`).
+Sir Finley, Master Nguyen and Genn Discover Hero Powers (`heroes::offerable_powers`, `heroes::offer_power_discover`): distinct options, no repeats within one offer **(confirmed)**, among the implemented heroes' Hero Powers, Duos-only ones only in Duos, the Dark Gift ones only for a player with Dark Gifts, but not the player's current Hero Power(s) (nor Genn's first pick in his second Discover) **(confirmed)**. A Hero Power's own file flags it when it is never offered (`CardFlags::NOT_DISCOVERABLE_POWER`) or not offered for a single turn (`CardFlags::NOT_A_TURN_POWER`). The Darkmoon Prize `Training Session` Discovers Hero Powers the same way, and the chosen one replaces the player's Hero Power whatever it is (`heroes::offer_replacing_power_discover`, [`darkmoon_prizes.md`](darkmoon_prizes.md) §4.3).
 
 Never offered (`NOT_DISCOVERABLE_POWER`):
 
