@@ -1,0 +1,32 @@
+prize: Rocking and Rolling
+scenarios:
+  - name: a_free_refresh_at_the_start_of_each_turn
+    steps:
+      - add_to_hand: Rocking and Rolling
+      - play: Rocking and Rolling
+      - expect: {auras: {free_refreshes: 0, effect_stacks: {Rocking and Rolling: 1}}}
+      - end_turn
+      - start_turn
+      - expect: {auras: {free_refreshes: 1}}
+      - end_turn
+      - start_turn
+    expect: {auras: {free_refreshes: 2}}
+
+  - name: two_casts_give_two_each_turn
+    steps:
+      - add_to_hand: [Rocking and Rolling, Rocking and Rolling]
+      - play: Rocking and Rolling
+      - play: Rocking and Rolling
+      - end_turn
+      - start_turn
+    expect: {auras: {free_refreshes: 2}}
+
+  - name: the_free_refresh_costs_no_gold
+    steps:
+      - add_to_hand: Rocking and Rolling
+      - play: Rocking and Rolling
+      - end_turn
+      - start_turn
+      - set: {gold: 0}
+      - refresh
+    expect: {gold: 0, auras: {free_refreshes: 0}}

@@ -1,0 +1,28 @@
+prize: The Good Stuff
+scenarios:
+  - name: minions_in_the_tavern_have_1_1_for_the_rest_of_the_game
+    tavern: {shop: [Iron Groundskeeper]}
+    steps:
+      - add_to_hand: The Good Stuff
+      - play: The Good Stuff
+    expect:
+      auras: {tavern_all_atk: 1, tavern_all_hp: 1}
+      shop: ["Iron Groundskeeper 3/3"]
+
+  - name: the_tavern_spell_bonus_doesnt_apply
+    tavern: {shop: [Iron Groundskeeper], auras: {spell_bonus_atk: 2, spell_bonus_hp: 2}}
+    steps:
+      - add_to_hand: The Good Stuff
+      - play: The Good Stuff
+    expect:
+      auras: {tavern_all_atk: 1, tavern_all_hp: 1}
+      shop: ["Iron Groundskeeper 3/3"]
+
+  - name: later_shops_have_it
+    tavern: {gold: 1}
+    steps:
+      - add_to_hand: The Good Stuff
+      - play: The Good Stuff
+      - refresh
+    expect:
+      shop: {count: 3, all: {attack: "@base_attack + 1", health: "@base_health + 1"}}

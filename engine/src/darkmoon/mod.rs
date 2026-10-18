@@ -12,9 +12,17 @@
 
 mod table;
 
+pub mod banana_bunch;
+pub mod crystallization;
+pub mod gacha_gift;
+pub mod new_recruit;
+pub mod rocking_and_rolling;
+pub mod the_good_stuff;
+pub mod unfurled_codex;
+
 pub use table::{CARD_DEFS_BUILD, PRIZES};
 
-use crate::cards::{CardFlags, CardHooks};
+use crate::cards::{spells, CardFlags, CardHooks};
 use crate::model::{CardId, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -39,6 +47,9 @@ pub const OFFER_COUNT: usize = 3;
 /// The highest prize Tier.
 pub const MAX_TIER: u32 = 4;
 
+/// The cards a hand holds (`docs/tavern.md` §3.2).
+const HAND_LIMIT: usize = 10;
+
 /// The flags of every prize spell (`docs/darkmoon_prizes.md` §2.2): a spell you cast, not a
 /// Tavern spell, in no pool.
 pub const PRIZE_SPELL: CardFlags = CardFlags::NOT_TAVERN_SPELL.union(CardFlags::NOT_IN_POOL);
@@ -47,7 +58,15 @@ pub const PRIZE_SPELL: CardFlags = CardFlags::NOT_TAVERN_SPELL.union(CardFlags::
 type Implemented = (CardId, fn() -> Vec<(CardId, CardHooks)>);
 
 /// Every implemented prize, by file name.
-const IMPLEMENTED: &[Implemented] = &[];
+const IMPLEMENTED: &[Implemented] = &[
+    (banana_bunch::ID, banana_bunch::behaviors),
+    (crystallization::ID, crystallization::behaviors),
+    (gacha_gift::ID, gacha_gift::behaviors),
+    (new_recruit::ID, new_recruit::behaviors),
+    (rocking_and_rolling::ID, rocking_and_rolling::behaviors),
+    (the_good_stuff::ID, the_good_stuff::behaviors),
+    (unfurled_codex::ID, unfurled_codex::behaviors),
+];
 
 /// The hooks of every implemented prize's cards, for the card registry: a prize spell's own hooks
 /// with [`PRIZE_SPELL`]'s flags.
@@ -134,6 +153,38 @@ pub fn prize_spells() -> Vec<Unit> {
         .filter(|p| !p.minion)
         .filter_map(|p| make_prize(p.id))
         .collect()
+}
+
+/// A random Tavern spell for a prize (`docs/darkmoon_prizes.md` §5): uniformly among the Tavern
+/// spells the shop can offer (the Duos ones in Duos) of the player's Tier or lower that `keep`
+/// keeps, one `rng.below(k)` (none for a single one). `None` if there is none.
+pub fn random_shop_spell(
+    state: &TavernState,
+    keep: impl Fn(&Unit) -> bool,
+    rng: &mut Rng,
+) -> Option<Unit> {
+    let tier = state.tavern_tier;
+    let duos = state.auras.duos_game;
+    let mut candidates: Vec<Unit> = spells::spells_up_to_tier(tier)
+        .into_iter()
+        .chain(
+            spells::duos_spells()
+                .into_iter()
+                .filter(|s| duos && s.tavern_tier <= tier),
+        )
+        .filter(|s| spells::is_pool_tavern_spell(s.card_id) && keep(s))
+        .collect();
+    match candidates.len() {
+        0 => None,
+        1 => candidates.pop(),
+        k => Some(candidates.swap_remove(rng.below(k))),
+    }
+}
+
+/// The cards "fill your hand" gives (`docs/darkmoon_prizes.md` §5): the hand's free slots, less
+/// the cards already waiting for room.
+pub fn hand_room(state: &TavernState) -> usize {
+    HAND_LIMIT.saturating_sub(state.hand.len() + state.waiting_for_hand.len())
 }
 
 /// Offer a Discover of prizes of `tier` (`docs/darkmoon_prizes.md` §3): 3 different implemented

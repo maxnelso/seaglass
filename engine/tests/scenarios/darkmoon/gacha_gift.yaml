@@ -1,0 +1,32 @@
+prize: Gacha Gift
+scenarios:
+  - name: it_discovers_a_tier_1_minion
+    tavern: {tavern_tier: 4}
+    seeds: "1..20"
+    steps:
+      - add_to_hand: Gacha Gift
+      - play: Gacha Gift
+    expect: {hand: [], discover_pending: {count: 3, all: {tavern_tier: 1}}}
+
+  - name: the_chosen_minion_goes_to_the_hand
+    steps:
+      - add_to_hand: Gacha Gift
+      - play: Gacha Gift
+      - choose_discover: 0
+    expect: {hand: [{tavern_tier: 1, is_spell: false}], discover_pending: null}
+
+  - name: it_costs_nothing_and_stays_in_the_hand_until_cast
+    tavern: {hand: [Gacha Gift]}
+    steps:
+      - end_turn
+      - start_turn
+      - expect: {hand: [{name: Gacha Gift, is_spell: true, spell_cost: 0}]}
+      - set: {gold: 0}
+      - play: Gacha Gift
+    expect: {gold: 0, discover_pending: {count: 3}}
+
+  - name: it_is_a_spell_cast_but_not_a_tavern_spell
+    tavern: {hand: [Gacha Gift]}
+    steps:
+      - play: Gacha Gift
+    expect: {auras: {tavern_spells_cast: 0, last_tavern_spell_cast: null}}

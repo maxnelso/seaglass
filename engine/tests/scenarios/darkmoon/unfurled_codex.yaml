@@ -1,0 +1,17 @@
+prize: Unfurled Codex
+scenarios:
+  - name: a_random_tavern_spell_of_2_gold_or_more
+    tavern: {tavern_tier: 1}
+    seeds: "1..30"
+    steps:
+      - add_to_hand: Unfurled Codex
+      - play: Unfurled Codex
+    expect: {hand: [{is_spell: true, spell_cost: ">= 2", tavern_tier: 1}]}
+
+  - name: of_the_players_tier_or_lower
+    tavern: {tavern_tier: 3}
+    seeds: "1..30"
+    steps:
+      - add_to_hand: Unfurled Codex
+      - play: Unfurled Codex
+    expect: {hand: [{is_spell: true, spell_cost: ">= 2", tavern_tier: "<= 3"}]}

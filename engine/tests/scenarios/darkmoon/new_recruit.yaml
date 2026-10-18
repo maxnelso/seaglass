@@ -1,0 +1,52 @@
+prize: New Recruit
+scenarios:
+  - name: every_roll_offers_an_extra_minion_the_right_most_with_2_2
+    tavern: {gold: 1}
+    seeds: "1..10"
+    steps:
+      - add_to_hand: New Recruit
+      - play: New Recruit
+      - refresh
+    expect:
+      shop:
+        count: 4
+        0: {attack: "@base_attack", health: "@base_health"}
+        -1: {attack: "@base_attack + 2", health: "@base_health + 2"}
+
+  - name: the_turn_start_shop_has_it_too
+    tavern: {tavern_tier: 2}
+    steps:
+      - add_to_hand: New Recruit
+      - play: New Recruit
+      - end_turn
+      - start_turn
+    expect:
+      shop:
+        count: 5
+        -1: {attack: "@base_attack + 2", health: "@base_health + 2"}
+
+  - name: two_casts_two_extra_minions
+    tavern: {gold: 1}
+    steps:
+      - add_to_hand: [New Recruit, New Recruit]
+      - play: New Recruit
+      - play: New Recruit
+      - refresh
+    expect:
+      shop:
+        count: 5
+        2: {attack: "@base_attack"}
+        -2: {attack: "@base_attack + 2"}
+        -1: {attack: "@base_attack + 2"}
+
+  - name: never_more_than_7_cards_but_the_right_most_still_has_2_2
+    tavern: {tavern_tier: 6, gold: 1, include_shop_spells: true}
+    steps:
+      - add_to_hand: New Recruit
+      - play: New Recruit
+      - refresh
+    expect:
+      shop:
+        all_of:
+          - {count: 7}
+          - {where: {is_spell: false}, count: 6, -1: {attack: "@base_attack + 2"}}
