@@ -630,9 +630,10 @@ fn check_pass(
         ));
     }
     let (mb, ma) = (&before.players[mate], &after.players[mate]);
-    // The teammate's trinkets may change it as it reaches the hand (`Corrupted Tome`).
+    // The teammate's trinkets may change it as it reaches the hand (`Corrupted Tome`); while it
+    // waits in the queue, it is still the card passed.
     let id = identity(&seaglass::trinkets::replace_gained(&mb.auras, card.clone()));
-    let held = |s: &TavernState, queue: &[Unit]| count(&s.hand, id) + count(queue, id);
+    let held = |s: &TavernState, queue: &[Unit]| count(&s.hand, id) + count(queue, identity(card));
     let arrived = held(ma, &after.incoming[mate]) > held(mb, &before.incoming[mate]);
     // (Two copies of a minion there make a Triple: the Golden goes to the hand. A wildcard
     // `Elemental of Surprise` triples into another Elemental's Golden.)
@@ -2054,7 +2055,7 @@ impl DuosGame {
         };
         let expect = pass
             .is_none()
-            .then(|| Expect::new(s, action, &self.pool, &self.catalog));
+            .then(|| Expect::new(s, action, &self.pool, &self.catalog, &self.rng));
         let pool_before = pass.map(|_| pool_counts(&self.pool, &self.catalog));
         // The same action on the player's Tavern alone (`check_like_solo`).
         let solo = pass.is_none().then(|| {

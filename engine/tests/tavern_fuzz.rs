@@ -93,7 +93,7 @@ use seaglass::dark_gifts;
 use seaglass::darkmoon;
 use seaglass::heroes;
 use seaglass::lobby::Lobby;
-use seaglass::model::{HeroId, TeammateGift, TrinketOption};
+use seaglass::model::{HeroId, TeammateGift};
 use seaglass::trinkets::{self, OfferClass};
 use seaglass::{
     base_copies_for_tier, catalog_for, BattleOutcome, BattleResult, CardPool, CardTemplate,
@@ -1615,8 +1615,13 @@ fn check_pool_leaks_with(
 /// Whether the player's Hero Power acts at the start of the turn once the shop is rolled
 /// (`hero_turn_start`): the shop may no longer be as rolled (Yogg-Saron's random Tavern spell
 /// can take a minion from it). A board minion's Dark Gift with a start of turn effect does too
-/// (`Time Turning` repeats a `Flaming Enforcer`'s end of turn, which eats a Tavern minion).
+/// (`Time Turning` repeats a `Flaming Enforcer`'s end of turn, which eats a Tavern minion), and so
+/// does `Yogg-Tastic Pastry`'s spin of the Wheel of Yogg-Saron (a Tavern minion made Golden,
+/// consumed, or the target of a Tavern spell).
 fn hero_acts_after_the_roll(s: &TavernState) -> bool {
+    if trinkets::owns(&s.auras, trinkets::yogg_tastic_pastry::ID) {
+        return true;
+    }
     let gift_acts = s
         .board
         .iter()
@@ -1993,20 +1998,21 @@ fn hero_gold_back(s: &TavernState, action: TavernAction, cost: u32, pool: &CardP
 /// The Gold the player's trinkets give back for `action`: a trinket picked (`ChooseTrinket`; its
 /// `trinket_bought` text: "Gain 4 Gold"), or their `trinket_after_buy` and `trinket_after_upgrade`
 /// hooks (`Trickster's Sleeve`, `Stuffed Coin Purse`), run on a copy of the state with no Gold.
-fn trinket_gold_back(s: &TavernState, action: TavernAction, pool: &CardPool) -> u32 {
+/// A pick is run as it will be, with the game's RNG (`rng`), since a trinket's text can be
+/// random (`Yogg-Tastic Pastry`'s spin can cast Tavern spells that give Gold): the Gold it ends
+/// with, less what it had after its price.
+fn trinket_gold_back(s: &TavernState, action: TavernAction, pool: &CardPool, rng: &Rng) -> u32 {
+    if let TavernAction::ChooseTrinket { option_index } = action {
+        let Some(price) = trinkets::option_price(s, option_index) else {
+            return 0;
+        };
+        let (mut probe, mut pool, mut rng) = (s.clone(), pool.clone(), rng.clone());
+        trinkets::choose(&mut probe, option_index, &mut pool, &mut rng);
+        return (probe.gold + price).saturating_sub(s.gold);
+    }
     let (mut probe, mut pool, mut rng) = (s.clone(), pool.clone(), Rng::new(0));
     probe.gold = 0;
     match action {
-        TavernAction::ChooseTrinket { option_index } => {
-            let Some(option) = s.trinket_options.get(option_index) else {
-                return 0;
-            };
-            // As picked for nothing (a replacing option replaces, a kept one keeps, the other
-            // trinkets see the pick: `docs/trinkets.md` §3.5).
-            probe.trinket_options = vec![TrinketOption { cost: 0, ..*option }];
-            probe.trinket_offer_queue.clear();
-            trinkets::choose(&mut probe, 0, &mut pool, &mut rng);
-        }
         TavernAction::Buy { shop_index } if !s.auras.trinkets.is_empty() => {
             let Some(bought) = s.shop.get(shop_index) else {
                 return 0;
@@ -2023,11 +2029,13 @@ fn trinket_gold_back(s: &TavernState, action: TavernAction, pool: &CardPool) -> 
 }
 
 impl Expect {
+    /// What `action` should do from `s`; `rng` is the game's RNG, which the action will use.
     fn new(
         s: &TavernState,
         action: TavernAction,
         pool: &CardPool,
         catalog: &[CardTemplate],
+        rng: &Rng,
     ) -> Self {
         let health_cost = match action {
             TavernAction::Refresh => s.auras.free_refreshes == 0 && s.has_health_refresh(),
@@ -2104,7 +2112,7 @@ impl Expect {
             gold: s.gold,
             cost,
             gold_back: cost.map_or(0, |cost| hero_gold_back(s, action, cost, pool))
-                + trinket_gold_back(s, action, pool),
+                + trinket_gold_back(s, action, pool, rng),
         };
         match action {
             TavernAction::Buy { shop_index } => {
@@ -2830,7 +2838,7 @@ impl Game {
             println!("    t{} p{p} {action:?} {}", self.call.turn, self.cards);
         }
         let s = &mut self.players[p];
-        let expect = Expect::new(s, action, &self.pool, &self.catalog);
+        let expect = Expect::new(s, action, &self.pool, &self.catalog, &self.rng);
         let old_health = s.health;
         if let TavernAction::Play { hand_index, .. } | TavernAction::PlayOnShop { hand_index, .. } =
             action
