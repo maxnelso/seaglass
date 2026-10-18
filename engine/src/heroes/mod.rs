@@ -107,6 +107,7 @@ pub mod the_lich_king;
 pub mod the_nameless_one;
 pub mod the_rat_king;
 pub mod thorim_stormlord;
+pub mod tickatus;
 pub mod time_twister_chromie;
 pub mod trade_prince_gallywix;
 pub mod trastath_soul_parasite;
@@ -289,6 +290,7 @@ const IMPLEMENTED: &[Implemented] = &[
     (the_nameless_one::ID, the_nameless_one::behaviors),
     (the_rat_king::ID, the_rat_king::behaviors),
     (thorim_stormlord::ID, thorim_stormlord::behaviors),
+    (tickatus::ID, tickatus::behaviors),
     (time_twister_chromie::ID, time_twister_chromie::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
     (trastath_soul_parasite::ID, trastath_soul_parasite::behaviors),

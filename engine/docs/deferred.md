@@ -13,12 +13,11 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 
 | System | Status | Why / what it blocks |
 | :--- | :--- | :--- |
-| Buddies (companions, the Buddy meter) | Deferred **(confirmed)** | No Buddy system: `E.T.C., Band Manager`, the Buddy trinkets. `Mishmash` (The Curator's Buddy) exists only as the minion `Curator Sticker` gives ([`trinkets.md`](trinkets.md) §11.9). |
+| Buddies (companions, the Buddy meter) | Deferred **(confirmed)** | No Buddy system: `E.T.C., Band Manager`, the Buddy trinkets, `Ticket Collector` (Tickatus's Buddy). `Mishmash` (The Curator's Buddy) exists only as the minion `Curator Sticker` gives ([`trinkets.md`](trinkets.md) §11.9). |
 | Quests | Deferred **(confirmed)** | `Sire Denathrius`, the Quest trinkets. |
-| Darkmoon Prizes | Deferred **(confirmed)** | `Tickatus`, `Tickatus Sticker` and the other Darkmoon Prize trinkets. |
-| Timewarp | Deferred **(confirmed)** | `Morchie`, `Murozond, Unbounded`, `Timeworn Candelabra` (both), `Poet Portrait` and the other Timewarp trinkets. |
+| Timewarp | Deferred **(confirmed)** | `Timewarped Big Winner!` ([`darkmoon_prizes.md`](darkmoon_prizes.md) §1), `Morchie`, `Murozond, Unbounded`, `Timeworn Candelabra` (both), `Poet Portrait` and the other Timewarp trinkets. |
 | Triple Prizes | Deferred **(confirmed)** | `Corrupted Tome`. |
-| Anomalies | Deferred **(confirmed)**; the Dark Gift anomaly (`BG36_Anomaly_002`) is out of scope **(confirmed)** | Lobby-wide rule changes. |
+| Anomalies | Deferred **(confirmed)**; the Dark Gift anomaly (`BG36_Anomaly_002`) is out of scope **(confirmed)** | Lobby-wide rule changes, the Darkmoon Prize anomalies `Up-Prizing` and `A Faire Reward` included ([`darkmoon_prizes.md`](darkmoon_prizes.md) §1). |
 | Secrets | Deferred **(confirmed)** | `The Great Akazamzarak`. (`Safety Patch`'s Ice Block is the trinket's own state, not a Secret: [`trinkets.md`](trinkets.md) §11.9.) |
 | Spellcraft outside Duos | Deferred **(confirmed)** | `Lady Vashj`. The Duos Spellcraft minions and the Spellcraft trinkets are implemented ([`duos_tavern.md`](duos_tavern.md) §8.3, [`trinkets.md`](trinkets.md) §11.6). |
 | Custom Undead creations | Deferred **(confirmed)** | `Professor Putricide`, `Putricide Sticker`. |
@@ -28,7 +27,7 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 | 4-team Duos matches and their pairings | Out of scope | The engine has one team's Tavern; a match of four teams is the caller's job ([`duos_tavern.md`](duos_tavern.md) §1). |
 | Duos gift delivery during combat | Out of scope | The incoming queue is delivered in the Tavern ([`duos_tavern.md`](duos_tavern.md) §6). |
 
-Bounties are not a missing system: the engine has the 5 Bounty spells (`spells::BOUNTY_SPELL_IDS`, `CardFlags::BOUNTY`), so `Sunken Anchor` and `Privateer Portrait` are implemented. The systems above have no code in the engine (only their cards' table rows); `Silas Darkmoon`'s Darkmoon Tickets are his Hero Power, not Darkmoon Prizes.
+Bounties are not a missing system: the engine has the 5 Bounty spells (`spells::BOUNTY_SPELL_IDS`, `CardFlags::BOUNTY`), so `Sunken Anchor` and `Privateer Portrait` are implemented. The systems above have no code in the engine (only their cards' table rows); `Silas Darkmoon`'s Darkmoon Tickets are his Hero Power, not Darkmoon Prizes. Darkmoon Prizes are implemented ([`darkmoon_prizes.md`](darkmoon_prizes.md)).
 
 ## 2. Heroes
 
@@ -45,7 +44,6 @@ In the hero table, not implemented, never offered ([`heroes.md`](heroes.md) §1,
 | `Queen Azshara` | Out of scope **(confirmed)** | Her Hero Power Discovers Naga. |
 | `Sire Denathrius` | Deferred **(confirmed)** | Quests. |
 | `The Great Akazamzarak` | Deferred **(confirmed)** | Secrets. |
-| `Tickatus` | Deferred **(confirmed)** | Darkmoon Prizes. |
 
 ## 3. Trinkets
 
