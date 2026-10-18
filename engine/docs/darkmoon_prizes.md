@@ -302,6 +302,13 @@ The Power.log validator reconstructs combats: an `All-Seeing Elder` on a board m
 minion by its card ID (its module header, as every minion), so `replay_cli validate` simulates it.
 Prize spells are Tavern cards and never act in combat.
 
+The validated log (`~/scratch/Power.log`, build 253216) has a player who picked `Tickatus Sticker`
+(`BG30_MagicItem_707`), `Corrupted Tome` offers (`BG35_MagicItem_812`), and the Tier 3 prizes
+`Training Session`, `Buy the Holy Light` (its enchantment `BGS_Treasures_015e` on minions),
+`B.A.N.A.N.A.S.`, `Top Shelf`, `Repeat Customer`, `Mindflayer Goggles` and `Reserve Prices`. The
+prizes act in the Tavern, so the combat validation is unchanged by them (24 of its 27 combats
+match, before and after).
+
 ---
 
 ## 11. Decisions

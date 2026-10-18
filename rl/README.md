@@ -129,6 +129,10 @@ Dark Gifts ([`engine/docs/dark_gifts.md`](../engine/docs/dark_gifts.md)) are opt
 ### Actions
 The table appends the `dark_discovery` action last (`DARK_DISCOVERY_INDEX`). A game without Dark Gifts never lists it as legal.
 
+## Darkmoon Prizes
+
+Darkmoon Prizes ([`engine/docs/darkmoon_prizes.md`](../engine/docs/darkmoon_prizes.md)) need no new action or feature: a prize is a 0-Gold spell (or the minion `All-Seeing Elder`) cast with the existing `play` actions, and a prize Discover is a regular `choose_discover` prompt. The prize ids and `Corrupted Tome`'s `Triple Prize` are appended to `all_card_ids()` (`engine/src/vocab.rs`), so they have card embeddings in the hand and Discover slots. `Tickatus`'s turns toward the next prize are `hero_power_counter`.
+
 ---
 
 ## Model Architecture (`BattlegroundsActorCritic`)
