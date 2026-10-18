@@ -1383,7 +1383,9 @@ fn check_combat_applied(
             ),
         ));
     }
-    if lost && after.armor != before.armor - damage.min(before.armor.max(0)) {
+    // An Ice Block (`trinket_prevent_fatal`, `docs/trinkets.md` §6) prevents all of the damage,
+    // the Armor's share too.
+    if lost && !prevented && after.armor != before.armor - damage.min(before.armor.max(0)) {
         return Err(broken(
             "the combat damage didn't take the Armor first",
             format!(

@@ -1815,20 +1815,26 @@ fn check_round_trip(s: &TavernState) -> Result<(), Violation> {
     }
 }
 
-/// The upgrade cost after a turn start (`docs/tavern.md` §4): 1 less than `before`, and less the
-/// Upgrade extra a Hero Power the turn start took away gave (Millhouse's, once Master Nguyen takes
-/// his Hero Power back: `docs/heroes.md` §11.3), and less the 3 of `Bartend-o-Tron's Oilcan`
+/// The upgrade cost after a turn start (`docs/tavern.md` §4): 1 less than `before`, plus the
+/// Upgrade extra a Hero Power the turn start gave (Millhouse's, copied by The Nameless One), less
+/// the one a Hero Power it took away gave (Millhouse's, once Master Nguyen takes his Hero Power
+/// back: `docs/heroes.md` §11.3), and less the 3 of `Bartend-o-Tron's Oilcan`
 /// (`docs/trinkets.md` §11.2).
 fn upgrade_after_turn_start(before: u32, before_auras: &PlayerAuras, s: &TavernState) -> u32 {
-    let lost = heroes::tavern_rules(before_auras)
-        .upgrade_extra
-        .saturating_sub(heroes::tavern_rules(&s.auras).upgrade_extra);
+    let (was, now) = (
+        heroes::tavern_rules(before_auras).upgrade_extra,
+        heroes::tavern_rules(&s.auras).upgrade_extra,
+    );
+    // A Hero Power that makes Upgrading dearer, gained at the turn start, adds its extra as it
+    // arrives (`Millhouse Manastorm` copied by `The Nameless One` at the team's first turn start
+    // after the heroes are chosen: its `hero_chosen`); one lost then takes it back.
+    let (gained, lost) = (now.saturating_sub(was), was.saturating_sub(now));
     let oilcan = if trinkets::owns(&s.auras, trinkets::bartend_o_trons_oilcan::ID) {
         trinkets::bartend_o_trons_oilcan::DISCOUNT
     } else {
         0
     };
-    before
+    (before + gained)
         .saturating_sub(lost)
         .saturating_sub(1)
         .saturating_sub(oilcan)
