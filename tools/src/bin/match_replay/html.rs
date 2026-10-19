@@ -20,7 +20,9 @@ use seaglass::{
 };
 use seaglass::{heroes, trinkets};
 use seaglass_tools::fmt::{diff_auras, format_deity_kind, format_tribe, CombatNames, PoolCounts};
-use seaglass_tools::replay_text::{frame_pool, frame_title, note_text, player_name};
+use seaglass_tools::replay_text::{
+    frame_pool, frame_title, note_text, player_name, unit_players,
+};
 
 /// The viewer page. [`DATA`] marks where the replay's JSON goes.
 const TEMPLATE: &str = include_str!("../../../viewer/replay.html");
@@ -440,7 +442,7 @@ impl Frames<'_> {
             FrameKind::Start => {}
             FrameKind::StartTurn { player, .. } => {
                 view.kind = "turn";
-                view.actors = vec![*player];
+                view.actors = unit_players(timeline, *player);
             }
             FrameKind::Act {
                 player,
@@ -478,7 +480,19 @@ impl Frames<'_> {
                     .filter(|&p| before.players[p] != frame.players[p])
                     .collect();
             }
-            FrameKind::End { winner } => {
+            FrameKind::DuosCombat { a, b, .. } => {
+                // Duos combats are shown by their title for now (no event playback).
+                view.kind = "lobby";
+                view.actors = [*a, *b]
+                    .iter()
+                    .flat_map(|&u| unit_players(timeline, u))
+                    .collect();
+            }
+            FrameKind::GhostCombat { unit, .. } => {
+                view.kind = "lobby";
+                view.actors = unit_players(timeline, *unit);
+            }
+            FrameKind::End { winner, .. } => {
                 view.kind = "end";
                 view.winner = *winner;
             }
@@ -1029,7 +1043,9 @@ mod tests {
                 FrameKind::StartTurn { .. } => "turn",
                 FrameKind::SetPairs { .. }
                 | FrameKind::DeliverGifts
-                | FrameKind::RecordDeaths { .. } => "lobby",
+                | FrameKind::RecordDeaths { .. }
+                | FrameKind::DuosCombat { .. }
+                | FrameKind::GhostCombat { .. } => "lobby",
                 FrameKind::Act { note, .. } => {
                     let note = note.as_ref().expect("every action has a note");
                     let candidates = json["note"]["candidates"].as_array().unwrap();

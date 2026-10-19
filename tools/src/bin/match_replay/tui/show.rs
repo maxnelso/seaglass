@@ -7,7 +7,7 @@
 
 use seaglass::replay::FrameKind;
 use seaglass::{heroes, trinkets, TavernState, Timeline, Unit};
-use seaglass_tools::replay_text::{frame_title, player_name};
+use seaglass_tools::replay_text::{frame_title, player_name, unit_players};
 
 use super::combat::CombatPlayback;
 
@@ -151,12 +151,18 @@ impl Source for ReplaySource {
         let f = &self.timeline.frames[frame];
         let (kind, actor) = match &f.kind {
             FrameKind::Start => (Kind::Start, None),
-            FrameKind::StartTurn { player, .. } => (Kind::TurnStart, Some(*player)),
+            FrameKind::StartTurn { player, .. } => (
+                Kind::TurnStart,
+                Some(unit_players(&self.timeline, *player)[0]),
+            ),
             FrameKind::Act { player, .. } => (Kind::Act, Some(*player)),
             FrameKind::Combat { .. } => (Kind::Combat, None),
+            // Duos and ghost combats show as their title for now (no event playback).
             FrameKind::SetPairs { .. }
             | FrameKind::DeliverGifts
-            | FrameKind::RecordDeaths { .. } => (Kind::Lobby, None),
+            | FrameKind::RecordDeaths { .. }
+            | FrameKind::DuosCombat { .. }
+            | FrameKind::GhostCombat { .. } => (Kind::Lobby, None),
             FrameKind::End { .. } => (Kind::End, None),
         };
         FrameInfo {

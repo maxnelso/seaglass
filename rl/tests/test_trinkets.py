@@ -6,11 +6,11 @@ import numpy as np
 import seaglass
 
 from seaglass_rl import NUM_SLOTS, PLAYER_DIM, encode_observation
-from seaglass_rl.features import TRINKET_TRIBE_OFFSET
+from seaglass_rl.features import TAVERN_PLAYER_DIM, TAVERN_SLOTS, TRINKET_TRIBE_OFFSET
 
 # The six trinket features of the player vector (`engine/docs/trinkets.md` §8.2), before the Dark
 # Discovery button's two (`engine/docs/dark_gifts.md` §8.2).
-TRINKET_PLAYER_FEATURES = slice(PLAYER_DIM - 8, PLAYER_DIM - 2)
+TRINKET_PLAYER_FEATURES = slice(TAVERN_PLAYER_DIM - 8, TAVERN_PLAYER_DIM - 2)
 from seaglass_rl.actions import (
     ACTION_SPACE_SIZE,
     CHOOSE_TRINKET_INDICES,
@@ -73,7 +73,7 @@ def test_a_game_without_trinkets_is_unchanged() -> None:
     player_vec, slot_card_ids, _ = encode_observation(obs)
     assert player_vec.shape == (PLAYER_DIM,) and slot_card_ids.shape == (NUM_SLOTS,)
     trinket_feats = player_vec[TRINKET_PLAYER_FEATURES]
-    assert not np.any(trinket_feats) and not np.any(slot_card_ids[-6:])
+    assert not np.any(trinket_feats) and not np.any(slot_card_ids[TAVERN_SLOTS - 6 : TAVERN_SLOTS])
 
 
 def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
@@ -88,7 +88,7 @@ def test_a_greater_offer_on_turn_9_blocks_everything_but_the_pick() -> None:
     mask = action_mask(game, allow_reposition=True, allow_freeze=True)
     assert np.flatnonzero(mask).tolist() == [CHOOSE_TRINKET_INDICES[a.args[0]] for a in legal]
     player_vec, slot_card_ids, _ = encode_observation(obs)
-    assert player_vec[TRINKET_PLAYER_FEATURES.start] == 1.0 and slot_card_ids[-4] != 0
+    assert player_vec[TRINKET_PLAYER_FEATURES.start] == 1.0 and slot_card_ids[TAVERN_SLOTS - 4] != 0
 
     names = {tid: name for (tid, name, *_rest) in seaglass.trinkets_table()}
     # Not a trinket that replaces itself as it is picked (`engine/docs/trinkets.md` §3.5).
@@ -120,7 +120,7 @@ def test_offered_trinkets_show_the_type_they_name() -> None:
         assert len(obs.trinket_option_tribes) == len(obs.trinket_options)
         _, _, feats = encode_observation(obs)
         for i, (tid, tribe) in enumerate(zip(obs.trinket_options, obs.trinket_option_tribes)):
-            row = feats[NUM_SLOTS - 4 + i, TRINKET_TRIBE_OFFSET:]
+            row = feats[TAVERN_SLOTS - 4 + i, TRINKET_TRIBE_OFFSET:]
             assert (tribe != 0) == (names[tid] in typed)
             assert row.sum() == (1.0 if tribe else 0.0)
             if tribe:

@@ -223,6 +223,7 @@ fn main() -> ExitCode {
             ("max_turns".to_string(), max_turns.to_string()),
         ]
         .into(),
+        ..Default::default()
     };
     let mut game = Match::new(&setup).expect("the full catalog exists");
     let mut bot = Rng::new(seed ^ BOT_SEED_SALT);

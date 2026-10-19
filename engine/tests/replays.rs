@@ -47,6 +47,7 @@ fn setup(seed: u64, pool: PoolMode) -> MatchSetup {
             },
         ],
         meta: [("source".to_string(), "tests/replays.rs".to_string())].into(),
+        ..Default::default()
     }
 }
 

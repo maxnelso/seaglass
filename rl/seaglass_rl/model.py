@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .actions import ACTION_SPACE_SIZE
+from .actions import ACTION_KIND_IDS, ACTION_SPACE_SIZE, NUM_ACTION_KINDS
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, VOCAB_SIZE
 
 
@@ -20,8 +20,24 @@ class BattlegroundsMLP(nn.Module):
         hidden_dim: int = 128,
         num_actions: int = ACTION_SPACE_SIZE,
         seed: int = 42,
+        kind_prior: bool = False,
     ) -> None:
         super().__init__()
+        # The constructor's arguments, saved with checkpoints (`checkpoint.py`).
+        self.config = {
+            "vocab_size": vocab_size,
+            "card_embed_dim": card_embed_dim,
+            "hidden_dim": hidden_dim,
+            "num_actions": num_actions,
+            "kind_prior": kind_prior,
+        }
+        # Subtract log(number of legal actions of its kind) from each logit, so that an untrained
+        # policy picks among the legal kinds evenly (`actions.ACTION_KIND_IDS`).
+        self.kind_prior = kind_prior
+        kind_onehot = np.zeros((num_actions, NUM_ACTION_KINDS), dtype=np.float32)
+        kind_onehot[np.arange(num_actions), ACTION_KIND_IDS[:num_actions]] = 1.0
+        self._kind_onehot_np = kind_onehot
+        self.register_buffer("kind_onehot", torch.from_numpy(kind_onehot), persistent=False)
         self.card_embed_dim = card_embed_dim
         self.card_embed = nn.Embedding(vocab_size, card_embed_dim, padding_idx=0)
         self.in_dim = PLAYER_DIM + NUM_SLOTS * (card_embed_dim + SLOT_NUM_DIM)
@@ -52,6 +68,10 @@ class BattlegroundsMLP(nn.Module):
         h = self.trunk(x)
         logits = self.actor(h)
         if action_mask is not None:
+            if self.kind_prior:
+                counts = action_mask.float() @ self.kind_onehot  # (B, kinds)
+                per_action = counts @ self.kind_onehot.T  # (B, actions)
+                logits = logits - torch.log(per_action.clamp(min=1.0))
             logits = logits.masked_fill(~action_mask, -1e9)
         value = self.critic(h).squeeze(-1)
         return logits, value
@@ -86,7 +106,12 @@ class BattlegroundsMLP(nn.Module):
 
         h1 = np.maximum(0.0, x @ w1.T + b1)
         h2 = np.maximum(0.0, h1 @ w2.T + b2)
-        logits = np.where(m_np, h2 @ wa.T + ba, -1e9)
+        raw = h2 @ wa.T + ba
+        if self.kind_prior:
+            m = m_np.astype(np.float32)
+            per_action = (m @ self._kind_onehot_np) @ self._kind_onehot_np.T
+            raw = raw - np.log(np.maximum(per_action, 1.0))
+        logits = np.where(m_np, raw, -1e9)
         vals = (h2 @ wc.T + bc).squeeze(-1)
 
         logits -= logits.max(axis=-1, keepdims=True)

@@ -34,10 +34,35 @@ impl PoolCounts for FramePool<'_> {
     }
 }
 
+/// The players of unit `u`: `[u]` in Solo, team `u`'s two players in Duos.
+pub fn unit_players(timeline: &Timeline, u: usize) -> Vec<usize> {
+    if timeline.header.duos {
+        vec![2 * u, 2 * u + 1]
+    } else {
+        vec![u]
+    }
+}
+
+/// A unit's display name: the player's (Solo), or `team 1 (A + B)` (Duos).
+pub fn unit_name(timeline: &Timeline, u: usize) -> String {
+    if timeline.header.duos {
+        format!(
+            "team {} ({} + {})",
+            u + 1,
+            player_name(timeline, 2 * u),
+            player_name(timeline, 2 * u + 1)
+        )
+    } else {
+        player_name(timeline, u)
+    }
+}
+
 pub fn frame_pool<'a>(timeline: &'a Timeline, frame: &'a Frame, p: usize) -> FramePool<'a> {
-    // One pool per player, or one shared by everyone.
+    // One pool per unit (a player, a Duos team), or one shared by everyone.
     let slot = if frame.pool_remaining.len() == 1 {
         0
+    } else if timeline.header.duos {
+        p / 2
     } else {
         p
     };
@@ -81,7 +106,9 @@ pub fn frame_title(timeline: &Timeline, i: usize) -> String {
     let frame = &timeline.frames[i];
     match &frame.kind {
         FrameKind::Start => "match start".to_string(),
-        FrameKind::StartTurn { player, turn } => format!("{} starts turn {turn}", name(*player)),
+        FrameKind::StartTurn { player, turn } => {
+            format!("{} starts turn {turn}", unit_name(timeline, *player))
+        }
         FrameKind::Act {
             player,
             action,
@@ -104,6 +131,32 @@ pub fn frame_title(timeline: &Timeline, i: usize) -> String {
             };
             format!("combat {} vs {}: {outcome}", name(*a), name(*b))
         }
+        FrameKind::DuosCombat { a, b, result, .. } => {
+            let unit = |u: usize| unit_name(timeline, u);
+            let outcome = match result.outcome {
+                BattleOutcome::AWin => format!("{} wins, {} damage", unit(*a), result.hero_damage),
+                BattleOutcome::BWin => format!("{} wins, {} damage", unit(*b), result.hero_damage),
+                BattleOutcome::Draw => "draw".to_string(),
+            };
+            format!("combat {} vs {}: {outcome}", unit(*a), unit(*b))
+        }
+        FrameKind::GhostCombat {
+            unit,
+            ghost,
+            result,
+            ..
+        } => {
+            let outcome = match result.outcome() {
+                BattleOutcome::AWin => "wins".to_string(),
+                BattleOutcome::BWin => format!("loses, {} damage", result.hero_damage()),
+                BattleOutcome::Draw => "draw".to_string(),
+            };
+            format!(
+                "combat {} vs the ghost of {}: {outcome}",
+                unit_name(timeline, *unit),
+                unit_name(timeline, *ghost)
+            )
+        }
         FrameKind::SetPairs { pairs } => {
             let pairs: Vec<String> = pairs
                 .iter()
@@ -120,15 +173,27 @@ pub fn frame_title(timeline: &Timeline, i: usize) -> String {
                 format!("lobby: out of the game: {}", out.join(", "))
             }
         }
-        FrameKind::End { winner } => {
-            let health: Vec<String> = frame
-                .players
-                .iter()
-                .enumerate()
-                .map(|(p, s)| format!("{} {}", name(p), s.health))
-                .collect();
-            let result = winner.map_or("draw".to_string(), |w| format!("{} wins", name(w)));
-            format!("game over: {result} ({})", health.join(", "))
+        FrameKind::End { winner, placements } => {
+            let result = winner.map_or("draw".to_string(), |w| {
+                format!("{} wins", unit_name(timeline, w))
+            });
+            if placements.is_empty() {
+                let health: Vec<String> = frame
+                    .players
+                    .iter()
+                    .enumerate()
+                    .map(|(p, s)| format!("{} {}", name(p), s.health))
+                    .collect();
+                format!("game over: {result} ({})", health.join(", "))
+            } else {
+                let mut order: Vec<usize> = (0..placements.len()).collect();
+                order.sort_by_key(|&u| placements[u]);
+                let places: Vec<String> = order
+                    .iter()
+                    .map(|&u| format!("{}. {}", placements[u], unit_name(timeline, u)))
+                    .collect();
+                format!("game over: {result} ({})", places.join(", "))
+            }
         }
     }
 }
@@ -144,12 +209,13 @@ pub fn print_frame(timeline: &Timeline, i: usize, combat_log: bool) {
     match &frame.kind {
         FrameKind::Start => {}
         FrameKind::StartTurn { player, .. } => {
-            let p = *player;
-            print_player_snapshot(
-                &player_name(timeline, p),
-                &frame.players[p],
-                &frame_pool(timeline, frame, p),
-            );
+            for p in unit_players(timeline, *player) {
+                print_player_snapshot(
+                    &player_name(timeline, p),
+                    &frame.players[p],
+                    &frame_pool(timeline, frame, p),
+                );
+            }
         }
         FrameKind::Act { player, .. } => {
             let p = *player;
@@ -190,6 +256,28 @@ pub fn print_frame(timeline: &Timeline, i: usize, combat_log: bool) {
                     print!("{}", format_unit_list(survivors, "    ", None));
                 }
                 println!("  ({} combat events; `c` shows them)", result.events.len());
+            }
+        }
+        FrameKind::DuosCombat { a, b, .. }
+        | FrameKind::GhostCombat {
+            unit: a, ghost: b, ..
+        } => {
+            let ghost = matches!(frame.kind, FrameKind::GhostCombat { .. });
+            let units = if ghost { vec![*a] } else { vec![*a, *b] };
+            for u in units {
+                for p in unit_players(timeline, u) {
+                    let (before, after) = (&prev.players[p], &frame.players[p]);
+                    println!(
+                        "  {}: HP {}+{} -> {}+{}, board {} -> {}",
+                        player_name(timeline, p),
+                        before.health,
+                        before.armor,
+                        after.health,
+                        after.armor,
+                        before.board.len(),
+                        after.board.len()
+                    );
+                }
             }
         }
         FrameKind::DeliverGifts => {
@@ -235,8 +323,11 @@ pub fn print_summary(timeline: &Timeline) {
         _ => "per-player pools".to_string(),
     };
     println!(
-        "seaglass {} · format {} · catalog {:?} · {pool}",
-        header.engine, header.format, header.catalog
+        "seaglass {} · format {} · catalog {:?} · {pool}{}",
+        header.engine,
+        header.format,
+        header.catalog,
+        if header.duos { " · Duos" } else { "" }
     );
     for (p, setup) in header.players.iter().enumerate() {
         let seed = if header.pool() == pb::PoolMode::Shared {
@@ -244,11 +335,20 @@ pub fn print_summary(timeline: &Timeline) {
         } else {
             format!(", seed {}", setup.seed)
         };
+        let armor = if setup.hero.is_none() && setup.hero_options.is_empty() {
+            format!(", {} armor", setup.armor)
+        } else {
+            String::new()
+        };
+        let heroes = if setup.hero_options.is_empty() {
+            String::new()
+        } else {
+            format!(", offered heroes {:?}", setup.hero_options)
+        };
         println!(
-            "  {}: {}, {} armor, shop spells {}{seed}",
+            "  {}: {}{armor}, shop spells {}{heroes}{seed}",
             player_name(timeline, p),
             format_deity_kind(seaglass::replay::deity_from_pb(setup.deity())),
-            setup.armor,
             if setup.shop_spells { "on" } else { "off" },
         );
     }
@@ -262,13 +362,19 @@ pub fn print_summary(timeline: &Timeline) {
         timeline.last_turn()
     );
     for (i, frame) in timeline.frames.iter().enumerate() {
-        if let FrameKind::Combat { a, b, .. } = &frame.kind {
-            let health: Vec<String> = [*a, *b]
+        let units = match &frame.kind {
+            FrameKind::Combat { a, b, .. } | FrameKind::DuosCombat { a, b, .. } => vec![*a, *b],
+            FrameKind::GhostCombat { unit, .. } => vec![*unit],
+            _ => Vec::new(),
+        };
+        if !units.is_empty() {
+            let health: Vec<String> = units
                 .iter()
-                .map(|&p| {
+                .map(|&u| {
+                    let p = unit_players(timeline, u)[0];
                     format!(
                         "{} {}+{}",
-                        player_name(timeline, p),
+                        unit_name(timeline, u),
                         frame.players[p].health,
                         frame.players[p].armor
                     )

@@ -7,7 +7,7 @@ import seaglass
 
 from seaglass_rl import PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from seaglass_rl.actions import ACTION_SPACE_SIZE, DARK_DISCOVERY_INDEX, action_mask, index_from_action
-from seaglass_rl.features import BASE_SLOT_NUM_DIM, DARK_GIFT_IDS
+from seaglass_rl.features import BASE_SLOT_NUM_DIM, DARK_GIFT_IDS, TAVERN_PLAYER_DIM
 
 
 def test_the_dark_discovery_action_is_appended_last() -> None:
@@ -52,7 +52,7 @@ def test_a_game_without_dark_gifts_is_unchanged() -> None:
     assert all(a.kind != "dark_discovery" for a in game.legal_actions())
     assert not action_mask(game)[DARK_DISCOVERY_INDEX]
     player_vec, _, slot_num_feats = encode_observation(obs)
-    assert player_vec.shape == (PLAYER_DIM,) and not np.any(player_vec[-2:])
+    assert player_vec.shape == (PLAYER_DIM,) and not np.any(player_vec[TAVERN_PLAYER_DIM - 2 : TAVERN_PLAYER_DIM])
     assert not np.any(slot_num_feats[:, BASE_SLOT_NUM_DIM:])
 
 
@@ -63,7 +63,7 @@ def test_the_button_discovers_a_minion_with_a_gift() -> None:
     assert obs.dark_gifts_enabled and obs.dark_discoveries_left == 3 and obs.dark_discovery_usable
     assert action_mask(game)[DARK_DISCOVERY_INDEX]
     player_vec, _, _ = encode_observation(obs)
-    assert player_vec[-2] == 1.0 and player_vec[-1] == 1.0
+    assert player_vec[TAVERN_PLAYER_DIM - 2] == 1.0 and player_vec[TAVERN_PLAYER_DIM - 1] == 1.0
     gold = obs.gold
     game.step(seaglass.TavernAction.dark_discovery())
     obs = game.observe()

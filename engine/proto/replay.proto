@@ -28,6 +28,11 @@ message Header {
   repeated PlayerSetup players = 6;
   // Free-form labels (source, run, iteration, opponent kind, ...).
   map<string, string> meta = 7;
+  // A Duos match (`docs/duos_tavern.md`): players `2t` and `2t + 1` are team `t`, and the
+  // records' units (`StartTurn.player`, `Combat.a`/`b`, `GhostCombat`, `End.placements`) are teams.
+  bool duos = 8;
+  // Duos: each team's chance of switching its first fighter each turn (`duos_tavern.md` §4.3).
+  double first_fighter_switch_chance = 9;
 }
 
 enum PoolMode {
@@ -52,6 +57,9 @@ message PlayerSetup {
   bool trinkets = 7;
   // The Dark Discovery button (`TavernState::dark_gifts_enabled`, `docs/dark_gifts.md`).
   bool dark_gifts = 8;
+  // The heroes the player is offered at the start (`TavernState::offer_heroes`,
+  // `docs/heroes.md` §6), if they have no `hero`.
+  repeated uint32 hero_options = 9;
 }
 
 enum Deity {
@@ -70,6 +78,7 @@ message Record {
     SetPairs set_pairs = 5;
     DeliverGifts deliver_gifts = 6;
     RecordDeaths record_deaths = 7;
+    GhostCombat ghost_combat = 8;
   }
 }
 
@@ -92,7 +101,7 @@ message RecordDeaths {
   repeated bool alive = 1;
 }
 
-// `TavernState::start_turn` for one player.
+// `TavernState::start_turn` for one player (Duos: `DuosTavern::start_turn` for one team).
 message StartTurn {
   uint32 player = 1;
   // The player's turn number after the call.
@@ -182,7 +191,8 @@ message Candidate {
   float prob = 2;
 }
 
-// `TavernState::resolve_combat_pair` between players `a` and `b`. The lobby then records each
+// `TavernState::resolve_combat_pair` between players `a` and `b` (Duos:
+// `DuosTavern::resolve_combat_pair` between teams `a` and `b`). The lobby then records each
 // player's combat (their board as it entered it) and the outcome (`Lobby::record_combat`,
 // `Lobby::record_outcome`).
 message Combat {
@@ -214,6 +224,19 @@ message Checkpoint {
   fixed64 fingerprint = 4;
 }
 
+// Unit `unit` (a player; Duos: a team) fights the ghost of unit `ghost`, who is out of the game:
+// the boards `ghost`'s players entered their last combat with (`Lobby::last_warbands`), at
+// their Tavern Tiers. Only `unit` takes the result and the damage.
+message GhostCombat {
+  uint32 unit = 1;
+  uint32 ghost = 2;
+  uint64 seed = 3;
+  // The result (unset if the combat did not finish).
+  Outcome outcome = 4;
+  uint32 hero_damage = 5;
+  Checkpoint check = 6;
+}
+
 // The match is over.
 message End {
   // Unset for a draw.
@@ -222,4 +245,7 @@ message End {
   uint32 turn = 2;
   // Every player's final health.
   repeated int32 health = 3;
+  // Each unit's final place (1 is first; Duos: per team), if the game loop placed them
+  // (`LobbyGame`).
+  repeated uint32 placements = 4;
 }

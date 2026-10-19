@@ -17,7 +17,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
 
 ### Deferred
 [`deferred.md`](deferred.md) is the engine's single list of what it defers.
-- 4-team matches and their pairings: the engine has one team's Tavern; a match of four teams is the caller's job.
+- 4-team matches and their pairings are `LobbyGame`'s ([`lobby_game.md`](lobby_game.md)); a `DuosTavern` is one team.
 - The Duos combat rules themselves (`duos.md`). Heroes, their Hero Powers and their starting Armor are specified in [`heroes.md`](heroes.md), trinkets (per player in Duos) in [`trinkets.md`](trinkets.md) §8.1.
 
 ---
@@ -55,7 +55,7 @@ Rules marked **(confirmed)** were settled with the user. Rules marked **(engine 
    - "If you have 15 or less Health" (`Holy Vanguard`) reads the team's Health, for both players.
 4. **Per-player triggers** **(confirmed)**. When a player pays Health or takes hero damage in the Tavern, the pool goes down, but only **that player's** "your hero takes damage" minions trigger (`Soul Rewinder`, `Ashen Corruptor`, `Tichondrius` rewind or react; `Eredar Escapist` counts it). The teammate's don't. A rewind (`Soul Rewinder`) gives the pool its Health back.
 5. **Combat damage** goes to the losing team's pool **(confirmed)**, once (§6.2), Armor first. As in Solo (`tavern.md` §7.2), it triggers no hero-damage minion, for either player **(confirmed)**: `Soul Rewinder` doesn't rewind it, `Ashen Corruptor` and `Tichondrius` don't trigger, and `Eredar Escapist` doesn't count it (`DuosTavern::take_combat_damage`).
-6. **A team at 0** (or less) Health is out **(confirmed)**: `DuosTavern::is_out()`. Ending the match is the caller's job (§1).
+6. **A team at 0** (or less) Health is out **(confirmed)**: `DuosTavern::is_out()`. Ending the match is `LobbyGame`'s ([`lobby_game.md`](lobby_game.md)).
 
 ---
 

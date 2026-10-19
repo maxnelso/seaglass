@@ -28,6 +28,18 @@ and RNGs they draw from and the `Lobby` they see each other through (`lobby.rs`,
 | `combat(a, b)` / `combat_with_seed`   | `TavernState::resolve_combat_pair`, then `Lobby::record_combat` (both players) and `Lobby::record_outcome` | `Combat` |
 | `record_deaths()`                     | `Lobby::record_deaths` (alive = Health > 0)    | `RecordDeaths` |
 | `finish()`                            | none: marks the end and names the winner       | `End`          |
+| `duos_combat(a, b)` (Duos)            | `DuosTavern::resolve_combat_pair` between teams, then the lobby (each player against the opposing player in their seat) | `Combat` |
+| `ghost_combat(u, ghost)`              | unit `u` fights the boards `ghost`'s players last fought with (`Lobby::last_warbands`), at their Tiers; only `u` takes the result | `GhostCombat` |
+| `finish_with_placements(&places)`     | none: marks the end with each unit's place     | `End`          |
+
+**Duos.** With `MatchSetup::duos`, players `2t` and `2t + 1` are team `t` (a `DuosTavern`), and the
+calls that concern a *unit* take a team: `start_turn(t)`, `duos_combat`, `ghost_combat` and the
+placements. `player(p)` still reads player `p`'s Tavern, whose Health and Armor are the team's.
+`unit_combat(a, b, seed)` fights whichever combat the match plays. A full lobby is driven by
+`LobbyGame` ([`lobby_game.md`](lobby_game.md)), which makes these calls.
+
+**Hero offers.** `PlayerSetup::hero_options` offers a player heroes at the start: until they pick
+one (`ChooseHero`, recorded like any action), it is their only legal action.
 
 A turn of a game loop is: `set_pairs`, every player's `start_turn`, `deliver_gifts`, the players'
 actions, `deliver_gifts`, the combats, `record_deaths` (`sim_match`, the RL env). A loop that never
@@ -95,27 +107,32 @@ interrupted save never leaves a truncated replay.
 ```text
 Replay
 ├── header: Header
-│   ├── format            replay::FORMAT_VERSION (2)
+│   ├── format            replay::FORMAT_VERSION (3)
 │   ├── engine            the recording build: crate version + git commit
 │   ├── catalog           cards::catalog_for name ("full")
 │   ├── pool              PER_PLAYER | SHARED
 │   ├── shared_seed
-│   ├── players[]         name, seed, deity, armor, shop_spells, hero, trinkets, dark_gifts
-│   └── meta              string labels
+│   ├── players[]         name, seed, deity, armor, shop_spells, hero, trinkets, dark_gifts,
+│   │                     hero_options[]
+│   ├── meta              string labels
+│   ├── duos              players 2t, 2t+1 are team t; units are teams
+│   └── first_fighter_switch_chance   (Duos)
 └── records[]: one per engine call, in order
     ├── SetPairs          pairs[] (a, b)
-    ├── StartTurn         player, turn (the player's turn after the call)
+    ├── StartTurn         player (Duos: the team), turn (the player's turn after the call)
     ├── DeliverGifts
     ├── Act               player, action, card_id, note
-    ├── Combat            a, b, seed, external_seed, outcome, hero_damage, check_a, check_b
+    ├── Combat            a, b (Duos: teams), seed, external_seed, outcome, hero_damage,
+    │                     check_a, check_b
+    ├── GhostCombat       unit, ghost, seed, outcome, hero_damage, check
     ├── RecordDeaths      alive[]
-    └── End               winner (unset for a draw), turn, health[]
+    └── End               winner (unset for a draw; Duos: a team), turn, health[], placements[]
 ```
 
 Actions use the same indices as `TavernAction` (shop, hand, board, Discover, hero and trinket
 option indices), every `TavernAction` included: Hero Powers, Passes, spells cast on the shop,
-hero and trinket choices and Dark Discovery. Format 1 replays (before heroes and the lobby) are
-not read.
+hero and trinket choices and Dark Discovery. Format 1 and 2 replays (before heroes and the lobby;
+before full lobbies and Duos) are not read.
 
 Some fields are **redundant on purpose**. Re-simulation recomputes them and compares, which
 catches a replay re-simulated by the wrong engine at the first call that goes wrong:
@@ -126,9 +143,10 @@ catches a replay re-simulated by the wrong engine at the first call that goes wr
 | `Act.card_id`                  | the card the action buys, plays, casts, sells, repositions, activates, passes or chooses (`replay::action_card`; none for heroes, trinkets and Hero Powers) |
 | `Combat.seed`                  | the battle seed (drawn or given)                             |
 | `Combat.outcome`, `hero_damage`| the battle result (`outcome` is unset if the battle never finished) |
-| `Combat.check_a`, `check_b`    | each player afterwards: health, armor, tier and an FNV-1a fingerprint of board and hand (card, Attack, Health, keywords, Golden; `replay::checkpoint`) |
+| `Combat.check_a`, `check_b`    | each player afterwards: health, armor, tier and an FNV-1a fingerprint of board and hand (card, Attack, Health, keywords, Golden; `replay::checkpoint`). A Duos team: its Health and Armor, its first player's Tier, both players' fingerprints combined |
+| `GhostCombat.*`                | as `Combat`, for the unit that fought the ghost              |
 | `RecordDeaths.alive`           | who is still in the game after the combats                   |
-| `End`                          | winner, final turn and every player's health                 |
+| `End`                          | winner, final turn, every player's health, and each unit's place |
 
 To look inside a replay without seaglass, run
 `protoc --decode seaglass.replay.Replay engine/proto/replay.proto < game.replay.pb`.
@@ -149,8 +167,10 @@ for decision in timeline.decisions() {
 
 - `frames[0]` is the match before any call, and `frames[i]` is the match after record `i - 1`.
   A frame holds every player's `TavernState`, every RNG's state (`Rng::state`) and every pool's
-  remaining copies (in `Timeline::card_ids` order). Its `kind` says which call produced it, and
-  for a combat it includes the full `BattleResult` with its event log.
+  remaining copies (in `Timeline::card_ids` order); in Duos also every team's own state
+  (`Frame::teams`: shared Health and Armor, Passes, incoming cards, first fighter). Its `kind`
+  says which call produced it, and for a combat it includes the full `BattleResult` (Duos:
+  `DuosResult`) with its event log.
 - `turn_start(t)` finds the first frame of turn `t`. `decisions()` yields every action with the
   states before and after it, which is the shape offline training data needs.
 - `divergences` lists every call whose recomputed fields (§2) differ from the recorded ones.

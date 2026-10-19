@@ -17,7 +17,7 @@ use prost::Message;
 use crate::model::{BattleOutcome, CardId, DeityKind, Keyword};
 use crate::tavern::{TavernAction, TavernState};
 
-pub use timeline::{Decision, Divergence, Frame, FrameKind, ReplayError, Timeline};
+pub use timeline::{Decision, Divergence, Frame, FrameKind, ReplayError, TeamFrame, Timeline};
 
 /// The protobuf types generated from `proto/replay.proto`.
 #[allow(clippy::all, missing_docs)]
@@ -26,7 +26,7 @@ pub mod pb {
 }
 
 /// The replay format version this engine reads and writes ([`pb::Header::format`]).
-pub const FORMAT_VERSION: u32 = 2;
+pub const FORMAT_VERSION: u32 = 3;
 
 /// This engine build: its crate version and git commit (`0.1.0+708acd9e1b2c`).
 pub fn engine_version() -> &'static str {

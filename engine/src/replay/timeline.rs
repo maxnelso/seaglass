@@ -3,9 +3,11 @@
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
 
-use crate::combat::BattleResult;
-use crate::game::Match;
+use crate::combat::{BattleResult, DuosResult};
+use crate::duos_tavern::DuosTavern;
+use crate::game::{CombatResult, Match};
 use crate::model::CardId;
+use crate::model::Unit;
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernAction, TavernState};
 
@@ -17,7 +19,7 @@ use pb::record::Kind;
 pub enum FrameKind {
     /// The match before any call.
     Start,
-    /// `player` started their turn `turn`.
+    /// `player` started their turn `turn` (Duos: `player` is the team).
     StartTurn { player: usize, turn: u32 },
     /// `player` took `action`, which used card `card_id` ([`super::action_card`]).
     Act {
@@ -33,14 +35,32 @@ pub enum FrameKind {
         seed: u64,
         result: Box<BattleResult>,
     },
+    /// Duos teams `a` and `b` fought.
+    DuosCombat {
+        a: usize,
+        b: usize,
+        seed: u64,
+        result: Box<DuosResult>,
+    },
+    /// Unit `unit` (a player; Duos: a team) fought the ghost of unit `ghost` ([`Match::ghost_combat`]).
+    GhostCombat {
+        unit: usize,
+        ghost: usize,
+        seed: u64,
+        result: Box<CombatResult>,
+    },
     /// The lobby got the coming turn's pairings, and every player their view ([`Match::set_pairs`]).
     SetPairs { pairs: Vec<(usize, usize)> },
     /// The lobby delivered every player's lobby gifts ([`Match::deliver_gifts`]).
     DeliverGifts,
     /// The lobby recorded who is still alive after the combats ([`Match::record_deaths`]).
     RecordDeaths { alive: Vec<bool> },
-    /// The match ended.
-    End { winner: Option<usize> },
+    /// The match ended. `winner` is a unit (Duos: a team); `placements` each unit's final place, if
+    /// the game loop placed them.
+    End {
+        winner: Option<usize>,
+        placements: Vec<u32>,
+    },
 }
 
 /// The match after one engine call.
@@ -53,11 +73,43 @@ pub struct Frame {
     pub turn: u32,
     /// Every player's state after the call.
     pub players: Vec<TavernState>,
+    /// Duos: every team's state after the call ([`Match::teams`]; empty in Solo).
+    pub teams: Vec<TeamFrame>,
     /// The state of every RNG after the call ([`Match::rngs`], [`Rng::state`]).
     pub rng_states: Vec<u64>,
     /// The copies left of each card in every pool after the call ([`Match::pools`],
     /// [`CardPool::remaining`]), in [`Timeline::card_ids`] order.
     pub pool_remaining: Vec<Vec<u32>>,
+}
+
+/// A Duos team's own state in a [`Frame`] (its players are in [`Frame::players`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TeamFrame {
+    /// The team's shared Health and Armor.
+    pub health: i32,
+    pub armor: i32,
+    pub passes_this_turn: u32,
+    pub passes_this_game: u32,
+    /// Each player's queue of passed cards waiting for room in their hand.
+    pub incoming: [Vec<Unit>; 2],
+    /// Which players have ended their turn.
+    pub ended: [bool; 2],
+    /// The player whose warband fights first in the coming combat.
+    pub first_fighter: usize,
+}
+
+impl From<&DuosTavern> for TeamFrame {
+    fn from(team: &DuosTavern) -> Self {
+        Self {
+            health: team.health,
+            armor: team.armor,
+            passes_this_turn: team.passes_this_turn,
+            passes_this_game: team.passes_this_game,
+            incoming: team.incoming.clone(),
+            ended: team.ended,
+            first_fighter: team.first_fighter,
+        }
+    }
 }
 
 /// A re-simulated call whose result differs from the one recorded.
@@ -213,6 +265,7 @@ impl Timeline {
             record,
             turn: game.players().iter().map(|p| p.turn).max().unwrap_or(0),
             players: game.players().to_vec(),
+            teams: game.teams().iter().map(TeamFrame::from).collect(),
             rng_states: game.rngs().iter().map(Rng::state).collect(),
             pool_remaining: game.pools().iter().map(CardPool::remaining).collect(),
         });
@@ -232,13 +285,24 @@ fn rerun(game: &mut Match, record: &pb::Record) -> Result<FrameKind, String> {
             ))
         }
     };
+    let units = game.num_units();
+    let unit = |u: u32| {
+        let u = u as usize;
+        if u < units {
+            Ok(u)
+        } else {
+            Err(format!(
+                "unit {u} does not exist (the match has {units} units)"
+            ))
+        }
+    };
     match record.kind.as_ref().ok_or("the record is empty")? {
         Kind::StartTurn(start) => {
-            let p = player(start.player)?;
-            game.start_turn(p);
+            let u = unit(start.player)?;
+            game.start_turn(u);
             Ok(FrameKind::StartTurn {
-                player: p,
-                turn: game.player(p).turn,
+                player: u,
+                turn: game.player(game.unit_players(u)[0]).turn,
             })
         }
         Kind::Act(act) => {
@@ -254,22 +318,34 @@ fn rerun(game: &mut Match, record: &pb::Record) -> Result<FrameKind, String> {
             })
         }
         Kind::Combat(combat) => {
-            let (a, b) = (player(combat.a)?, player(combat.b)?);
+            let (a, b) = (unit(combat.a)?, unit(combat.b)?);
             if a == b {
-                return Err(format!("player {a} cannot fight themselves"));
+                return Err(format!("unit {a} cannot fight themselves"));
             }
-            let result = if combat.external_seed {
-                game.combat_with_seed(a, b, combat.seed)
-            } else {
-                game.combat(a, b)
-            };
+            let seed = combat.external_seed.then_some(combat.seed);
+            let result = game.unit_combat(a, b, seed);
             let seed = match game.records().last().and_then(|r| r.kind.as_ref()) {
                 Some(Kind::Combat(produced)) => produced.seed,
                 _ => unreachable!("a combat records itself"),
             };
-            Ok(FrameKind::Combat {
-                a,
-                b,
+            Ok(match result {
+                CombatResult::Solo(result) => FrameKind::Combat { a, b, seed, result },
+                CombatResult::Duos(result) => FrameKind::DuosCombat { a, b, seed, result },
+            })
+        }
+        Kind::GhostCombat(combat) => {
+            let (u, ghost) = (unit(combat.unit)?, unit(combat.ghost)?);
+            if u == ghost {
+                return Err(format!("unit {u} cannot fight their own ghost"));
+            }
+            let result = game.ghost_combat(u, ghost);
+            let seed = match game.records().last().and_then(|r| r.kind.as_ref()) {
+                Some(Kind::GhostCombat(produced)) => produced.seed,
+                _ => unreachable!("a ghost combat records itself"),
+            };
+            Ok(FrameKind::GhostCombat {
+                unit: u,
+                ghost,
                 seed,
                 result: Box::new(result),
             })
@@ -296,9 +372,22 @@ fn rerun(game: &mut Match, record: &pb::Record) -> Result<FrameKind, String> {
         Kind::RecordDeaths(_) => Ok(FrameKind::RecordDeaths {
             alive: game.record_deaths(),
         }),
-        Kind::End(_) => Ok(FrameKind::End {
-            winner: game.finish(),
-        }),
+        Kind::End(end) => {
+            let winner = if end.placements.is_empty() {
+                game.finish()
+            } else if end.placements.len() == units {
+                game.finish_with_placements(&end.placements)
+            } else {
+                return Err(format!(
+                    "{} placements for {units} units",
+                    end.placements.len()
+                ));
+            };
+            Ok(FrameKind::End {
+                winner,
+                placements: end.placements.clone(),
+            })
+        }
     }
 }
 
@@ -345,6 +434,26 @@ fn compare(recorded: &pb::Record, produced: &pb::Record) -> Vec<String> {
                 );
             }
         }
+        (Some(Kind::GhostCombat(r)), Some(Kind::GhostCombat(p))) => {
+            check("combat seed", r.seed.to_string(), p.seed.to_string());
+            if r.outcome() != pb::Outcome::Unspecified {
+                check(
+                    "outcome",
+                    r.outcome().as_str_name().to_string(),
+                    p.outcome().as_str_name().to_string(),
+                );
+                check(
+                    "hero damage",
+                    r.hero_damage.to_string(),
+                    p.hero_damage.to_string(),
+                );
+                check(
+                    &format!("unit {} after combat", r.unit),
+                    checkpoint(&r.check),
+                    checkpoint(&p.check),
+                );
+            }
+        }
         (Some(Kind::SetPairs(_)), Some(Kind::SetPairs(_)))
         | (Some(Kind::DeliverGifts(_)), Some(Kind::DeliverGifts(_))) => {}
         (Some(Kind::RecordDeaths(r)), Some(Kind::RecordDeaths(p))) => {
@@ -361,6 +470,11 @@ fn compare(recorded: &pb::Record, produced: &pb::Record) -> Vec<String> {
                 "final health",
                 format!("{:?}", r.health),
                 format!("{:?}", p.health),
+            );
+            check(
+                "placements",
+                format!("{:?}", r.placements),
+                format!("{:?}", p.placements),
             );
         }
         _ => unreachable!("a re-simulated call records the same kind of call"),

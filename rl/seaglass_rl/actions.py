@@ -122,6 +122,13 @@ CHOOSE_TRINKET_INDICES = [
 ]
 DARK_DISCOVERY_INDEX = ACTION_TO_INDEX[("dark_discovery", None, None)]
 
+# Each action's kind (`TavernAction.kind`), as an index: the model's kind prior (`model.py`) spreads
+# probability evenly over the legal kinds rather than the legal actions, so the 42 Repositions
+# don't drown out the 1 Upgrade.
+ACTION_KINDS: list[str] = sorted({a.kind for a in ACTIONS})
+NUM_ACTION_KINDS: int = len(ACTION_KINDS)
+ACTION_KIND_IDS: np.ndarray = np.array([ACTION_KINDS.index(a.kind) for a in ACTIONS], dtype=np.int64)
+
 
 def action_from_index(index: int) -> seaglass.TavernAction:
     if not (0 <= index < ACTION_SPACE_SIZE):

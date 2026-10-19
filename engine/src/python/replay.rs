@@ -146,7 +146,7 @@ fn note_to_py(py: Python<'_>, note: &pb::Note) -> PyResult<PyObject> {
     Ok(dict.into_any().unbind())
 }
 
-fn optional_note(note: Option<&Bound<'_, PyAny>>) -> PyResult<Option<pb::Note>> {
+pub(super) fn optional_note(note: Option<&Bound<'_, PyAny>>) -> PyResult<Option<pb::Note>> {
     note.filter(|n| !n.is_none()).map(parse_note).transpose()
 }
 
@@ -215,6 +215,7 @@ impl PyMatch {
             shared_seed,
             players: players.iter().map(player_setup).collect::<PyResult<_>>()?,
             meta: meta.unwrap_or_default(),
+            ..Default::default()
         };
         let inner = Match::new(&setup).map_err(PyValueError::new_err)?;
         Ok(Self { inner })
@@ -457,7 +458,7 @@ type Decision = (usize, usize, PyTavernAction, Option<PyObject>);
 /// A replay re-simulated into the state after every call (`docs/replays.md`).
 #[pyclass(name = "Timeline")]
 pub struct PyTimeline {
-    inner: Timeline,
+    pub(super) inner: Timeline,
 }
 
 impl PyTimeline {
@@ -636,8 +637,8 @@ impl PyTimeline {
 pub struct PyFrame {
     #[pyo3(get)]
     index: usize,
-    /// `"start"`, `"start_turn"`, `"act"`, `"combat"`, `"set_pairs"`, `"deliver_gifts"`,
-    /// `"record_deaths"` or `"end"`.
+    /// `"start"`, `"start_turn"`, `"act"`, `"combat"`, `"duos_combat"`, `"ghost_combat"`,
+    /// `"set_pairs"`, `"deliver_gifts"`, `"record_deaths"` or `"end"`.
     #[pyo3(get)]
     kind: &'static str,
     /// The replay record this frame re-simulates (`None` for the start).
@@ -655,9 +656,15 @@ pub struct PyFrame {
     #[pyo3(get)]
     card_id: Option<u32>,
     note: Option<pb::Note>,
-    /// The two players of a combat.
+    /// The two players of a combat (Duos: the two teams; a ghost combat: the unit, then the
+    /// unit whose ghost it fought).
     #[pyo3(get)]
     combatants: Option<(usize, usize)>,
+    /// A combat's outcome (`"a_win"`, `"b_win"`, `"draw"`) and the damage the loser took.
+    #[pyo3(get)]
+    outcome: Option<&'static str>,
+    #[pyo3(get)]
+    hero_damage: Option<u32>,
     #[pyo3(get)]
     seed: Option<u64>,
     #[pyo3(get)]
@@ -667,6 +674,9 @@ pub struct PyFrame {
     num_events: Option<usize>,
     #[pyo3(get)]
     winner: Option<usize>,
+    /// Each unit's final place, if the game loop placed them (`LobbyGame`).
+    #[pyo3(get)]
+    placements: Vec<u32>,
     /// Every player's state after the call.
     #[pyo3(get)]
     players: Vec<PyTavernObservation>,
@@ -690,7 +700,10 @@ impl PyFrame {
             seed: None,
             battle: None,
             num_events: None,
+            outcome: None,
+            hero_damage: None,
             winner: None,
+            placements: Vec::new(),
             players: frame
                 .players
                 .iter()
@@ -721,14 +734,37 @@ impl PyFrame {
                 out.combatants = Some((*a, *b));
                 out.seed = Some(*seed);
                 out.num_events = Some(result.events.len());
+                out.outcome = Some(outcome_str(result.outcome));
+                out.hero_damage = Some(result.hero_damage);
                 out.battle = Some(PyBattleResult::from(result.as_ref().clone()));
+            }
+            FrameKind::DuosCombat { a, b, seed, result } => {
+                out.kind = "duos_combat";
+                out.combatants = Some((*a, *b));
+                out.seed = Some(*seed);
+                out.num_events = Some(result.events.len());
+                out.outcome = Some(outcome_str(result.outcome));
+                out.hero_damage = Some(result.hero_damage);
+            }
+            FrameKind::GhostCombat {
+                unit,
+                ghost,
+                seed,
+                result,
+            } => {
+                out.kind = "ghost_combat";
+                out.combatants = Some((*unit, *ghost));
+                out.seed = Some(*seed);
+                out.outcome = Some(outcome_str(result.outcome()));
+                out.hero_damage = Some(result.hero_damage());
             }
             FrameKind::SetPairs { .. } => out.kind = "set_pairs",
             FrameKind::DeliverGifts => out.kind = "deliver_gifts",
             FrameKind::RecordDeaths { .. } => out.kind = "record_deaths",
-            FrameKind::End { winner } => {
+            FrameKind::End { winner, placements } => {
                 out.kind = "end";
                 out.winner = *winner;
+                out.placements = placements.clone();
             }
         }
         out
@@ -752,6 +788,14 @@ impl PyFrame {
             "Frame(index={}, kind={:?}, turn={}, player={player}, action={action})",
             self.index, self.kind, self.turn
         )
+    }
+}
+
+fn outcome_str(outcome: BattleOutcome) -> &'static str {
+    match outcome {
+        BattleOutcome::AWin => "a_win",
+        BattleOutcome::BWin => "b_win",
+        BattleOutcome::Draw => "draw",
     }
 }
 

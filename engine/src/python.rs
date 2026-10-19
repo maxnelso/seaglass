@@ -5,6 +5,7 @@
 
 #![allow(clippy::useless_conversion)]
 
+mod lobby;
 mod replay;
 
 use pyo3::exceptions::PyValueError;
@@ -979,6 +980,36 @@ impl PyTavernGame {
     fn take_lobby_gifts(&mut self) -> Vec<PyUnit> {
         py_units(&self.state.take_lobby_gifts())
     }
+
+    /// Offer the player the heroes `options` (names or ids) to choose from (`docs/heroes.md`
+    /// §6): until one is chosen, only `TavernAction.choose_hero` is legal.
+    fn offer_heroes(&mut self, options: Vec<Bound<'_, PyAny>>) -> PyResult<()> {
+        self.state.offer_heroes(parse_hero_options(&options)?);
+        Ok(())
+    }
+
+    /// An independent copy of the game: its state, card pool and RNG (to look ahead).
+    fn copy(&self) -> Self {
+        self.clone()
+    }
+
+    fn __copy__(&self) -> Self {
+        self.clone()
+    }
+
+    fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
+        self.clone()
+    }
+}
+
+/// Hero `options` given as names or ids (`docs/heroes.md` §2.1).
+fn parse_hero_options(options: &[Bound<'_, PyAny>]) -> PyResult<Vec<HeroId>> {
+    options
+        .iter()
+        .map(|h| {
+            parse_hero(Some(h))?.ok_or_else(|| PyValueError::new_err("a hero option can't be None"))
+        })
+        .collect()
 }
 
 /// `outcome` (`"a_win"`, `"b_win"`, `"draw"`) as a `BattleOutcome`.
@@ -1635,6 +1666,28 @@ impl PyDuosTavernGame {
         Self::check_player(player)?;
         Ok(py_units(&self.team.players[player].take_lobby_gifts()))
     }
+
+    /// Offer `player` the heroes `options` (names or ids) to choose from (`docs/heroes.md` §6):
+    /// until one is chosen, only their `TavernAction.choose_hero` is legal, and the team's pool
+    /// gets the chosen hero's Duos Armor.
+    fn offer_heroes(&mut self, player: usize, options: Vec<Bound<'_, PyAny>>) -> PyResult<()> {
+        Self::check_player(player)?;
+        self.team.players[player].offer_heroes(parse_hero_options(&options)?);
+        Ok(())
+    }
+
+    /// An independent copy of the team: its Taverns, card pool and RNG (to look ahead).
+    fn copy(&self) -> Self {
+        self.clone()
+    }
+
+    fn __copy__(&self) -> Self {
+        self.clone()
+    }
+
+    fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
+        self.clone()
+    }
 }
 
 #[pyfunction]
@@ -1903,6 +1956,21 @@ fn heroes_table() -> Vec<(u32, &'static str, bool)> {
         .collect()
 }
 
+/// The hero offers of a lobby (`docs/heroes.md` §6, `heroes::draw_offers`): `per_player` distinct
+/// hero ids for each of `players` players, uniformly among the implemented heroes (Duos-only ones
+/// only in Duos, the Dark Gift ones only with Dark Gifts), never the same hero twice in a lobby.
+#[pyfunction]
+#[pyo3(signature = (players, per_player=2, duos=false, dark_gifts=true, seed=0))]
+fn draw_hero_offers(
+    players: usize,
+    per_player: usize,
+    duos: bool,
+    dark_gifts: bool,
+    seed: u64,
+) -> Vec<Vec<HeroId>> {
+    heroes::draw_offers(players, per_player, duos, dark_gifts, &mut Rng::new(seed))
+}
+
 #[pyfunction]
 fn parse_unit(spec: &str) -> PyResult<PyUnit> {
     let inner = rust_parse_unit(spec, &Defaults::default()).map_err(PyValueError::new_err)?;
@@ -1929,10 +1997,12 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(catalog, m)?)?;
     m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
     m.add_function(wrap_pyfunction!(heroes_table, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_hero_offers, m)?)?;
     m.add_function(wrap_pyfunction!(trinkets_table, m)?)?;
     m.add_function(wrap_pyfunction!(dark_gifts_table, m)?)?;
     m.add_function(wrap_pyfunction!(dark_gifts_vocabulary, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
     replay::register(m)?;
+    lobby::register(m)?;
     Ok(())
 }

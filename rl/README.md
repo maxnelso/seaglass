@@ -7,70 +7,113 @@ This package never reimplements a card, cost, legality check, or combat step—i
 
 ---
 
-## Responsibilities of `rl/`
+## Overview
 
-1. **RL Environment (`env.py`)**
-   Wraps the Rust engine's tavern state machine and batch combat simulator into a single-player or multi-agent RL environment (`BattlegroundsEnv`) with deterministic seeding. Every game it plays has trinkets and Dark Gifts on; the agent and the bots (`RandomBot`, `HeuristicBot`, `PolicyBot`) pick trinkets, use the Dark Discovery button and resolve every pending prompt (`bots.resolve_prompts`) before a turn ends.
-2. **Action Space & Masking (`actions.py`)**
-   Defines the discrete action space consumed by the policy network, queries the engine for legal actions at every micro-step, and produces boolean action masks. Illegal actions raise `ValueError` immediately rather than silently no-oping.
-3. **Reward Shaping (`rewards.py`)**
-   Computes step and end-of-turn rewards in Python using combat equity from `seaglass.simulate_batch`, tavern tier progression, hero health preservation, and micro-action shaping bonuses.
-4. **Opponent Curriculum & Self-Play (`opponents.py`)**
-   Generates opponent boards for end-of-turn combat evaluation—ranging from deterministic turn-scaling baseline boards to historical ghost boards and self-play checkpoints.
-5. **Feature Encoding & Policy Network (`features.py`, `model.py`)**
-   Converts raw engine observations into entity tensors and runs them through a Transformer Actor-Critic (`BattlegroundsActorCritic`).
-6. **Training & Inspection (`train_ppo.py`, `sandbox_cli.py`)**
-   Masked PPO training loop, evaluation benchmarks, and an interactive CLI inspector.
+```mermaid
+flowchart LR
+  L["seaglass.LobbyGame (Rust)<br/>8 Solo players or 4 Duos teams"] -->|"observe + context"| F["features.py<br/>player vector + 73 card slots"]
+  F --> M["model.py BattlegroundsMLP"]
+  M -->|"330 masked logits"| A["actions.py"]
+  A -->|step| L
+  L -->|placement| P["play.py rewards<br/>ppo.py PPO"]
+  P --> C["checkpoint.py<br/>runs/NAME/*.pt"]
+  C --> E["evaluate.py<br/>average place vs a fixed pool"]
+```
+
+| Module | What it does |
+| :--- | :--- |
+| `seaglass.LobbyGame` (Rust) | The game: a full lobby, Solo (2..8 players) or Duos (2..4 teams of 2), with one shared card pool. It runs the hero offers, each turn's pairings, ghosts, combats, knockouts and placements, and records every game as a replay ([`engine/docs/lobby_game.md`](../engine/docs/lobby_game.md)). `context(p)` is what player `p` knows about the lobby. Python holds no game logic. |
+| `play.py` | `LobbyConfig` (the lobby settings) and `Seat` (one player with the `TavernGame` interface, so the bots and `action_mask` play Solo and Duos alike). `play_games`: plays many lobbies in lockstep with one batched forward pass per model, with a mix of controllers per unit (`"learner"`, `"heuristic"`, `"random"`, or a named model such as a checkpoint), and records the learner's decisions as trajectories. `Player` spreads games over worker processes. |
+| `ppo.py` | GAE with **per-turn discounting** and a minibatched, KL-limited PPO update. |
+| `train_lobby.py` | The trainer (below). |
+| `pretrain.py` | Behavior cloning on HeuristicBot games (policy cross-entropy + value regression), the starting point for PPO (`train_lobby.py --init`). |
+| `evaluate.py` | Average placement (with standard error, top-half and first-place rates) of a checkpoint against a fixed pool. |
+| `checkpoint.py` | `save` / `load`. A checkpoint stores the model's config and weights, the optimizer state, and the feature spec it was trained on; loading one with another feature spec fails. |
+| `features.py`, `actions.py`, `model.py` | The observation encoding, the 330 flat actions with their legality mask, and the network. |
+| `bots.py` | `RandomBot`, `HeuristicBot` (picks the best stats, plays everything, levels on curve), `PolicyBot`. |
+| `env.py`, `train_ppo.py` | **Legacy**: the earlier head-to-head 2-player env (`BattlegroundsEnv`) and its trainer. |
+| `replays.py` | Recorded matches as training arrays (`to_dataset`), e.g. for behavior cloning. |
 
 ---
 
-## MDP Formulation
+## Training (`train_lobby.py`)
 
-### 1. Observation & Feature Encoding
-At each step, the Rust engine returns raw state (`turn`, `health`, `gold`, `max_gold`, `tavern_tier`, `upgrade_cost`, `bonus_gold_next_turn`, `is_frozen`, and `PyUnit` lists for `board`, `hand`, `shop`, and `discover`).
+```bash
+python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400                 # clone the HeuristicBots
+python -m seaglass_rl.train_lobby --run-dir runs/solo --init runs/bc-solo.pt --lr 1e-4
+python -m seaglass_rl.train_lobby --run-dir runs/solo --iterations 500           # Solo, 8 players, from scratch
+python -m seaglass_rl.train_lobby --run-dir runs/duos --duos --iterations 500    # Duos, 4 teams
+python -m seaglass_rl.train_lobby --run-dir runs/solo --resume runs/solo/latest.pt --iterations 500
+python -m seaglass_rl.evaluate runs/duos/latest.pt --duos --games 200
+```
 
-`features.py` encodes this into:
-- **Player Token (`[PLAYER]`)**: Normalized vector of global economy and turn state:
-  `[gold/10, max_gold/10, tavern_tier/6, upgrade_cost/10, turn/max_turns, health/30, bonus_gold_next_turn/5]`.
-- **Card Entity Tokens**: One token per card across `board` (`zone=0`), `hand` (`zone=1`), and `shop` (`zone=2`), containing:
-  - `card_id`: Dense vocabulary index derived dynamically at import time from `seaglass.catalog("full")` plus token/spell IDs (never a hardcoded ID table).
-  - `tribe`: Engine `Tribe` discriminant (`0..22`; new types such as `naga` are appended, so existing values keep their meaning).
-  - `zone`: Zone index (`0..2`).
-  - `stats`: `[log1p(attack), log1p(health), tavern_tier / 6, slot / 7]`.
-  - `keywords`: Binary flags `[is_golden, taunt, divine_shield, windfury, reborn]`.
+**Start from behavior cloning.** From scratch, an untrained policy places last against HeuristicBots nearly every game, and a reward that arrives only at the end of the game is too weak to climb out from there. `pretrain.py` clones the bots in about a minute: 95% held-out action accuracy, average place 4.9 against them in Solo and 2.7 in Duos. PPO then starts from there (`--init`).
 
-### 2. Action Space & Legality Mask
-During a Tavern turn, the agent repeatedly takes discrete micro-actions until selecting `EndTurn`.
-- Every action index maps deterministically to an engine `TavernAction` (`Buy`, `Play`, `PlayOnShop` (a spell cast on a minion in the Tavern), `Sell`, `Reposition`, `Activate`, `ChooseDiscover`, `Refresh`, `UpgradeTavern`, `ToggleFreeze`, `EndTurn`, the Duos `Pass`, the heroes' `HeroPower` and `ChooseHero`: see [Heroes](#heroes), `ChooseTrinket`: see [Trinkets](#trinkets), and `DarkDiscovery`: see [Dark Gifts](#dark-gifts)). New kinds are appended at the end so existing indices keep their meaning, but the action space grows, so checkpoints saved before a new kind was added don't load.
-- The boolean `action_mask` is queried directly from the engine's legality check at every step. When a Discover is pending (the `Triple Reward` card cast, a Discover effect), all actions except `ChooseDiscover` are masked out. A Golden played from the hand gives a `Triple Reward` card (a 0-Gold spell in the hand, `engine/docs/tavern.md` §5.2); its locked-in Discover Tier is the card's `counter` (`seaglass.Unit.counter`), and casting it is a `Play`.
+The policy's logits get a **kind prior** (`model.py`, on for `train_lobby`): each is lowered by log(number of legal actions of its kind). An untrained policy then picks among Buy, Play, Reposition, End Turn and the rest evenly, instead of mostly Repositioning: there are 42 Reposition actions and 1 End Turn.
 
-### 3. Reward Function
-Default potential-based reward shaping over turn boundaries:
+Each iteration plays `--games` lobbies (64) across `--workers` processes (12):
+- **Who plays.** The learner controls `--learner-units` units: half by default, so 4 Solo players or 2 Duos teams. In Duos both teammates use the learner's policy, each acting on their own Tavern. Each other unit is a HeuristicBot (`--p-heuristic`, 30%) or a frozen snapshot of the learner. Snapshots are taken every `--snapshot-every` iterations, and the last `--pool-size` are kept.
+- **Reward.** The unit's **placement**: +1 for first down to -1 for last, linear (`play.placement_reward`). A Duos team's two players share it.
+- **Optional shaping.** `--shaping` (default 0.3) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier.
+- **Discounting.** `--gamma` (0.97) applies once per turn, not per action, so a 10-action turn isn't discounted ten times.
+- **Actions.** Everything is unmasked, including Reposition and Freeze. `--prune` restores the `prune_dominated` sell and refresh rules. A turn is force-ended after `--max-steps-per-turn` (30) actions.
+- **Update.** `--epochs` (4) passes of minibatches (`--minibatch` 4096). An epoch stops early once the approximate KL passes 1.5 × `--target-kl`.
 
-$$\Phi(s) = w_{\text{eq}} \cdot \text{combat\_equity}(s) + w_{\text{tier}} \cdot (\text{tavern\_tier} - 1) + w_{\text{hp}} \cdot \frac{\text{health}}{30}$$
+Every `--eval-every` iterations, the learner plays `--eval-games` lobbies alone against HeuristicBots, and `latest.pt` is saved. `runs/NAME/` holds:
+- `args.json`;
+- `log.jsonl`, one line per iteration: the learner's average place, steps, losses, entropy, KL, explained variance, and the evaluation;
+- `latest.pt`;
+- `snapshots/iter_XXXXX.pt`.
 
-$$r_t = \Phi(s_t) - \Phi(s_{t-1}) + r_{\text{shaping}}$$
+Evaluation. An agent as good as the field places `(units + 1) / 2` on average: 4.5 in Solo, 2.5 in Duos. Lower is better.
 
-where $\text{combat\_equity}(s) = \text{win\_rate} + 0.5 \cdot \text{draw\_rate}$ is estimated via `seaglass.simulate_batch` against the current turn's opponent board. Because $\Phi(s)$ is computed in Python, reward weights and shaping terms can be configured per experiment without touching the Rust crate.
+### Simplifications compared with the real game
+- No damage cap (`engine/docs/deferred.md`).
+- A game still running after `--max-turns` (30) places the survivors by Health plus Armor.
+
+---
+
+## Observation (`features.py`)
+
+`encode_observation(obs, context=None)` returns `(player_vec, slot_card_ids, slot_num_feats)`:
+
+- **`player_vec`** (`PLAYER_DIM` = 101):
+  - The player's Tavern: 33 features (`TAVERN_PLAYER_DIM`), described in the sections below.
+  - The lobby (`LOBBY_DIM` 8, all 0 without a `context`): units, units alive, Health rank, whether the next opponent is a ghost, and the next opponent's Health, Armor and Tier.
+  - 7 opponents × 7 features (`OPPONENT_DIM`): present, alive, Health, Armor, Tier, is next, is last. The next opponent comes first (in Duos, the opposing player in this seat, then their teammate), then the rest by Health.
+  - The Duos team (`DUOS_DIM` 11, 0 in Solo): the teammate's Tier, Gold, ended, has a hero, fights first, free Passes, both incoming queues, and the team's Pass counters.
+- **73 card slots** (`NUM_SLOTS`), each a card id (embedded) plus `SLOT_NUM_DIM` = 72 numeric features:
+  - The player's Tavern: board 7, hand 10, shop 7, Discover 4, waiting 3, trinkets 2, trinket offers 4 (`TAVERN_SLOTS` = 37).
+  - The hero and the offered heroes (`HERO_OFFSET`, 1 + 4). Hero ids are appended to the card vocabulary.
+  - The Duos teammate's board and hand (`TEAMMATE_OFFSET`, 7 + 10).
+  - The next opponents' boards as they entered their last combat (`OPPONENT_BOARD_OFFSET`, 2 × 7).
+
+The lobby features hold only what the game shows a player: the leaderboard (each opponent's Health, Armor and Tier) and the boards they fought with. They come from `seaglass.LobbyGame.context`, never from the engine's internal `Lobby` (featured pair, gifts, deaths). Neither observation exposes that `Lobby`.
+
+---
+
+## Model (`BattlegroundsMLP`)
+
+Each slot's card embedding (`--embed` 16) is concatenated with the slot's numeric features and the player vector. The result goes through a 2-layer MLP (`--hidden` 256, about 1.8M parameters) with an actor head (330 masked logits) and a critic head. It has a NumPy fast path (`act_batch`) for rollouts. A set or attention encoder over the slots, with per-card action heads, is the planned next model.
 
 ---
 
 ## Duos
 
-A Duos team (two players with one Health pool who can Pass cards to each other, [`engine/docs/duos_tavern.md`](../engine/docs/duos_tavern.md)) is `seaglass.DuosTavernGame`. The engine has everything a Duos agent needs; the encoding below and a Duos environment are the next step (the policy network and training are unchanged).
+A Duos team (two players with one Health pool who can Pass cards to each other, [`engine/docs/duos_tavern.md`](../engine/docs/duos_tavern.md)) is `seaglass.DuosTavernGame`. `seaglass.LobbyGame(duos=True)` plays 4 of them as one game, with one shared card pool, and `train_lobby.py --duos` trains on it.
 
 ### Bindings
 - `DuosTavernGame(seed=0, catalog="duos", armor=(5, 5), first_fighter_switch_chance=0.75, shop_spells=True, deity=None)`: one team's Tavern phase, with its card pool and RNG (everything is deterministic from `seed`). `armor` is each hero's starting Armor (the team starts with 30 Health and their sum); `catalog="duos"` is the full catalog plus the Duos-exclusive minions (`Wanderer Cho`).
 - Per player (`0` or `1`): `observe(player)`, `legal_actions(player)`, `is_legal(player, action)`, `step(player, action)` (returns `True` if it ended that player's turn), `end_turn(player)`.
-- Per team: `start_turn()` (both players, then the coming combat's first fighter), `turn_over()` (both players ended), `is_out()`, `health`, `armor`, `first_fighter`; `resolve_combat_with(other, seed=None)` (team vs team: both take their results, the loser the damage) and `resolve_combat_against(opponent, first=0, hero_tiers=(1, 1), seed=None)` (a fixed opponent team: its two boards). Both return a `DuosBattleResult` (`outcome`, `hero_damage`, `fought_a`/`_b`, `survivors_a`/`_b`, per player). Two `DuosTavernGame`s have separate card pools (4-team matches are out of scope).
+- Per team: `start_turn()` (both players, then the coming combat's first fighter), `turn_over()` (both players ended), `is_out()`, `health`, `armor`, `first_fighter`; `resolve_combat_with(other, seed=None)` (team vs team: both take their results, the loser the damage) and `resolve_combat_against(opponent, first=0, hero_tiers=(1, 1), seed=None)` (a fixed opponent team: its two boards). Both return a `DuosBattleResult` (`outcome`, `hero_damage`, `fought_a`/`_b`, `survivors_a`/`_b`, per player). Two `DuosTavernGame`s have separate card pools (a 4-team match with one pool is `seaglass.LobbyGame(duos=True)`).
 - `TavernAction.pass_card(hand_index)`: kind `"pass"`, args `(hand_index, None)`. A Solo `TavernGame` never lists it as legal.
 - `simulate_duos(team_a, team_b, seed, first_a=0, first_b=0, hero_tiers_a=(1, 1), hero_tiers_b=(1, 1))` and `simulate_duos_batch(team_a, team_b, base_seed, n, ...)`: Duos combat equity, where a team is its two players' boards (`[[units], [units]]`).
 
 ### MDP
-- **Agents**: each player is an agent acting on their own Tavern. Both act during the same turn: the environment interleaves their micro-steps (any order is legal) until both have ended; then the teams fight. Rewards follow the team: its shared Health, the team combat's outcome and damage, and `simulate_duos_batch` equity.
-- **Actions**: the Solo table plus 10 `Pass` actions, one per hand slot, appended at the end (`PASS_INDICES`), so Solo indices keep their meaning and Solo masks leave them out. `action_mask(game, ..., player=p)` masks a Duos player's actions.
+- **Agents**: each player is an agent acting on their own Tavern, with the same policy for both teammates. Both act during the same turn: `play.py` interleaves their actions (one teammate at a time, alternating, because a player's action can change their teammate's Tavern) until both have ended; then the teams fight. Both teammates get the team's placement as their reward.
+- **Actions**: the Solo table plus 10 `Pass` actions, one per hand slot, appended at the end (`PASS_INDICES`), so Solo indices keep their meaning and Solo masks leave them out. `action_mask(game, ..., player=p)` masks a Duos player's actions (a `lobby.Seat` needs no `player`).
 - **Observation** (`DuosObservation`): the player's own `TavernObservation` fields (with the team's `health` and `armor`), plus `incoming` (the cards passed to them waiting for room in a full hand), `free_passes`, `fights_first`, `ended`; the teammate's `teammate_board`, `teammate_hand`, `teammate_shop`, `teammate_tavern_tier`, `teammate_gold`, `teammate_incoming`, `teammate_ended`, `teammate_free_passes`; and the team's `team_health`, `team_armor`, `passes_this_turn`, `passes_this_game`, `first_fighter`.
-- **Planned encoding**: the teammate's cards become extra card tokens with new zones appended after the Solo ones (`3` teammate board, `4` teammate hand, `5` teammate shop, `6` own incoming queue, `7` teammate's incoming queue), and the team scalars (team Health/Armor, free Passes, the Pass counters, `fights_first`, the teammate's Tier and Gold, both `ended` flags) are appended to the `[PLAYER]` vector. The card vocabulary already includes the Duos-exclusive cards: their ids (`10_000` and up) sort after every Solo card, so they only append to it.
+- **Encoding**: the teammate's board and hand are card slots (`TEAMMATE_OFFSET`), and the team scalars are the `DUOS_DIM` player features ([Observation](#observation-featurespy)). The card vocabulary includes the Duos-exclusive cards: their ids (`10_000` and up) sort after every Solo card, so they only append to it.
 
 ---
 
@@ -83,7 +126,8 @@ Heroes and their Hero Powers ([`engine/docs/heroes.md`](../engine/docs/heroes.md
 - `TavernAction.hero_power(target=None)` (kind `"hero_power"`, args `(target, None)`): use the Hero Power, on a board, shop or hand index if it needs one (`0..7` board or `7..14` shop for `BoardOrShopMinion`). `TavernAction.hero_power_2(target=None)` (kind `"hero_power_2"`, args `(target, None)`): use the second Hero Power (Genn, Worgen King). `TavernAction.choose_hero(option_index)` (kind `"choose_hero"`): choose an offered hero; while heroes are offered, it is the only legal action.
 - `heroes_table()`: `(id, name, implemented)` for each of the 123 heroes of the pool.
 - `Lobby(players, duos=False)`: what the players of a game know about each other ([`engine/docs/tavern.md`](../engine/docs/tavern.md) §3.1), for the lobby Hero Powers (Scabbs, Tess, Bigglesworth, Barov, Holmes, Mukla). Each turn: `set_next_pairs([(a, b), ...])` (the first pair is featured: Lord Barov's wager) and `apply(games)` before the turns start (`games[p]` is player `p`'s `TavernGame`), `deliver_gifts(games)` after them and after the players' turns (each player's lobby gifts, Mukla's Bananas, to their living opponents), then `record_combat(player, opponent, board)` (the board as it entered combat), `record_outcome(a, b, outcome)` and `record_deaths(alive)` after the combats. Duos: `Lobby(2 * teams, duos=True)` with `apply_duos(teams)` / `deliver_gifts_duos(teams)` (team `t`'s players are `2t` and `2t + 1`; a teammate's Banana goes through the team). `TavernGame.take_lobby_gifts()` and `DuosTavernGame.take_lobby_gifts(player)` take a player's undelivered gifts. `BattlegroundsEnv` keeps a `Lobby(2)`: each player is the other's next and last opponent, with no featured pair (Lord Barov can't wager).
-- The lobby is never in the observation: `TavernObservation` and `DuosObservation` don't expose it, and no feature encodes it (the player doesn't see it; the agent must not train on it). Lord Barov's own wager is in `hero_power_armed`.
+- The engine's `Lobby` is never in the observation: `TavernObservation` and `DuosObservation` don't expose it. The lobby features (`features.py`) encode only what the game shows a player, from `seaglass.LobbyGame.context`: the leaderboard and the boards opponents fought with. Lord Barov's own wager is in `hero_power_armed`.
+- `draw_hero_offers(players, per_player=2, duos=False, dark_gifts=True, seed=0)`: a lobby's hero offers (`docs/heroes.md` §6). `TavernGame.offer_heroes(options)` and `DuosTavernGame.offer_heroes(player, options)` offer them; until the player picks one (`choose_hero`), it is the only legal action. `TavernGame.copy()` and `DuosTavernGame.copy()` (also `copy.copy` / `copy.deepcopy`) are independent copies, state, pool and RNG, for lookahead.
 
 ### Observation
 `TavernObservation` and `DuosObservation` have `hero_id` (0 without a hero), `hero_power_id` (the Hero Power card in use: it changes with Bru'kan's Element), `hero_power_cost`, `hero_power_uses_left`, `hero_power_counter`, `hero_power_stacks`, `hero_power_armed` (next-combat effects paid for: Y'Shaarj; for a power with a picked minion, Vol'jin's first pick, that minion's current target + 1: `1..=7` board, `8..=14` shop), `hero_power_usable` (some `HeroPower` action is legal now), `second_hero_power_id` (0 without a second Hero Power), `second_hero_power_cost`, `second_hero_power_uses_left`, `second_hero_power_counter`, `second_hero_power_stacks`, `second_hero_power_armed`, `second_hero_power_usable` and `hero_options`; `DuosObservation` also has `teammate_hero_id`. `features.py` appends six of them to the `[PLAYER]` vector (`PLAYER_DIM` is 17 with the next ones): has a hero, `hero_power_usable`, `hero_power_cost / 10`, `hero_power_uses_left`, `hero_power_armed / 3`, and whether heroes are offered. Freezing (`engine/docs/tavern.md` §3.1) is appended after them: `is_frozen` (the whole shop) ends the `[PLAYER]` vector, and each slot's last numeric feature (`SLOT_NUM_DIM` is 13) is `Unit.frozen`, a shop card frozen on its own (Varden Dawngrasp's copies). `ToggleFreeze` unfreezes everything when anything is frozen, and freezes the shop otherwise. Then `next_minion_discount / 3` (the next minion bought costs that much less: Aranna Starseeker's free minion). Last, the cards waiting for room in the hand (`waiting_for_hand` on both observations: Spellcraft spells given to a full hand, delivered once there is room and discarded at the end of the turn, `engine/docs/tavern.md` §7.4): their count `/ 3` follows in the `[PLAYER]` vector, and the first 3 are card slots appended after the Discover ones (`MAX_WAITING`; `NUM_SLOTS` is 31). Then the prices a Hero Power can change (`engine/docs/tavern.md` §3.3; both observations have `minion_cost` and `refresh_cost`, and `upgrade_cost` is the Upgrade's price with its extra): `minion_cost / 3` and `refresh_cost / 2`, followed by the five second-Hero-Power features (has a second power, `second_hero_power_usable`, `second_hero_power_cost / 10`, `second_hero_power_uses_left`, `second_hero_power_armed / 3`), end the `[PLAYER]` vector (`PLAYER_DIM` is 25). Each slot's 14th numeric feature (`SLOT_NUM_DIM` is 14) is `Unit.marked` (marked by the Hero Power: a Silas Darkmoon ticket). A turn the hero skips (A. F. Kay, Faelin) leaves only `EndTurn` (and `ChooseDiscover`) unmasked.
@@ -135,78 +179,59 @@ Darkmoon Prizes ([`engine/docs/darkmoon_prizes.md`](../engine/docs/darkmoon_priz
 
 ---
 
-## Model Architecture (`BattlegroundsActorCritic`)
-
-1. **`PlayerEntityEncoder`**: Projects the 7-D player economy vector into a 64-D `[PLAYER]` token (`Entity #0`).
-2. **`CardEntityEncoder`**: Embeds `card_id`, `tribe`, and `zone` via `nn.Embedding`, concatenates continuous stats and keyword flags, and projects each card to a 64-D token (`Entities #1..N`).
-3. **Transformer Backbone**: Stacks `[PLAYER, Card_1, ..., Card_N]` into a `[1, 1 + N, 64]` sequence and passes it through a 2-layer `nn.TransformerEncoder` so cards attend to the player economy and to each other (synergies, triples, tribal scaling).
-4. **Heads (read from transformed `Entity #0`)**:
-   - **Actor Head**: Linear projection to action logits, masked with `-1e9` wherever `action_mask == False`.
-   - **Critic Head**: Linear projection to scalar state-value estimate $V(s)$.
-
----
-
 ## Package Layout
 
 ```text
 rl/
-├── README.md                  # This file
-├── pyproject.toml             # Package metadata & dependencies (torch, pytest, maturin)
+├── README.md
+├── pyproject.toml
 ├── seaglass_rl/
-│   ├── __init__.py
-│   ├── env.py                 # BattlegroundsEnv (Gym-like interface over `seaglass`)
-│   ├── actions.py             # Action space mapping & mask construction
-│   ├── features.py            # Dynamic card vocabulary & observation -> tensor encoding
-│   ├── rewards.py             # Potential-based reward shaping & combat equity evaluation
-│   ├── opponents.py           # Synthetic scaling opponent & self-play opponent pool
-│   ├── model.py               # CardEntityEncoder, PlayerEntityEncoder, BattlegroundsActorCritic
-│   ├── train_ppo.py           # PPO rollout collection, GAE/returns, clipped policy update
-│   ├── replays.py             # Recorded games -> training arrays (`engine/docs/replays.md` §5)
-│   └── sandbox_cli.py         # Interactive terminal inspector for tavern & combat
-└── tests/
-    ├── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
-    ├── test_duos.py           # A seeded Duos team game driven from Python: Passes, masks, team combat
-    ├── test_heroes.py         # Heroes: Hero Power actions and masks, observation fields, Duos Armor
-    ├── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
-    ├── test_vocabulary.py     # The card vocabulary only grows at the end (data/card_ids_v1.txt)
-    ├── test_dark_gifts.py     # Dark Gifts: the Dark Discovery action, offers, observation fields
-    ├── test_darkmoon.py       # Darkmoon Prizes: the vocabulary, the Gruul Rules slot feature
-    └── test_replays.py        # Recorded matches: Match == TavernGame, replays rebuild training rows
+│   ├── play.py          # Lockstep play of seaglass.LobbyGame with mixed controllers, trajectories
+│   ├── ppo.py           # Per-turn GAE and the minibatched PPO update
+│   ├── train_lobby.py   # The trainer (league of snapshots + HeuristicBots)
+│   ├── pretrain.py      # Behavior cloning on HeuristicBot games
+│   ├── evaluate.py      # Average placement against a fixed pool
+│   ├── checkpoint.py    # Save / load models with their feature spec
+│   ├── features.py      # Observation encoding
+│   ├── actions.py       # Action space and masks
+│   ├── model.py         # BattlegroundsMLP
+│   ├── bots.py          # RandomBot, HeuristicBot, PolicyBot
+│   ├── env.py           # Legacy head-to-head env (BattlegroundsEnv)
+│   ├── train_ppo.py     # Legacy head-to-head trainer
+│   └── replays.py       # Recorded games -> training arrays
+└── tests/               # test_lobby.py covers the lobby, play, PPO, checkpoints and evaluation
 ```
 
 ---
 
 ## Quickstart
 
-### 1. Build & install the `seaglass` Rust extension
-
-From the `rl/` directory (inside your Python virtual environment):
-
 ```bash
+cd rl && source .venv/bin/activate
 maturin develop --release --manifest-path ../engine/Cargo.toml --features python
-```
-
-### 2. Run seam & environment tests
-
-```bash
 pytest
+python -m seaglass_rl.pretrain --out runs/bc-duos.pt --duos
+python -m seaglass_rl.train_lobby --run-dir runs/duos --duos --init runs/bc-duos.pt --lr 1e-4 --iterations 300
+python -m seaglass_rl.evaluate runs/duos/latest.pt --duos --games 200
 ```
 
-### 3. Explore interactively in the CLI sandbox
+### Watch lobby games
+
+Every `seaglass.LobbyGame` is a recorded match, Solo or Duos. Save a few evaluation games and
+step through them:
 
 ```bash
-python -m seaglass_rl.sandbox_cli
+python -m seaglass_rl.evaluate runs/duos/latest.pt --duos --games 8 --replays runs/watch
+cargo run --release --bin match_replay -- tui runs/watch/duos_1000000.replay.pb
 ```
 
-### 4. Train a PPO agent
+`train_lobby.py --replays` saves a few games at every evaluation (`RUN_DIR/replays/iter_XXXXX/`).
+The learner's actions carry its value and log-probability. Duos and ghost combats show as a
+line (who fought, the result) for now, without their event playback.
 
-```bash
-python -m seaglass_rl.train_ppo --iterations 25 --episodes-per-iter 8
-```
+### Record, watch and reuse games (legacy head-to-head env)
 
-### 5. Record, watch and reuse games
-
-Every game the env and the self-play trainer play is a recorded `seaglass.Match`
+Every game the head-to-head env and its trainer (`train_ppo.py`) play is a recorded `seaglass.Match`
 ([`engine/docs/replays.md`](../engine/docs/replays.md) §5). Policy actions carry their value
 estimate and log-probability, and forced moves are marked. `--replays DIR` saves the evaluation
 games and the last game of every logged iteration (~4 KB each):

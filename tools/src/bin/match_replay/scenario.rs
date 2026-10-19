@@ -522,6 +522,12 @@ pub(crate) fn export(
     steps: usize,
     player: Option<usize>,
 ) -> Result<Export, String> {
+    if timeline.header.duos {
+        return Err(
+            "scenario export does not support Duos replays yet (scenarios are one player's Tavern)"
+                .to_string(),
+        );
+    }
     if frame >= timeline.len() {
         return Err(format!(
             "frame {frame} does not exist (the replay has frames 0..={})",
@@ -731,6 +737,9 @@ fn involves(kind: &FrameKind, p: usize) -> bool {
     match kind {
         FrameKind::Act { player, .. } | FrameKind::StartTurn { player, .. } => *player == p,
         FrameKind::Combat { a, b, .. } => *a == p || *b == p,
+        FrameKind::GhostCombat { unit, .. } => *unit == p,
+        // Duos replays don't export (`export` refuses them); a team combat reaches both players.
+        FrameKind::DuosCombat { .. } => true,
         FrameKind::Start
         | FrameKind::SetPairs { .. }
         | FrameKind::DeliverGifts

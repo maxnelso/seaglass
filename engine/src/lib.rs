@@ -15,6 +15,7 @@ pub mod events;
 pub mod game;
 pub mod heroes;
 pub mod lobby;
+pub mod lobby_game;
 pub mod model;
 pub mod replay;
 pub mod rng;
@@ -41,7 +42,8 @@ pub use combat::{
 };
 pub use duos_tavern::DuosTavern;
 pub use events::Event;
-pub use game::{Match, MatchSetup, PlayerSetup, PoolMode};
+pub use game::{CombatResult, Match, MatchSetup, PlayerSetup, PoolMode};
+pub use lobby_game::{LobbyConfig, LobbyContext, LobbyGame, OpponentInfo, Phase};
 pub use model::{
     BattleOutcome, CardId, DarkGift, DeityKind, DeityState, GameState, HeroId, HeroPowerState,
     HeroState, Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe,
