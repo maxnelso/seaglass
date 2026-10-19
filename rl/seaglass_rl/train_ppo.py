@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import argparse
 import time
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 import seaglass
 import torch
@@ -11,9 +14,12 @@ import torch.nn as nn
 
 from .actions import ACTION_SPACE_SIZE, END_TURN_INDEX, action_from_index, action_mask
 from .bots import finish_turn
-from .env import BattlegroundsEnv, compute_board_power
+from .env import FORCED, BattlegroundsEnv, compute_board_power
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from .model import BattlegroundsMLP
+
+# Every game has trinkets and Dark Gifts (`engine/docs/trinkets.md`, `dark_gifts.md`).
+_EXTRAS = {"trinkets": True, "dark_gifts": True}
 
 
 def _fmt_unit(u) -> str:
@@ -67,7 +73,11 @@ def evaluate_policy(
     episodes: int = 20,
     seed: int = 10_000,
     deterministic: bool = False,
+    replay_dir: str | None = None,
+    replay_tag: str = "eval",
 ) -> dict[str, float]:
+    """Play `episodes` games against `opponent`. With `replay_dir`, save each one there as
+    `{replay_tag}_{opponent}_{episode:03d}.replay.pb`."""
     env = BattlegroundsEnv(opponent=opponent, seed=seed, model=model)
     wins = 0
     draws = 0
@@ -78,13 +88,16 @@ def evaluate_policy(
         done = False
         info = {}
         while not done:
-            action, _, _ = model.act(obs, mask, deterministic=deterministic)
-            obs, _, done, mask, info = env.step(action)
+            action, logp, value = model.act(obs, mask, deterministic=deterministic)
+            obs, _, done, mask, info = env.step(action, note={"value": value, "logp": logp})
         if info.get("winner") == "agent":
             wins += 1
         elif info.get("winner") == "draw":
             draws += 1
         total_turns += info.get("turns", 0)
+        if replay_dir:
+            env.match.set_meta("eval", replay_tag)
+            env.match.save(Path(replay_dir) / f"{replay_tag}_{opponent}_{ep:03d}.replay.pb")
 
     return {
         "win_rate": wins / episodes,
@@ -103,20 +116,31 @@ def collect_selfplay_rollouts(
     gamma: float = 0.99,
     gae_lambda: float = 0.95,
     record_last_game: bool = False,
-) -> dict[str, torch.Tensor | float | str]:
-    """Lockstep batched self-play collector (trains on both Player A and Player B trajectories)."""
+) -> dict[str, Any]:
+    """Lockstep batched self-play collector (trains on both Player A and Player B trajectories).
+
+    Every game is a recorded `seaglass.Match`; the last one is returned as `last_match`.
+    """
     N = max(1, games_per_iter)
     P = 2 * N
-    games = [
-        seaglass.TavernGame(
-            seed=seed_base + i,
+    # Batch slot p is player p % 2 of match p // 2, seeded with seed_base + p.
+    matches = [
+        seaglass.Match(
+            players=[
+                {"name": "A", "seed": seed_base + 2 * gi, "deity": "cthun", **_EXTRAS},
+                {"name": "B", "seed": seed_base + 2 * gi + 1, "deity": "yshaarj", **_EXTRAS},
+            ],
             catalog="full",
-            deity="cthun" if i % 2 == 0 else "yshaarj",
-            trinkets=True,
-            dark_gifts=True,
+            meta={
+                "source": "selfplay",
+                "game": str(game_counter_start + gi + 1),
+                "max_turns": str(max_turns),
+                "max_steps_per_turn": str(max_steps_per_turn),
+            },
         )
-        for i in range(P)
+        for gi in range(N)
     ]
+    games = [m.player(j) for m in matches for j in range(2)]
     for g in games:
         g.start_turn()
 
@@ -199,10 +223,10 @@ def collect_selfplay_rollouts(
                 if traced_this_turn and p in p_logs:
                     desc = _fmt_action(eng_act, raw_obs_list[bi])
 
-                games[p].step(eng_act)
+                games[p].step(eng_act, note={"value": float(vals[bi]), "logp": float(act_lps[bi])})
                 ended = a == END_TURN_INDEX
                 if not ended and steps + 1 >= max_steps_per_turn:
-                    finish_turn(games[p])
+                    finish_turn(games[p], note=FORCED)
                     ended = True
 
                 post_raw = games[p].observe()
@@ -259,6 +283,7 @@ def collect_selfplay_rollouts(
             winner_str = "DRAW"
             if game_over:
                 alive_games[gi] = False
+                matches[gi].finish()
                 if oa.health > ob.health:
                     term_a = 2.0 if ob.health <= 0 else 1.0
                     a_wins += 1
@@ -337,6 +362,7 @@ def collect_selfplay_rollouts(
         "mean_reward": float(np.mean(ep_rewards)),
         "num_steps": len(actions),
         "last_trace": "\n".join(trace_lines),
+        "last_match": matches[-1],
     }
 
 
@@ -347,7 +373,7 @@ def collect_rollouts(
     gamma: float = 0.99,
     gae_lambda: float = 0.95,
     record_last_episode: bool = False,
-) -> dict[str, torch.Tensor | float | str]:
+) -> dict[str, Any]:
     p_vecs, c_ids, n_feats, masks, actions, old_log_probs, returns, advantages = (
         [],
         [],
@@ -397,7 +423,7 @@ def collect_rollouts(
                 eng_act = action_from_index(act)
                 desc = _fmt_action(eng_act, raw_obs)
 
-            next_obs, rew, done, next_mask, info = env.step(act)
+            next_obs, rew, done, next_mask, info = env.step(act, note={"value": val, "logp": lp})
 
             if trace_this:
                 post_raw = env.player.observe()
@@ -484,13 +510,14 @@ def collect_rollouts(
         "mean_reward": float(np.mean(ep_rewards)),
         "num_steps": len(actions),
         "last_trace": "\n".join(last_trace_lines),
+        "last_match": env.match,
     }
 
 
 def ppo_update(
     model: BattlegroundsMLP,
     optimizer: torch.optim.Optimizer,
-    batch: dict[str, torch.Tensor | float | str],
+    batch: dict[str, Any],
     epochs: int = 2,
     clip_eps: float = 0.2,
     vf_coef: float = 0.5,
@@ -540,6 +567,14 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dump-last-game", type=str, default=None)
+    parser.add_argument(
+        "--replays",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="save the eval games and the last game of every logged iteration as replays in DIR "
+        "(engine/docs/replays.md)",
+    )
     args = parser.parse_args()
 
     torch.set_num_threads(1)
@@ -550,8 +585,12 @@ def main() -> None:
     env = BattlegroundsEnv(opponent=args.opponent, seed=args.seed, model=model)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, foreach=True)
 
-    pre_r = evaluate_policy(model, opponent="random", episodes=20, seed=90_000)
-    pre_h = evaluate_policy(model, opponent="heuristic", episodes=20, seed=95_000)
+    pre_r = evaluate_policy(
+        model, opponent="random", episodes=20, seed=90_000, replay_dir=args.replays, replay_tag="init"
+    )
+    pre_h = evaluate_policy(
+        model, opponent="heuristic", episodes=20, seed=95_000, replay_dir=args.replays, replay_tag="init"
+    )
     print(
         f"[Init Eval] vs random={pre_r['win_rate']:.1%} (turns={pre_r['avg_turns']:.1f}) | "
         f"vs heuristic={pre_h['win_rate']:.1%} (turns={pre_h['avg_turns']:.1f})",
@@ -579,7 +618,8 @@ def main() -> None:
                 env, model, episodes=args.episodes_per_iter, record_last_episode=rec
             )
         metrics = ppo_update(model, optimizer, batch, epochs=args.epochs)
-        if it == 1 or it % log_every == 0 or it == args.iterations:
+        logged = it == 1 or it % log_every == 0 or it == args.iterations
+        if logged:
             elapsed = time.time() - t0
             print(
                 f"Iter {it:05d}/{args.iterations:05d} | "
@@ -590,18 +630,28 @@ def main() -> None:
                 f"ent={metrics['entropy']:.2f} | {elapsed:.1f}s",
                 flush=True,
             )
+        if logged and args.replays:
+            match = batch["last_match"]
+            match.set_meta("iteration", str(it))
+            match.save(Path(args.replays) / f"iter{it:05d}_{args.opponent}.replay.pb")
         if rec and batch["last_trace"]:
             with open(args.dump_last_game, "w", encoding="utf-8") as f:
                 f.write(str(batch["last_trace"]))
             print(f"Wrote last game trace to {args.dump_last_game}", flush=True)
 
-    post_r = evaluate_policy(model, opponent="random", episodes=20, seed=90_000)
-    post_h = evaluate_policy(model, opponent="heuristic", episodes=20, seed=95_000)
+    post_r = evaluate_policy(
+        model, opponent="random", episodes=20, seed=90_000, replay_dir=args.replays, replay_tag="final"
+    )
+    post_h = evaluate_policy(
+        model, opponent="heuristic", episodes=20, seed=95_000, replay_dir=args.replays, replay_tag="final"
+    )
     print(
         f"[Final Eval] vs random={post_r['win_rate']:.1%} (turns={post_r['avg_turns']:.1f}) | "
         f"vs heuristic={post_h['win_rate']:.1%} (turns={post_h['avg_turns']:.1f})",
         flush=True,
     )
+    if args.replays:
+        print(f"Saved replays to {args.replays}/ (view one with `match_replay html <file>`)", flush=True)
 
 
 if __name__ == "__main__":

@@ -93,6 +93,16 @@ impl CardPool {
             .unwrap_or(0)
     }
 
+    /// The pool's cards, in pool (catalog) order.
+    pub fn card_ids(&self) -> Vec<CardId> {
+        self.entries.iter().map(|e| e.template.card_id).collect()
+    }
+
+    /// The remaining copies of each card, in pool order (see [`Self::card_ids`]).
+    pub fn remaining(&self) -> Vec<u32> {
+        self.entries.iter().map(|e| e.remaining).collect()
+    }
+
     /// Draw one minion with `tavern_tier <= max_tier`, weighted by remaining copies.
     pub fn draw_from_pool(&mut self, max_tier: u32, rng: &mut Rng) -> Option<Unit> {
         self.draw_from_pool_in(1, max_tier, rng)
@@ -569,7 +579,7 @@ pub enum RefreshKind {
 }
 
 /// Complete state of a player during the Tavern Phase (`docs/tavern.md` §3).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TavernState {
     pub turn: u32,
     pub health: i32,

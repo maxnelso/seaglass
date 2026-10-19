@@ -575,6 +575,7 @@ mod tests {
             hero_power_start_of_combat: false,
             hero_power_activated: false,
             trinkets: Vec::new(),
+            trinket_numbers: std::collections::BTreeMap::new(),
             deity: None,
             board,
             board_source: BoardSource::LocalBoard,
@@ -647,6 +648,7 @@ mod tests {
                 survivors: Vec::new(),
             },
             events,
+            frames: Vec::new(),
             notes: Vec::new(),
         };
         let real = crate::validate::real_steps(&setup);

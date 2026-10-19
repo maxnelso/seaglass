@@ -79,6 +79,24 @@ pub struct TavernPhaseReplay {
     pub final_shop: Vec<ReplayCard>,
     pub ending_gold: i32,
     pub is_frozen: bool,
+    /// The Tavern after each action: `snapshots[i]` follows `actions[i]` (for viewers).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub snapshots: Vec<TavernSnapshot>,
+}
+
+/// The local player's Tavern at one moment of the Tavern phase.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TavernSnapshot {
+    pub gold: i32,
+    pub tavern_tier: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upgrade_cost: Option<i32>,
+    pub hero_health: i32,
+    pub hero_armor: i32,
+    pub board: Vec<ReplayUnit>,
+    pub hand: Vec<ReplayCard>,
+    pub shop: Vec<ReplayCard>,
+    pub is_frozen: bool,
 }
 
 /// A player action or notable event during the Tavern phase.
@@ -757,6 +775,46 @@ fn find_active_hero(
     }
 }
 
+/// Give every action of the current turn without a snapshot the Tavern as it is now.
+fn sync_snapshots(
+    entities: &HashMap<u32, RawEntity>,
+    local_player_id: i32,
+    local_player_entity_id: u32,
+    dummy_player_id: i32,
+    card_names: &HashMap<String, String>,
+    turns: &mut [TurnReplay],
+) {
+    let Some(turn) = turns.last_mut() else {
+        return;
+    };
+    let tavern = &mut turn.tavern;
+    if tavern.snapshots.len() >= tavern.actions.len() {
+        return;
+    }
+    let (_, _, tier, health, armor) =
+        find_active_hero(entities, local_player_id, local_player_entity_id, card_names);
+    let shop = snapshot_shop(entities, dummy_player_id, card_names);
+    let is_frozen = shop.iter().any(|c| {
+        entities
+            .get(&c.entity_id)
+            .is_some_and(|e| e.tag_int("FROZEN") > 0)
+    });
+    let snapshot = TavernSnapshot {
+        gold: current_gold(entities, local_player_entity_id),
+        tavern_tier: tier,
+        upgrade_cost: find_upgrade_cost(entities, local_player_id),
+        hero_health: health,
+        hero_armor: armor,
+        board: snapshot_board(entities, local_player_id, card_names),
+        hand: snapshot_hand(entities, local_player_id, card_names),
+        shop,
+        is_frozen,
+    };
+    while tavern.snapshots.len() < tavern.actions.len() {
+        tavern.snapshots.push(snapshot.clone());
+    }
+}
+
 fn parse_single_game(
     game_index: usize,
     start_time: String,
@@ -783,6 +841,17 @@ fn parse_single_game(
     for &raw in lines {
         let indent = raw.len() - raw.trim_start().len();
         let s = raw.trim();
+
+        // The Tavern after every action recorded so far (an action is recorded when its block
+        // ends, so the state now includes its effects).
+        sync_snapshots(
+            &entities,
+            local_player_id,
+            local_player_entity_id,
+            dummy_player_id,
+            card_names,
+            &mut turns,
+        );
 
         // Close any entity tag initialization block if indentation dropped.
         if let Some((eid, init_indent)) = current_init_entity {
@@ -1321,6 +1390,14 @@ fn parse_single_game(
         }
     }
 
+    sync_snapshots(
+        &entities,
+        local_player_id,
+        local_player_entity_id,
+        dummy_player_id,
+        card_names,
+        &mut turns,
+    );
     if turns.is_empty() {
         return None;
     }

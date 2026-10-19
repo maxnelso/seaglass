@@ -265,7 +265,7 @@ Fields that hold units (`board`, `hand`, `shop`, `discover_pending`, `stitched_s
 `hand_a`, `hand_b`) take unit specs: a list (or a single spec) replaces the field,
 `{<index>: <spec>}` replaces one unit, `{<index>: {<field>: ...}}` patches one unit, and
 `null` sets the field to null. `discover_queue` takes a list of lists of specs, and so does a
-Duos team's `incoming` (also `{<player>: [<specs>]}`). A Tavern's `waiting_for_hand` and `lobby_gifts`, an opponent's `last_warband` in `lobby.opponents`, and a Hero Power's `stored` take a list of specs even while they are empty (serde leaves them out). A unit patch can also set the fields its serde form leaves out while they are false or empty (`marked`, `extra_deathrattles`, `temp_reborn`, `until_next_turn_atk`, `frozen`): `{card: "9/9", frozen: true}`.
+Duos team's `incoming` (also `{<player>: [<specs>]}`). A Tavern's `waiting_for_hand` and `lobby_gifts`, an opponent's `last_warband` in `lobby.opponents`, and a Hero Power's `stored` take a list of specs even while they are empty (serde leaves them out). A unit patch can also set the fields its serde form leaves out while they are false or empty (`marked`, `extra_deathrattles`, `temp_reborn`, `until_next_turn_atk`, `frozen`, `granted_taunt`, `golden_copies`, ...): `{card: "9/9", frozen: true}`.
 
 `PlayerAuras` patches also take:
 
@@ -394,6 +394,20 @@ the state (Tavern line, board, hand, shop, Discover options, last combat).
 A scenario with `known_bug: <description>` reproduces a known engine bug. It **passes when it
 fails with a mismatch**; it fails if it passes (the bug is fixed: remove `known_bug`) or is
 invalid. These tests show as `[known_bug]`, and the run ends with a ledger of them.
+
+### 6.3 From Rust, and from replays
+
+`seaglass::scenario` runs scenarios from Rust: `ScenarioFile::parse(text)` (or `load(path)`)
+validates a file and `Scenario::run()` runs one scenario (each seed twice, as above; it does not
+apply `known_bug`), returning the `Failure`. Two helpers apply the setup rules exactly as the
+runner does: `build_unit(spec)` builds a unit from a unit spec (§3), and
+`apply_patch(&mut target, patch)` applies a patch (§4) to a serde struct (`TavernState`,
+`PlayerAuras`, `Unit`).
+
+`match_replay scenario` (`replays.md` §4) uses them to export a frame of a replay as a scenario:
+for each unit it writes the spec `build_unit` turns into exactly that unit (plus the fields no
+spec gets right), and before writing the file it checks that `apply_patch` rebuilds the recorded
+state exactly and that the scenario passes.
 
 ---
 

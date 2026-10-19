@@ -26,7 +26,7 @@ use serde::Serialize;
 use seaglass::cards::{self, tokens};
 use seaglass::model::{CardId, DeityKind, DeityState, Tribe, Unit, SINGLE_TRIBES};
 
-use crate::cards::{engine_card, CardKind, ENGINE_PATCH};
+use crate::cards::{engine_card, CardKind, MatchedBy, ENGINE_PATCH};
 use crate::GameReplay;
 
 /// What the log shows of one card across its creations.
@@ -270,7 +270,11 @@ fn tribe_names(tribe: Tribe) -> Vec<String> {
 /// Tokens whose stats are copied from another minion when made, so their template stats are
 /// placeholders: Deserted Golem (the Dark Gift Golemancy's Golem, made with the dying minion's
 /// stats).
-const DYNAMIC_STATS: &[&str] = &["BG29_864t"];
+const DYNAMIC_STATS: &[&str] = &[
+    "BG29_864t",
+    // The Golem `Blood Golem Sticker` and `Jailbird Juggernaut` summon: stats copied from its source.
+    "BG30_MagicItem_442t",
+];
 
 /// The cards whose most common log data differs from the engine's.
 pub fn card_drift(obs: &BTreeMap<String, CardObservation>) -> Vec<CardDrift> {
@@ -288,7 +292,11 @@ pub fn card_drift(obs: &BTreeMap<String, CardObservation>) -> Vec<CardDrift> {
         let mult = if o.golden { 2 } else { 1 };
         let mut diffs = Vec::new();
         let (ea, eh) = (u.attack * mult, u.health * mult);
+        // A variant form (`BG36_360_Gt6`, a `Dark Paradox` its Dark Pact made) has its own stats
+        // and Tier: only its base card's are the engine's.
+        let variant = card.matched_by == MatchedBy::Variant;
         if card.kind != CardKind::Deity
+            && !variant
             && !DYNAMIC_STATS.contains(&cid.as_str())
             && !o.stats.contains_key(&(ea, eh))
         {
@@ -299,7 +307,7 @@ pub fn card_drift(obs: &BTreeMap<String, CardObservation>) -> Vec<CardDrift> {
                 ));
             }
         }
-        if let Some((tier, n)) = mode(&o.tiers) {
+        if let Some((tier, n)) = mode(&o.tiers).filter(|_| !variant) {
             if tier != u.tavern_tier && tier > 0 {
                 diffs.push(format!(
                     "Tier {tier} ({n} of {} creations) vs engine {}",

@@ -10,7 +10,7 @@
 //! 1. the exact card ID (minion table, then [`TOKEN_HS_IDS`], then the spells with an ID);
 //! 2. its Golden forms: `<id>_G` → `<id>`, `<id>_Gt` → `<id>t`;
 //! 3. a variant of a minion whose header lists variants (`Dark Paradox`: `BG36_360t6` →
-//!    `BG36_360`, because its header lists `BG36_360t5`);
+//!    `BG36_360`, because its header lists `BG36_360t5`; its Golden form `BG36_360_Gt6` too);
 //! 4. the card's name (case-insensitive) among the engine's minions, tokens and spells: this
 //!    covers the old-style Golden IDs (`TB_BaconUps_079` is "Wrath Weaver") and the spells.
 //!
@@ -54,6 +54,8 @@ pub static TOKEN_HS_IDS: &[(&str, CardId)] = &[
     ("BG33_891_Gt", tokens::TOKEN_MAGICFIN_APPRENTICE),
     ("BG23_013t", tokens::TOKEN_BLOOD_GOLEM),
     ("BG23_013_Gt", tokens::TOKEN_BLOOD_GOLEM),
+    // The Golem `Blood Golem Sticker` and `Jailbird Juggernaut` summon.
+    ("BG30_MagicItem_442t", tokens::TOKEN_BLOOD_GOLEM),
     ("BG34_634t", tokens::TOKEN_BLUE_CHROMADRAKE),
     ("BG34_635t", tokens::TOKEN_BLACK_CHROMADRAKE),
     ("BG34_636t", tokens::TOKEN_GREEN_CHROMADRAKE),
@@ -216,8 +218,16 @@ pub fn engine_card(hs_id: &str, name: &str) -> Option<EngineCard> {
             return Some(found(card_id, kind, MatchedBy::GoldenCardId));
         }
     }
-    let plain = hs_id.strip_suffix("_G").unwrap_or(hs_id);
-    if let Some(&card_id) = variant_base(plain).and_then(|base| t.variant_bases.get(base)) {
+    // A Golden variant (`BG36_360_Gt6`) is the Golden form of the variant `BG36_360t6`.
+    let plain = hs_id
+        .strip_suffix("_G")
+        .map(str::to_string)
+        .or_else(|| {
+            let (base, n) = hs_id.rsplit_once("_Gt")?;
+            (!n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())).then(|| format!("{base}t{n}"))
+        })
+        .unwrap_or_else(|| hs_id.to_string());
+    if let Some(&card_id) = variant_base(&plain).and_then(|base| t.variant_bases.get(base)) {
         return Some(found(card_id, CardKind::Minion, MatchedBy::Variant));
     }
     let key = name.trim().to_ascii_lowercase();

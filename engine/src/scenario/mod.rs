@@ -7,8 +7,11 @@
 //! the resulting state. Nothing here knows about specific cards: units are named by card name,
 //! and expectations are generic structural matches.
 //!
-//! - [`ScenarioFile::load`] parses and validates a file.
+//! - [`ScenarioFile::load`] parses and validates a file ([`ScenarioFile::parse`]: from a string).
 //! - [`Scenario::run`] runs one scenario (twice per seed: the runs must be identical).
+//! - [`build_unit`] builds a unit from a unit spec exactly as setups do, and [`apply_patch`]
+//!   applies a patch (`tavern:`) exactly as setups do (`match_replay scenario` uses both to
+//!   check that the scenarios it exports rebuild a recorded state exactly).
 //!
 //! The board-vs-board matchup format used by `combat_cli` ([`Matchup`]) and the unit specs it
 //! uses ([`parse_unit`], also exposed to Python) live here too.
@@ -24,8 +27,9 @@ mod view;
 use std::fmt;
 
 pub use matchup::{parse_unit, teams_and_state, Batch, Defaults, Matchup};
+pub use patch::apply as apply_patch;
 pub use spec::{Header, Scenario, ScenarioFile};
-pub use units::{card_index, slug, Card, CardIndex, CardKind};
+pub use units::{build as build_unit, card_index, slug, Card, CardIndex, CardKind};
 
 /// Why a scenario failed.
 #[derive(Clone, Debug, PartialEq, Eq)]

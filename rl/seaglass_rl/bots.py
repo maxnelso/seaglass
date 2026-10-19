@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from typing import Any
 import numpy as np
 import seaglass
 
@@ -16,9 +17,12 @@ from .actions import (
 )
 
 
-def resolve_prompts(game: seaglass.TavernGame, max_steps: int = 64) -> None:
+def resolve_prompts(
+    game: seaglass.TavernGame, max_steps: int = 64, note: dict[str, Any] | None = None
+) -> None:
     """Resolve whatever keeps the turn from ending: a pending Discover, a trinket offer (picked
-    before anything else), a Choose One, ... (the first option each time)."""
+    before anything else), a Choose One, ... (the first option each time). With a `note`, `game`
+    is a `seaglass.MatchPlayer` and every move is recorded with it."""
     end = seaglass.TavernAction.end_turn()
     for _ in range(max_steps):
         if game.is_legal(end):
@@ -27,14 +31,22 @@ def resolve_prompts(game: seaglass.TavernGame, max_steps: int = 64) -> None:
         if not legal:
             return
         prompt = [a for a in legal if a.kind.startswith("choose_")]
-        game.step(prompt[0] if prompt else legal[0])
+        action = prompt[0] if prompt else legal[0]
+        if note is None:
+            game.step(action)
+        else:
+            game.step(action, note=note)
 
 
-def finish_turn(game: seaglass.TavernGame) -> None:
-    """End the turn, once its pending prompts are resolved."""
-    resolve_prompts(game)
+def finish_turn(game: seaglass.TavernGame, note: dict[str, Any] | None = None) -> None:
+    """End the turn, once its pending prompts are resolved. With a `note`, `game` is a
+    `seaglass.MatchPlayer` and every move is recorded with it."""
+    resolve_prompts(game, note=note)
     if game.is_legal(seaglass.TavernAction.end_turn()):
-        game.end_turn()
+        if note is None:
+            game.end_turn()
+        else:
+            game.end_turn(note=note)
 
 
 def _first_legal_index(game: seaglass.TavernGame) -> int:

@@ -6,3 +6,11 @@ description = "Developer CLI tools and match simulators for seaglass"
 
 [dependencies]
 seaglass = { path = "../engine" }
+# `match_replay tui` plays games from a Hearthstone `Power.log`.
+seaglass_replay = { path = "../replay" }
+# `match_replay html` (embedded frame data) and `match_replay scenario` (scenario YAML).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+# `match_replay tui`: the terminal replay player (its crossterm backend: `ratatui::crossterm`).
+ratatui = "0.30"

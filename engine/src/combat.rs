@@ -260,6 +260,7 @@ pub fn resolve_battle(
         state.hand_b.clone(),
     );
 
+    trace(&side_a.board, &side_b.board, &events);
     resolve_start_of_combat(
         &mut side_a,
         &mut side_b,
@@ -273,6 +274,7 @@ pub fn resolve_battle(
         seed,
         first_attacker,
     };
+    trace(&side_a.board, &side_b.board, &events);
 
     let stalled_draw = run_attack_turns(
         first_attacker,
@@ -688,6 +690,7 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
     }
     {
         let [team_a, team_b] = &mut teams;
+        trace(&team_a.side().board, &team_b.side().board, &events);
         resolve_start_of_combat(
             team_a.side(),
             team_b.side(),
@@ -702,6 +705,10 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
         &mut rng,
         &mut events,
     ));
+    {
+        let [team_a, team_b] = &mut teams;
+        trace(&team_a.side().board, &team_b.side().board, &events);
+    }
 
     loop {
         let [team_a, team_b] = &mut teams;
@@ -731,6 +738,8 @@ pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> D
         if entered.is_empty() {
             break;
         }
+        let [team_a, team_b] = &mut teams;
+        trace(&team_a.side().board, &team_b.side().board, &events);
     }
 
     for team in &mut teams {
@@ -1317,6 +1326,7 @@ fn perform_attack_turn(
         rng,
         events,
     );
+    trace_sides(side, atk_side, def_side, events);
 
     if has_windfury
         && !def_side.is_empty()
@@ -1335,6 +1345,7 @@ fn perform_attack_turn(
             rng,
             events,
         );
+        trace_sides(side, atk_side, def_side, events);
     }
 }
 
@@ -1985,6 +1996,68 @@ pub fn with_target_chooser<R>(
     let previous = TARGET_CHOOSER.with(|c| c.borrow_mut().replace(Box::new(chooser)));
     let _restore = Restore(previous);
     f()
+}
+
+/// Both boards at one moment of a traced combat ([`with_combat_trace`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct CombatSnapshot {
+    /// How many of the combat's events had been logged: the boards are as they stand after
+    /// `events[..events]`.
+    pub events: usize,
+    pub board_a: Vec<Unit>,
+    pub board_b: Vec<Unit>,
+}
+
+thread_local! {
+    static TRACE: RefCell<Option<Vec<CombatSnapshot>>> = const { RefCell::new(None) };
+}
+
+/// Viewer tooling (the replay player steps through a combat strike by strike with it): runs `f`
+/// and returns, with its result, both boards of every combat resolved on this thread at these
+/// moments: before Start of Combat, after it, and after every strike; in a Duos combat also after
+/// each warband steps in (and its Start of Combat), with side A and side B the warbands fighting
+/// at that moment. Combat is unchanged by the trace; without
+/// one, taking a snapshot costs a thread-local check.
+pub fn with_combat_trace<R>(f: impl FnOnce() -> R) -> (R, Vec<CombatSnapshot>) {
+    struct Restore(Option<Vec<CombatSnapshot>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            let previous = self.0.take();
+            TRACE.with(|trace| *trace.borrow_mut() = previous);
+        }
+    }
+    let previous = TRACE.with(|t| t.borrow_mut().replace(Vec::new()));
+    let restore = Restore(previous);
+    let result = f();
+    let snapshots = TRACE.with(|t| t.borrow_mut().take()).unwrap_or_default();
+    drop(restore);
+    (result, snapshots)
+}
+
+/// Record both boards if a [`with_combat_trace`] is running.
+fn trace(board_a: &[Unit], board_b: &[Unit], events: &[Event]) {
+    TRACE.with(|t| {
+        if let Some(snapshots) = t.borrow_mut().as_mut() {
+            snapshots.push(CombatSnapshot {
+                events: events.len(),
+                board_a: board_a.to_vec(),
+                board_b: board_b.to_vec(),
+            });
+        }
+    });
+}
+
+/// [`trace`] from an attack turn of `side`.
+fn trace_sides(
+    side: Side,
+    atk_side: &SideCombatState,
+    def_side: &SideCombatState,
+    events: &[Event],
+) {
+    match side {
+        Side::A => trace(&atk_side.board, &def_side.board, events),
+        Side::B => trace(&def_side.board, &atk_side.board, events),
+    }
 }
 
 /// Apply `amount` damage from `source_id` to `board[pos]`.

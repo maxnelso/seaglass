@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>seaglass replay</title>
+<!--
+  The seaglass replay viewer (engine/docs/replays.md). `match_replay html`
+  (tools/src/bin/match_replay/html.rs) embeds a re-simulated replay as JSON in the replay-data
+  element at the end of the page. The page needs nothing else: no network, no libraries.
+-->
+<style>
+:root {
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --panel-2: #f7f9fb;
+  --text: #1b2430;
+  --muted: #677385;
+  --border: #dbe1e8;
+  --accent: #2563eb;
+  --accent-soft: #e8f0fe;
+  --new: #16a34a;
+  --new-soft: #e6f6eb;
+  --chg: #d97706;
+  --chg-soft: #fff3db;
+  --bad: #dc2626;
+  --bad-soft: #fdecec;
+  --warn: #b45309;
+  --warn-soft: #fff6e0;
+  --gold: #b7862a;
+  --gold-soft: #fff5d6;
+  --spell: #7c3aed;
+  --spell-soft: #f4eeff;
+  --frozen: #0284c7;
+  --frozen-soft: #e0f2fe;
+  --atk: #d97706;
+  --hp: #dc2626;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .08);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1318;
+    --panel: #171c23;
+    --panel-2: #1e242c;
+    --text: #e5e9ee;
+    --muted: #97a1b0;
+    --border: #2c333d;
+    --accent: #6ea0ff;
+    --accent-soft: #1d2a44;
+    --new: #3ccf6e;
+    --new-soft: #15301f;
+    --chg: #f2b33d;
+    --chg-soft: #3a2c10;
+    --bad: #ff6b6b;
+    --bad-soft: #3b1818;
+    --warn: #f2b33d;
+    --warn-soft: #33270f;
+    --gold: #e0b44f;
+    --gold-soft: #2f2611;
+    --spell: #a78bfa;
+    --spell-soft: #241d3b;
+    --frozen: #38bdf8;
+    --frozen-soft: #0f2a3a;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+a { color: var(--accent); }
+small { color: var(--muted); font-weight: 400; }
+button { font: inherit; color: inherit; }
+
+/* Header: setup, result and warnings. */
+.masthead { padding: 10px 18px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.headline { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 18px; font-weight: 650; }
+h1 .brand { color: var(--accent); }
+h1 #source { margin-left: 6px; color: var(--muted); font-size: 15px; font-weight: 500; }
+.result { padding: 2px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.result.unfinished { background: var(--warn-soft); color: var(--warn); }
+.setup { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.setup .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; margin-top: 2px; }
+.setup b { color: var(--text); font-weight: 600; }
+.setup .pl b { color: var(--pc); }
+.tag { padding: 0 7px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-2); font-size: 12px; }
+.banner { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--bad); border-radius: 8px; background: var(--bad-soft); }
+.banner > strong { color: var(--bad); }
+.banner.warn { border-color: var(--warn); background: var(--warn-soft); }
+.banner.warn > strong { color: var(--warn); }
+.banner ul { margin: 2px 0 0; padding-left: 22px; }
+
+/* Navigation. */
+.controls { display: flex; align-items: center; gap: 12px; padding: 8px 18px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.buttons { display: flex; gap: 4px; }
+.controls button {
+  min-width: 34px; height: 30px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2);
+  font-size: 15px; cursor: pointer;
+}
+.controls button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.controls button:disabled { opacity: .4; cursor: default; }
+#scrubber { flex: 1; min-width: 120px; accent-color: var(--accent); }
+.position { min-width: 170px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.position b { color: var(--text); }
+.keys { color: var(--muted); font-size: 12px; white-space: nowrap; }
+kbd { padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--panel-2); font: 11px var(--mono); }
+.chart { padding: 2px 18px 6px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.chart .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+.chart .legend i { display: inline-block; width: 10px; height: 3px; margin-right: 5px; vertical-align: middle; background: var(--pc); }
+.chart svg { display: block; width: 100%; height: 48px; cursor: pointer; }
+.chart polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart .tick { stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart .zero { stroke: var(--border); stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.chart .cursor { stroke: var(--text); stroke-width: 1.5; opacity: .7; vector-effect: non-scaling-stroke; }
+
+/* Turn and frame lists. */
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 310px minmax(0, 1fr); }
+.sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--border); }
+.turns { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px; border-bottom: 1px solid var(--border); }
+.chip { padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2); font-size: 12px; cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.chip.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+.frames { flex: 1; min-height: 0; margin: 0; padding: 0 0 16px; overflow-y: auto; list-style: none; }
+.frames .turn-head {
+  position: sticky; top: 0; z-index: 1; padding: 6px 12px 3px; background: var(--panel);
+  color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+}
+.frames .fr {
+  display: flex; align-items: center; gap: 7px; padding: 1px 10px 1px 7px; scroll-margin-top: 26px;
+  border-left: 3px solid transparent; font-size: 13px; white-space: nowrap; cursor: pointer;
+}
+.frames .fr:hover { background: var(--panel-2); }
+.frames .fr.current { border-left-color: var(--accent); background: var(--accent-soft); }
+.frames .idx { min-width: 30px; color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.frames .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--pc, transparent); }
+.frames .lbl { overflow: hidden; text-overflow: ellipsis; }
+.frames .k-start .lbl, .frames .k-turn .lbl { color: var(--muted); }
+.frames .k-combat .lbl { font-weight: 650; }
+.frames .k-end .lbl { font-weight: 700; color: var(--accent); }
+.frames .diverged .lbl { color: var(--bad); }
+.frames .diverged .lbl::before { content: "⚠ "; }
+
+/* The current frame. */
+.view { min-width: 0; padding: 14px 18px 48px; overflow-y: auto; }
+.panel { margin-bottom: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+.panel h2 { margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.panel h3 { margin: 12px 0 4px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.frame-head .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: 12px; }
+.frame-head .meta b { color: var(--text); }
+.kind { padding: 1px 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel-2); color: var(--text); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.kind.act { border-color: var(--accent); color: var(--accent); }
+.kind.combat { border-color: var(--bad); color: var(--bad); }
+.kind.end { border-color: var(--accent); background: var(--accent); color: #fff; }
+.frame-title { margin-top: 6px; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.frame-title .who { color: var(--pc); }
+.alert { margin-top: 8px; padding: 6px 10px; border: 1px solid var(--bad); border-radius: 6px; background: var(--bad-soft); }
+.stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.stat { padding: 1px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); color: var(--muted); font-size: 13px; white-space: nowrap; }
+.stat b { color: var(--text); font-weight: 650; }
+.stat.changed { border-color: var(--chg); background: var(--chg-soft); }
+.stat.frozen { border-color: var(--frozen); background: var(--frozen-soft); }
+.stat.forced { border-color: var(--warn); background: var(--warn-soft); }
+
+/* Notes. */
+.cands { max-height: 320px; margin-top: 8px; overflow-y: auto; }
+.cand { display: grid; grid-template-columns: 52px 140px minmax(0, 1fr); align-items: center; gap: 10px; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+.cand.chosen { background: var(--accent-soft); font-weight: 650; }
+.cand .pct { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; overflow: hidden; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); }
+.bar span { display: block; height: 100%; background: var(--accent); }
+.cand .act { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Combat. */
+.outcome { font-size: 15px; font-weight: 650; }
+.side { margin-top: 10px; padding-left: 9px; border-left: 3px solid var(--pc); }
+.side-title { margin-bottom: 4px; color: var(--pc); font-weight: 650; }
+.events-box { margin-top: 12px; }
+.events-box summary { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.events { max-height: 440px; margin-top: 6px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; font: 12px/1.5 var(--mono); }
+.ev { display: flex; gap: 10px; padding: 1px 8px 1px 6px; border-left: 3px solid var(--pc, transparent); }
+.ev:nth-child(even) { background: var(--panel-2); }
+.ev .n { flex: none; color: var(--muted); }
+.ev .t { overflow-wrap: anywhere; }
+.ev.attack .t { font-weight: 600; }
+.ev.death .t { color: var(--bad); }
+.ev.summon .t, .ev.deity .t { color: var(--new); }
+.ev.start, .ev.end { background: var(--accent-soft); font-weight: 700; }
+
+/* What changed. */
+.changes ul { margin: 0; padding-left: 18px; }
+.changes li { margin: 1px 0; }
+.changes .who { color: var(--pc); font-weight: 650; }
+.add { color: var(--new); }
+.rm { color: var(--bad); }
+.mod { color: var(--chg); }
+
+/* Players. */
+.player { border-left: 4px solid var(--pc); }
+.player.acting { box-shadow: 0 0 0 2px var(--pc), var(--shadow); }
+.player-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.player-name { color: var(--pc); font-size: 16px; font-weight: 700; }
+.badge { padding: 1px 8px; border-radius: 999px; background: var(--pc); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.player .auras { margin-top: 6px; }
+.zone { margin-top: 10px; }
+.zone-title { margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.zone-title small { text-transform: none; letter-spacing: 0; }
+.cards { display: flex; flex-wrap: wrap; gap: 6px; }
+.empty { color: var(--muted); font-size: 13px; font-style: italic; }
+
+/* Unit cards. */
+.card {
+  position: relative; width: 118px; min-height: 100px; padding: 5px 7px 28px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2);
+  font-size: 12px; line-height: 1.25;
+}
+.card .top { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+.card .cid { color: var(--text); font-weight: 700; }
+.card .name { margin-top: 2px; font-size: 12.5px; font-weight: 650; overflow-wrap: anywhere; }
+.card .tribe { color: var(--muted); font-size: 11px; }
+.card .kw { margin-top: 2px; color: var(--accent); font-size: 11px; }
+.card .notes { margin-top: 2px; color: var(--muted); font-size: 10.5px; }
+.card .foot { position: absolute; right: 6px; bottom: 5px; left: 6px; display: flex; justify-content: space-between; }
+.card .atk, .card .hp, .card .cost {
+  min-width: 24px; height: 20px; padding: 0 6px; border-radius: 10px;
+  color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center;
+}
+.card .atk { background: var(--atk); }
+.card .hp { background: var(--hp); }
+.card .cost { background: var(--spell); }
+.card.golden { border-color: var(--gold); background: linear-gradient(160deg, var(--gold-soft), var(--panel-2) 75%); }
+.card.golden .name::before { content: "★ "; color: var(--gold); }
+.card.spell { border-color: var(--spell); background: var(--spell-soft); }
+.card.deity { border-color: var(--spell); box-shadow: inset 0 0 0 1px var(--spell); }
+.card.new { box-shadow: 0 0 0 2px var(--new); }
+.card.changed { box-shadow: 0 0 0 2px var(--chg); }
+.card.new::after, .card.changed::after {
+  position: absolute; top: -8px; right: -6px; padding: 0 5px; border-radius: 6px;
+  color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; line-height: 15px;
+}
+.card.new::after { content: "NEW"; background: var(--new); }
+.card.changed::after { content: "CHANGED"; background: var(--chg); }
+
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  .layout { display: block; }
+  .sidebar { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .keys { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="headline">
+    <h1><span class="brand">seaglass</span> replay<span id="source"></span></h1>
+    <div id="result" class="result"></div>
+  </div>
+  <div id="setup" class="setup"></div>
+  <div id="banner" class="banner" hidden></div>
+</header>
+<nav class="controls" aria-label="Frames">
+  <div class="buttons">
+    <button id="btn-first" type="button" title="First frame (Home)" aria-label="First frame">⇤</button>
+    <button id="btn-prev-turn" type="button" title="Previous turn (↑ or Page Up)" aria-label="Previous turn">«</button>
+    <button id="btn-prev" type="button" title="Previous frame (←)" aria-label="Previous frame">‹</button>
+    <button id="btn-next" type="button" title="Next frame (→)" aria-label="Next frame">›</button>
+    <button id="btn-next-turn" type="button" title="Next turn (↓ or Page Down)" aria-label="Next turn">»</button>
+    <button id="btn-last" type="button" title="Last frame (End)" aria-label="Last frame">⇥</button>
+  </div>
+  <input id="scrubber" type="range" min="0" max="0" value="0" aria-label="Frame">
+  <div id="position" class="position"></div>
+  <div class="keys"><kbd>←</kbd><kbd>→</kbd> frame · <kbd>↑</kbd><kbd>↓</kbd> turn · <kbd>Home</kbd><kbd>End</kbd></div>
+</nav>
+<div id="chart" class="chart"></div>
+<main class="layout">
+  <aside class="sidebar">
+    <div id="turns" class="turns" aria-label="Turns"></div>
+    <ol id="frames" class="frames" aria-label="Frames"></ol>
+  </aside>
+  <section id="view" class="view"></section>
+</main>
+<script type="application/json" id="replay-data">__REPLAY_DATA__</script>
+<script>
+"use strict";
+(() => {
+  // The replay: see `ViewerData` in tools/src/bin/match_replay/html.rs.
+  const DATA = JSON.parse(document.getElementById("replay-data").textContent);
+  const FRAMES = DATA.frames;
+  const UNITS = DATA.units;
+  const PLAYERS = DATA.setup.players;
+  const LAST = FRAMES.length - 1;
+  const COLORS = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#4b5563"];
+  const KINDS = { start: "Start", turn: "Turn start", act: "Action", combat: "Combat", lobby: "Lobby", end: "Game over" };
+
+  // Every player's state at every frame. A frame only holds the states its call changed, so
+  // unchanged states are carried forward (as the same objects).
+  const STATES = [];
+  const POOLS = [];
+  FRAMES.forEach((frame, i) => {
+    STATES.push(frame.states.map((s, p) => s || STATES[i - 1][p]));
+    POOLS.push(frame.pools.map((s, p) => s || POOLS[i - 1][p]));
+  });
+
+  const $ = (id) => document.getElementById(id);
+  const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
+  const color = (p) => COLORS[p % COLORS.length];
+  const name = (p) => (PLAYERS[p] ? PLAYERS[p].name : "P" + (p + 1));
+  const who = (p) => `<span class="who" style="--pc:${color(p)}">${esc(name(p))}</span>`;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const signed = (n) => (n >= 0 ? "+" : "") + n;
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const num = (v) => (v === null || v === undefined ? "–" : Number.isInteger(v) ? String(v) : v.toFixed(3));
+  const pct = (p) => (100 * p).toFixed(p >= 0.995 || p === 0 ? 0 : 1) + "%";
+  const hp = (s) => `${s.health}${s.armor ? " +" + s.armor : ""}`;
+  const upgrade = (s) => (s.upgrade === null ? "max" : `up ${s.upgrade}g`);
+
+  // ---- Turns -------------------------------------------------------------------------------
+
+  /** The first frame on turn `t` or later. */
+  function turnStart(t) {
+    const i = FRAMES.findIndex((f) => f.turn >= t);
+    return i < 0 ? LAST : i;
+  }
+  /** The first frame of the next turn (or the last frame). */
+  function nextTurn(i) {
+    for (let j = i + 1; j <= LAST; j++) if (FRAMES[j].turn > FRAMES[i].turn) return j;
+    return LAST;
+  }
+  /** The start of this turn, or of the previous turn if `i` is this turn's start. */
+  function prevTurn(i) {
+    const t = FRAMES[i].turn;
+    const start = turnStart(t);
+    return start < i ? start : turnStart(Math.max(0, t - 1));
+  }
+
+  // ---- Units -------------------------------------------------------------------------------
+
+  /** A unit worded like `match_replay log` words it. */
+  function unitText(u) {
+    if (u.spell) {
+      const notes = u.notes ? ` (${u.notes.join(", ")})` : "";
+      return `(Spell) "${u.name}" (T${u.tier} ${u.spell})${notes}`;
+    }
+    const keywords = u.keywords ? ` [${u.keywords.join(", ")}]` : "";
+    const notes = [];
+    if (u.activate !== undefined) notes.push(u.activated ? "Act:USED" : `Act:${u.activate}g`);
+    if (u.notes) notes.push(...u.notes);
+    const extra = notes.length ? ` {${notes.join(", ")}}` : "";
+    return `"${u.golden ? "★ " : ""}${u.name}" ${u.attack}/${u.health} (T${u.tier} ${u.tribe || "Neutral"}, id=${u.card})${keywords}${extra}`;
+  }
+
+  /** A unit in a few words: its name, and its stats if it is a minion. */
+  function unitShort(u) {
+    return u.spell ? u.name : `${u.name} ${u.attack}/${u.health}`;
+  }
+
+  /** How unit `u` differs from its earlier version `w`. */
+  function unitDelta(w, u) {
+    const parts = [];
+    if (w.attack !== u.attack || w.health !== u.health) parts.push(`${w.attack}/${w.health} → ${u.attack}/${u.health}`);
+    const had = w.keywords || [];
+    const has = u.keywords || [];
+    has.filter((k) => !had.includes(k)).forEach((k) => parts.push("+" + k));
+    had.filter((k) => !has.includes(k)).forEach((k) => parts.push("−" + k));
+    if (!w.golden && u.golden) parts.push("Golden");
+    if (w.activated !== u.activated) parts.push(u.activated ? "activated" : "Activate ready");
+    if (!parts.length) parts.push(`${unitText(w)} → ${unitText(u)}`);
+    return `${u.name}: ${parts.join(", ")}`;
+  }
+
+  /**
+   * A unit card. `opt.mark` is "new" or "changed", `opt.was` the unit's earlier version,
+   * `opt.pool` its `[copies left, base copies]` and `opt.cid` its combat id.
+   */
+  function card(id, opt = {}) {
+    const u = UNITS[id];
+    const classes = ["card"];
+    if (u.golden) classes.push("golden");
+    if (u.spell) classes.push("spell");
+    if (u.deity) classes.push("deity");
+    if (opt.mark) classes.push(opt.mark);
+    const tip = [unitText(u)];
+    if (opt.was !== undefined) tip.push("was " + unitText(UNITS[opt.was]));
+    if (opt.pool) tip.push(`${opt.pool[0]} of ${opt.pool[1]} copies left in the pool`);
+    let corner = "";
+    if (opt.cid !== undefined) corner = `<span class="cid">#${opt.cid}</span>`;
+    else if (opt.pool) corner = `<span title="copies left in the pool">${opt.pool[0]}/${opt.pool[1]}</span>`;
+    const notes = [];
+    if (u.activate !== undefined) notes.push(u.activated ? "Act: used" : `Act: ${u.activate}g`);
+    if (u.notes) notes.push(...u.notes);
+    const kind = u.spell ? "Spell" : u.deity ? "Deity" : u.tribe;
+    const foot = u.spell
+      ? `<span class="cost">${esc(u.spell)}</span>`
+      : `<span class="atk">${u.attack}</span><span class="hp">${u.health}</span>`;
+    return `<div class="${classes.join(" ")}" title="${esc(tip.join("\n"))}">` +
+      `<div class="top"><span>T${u.tier}</span>${corner}</div>` +
+      `<div class="name">${esc(u.name)}</div>` +
+      (kind ? `<div class="tribe">${esc(kind)}</div>` : "") +
+      (u.keywords ? `<div class="kw">${u.keywords.map(esc).join(" · ")}</div>` : "") +
+      (notes.length ? `<div class="notes">${notes.map(esc).join(" · ")}</div>` : "") +
+      `<div class="foot">${foot}</div></div>`;
+  }
+
+  /**
+   * How a zone (a list of unit ids) changed. Units that stayed are matched first; a new unit
+   * with the card of one that left is a changed version of it. Returns per position of `after`
+   * the `marks` ("new" / "changed") and the earlier versions (`was`), plus the units that left.
+   */
+  function diffZone(before, after) {
+    const left = new Map();
+    for (const id of before) left.set(id, (left.get(id) || 0) + 1);
+    const fresh = after.map((id) => {
+      const n = left.get(id) || 0;
+      if (n > 0) left.set(id, n - 1);
+      return n === 0;
+    });
+    const gone = [];
+    left.forEach((n, id) => { for (let k = 0; k < n; k++) gone.push(id); });
+    const marks = [];
+    const was = [];
+    after.forEach((id, k) => {
+      if (!fresh[k]) return;
+      const j = gone.findIndex((g) => UNITS[g].card === UNITS[id].card);
+      if (j < 0) {
+        marks[k] = "new";
+      } else {
+        marks[k] = "changed";
+        was[k] = gone[j];
+        gone.splice(j, 1);
+      }
+    });
+    return { marks, was, gone };
+  }
+
+  // ---- Panels ------------------------------------------------------------------------------
+
+  function headPanel(i) {
+    const f = FRAMES[i];
+    const meta = [`<span class="kind ${f.kind}">${KINDS[f.kind] || f.kind}</span>`,
+      `<span>frame <b>${i}</b> of ${LAST}</span>`, `<span>turn <b>${f.turn}</b></span>`];
+    if (f.record !== undefined) meta.push(`<span>record ${f.record}</span>`);
+    const alerts = (f.divergences || []).map((m) => `<div class="alert"><b>Diverged</b> from the recorded game: ${esc(m)}</div>`);
+    if (DATA.error && i === LAST) {
+      alerts.push(`<div class="alert"><b>Re-simulation stopped</b> after this frame: record ${DATA.error.record} could not be re-simulated: ${esc(DATA.error.message)}</div>`);
+    }
+    const style = f.actors.length === 1 ? ` style="--pc:${color(f.actors[0])}"` : "";
+    return `<section class="panel frame-head"><div class="meta">${meta.join("")}</div>` +
+      `<div class="frame-title"${style}>${esc(f.title)}</div>${alerts.join("")}</section>`;
+  }
+
+  function notePanel(i) {
+    const note = FRAMES[i].note;
+    if (!note) return "";
+    const chips = [];
+    if (note.value !== undefined) chips.push(`<span class="stat">value <b>${num(note.value)}</b></span>`);
+    if (note.p !== undefined) chips.push(`<span class="stat">p <b>${pct(note.p)}</b> <small>logp ${num(note.logp)}</small></span>`);
+    if (note.forced) chips.push(`<span class="stat forced"><b>forced</b></span>`);
+    Object.entries(note.extra || {}).forEach(([k, v]) => chips.push(`<span class="stat">${esc(k)} <b>${num(v)}</b></span>`));
+    let candidates = "";
+    if (note.candidates) {
+      candidates = `<div class="cands">` + note.candidates.map((c) =>
+        `<div class="cand${c.chosen ? " chosen" : ""}"><span class="pct">${pct(c.prob)}</span>` +
+        `<span class="bar"><span style="width:${(100 * Math.min(1, Math.max(0, c.prob))).toFixed(1)}%"></span></span>` +
+        `<span class="act" title="${esc(c.action)}">${esc(c.action)}${c.chosen ? " ← taken" : ""}</span></div>`).join("") + `</div>`;
+    }
+    const title = note.candidates ? `Note · ${plural(note.candidates.length, "candidate")}` : "Note";
+    return `<section class="panel note"><h2>${title}</h2><div class="stats">${chips.join("")}</div>${candidates}</section>`;
+  }
+
+  let eventsOpen = true;
+
+  function combatPanel(i) {
+    const f = FRAMES[i];
+    const c = f.combat;
+    if (!c) return "";
+    const before = STATES[i - 1];
+    const after = STATES[i];
+    const fighters = [c.a, c.b];
+    let outcome = "Draw: nobody takes damage";
+    if (c.outcome !== "draw") {
+      const [winner, loser] = c.outcome === "a" ? [c.a, c.b] : [c.b, c.a];
+      outcome = `${who(winner)} wins: ${who(loser)} takes ${c.damage} damage ` +
+        `<small>(HP ${hp(before[loser])} → ${hp(after[loser])})</small>`;
+    }
+    const offset = c.boards[0].length;
+    const side = (s) => {
+      const p = fighters[s];
+      const cards = c.boards[s].map((id, k) => card(id, { cid: k + (s ? offset : 0) })).join("");
+      return `<div class="side" style="--pc:${color(p)}"><div class="side-title">${esc(name(p))} ` +
+        `<small>side ${s ? "B" : "A"} · Tier ${before[p].tier} · HP ${hp(before[p])}</small></div>` +
+        `<div class="cards">${cards || '<span class="empty">no minions</span>'}</div></div>`;
+    };
+    const events = c.events.map(([kind, s, text], k) =>
+      `<div class="ev ${kind}"${s === null ? "" : ` style="--pc:${color(fighters[s])}"`}>` +
+      `<span class="n">${String(k + 1).padStart(3, "0")}</span><span class="t">${esc(text)}</span></div>`).join("");
+    const survivors = (s) => {
+      const p = fighters[s];
+      const cards = c.survivors[s].map((id) => card(id)).join("");
+      return `<div class="side" style="--pc:${color(p)}"><div class="side-title">${esc(name(p))} ` +
+        `<small>${plural(c.survivors[s].length, "survivor")}</small></div>` +
+        `<div class="cards">${cards || '<span class="empty">none</span>'}</div></div>`;
+    };
+    return `<section class="panel combat"><h2>Combat · turn ${f.turn}</h2><div class="outcome">${outcome}</div>` +
+      `<h3>Boards</h3>${side(0)}${side(1)}` +
+      `<details class="events-box"${eventsOpen ? " open" : ""}><summary>Event log · ${plural(c.events.length, "event")} · seed ${esc(c.seed)}</summary>` +
+      `<div class="events">${events}</div></details>` +
+      `<h3>Survivors</h3>${survivors(0)}${survivors(1)}</section>`;
+  }
+
+  /** What the frame's call changed, player by player. */
+  function changesPanel(i) {
+    if (i === 0) return "";
+    const f = FRAMES[i];
+    const blocks = [];
+    PLAYERS.forEach((_, p) => {
+      const a = STATES[i - 1][p];
+      const b = STATES[i][p];
+      const lines = [];
+      if (a !== b) {
+        if (a.health !== b.health || a.armor !== b.armor) lines.push(`HP ${hp(a)} → ${hp(b)}`);
+        if (a.gold !== b.gold || a.max_gold !== b.max_gold) lines.push(`Gold ${a.gold}/${a.max_gold} → ${b.gold}/${b.max_gold}`);
+        if (a.bonus_gold !== b.bonus_gold) lines.push(`Gold next turn +${a.bonus_gold} → +${b.bonus_gold}`);
+        if (a.tier !== b.tier || a.upgrade !== b.upgrade) lines.push(`Tier ${a.tier} (${upgrade(a)}) → ${b.tier} (${upgrade(b)})`);
+        if (a.frozen !== b.frozen) lines.push(b.frozen ? "Shop frozen" : "Shop unfrozen");
+        if (!same(a.deity, b.deity)) lines.push(`${esc(b.deity.kind)} ${a.deity.attack}/${a.deity.health} → ${b.deity.attack}/${b.deity.health}`);
+        const zones = [["board", "Board"], ["hand", "Hand"], ["shop", "Shop"], ["discover", "Discover"]];
+        for (const [zone, label] of zones) {
+          const was = a[zone] || [];
+          const now = b[zone] || [];
+          if (same(was, now)) continue;
+          const d = diffZone(was, now);
+          const parts = [];
+          const added = now.filter((_, k) => d.marks[k] === "new");
+          if (added.length) parts.push(`<span class="add">+ ${added.map((id) => esc(unitShort(UNITS[id]))).join(", ")}</span>`);
+          if (d.gone.length) parts.push(`<span class="rm">− ${d.gone.map((id) => esc(unitShort(UNITS[id]))).join(", ")}</span>`);
+          now.forEach((id, k) => {
+            if (d.marks[k] === "changed") parts.push(`<span class="mod">${esc(unitDelta(UNITS[d.was[k]], UNITS[id]))}</span>`);
+          });
+          if (!parts.length) parts.push("reordered");
+          lines.push(`${label}: ${parts.join(" · ")}`);
+        }
+      }
+      (f.auras || []).filter(([q]) => q === p).forEach(([, changes]) => changes.forEach((c) => lines.push(esc(c))));
+      if (lines.length) blocks.push(`<li>${who(p)}<ul>${lines.map((l) => `<li>${l}</li>`).join("")}</ul></li>`);
+    });
+    if (!blocks.length) return "";
+    return `<section class="panel changes"><h2>Changes</h2><ul>${blocks.join("")}</ul></section>`;
+  }
+
+  function playerPanel(i, p) {
+    const f = FRAMES[i];
+    const s = STATES[i][p];
+    const before = i > 0 ? STATES[i - 1][p] : null;
+    const pool = POOLS[i][p] || { shop: [] };
+    const changed = (...keys) => before !== null && keys.some((k) => !same(before[k], s[k]));
+    const stat = (keys, html, was, extra = "") => {
+      const c = changed(...keys);
+      return `<span class="stat${c ? " changed" : ""}${extra}"${c ? ` title="was ${esc(was())}"` : ""}>${html}</span>`;
+    };
+    const stats = [
+      stat(["health", "armor"], `HP <b>${s.health}</b>${s.armor ? ` <small>+${s.armor} armor</small>` : ""}`,
+        () => `${before.health} +${before.armor} armor`),
+      stat(["tier", "upgrade"], `Tier <b>${s.tier}</b> <small>${upgrade(s)}</small>`,
+        () => `Tier ${before.tier} (${upgrade(before)})`),
+      stat(["gold", "max_gold"], `Gold <b>${s.gold}/${s.max_gold}</b>`, () => `${before.gold}/${before.max_gold}`),
+    ];
+    if (s.bonus_gold || changed("bonus_gold")) {
+      stats.push(stat(["bonus_gold"], `<b>+${s.bonus_gold}</b> Gold next turn`, () => `+${before.bonus_gold}`));
+    }
+    if (s.frozen || changed("frozen")) {
+      stats.push(stat(["frozen"], s.frozen ? "<b>Frozen</b>" : "Unfrozen",
+        () => (before.frozen ? "frozen" : "unfrozen"), s.frozen ? " frozen" : ""));
+    }
+    stats.push(stat(["turn"], `Turn <b>${s.turn}</b>`, () => `turn ${before.turn}`));
+
+    const d = s.deity;
+    const auras = [];
+    if (d.kind !== "None" || changed("deity")) {
+      auras.push(stat(["deity"], `${esc(d.kind)} <b>${d.attack}/${d.health}</b>${d.golden ? " ★" : ""}`,
+        () => `${before.deity.kind} ${before.deity.attack}/${before.deity.health}`));
+    }
+    auras.push(stat(["spells_cast"], `Spells cast <b>${s.spells_cast}</b>`, () => String(before.spells_cast)));
+    if (s.spell_buff[0] || s.spell_buff[1] || changed("spell_buff")) {
+      auras.push(stat(["spell_buff"], `Spell buff <b>${signed(s.spell_buff[0])}/${signed(s.spell_buff[1])}</b>`,
+        () => `${signed(before.spell_buff[0])}/${signed(before.spell_buff[1])}`));
+    }
+    if (s.blood_gem[0] !== 1 || s.blood_gem[1] !== 1 || changed("blood_gem")) {
+      auras.push(stat(["blood_gem"], `Blood Gem <b>+${s.blood_gem[0]}/+${s.blood_gem[1]}</b>`,
+        () => `+${before.blood_gem[0]}/+${before.blood_gem[1]}`));
+    }
+    if (s.undead_attack || changed("undead_attack")) {
+      auras.push(stat(["undead_attack"], `Undead <b>+${s.undead_attack}</b> Attack`, () => `+${before.undead_attack}`));
+    }
+    if (s.free_refreshes || changed("free_refreshes")) {
+      auras.push(stat(["free_refreshes"], `Free refreshes <b>${s.free_refreshes}</b>`, () => String(before.free_refreshes)));
+    }
+
+    const zone = (label, ids, was, pools) => {
+      const d = was ? diffZone(was, ids) : null;
+      const cards = ids.map((id, k) => card(id, {
+        mark: d ? d.marks[k] : undefined,
+        was: d ? d.was[k] : undefined,
+        pool: pools ? pools[k] : null,
+      })).join("");
+      return `<div class="zone"><div class="zone-title">${label}</div>` +
+        `<div class="cards">${cards || '<span class="empty">empty</span>'}</div></div>`;
+    };
+    const zones = [
+      zone(`Board <small>${s.board.length}/7</small>`, s.board, before && before.board),
+      zone(`Hand <small>${s.hand.length}/10</small>`, s.hand, before && before.hand),
+      zone(`Shop <small>${s.shop.length}</small>`, s.shop, before && before.shop, pool.shop),
+    ];
+    if (s.discover) {
+      const queued = s.queued ? `, ${s.queued} more queued` : "";
+      zones.push(zone(`Discover <small>${plural(s.discover.length, "option")}${queued}</small>`,
+        s.discover, before && (before.discover || []), pool.discover));
+    }
+
+    const acting = f.actors.includes(p);
+    const won = f.kind === "end" && f.winner === p;
+    let badge = "";
+    if (won) badge = `<span class="badge">winner</span>`;
+    else if (acting) badge = `<span class="badge">${f.kind === "combat" ? "fighting" : f.kind === "turn" ? "new turn" : "acting"}</span>`;
+    return `<section class="panel player${acting || won ? " acting" : ""}" style="--pc:${color(p)}">` +
+      `<div class="player-head"><span class="player-name">${esc(name(p))}</span>${badge}` +
+      `<div class="stats">${stats.join("")}</div></div>` +
+      `<div class="stats auras">${auras.join("")}</div>${zones.join("")}</section>`;
+  }
+
+  // ---- Page --------------------------------------------------------------------------------
+
+  function renderHeader() {
+    document.title = `${DATA.source} · seaglass replay`;
+    $("source").textContent = DATA.source;
+    const result = $("result");
+    if (DATA.result) {
+      result.textContent = DATA.result;
+    } else {
+      result.textContent = "the replay ends before the match does";
+      result.classList.add("unfinished");
+    }
+    const s = DATA.setup;
+    const facts = [
+      `engine <b>${esc(s.engine)}</b>`,
+      `catalog <b>${esc(s.catalog)}</b>`,
+      s.pool === "shared" ? `shared pool, seed <b>${esc(s.shared_seed)}</b>` : "per-player pools",
+      `${plural(FRAMES.length, "frame")} · ${plural(DATA.actions, "action")} · ${plural(DATA.turns, "turn")}`,
+    ];
+    const players = PLAYERS.map((pl, p) =>
+      `<span class="pl" style="--pc:${color(p)}"><b>${esc(pl.name)}</b> ${esc(pl.deity)} · ${pl.armor} armor · ` +
+      `shop spells ${pl.shop_spells ? "on" : "off"}${pl.seed !== null ? ` · seed ${esc(pl.seed)}` : ""}</span>`);
+    const meta = Object.entries(s.meta).map(([k, v]) => `<span class="tag">${esc(k)}: <b>${esc(v)}</b></span>`);
+    $("setup").innerHTML = `<div class="row">${facts.map((x) => `<span>${x}</span>`).join("")}</div>` +
+      `<div class="row">${players.join("")}${meta.join("")}</div>`;
+
+    const problems = [];
+    if (DATA.engine_mismatch) {
+      problems.push(`Recorded by seaglass <b>${esc(DATA.engine_mismatch)}</b> but re-simulated by <b>${esc(DATA.viewer)}</b>: ` +
+        `the states shown may differ from the recorded game.`);
+    }
+    if (DATA.divergences.length) {
+      const shown = DATA.divergences.slice(0, 10).map((d) =>
+        `<li><a href="#frame=${d.frame}">frame ${d.frame}</a> (record ${d.record}): ${esc(d.message)}</li>`);
+      if (DATA.divergences.length > 10) shown.push(`<li>and ${DATA.divergences.length - 10} more</li>`);
+      problems.push(`${plural(DATA.divergences.length, "call")} re-simulated differently from the recording:<ul>${shown.join("")}</ul>`);
+    }
+    if (DATA.error) {
+      problems.push(`Re-simulation stopped at record ${DATA.error.record}: ${esc(DATA.error.message)}. ` +
+        `The replay goes on after <a href="#frame=${LAST}">frame ${LAST}</a>, but those frames are missing.`);
+    }
+    if (problems.length) {
+      const banner = $("banner");
+      banner.hidden = false;
+      banner.classList.toggle("warn", DATA.faithful);
+      const heading = DATA.faithful ? "Engine mismatch" : "This replay does not re-simulate faithfully";
+      banner.innerHTML = `<strong>⚠ ${heading}</strong>${problems.map((x) => `<div>${x}</div>`).join("")}`;
+    }
+  }
+
+  const frameItems = [];
+  const turnChips = new Map();
+
+  function buildLists() {
+    const list = $("frames");
+    let html = "";
+    let turn = -1;
+    FRAMES.forEach((f, i) => {
+      if (f.turn !== turn) {
+        turn = f.turn;
+        html += `<li class="turn-head" data-turn="${turn}">${turn === 0 ? "Setup" : "Turn " + turn}</li>`;
+      }
+      const dot = f.actors.length === 1 ? ` style="--pc:${color(f.actors[0])}"` : "";
+      html += `<li class="fr k-${f.kind}${f.divergences ? " diverged" : ""}" data-i="${i}" title="${esc(f.title)}">` +
+        `<span class="idx">${i}</span><span class="dot"${dot}></span><span class="lbl">${esc(f.label || f.title)}</span></li>`;
+    });
+    list.innerHTML = html;
+    list.querySelectorAll(".fr").forEach((li) => { frameItems[Number(li.dataset.i)] = li; });
+    list.addEventListener("click", (e) => {
+      const item = e.target.closest("li");
+      if (!item) return;
+      if (item.dataset.i !== undefined) go(Number(item.dataset.i));
+      else if (item.dataset.turn !== undefined) go(turnStart(Number(item.dataset.turn)));
+    });
+
+    const turns = $("turns");
+    [...new Set(FRAMES.map((f) => f.turn))].forEach((t) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = t === 0 ? "Start" : "T" + t;
+      chip.title = t === 0 ? "Before the first turn" : "Turn " + t;
+      chip.addEventListener("click", () => go(turnStart(t)));
+      turns.appendChild(chip);
+      turnChips.set(t, chip);
+    });
+  }
+
+  /** Every player's Health + Armor over the game; click to jump. */
+  function buildChart() {
+    const box = $("chart");
+    if (LAST < 1) {
+      box.hidden = true;
+      return;
+    }
+    const W = 1000;
+    const H = 100;
+    const values = STATES.map((states) => states.map((s) => s.health + s.armor));
+    let hi = 1;
+    let lo = 0;
+    values.forEach((row) => row.forEach((v) => { hi = Math.max(hi, v); lo = Math.min(lo, v); }));
+    const x = (i) => ((i / LAST) * W).toFixed(1);
+    const y = (v) => (H - 5 - ((v - lo) / (hi - lo)) * (H - 10)).toFixed(1);
+    const lines = PLAYERS.map((_, p) =>
+      `<polyline stroke="${color(p)}" points="${values.map((row, i) => `${x(i)},${y(row[p])}`).join(" ")}"></polyline>`).join("");
+    const ticks = FRAMES.map((f, i) => (f.kind === "combat" ? `<line class="tick" x1="${x(i)}" x2="${x(i)}" y1="${H - 8}" y2="${H}"></line>` : "")).join("");
+    const zero = lo < 0 ? `<line class="zero" x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}"></line>` : "";
+    const legend = PLAYERS.map((pl, p) => `<span style="--pc:${color(p)}"><i></i>${esc(pl.name)}</span>`).join("");
+    box.innerHTML = `<div class="legend"><span>Health + Armor</span>${legend}<span>ticks: combats</span></div>` +
+      `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Health and Armor over the game">` +
+      `${zero}${lines}${ticks}<line id="chart-cursor" class="cursor" x1="0" x2="0" y1="0" y2="${H}"></line></svg>`;
+    const svg = box.querySelector("svg");
+    svg.addEventListener("click", (e) => {
+      const r = svg.getBoundingClientRect();
+      go(((e.clientX - r.left) / r.width) * LAST);
+    });
+  }
+
+  let current = -1;
+
+  /** Show frame `i`. */
+  function go(i) {
+    i = Math.round(Number(i));
+    if (!Number.isFinite(i)) return;
+    i = Math.max(0, Math.min(LAST, i));
+    if (i === current) return;
+    current = i;
+    const f = FRAMES[i];
+    $("view").innerHTML = headPanel(i) + notePanel(i) + combatPanel(i) + changesPanel(i) +
+      PLAYERS.map((_, p) => playerPanel(i, p)).join("");
+
+    const old = document.querySelector(".fr.current");
+    if (old) old.classList.remove("current");
+    frameItems[i].classList.add("current");
+    frameItems[i].scrollIntoView({ block: "nearest" });
+    turnChips.forEach((chip, t) => chip.classList.toggle("active", t === f.turn));
+
+    $("scrubber").value = String(i);
+    $("position").innerHTML = `frame <b>${i}</b> / ${LAST} · turn <b>${f.turn}</b>`;
+    $("btn-first").disabled = $("btn-prev").disabled = $("btn-prev-turn").disabled = i === 0;
+    $("btn-last").disabled = $("btn-next").disabled = $("btn-next-turn").disabled = i === LAST;
+    const cursor = $("chart-cursor");
+    if (cursor) {
+      const cx = ((i / Math.max(1, LAST)) * 1000).toFixed(1);
+      cursor.setAttribute("x1", cx);
+      cursor.setAttribute("x2", cx);
+    }
+    const hash = "#frame=" + i;
+    if (location.hash !== hash) {
+      try {
+        history.replaceState(null, "", hash);
+      } catch (err) {
+        location.hash = hash;
+      }
+    }
+  }
+
+  function frameFromHash() {
+    const m = /^#(?:.*&)?frame=(\d+)/.exec(location.hash);
+    return m ? Number(m[1]) : null;
+  }
+
+  function wireControls() {
+    $("btn-first").addEventListener("click", () => go(0));
+    $("btn-prev-turn").addEventListener("click", () => go(prevTurn(current)));
+    $("btn-prev").addEventListener("click", () => go(current - 1));
+    $("btn-next").addEventListener("click", () => go(current + 1));
+    $("btn-next-turn").addEventListener("click", () => go(nextTurn(current)));
+    $("btn-last").addEventListener("click", () => go(LAST));
+    const scrubber = $("scrubber");
+    scrubber.max = String(LAST);
+    scrubber.addEventListener("input", () => go(Number(scrubber.value)));
+    window.addEventListener("hashchange", () => {
+      const i = frameFromHash();
+      if (i !== null) go(i);
+    });
+    $("view").addEventListener("toggle", (e) => {
+      if (e.target.classList && e.target.classList.contains("events-box")) eventsOpen = e.target.open;
+    }, true);
+    const moves = {
+      ArrowLeft: () => current - 1,
+      ArrowRight: () => current + 1,
+      ArrowUp: () => prevTurn(current),
+      PageUp: () => prevTurn(current),
+      ArrowDown: () => nextTurn(current),
+      PageDown: () => nextTurn(current),
+      Home: () => 0,
+      End: () => LAST,
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target;
+      const typing = t instanceof HTMLElement && (t.isContentEditable || t.tagName === "TEXTAREA" ||
+        t.tagName === "SELECT" || (t.tagName === "INPUT" && t.type !== "range"));
+      const move = moves[e.key];
+      if (typing || !move) return;
+      e.preventDefault();
+      go(move());
+    });
+  }
+
+  renderHeader();
+  buildLists();
+  buildChart();
+  wireControls();
+  const start = frameFromHash();
+  go(start === null ? 0 : start);
+  document.documentElement.dataset.ready = "true";
+})();
+</script>
+</body>
+</html>

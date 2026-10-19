@@ -5,6 +5,8 @@
 
 #![allow(clippy::useless_conversion)]
 
+mod replay;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -769,7 +771,7 @@ impl From<&TavernState> for PyTavernObservation {
 type HeroPair<'py> = (Option<Bound<'py, PyAny>>, Option<Bound<'py, PyAny>>);
 
 /// A hero given as its id (dbfId) or its name (`docs/heroes.md` §2.1).
-fn parse_hero(hero: Option<&Bound<'_, PyAny>>) -> PyResult<Option<HeroId>> {
+pub(crate) fn parse_hero(hero: Option<&Bound<'_, PyAny>>) -> PyResult<Option<HeroId>> {
     let Some(hero) = hero.filter(|h| !h.is_none()) else {
         return Ok(None);
     };
@@ -1931,5 +1933,6 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(dark_gifts_table, m)?)?;
     m.add_function(wrap_pyfunction!(dark_gifts_vocabulary, m)?)?;
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
+    replay::register(m)?;
     Ok(())
 }

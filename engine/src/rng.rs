@@ -16,6 +16,12 @@ impl Rng {
         Self { state: seed }
     }
 
+    /// The generator's internal state: `Rng::new(rng.state())` continues the exact same draw
+    /// sequence (replays and scenario exports use this to resume a game's RNG).
+    pub fn state(&self) -> u64 {
+        self.state
+    }
+
     /// Draw the next raw `u64`.
     #[inline]
     pub fn next_u64(&mut self) -> u64 {

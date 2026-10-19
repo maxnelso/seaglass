@@ -162,8 +162,9 @@ struct Builder {
 }
 
 impl Builder {
-    /// The engine unit for a minion the log shows (its card, stats and keywords as shown).
-    fn unit(&mut self, m: &LogMinion, auras: &PlayerAuras) -> Unit {
+    /// The engine unit for a minion the log shows (its card, stats and keywords as shown), on the
+    /// board (`on_board`) or in the hand.
+    fn unit(&mut self, m: &LogMinion, auras: &PlayerAuras, on_board: bool) -> Unit {
         let note = || CardNote {
             card_id: m.card_id.clone(),
             name: m.name.clone(),
@@ -208,8 +209,13 @@ impl Builder {
         for id in log_dark_gifts(&m.enchantments) {
             dark_gifts::attach(&mut u, id);
         }
-        // The log's stats already include the "wherever this is" auras: mark them applied.
-        cards::sync_unit_auras(&mut u, auras);
+        // The log's stats already include the "wherever this is" auras: mark them applied (on the
+        // board, the trinkets' board auras too: `Hammer of Twilight`'s +1 Attack).
+        if on_board {
+            cards::sync_board_unit_auras(&mut u, auras);
+        } else {
+            cards::sync_unit_auras(&mut u, auras);
+        }
         u.attack = m.attack;
         u.health = m.health;
         u.max_attack = m.attack;
@@ -219,7 +225,7 @@ impl Builder {
 
     fn hand_card(&mut self, c: &HandCard, auras: &PlayerAuras) -> Option<Unit> {
         if let Some(m) = &c.minion {
-            return Some(self.unit(m, auras));
+            return Some(self.unit(m, auras, false));
         }
         let id = c.card_id.as_deref()?;
         let card = engine_card(id, &c.name)?;
@@ -281,6 +287,32 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
     a.hero_health = Some(p.hero_health);
     a.hero = hero_state(p);
     a.trinkets = trinket_states(p);
+    // `Hammer of Twilight` shows its bonus, +1 Attack (Greater: +2/+1) × (1 + the cards discarded
+    // this game): the only count of the player's discards the log gives.
+    // The server's combat copy of an opponent's trinket shows the base bonus only; then the
+    // bonus shows as the Attack every minion of the board that entered the fight has over its
+    // package board (the board auras are applied as it enters): the most common difference.
+    for (card, per) in [("BG36_MagicItem_403", 1), ("BG36_MagicItem_403t", 2)] {
+        let Some(&shown) = p.trinket_numbers.get(card) else {
+            continue;
+        };
+        let entered_bonus = p.package_board.as_ref().and_then(|package| {
+            let mut diffs: BTreeMap<i32, usize> = BTreeMap::new();
+            for (now, before) in p.board.iter().zip(package) {
+                if now.entity_id == before.entity_id || now.card_id == before.card_id {
+                    *diffs.entry(now.attack - before.attack).or_default() += 1;
+                }
+            }
+            diffs
+                .into_iter()
+                .max_by_key(|&(d, n)| (n, -d))
+                .map(|(d, _)| d)
+        });
+        let bonus = shown.max(entered_bonus.unwrap_or(0));
+        if bonus >= per {
+            a.cards_discarded = a.cards_discarded.max((bonus / per - 1) as u32);
+        }
+    }
     if p.tags_known {
         a.spell_bonus_atk = tag("TAVERN_SPELL_ATTACK_INCREASE").unwrap_or(0);
         a.spell_bonus_hp = tag("TAVERN_SPELL_HEALTH_INCREASE").unwrap_or(0);
@@ -302,6 +334,11 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
             "BG31_816pe" => ballers::improve_ballers(&mut a, n1),
             // Beetle Army: the Beetle bonus (also player tags 3874/3924).
             "BG31_808pe" if !p.tags_known => tokens::add_beetle_bonus(&mut a, n1, n2),
+            // Eternal Knight: the friendly Eternal Knights that died this game.
+            "BG25_008pe" => {
+                let key = seaglass::cards::minions::eternal_knight::ID;
+                a.add_counter(key, n1 - a.counter(key));
+            }
             _ => {}
         }
     }
@@ -345,7 +382,7 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
         let mut ids = Vec::new();
         for p in players.iter().take(2) {
             let auras = player_auras(p, deity, gaps);
-            let board = p.board.iter().map(|m| b.unit(m, &auras)).collect();
+            let board = p.board.iter().map(|m| b.unit(m, &auras, true)).collect();
             let hand = p
                 .hand
                 .iter()
@@ -546,6 +583,22 @@ fn normalize_by<T>(mut steps: Vec<T>, step: impl Fn(&T) -> &Step) -> Vec<T> {
 }
 
 /// The server's steps. Warbands without minions "enter" in the log but never fight: skipped.
+/// A minion's name as the log shows it, or the engine's name for its card when the log never
+/// named it (the parser then gives its card ID: `BG30_MagicItem_442t`, the Golem; `BGFYM_000`).
+fn log_name(unit: &crate::reconstruct::UnitRef) -> String {
+    if unit.name != unit.card_id && !unit.name.is_empty() {
+        return unit.name.clone();
+    }
+    engine_card(&unit.card_id, &unit.name)
+        .map(|c| {
+            c.name
+                .strip_prefix("Golden ")
+                .unwrap_or(&c.name)
+                .to_string()
+        })
+        .unwrap_or_else(|| unit.name.clone())
+}
+
 pub fn real_steps(setup: &CombatSetup) -> Vec<Step> {
     real_steps_indexed(setup)
         .into_iter()
@@ -587,12 +640,12 @@ pub fn real_steps_indexed(setup: &CombatSetup) -> Vec<(Step, usize)> {
                 Step::Attack {
                     side: *side,
                     attacker: (
-                        norm(&attacker.name, attacker.golden),
+                        norm(&log_name(attacker), attacker.golden),
                         attacker.attack,
                         attacker.health,
                     ),
                     defender: (
-                        norm(&defender.name, defender.golden),
+                        norm(&log_name(defender), defender.golden),
                         defender.attack,
                         defender.health,
                     ),
@@ -1017,6 +1070,85 @@ fn guided_run(
     (outcome, damage, events, lost)
 }
 
+/// The engine's version of a real combat, strike by strike, for viewers (`match_replay tui`).
+#[derive(Clone, Debug)]
+pub struct EngineTrace {
+    pub outcome: BattleOutcome,
+    pub damage: u32,
+    pub events: Vec<Event>,
+    /// Both boards before and after Start of Combat and after every strike
+    /// (`combat::with_combat_trace`).
+    pub snapshots: Vec<seaglass::CombatSnapshot>,
+    /// The real attack the run stopped following, and why (`None`: it followed them all).
+    pub lost: Option<(usize, String)>,
+}
+
+/// Whether the server event at `i` is a forced attack: one by a minion summoned since the previous
+/// attack, at that attack's target (`Jailbird Juggernaut`'s Golem "attacks the target first").
+/// The log shows it as an attack of its own; the engine resolves it inside the summoner's strike,
+/// without drawing a target.
+pub fn is_forced_attack(setup: &CombatSetup, i: usize) -> bool {
+    let ServerEvent::Attack {
+        attacker, defender, ..
+    } = &setup.events[i]
+    else {
+        return false;
+    };
+    let Some(prev) = setup.events[..i]
+        .iter()
+        .rposition(|e| matches!(e, ServerEvent::Attack { .. }))
+    else {
+        return false;
+    };
+    let ServerEvent::Attack {
+        defender: prev_defender,
+        ..
+    } = &setup.events[prev]
+    else {
+        return false;
+    };
+    prev_defender.entity_id == defender.entity_id
+        && setup.events[prev..i].iter().any(
+            |e| matches!(e, ServerEvent::Summon { unit, .. } if unit.entity_id == attacker.entity_id),
+        )
+}
+
+/// The real attacks a guided run follows: every attack but the forced ones
+/// ([`is_forced_attack`]), which the engine makes without drawing a target.
+fn guided_attacks(setup: &CombatSetup) -> Vec<RealAttack> {
+    real_steps_indexed(setup)
+        .into_iter()
+        .filter(|(_, i)| !is_forced_attack(setup, *i))
+        .filter_map(|(s, _)| match s {
+            Step::Attack {
+                side,
+                attacker,
+                defender,
+            } => Some(RealAttack {
+                side,
+                attacker: attacker.0,
+                defender,
+            }),
+            Step::Entry { .. } => None,
+        })
+        .collect()
+}
+
+/// One engine run of a real combat with `seed`, attacking the real targets while its attacks
+/// match the real ones (then drawing its own), traced strike by strike.
+pub fn engine_trace(setup: &CombatSetup, input: &EngineInput, seed: u64) -> EngineTrace {
+    let attacks = guided_attacks(setup);
+    let ((outcome, damage, events, lost), snapshots) =
+        seaglass::with_combat_trace(|| guided_run(input, &attacks, seed));
+    EngineTrace {
+        outcome,
+        damage,
+        events,
+        snapshots,
+        lost,
+    }
+}
+
 /// Runs the engine `runs` times (seeds derived from `base_seed` as `simulate_batch` does) and
 /// compares with the real result; then `guided_runs` runs replaying the real targets.
 pub fn validate(
@@ -1085,21 +1217,7 @@ pub fn validate(
     v.divergence = best.map(|(_, d)| d);
 
     if guided_runs > 0 {
-        let attacks: Vec<RealAttack> = real
-            .iter()
-            .filter_map(|s| match s {
-                Step::Attack {
-                    side,
-                    attacker,
-                    defender,
-                } => Some(RealAttack {
-                    side: *side,
-                    attacker: attacker.0.clone(),
-                    defender: defender.clone(),
-                }),
-                Step::Entry { .. } => None,
-            })
-            .collect();
+        let attacks = guided_attacks(setup);
         let mut g = Guided {
             runs: guided_runs,
             a_wins: 0,

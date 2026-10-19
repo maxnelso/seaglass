@@ -1,0 +1,225 @@
+// Seaglass match replays (`docs/replays.md`).
+//
+// A replay stores a match's *inputs*: its setup, its seeds and every engine call in order.
+// Viewers re-simulate the calls with the engine that recorded them (`Header.engine`) to rebuild
+// every state, so the file stays tiny (a few KB per game).
+//
+// Each call is recorded after its legality check and *before* it runs, so the replay of a game
+// that crashed ends with the call that crashed.
+syntax = "proto3";
+
+package seaglass.replay;
+
+message Replay {
+  Header header = 1;
+  repeated Record records = 2;
+}
+
+message Header {
+  // The replay format version (`replay::FORMAT_VERSION`).
+  uint32 format = 1;
+  // The engine that recorded the replay: crate version and git commit (`0.1.0+708acd9e1b2c`).
+  string engine = 2;
+  // The card catalog (`cards::catalog_for`).
+  string catalog = 3;
+  PoolMode pool = 4;
+  // The seed of the shared RNG (`POOL_MODE_SHARED`).
+  uint64 shared_seed = 5;
+  repeated PlayerSetup players = 6;
+  // Free-form labels (source, run, iteration, opponent kind, ...).
+  map<string, string> meta = 7;
+}
+
+enum PoolMode {
+  POOL_MODE_UNSPECIFIED = 0;
+  // Every player has their own card pool and RNG, seeded by `PlayerSetup.seed`.
+  POOL_MODE_PER_PLAYER = 1;
+  // All players share one card pool and one RNG, seeded by `Header.shared_seed`.
+  POOL_MODE_SHARED = 2;
+}
+
+message PlayerSetup {
+  string name = 1;
+  // The seed of this player's RNG (`POOL_MODE_PER_PLAYER`).
+  uint64 seed = 2;
+  Deity deity = 3;
+  int32 armor = 4;
+  // Whether Bob's shop also offers a Tavern spell (`TavernState::with_shop_spells`).
+  bool shop_spells = 5;
+  // The player's hero (`TavernState::set_hero`, `docs/heroes.md`). Unset: no hero, `armor` Armor.
+  optional uint32 hero = 6;
+  // The trinket offers of turns 6 and 9 (`TavernState::trinkets_enabled`, `docs/trinkets.md`).
+  bool trinkets = 7;
+  // The Dark Discovery button (`TavernState::dark_gifts_enabled`, `docs/dark_gifts.md`).
+  bool dark_gifts = 8;
+}
+
+enum Deity {
+  DEITY_NONE = 0;
+  DEITY_CTHUN = 1;
+  DEITY_YSHAARJ = 2;
+}
+
+// One engine call.
+message Record {
+  oneof kind {
+    StartTurn start_turn = 1;
+    Act act = 2;
+    Combat combat = 3;
+    End end = 4;
+    SetPairs set_pairs = 5;
+    DeliverGifts deliver_gifts = 6;
+    RecordDeaths record_deaths = 7;
+  }
+}
+
+// The lobby (`lobby::Lobby`, `docs/tavern.md` §3.1): `set_next_pairs` with the coming turn's
+// pairings, then `apply` (every player gets their view).
+message SetPairs {
+  repeated Pair pairs = 1;
+}
+
+message Pair {
+  uint32 a = 1;
+  uint32 b = 2;
+}
+
+// The lobby hands every player's lobby gifts to their living opponents (`Lobby::deliver_gifts`).
+message DeliverGifts {}
+
+// The combats are over: who is still in the game (`Lobby::record_deaths`, alive = Health > 0).
+message RecordDeaths {
+  repeated bool alive = 1;
+}
+
+// `TavernState::start_turn` for one player.
+message StartTurn {
+  uint32 player = 1;
+  // The player's turn number after the call.
+  uint32 turn = 2;
+}
+
+// `TavernState::step` for one player.
+message Act {
+  uint32 player = 1;
+  Action action = 2;
+  // The card the action uses (bought, played, cast, sold, repositioned, activated, passed or
+  // chosen), if any.
+  optional uint32 card_id = 3;
+  // What the actor knew or thought. Never replayed.
+  Note note = 4;
+}
+
+// A `TavernAction`.
+message Action {
+  oneof kind {
+    // Shop index.
+    uint32 buy = 1;
+    Play play = 2;
+    // Board index.
+    uint32 sell = 3;
+    Reposition reposition = 4;
+    Activate activate = 5;
+    Empty refresh = 6;
+    Empty upgrade_tavern = 7;
+    Empty toggle_freeze = 8;
+    // Discover option index.
+    uint32 choose_discover = 9;
+    Empty end_turn = 10;
+    PlayOnShop play_on_shop = 11;
+    // Duos: hand index passed to the teammate.
+    uint32 pass = 12;
+    Target hero_power = 13;
+    // Hero option index.
+    uint32 choose_hero = 14;
+    Target hero_power_2 = 15;
+    // Trinket option index.
+    uint32 choose_trinket = 16;
+    Empty dark_discovery = 17;
+  }
+}
+
+message PlayOnShop {
+  uint32 hand = 1;
+  uint32 shop = 2;
+}
+
+message Target {
+  optional uint32 target = 1;
+}
+
+message Empty {}
+
+message Play {
+  uint32 hand = 1;
+  uint32 pos = 2;
+}
+
+message Reposition {
+  uint32 from = 1;
+  uint32 to = 2;
+}
+
+message Activate {
+  uint32 pos = 1;
+  optional uint32 target = 2;
+}
+
+message Note {
+  // The actor's value estimate before acting.
+  optional float value = 1;
+  // The log-probability of the chosen action.
+  optional float logp = 2;
+  // The action was forced on the actor (e.g. by an environment's per-turn step cap).
+  bool forced = 3;
+  // Other actions the actor considered, with their probabilities.
+  repeated Candidate candidates = 4;
+  map<string, double> extra = 5;
+}
+
+message Candidate {
+  Action action = 1;
+  float prob = 2;
+}
+
+// `TavernState::resolve_combat_pair` between players `a` and `b`. The lobby then records each
+// player's combat (their board as it entered it) and the outcome (`Lobby::record_combat`,
+// `Lobby::record_outcome`).
+message Combat {
+  uint32 a = 1;
+  uint32 b = 2;
+  uint64 seed = 3;
+  // `seed` was given by the caller instead of drawn from the RNG.
+  bool external_seed = 4;
+  // The result (unset if the combat did not finish).
+  Outcome outcome = 5;
+  uint32 hero_damage = 6;
+  Checkpoint check_a = 7;
+  Checkpoint check_b = 8;
+}
+
+enum Outcome {
+  OUTCOME_UNSPECIFIED = 0;
+  OUTCOME_A_WIN = 1;
+  OUTCOME_B_WIN = 2;
+  OUTCOME_DRAW = 3;
+}
+
+// A summary of a player's state, compared on re-simulation.
+message Checkpoint {
+  int32 health = 1;
+  int32 armor = 2;
+  uint32 tier = 3;
+  // FNV-1a of the board and hand (card ids, stats, keywords, golden).
+  fixed64 fingerprint = 4;
+}
+
+// The match is over.
+message End {
+  // Unset for a draw.
+  optional uint32 winner = 1;
+  // The highest turn any player reached.
+  uint32 turn = 2;
+  // Every player's final health.
+  repeated int32 health = 3;
+}

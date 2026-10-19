@@ -12,9 +12,11 @@ pub mod dark_gifts;
 pub mod darkmoon;
 pub mod duos_tavern;
 pub mod events;
+pub mod game;
 pub mod heroes;
 pub mod lobby;
 pub mod model;
+pub mod replay;
 pub mod rng;
 pub mod scenario;
 pub mod sim;
@@ -34,15 +36,18 @@ pub use cards::{
     tier7_catalog, ActivateTargetKind, CardTemplate,
 };
 pub use combat::{
-    resolve_battle, resolve_duos_battle, BattleResult, DuosResult, DuosTeam, Warband, WarbandResult,
+    resolve_battle, resolve_duos_battle, with_combat_trace, BattleResult, CombatSnapshot,
+    DuosResult, DuosTeam, Warband, WarbandResult,
 };
 pub use duos_tavern::DuosTavern;
 pub use events::Event;
+pub use game::{Match, MatchSetup, PlayerSetup, PoolMode};
 pub use model::{
     BattleOutcome, CardId, DarkGift, DeityKind, DeityState, GameState, HeroId, HeroPowerState,
     HeroState, Keyword, LobbyView, OpponentView, PlayerAuras, Side, TeammateGift, Tribe,
     TrinketOption, TrinketState, Unit, UnitId,
 };
+pub use replay::Timeline;
 pub use rng::Rng;
 pub use scenario::{parse_unit, teams_and_state, Defaults, Matchup};
 pub use sim::{

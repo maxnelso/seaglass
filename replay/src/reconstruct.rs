@@ -146,6 +146,10 @@ pub struct PlayerSetup {
     pub hero_power_activated: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinkets: Vec<String>,
+    /// The number each trinket's text shows (`TAG_SCRIPT_DATA_NUM_1`), by card ID: `Hammer of
+    /// Twilight`'s current bonus, which tells how many cards the player discarded.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub trinket_numbers: BTreeMap<String, i32>,
     /// Deity Attack/Health.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deity: Option<(i32, i32)>,
@@ -284,9 +288,25 @@ pub struct CombatSetup {
     pub deity_dbid: String,
     pub result: RealResult,
     pub events: Vec<ServerEvent>,
+    /// Both boards at every warband entry and before every attack (including the winning
+    /// hero's, so the last frame shows the survivors), for viewers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub frames: Vec<CombatFrame>,
     /// Reconstruction caveats.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<String>,
+}
+
+/// Both boards at one moment of a combat, as the log shows them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CombatFrame {
+    /// How many of the combat's [`CombatSetup::events`] had been recorded: the boards are as
+    /// they stand after `events[..events]`.
+    pub events: usize,
+    /// The friendly side's minions in play.
+    pub board_a: Vec<LogMinion>,
+    /// The enemy side's minions in play.
+    pub board_b: Vec<LogMinion>,
 }
 
 impl CombatSetup {
@@ -402,6 +422,7 @@ struct CombatBuilder {
     local_enchantments: Vec<PlayerEnchantment>,
     entries: Vec<Entry>,
     events: Vec<ServerEvent>,
+    frames: Vec<CombatFrame>,
     attack: Option<AttackTrack>,
     result: Option<RealResult>,
     /// Minions already reported as summoned.
@@ -751,6 +772,7 @@ impl<'a> Tracker<'a> {
             local_enchantments: self.player_enchantments(self.local_eid),
             entries: Vec::new(),
             events: Vec::new(),
+            frames: Vec::new(),
             attack: None,
             result: None,
             summoned: Default::default(),
@@ -1009,6 +1031,63 @@ impl<'a> Tracker<'a> {
             if let Some(c) = self.combat.as_mut() {
                 c.entries[i].snapshot = Some(snapshot);
             }
+            self.snapshot_frame();
+        }
+    }
+
+    /// Record both boards as they stand ([`CombatFrame`]), unless nothing changed since the last
+    /// frame.
+    fn snapshot_frame(&mut self) {
+        if !self.combat.as_ref().is_some_and(|c| c.fights_started) {
+            return;
+        }
+        let board = |t: &Self, controller: i32| -> Vec<LogMinion> {
+            t.zone_minions(controller, "PLAY")
+                .into_iter()
+                .map(|id| t.frame_minion(id))
+                .collect()
+        };
+        let board_a = board(self, self.local_pid);
+        let board_b = board(self, self.dummy_pid);
+        let c = self.combat.as_mut().unwrap();
+        let events = c.events.len();
+        if c.frames
+            .last()
+            .is_some_and(|f| f.board_a == board_a && f.board_b == board_b)
+        {
+            return;
+        }
+        c.frames.push(CombatFrame {
+            events,
+            board_a,
+            board_b,
+        });
+    }
+
+    /// [`Self::minion`] without its enchantments (cheap enough for every attack).
+    fn frame_minion(&self, id: u32) -> LogMinion {
+        let e = self.ents.get(&id).cloned().unwrap_or_default();
+        LogMinion {
+            entity_id: id,
+            card_id: e.card_id.clone(),
+            name: self.name_of(id),
+            attack: e.int("ATK"),
+            health: e.health(),
+            tier: e.int("TECH_LEVEL").max(1) as u32,
+            golden: e.int("PREMIUM") > 0,
+            race: e.str("CARDRACE").to_string(),
+            taunt: e.int("TAUNT") > 0,
+            divine_shield: e.int("DIVINE_SHIELD") > 0,
+            windfury: e.int("WINDFURY") > 0,
+            reborn: e.int("REBORN") > 0,
+            venomous: e.int("VENOMOUS") > 0 || e.int("POISONOUS") > 0,
+            stealth: e.int("STEALTH") > 0,
+            enchantments: Vec::new(),
+            dark_gifts: Vec::new(),
+            script_data: [
+                e.int("TAG_SCRIPT_DATA_NUM_1"),
+                e.int("TAG_SCRIPT_DATA_NUM_2"),
+            ],
         }
     }
 
@@ -1165,6 +1244,7 @@ impl<'a> Tracker<'a> {
         }
         if btype == "ATTACK" {
             self.snapshot_entries(true);
+            self.snapshot_frame();
             let c = self.combat.as_mut().unwrap();
             c.attack = Some(AttackTrack {
                 indent,
@@ -1236,6 +1316,17 @@ impl<'a> Tracker<'a> {
         let Some((indent, btype, _)) = self.blocks.pop() else {
             return;
         };
+        // The boards once a round of deaths has resolved (the last one shows how a combat
+        // without a hero attack, a draw, ends; later the server restores the boards).
+        if btype == "DEATHS"
+            && self
+                .combat
+                .as_ref()
+                .is_some_and(|c| c.fights_started && c.result.is_none())
+            && self.in_combat()
+        {
+            self.snapshot_frame();
+        }
         if btype != "ATTACK" {
             return;
         }
@@ -1357,6 +1448,13 @@ impl<'a> Tracker<'a> {
                 .filter(|t| t.int("BACON_IS_POTENTIAL_TRINKET") == 0)
                 .map(|t| t.card_id.clone())
                 .collect(),
+            trinket_numbers: p
+                .trinkets
+                .iter()
+                .filter_map(|&id| self.ent(id))
+                .filter(|t| t.int("BACON_IS_POTENTIAL_TRINKET") == 0)
+                .map(|t| (t.card_id.clone(), t.int("TAG_SCRIPT_DATA_NUM_1")))
+                .collect(),
             deity,
             board: p.board.iter().map(|&id| self.minion(id)).collect(),
             board_source: BoardSource::Package,
@@ -1395,6 +1493,7 @@ impl<'a> Tracker<'a> {
                 .as_ref()
                 .is_some_and(|h| h.int("BACON_HERO_POWER_ACTIVATED") > 0),
             trinkets: Vec::new(),
+            trinket_numbers: BTreeMap::new(),
             deity: {
                 let t = &c.local_tags;
                 let get = |k: &str| t.get(k).and_then(|v| v.parse::<i32>().ok());
@@ -1423,6 +1522,9 @@ impl<'a> Tracker<'a> {
                 "BATTLEGROUND_TRINKET" if e.int("BACON_IS_POTENTIAL_TRINKET") == 0 => {
                     let _ = id;
                     local_player.trinkets.push(e.card_id.clone());
+                    local_player
+                        .trinket_numbers
+                        .insert(e.card_id.clone(), e.int("TAG_SCRIPT_DATA_NUM_1"));
                 }
                 _ => {}
             }
@@ -1489,6 +1591,7 @@ impl<'a> Tracker<'a> {
                         hero_power_start_of_combat: false,
                         hero_power_activated: false,
                         trinkets: Vec::new(),
+                        trinket_numbers: BTreeMap::new(),
                         deity: None,
                         board: snap.board.clone(),
                         board_source: BoardSource::Entry,
@@ -1588,6 +1691,7 @@ impl<'a> Tracker<'a> {
             deity_dbid: c.deity_dbid.clone(),
             result,
             events: c.events,
+            frames: c.frames,
             notes,
         }
     }
@@ -1930,6 +2034,22 @@ TAG_CHANGE Entity=GameEntity tag=BACON_IN_COMBAT_PHASE value=0
             .iter()
             .filter(|e| matches!(e, ServerEvent::Death { .. }))
             .count();
+        // Frames: the warbands that entered, before the attack; then the boards once its deaths
+        // resolved.
+        let ids = |b: &[LogMinion]| b.iter().map(|m| m.entity_id).collect::<Vec<_>>();
+        let [entered, end] = &c.frames[..] else {
+            panic!("frames: {:?}", c.frames);
+        };
+        assert_eq!(
+            (ids(&entered.board_a), ids(&entered.board_b)),
+            (vec![21], vec![40])
+        );
+        assert!(matches!(
+            c.events[entered.events],
+            ServerEvent::Attack { .. }
+        ));
+        assert_eq!((end.board_a.len(), end.board_b.len()), (0, 0));
+        assert_eq!(end.events, c.events.len());
         assert_eq!(deaths, 2);
     }
 }

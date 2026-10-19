@@ -32,7 +32,8 @@ seaglass/
 ├── engine/            # Rust crate (`seaglass`): Tavern + Combat engine & PyO3 bindings
 │   ├── README.md
 │   ├── Cargo.toml
-│   ├── docs/          # Pinned specifications (combat.md, duos.md, duos_tavern.md, tavern.md, heroes.md, trinkets.md, dark_gifts.md, scenarios.md)
+│   ├── docs/          # Pinned specifications (combat.md, duos.md, duos_tavern.md, tavern.md, heroes.md, trinkets.md, dark_gifts.md, scenarios.md, replays.md)
+│   ├── proto/         # Match replay format (replay.proto)
 │   ├── src/
 │   └── tests/         # YAML scenario suite (one file per card, plus combat & Tavern topics)
 └── rl/                # Python package (`seaglass-rl`): RL env, Transformer policy, PPO trainer

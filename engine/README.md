@@ -62,6 +62,11 @@ The engine contains **only game rules and simulation**. All reinforcement learni
   - Triggers: `Start of Combat`, `Rally` (on-attack), `Deathrattle`, and card-specific latches (e.g., `Scarlet Survivor`).
 - **Duos (`docs/duos.md`)**: Team-against-team combats fought as a relay of the players' warbands (`simulate_duos`, `simulate_duos_batch`): a warband steps in, with its Start of Combat, when its teammate's has no minions left, and each player keeps their own auras, hand, Deity and Tavern Tier.
 
+### Match Replays (`docs/replays.md`)
+- **Recording (`Match`)**: Drives players with per-player or shared pools and RNGs and records every engine call as a compact protobuf replay (`proto/replay.proto`, ~2–7 KB per game). An optional note per action records what the actor thought (value, log-probability, candidates).
+- **Re-simulation (`Timeline`)**: Rebuilds every intermediate state (all players, RNG states, pool contents, combat event logs) so a game can be stepped through in both directions. Any call whose re-simulated result differs from its recording is flagged.
+- **Tools**: `sim_match --record` saves replays. `match_replay` summarizes, logs, steps through and verifies them, plays them back in a terminal UI with card art and strike-by-strike combats (`tui`; it also plays games from a Hearthstone `Power.log`, each combat next to the engine's version of it) or records that as an asciinema recording (`cast`), renders a self-contained HTML viewer (`html`), and turns any moment into a regression scenario for the YAML suite (`scenario`).
+
 ---
 
 ## Public API
@@ -76,6 +81,13 @@ let result = simulate(&board_a, &board_b, &GameState::default(), 42);
 
 // Batch Monte Carlo rollout (win/tie rates and hero damage distribution)
 let dist = simulate_batch(&board_a, &board_b, &GameState::default(), 42, 1000);
+
+// Recorded match: every call is saved, then re-simulated frame by frame (`docs/replays.md`)
+let mut game = seaglass::Match::new(&setup)?;
+game.start_turn(0);
+game.step(0, action)?;
+game.save("replays/game.replay.pb")?;
+let timeline = seaglass::Timeline::load("replays/game.replay.pb")?;
 ```
 
 ### Python Bindings (`seaglass`, behind `--features python`)
@@ -91,6 +103,8 @@ The PyO3 bindings provide a **marshalling-only** layer exposing the engine to Py
   - `.start_turn()` / `.end_turn()` — Advances turn lifecycle.
 - `seaglass.TavernGame(..., hero=None)` / `seaglass.DuosTavernGame(..., heroes=None)` give the players heroes (`docs/heroes.md`), and `seaglass.heroes_table()` lists the pool.
 - `seaglass.TavernGame(..., dark_gifts=True)` / `seaglass.DuosTavernGame(..., dark_gifts=True)` (the Python default; `False` turns it off) give the players the Dark Discovery button (`docs/dark_gifts.md`), and `seaglass.dark_gifts_table()` lists the gifts.
+- `seaglass.Match(players=[{...}, ...], catalog="full", pool="per_player")` — A recorded match (`docs/replays.md` §5). `.player(i)` returns a `MatchPlayer` with the `TavernGame` methods (`.step` and `.end_turn` also take a `note`); `.finish()`, `.save(path)` and `.timeline()` end, save and re-simulate it.
+- `seaglass.Timeline.load(path)` — Re-simulates a replay. `timeline[i]` is a `Frame` (kind, turn, acting player, action, note, every player's observation, battle result); `.decisions()` lists every action, `.player_at(frame, player)` gives the read-only `TavernGame` API at a frame (for masks and features), and `.is_faithful` reports whether the replay re-simulated exactly.
 - `seaglass.catalog(name="full")` — Returns the engine's `CardTemplate` list so Python never hardcodes card IDs or stats.
 - `seaglass.parse_unit(spec)` — Parses compact scenario strings such as `"3/2 divine_shield taunt"`.
 

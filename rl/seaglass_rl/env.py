@@ -1,4 +1,4 @@
-"""Gym-like head-to-head Battlegrounds environment wrapping `seaglass.TavernGame`."""
+"""Gym-like head-to-head Battlegrounds environment wrapping a recorded `seaglass.Match`."""
 
 from __future__ import annotations
 
@@ -9,6 +9,9 @@ import seaglass
 from .actions import END_TURN_INDEX, action_from_index, action_mask
 from .bots import HeuristicBot, PolicyBot, RandomBot, finish_turn
 from .features import encode_observation
+
+# Note recorded with moves the env makes for the agent (see `BattlegroundsEnv.step`).
+FORCED = {"forced": True}
 
 
 def compute_board_power(obs: seaglass.TavernObservation) -> float:
@@ -27,7 +30,11 @@ def compute_board_power(obs: seaglass.TavernObservation) -> float:
 
 
 class BattlegroundsEnv:
-    """Single-agent RL environment that plays full Battlegrounds matches against an opponent bot."""
+    """Single-agent RL environment that plays full Battlegrounds matches against an opponent bot.
+
+    Every episode is a `seaglass.Match` (player 0 is the agent, player 1 the opponent), so it can
+    be saved as a replay with `env.match.save(path)` (`engine/docs/replays.md`).
+    """
 
     def __init__(
         self,
@@ -46,11 +53,9 @@ class BattlegroundsEnv:
         self.model = model
         self.episode_count = 0
 
-        self.player: seaglass.TavernGame | None = None
-        self.opp_game: seaglass.TavernGame | None = None
-        # What the two players know about each other (lobby Hero Powers: Scabbs, Tess, Holmes,
-        # Mukla, ...). Never part of the observation.
-        self.lobby = seaglass.Lobby(2)
+        self.match: seaglass.Match | None = None
+        self.player: seaglass.MatchPlayer | None = None
+        self.opp_game: seaglass.MatchPlayer | None = None
         self.opp_bot: RandomBot | HeuristicBot | PolicyBot = self._make_opponent(seed)
         self.steps_this_turn = 0
 
@@ -67,28 +72,41 @@ class BattlegroundsEnv:
     def _start_turns(self) -> None:
         """Both players start their turn, each the other's next opponent (head to head: no featured
         pair to wager on), and their lobby gifts reach each other."""
-        assert self.player is not None and self.opp_game is not None
-        games = [self.player, self.opp_game]
-        self.lobby.set_next_pairs([(0, 1)])
-        self.lobby.apply(games)
+        assert self.match is not None and self.player is not None and self.opp_game is not None
+        self.match.set_pairs([(0, 1)])
         self.player.start_turn()
         self.opp_game.start_turn()
-        self.lobby.deliver_gifts(games)
+        self.match.deliver_gifts()
 
     def reset(self, seed: int | None = None) -> tuple[tuple[np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
         if seed is None:
             seed = self.base_seed + self.episode_count * 2
         self.episode_count += 1
 
+        # The same games as `TavernGame(seed, deity="cthun")` vs `TavernGame(seed + 1, deity="yshaarj")`.
         # Every game has trinkets and Dark Gifts (`engine/docs/trinkets.md`, `dark_gifts.md`).
-        self.player = seaglass.TavernGame(
-            seed=seed, catalog=self.catalog, deity="cthun", trinkets=True, dark_gifts=True
+        self.match = seaglass.Match(
+            players=[
+                {"name": "agent", "seed": seed, "deity": "cthun", "trinkets": True, "dark_gifts": True},
+                {
+                    "name": self.opponent_kind,
+                    "seed": seed + 1,
+                    "deity": "yshaarj",
+                    "trinkets": True,
+                    "dark_gifts": True,
+                },
+            ],
+            catalog=self.catalog,
+            meta={
+                "source": "BattlegroundsEnv",
+                "episode": str(self.episode_count),
+                "max_turns": str(self.max_turns),
+                "max_steps_per_turn": str(self.max_steps_per_turn),
+            },
         )
-        self.opp_game = seaglass.TavernGame(
-            seed=seed + 1, catalog=self.catalog, deity="yshaarj", trinkets=True, dark_gifts=True
-        )
+        self.player = self.match.player(0)
+        self.opp_game = self.match.player(1)
         self.opp_bot = self._make_opponent(seed)
-        self.lobby = seaglass.Lobby(2)
 
         self._start_turns()
         self.steps_this_turn = 0
@@ -97,9 +115,10 @@ class BattlegroundsEnv:
         return encode_observation(obs), action_mask(self.player, prune_dominated=True, obs=obs)
 
     def step(
-        self, action_idx: int
+        self, action_idx: int, note: dict[str, Any] | None = None
     ) -> tuple[tuple[np.ndarray, np.ndarray, np.ndarray], float, bool, np.ndarray, dict[str, Any]]:
-        assert self.player is not None and self.opp_game is not None
+        """Take the agent's action. `note` (e.g. `{"value": v, "logp": lp}`) is recorded with it."""
+        assert self.player is not None and self.opp_game is not None and self.match is not None
 
         pre_obs = self.player.observe()
         pre_power = self._board_power(pre_obs)
@@ -108,14 +127,14 @@ class BattlegroundsEnv:
         if not self.player.is_legal(act):
             raise ValueError(f"Illegal action {act} (index {action_idx}) on turn {pre_obs.turn}")
 
-        self.player.step(act)
+        self.player.step(act, note=note)
         self.steps_this_turn += 1
 
         # Force EndTurn if the agent hits the per-turn micro-step cap (pending prompts resolved
         # first: a Discover, a trinket offer, ...)
         turn_ended = action_idx == END_TURN_INDEX
         if not turn_ended and self.steps_this_turn >= self.max_steps_per_turn:
-            finish_turn(self.player)
+            finish_turn(self.player, note=FORCED)
             turn_ended = True
 
         reward = self._board_power(self.player.observe()) - pre_power
@@ -134,13 +153,11 @@ class BattlegroundsEnv:
 
         # Opponent takes its Tavern turn, then both boards fight
         self.opp_bot.play_turn(self.opp_game, max_steps=self.max_steps_per_turn)
-        self.lobby.deliver_gifts([self.player, self.opp_game])
+        self.match.deliver_gifts()
         pre_combat_agent = self.player.observe()
         pre_combat_opp = self.opp_game.observe()
+        # The match's lobby records both players' combats and the outcome.
         battle = self.player.resolve_combat_with(self.opp_game)
-        self.lobby.record_combat(0, 1, pre_combat_agent.board)
-        self.lobby.record_combat(1, 0, pre_combat_opp.board)
-        self.lobby.record_outcome(0, 1, battle.outcome)
 
         if battle.outcome == "a_win":
             reward += 0.2 + battle.hero_damage / 30.0
@@ -149,7 +166,7 @@ class BattlegroundsEnv:
 
         p_obs = self.player.observe()
         o_obs = self.opp_game.observe()
-        self.lobby.record_deaths([p_obs.health > 0, o_obs.health > 0])
+        self.match.record_deaths()
         info["combat"] = {
             "turn": pre_combat_agent.turn,
             "agent_board": pre_combat_agent.board,
@@ -162,6 +179,7 @@ class BattlegroundsEnv:
 
         if p_obs.health <= 0 or o_obs.health <= 0 or p_obs.turn >= self.max_turns:
             done = True
+            self.match.finish()
             if p_obs.health > o_obs.health and o_obs.health <= 0:
                 reward += 2.0
                 info["winner"] = "agent"

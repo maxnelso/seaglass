@@ -161,6 +161,7 @@ rl/
 │   ├── opponents.py           # Synthetic scaling opponent & self-play opponent pool
 │   ├── model.py               # CardEntityEncoder, PlayerEntityEncoder, BattlegroundsActorCritic
 │   ├── train_ppo.py           # PPO rollout collection, GAE/returns, clipped policy update
+│   ├── replays.py             # Recorded games -> training arrays (`engine/docs/replays.md` §5)
 │   └── sandbox_cli.py         # Interactive terminal inspector for tavern & combat
 └── tests/
     ├── test_env_and_seam.py   # Verifies Rust<->Python determinism, catalog sync, and masks
@@ -169,7 +170,8 @@ rl/
     ├── test_trinkets.py       # Trinkets: the ChooseTrinket actions, offers, observation fields
     ├── test_vocabulary.py     # The card vocabulary only grows at the end (data/card_ids_v1.txt)
     ├── test_dark_gifts.py     # Dark Gifts: the Dark Discovery action, offers, observation fields
-    └── test_darkmoon.py       # Darkmoon Prizes: the vocabulary, the Gruul Rules slot feature
+    ├── test_darkmoon.py       # Darkmoon Prizes: the vocabulary, the Gruul Rules slot feature
+    └── test_replays.py        # Recorded matches: Match == TavernGame, replays rebuild training rows
 ```
 
 ---
@@ -200,4 +202,27 @@ python -m seaglass_rl.sandbox_cli
 
 ```bash
 python -m seaglass_rl.train_ppo --iterations 25 --episodes-per-iter 8
+```
+
+### 5. Record, watch and reuse games
+
+Every game the env and the self-play trainer play is a recorded `seaglass.Match`
+([`engine/docs/replays.md`](../engine/docs/replays.md) §5). Policy actions carry their value
+estimate and log-probability, and forced moves are marked. `--replays DIR` saves the evaluation
+games and the last game of every logged iteration (~4 KB each):
+
+```bash
+python -m seaglass_rl.train_ppo --iterations 25 --episodes-per-iter 8 --replays runs/replays
+cargo run --release --bin match_replay -- step runs/replays/final_heuristic_000.replay.pb
+```
+
+`env.match.save(path)` saves the current episode. `seaglass_rl.replays` turns replays into
+training arrays shaped like the trainer's batches, e.g. for behavior cloning or value fitting:
+
+```python
+from pathlib import Path
+from seaglass_rl import replays
+
+data = replays.to_dataset(sorted(Path("runs/replays").glob("*.replay.pb")), player="agent")
+data["player_vec"], data["action_mask"], data["actions"], data["outcome"]
 ```

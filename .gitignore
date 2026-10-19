@@ -37,3 +37,7 @@ tensorboard/
 *.swp
 *.swo
 *~
+
+# Recorded match replays (`engine/docs/replays.md`)
+replays/
+*.replay.pb
