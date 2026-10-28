@@ -45,6 +45,9 @@ pub struct GameReplay {
     /// What the game's log shows of each minion card, to compare with the engine ([`drift`]).
     #[serde(skip)]
     pub cards_observed: std::collections::BTreeMap<String, drift::CardObservation>,
+    /// Every card name the log showed (`cardId` → `entityName`).
+    #[serde(skip)]
+    pub card_names: HashMap<String, String>,
     /// The game client's build (`GameState.DebugPrintGame() - BuildNumber=`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build_number: Option<u32>,
@@ -73,10 +76,14 @@ pub struct TavernPhaseReplay {
     pub initial_board: Vec<ReplayUnit>,
     pub initial_hand: Vec<ReplayCard>,
     pub initial_shop: Vec<ReplayCard>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub initial_trinkets: Vec<String>,
     pub actions: Vec<TavernActionRecord>,
     pub final_board: Vec<ReplayUnit>,
     pub final_hand: Vec<ReplayCard>,
     pub final_shop: Vec<ReplayCard>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub final_trinkets: Vec<String>,
     pub ending_gold: i32,
     pub is_frozen: bool,
     /// The Tavern after each action: `snapshots[i]` follows `actions[i]` (for viewers).
@@ -96,6 +103,8 @@ pub struct TavernSnapshot {
     pub board: Vec<ReplayUnit>,
     pub hand: Vec<ReplayCard>,
     pub shop: Vec<ReplayCard>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trinkets: Vec<String>,
     pub is_frozen: bool,
 }
 
@@ -560,6 +569,7 @@ pub fn parse_power_log_str(content: &str) -> Result<Vec<GameReplay>, String> {
             replay.combats = reconstruct_combats(&lines, &card_names);
             replay.cards_seen = cards_seen(&lines, &card_names);
             replay.cards_observed = drift::observe_cards(&lines, &card_names);
+            replay.card_names = card_names.clone();
             replay.build_number = builds.get(idx).copied().flatten();
             replays.push(replay);
         }
@@ -624,14 +634,16 @@ pub(crate) fn resolve_entity_ref(
             id,
             ..RawEntity::default()
         });
-        if let Some(n) = name {
-            if !n.starts_with("UNKNOWN ENTITY") {
-                ent.name = n;
+        if let Some(c) = &cid {
+            if !c.is_empty() && ent.card_id.is_empty() {
+                ent.card_id = c.clone();
             }
         }
-        if let Some(c) = cid {
-            if !c.is_empty() {
-                ent.card_id = c;
+        if let Some(n) = name {
+            if !n.starts_with("UNKNOWN ENTITY")
+                && (ent.name.is_empty() || cid.as_deref() == Some(ent.card_id.as_str()))
+            {
+                ent.name = n;
             }
         }
         return Some(id);
@@ -727,6 +739,23 @@ fn snapshot_hand(
     cards.into_iter().map(|(_, c)| c).collect()
 }
 
+fn snapshot_trinkets(entities: &HashMap<u32, RawEntity>, controller_id: i32) -> Vec<String> {
+    let mut trinkets: Vec<(i32, u32, String)> = entities
+        .values()
+        .filter(|e| {
+            e.tag_str("ZONE") == "PLAY"
+                && e.tag_str("CARDTYPE") == "BATTLEGROUND_TRINKET"
+                && e.tag_int("CONTROLLER") == controller_id
+                && e.tag_int("BACON_IS_POTENTIAL_TRINKET") == 0
+                && !e.card_id.is_empty()
+                && !e.card_id.starts_with("BG30_Trinket_")
+        })
+        .map(|e| (e.tag_int("ZONE_POSITION"), e.id, e.card_id.clone()))
+        .collect();
+    trinkets.sort_by_key(|(pos, id, _)| (*pos, *id));
+    trinkets.into_iter().map(|(_, _, cid)| cid).collect()
+}
+
 fn current_gold(entities: &HashMap<u32, RawEntity>, player_eid: u32) -> i32 {
     let Some(p) = entities.get(&player_eid) else {
         return 0;
@@ -808,6 +837,7 @@ fn sync_snapshots(
         board: snapshot_board(entities, local_player_id, card_names),
         hand: snapshot_hand(entities, local_player_id, card_names),
         shop,
+        trinkets: snapshot_trinkets(entities, local_player_id),
         is_frozen,
     };
     while tavern.snapshots.len() < tavern.actions.len() {
@@ -981,6 +1011,9 @@ fn parse_single_game(
                         ..RawEntity::default()
                     });
                     if !cid.is_empty() {
+                        if ent.card_id != cid {
+                            ent.name.clear();
+                        }
                         ent.card_id = cid;
                     }
                     if let Some(n) = name {
@@ -1338,6 +1371,7 @@ fn parse_single_game(
                     let init_board = snapshot_board(&entities, local_player_id, card_names);
                     let init_hand = snapshot_hand(&entities, local_player_id, card_names);
                     let init_shop = snapshot_shop(&entities, dummy_player_id, card_names);
+                    let init_trinkets = snapshot_trinkets(&entities, local_player_id);
 
                     if let Some(cur_turn) = turns.last_mut() {
                         cur_turn.tavern.tavern_tier = h_tier;
@@ -1350,6 +1384,7 @@ fn parse_single_game(
                         cur_turn.tavern.initial_board = init_board;
                         cur_turn.tavern.initial_hand = init_hand;
                         cur_turn.tavern.initial_shop = init_shop;
+                        cur_turn.tavern.initial_trinkets = init_trinkets;
                     }
                 } else if tag_val == "MAIN_END" && !in_combat {
                     while let Some(stale) = block_stack.pop() {
@@ -1371,6 +1406,7 @@ fn parse_single_game(
                     let end_board = snapshot_board(&entities, local_player_id, card_names);
                     let end_hand = snapshot_hand(&entities, local_player_id, card_names);
                     let end_shop = snapshot_shop(&entities, dummy_player_id, card_names);
+                    let end_trinkets = snapshot_trinkets(&entities, local_player_id);
                     let end_gold = current_gold(&entities, local_player_entity_id);
                     let is_frozen = end_shop.iter().any(|c| {
                         entities
@@ -1382,6 +1418,7 @@ fn parse_single_game(
                         cur_turn.tavern.final_board = end_board;
                         cur_turn.tavern.final_hand = end_hand;
                         cur_turn.tavern.final_shop = end_shop;
+                        cur_turn.tavern.final_trinkets = end_trinkets;
                         cur_turn.tavern.ending_gold = end_gold;
                         cur_turn.tavern.is_frozen = is_frozen;
                     }
@@ -1427,6 +1464,7 @@ fn parse_single_game(
         combats: Vec::new(),
         cards_seen: Default::default(),
         cards_observed: Default::default(),
+        card_names: Default::default(),
         build_number: None,
     })
 }

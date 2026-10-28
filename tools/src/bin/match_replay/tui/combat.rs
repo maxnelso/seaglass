@@ -96,6 +96,19 @@ pub struct CombatPlayback {
     pub alt: Option<Box<CombatPlayback>>,
 }
 
+/// `Trinkets: A, B` for a player's owned trinkets, if any.
+pub fn trinkets_clause(s: &TavernState) -> Option<String> {
+    let names: Vec<String> = s
+        .auras
+        .trinkets
+        .iter()
+        .filter_map(|t| {
+            seaglass::trinkets::data(t.card_id).map(seaglass::trinkets::display_name)
+        })
+        .collect();
+    (!names.is_empty()).then(|| format!("Trinkets: {}", names.join(", ")))
+}
+
 /// `P1 wins · 5 damage`.
 pub fn result_text(outcome: BattleOutcome, damage: u32, names: [&str; 2]) -> String {
     match outcome {
@@ -137,8 +150,11 @@ impl CombatPlayback {
             } else {
                 String::new()
             };
+            let trinkets = trinkets_clause(pre)
+                .map(|t| format!(" · {t}"))
+                .unwrap_or_default();
             format!(
-                "{name} · Tier {} · ♥{}{armor}{drop}",
+                "{name} · Tier {} · ♥{}{armor}{drop}{trinkets}",
                 pre.tavern_tier, pre.health
             )
         };

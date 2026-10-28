@@ -9,7 +9,7 @@ use seaglass::replay::FrameKind;
 use seaglass::{heroes, trinkets, TavernState, Timeline, Unit};
 use seaglass_tools::replay_text::{frame_title, player_name, unit_players};
 
-use super::combat::CombatPlayback;
+use super::combat::{trinkets_clause, CombatPlayback};
 
 /// What kind of moment a frame is (for colours, auto-play pacing and navigation).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -127,14 +127,8 @@ fn player_line(name: &str, s: &TavernState) -> String {
             data.name, data.power.name, state.power.cost
         ));
     }
-    let owned: Vec<&str> = s
-        .auras
-        .trinkets
-        .iter()
-        .filter_map(|t| trinkets::data(t.card_id).map(|d| d.name))
-        .collect();
-    if !owned.is_empty() {
-        parts.push(format!("Trinkets: {}", owned.join(", ")));
+    if let Some(owned) = trinkets_clause(s) {
+        parts.push(owned);
     }
     if s.is_frozen {
         parts.push("❄ frozen".to_string());
@@ -239,7 +233,8 @@ impl Source for ReplaySource {
                 .trinket_options
                 .iter()
                 .map(|o| {
-                    let name = trinkets::data(o.card_id).map_or("?", |t| t.name);
+                    let name =
+                        trinkets::data(o.card_id).map_or_else(|| "?".to_string(), trinkets::display_name);
                     format!("{name} ({}g)", o.cost)
                 })
                 .collect();

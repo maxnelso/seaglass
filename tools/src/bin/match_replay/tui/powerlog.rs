@@ -209,6 +209,13 @@ pub fn load(path: &Path, game: Option<usize>) -> Result<(PowerLogSource, String)
     Ok((PowerLogSource::new(g), label))
 }
 
+struct TeammateBoard {
+    name: String,
+    units: Vec<Unit>,
+    trinkets: Option<String>,
+    turn: u32,
+}
+
 impl PowerLogSource {
     fn new(g: &GameReplay) -> Self {
         let cards = Cards::new();
@@ -224,14 +231,23 @@ impl PowerLogSource {
             .and_then(|c| deity_kind_of(&c.deity_dbid))
             .unwrap_or(DeityKind::CThun);
         let mut frames = Vec::new();
-        let mut teammate: Option<(String, Vec<Unit>, u32)> = None;
+        let mut teammate: Option<TeammateBoard> = None;
         for turn in &g.turns {
             let t = &turn.tavern;
             let setup = g.combats.iter().find(|c| c.turn == turn.turn);
             let view = |snap: &TavernSnapshot,
                         before: Option<&TavernSnapshot>,
-                        mate: &Option<(String, Vec<Unit>, u32)>| {
-                tavern_view(&cards, &player, &g.hero_name, g.is_duos, snap, before, mate)
+                        mate: &Option<TeammateBoard>| {
+                tavern_view(
+                    &cards,
+                    &g.card_names,
+                    &player,
+                    &g.hero_name,
+                    g.is_duos,
+                    snap,
+                    before,
+                    mate,
+                )
             };
             let start = TavernSnapshot {
                 gold: t.starting_gold,
@@ -242,6 +258,7 @@ impl PowerLogSource {
                 board: t.initial_board.clone(),
                 hand: t.initial_hand.clone(),
                 shop: t.initial_shop.clone(),
+                trinkets: t.initial_trinkets.clone(),
                 is_frozen: false,
             };
             frames.push(LogFrame {
@@ -282,13 +299,14 @@ impl PowerLogSource {
                     p.board_source != seaglass_replay::reconstruct::BoardSource::LocalBoard
                 })
             {
-                teammate = Some((
-                    hero_name(mate),
-                    mate.board.iter().map(|m| cards.log_unit(m)).collect(),
-                    turn.turn,
-                ));
+                teammate = Some(TeammateBoard {
+                    name: hero_name(mate),
+                    units: mate.board.iter().map(|m| cards.log_unit(m)).collect(),
+                    trinkets: trinket_list(&mate.trinkets, &g.card_names),
+                    turn: turn.turn,
+                });
             }
-            let combat = log_combat(&cards, setup, &player, deity);
+            let combat = log_combat(&cards, setup, &player, &g.card_names, deity);
             frames.push(LogFrame {
                 info: FrameInfo {
                     turn: turn.turn,
@@ -369,12 +387,13 @@ fn describe_action(action: &TavernActionRecord) -> String {
 #[allow(clippy::too_many_arguments)]
 fn tavern_view(
     cards: &Cards,
+    card_names: &HashMap<String, String>,
     player: &str,
     hero: &str,
     duos: bool,
     snap: &TavernSnapshot,
     before: Option<&TavernSnapshot>,
-    teammate: &Option<(String, Vec<Unit>, u32)>,
+    teammate: &Option<TeammateBoard>,
 ) -> TavernView {
     let armor = if snap.hero_armor > 0 {
         format!("+{}", snap.hero_armor)
@@ -385,8 +404,11 @@ fn tavern_view(
         Some(c) if snap.tavern_tier < 6 => format!(" (up {c}g)"),
         _ => String::new(),
     };
+    let trinkets = trinket_list(&snap.trinkets, card_names)
+        .map(|t| format!(" · {t}"))
+        .unwrap_or_default();
     let hero_line = format!(
-        "{player} · {hero} ♥{}{armor} · Tier {}{upgrade} · Gold {}",
+        "{player} · {hero} ♥{}{armor} · Tier {}{upgrade} · Gold {}{trinkets}",
         snap.hero_health, snap.tavern_tier, snap.gold
     );
     let shop: Vec<Unit> = snap.shop.iter().map(|c| cards.card_unit(c)).collect();
@@ -422,14 +444,25 @@ fn tavern_view(
         },
     ];
     let detail_line = match teammate {
-        Some((name, units, turn)) => {
+        Some(mate) => {
+            let trinkets = mate
+                .trinkets
+                .as_deref()
+                .map(|t| format!(" · {t}"))
+                .unwrap_or_default();
             rows.push(Row {
-                label: format!("Teammate {name} · board as it entered combat on turn {turn}"),
-                fresh: vec![false; units.len()],
-                units: units.clone(),
+                label: format!(
+                    "Teammate {}{trinkets} · board as it entered combat on turn {}",
+                    mate.name, mate.turn
+                ),
+                fresh: vec![false; mate.units.len()],
+                units: mate.units.clone(),
                 slots: 0,
             });
-            format!("Duos · teammate {name} (the log shows their warband only at combats)")
+            format!(
+                "Duos · teammate {}{trinkets} (the log shows their warband only at combats)",
+                mate.name
+            )
         }
         None if duos => "Duos · the teammate's warband shows from the first combat on".to_string(),
         None => "Solo".to_string(),
@@ -467,7 +500,22 @@ fn player_of(setup: &CombatSetup, pid: i32) -> Option<&PlayerSetup> {
         .find(|p| p.player_id == pid)
 }
 
-fn player_label(p: &PlayerSetup, local: &str) -> String {
+/// `Trinkets: A, B` for a player's owned trinkets in a `Power.log`, if any.
+fn trinket_list(ids: &[String], card_names: &HashMap<String, String>) -> Option<String> {
+    let names: Vec<String> = ids
+        .iter()
+        .filter(|id| !id.is_empty() && !id.starts_with("BG30_Trinket_"))
+        .map(|id| {
+            seaglass::trinkets::by_card_id(id)
+                .map(seaglass::trinkets::display_name)
+                .or_else(|| card_names.get(id).cloned().filter(|n| !n.is_empty()))
+                .unwrap_or_else(|| id.clone())
+        })
+        .collect();
+    (!names.is_empty()).then(|| format!("Trinkets: {}", names.join(", ")))
+}
+
+fn player_label(p: &PlayerSetup, local: &str, card_names: &HashMap<String, String>) -> String {
     let who = match p.board_source {
         seaglass_replay::reconstruct::BoardSource::LocalBoard => format!(" ({local})"),
         _ => String::new(),
@@ -477,8 +525,11 @@ fn player_label(p: &PlayerSetup, local: &str) -> String {
     } else {
         String::new()
     };
+    let trinkets = trinket_list(&p.trinkets, card_names)
+        .map(|t| format!(" · {t}"))
+        .unwrap_or_default();
     format!(
-        "{}{who} · Tier {} · ♥{}{armor}",
+        "{}{who} · Tier {} · ♥{}{armor}{trinkets}",
         hero_name(p),
         p.tier,
         p.hero_health
@@ -495,7 +546,13 @@ fn hero_name(p: &PlayerSetup) -> String {
 }
 
 /// A combat as the log shows it, with the engine's version attached.
-fn log_combat(cards: &Cards, setup: &CombatSetup, local: &str, deity: DeityKind) -> CombatPlayback {
+fn log_combat(
+    cards: &Cards,
+    setup: &CombatSetup,
+    local: &str,
+    card_names: &HashMap<String, String>,
+    deity: DeityKind,
+) -> CombatPlayback {
     // A forced attack (`Jailbird Juggernaut`'s Golem attacking the target first) is part of its
     // summoner's strike, as the engine resolves it: drop the frame between them.
     let frames: Vec<&seaglass_replay::reconstruct::CombatFrame> = setup
@@ -587,7 +644,7 @@ fn log_combat(cards: &Cards, setup: &CombatSetup, local: &str, deity: DeityKind)
     let labels_after = |end: usize| {
         fighters_after(end).map(|pid| {
             pid.and_then(|pid| player_of(setup, pid))
-                .map_or_else(|| "?".to_string(), |p| player_label(p, local))
+                .map_or_else(|| "?".to_string(), |p| player_label(p, local, card_names))
         })
     };
 
@@ -677,7 +734,9 @@ fn log_combat(cards: &Cards, setup: &CombatSetup, local: &str, deity: DeityKind)
         real.warning = Some("the log has no board snapshots for this combat".to_string());
         return real;
     }
-    match panic::catch_unwind(AssertUnwindSafe(|| engine_combat(setup, local, deity))) {
+    match panic::catch_unwind(AssertUnwindSafe(|| {
+        engine_combat(setup, local, card_names, deity)
+    })) {
         Ok(engine) => {
             let note = compare(&real, &engine);
             real.warning = note.clone();
@@ -698,7 +757,12 @@ const ENGINE_SEEDS: u64 = 64;
 /// The engine's version of a combat: the warbands that entered it, attacking the real targets
 /// while its attacks match the real ones (of [`ENGINE_SEEDS`] runs, the one that follows them the
 /// longest).
-fn engine_combat(setup: &CombatSetup, local: &str, deity: DeityKind) -> CombatPlayback {
+fn engine_combat(
+    setup: &CombatSetup,
+    local: &str,
+    card_names: &HashMap<String, String>,
+    deity: DeityKind,
+) -> CombatPlayback {
     let input = engine_input(setup, deity);
     // The run that follows the real attacks the longest (who attacks first on a tie, and the
     // random draws after the engine stops following, depend on the seed).
@@ -744,7 +808,7 @@ fn engine_combat(setup: &CombatSetup, local: &str, deity: DeityKind) -> CombatPl
         }
         step.labels = f.map(|pid| {
             pid.and_then(|pid| player_of(setup, pid))
-                .map_or_else(|| "?".to_string(), |p| player_label(p, local))
+                .map_or_else(|| "?".to_string(), |p| player_label(p, local, card_names))
         });
     }
     let mut warnings = Vec::new();
