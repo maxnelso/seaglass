@@ -14,16 +14,21 @@ use std::collections::HashMap;
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
 
-use seaglass::{full_catalog, CardTemplate, CombatSnapshot, DeityKind, Event, Side, Tribe, Unit};
-use seaglass_replay::reconstruct::{CombatSetup, LogMinion, PlayerSetup, ServerEvent};
-use seaglass_replay::validate::{deity_kind_of, engine_input, engine_trace};
+use seaglass::{
+    full_catalog, resolve_battle, resolve_duos_battle, CardTemplate, CombatSnapshot, DeityKind,
+    Event, GameState, Side, Tribe, Unit,
+};
+use seaglass_replay::reconstruct::{BoardSource, CombatSetup, LogMinion, PlayerSetup, ServerEvent};
+use seaglass_replay::validate::{deity_kind_of, engine_input, engine_trace, EngineInput};
 use seaglass_replay::{
     map_hs_card, parse_power_log_file, GameReplay, ReplayCard, ReplayUnit, TavernActionRecord,
     TavernSnapshot,
 };
 use seaglass_tools::fmt::CombatNames;
 
-use super::combat::{engine_steps, ids, CombatPlayback, Phase, Step};
+use super::combat::{
+    engine_steps, ids, CombatOdds, CombatPlayback, Phase, Step, ODDS_BASE_SEED, ODDS_RUNS,
+};
 use super::show::{fresh, FrameInfo, Kind, Row, Source, TavernView};
 
 /// Whether `path` looks like a `Power.log` rather than a seaglass replay.
@@ -728,9 +733,15 @@ fn log_combat(
         result,
         version: "real",
         warning: None,
+        odds: None,
         alt: None,
     };
     if setup.frames.is_empty() {
+        real.odds = panic::catch_unwind(AssertUnwindSafe(|| {
+            let input = engine_input(setup, deity);
+            powerlog_odds(setup, local, &input)
+        }))
+        .ok();
         real.warning = Some("the log has no board snapshots for this combat".to_string());
         return real;
     }
@@ -740,6 +751,7 @@ fn log_combat(
         Ok(engine) => {
             let note = compare(&real, &engine);
             real.warning = note.clone();
+            real.odds = engine.odds.clone();
             let mut engine = engine;
             if engine.warning.is_none() {
                 engine.warning = note;
@@ -749,6 +761,97 @@ fn log_combat(
         Err(_) => real.warning = Some("the engine panicked on this combat".to_string()),
     }
     real
+}
+
+/// Pre-combat outcome distribution for a reconstructed `Power.log` combat.
+///
+/// If a Duos backup warband was absent from the log (`BoardSource::Missing` or fewer than two
+/// players reconstructed on a team), `engine_input` leaves that backup warband empty and the odds
+/// carry a `backup unknown` note.
+fn powerlog_odds(setup: &CombatSetup, local: &str, input: &EngineInput) -> CombatOdds {
+    let us = if setup.is_duos {
+        format!("{local}'s team")
+    } else {
+        local.to_string()
+    };
+    let them = opponents(setup);
+    let team_threshold = |players: &[PlayerSetup], team: &seaglass::DuosTeam| -> Option<u32> {
+        if team
+            .warbands
+            .iter()
+            .any(|w| seaglass::trinkets::prevent_fatal(&mut w.auras.clone()))
+        {
+            return None;
+        }
+        players
+            .iter()
+            .filter(|p| p.hero_health > 0 && !p.hero_card_id.contains("KelThuzad"))
+            .map(|p| (p.hero_health + p.hero_armor.max(0)) as u32)
+            .max()
+    };
+    let thresholds = [
+        team_threshold(&setup.team_a.players, &input.team_a),
+        team_threshold(&setup.team_b.players, &input.team_b),
+    ];
+    let damage_cap = setup.damage_cap.map(|c| c.max(0) as u32);
+    let mut notes = Vec::new();
+    let unknown_backup = setup.is_duos
+        && (setup.team_a.players.len() < 2
+            || setup.team_b.players.len() < 2
+            || setup
+                .team_a
+                .players
+                .iter()
+                .chain(&setup.team_b.players)
+                .any(|p| p.board_source == BoardSource::Missing));
+    if unknown_backup {
+        notes.push("backup unknown");
+    }
+    if !input.unimplemented.is_empty() {
+        notes.push("approx (vanilla bodies)");
+    } else if input.gaps.iter().any(|g| {
+        g.contains("not simulated") || g.contains("not implemented") || g.contains("it matters")
+    }) {
+        notes.push("approx");
+    }
+    let note = (!notes.is_empty()).then(|| notes.join(", "));
+    let base_seed = ODDS_BASE_SEED ^ u64::from(setup.turn).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    if input.is_duos {
+        CombatOdds::sample(
+            [us, them],
+            ODDS_RUNS,
+            base_seed,
+            damage_cap,
+            thresholds,
+            note,
+            |seed| {
+                let r = resolve_duos_battle(&input.team_a, &input.team_b, seed);
+                (r.outcome, r.hero_damage)
+            },
+        )
+    } else {
+        let [a, b] = [&input.team_a.warbands[0], &input.team_b.warbands[0]];
+        let state = GameState {
+            hero_tier_a: a.hero_tier,
+            hero_tier_b: b.hero_tier,
+            auras_a: a.auras.clone(),
+            auras_b: b.auras.clone(),
+            hand_a: a.hand.clone(),
+            hand_b: b.hand.clone(),
+        };
+        CombatOdds::sample(
+            [us, them],
+            ODDS_RUNS,
+            base_seed,
+            damage_cap,
+            thresholds,
+            note,
+            |seed| {
+                let r = resolve_battle(&a.board, &b.board, &state, seed);
+                (r.outcome, r.hero_damage)
+            },
+        )
+    }
 }
 
 /// The seeds tried for the engine's version of a combat.
@@ -764,6 +867,7 @@ fn engine_combat(
     deity: DeityKind,
 ) -> CombatPlayback {
     let input = engine_input(setup, deity);
+    let odds = Some(powerlog_odds(setup, local, &input));
     // The run that follows the real attacks the longest (who attacks first on a tie, and the
     // random draws after the engine stops following, depend on the seed).
     let mut trace = engine_trace(setup, &input, 0);
@@ -841,6 +945,7 @@ fn engine_combat(
         result: team_result(trace.outcome, damage),
         version: "engine",
         warning: (!warnings.is_empty()).then(|| warnings.join(" · ")),
+        odds,
         alt: None,
     }
 }
@@ -984,6 +1089,9 @@ pub fn compare_report(
             engine.result,
             strikes(engine)
         );
+        if let Some(odds) = &real.odds {
+            let _ = writeln!(out, "  {}", odds.line(Side::A));
+        }
         if real.result == engine.result {
             same_result += 1;
         }

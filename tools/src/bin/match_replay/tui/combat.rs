@@ -12,11 +12,235 @@
 
 use std::ops::Range;
 
+use seaglass::combat::MAX_BOARD_SIZE;
 use seaglass::{
-    with_combat_trace, BattleOutcome, BattleResult, CombatSnapshot, Event, Side, TavernState,
-    UnitId,
+    resolve_battle, with_combat_trace, BattleOutcome, BattleResult, CombatSnapshot, Event,
+    GameState, Rng, Side, TavernState, UnitId,
 };
 use seaglass_tools::fmt::CombatNames;
+
+/// Number of simulated combats per fight for pre-combat outcome probabilities.
+pub const ODDS_RUNS: u32 = if cfg!(debug_assertions) { 100 } else { 1000 };
+
+/// Base seed mixed with a combat's seed or turn to sample independent RNG streams.
+pub const ODDS_BASE_SEED: u64 = 0x5EA6_1A55_0DD5_2026;
+
+/// Formatted segments of [`CombatOdds`] from one side's perspective.
+pub struct OddsParts {
+    pub who: String,
+    pub win: String,
+    pub tie: String,
+    pub loss: String,
+    pub damage: String,
+    pub note: Option<String>,
+    pub has_wins: bool,
+    pub has_ties: bool,
+    pub has_losses: bool,
+}
+
+/// Pre-combat outcome distribution across [`ODDS_RUNS`] simulated runs.
+///
+/// Stored from Side A's perspective; [`Self::parts`] and [`Self::line`] flip it when Side B is at
+/// the bottom of the screen.
+#[derive(Clone, Debug)]
+pub struct CombatOdds {
+    pub side_names: [String; 2],
+    pub runs: u32,
+    pub a_wins: u32,
+    pub b_wins: u32,
+    pub draws: u32,
+    /// Runs where Side A dealt fatal combat damage to Side B.
+    pub a_lethals: u32,
+    /// Runs where Side B dealt fatal combat damage to Side A.
+    pub b_lethals: u32,
+    /// Mean signed capped hero damage from Side A's perspective.
+    pub mean_damage_a: f64,
+    pub min_damage_a: i32,
+    pub max_damage_a: i32,
+    /// Optional caveat (for example, `backup unknown` or `approx (vanilla bodies)`).
+    pub note: Option<String>,
+}
+
+fn signed_damage(v: i32) -> String {
+    if v == 0 {
+        "0".to_string()
+    } else {
+        format!("{v:+}")
+    }
+}
+
+impl CombatOdds {
+    /// Sample `runs` combats from `base_seed` and aggregate Win / Tie / Loss / Lethal % and capped
+    /// hero damage. `lethal_threshold` is `[hp_needed_to_kill_a, hp_needed_to_kill_b]`.
+    pub fn sample(
+        side_names: [String; 2],
+        runs: u32,
+        base_seed: u64,
+        damage_cap: Option<u32>,
+        lethal_threshold: [Option<u32>; 2],
+        note: Option<String>,
+        mut run: impl FnMut(u64) -> (BattleOutcome, u32),
+    ) -> Self {
+        let runs = runs.max(1);
+        let mut seeder = Rng::new(base_seed);
+        let (mut a_wins, mut b_wins, mut draws) = (0, 0, 0);
+        let (mut a_lethals, mut b_lethals) = (0, 0);
+        let mut total_a: i64 = 0;
+        let mut min_a = i32::MAX;
+        let mut max_a = i32::MIN;
+        for _ in 0..runs {
+            let (outcome, raw_damage) = run(seeder.next_u64());
+            let dmg = damage_cap.map_or(raw_damage, |cap| raw_damage.min(cap));
+            let signed = match outcome {
+                BattleOutcome::AWin => {
+                    a_wins += 1;
+                    if lethal_threshold[1].is_some_and(|th| dmg >= th) {
+                        a_lethals += 1;
+                    }
+                    dmg as i32
+                }
+                BattleOutcome::BWin => {
+                    b_wins += 1;
+                    if lethal_threshold[0].is_some_and(|th| dmg >= th) {
+                        b_lethals += 1;
+                    }
+                    -(dmg as i32)
+                }
+                BattleOutcome::Draw => {
+                    draws += 1;
+                    0
+                }
+            };
+            total_a += i64::from(signed);
+            min_a = min_a.min(signed);
+            max_a = max_a.max(signed);
+        }
+        Self {
+            side_names,
+            runs,
+            a_wins,
+            b_wins,
+            draws,
+            a_lethals,
+            b_lethals,
+            mean_damage_a: total_a as f64 / f64::from(runs),
+            min_damage_a: min_a,
+            max_damage_a: max_a,
+            note,
+        }
+    }
+
+    pub fn parts(&self, side: Side) -> OddsParts {
+        let (who, wins, losses, win_lethals, loss_lethals, mean, min, max) = match side {
+            Side::A => (
+                &self.side_names[0],
+                self.a_wins,
+                self.b_wins,
+                self.a_lethals,
+                self.b_lethals,
+                self.mean_damage_a,
+                self.min_damage_a,
+                self.max_damage_a,
+            ),
+            Side::B => (
+                &self.side_names[1],
+                self.b_wins,
+                self.a_wins,
+                self.b_lethals,
+                self.a_lethals,
+                -self.mean_damage_a,
+                -self.max_damage_a,
+                -self.min_damage_a,
+            ),
+        };
+        let pct = |n: u32| 100.0 * f64::from(n) / f64::from(self.runs.max(1));
+        let win_lethal = if win_lethals > 0 {
+            format!(" (lethal {:.1}%)", pct(win_lethals))
+        } else {
+            String::new()
+        };
+        let loss_lethal = if loss_lethals > 0 {
+            format!(" (lethal {:.1}%)", pct(loss_lethals))
+        } else {
+            String::new()
+        };
+        let mean = if mean.abs() < 1e-9 { 0.0 } else { mean };
+        let damage = if min == max {
+            format!("dmg {}", signed_damage(min))
+        } else {
+            format!(
+                "avg {mean:+.1} dmg [{}..{}]",
+                signed_damage(min),
+                signed_damage(max)
+            )
+        };
+        OddsParts {
+            who: who.clone(),
+            win: format!("Win {:.1}%{win_lethal}", pct(wins)),
+            tie: format!("Tie {:.1}%", pct(self.draws)),
+            loss: format!("Loss {:.1}%{loss_lethal}", pct(losses)),
+            damage,
+            note: self.note.clone(),
+            has_wins: wins > 0,
+            has_ties: self.draws > 0,
+            has_losses: losses > 0,
+        }
+    }
+
+    pub fn line(&self, side: Side) -> String {
+        let p = self.parts(side);
+        let note = p.note.map(|n| format!(" · {n}")).unwrap_or_default();
+        format!(
+            "Odds ({}): {} · {} · {} · {}{note}",
+            p.who, p.win, p.tie, p.loss, p.damage
+        )
+    }
+}
+
+fn solo_lethal_threshold(state: &TavernState) -> Option<u32> {
+    if state.health <= 0 || seaglass::trinkets::prevent_fatal(&mut state.auras.clone()) {
+        None
+    } else {
+        Some((state.health + state.armor.max(0)) as u32)
+    }
+}
+
+/// Pre-combat odds for a Solo combat between `pre_a` and `pre_b`.
+pub fn solo_odds(
+    names: [&str; 2],
+    pre_a: &TavernState,
+    pre_b: &TavernState,
+    seed: u64,
+) -> CombatOdds {
+    let (mut a, mut b) = (pre_a.clone(), pre_b.clone());
+    a.sync_all_auras();
+    b.sync_all_auras();
+    let mut board_a = a.board.clone();
+    board_a.truncate(MAX_BOARD_SIZE);
+    let mut board_b = b.board.clone();
+    board_b.truncate(MAX_BOARD_SIZE);
+    let state = GameState {
+        hero_tier_a: a.tavern_tier,
+        hero_tier_b: b.tavern_tier,
+        auras_a: a.auras.clone(),
+        auras_b: b.auras.clone(),
+        hand_a: a.hand.clone(),
+        hand_b: b.hand.clone(),
+    };
+    let thresholds = [solo_lethal_threshold(&a), solo_lethal_threshold(&b)];
+    CombatOdds::sample(
+        names.map(str::to_string),
+        ODDS_RUNS,
+        seed ^ ODDS_BASE_SEED,
+        None,
+        thresholds,
+        None,
+        |s| {
+            let r = resolve_battle(&board_a, &board_b, &state, s);
+            (r.outcome, r.hero_damage)
+        },
+    )
+}
 
 /// What a step shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,6 +316,8 @@ pub struct CombatPlayback {
     pub version: &'static str,
     /// Something to warn about (the re-run differs from the replay, where the engine diverges).
     pub warning: Option<String>,
+    /// Pre-combat outcome distribution across simulated runs.
+    pub odds: Option<CombatOdds>,
     /// Another version of the same combat (the engine's, for a `Power.log` combat).
     pub alt: Option<Box<CombatPlayback>>,
 }
@@ -171,6 +397,7 @@ impl CombatPlayback {
             result: result_text(result.outcome, result.hero_damage, names),
             version: "",
             warning: (result != *recorded).then(|| "the re-run differs from the replay".into()),
+            odds: Some(solo_odds(names, pre_a, pre_b, seed)),
             alt: None,
             snapshots,
             texts,

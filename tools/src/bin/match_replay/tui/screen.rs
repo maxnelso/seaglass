@@ -10,7 +10,7 @@ use seaglass_tools::render::{
 };
 
 use super::app::App;
-use super::combat::{CombatPlayback, Phase, Step};
+use super::combat::{CombatOdds, CombatPlayback, Phase, Step};
 use super::show::Kind;
 
 const RULE: char = '─';
@@ -288,7 +288,8 @@ fn combat_body(
     let width = c.width();
     let size = fit(7, width - 2);
     let room = bottom - top;
-    let size = if room >= 2 * size.height() + 10 {
+    let header_lines = usize::from(!combat.version.is_empty()) + usize::from(combat.odds.is_some());
+    let size = if room >= 2 * size.height() + 9 + header_lines {
         size
     } else {
         CardSize::Compact
@@ -326,6 +327,10 @@ fn combat_body(
                 Style::fg(Color::Yellow).bold(),
             );
         }
+        y += 1;
+    }
+    if let Some(odds) = &combat.odds {
+        draw_odds(c, 1, y, width - 2, odds, bottom_side);
         y += 1;
     }
     c.text(
@@ -596,4 +601,54 @@ fn help(c: &mut Canvas) {
         panel.text(16, 2 + i, &truncate(what, width - 18), Style::PLAIN);
     }
     c.blit(x, y, &panel);
+}
+
+fn draw_odds(c: &mut Canvas, x0: usize, y: usize, width: usize, odds: &CombatOdds, side: Side) {
+    let p = odds.parts(side);
+    let mut spans: Vec<(String, Style)> = vec![
+        (format!("Odds ({}): ", p.who), Style::fg(Color::Cyan).bold()),
+        (
+            p.win,
+            if p.has_wins {
+                Style::fg(Color::Green).bold()
+            } else {
+                Style::fg(Color::Gray)
+            },
+        ),
+        (" · ".to_string(), Style::fg(Color::Gray)),
+        (
+            p.tie,
+            if p.has_ties {
+                Style::fg(Color::Yellow)
+            } else {
+                Style::fg(Color::Gray)
+            },
+        ),
+        (" · ".to_string(), Style::fg(Color::Gray)),
+        (
+            p.loss,
+            if p.has_losses {
+                Style::fg(Color::Red).bold()
+            } else {
+                Style::fg(Color::Gray)
+            },
+        ),
+        (" · ".to_string(), Style::fg(Color::Gray)),
+        (p.damage, Style::PLAIN),
+    ];
+    if let Some(note) = p.note {
+        spans.push((" · ".to_string(), Style::fg(Color::Gray)));
+        spans.push((note, Style::fg(Color::Yellow)));
+    }
+    let mut x = x0;
+    let mut left = width;
+    for (text, style) in spans {
+        if left == 0 {
+            break;
+        }
+        let clipped = truncate(&text, left);
+        let n = c.text(x, y, &clipped, style);
+        x += n;
+        left = left.saturating_sub(n);
+    }
 }
