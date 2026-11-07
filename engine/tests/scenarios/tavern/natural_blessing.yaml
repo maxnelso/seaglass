@@ -8,8 +8,8 @@ scenarios:
     steps:
       - play: {hand: Natural Blessing, pos: 0}
     expect:
-      board: ["Crackling Cyclone 4/2", "Dune Dweller 5/4"]
-      shop: ["Sellemental 5/4"]
+      board: ["Crackling Cyclone 4/3", "Dune Dweller 5/5"]
+      shop: ["Sellemental 5/5"]
 
   - name: cant_target_a_minion_without_a_type
     tavern: {board: [Iron Groundskeeper, Flittering Bat], hand: [Natural Blessing]}   # Iron Groundskeeper: no type
@@ -24,9 +24,9 @@ scenarios:
       hand: [Natural Blessing]
     steps:
       - play: {hand: Natural Blessing, pos: 0}
-    expect:   # +2/+1 to Beasts and Pirates
-      board: ["Treasure Parrot 7/6", "Flittering Bat 3/5", "Southsea Busker 5/2", "Glim Guardian 1/4"]
-      shop: ["Buzzing Vermin 3/2", "Southsea Busker 5/2", "Lullabot 2/2"]
+    expect:   # +2/+2 to Beasts and Pirates
+      board: ["Treasure Parrot 7/7", "Flittering Bat 3/6", "Southsea Busker 5/3", "Glim Guardian 1/4"]
+      shop: ["Buzzing Vermin 3/3", "Southsea Busker 5/3", "Lullabot 2/2"]
 
   - name: an_all_type_target_buffs_every_type
     tavern:
@@ -35,9 +35,9 @@ scenarios:
       hand: [Natural Blessing]
     steps:
       - play: {hand: Natural Blessing, pos: 0}
-    expect:   # +2/+1 to every minion with a type
-      board: ["Dark Paradox 4/7", "Flittering Bat 3/5", "Iron Groundskeeper 2/2"]
-      shop: ["Lullabot 4/3"]
+    expect:   # +2/+2 to every minion with a type
+      board: ["Dark Paradox 4/8", "Flittering Bat 3/6", "Iron Groundskeeper 2/2"]
+      shop: ["Lullabot 4/4"]
 
   - name: a_naga_target_buffs_its_dragon_and_naga_types
     description: >-
@@ -49,6 +49,6 @@ scenarios:
       hand: [Natural Blessing]
     steps:
       - play: {hand: Natural Blessing, pos: 0}
-    expect:   # +2/+1 to Dragons and Nagas
-      board: ["Firescale Hoarder 7/6", "Ominous Seer 4/2", "Glim Guardian 3/5", "Wrath Weaver 1/3"]
-      shop: ["Ominous Seer 4/2", "Wrath Weaver 1/3"]
+    expect:   # +2/+2 to Dragons and Nagas
+      board: ["Firescale Hoarder 7/7", "Ominous Seer 4/3", "Glim Guardian 3/6", "Wrath Weaver 1/3"]
+      shop: ["Ominous Seer 4/3", "Wrath Weaver 1/3"]

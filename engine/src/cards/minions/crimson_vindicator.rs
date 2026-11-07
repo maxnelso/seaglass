@@ -1,6 +1,6 @@
-//! `Crimson Vindicator` (`BG36_241`) — Tier 6 Dragon (`8/9`, Divine Shield).
+//! `Crimson Vindicator` (`BG36_241`) — Tier 6 Dragon (`9/7`, Divine Shield, Windfury).
 //!
-//! Divine Shield. Rally: Cast `Mighty Dragonbreath` (`twice` if Golden).
+//! Divine Shield. Windfury. Rally: Cast `Mighty Dragonbreath` (`twice` if Golden).
 //!
 //! Each cast gets your spell power: the permanent bonuses plus the spell auras of the friendly
 //! minions alive when it is cast (`docs/combat.md` §2).
@@ -18,9 +18,10 @@ use crate::model::{CardId, Keyword, Tribe, Unit};
 pub const ID: CardId = 604;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Crimson Vindicator", 8, 9, 6)
+    CardTemplate::new(ID, "Crimson Vindicator", 9, 7, 6)
         .with_tribe(Tribe::Dragon)
         .with_keyword(Keyword::DivineShield)
+        .with_keyword(Keyword::Windfury)
         .on_rally(on_rally)
 }
 

@@ -1,4 +1,4 @@
-//! `Yogg-Tastic Pastry` (`BG30_MagicItem_994`) — Lesser, 5 Gold.
+//! `Yogg-Tastic Pastry` (`BG30_MagicItem_994`) — Lesser, 3 Gold.
 //!
 //! Spin the Wheel of Yogg-Saron. At the start of each turn, spin it again.
 //!

@@ -1,9 +1,9 @@
 trinket: Cursed Crystal
 scenarios:
-  - name: a_refresh_gives_the_tavern_minions_three_three_this_turn
+  - name: a_refresh_gives_the_tavern_minions_two_two_this_turn
     tavern: {gold: 5, auras: {trinkets: [Cursed Crystal]}}
     steps:
       - refresh
-      - expect: {auras: {tavern_turn_atk: 3, tavern_turn_hp: 3}, shop: {all: {attack: "@base_attack + 3"}}}
+      - expect: {auras: {tavern_turn_atk: 2, tavern_turn_hp: 2}, shop: {all: {attack: "@base_attack + 2"}}}
       - refresh
-    expect: {auras: {tavern_turn_atk: 3}, shop: {all: {attack: "@base_attack + 3"}}}
+    expect: {auras: {tavern_turn_atk: 2}, shop: {all: {attack: "@base_attack + 2"}}}

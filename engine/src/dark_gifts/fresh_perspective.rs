@@ -1,4 +1,4 @@
-//! `Fresh Perspective` (`BG36_MidGameEffect_000t52`) — turns 3–5, weight 100.
+//! `Fresh Perspective` (`BG36_MidGameEffect_000t52`) — turns 4–5, weight 100.
 //!
 //! Deathrattle: Gain 2 free Refreshes.
 //!

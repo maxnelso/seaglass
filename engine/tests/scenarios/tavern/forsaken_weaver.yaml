@@ -22,7 +22,7 @@ scenarios:
         survivors_a: {1: "Forsaken Weaver 9/10"}   # + 3/2 from Mighty Dragonbreath
         hand_a: ["Plaguerunner 7/2"]
       auras: {undead_bonus_attack: 3}
-      board: ["Crimson Vindicator 8/9", "Forsaken Weaver 6/8"]
+      board: ["Crimson Vindicator 9/7", "Forsaken Weaver 6/8"]
       hand: ["Plaguerunner 7/2"]
 
   - name: a_bought_undead_gets_the_undead_attack_its_own_gold_gives

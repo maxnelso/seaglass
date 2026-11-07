@@ -1,26 +1,26 @@
 card: Shamanic Tidecaller
 scenarios:
-  - name: spell_on_a_murloc_gives_murlocs_in_hand_and_board_3_3
+  - name: spell_on_a_murloc_gives_murlocs_in_hand_and_board_3_4
     tavern:
-      board: [Shamanic Tidecaller]   # a 5/7 Murloc
+      board: [Shamanic Tidecaller]   # a 6/9 Murloc
       hand: [Tavern Dish Banana, Flighty Scout]   # Flighty Scout: 3/3 Murloc
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}
     expect:
-      board: ["Shamanic Tidecaller 10/12"]   # 5/7 + 2/2 (Banana) + 3/3
-      hand: ["Flighty Scout 6/6"]
+      board: ["Shamanic Tidecaller 11/15"]   # 6/9 + 2/2 (Banana) + 3/4
+      hand: ["Flighty Scout 6/7"]
 
   - name: a_spell_on_a_murloc_in_the_tavern_triggers_it
     tavern:
-      board: [Shamanic Tidecaller]   # a 5/7 Murloc
+      board: [Shamanic Tidecaller]   # a 6/9 Murloc
       shop: [Bubble Gunner]   # a 2/3 Murloc
       hand: [Tavern Dish Banana, Flighty Scout]
     steps:
       - play: {hand: Tavern Dish Banana, shop: 0}
     expect:
-      board: ["Shamanic Tidecaller 8/10"]   # +3/+3
+      board: ["Shamanic Tidecaller 9/13"]   # +3/+4
       shop: ["Bubble Gunner 4/5"]   # only the Banana's +2/+2: not one of your Murlocs
-      hand: ["Flighty Scout 6/6"]
+      hand: ["Flighty Scout 6/7"]
 
   - name: a_blood_gem_your_minion_plays_on_a_murloc_doesnt_trigger_it
     description: >-
@@ -28,10 +28,10 @@ scenarios:
       one on the Tidecaller isn't a spell you cast on a Murloc.
     tavern:
       gold: 1
-      board: [Sky-hatch Runaway, Bonker, Shamanic Tidecaller]   # 4/7 Dragon; 2/7 Quilboar; 5/7 Murloc
+      board: [Sky-hatch Runaway, Bonker, Shamanic Tidecaller]   # 4/7 Dragon; 2/7 Quilboar; 6/9 Murloc
       hand: [Flighty Scout]   # a 3/3 Murloc
     steps:
       - activate: {pos: Sky-hatch Runaway, target: 1}
     expect:
-      board: ["Sky-hatch Runaway 5/8", "Bonker 2/7", "Shamanic Tidecaller 6/8"]   # only the +1/+1
+      board: ["Sky-hatch Runaway 5/8", "Bonker 2/7", "Shamanic Tidecaller 7/10"]   # only the +1/+1
       hand: ["Flighty Scout 3/3"]

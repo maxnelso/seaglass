@@ -47,7 +47,7 @@ scenarios:
     tavern: {board: [Balinda Stonehearth, Living Azerite], hand: [Tavern Dish Banana]}
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}   # on Balinda
-    expect: {auras: {tavern_elemental_atk: 8, tavern_elemental_hp: 6}}   # +4/+3 per cast
+    expect: {auras: {tavern_elemental_atk: 6, tavern_elemental_hp: 6}}   # +3/+3 per cast
 
   - name: sha_of_fear_triggers_on_both_casts
     tavern: {board: [Balinda Stonehearth, Sha of Fear], hand: [Tavern Dish Banana]}   # 10/13; the deity starts 1/1
@@ -90,30 +90,30 @@ scenarios:
     tavern: {board: [Balinda Stonehearth, Gatekeeper Amalgam, Flittering Bat], hand: [Fortify]}   # a 6/6 All, a 1/4 Beast
     steps:
       - play: {hand: Fortify, pos: 1}   # on the Amalgam: a Misplaced Tea Set per cast
-    expect:   # each Tea Set: +4/+4 on the Amalgam (Aberration) and the Bat (Beast)
-      board: ["Balinda Stonehearth 6/6", "Gatekeeper Amalgam 14/20 taunt", "Flittering Bat 9/12"]
+    expect:   # each Tea Set: +3/+3 on the Amalgam (Aberration) and the Bat (Beast)
+      board: ["Balinda Stonehearth 6/6", "Gatekeeper Amalgam 12/18 taunt", "Flittering Bat 7/10"]
 
   - name: glambot_triggers_on_both_casts
-    tavern: {board: [Balinda Stonehearth, Glambot], hand: [Tavern Dish Banana]}   # a 4/4 Mech
+    tavern: {board: [Balinda Stonehearth, Glambot], hand: [Tavern Dish Banana]}   # a 5/5 Mech
     steps:
       - play: {hand: Tavern Dish Banana, pos: 1}   # on Glambot
-    expect: {board: [Balinda Stonehearth, "Glambot 16/16"]}   # +2/+2 and a 4/4 Satellite per cast
+    expect: {board: [Balinda Stonehearth, "Glambot 19/19"]}   # +2/+2 and a 5/5 Satellite per cast
 
   - name: shamanic_tidecaller_triggers_on_both_casts
     tavern:
-      board: [Balinda Stonehearth, Shamanic Tidecaller]   # a 5/7 Murloc
+      board: [Balinda Stonehearth, Shamanic Tidecaller]   # a 6/9 Murloc
       hand: [Tavern Dish Banana, Flighty Scout]   # Flighty Scout: 3/3 Murloc
     steps:
       - play: {hand: Tavern Dish Banana, pos: 1}   # on the Tidecaller
     expect:
-      board: [Balinda Stonehearth, "Shamanic Tidecaller 15/17"]   # +2/+2 and +3/+3 per cast
-      hand: ["Flighty Scout 9/9"]
+      board: [Balinda Stonehearth, "Shamanic Tidecaller 16/21"]   # +2/+2 and +3/+4 per cast
+      hand: ["Flighty Scout 9/11"]
 
   - name: twilight_tidehunter_triggers_on_both_casts
     tavern: {board: [Balinda Stonehearth, Twilight Tidehunter], hand: [Iron Groundskeeper, Tavern Dish Banana]}
     steps:
       - play: {hand: Tavern Dish Banana, pos: 1}   # on the Tidehunter
-    expect: {hand: ["Iron Groundskeeper 18/18"]}   # +8/+8 per cast
+    expect: {hand: ["Iron Groundskeeper 20/20"]}   # +9/+9 per cast
 
   # Whoever casts it: a spell one of your minions casts on a friendly minion repeats too
   # (docs/tavern.md §7.4).

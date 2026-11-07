@@ -1,4 +1,4 @@
-//! `Obsidian Ravager` (`BG27_017`) — Tier 7 Dragon (`7/7`).
+//! `Obsidian Ravager` (`BG27_017`) — Tier 7 Dragon (`11/11`).
 //!
 //! Rally: Deal damage equal to this minion's Attack to the target and an adjacent minion
 //! (to the target and its neighbors if Golden).
@@ -15,7 +15,7 @@ use crate::rng::Rng;
 pub const ID: CardId = 706;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Obsidian Ravager", 7, 7, 7)
+    CardTemplate::new(ID, "Obsidian Ravager", 11, 11, 7)
         .with_tribe(Tribe::Dragon)
         .on_rally(|c| {
             if let Some((def_board, def_pos)) = c.def_target.as_mut() {

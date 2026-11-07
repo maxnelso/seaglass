@@ -1,6 +1,7 @@
-//! Minion card definitions: every active Solo minion (Tavern Tiers 1-7, Patch 36.6.3), and the
-//! implemented Duos-exclusive minions ([`duos_catalog`]) and the minions only trinkets give
-//! ([`trinket_catalog`]), one module per card.
+//! Minion card definitions: every active Solo minion (Tavern Tiers 1-7, Patch 37.0.2), and the
+//! implemented Duos-exclusive minions ([`duos_catalog`]), retired Solo pool minions
+//! ([`solo_out_of_pool_catalog`]), and the minions only trinkets give ([`trinket_catalog`]), one
+//! module per card.
 //!
 //! Each module declares its card's `ID`, `NAME` and `template()` (stats, tribe, keywords and
 //! [`CardHooks`](crate::cards::CardHooks)) plus the functions implementing its effects. All
@@ -182,6 +183,7 @@ pub mod mindbending_recruiter;
 pub mod mirror_monster;
 pub mod mishmash;
 pub mod mummifier;
+pub mod murcules;
 pub mod mysterious_kthir;
 pub mod nadina_the_red;
 pub mod nerubian_deathswarmer;
@@ -342,7 +344,6 @@ pub fn catalog() -> Vec<CardTemplate> {
         decoy_conjurer::template(),
         electric_synthesizer::template(),
         eternal_knight::template(),
-        expert_aviator::template(),
         fire_baller::template(),
         forest_rover::template(),
         green_volumizer::template(),
@@ -367,6 +368,7 @@ pub fn catalog() -> Vec<CardTemplate> {
         underrot_spawn::template(),
         very_hungry_winterfinner::template(),
         wandering_willbreaker::template(),
+        murcules::template(),
         // Tier 3
         abyssal_envoy::template(),
         accord_o_tron::template(),
@@ -442,7 +444,6 @@ pub fn catalog() -> Vec<CardTemplate> {
         heroic_underdog::template(),
         hoarding_hyena::template(),
         holy_vanguard::template(),
-        hot_air_surveyor::template(),
         humongozz::template(),
         ichoron_the_protector::template(),
         imp_lusionist::template(),
@@ -523,6 +524,8 @@ pub fn catalog() -> Vec<CardTemplate> {
         tichondrius::template(),
         titus_rivendare::template(),
         turquoise_skitterer::template(),
+        hot_air_surveyor::template(),
+        harbinger_aphlass::template(),
         // Tier 6
         auto_reveille::template(),
         balinda_stonehearth::template(),
@@ -536,7 +539,6 @@ pub fn catalog() -> Vec<CardTemplate> {
         falling_sky_golem::template(),
         forsaken_weaver::template(),
         gatekeeper_amalgam::template(),
-        harbinger_aphlass::template(),
         heroic_broodmother::template(),
         hooktusk_master_marauder::template(),
         magicfin_mycologist::template(),
@@ -641,5 +643,14 @@ pub fn trinket_catalog() -> Vec<CardTemplate> {
         // Tier 7
         arcane_behemoth::template(),
         tide_oracle_morgl::template(),
+    ]
+}
+
+/// Solo minions rotated out of the active pool (`Expert Aviator` in Patch 37.0.2), kept registered
+/// for scenarios, replays, and the RL card vocabulary, but in no pool and no random draws.
+pub fn solo_out_of_pool_catalog() -> Vec<CardTemplate> {
+    vec![
+        // Tier 2
+        expert_aviator::template(),
     ]
 }

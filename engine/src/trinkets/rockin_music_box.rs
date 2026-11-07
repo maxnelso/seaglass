@@ -1,4 +1,4 @@
-//! `Rockin' Music Box` (`BG30_MagicItem_430`) — Lesser, 1 Gold.
+//! `Rockin' Music Box` (`BG30_MagicItem_430`) — Lesser, 0 Gold.
 //!
 //! Get a random Battlecry minion. At the start of each turn, get another.
 //!

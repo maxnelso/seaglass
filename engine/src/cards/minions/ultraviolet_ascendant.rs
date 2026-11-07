@@ -1,6 +1,6 @@
-//! `Ultraviolet Ascendant` (`BG31_810`) — Tier 6 Elemental (`6/6`).
+//! `Ultraviolet Ascendant` (`BG31_810`) — Tier 6 Elemental (`8/8`).
 //!
-//! Start of Combat: Give your other Elementals `+3/+3` (`+6/+6` if Golden).
+//! Start of Combat: Give your other Elementals `+4/+4` (`+8/+8` if Golden).
 //! (Improves after you play an Elemental!)
 
 use crate::cards::{CardTemplate, Played};
@@ -12,7 +12,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 627;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Ultraviolet Ascendant", 6, 6, 6)
+    CardTemplate::new(ID, "Ultraviolet Ascendant", 8, 8, 6)
         .with_tribe(Tribe::Elemental)
         .on_start_of_combat(|c, id, is_golden| {
             on_start_of_combat(c.side, c.board, id, is_golden, c.events)
@@ -43,7 +43,7 @@ pub fn on_start_of_combat(
         return;
     };
     let mult = (1 + src.stacks) * (if is_golden { 2 } else { 1 });
-    let buff = 3 * mult;
+    let buff = 4 * mult;
     for idx in 0..board.len() {
         if board[idx].health > 0
             && board[idx].id != source_id

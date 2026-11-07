@@ -1,8 +1,8 @@
-//! `All-Purpose Kibble` (`BG32_MagicItem_200`) — Greater, 2 Gold, Beast.
+//! `All-Purpose Kibble` (`BG32_MagicItem_200`) — Greater, 4 Gold, Beast.
 //!
-//! Whenever a friendly Beast attacks, give it +3 Attack and permanently improve this.
+//! Whenever a friendly Beast attacks, give it +4 Attack and permanently improve this.
 //!
-//! `trinket_friendly_attack`: a friendly Beast that attacks gains `3 + stacks` Attack before it
+//! `trinket_friendly_attack`: a friendly Beast that attacks gains `4 + stacks` Attack before it
 //! strikes, then `stacks` goes up by 1 for the rest of the game: each improvement is +1 Attack
 //! (**engine decision**). In combat or in the Tavern; the Attack is the attacking copy's.
 
@@ -12,7 +12,7 @@ use crate::model::{CardId, Tribe, UnitId};
 pub const ID: CardId = 120932;
 
 /// The Attack before any improvement.
-const BASE: i32 = 3;
+const BASE: i32 = 4;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

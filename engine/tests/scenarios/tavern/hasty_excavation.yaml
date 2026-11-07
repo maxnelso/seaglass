@@ -23,15 +23,15 @@ scenarios:
   - name: its_health_cost_triggers_tichondrius_and_counts_for_eredar_escapist
     description: >-
       Its 3 Health are one 3-damage hit: Tichondrius gives the Demons +4/+4 once, and Eredar
-      Escapist counts 3 of its 4 damage.
-    tavern: {board: [Tichondrius, Eredar Escapist], shop: [Hasty Excavation]}   # 4/4 and 6/8 Demons
+      Escapist counts 3 of its 5 damage.
+    tavern: {board: [Tichondrius, Eredar Escapist], shop: [Hasty Excavation]}   # 4/4 and 5/10 Demons
     steps:
       - buy: Hasty Excavation
       - expect:
           health: 27
           hand: [Hasty Excavation]
-          board: ["Tichondrius 8/8", "Eredar Escapist 10/12"]
-      - deal_hero_damage: 1   # the 4th damage
+          board: ["Tichondrius 8/8", "Eredar Escapist 9/14"]
+      - deal_hero_damage: 2   # the 4th and 5th damage
     expect:
-      health: 26
+      health: 25
       hand: [Hasty Excavation, Corrupted Cupcakes]

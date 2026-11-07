@@ -1,11 +1,11 @@
 //! `Heart of the Forest` (`BG32_MagicItem_801t`) — Greater, 3 Gold, Pirate, Naga.
 //!
-//! Your Tavern spells give an extra +1/+1. After you cast {4} Tavern spells from hand, improve this. (6 left!)
+//! Your Tavern spells give an extra +1/+1. After you cast {4} Tavern spells from hand, improve this. (5 left!)
 //!
-//! The text's numbers are broken in the data ("{4}", "6 left"). Picked: the Tavern spells' bonus
-//! (`auras.spell_bonus_atk` / `spell_bonus_hp`) goes up by +1/+1. `trinket_after_spell`: every
-//! 4th Tavern spell cast from the hand (`counter`, across turns) improves it by +1/+1 more
-//! (confirmed).
+//! The text's `{4}` placeholder is broken in `CardDefs` (`cards.json` and patch 37.0.2 specify 5
+//! spells). Picked: the Tavern spells' bonus (`auras.spell_bonus_atk` / `spell_bonus_hp`) goes up
+//! by +1/+1. `trinket_after_spell`: every 5th Tavern spell cast from the hand (`counter`, across
+//! turns) improves it by +1/+1 more.
 
 use crate::cards::{spells, CardHooks};
 use crate::model::CardId;
@@ -17,7 +17,7 @@ use super::SpellCast;
 pub const ID: CardId = 120160;
 
 /// Tavern spells from the hand per improvement.
-const SPELLS: i32 = 4;
+const SPELLS: i32 = 5;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

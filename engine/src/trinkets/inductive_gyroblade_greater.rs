@@ -1,8 +1,8 @@
-//! `Inductive Gyroblade (Greater)` (`BG36_MagicItem_810t`) — Greater, 0 Gold, Mech.
+//! `Inductive Gyroblade (Greater)` (`BG36_MagicItem_810t`) — Greater, 2 Gold, Mech.
 //!
-//! At the end of your turn, get a 12/12 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!)
+//! At the end of your turn, get a 20/20 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!)
 //!
-//! As the Lesser one: a `12/12` `Satellite`, `+12/+12` per Tavern spell cast this turn
+//! As the Lesser one: a `20/20` `Satellite`, `+20/+20` per Tavern spell cast this turn
 //! (confirmed).
 
 use crate::cards::CardHooks;
@@ -13,7 +13,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 133694;
 
 /// The Satellite's base stats, and its improvement per Tavern spell.
-const STATS: i32 = 12;
+const STATS: i32 = 20;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

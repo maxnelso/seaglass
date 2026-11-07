@@ -559,8 +559,10 @@ pub enum GiftPool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TypeRule {
     None,
-    /// The first option (the button from turn 6).
+    /// The first option (the button on turn 6).
     First,
+    /// The first two options (the button from turn 7: Patch 37.0.2).
+    FirstTwo,
     /// Every option (`Ominous Stone`, `Sinister Invitation`).
     All,
 }
@@ -585,10 +587,10 @@ impl OfferRules {
         Self {
             turn,
             tiers: button_tiers(turn).to_vec(),
-            most_common: if turn >= 6 {
-                TypeRule::First
-            } else {
-                TypeRule::None
+            most_common: match turn {
+                0..=5 => TypeRule::None,
+                6 => TypeRule::First,
+                _ => TypeRule::FirstTwo,
             },
             gifts: GiftPool::Turn,
             golden: false,
@@ -840,6 +842,7 @@ pub fn draw_offer(
     let typed_for = |k: usize| match rules.most_common {
         TypeRule::None => None,
         TypeRule::First => tribe.filter(|_| k == 0),
+        TypeRule::FirstTwo => tribe.filter(|_| k < 2),
         TypeRule::All => tribe,
     };
     // 1. The minions.
@@ -1066,7 +1069,7 @@ mod tests {
             assert_eq!(by_name(&slug(g)).map(|x| x.id), Some(g.id));
         }
         let late = by_name("Battle Scars (late)").expect("Battle Scars (late)");
-        assert_eq!((late.min_turn, late.max_turn), (7, Some(10)));
+        assert_eq!((late.min_turn, late.max_turn), (7, Some(9)));
         assert_eq!(slug(late), "battle_scars_late");
         assert_eq!(
             by_enchantment("BG36_MidGameEffect_000t9e2").map(|g| g.name),
@@ -1148,9 +1151,15 @@ mod tests {
             let distinct_main =
                 state.board.iter().filter(|u| u.tribe == main).count() > state.board.len() / 2;
             if state.turn >= 6 && distinct_main && !offer.is_empty() {
+                let matching = offer.iter().filter(|u| u.tribe.matches(main)).count();
+                let want = if state.turn >= 7 {
+                    2.min(offer.len())
+                } else {
+                    1
+                };
                 assert!(
-                    offer.iter().any(|u| u.tribe.matches(main)),
-                    "turn {}: an option of the most common type {main:?}",
+                    matching >= want,
+                    "turn {}: {matching} options of the most common type {main:?}, wanted {want}",
                     state.turn
                 );
             }

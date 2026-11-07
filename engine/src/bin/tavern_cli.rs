@@ -145,6 +145,12 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (mind_muck::ID, true) => {
             "Battlecry: Friendly Demon consumes a shop minion to gain double its stats."
         }
+        (murcules::ID, false) => {
+            "Whenever this kills a minion, give a minion in your hand +3/+3."
+        }
+        (murcules::ID, true) => {
+            "Whenever this kills a minion, give a minion in your hand +6/+6."
+        }
         (nerubian_deathswarmer::ID, false) => "Battlecry: Your Undead have +1 Attack this game.",
         (nerubian_deathswarmer::ID, true) => "Battlecry: Your Undead have +2 Attack this game.",
         (patient_scout::ID, false) => "On sell: Discover a minion (tier upgrades each turn).",
@@ -375,10 +381,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "On sell: Give your minions +4/+4 (upgrades future Ballers by 2)."
         }
         (ashen_corruptor::ID, false) => {
-            "After hero takes damage, rewind it and give shop minions +2/+2 this turn."
+            "After hero takes damage, rewind it and give shop minions +2/+1 this turn."
         }
         (ashen_corruptor::ID, true) => {
-            "After hero takes damage, rewind it and give shop minions +4/+4 this turn."
+            "After hero takes damage, rewind it and give shop minions +4/+2 this turn."
         }
         (banana_slamma::ID, false) => {
             "After you summon a Beast in combat, double its Attack."
@@ -486,10 +492,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Divine Shield. Whenever a Blood Gem is played on this, play 2 on another minion."
         }
         (glambot::ID, false) => {
-            "Whenever you cast a spell on a Mech, Magnetize a 4/4 Satellite to it."
+            "Whenever you cast a spell on a Mech, Magnetize a 4/3 Satellite to it."
         }
         (glambot::ID, true) => {
-            "Whenever you cast a spell on a Mech, Magnetize two 4/4 Satellites to it."
+            "Whenever you cast a spell on a Mech, Magnetize two 4/3 Satellites to it."
         }
         (gormling_gourmet::ID, false) => {
             "Taunt. Battlecry & Deathrattle: Get a Seafood Stew."
@@ -622,10 +628,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (runic_arcanist::ID, false) => "Start of Combat: Cast Shiny Ring twice.",
         (runic_arcanist::ID, true) => "Start of Combat: Cast Shiny Ring 4 times.",
         (sacrificial_wrathguard::ID, false) => {
-            "Deathrattle: Give shop minions +2/+2 this game. Activate (1g): Improve this."
+            "Deathrattle: Give shop minions +2/+1 this game. Activate (1g): Improve this."
         }
         (sacrificial_wrathguard::ID, true) => {
-            "Deathrattle: Give shop minions +4/+4 this game. Activate (1g): Improve this."
+            "Deathrattle: Give shop minions +4/+2 this game. Activate (1g): Improve this."
         }
         (sindorei_straight_shot::ID, _) => {
             "Divine Shield, Windfury. Rally: Remove Reborn and Taunt from the target."
@@ -663,10 +669,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "If you lost your last combat, this sells for 10 Gold."
         }
         (twilight_tidehunter::ID, false) => {
-            "Whenever you cast a spell on this, give left-most minion in hand +8/+8."
+            "Whenever you cast a spell on this, give left-most minion in hand +9/+9."
         }
         (twilight_tidehunter::ID, true) => {
-            "Whenever you cast a spell on this, give left-most minion in hand +16/+16."
+            "Whenever you cast a spell on this, give left-most minion in hand +18/+18."
         }
         // Tier 5 Minions
         (air_revenant::ID, false) => "After you spend 7 Gold, cast Easterly Winds.",
@@ -735,10 +741,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (drustfallen_butcher::ID, true) => "Avenge (4): Get 2 Butcherings.",
         (elite_navigator::ID, _) => "Battlecry: Make a Tier 4 or lower Pirate Golden.",
         (enterprising_escapee::ID, false) => {
-            "After you spend 6 Gold, get a Lockbox (or accelerate yours by 1 turn)."
+            "After you spend 5 Gold, get a Lockbox (or accelerate yours by 1 turn)."
         }
         (enterprising_escapee::ID, true) => {
-            "After you spend 6 Gold, get a Lockbox (or accelerate yours by 2 turns)."
+            "After you spend 5 Gold, get a Lockbox (or accelerate yours by 2 turns)."
         }
         (eternal_summoner::ID, false) => "Reborn. Deathrattle: Summon 1 Eternal Knight.",
         (eternal_summoner::ID, true) => "Reborn. Deathrattle: Summon a Golden Eternal Knight.",
@@ -804,10 +810,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Avenge (3): Get 2 plain copies of a minion that started in your warband."
         }
         (living_azerite::ID, false) => {
-            "Whenever you cast a Tavern spell, give Elementals in the Tavern +4/+3 this game."
+            "Whenever you cast a Tavern spell, give Elementals in the Tavern +3/+3 this game."
         }
         (living_azerite::ID, true) => {
-            "Whenever you cast a Tavern spell, give Elementals in the Tavern +8/+6 this game."
+            "Whenever you cast a Tavern spell, give Elementals in the Tavern +6/+6 this game."
         }
         (lurking_leviathan::ID, false) => {
             "Whenever you summon a Beast, give it +3 Attack and improve this permanently."
@@ -864,10 +870,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (rodeo_performer::ID, false) => "Battlecry: Discover a Tavern spell.",
         (rodeo_performer::ID, true) => "Battlecry: Discover 2 Tavern spells.",
         (sanguine_refiner::ID, false) => {
-            "Rally: Your Blood Gems give an extra +1/+2 this game."
+            "Rally: Your Blood Gems give an extra +2/+2 this game."
         }
         (sanguine_refiner::ID, true) => {
-            "Rally: Your Blood Gems give an extra +2/+4 this game."
+            "Rally: Your Blood Gems give an extra +4/+4 this game."
         }
         (sewer_escapee::ID, false) => {
             "Activate (1g): Give another Murloc +7/+7 and a random Bonus Keyword."
@@ -882,16 +888,16 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Deathrattle: Summon two 6/4 Sewer Rats that summon 4/6 Taunt Turtles."
         }
         (shamanic_tidecaller::ID, false) => {
-            "Whenever you cast a spell on a Murloc, give Murlocs in hand & board +3/+3."
+            "Whenever you cast a spell on a Murloc, give Murlocs in hand & board +3/+2."
         }
         (shamanic_tidecaller::ID, true) => {
-            "Whenever you cast a spell on a Murloc, give Murlocs in hand & board +6/+6."
+            "Whenever you cast a spell on a Murloc, give Murlocs in hand & board +6/+4."
         }
         (ship_master_eudora::ID, false) => {
-            "Deathrattle: Give your minions +6/+6. Golden ones keep it permanently."
+            "Deathrattle: Give your minions +8/+8. Golden ones keep it permanently."
         }
         (ship_master_eudora::ID, true) => {
-            "Deathrattle: Give your minions +12/+12. Golden ones keep it permanently."
+            "Deathrattle: Give your minions +16/+16. Golden ones keep it permanently."
         }
         (shipwrecked_rascal::ID, false) => {
             "Battlecry & Deathrattle: Get a random Bounty."
@@ -900,10 +906,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Battlecry & Deathrattle: Get 2 random Bounties."
         }
         (spark_snapper::ID, false) => {
-            "Whenever you play a Mech, Magnetize a 2/3 Satellite to it and improve this."
+            "Whenever you play a Mech, Magnetize a 2/2 Satellite to it and improve this."
         }
         (spark_snapper::ID, true) => {
-            "Whenever you play a Mech, Magnetize a 4/6 Satellite to it and improve this."
+            "Whenever you play a Mech, Magnetize a 4/4 Satellite to it and improve this."
         }
         (tichondrius::ID, false) => "After your hero takes damage, give your Demons +4/+4.",
         (tichondrius::ID, true) => "After your hero takes damage, give your Demons +8/+8.",
@@ -962,10 +968,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Divine Shield. This minion can triple with any Elemental."
         }
         (eredar_escapist::ID, false) => {
-            "Tavern spells cost (1) less (improves by 1 after hero takes 5 damage)."
+            "After your hero takes 5 damage, get a Corrupted Cupcakes."
         }
         (eredar_escapist::ID, true) => {
-            "Tavern spells cost (2) less (improves by 2 after hero takes 5 damage)."
+            "After your hero takes 5 damage, get 2 Corrupted Cupcakes."
         }
         (falling_sky_golem::ID, false) => {
             "Has +5/+5 for each Deathrattle you've triggered this game."
@@ -986,10 +992,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "End of Turn: Play Misplaced Tea Set on your minions twice."
         }
         (harbinger_aphlass::ID, false) => {
-            "End of Turn: Give minions +1/+1 (improves when you discard a card)."
+            "Whenever you discard a card, give your Deity +2/+1 and improve this."
         }
         (harbinger_aphlass::ID, true) => {
-            "End of Turn: Give minions +2/+2 (improves when you discard a card)."
+            "Whenever you discard a card, give your Deity +4/+2 and improve this."
         }
         (heroic_broodmother::ID, false) => {
             "Start of Combat: Attack immediately. Rally: Give other Dragons +5 Attack."
@@ -998,10 +1004,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Start of Combat: Attack twice immediately. Rally: Give other Dragons +10 Attack."
         }
         (hooktusk_master_marauder::ID, false) => {
-            "After you Discover a card, give your minions +2/+1 per friendly Tier 5+ minion."
+            "After you Discover a card, give your minions +3/+1 per friendly Tier 5+ minion."
         }
         (hooktusk_master_marauder::ID, true) => {
-            "After you Discover a card, give your minions +4/+2 per friendly Tier 5+ minion."
+            "After you Discover a card, give your minions +6/+2 per friendly Tier 5+ minion."
         }
         (magicfin_mycologist::ID, false) => {
             "Once per turn after buying a Tavern spell, get a 5/5 Murloc that casts it."
@@ -1070,16 +1076,16 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Divine Shield. End of Turn: Give minions +2/+4 for each different friendly type."
         }
         (ultraviolet_ascendant::ID, false) => {
-            "Start of Combat: Give other Elementals +2/+2 (upgrades when you play an Elemental)."
+            "Start of Combat: Give other Elementals +4/+3 (upgrades when you play an Elemental)."
         }
         (ultraviolet_ascendant::ID, true) => {
-            "Start of Combat: Give other Elementals +4/+4 (upgrades when you play an Elemental)."
+            "Start of Combat: Give other Elementals +8/+6 (upgrades when you play an Elemental)."
         }
         (unbound_tempest::ID, false) => {
-            "End of Turn & after every 2 Tavern spells cast: Get a random Elemental."
+            "After you play 3 Elementals, gain stats of highest-Health shop minion."
         }
         (unbound_tempest::ID, true) => {
-            "End of Turn & after every 2 Tavern spells cast: Get 2 random Elementals."
+            "After you play 3 Elementals, gain double stats of highest-Health shop minion."
         }
         (utility_drone::ID, false) => {
             "End of Turn: Give minions +3/+2 for each Magnetization they have."
@@ -1110,10 +1116,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Battlecry: Make a friendly minion from Tier 6 or below Golden."
         }
         (champion_of_sargeras::ID, false) => {
-            "Battlecry & Deathrattle: Give minions in the Tavern +8/+8 this game."
+            "Battlecry & Deathrattle: Give minions in the Tavern +12/+12 this game."
         }
         (champion_of_sargeras::ID, true) => {
-            "Battlecry & Deathrattle: Give minions in the Tavern +16/+16 this game."
+            "Battlecry & Deathrattle: Give minions in the Tavern +24/+24 this game."
         }
         (futurefin::ID, false) => {
             "End of Turn: Give this minion's stats to the left-most minion in your hand."
@@ -1152,10 +1158,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Whenever you cast a Tavern spell, give your minions and Deity +6/+6."
         }
         (stalwart_kodo::ID, false) => {
-            "After you summon a minion in combat, give it this minion's max stats (3 times)."
+            "After you summon a different minion in combat, give it double this minion's max stats (3 times)."
         }
         (stalwart_kodo::ID, true) => {
-            "After you summon a minion in combat, give it double this minion's max stats (3 times)."
+            "After you summon a different minion in combat, give it triple this minion's max stats (3 times)."
         }
         (stitched_salvager::ID, false) => {
             "Start of Combat: Destroy left neighbor. Deathrattle: Summon an exact copy."
@@ -1170,10 +1176,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Once per turn after you buy a minion, give it +20/+20 and triple its stats."
         }
         (the_last_one_standing::ID, false) => {
-            "Rally: Give a friendly minion of each type +15/+15 permanently."
+            "Rally: Give a friendly minion of each type +10/+10 permanently and improve this."
         }
         (the_last_one_standing::ID, true) => {
-            "Rally: Give a friendly minion of each type +15/+15 permanently twice."
+            "Rally: Give a friendly minion of each type +10/+10 permanently and improve this twice."
         }
         // Tokens & Spells
         (tokens::TOKEN_BLOOD_GOLEM, _) => "Token Blood Golem.",
@@ -1291,10 +1297,10 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Spell (2g): Give a minion +3/+5. If it's a Dragon, also give it Windfury."
         }
         (SPELL_MISPLACED_TEA_SET, _) => {
-            "Spell (2g): Give a friendly minion of each type +3/+3."
+            "Spell (3g): Give a friendly minion of each type +3/+3."
         }
         (SPELL_NATURAL_BLESSING, _) => {
-            "Spell (3g): Choose a minion. Give all minions that share a type with it +3/+2."
+            "Spell (2g): Choose a minion. Give all minions that share a type with it +3/+2."
         }
         (SPELL_TEMPERATURE_SHIFT, _) => {
             "Spell (2g): Get a Fire Baller and a Snow Baller."
@@ -1336,7 +1342,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
             "Spell (3g): Start of Combat — Set a random enemy minion's Health to 1."
         }
         (SPELL_WAVE_OF_GOLD, _) => {
-            "Spell (2g): Give your minions +3/+2. Give Golden ones another +3/+2."
+            "Spell (1g): Give your minions +3/+2. Give Golden ones another +3/+2."
         }
         // Tier 6 Spells
         (SPELL_AZERITE_EMPOWERMENT, _) => "Spell (4g): Give your minions +3/+3 twice.",
@@ -1349,7 +1355,7 @@ fn card_description(card_id: CardId, is_golden: bool) -> &'static str {
         (SPELL_LOST_STAFF_OF_HAMUUL, _) => {
             "Spell (2g): Choose a minion. Refresh the Tavern with minions of its type."
         }
-        (SPELL_PERFECT_VISION, _) => "Spell (3g): Set a minion's stats to 20/20.",
+        (SPELL_PERFECT_VISION, _) => "Spell (2g): Set a minion's stats to 20/20.",
         // Tier 7 Spells
         (SPELL_HALLOWED_RITUAL, _) => "Spell (5g): Discover a Tier 7 minion.",
         (SPELL_MENAGERIE_TABLEWARE, _) => {

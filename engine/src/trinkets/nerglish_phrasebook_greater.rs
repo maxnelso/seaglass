@@ -1,8 +1,8 @@
-//! `Nerglish Phrasebook (Greater)` (`BG30_MagicItem_914t`) — Greater, 1 Gold, Murloc.
+//! `Nerglish Phrasebook (Greater)` (`BG30_MagicItem_914t`) — Greater, 2 Gold, Murloc.
 //!
-//! After you play a minion, give the left-most minion in your hand +6/+6.
+//! After you play a minion, give the left-most minion in your hand +10/+10.
 //!
-//! As the Lesser one (`nerglish_phrasebook.rs`), +6/+6.
+//! As the Lesser one (`nerglish_phrasebook.rs`), +10/+10.
 
 use crate::cards::{CardHooks, Played};
 use crate::model::CardId;
@@ -18,6 +18,6 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 
 fn after_play(state: &mut TavernState, played: &Played, _: &mut CardPool, _: &mut Rng) {
     if played.from_hand {
-        super::buff_left_most_in_hand(state, 6, 6);
+        super::buff_left_most_in_hand(state, 10, 10);
     }
 }

@@ -1,8 +1,8 @@
 //! `Stormcoil Sticker` (`BG35_MagicItem_302`) — Lesser, 0 Gold, Mech.
 //!
-//! After 6 friendly minions die, get a random Mech. (6 left!)
+//! After 5 friendly minions die, get a random Mech. (5 left!)
 //!
-//! `trinket_friendly_death`: every 6th friendly minion that dies in combat (`counter`, counted
+//! `trinket_friendly_death`: every 5th friendly minion that dies in combat (`counter`, counted
 //! across combats, as Ini Stormcoil's) gives a random Mech of the player's Tier or lower from
 //! the game's catalog (`trinkets::random_minion`) to the combat hand, if it has room; it comes
 //! back with the hand.
@@ -13,7 +13,7 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 130880;
 
 /// Friendly deaths per card.
-const DEATHS: i32 = 6;
+const DEATHS: i32 = 5;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

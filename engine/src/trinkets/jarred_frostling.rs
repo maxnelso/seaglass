@@ -1,4 +1,4 @@
-//! `Jarred Frostling` (`BG30_MagicItem_952`) — Greater, 2 Gold, Elemental.
+//! `Jarred Frostling` (`BG30_MagicItem_952`) — Greater, 0 Gold, Elemental.
 //!
 //! Start of Combat: Give 3 friendly Elementals "Deathrattle: Summon a Flourishing Frostling".
 //!

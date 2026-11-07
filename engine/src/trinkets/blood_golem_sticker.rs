@@ -1,4 +1,4 @@
-//! `Blood Golem Sticker` (`BG30_MagicItem_442`) — Greater, 5 Gold, Quilboar.
+//! `Blood Golem Sticker` (`BG30_MagicItem_442`) — Greater, 6 Gold, Quilboar.
 //!
 //! Whenever a friendly Quilboar dies, summon a Golem with stats equal to its Blood Gems.
 //!

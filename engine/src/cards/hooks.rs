@@ -807,6 +807,9 @@ card_hooks! {
     gift_absorb_shield_hit(on_gift_absorb_shield_hit): fn(&mut DarkGift) -> bool,
     /// The multiplier with which the minion keeps the stats it gained in combat: `(unit)`.
     gift_keep_combat_mult(on_gift_keep_combat_mult): fn(&Unit) -> i32,
+    /// This minion killed an enemy minion in combat (attacking or defending, before deaths
+    /// resolve): `(ctx, self_idx, victim)`.
+    kill(on_kill): fn(&mut BoardCtx<'_>, usize, &Unit),
 }
 
 impl Default for CardHooks {

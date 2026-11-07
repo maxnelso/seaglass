@@ -1,10 +1,10 @@
 //! `Gold Mallet (Greater)` (`BG36_MagicItem_302t`) — Greater, 2 Gold, Pirate.
 //!
-//! At the end of your turn, give your minions +4/+2. (Improved by Golden minions you've played this game!)
+//! At the end of your turn, give your minions +4/+4. (Improved by Golden minions you've played this game!)
 //!
 //! `trinket_after_play`: each Golden minion played from the hand (a Golden Magnetic minion
 //! Magnetized from it too) adds one to `counter`. `trinket_end_turn`: every minion on the board
-//! gains +4/+2 × (1 + `counter`): each Golden minion played adds the base amount again
+//! gains +4/+4 × (1 + `counter`): each Golden minion played adds the base amount again
 //! (confirmed).
 
 use crate::cards::{CardHooks, Played};
@@ -15,7 +15,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 133343;
 
 /// The base buff.
-const BUFF: (i32, i32) = (4, 2);
+const BUFF: (i32, i32) = (4, 4);
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

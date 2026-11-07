@@ -8,11 +8,11 @@ scenarios:
       - play: {hand: Channel the Devourer, pos: 0}
     expect:
       gold: 1   # from the sale
-      board: ["Iron Groundskeeper 8/10"]
+      board: ["Iron Groundskeeper 7/12"]
 
   - name: the_copied_stats_get_no_spell_power
     seed: 848
-    tavern: {board: [Eredar Escapist]}   # 6/8
+    tavern: {board: [Eredar Escapist]}   # 5/10
     steps:
       - add_to_hand: Humon'gozz   # your Tavern spells give an extra +1/+2
       - play: Humon'gozz
@@ -20,7 +20,7 @@ scenarios:
       - play: {hand: Channel the Devourer, pos: 0}   # sells the Escapist
     expect:
       gold: 1   # from the sale
-      board: ["Humon'gozz 11/13"]   # 5/5 + exactly the Escapist's 6/8
+      board: ["Humon'gozz 10/15"]   # 5/5 + exactly the Escapist's 5/10
 
   - name: cant_sell_a_minion_in_the_tavern
     tavern: {board: [Lullabot, Iron Groundskeeper], shop: [Glim Guardian], hand: [Channel the Devourer]}

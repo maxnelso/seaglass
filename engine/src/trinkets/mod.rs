@@ -252,7 +252,7 @@ pub mod writhing_tentacles;
 pub mod yogg_tastic_pastry;
 pub mod young_murk_eye_sticker;
 
-pub use table::{CARD_DEFS_BUILD, TRINKETS};
+pub use table::{CARD_DEFS_BUILD, REMOVED_TRINKETS, TRINKETS};
 pub use vocab::vocabulary;
 
 use crate::cards::{self, hooks, BoardCtx, CardFlags, CardHooks, HeroCombatCtx, Passive, Played};
@@ -635,20 +635,25 @@ pub fn table() -> &'static [TrinketData] {
     TRINKETS
 }
 
+/// Every trinket in the active pool or kept as a removed trinket (for scenarios and replays).
+fn all_known() -> impl Iterator<Item = &'static TrinketData> {
+    TRINKETS.iter().chain(REMOVED_TRINKETS)
+}
+
 /// The trinket `id`.
 pub fn data(id: CardId) -> Option<&'static TrinketData> {
-    TRINKETS.iter().find(|t| t.id == id)
+    all_known().find(|t| t.id == id)
 }
 
 /// The trinket whose card ID is `card_id`.
 pub fn by_card_id(card_id: &str) -> Option<&'static TrinketData> {
-    TRINKETS.iter().find(|t| t.card_id == card_id)
+    all_known().find(|t| t.card_id == card_id)
 }
 
 /// `true` if another trinket of the table has `t`'s name (the Lesser and Greater `Eternal
 /// Portrait`).
 fn name_is_shared(t: &TrinketData) -> bool {
-    TRINKETS.iter().any(|o| o.id != t.id && o.name == t.name)
+    all_known().any(|o| o.id != t.id && o.name == t.name)
 }
 
 /// The name scenarios and headers use for `t`: its name, with ` (Greater)` for a Greater trinket
@@ -676,12 +681,10 @@ pub fn slug(t: &TrinketData) -> String {
 /// shared name first), its slug, or its card ID.
 pub fn by_name(name: &str) -> Option<&'static TrinketData> {
     let wanted = name.trim();
-    TRINKETS
-        .iter()
+    all_known()
         .find(|t| display_name(t).eq_ignore_ascii_case(wanted) || slug(t) == wanted)
         .or_else(|| {
-            TRINKETS
-                .iter()
+            all_known()
                 .filter(|t| t.name.eq_ignore_ascii_case(wanted))
                 .min_by_key(|t| t.greater)
         })
@@ -2336,18 +2339,24 @@ mod tests {
 
     #[test]
     fn the_table_has_the_whole_pool() {
-        // HSReplay's 237 Solo trinkets and the 9 Duos-exclusive ones (`docs/trinkets.md` §9).
-        assert_eq!(TRINKETS.len(), 246);
-        assert_eq!(TRINKETS.iter().filter(|t| !t.greater).count(), 120);
+        // HSReplay's 234 Solo trinkets and the 9 Duos-exclusive ones (`docs/trinkets.md` §9).
+        assert_eq!(TRINKETS.len(), 243);
+        assert_eq!(TRINKETS.iter().filter(|t| !t.greater).count(), 118);
         assert_eq!(TRINKETS.iter().filter(|t| t.duos_only).count(), 9);
         assert!(!TRINKETS.iter().any(naga_only));
         let naga = |t: &&TrinketData| t.tribes.contains(&Tribe::Naga);
         let dual: Vec<_> = TRINKETS.iter().filter(naga).map(|t| t.name).collect();
-        assert_eq!(dual, ["Heart of the Forest", "Wand of Divination"]);
+        assert_eq!(dual, ["Heart of the Forest"]);
         let solo = TRINKETS.iter().filter(|t| !t.duos_only).collect::<Vec<_>>();
-        assert_eq!(solo.len(), 237);
-        assert_eq!(solo.iter().filter(|t| !t.greater).count(), 115);
-        assert!(by_name("Kiri's Double Eclipse").is_none());
+        assert_eq!(solo.len(), 234);
+        assert_eq!(solo.iter().filter(|t| !t.greater).count(), 113);
+        assert!(by_name("Kiri's Double Eclipse").is_some());
+        assert!(by_name("Kiri's Double Eclipse (Greater)").is_some());
+        assert_eq!(REMOVED_TRINKETS.len(), 4);
+        for r in REMOVED_TRINKETS {
+            assert!(TRINKETS.iter().all(|t| t.id != r.id));
+            assert!(data(r.id).is_some());
+        }
         for t in TRINKETS {
             assert!(t.id > 11_000, "{}: trinket ids don't collide", t.name);
             assert!(crate::heroes::table().iter().all(|h| h.power.id != t.id));

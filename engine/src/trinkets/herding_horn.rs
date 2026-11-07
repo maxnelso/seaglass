@@ -1,4 +1,4 @@
-//! `Herding Horn` (`BG36_MagicItem_200`) — Lesser, 3 Gold, Beast.
+//! `Herding Horn` (`BG36_MagicItem_200`) — Lesser, 4 Gold, Beast.
 //!
 //! Whenever a friendly Rally minion attacks, gain a free Refresh.
 //!

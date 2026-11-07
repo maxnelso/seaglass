@@ -1,4 +1,4 @@
-//! `Expert Aviator` (`BG34_140`) — Tier 2 Murloc (`3/5`).
+//! `Expert Aviator` (`BG34_140`) — Tier 2 Murloc (`3/5`), removed from pool in Patch 37.0.2.
 //! **Rally:** Summon the (`2` if Golden) highest-Attack Murloc(s) from your hand for this combat only.
 //! A tie for the highest Attack is broken at random.
 //!

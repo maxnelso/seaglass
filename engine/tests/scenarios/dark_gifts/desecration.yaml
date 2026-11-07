@@ -5,4 +5,4 @@ scenarios:
       board_a: ["1/1 gift:desecration"]
       board_b: []
       auras_a: {cards_discarded: 2}
-    expect: {survivors_a: ["7/7"]}
+    expect: {survivors_a: ["7/5"]}

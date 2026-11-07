@@ -1,21 +1,21 @@
 card: Eredar Escapist
 scenarios:
-  - name: after_4_hero_damage_gets_corrupted_cupcakes
+  - name: after_5_hero_damage_gets_corrupted_cupcakes
     tavern: {board: [Eredar Escapist]}
     steps:
-      - deal_hero_damage: 4
+      - deal_hero_damage: 5
     expect: {hand: [Corrupted Cupcakes]}
 
   - name: counts_damage_that_soul_rewinder_rewinds
     tavern: {board: [Eredar Escapist, Soul Rewinder]}
     steps:
-      - deal_hero_damage: 4   # rewound, but taken first
+      - deal_hero_damage: 5   # rewound, but taken first
     expect: {health: 30, hand: [Corrupted Cupcakes]}
 
   - name: counts_damage_that_ashen_corruptor_rewinds
     tavern: {board: [Ashen Corruptor, Eredar Escapist]}
     steps:
-      - deal_hero_damage: 4   # rewound, but taken first
+      - deal_hero_damage: 5   # rewound, but taken first
     expect: {health: 30, hand: [Corrupted Cupcakes]}
 
   - name: ignores_combat_damage

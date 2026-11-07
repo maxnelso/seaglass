@@ -1,0 +1,35 @@
+card: Murcules
+scenarios:
+  - name: attacking_kill_buffs_minion_in_hand_3_3
+    seed: 1
+    combat:
+      board_a: [Murcules]
+      board_b: ["Joyous 1/1"]
+      hand_a: [Tad]
+    expect:
+      outcome: a_win
+      survivors_a: ["Murcules 5/2"]
+      hand_a: ["Tad 5/5"]
+
+  - name: defensive_and_mutual_kill_buff_hand_minion_and_golden_gives_6_6
+    description: >-
+      Enemy Joyous attacks into Golden Murcules (10/6) and both die; Murcules still
+      gives +6/+6 to the only minion in hand (skipping spells).
+    seeds: "1..=6"
+    combat:
+      board_a: ["golden Murcules 10/6"]
+      board_b: ["Joyous 10/10"]
+      hand_a: [Tavern Dish Banana, Tad, Blood Gem]
+    expect:
+      outcome: draw
+      hand_a: ["Tavern Dish Banana 0/0", "Tad 8/8", "Blood Gem 1/1"]
+
+  - name: surviving_hit_does_not_buff_hand
+    seed: 1
+    combat:
+      board_a: [Murcules]
+      board_b: ["Joyous 3/10"]
+      hand_a: [Tad]
+    expect:
+      outcome: b_win
+      hand_a: ["Tad 2/2"]

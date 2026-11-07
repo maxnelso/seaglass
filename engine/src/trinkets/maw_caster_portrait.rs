@@ -1,9 +1,9 @@
-//! `Maw Caster Portrait` (`BG32_MagicItem_205`) — Greater, 5 Gold, Undead.
+//! `Maw Caster Portrait` (`BG32_MagicItem_205`) — Greater, 1 Gold, Undead.
 //!
-//! Get a Maw Caster. Whenever you destroy a minion outside combat, gain 2 Gold.
+//! Get a Maw Caster. Whenever you destroy a minion outside combat, gain 1 Gold.
 //!
 //! Picked: a plain `Maw Caster`. `trinket_tavern_destroy`: each friendly minion destroyed in the
-//! Tavern (`TavernState::destroy_board_unit`: `Maw Caster`, `Jailer Sticker`, ...) gives 2 Gold.
+//! Tavern (`TavernState::destroy_board_unit`: `Maw Caster`, `Jailer Sticker`, ...) gives 1 Gold.
 
 use crate::cards::minions::maw_caster;
 use crate::cards::CardHooks;
@@ -14,7 +14,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 121558;
 
 /// The Gold each destroy gives.
-const GOLD: u32 = 2;
+const GOLD: u32 = 1;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

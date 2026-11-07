@@ -18,11 +18,11 @@ scenarios:
       keeps +1/+2.
     tavern:
       auras: {deity: {kind: cthun}}
-      board: [Crimson Vindicator, Vicious Mindslasher]   # 8/9; 1/2
+      board: [Crimson Vindicator, Vicious Mindslasher]   # 9/7; 1/2
     steps:
       - fight: {board: [Patient Scout]}   # A has more minions: the Vindicator attacks first, once
     expect:
       combat:
         events: {where: {type: stat_buff, reason: Vicious Mindslasher}, count: 1, all: {unit: 1, attack: 2, health: 4}}
-      board: ["Crimson Vindicator 8/9", "Vicious Mindslasher 1/2"]
+      board: ["Crimson Vindicator 9/7", "Vicious Mindslasher 1/2"]
       auras: {deity: {attack: 2, health: 3}}

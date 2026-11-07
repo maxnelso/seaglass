@@ -1,14 +1,14 @@
 //! `Resistance` (`BG36_MidGameEffect_000t7`) — turns 7–10, weight 100.
 //!
-//! Start of Combat: Double this minion's Health.
+//! +15 Health. Start of Combat: Double this minion's Health.
 //!
-//! Start of Combat: it gains its Health. Not on Beasts, Undead, or minions with no type; not in a
-//! Dragon lobby (Hotfix 36.2.1; `docs/dark_gifts.md` §5). A stat gift.
+//! Given: +15 Health. Start of Combat: it gains its Health. Not on Beasts, Undead, or minions with
+//! no type; not in a Dragon lobby (Hotfix 36.2.1; `docs/dark_gifts.md` §5). A stat gift.
 
 use crate::cards::{BoardCtx, CardFlags, CardHooks, CardTemplate};
 use crate::dark_gifts::OfferCtx;
 use crate::model::Tribe;
-use crate::model::{CardId, UnitId};
+use crate::model::{CardId, DarkGift, Unit, UnitId};
 pub const ID: CardId = 132205;
 
 /// The gift's hooks, for the card registry.
@@ -17,9 +17,14 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
         ID,
         CardHooks::EMPTY
             .with_flags(CardFlags::GIFT_GIVES_STATS)
+            .on_gift_given(given)
             .on_gift_start_of_combat(start_of_combat)
             .on_gift_offerable(offerable),
     )]
+}
+
+fn given(unit: &mut Unit, _: &mut DarkGift) {
+    unit.add_stats(0, 15);
 }
 
 fn start_of_combat(ctx: &mut BoardCtx<'_>, id: UnitId, _: usize) {

@@ -1,4 +1,4 @@
-//! `Charisma` (`BG36_MidGameEffect_000t3`) — turns 7–11, weight 100.
+//! `Charisma` (`BG36_MidGameEffect_000t3`) — turns 7–10, weight 100.
 //!
 //! Rally: Get a random minion of your most common type.
 //!

@@ -60,3 +60,16 @@ scenarios:
     steps:
       - dark_discovery
       - expect_illegal: dark_discovery
+
+  - name: from_turn_7_at_least_two_options_match_the_most_common_type
+    seeds: "1..=15"
+    tavern:
+      turn: 7
+      board: ["1/1 beast", "1/1 beast", "1/1 murloc"]
+    steps:
+      - dark_discovery
+    expect:
+      discover_pending:
+        all_of:
+          - {count: 3}
+          - {where: {tribe: {any_of: [beast, beast_pirate, all]}}, count: ">= 2"}

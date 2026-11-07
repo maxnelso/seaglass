@@ -1,4 +1,4 @@
-//! `Volumizer Portrait` (`BG36_MagicItem_423`) — Lesser, 3 Gold, Mech.
+//! `Volumizer Portrait` (`BG36_MagicItem_423`) — Lesser, 2 Gold, Mech.
 //!
 //! Get a random Magnetic Volumizer. At the start of each turn, get another.
 //!

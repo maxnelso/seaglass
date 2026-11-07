@@ -85,10 +85,16 @@ fn trinket_states(p: &PlayerSetup) -> Vec<TrinketState> {
             p.trinket_numbers.get(card_id).copied().unwrap_or(0)
         };
         match t.id {
-            trinkets::all_purpose_kibble::ID if shown >= 3 => state.stacks = shown - 3,
+            trinkets::all_purpose_kibble::ID if shown >= 4 => state.stacks = shown - 4,
             trinkets::fang_anklet::ID if shown >= 1 => state.stacks = shown - 1,
-            trinkets::dragonhead_staff::ID if (1..=13).contains(&shown) => {
-                state.counter = 13 - shown;
+            trinkets::dragonhead_staff::ID if (1..=11).contains(&shown) => {
+                state.counter = 11 - shown;
+            }
+            trinkets::lucky_tabby::ID if (1..=6).contains(&shown) => {
+                state.counter = 6 - shown;
+            }
+            trinkets::stormcoil_sticker::ID if (1..=5).contains(&shown) => {
+                state.counter = 5 - shown;
             }
             trinkets::soul_battery::ID if (1..=25).contains(&shown) => {
                 state.counter = 25 - shown;
@@ -279,14 +285,8 @@ fn populate_unit_script_state(u: &mut Unit, m: &LogMinion) {
     let [n1, n2] = m.script_data;
     let mult = u.golden_mult();
     match u.card_id {
-        minions::hopebringer::ID => {
+        minions::hopebringer::ID | minions::ultraviolet_ascendant::ID => {
             let base = 4 * mult;
-            if n1 >= base {
-                u.stacks = n1 / base - 1;
-            }
-        }
-        minions::ultraviolet_ascendant::ID => {
-            let base = 3 * mult;
             if n1 >= base {
                 u.stacks = n1 / base - 1;
             }
@@ -306,8 +306,11 @@ fn populate_unit_script_state(u: &mut Unit, m: &LogMinion) {
         minions::sacrificial_wrathguard::ID => {
             let base = 2 * mult;
             if n1 >= base {
-                u.stacks = n1 - base;
+                u.stacks = n1 / 2 - mult;
             }
+        }
+        minions::the_last_one_standing::ID if n1 >= 10 => {
+            u.stacks = n1 / 10 - 1;
         }
         minions::gathering_stormer::ID => {
             if n1 >= mult {
@@ -327,18 +330,23 @@ fn populate_unit_script_state(u: &mut Unit, m: &LogMinion) {
             }
         }
         minions::air_revenant::ID if (1..=7).contains(&n1) => u.counter = 7 - n1,
-        minions::auto_reveille::ID | minions::felboar::ID if (1..=3).contains(&n1) => {
+        minions::auto_reveille::ID
+        | minions::felboar::ID
+        | minions::unbound_tempest::ID
+            if (1..=3).contains(&n1) =>
+        {
             u.counter = 3 - n1;
         }
-        minions::doubloon_grifter::ID
-        | minions::eredar_escapist::ID
-        | minions::unbound_tempest::ID
-            if (1..=4).contains(&n1) =>
-        {
+        minions::doubloon_grifter::ID if (1..=4).contains(&n1) => {
             u.counter = 4 - n1;
         }
-        minions::gunpowder_courier::ID if (1..=5).contains(&n1) => u.counter = 5 - n1,
-        minions::enterprising_escapee::ID if (1..=6).contains(&n1) => u.counter = 6 - n1,
+        minions::enterprising_escapee::ID
+        | minions::eredar_escapist::ID
+        | minions::gunpowder_courier::ID
+            if (1..=5).contains(&n1) =>
+        {
+            u.counter = 5 - n1;
+        }
         minions::sky_admiral_rogers::ID if (1..=9).contains(&n1) => u.counter = 9 - n1,
         _ => {}
     }

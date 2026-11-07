@@ -1,4 +1,4 @@
-//! `Maldraxxus Dagger` (`BG36_MagicItem_370`) — Greater, 6 Gold.
+//! `Maldraxxus Dagger` (`BG36_MagicItem_370`) — Greater, 7 Gold.
 //!
 //! Discover a plain copy of a friendly minion with a Dark Gift. Repeat at the start of every 2 turns. (2 turns left!)
 //!

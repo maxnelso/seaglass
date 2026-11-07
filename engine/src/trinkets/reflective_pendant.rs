@@ -1,4 +1,4 @@
-//! `Reflective Pendant` (`BG30_MagicItem_706`) — Lesser, 6 Gold.
+//! `Reflective Pendant` (`BG30_MagicItem_706`) — Lesser, 5 Gold.
 //!
 //! Get a plain copy of a random friendly minion. At the start of each turn, repeat this.
 //!

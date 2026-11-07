@@ -1,4 +1,4 @@
-//! `Bazaar Sticker` (`BG32_MagicItem_822`) — Lesser, 1 Gold, Demon.
+//! `Bazaar Sticker` (`BG32_MagicItem_822`) — Lesser, 2 Gold, Demon.
 //!
 //! One Tavern spell each turn costs Health instead of Gold to buy. (1 left!)
 //!

@@ -14,10 +14,10 @@ scenarios:
     combat:
       board_a: [Stalwart Kodo, Diremuck Forager]
       board_b: [Patient Scout]
-      hand_a: [Tad]   # 2/2 Murloc + Stalwart Kodo's 16/32 = 18/34
+      hand_a: [Tad]   # 2/2 Murloc + Stalwart Kodo's 30/60 = 32/62
     expect:
       survivors_a:
-        any: "Tad 18/34"
+        any: "Tad 32/62"
 
   - name: picks_randomly_among_murlocs_tied_for_highest_attack
     description: >-

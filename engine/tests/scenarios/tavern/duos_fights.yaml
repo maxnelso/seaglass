@@ -139,7 +139,7 @@ scenarios:
       health: 18
       players:
         - {board: ["Soul Rewinder 4/2", {card: Eredar Escapist, counter: 0}], hand: []}
-        - {board: ["Tichondrius 4/4", "Ashen Corruptor 6/6"], hand: []}
+        - {board: ["Tichondrius 4/4", "Ashen Corruptor 4/8"], hand: []}
 
   - name: a_warband_that_sat_out_takes_the_teams_result_after_combat
     description: >-

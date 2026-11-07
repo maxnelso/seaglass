@@ -1,14 +1,14 @@
 trinket: Stormcoil Sticker
 scenarios:
-  - name: the_6th_friendly_death_gives_a_card_of_the_type
+  - name: the_5th_friendly_death_gives_a_card_of_the_type
     description: >-
-      The count goes across combats (3 so far): the third 1/1 to die gives a random minion of
+      The count goes across combats (2 so far): the third 1/1 to die gives a random minion of
       the type, of the player's Tier or lower, in the combat hand, which comes back with it.
     seeds: "1..=3"
     tavern:
       tavern_tier: 6
       board: ["1/1", "1/1", "1/1"]
-      auras: {trinkets: [{trinket: Stormcoil Sticker, counter: 3}]}
+      auras: {trinkets: [{trinket: Stormcoil Sticker, counter: 2}]}
     steps:
       - fight: {board: ["1/100"]}
     expect:

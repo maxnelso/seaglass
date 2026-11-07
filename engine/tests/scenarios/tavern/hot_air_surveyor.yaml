@@ -23,10 +23,10 @@ scenarios:
       board: [{card: Felboar, stats: 11/17, counter: 1}, Hot-Air Surveyor]   # 2/6 +4/+4 +5/+7
 
   - name: glambot_triggers_on_each_cast
-    tavern: {board: [Glambot, Hot-Air Surveyor], hand: [Blood Gem]}   # Glambot: a 4/4 Mech
+    tavern: {board: [Glambot, Hot-Air Surveyor], hand: [Blood Gem]}   # Glambot: a 5/5 Mech
     steps:
       - play: {hand: Blood Gem, pos: 0}   # on Glambot
-    expect: {board: ["Glambot 14/14", Hot-Air Surveyor]}   # +1/+1 and a 4/4 Satellite per cast
+    expect: {board: ["Glambot 17/17", Hot-Air Surveyor]}   # +1/+1 and a 5/5 Satellite per cast
 
   - name: with_balinda_a_blood_gem_is_cast_3_times
     description: >-

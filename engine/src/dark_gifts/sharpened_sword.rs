@@ -1,4 +1,4 @@
-//! `Sharpened Sword` (`BG36_MidGameEffect_000t74`) — turns 3–6, weight 100.
+//! `Sharpened Sword` (`BG36_MidGameEffect_000t74`) — turns 3–5, weight 100.
 //!
 //! Whenever you play a card, gain +3 Attack.
 //!

@@ -27,8 +27,8 @@ scenarios:
     expect:
       shop: []
       board:
-        - {card: Felboar, stats: 11/17, counter: 0}   # 2/6 +4/+4 (the Tea Set) +5/+7
-        - "Gatekeeper Amalgam 10/13 taunt"   # 6/6 +0/+3 +4/+4
+        - {card: Felboar, stats: 10/16, counter: 0}   # 2/6 +3/+3 (the Tea Set) +5/+7
+        - "Gatekeeper Amalgam 9/12 taunt"   # 6/6 +0/+3 +3/+3
 
   # A Blood Gem that a card plays isn't a spell you cast, so Felboar doesn't count it
   # (docs/tavern.md §7.4).

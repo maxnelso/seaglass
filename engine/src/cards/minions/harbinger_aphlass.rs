@@ -1,4 +1,4 @@
-//! `Harbinger Aph'lass` (`BGFYM_005`) — Tier 6 Aberration (`3/6`).
+//! `Harbinger Aph'lass` (`BGFYM_005`) — Tier 5 Aberration (`3/6`).
 //!
 //! Whenever you discard a card, give your Deity `+2/+1` (`+4/+2` if Golden) and improve this.
 
@@ -10,7 +10,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 613;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Harbinger Aph'lass", 3, 6, 6)
+    CardTemplate::new(ID, "Harbinger Aph'lass", 3, 6, 5)
         .with_tribe(Tribe::Aberration)
         .on_after_friendly_discard(after_friendly_discard)
 }

@@ -1,8 +1,8 @@
 //! `Quartermaster's Hook` (`BG36_MagicItem_408`) — Lesser, 0 Gold, Pirate.
 //!
-//! After you spend 50 Gold, replace this with a random Greater Pirate Trinket. (50 Gold left!)
+//! After you spend 40 Gold, replace this with a random Greater Pirate Trinket. (40 Gold left!)
 //!
-//! `trinket_gold_spent`: every Gold spent counts (`counter`, across turns); at 50 it is replaced
+//! `trinket_gold_spent`: every Gold spent counts (`counter`, across turns); at 40 it is replaced
 //! by a random Greater Pirate trinket the player doesn't own (`trinkets::replace_with_random`,
 //! `docs/trinkets.md` §3.5), at once.
 
@@ -14,7 +14,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 134436;
 
 /// Gold spent until the replacement.
-const GOLD: i32 = 50;
+const GOLD: i32 = 40;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

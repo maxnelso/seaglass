@@ -1,4 +1,4 @@
-//! `Czarina Portrait` (`BG32_MagicItem_283`) — Greater, 1 Gold, Mech.
+//! `Czarina Portrait` (`BG32_MagicItem_283`) — Greater, 0 Gold, Mech.
 //!
 //! Get a Charging Czarina. Your Charging Czarinas also give Health.
 //!

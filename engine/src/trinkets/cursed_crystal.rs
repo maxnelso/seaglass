@@ -1,9 +1,9 @@
-//! `Cursed Crystal` (`BG35_MagicItem_150`) — Lesser, 3 Gold, Demon.
+//! `Cursed Crystal` (`BG35_MagicItem_150`) — Lesser, 2 Gold, Demon.
 //!
-//! After the Tavern is Refreshed, give its minions +3/+3 this turn.
+//! After the Tavern is Refreshed, give its minions +2/+2 this turn.
 //!
 //! `trinket_after_refresh`: the first Refresh of each turn (the turn start's too; `armed`, which
-//! starts again each turn) gives the minions in the Tavern +3/+3 this turn, as `Ashen Corruptor`'s
+//! starts again each turn) gives the minions in the Tavern +2/+2 this turn, as `Ashen Corruptor`'s
 //! (`auras.tavern_turn_atk` / `tavern_turn_hp`): so do the minions of the turn's later Refreshes.
 //! A minion bought keeps it; one still in the Tavern loses it at the next turn start (confirmed).
 
@@ -15,7 +15,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 131276;
 
 /// The buff.
-const BUFF: i32 = 3;
+const BUFF: i32 = 2;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

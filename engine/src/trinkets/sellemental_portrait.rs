@@ -1,4 +1,4 @@
-//! `Sellemental Portrait` (`BG32_MagicItem_831`) — Lesser, 4 Gold, Elemental.
+//! `Sellemental Portrait` (`BG32_MagicItem_831`) — Lesser, 3 Gold, Elemental.
 //!
 //! Get a Sellemental. At the start of each turn, get another.
 //!

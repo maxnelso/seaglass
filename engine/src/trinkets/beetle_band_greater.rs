@@ -1,8 +1,8 @@
-//! `Beetle Band (Greater)` (`BG32_MagicItem_860t`) — Greater, 5 Gold, Beast.
+//! `Beetle Band (Greater)` (`BG32_MagicItem_860t`) — Greater, 4 Gold, Beast.
 //!
-//! Avenge (7): Summon two 2/2 Beetles. Give them Taunt.
+//! Avenge (8): Summon two 2/2 Beetles. Give them Taunt.
 //!
-//! As the Lesser `Beetle Band`: every 7th friendly minion that dies in a combat summons two
+//! As the Lesser `Beetle Band`: every 8th friendly minion that dies in a combat summons two
 //! Beetles with Taunt.
 
 use crate::cards::{BoardCtx, CardHooks};
@@ -11,7 +11,7 @@ use crate::model::{CardId, Unit};
 pub const ID: CardId = 121182;
 
 /// Friendly deaths per Avenge.
-const AVENGE: i32 = 7;
+const AVENGE: i32 = 8;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

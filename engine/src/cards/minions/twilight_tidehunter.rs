@@ -1,6 +1,6 @@
-//! `Twilight Tidehunter` (`BG36_703`) — Tier 4 Murloc (`4/6`).
+//! `Twilight Tidehunter` (`BG36_703`) — Tier 4 Murloc (`3/7`).
 //!
-//! Whenever you cast a spell on this, give the left-most minion in your hand `+8/+8` (`+16/+16` if Golden).
+//! Whenever you cast a spell on this, give the left-most minion in your hand `+9/+9` (`+18/+18` if Golden).
 //!
 //! A Blood Gem that a card plays on it (`Geomagus Roogug`, `Bonker`, ...) isn't a spell you cast on
 //! it (`docs/tavern.md` §7.4).
@@ -13,7 +13,7 @@ use crate::tavern::{CardPool, MinionSlot, TavernState};
 pub const ID: CardId = 458;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Twilight Tidehunter", 4, 6, 4)
+    CardTemplate::new(ID, "Twilight Tidehunter", 3, 7, 4)
         .with_tribe(Tribe::Murloc)
         .on_after_targeted_spell(after_targeted_spell)
 }
@@ -28,7 +28,7 @@ pub fn after_targeted_spell(
     if target != MinionSlot::Board(self_idx) {
         return;
     }
-    let buff = 8 * state.board[self_idx].golden_mult();
+    let buff = 9 * state.board[self_idx].golden_mult();
     if let Some(h) = state.hand.iter_mut().find(|u| !u.is_spell) {
         h.add_stats(buff, buff);
     }

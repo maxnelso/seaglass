@@ -1,4 +1,4 @@
-//! `Explorer's Binoculars` (`BG32_MagicItem_858`) — Lesser, 1 Gold.
+//! `Explorer's Binoculars` (`BG32_MagicItem_858`) — Lesser, 0 Gold.
 //!
 //! Get three random Tier 4 minions.
 //!

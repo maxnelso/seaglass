@@ -1,24 +1,24 @@
 card: Enterprising Escapee
 scenarios:
-  - name: spending_6_gold_gets_a_lockbox
+  - name: spending_5_gold_gets_a_lockbox
     seed: 515
-    tavern: {gold: 6, board: [Enterprising Escapee]}
+    tavern: {gold: 5, board: [Enterprising Escapee]}
     steps:
-      - repeat: 6   # 6 Refreshes: 6 Gold spent
+      - repeat: 5   # 5 Refreshes: 5 Gold spent
         steps: [refresh]
     expect: {hand: [Lockbox]}
 
   - name: gold_spent_before_it_is_on_the_board_does_not_count
-    description: The 3 Gold that bought it don't count; it takes 6 more once it is on the board.
+    description: The 3 Gold that bought it don't count; it takes 5 more once it is on the board.
     seed: 515
-    tavern: {gold: 10, shop: [Enterprising Escapee]}
+    tavern: {gold: 9, shop: [Enterprising Escapee]}
     steps:
       - buy: Enterprising Escapee   # 3 Gold
       - play: Enterprising Escapee
-      - repeat: 5   # 5 Gold
+      - repeat: 4   # 4 Gold
         steps: [refresh]
       - expect: {gold: 2, hand: []}
-      - refresh   # the 6th Gold since it was played
+      - refresh   # the 5th Gold since it was played
     expect: {gold: 1, hand: [Lockbox]}
 
   - name: a_lockbox_got_for_a_buy_with_nine_cards_is_lost
@@ -28,7 +28,7 @@ scenarios:
       a hand of 11).
     tavern:
       gold: 10
-      board: [{card: Enterprising Escapee, counter: 3}]   # 3 more Gold spent: a Lockbox
+      board: [{card: Enterprising Escapee, counter: 2}]   # 3 more Gold spent: a Lockbox
       hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
              Blood Gem]   # 9 cards
       shop: [Lullabot]
@@ -41,7 +41,7 @@ scenarios:
     description: A bought spell is in the hand before its Gold is spent too.
     tavern:
       gold: 10
-      board: [{card: Enterprising Escapee, counter: 5}]   # 1 more Gold spent: a Lockbox
+      board: [{card: Enterprising Escapee, counter: 4}]   # 1 more Gold spent: a Lockbox
       hand: [Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem, Blood Gem,
              Blood Gem]   # 9 cards
       shop: [Fortify]

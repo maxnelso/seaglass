@@ -1,6 +1,6 @@
-//! `Misplaced Tea Set` — Tier 4 Tavern spell (`3` Gold).
+//! `Misplaced Tea Set` — Tier 4 Tavern spell (`2` Gold).
 //!
-//! Give a friendly minion of each type +4/+4. The minions are the best assignment of friendly
+//! Give a friendly minion of each type +3/+3. The minions are the best assignment of friendly
 //! minions to types (as many as possible: `Treasure Parrot` and `Flittering Bat` both get it, the
 //! Parrot as the Pirate), at random among the best ones (the Menagerie rule,
 //! `types::select_menagerie_targets`: `docs/tavern.md` §7.8). Naga is a type too: `Firescale
@@ -17,7 +17,7 @@ pub fn hooks() -> CardHooks {
     spell(cast)
 }
 
-/// `Misplaced Tea Set`: give a friendly minion of each type +4/+4.
+/// `Misplaced Tea Set`: give a friendly minion of each type +3/+3.
 pub fn cast(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, rng: &mut Rng) {
     apply_misplaced_tea_set(state, rng);
 }

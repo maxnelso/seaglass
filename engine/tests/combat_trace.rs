@@ -42,8 +42,8 @@ fn a_trace_follows_the_combat_without_changing_it() {
             .filter(|e| matches!(e, Event::AttackDeclared { .. }))
             .count();
         assert!(
-            snapshots.len() <= 2 + strikes,
-            "seed {seed}: one snapshot per strike at most"
+            snapshots.len() <= 2 + 2 * strikes,
+            "seed {seed}: at most two snapshots per Start-of-Combat strike and one per attack turn"
         );
     }
     // Outside a trace nothing is recorded, and a nested trace does not leak into its parent.

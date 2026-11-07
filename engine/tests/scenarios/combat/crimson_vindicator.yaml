@@ -23,7 +23,7 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a:
-        - "Crimson Vindicator 20/21 -divine_shield"   # 8/9 + 12/12; the 1/1 popped its shield
+        - "Crimson Vindicator 21/19 -divine_shield"   # 9/7 + 12/12; the 1/1 popped its shield
         - "Humon'gozz 13/13"   # 5/5 + 8/8
 
   - name: a_magnetized_enchanted_sentinel_adds_its_spell_power
@@ -40,7 +40,7 @@ scenarios:
     expect:
       combat:
         survivors_a:
-          - "Crimson Vindicator 20/18 -divine_shield"   # 8/9 + 12/9
+          - "Crimson Vindicator 21/16 -divine_shield"   # 9/7 + 12/9
           - "Annoy-o-Module 13/15"   # 5/9 + 8/6
 
   # Each Mighty Dragonbreath counts as you casting a Tavern spell (docs/combat.md §2).
@@ -52,7 +52,7 @@ scenarios:
       The Vindicator attacks once. Before its Mighty Dragonbreath (+3/+2, again for a Dragon and for
       Divine Shield), left to right: Vicious Mindslasher gives itself and the Deity +1/+2, Forsaken
       Weaver gives the Undead +3 Attack this game (itself, and Plaguerunner in hand), and Living
-      Azerite gives the Elementals in the Tavern +4/+3 this game.
+      Azerite gives the Elementals in the Tavern +3/+3 this game.
     seed: 604
     combat:
       board_a: [Crimson Vindicator, Vicious Mindslasher, Forsaken Weaver, Living Azerite]
@@ -61,43 +61,43 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a:
-        - "Crimson Vindicator 17/15 -divine_shield"   # 8/9 + 9/6
+        - "Crimson Vindicator 18/13 -divine_shield"   # 9/7 + 9/6
         - "Vicious Mindslasher 5/6"   # 1/2 + 1/2 + 3/2
         - "Forsaken Weaver 9/10"   # 3/8 + 3/0 + 3/2
-        - "Living Azerite 11/8"   # 8/6 + 3/2
+        - "Living Azerite 9/8"   # 6/6 + 3/2
       hand_a: ["Plaguerunner 7/2"]
       auras_a:
         tavern_spells_cast: 1
         deity: {attack: 2, health: 3}   # from the base 1/1
         undead_bonus_attack: 3
-        tavern_elemental_atk: 4
+        tavern_elemental_atk: 3
         tavern_elemental_hp: 3
       events:
         sequence:
           - {type: attack_declared, side: a, attacker: 0, target: 4}
           - {type: stat_buff, unit: 1, reason: Vicious Mindslasher, attack: 2, health: 4}
           - {type: stat_buff, unit: 2, reason: Forsaken Weaver, attack: 6, health: 8}
-          - {type: stat_buff, unit: 0, reason: Crimson Vindicator, attack: 17, health: 15}
-          - {type: damage_dealt, unit: 4, amount: 17, from: 0}
+          - {type: stat_buff, unit: 0, reason: Crimson Vindicator, attack: 18, health: 13}
+          - {type: damage_dealt, unit: 4, amount: 18, from: 0}
 
   - name: golden_minions_react_with_their_golden_bonuses
     description: >-
       Before Mighty Dragonbreath, a Golden Mindslasher gives itself and the Deity +2/+4, a Golden
       Forsaken Weaver gives the Undead +6 Attack, and a Golden Living Azerite gives the Elementals
-      in the Tavern +8/+6.
+      in the Tavern +6/+6.
     seed: 604
     combat:
       board_a:
         - Crimson Vindicator
         - "golden Vicious Mindslasher 2/4"
         - "golden Forsaken Weaver 6/16"
-        - "golden Living Azerite 16/12"
+        - "golden Living Azerite 12/12"
       board_b: [Greedy Conniver]
     expect:
       auras_a:
         deity: {attack: 3, health: 5}
         undead_bonus_attack: 6
-        tavern_elemental_atk: 8
+        tavern_elemental_atk: 6
         tavern_elemental_hp: 6
       events:
         all_of:
@@ -110,7 +110,7 @@ scenarios:
       up by 2 (Faceless Converter), but Armor Stash stays the last Tavern spell cast, so Cataclysmic
       Harbinger gets a copy of it at the end of the turn.
     seed: 604
-    tavern: {board: ["golden Crimson Vindicator 16/18", Cataclysmic Harbinger], hand: [Armor Stash]}
+    tavern: {board: ["golden Crimson Vindicator 18/14", Cataclysmic Harbinger], hand: [Armor Stash]}
     steps:
       - play: {hand: Armor Stash, pos: 0}   # an untargeted spell is played at 0
       - expect: {auras: {tavern_spells_cast: 1, last_tavern_spell_cast: {capture: armor_stash}}}
@@ -133,5 +133,5 @@ scenarios:
       auras: {tavern_spells_cast: 1, last_tavern_spell_cast: 839}   # Mighty Dragonbreath
       board:
         - "Sky-hatch Runaway 10/11"   # 4/7 + 3/2 twice (a Dragon)
-        - "Crimson Vindicator 17/15"   # 8/9 + 3/2 three times (a Dragon with Divine Shield)
+        - "Crimson Vindicator 18/13"   # 9/7 + 3/2 three times (a Dragon with Divine Shield)
         - {card: Felboar, stats: 5/8, counter: 1}   # 2/6 + 3/2

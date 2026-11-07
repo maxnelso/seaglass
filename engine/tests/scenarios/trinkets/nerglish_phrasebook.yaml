@@ -4,4 +4,4 @@ scenarios:
     tavern: {hand: ["1/1", Tavern Coin, "2/2", "3/3"], auras: {trinkets: [Nerglish Phrasebook]}}
     steps:
       - play: 0
-    expect: {hand: [Tavern Coin, "5/5", "3/3"]}
+    expect: {hand: [Tavern Coin, "7/7", "3/3"]}

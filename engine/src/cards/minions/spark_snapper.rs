@@ -1,6 +1,6 @@
-//! `Spark Snapper` (`BG36_851`) — Tier 5 Mech (`6/8`).
+//! `Spark Snapper` (`BG36_851`) — Tier 5 Mech (`8/8`).
 //!
-//! Whenever you play a Mech, Magnetize a `2/3` (`4/6` if Golden) Satellite to it and improve this.
+//! Whenever you play a Mech, Magnetize a `2/2` (`4/4` if Golden) Satellite to it and improve this.
 //!
 //! Playing a Mech by Magnetizing it onto another Mech counts (the Satellite then goes to that
 //! Mech). The Satellite is a Magnetization (`Mechagnome Interpreter`, `Polarizing Beatboxer` see
@@ -15,7 +15,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 549;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Spark Snapper", 6, 8, 5)
+    CardTemplate::new(ID, "Spark Snapper", 8, 8, 5)
         .with_tribe(Tribe::Mech)
         .on_after_friendly_play(after_friendly_play)
 }
@@ -39,6 +39,6 @@ pub fn after_friendly_play(
     snapper.stacks += 1;
     let mut satellite = tokens::make_satellite(false);
     satellite.attack = 2 * mult;
-    satellite.health = 3 * mult;
+    satellite.health = 2 * mult;
     cards::magnetize(state, &mut satellite, played.board_pos, pool, rng);
 }

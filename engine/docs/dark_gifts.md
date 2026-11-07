@@ -121,7 +121,7 @@ The offer is a regular Discover (`ChooseDiscover`): the chosen minion goes to th
 5. it is banned: `Leeroy the Reckless` (Patch 36.6.3's Leeroy) and `Deadly Spore` (the post's examples), and `Dark Paradox`, which has a gift of its own **(engine decision: the list)**;
 6. no gift can be offered on it (§5) **(engine decision: so that every option has a gift)**.
 
-**Most common type.** From turn 6 on, one offered minion is of the player's most common type **(confirmed)**: the type the most minions on their board have (`spells::most_common_tribe`, `tavern.md` §7.8: an `All` minion counts for every type; a tie broken uniformly at random; with no typed minion, a random lobby type) **(engine decision: the board, as every "most common type" in the engine, and the tie rule)**.
+**Most common type.** On turn 6, one offered minion is of the player's most common type; from turn 7 on, two offered minions are of the player's most common type **(confirmed)**: the type the most minions on their board have (`spells::most_common_tribe`, `tavern.md` §7.8: an `All` minion counts for every type; a tie broken uniformly at random; with no typed minion, a random lobby type) **(engine decision: the board, as every "most common type" in the engine, and the tie rule)**.
 
 ### 4.2 The Gifts
 
@@ -132,7 +132,7 @@ Each option gets one gift, drawn by weight among the gifts it can be offered (§
 1. **Most common type** (turn 6 and later): `t = spells::most_common_tribe(board, rng)` (it draws only for a tie or a board without types).
 2. **Three minions**, one after another, from the pool as a Discover draws (`CardPool::draw_template_where`: weighted by copies left, distinct cards, taken out of the pool). For each:
    - its Tier: one `rng.below(k)` among the turn's `k` Tiers (none for one Tier) **(engine decision: uniform per minion)**; if the pool has no minion for it at that Tier, the turn's other Tiers, from the lowest **(engine decision)**;
-   - the candidates: the pool's minions of that Tier that pass the filters (§4.1) and aren't already offered; the first option, from turn 6, also of type `t` (if the pool has none of it, it is drawn like the others) **(engine decision)**.
+   - the candidates: the pool's minions of that Tier that pass the filters (§4.1) and aren't already offered; the first option on turn 6, and the first two options from turn 7 on, also of type `t` (if the pool has none of it, it is drawn like the others) **(engine decision)**.
 3. **Gifts**, in option order: for each option, one `rng.below(total weight)` among the gifts it can be offered and the offer hasn't given yet. `Gilding` can only go to an option of the offer's lowest Tier (§5.2), known once the three minions are drawn. An option left with no gift (the others took the only ones it could have) goes back to the pool and is replaced by a new draw as in step 2 (the same type rule, a minion not offered or tried yet, of the offer's lowest Tier or higher, with a gift the offer hasn't given), until one has a gift; if the pool has none, the offer has one option fewer **(engine decision)**.
 4. The options keep their draw order (no shuffle) **(engine decision)**. Each option has the player's "wherever this is" auras applied (`apply_global_unit_auras`), as every Discover option does.
 

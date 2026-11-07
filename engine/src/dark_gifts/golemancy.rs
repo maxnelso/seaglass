@@ -1,4 +1,4 @@
-//! `Golemancy` (`BG36_MidGameEffect_000t61`) — turns 9–11, weight 100.
+//! `Golemancy` (`BG36_MidGameEffect_000t61`) — turns 9–12, weight 100.
 //!
 //! Deathrattle: Summon a Golem with this minion's stats.
 //!

@@ -1,10 +1,10 @@
 trinket: Bob-blehead
 scenarios:
-  - name: it_gives_two_gold
+  - name: it_gives_three_gold
     tavern: {gold: 3, turn: 6}
     steps:
       - give_trinket: Bob-blehead
-    expect: {gold: 5}
+    expect: {gold: 6}
 
   - name: the_tavern_offers_no_tier_1_or_2_cards
     seeds: "1..=5"

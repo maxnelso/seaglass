@@ -1,19 +1,19 @@
 dark_gift: Incubation
 scenarios:
-  - name: gives_4_4_and_doubles_in_2_turns
+  - name: gives_6_6_and_doubles_in_2_turns
     tavern: {hand: ["1/1 beast gift:incubation"]}
     steps:
-      - expect: {hand: ["5/5"]}
+      - expect: {hand: ["7/7"]}
       - start_turn
-      - expect: {hand: ["5/5"]}
+      - expect: {hand: ["7/7"]}
       - start_turn
-      - expect: {hand: ["10/10"]}
+      - expect: {hand: ["14/14"]}
       - start_turn
-    expect: {hand: ["10/10"]}
+    expect: {hand: ["14/14"]}
 
   - name: on_the_board_too
     tavern: {board: ["2/2 beast gift:incubation"]}
     steps:
       - start_turn
       - start_turn
-    expect: {board: ["12/12"]}
+    expect: {board: ["16/16"]}

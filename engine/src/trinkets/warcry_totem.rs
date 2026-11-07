@@ -1,4 +1,4 @@
-//! `Warcry Totem` (`BG36_MagicItem_202`) — Lesser, 4 Gold, Dragon, Murloc.
+//! `Warcry Totem` (`BG36_MagicItem_202`) — Lesser, 5 Gold, Dragon, Murloc.
 //!
 //! The first two Battlecry minions you buy each turn are free. (2 left!)
 //!

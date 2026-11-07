@@ -1,4 +1,4 @@
-//! `Worship` (`BG36_MidGameEffect_000t89`) — turns 12–, weight 50.
+//! `Worship` (`BG36_MidGameEffect_000t89`) — turns 11–, weight 100.
 //!
 //! Start of Combat: Gain the stats of your Deity.
 //!

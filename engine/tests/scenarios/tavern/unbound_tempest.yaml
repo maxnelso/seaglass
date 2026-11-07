@@ -1,13 +1,12 @@
 card: Unbound Tempest
 scenarios:
-  - name: after_4_elementals_gains_the_stats_of_the_highest_health_tavern_minion
+  - name: after_3_elementals_gains_the_stats_of_the_highest_health_tavern_minion
     tavern:
-      board: [Unbound Tempest]   # 3/12
-      hand: [Dune Dweller, Dune Dweller, Crackling Cyclone, Crackling Cyclone]   # Elementals
+      board: [Unbound Tempest]   # 3/9
+      hand: [Dune Dweller, Dune Dweller, Crackling Cyclone]   # Elementals
       shop: [Tyrael]   # 10/10; not an Elemental: Dune Dweller's Tavern buff does not reach it
     steps:
       - play: Dune Dweller
       - play: Dune Dweller
       - play: Crackling Cyclone
-      - play: Crackling Cyclone
-    expect: {board: {0: "Unbound Tempest 13/22"}}   # 3/12 + 10/10
+    expect: {board: {0: "Unbound Tempest 13/19"}}   # 3/9 + 10/10

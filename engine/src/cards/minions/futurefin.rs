@@ -1,4 +1,4 @@
-//! `Futurefin` (`BG34_145`) — Tier 7 Murloc (`7/13`).
+//! `Futurefin` (`BG34_145`) — Tier 7 Murloc (`17/23`).
 //!
 //! At the end of your turn, give this minion's stats (double if Golden) to the left-most minion in your hand.
 
@@ -10,7 +10,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 703;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Futurefin", 7, 13, 7)
+    CardTemplate::new(ID, "Futurefin", 17, 23, 7)
         .with_tribe(Tribe::Murloc)
         .on_end_of_turn(on_end_turn)
 }

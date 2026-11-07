@@ -4,13 +4,13 @@ scenarios:
     tavern: {turn: 5, board: ["1/1"], auras: {trinkets: [Weighted Gauntlet]}}
     steps:
       - end_turn
-      - expect: {board: ["2/2"]}
+      - expect: {board: ["8/8"]}
       - start_turn
       - end_turn
-      - expect: {board: ["4/4"]}
+      - expect: {board: ["22/22"]}
       - start_turn
       - end_turn
-    expect: {board: ["8/8"]}
+    expect: {board: ["50/50"]}
 
   - name: it_keeps_doubling_and_stats_saturate
     description: No cap (confirmed); from 2^31 on the bonus is 2,147,483,647 and stats saturate there.
@@ -25,4 +25,4 @@ scenarios:
     steps:
       - start_turn
       - end_turn
-    expect: {board: ["2049/2049"]}
+    expect: {board: ["14337/14337"]}

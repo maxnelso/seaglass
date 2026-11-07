@@ -37,7 +37,7 @@ scenarios:
 
   - name: a_naga_the_tavern_offers_later_gets_it_too
     description: The Firescale Hoarders the Tavern offers after the cast have +3/+3 too.
-    seeds: [10, 23]
+    seeds: [10, 11]
     tavern: {catalog: tier5, tavern_tier: 5, gold: 1, board: [Ominous Seer], hand: ["Eonar's Favor"]}   # Tier 5 minions only
     steps:
       - play: {hand: "Eonar's Favor", pos: 0}

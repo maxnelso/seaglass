@@ -71,6 +71,7 @@ impl CardIndex {
             .chain(cards::duos_exclusive_templates())
             .chain(cards::duos_out_of_pool_templates())
             .chain(cards::trinket_minion_templates())
+            .chain(cards::solo_out_of_pool_templates())
         {
             list.push(Card {
                 name: tpl.name.clone(),

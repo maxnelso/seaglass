@@ -1,8 +1,8 @@
 //! `Miniature Ship` (`BG35_MagicItem_710`) — Greater, 1 Gold, Pirate.
 //!
-//! After you cast a Tavern spell, give your Pirates +3/+3.
+//! After you cast a Tavern spell, give your Pirates +4/+4.
 //!
-//! `trinket_spell_cast`: each Tavern spell cast gives every Pirate on the board +3/+3.
+//! `trinket_spell_cast`: each Tavern spell cast gives every Pirate on the board +4/+4.
 
 use crate::cards::CardHooks;
 use crate::model::{CardId, Tribe};
@@ -19,7 +19,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 fn spell_cast(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
     for unit in &mut state.board {
         if unit.tribe.matches(Tribe::Pirate) {
-            unit.add_stats(3, 3);
+            unit.add_stats(4, 4);
         }
     }
 }

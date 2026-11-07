@@ -1,4 +1,4 @@
-//! `Conch Portrait` (`BG35_MagicItem_305`) — Lesser, 5 Gold, Murloc.
+//! `Conch Portrait` (`BG35_MagicItem_305`) — Lesser, 4 Gold, Murloc.
 //!
 //! Get a Cloning Conch. At the start of every 2 turns, repeat this. (2 turns left!)
 //!

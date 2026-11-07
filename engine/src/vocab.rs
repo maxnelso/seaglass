@@ -73,6 +73,8 @@ pub const APPENDED: &[CardId] = &[
     65260,  // Raise the Stakes
     // `Corrupted Tome`'s `Triple Prize` (`docs/darkmoon_prizes.md` §7.3).
     trinkets::corrupted_tome::SPELL,
+    // Patch 37.0.2 pool additions.
+    minions::murcules::ID,
 ];
 
 #[cfg(test)]

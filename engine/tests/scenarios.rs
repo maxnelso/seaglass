@@ -121,6 +121,10 @@ fn yaml_files(dir: &Path) -> Vec<PathBuf> {
 struct Catalog {
     minions: BTreeMap<u32, Vec<String>>,
     minion_ids: BTreeMap<u32, [u32; 2]>,
+    #[serde(default)]
+    tier_moved_minion_ids: BTreeMap<u32, Vec<u32>>,
+    #[serde(default)]
+    solo_out_of_pool: BTreeMap<u32, Vec<String>>,
     duos_minions: BTreeMap<u32, Vec<String>>,
     duos_out_of_pool: BTreeMap<u32, Vec<String>>,
     trinket_minions: BTreeMap<u32, Vec<String>>,
@@ -252,6 +256,11 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
             &minions,
         ));
         let [lo, hi] = want.minion_ids.get(&tier).copied().unwrap_or_default();
+        let moved = want
+            .tier_moved_minion_ids
+            .get(&tier)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         for card in &cards {
             if card.tavern_tier != tier {
                 check(Some(format!(
@@ -259,7 +268,7 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
                     card.name, card.tavern_tier
                 )));
             }
-            if !(lo..=hi).contains(&card.card_id) {
+            if !(lo..=hi).contains(&card.card_id) && !moved.contains(&card.card_id) {
                 check(Some(format!(
                     "{} has card id {}, outside tier {tier}'s range {lo}..={hi}",
                     card.name, card.card_id
@@ -302,6 +311,28 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
             if card.tavern_tier != *tier {
                 check(Some(format!(
                     "{} is a Tier {tier} Duos minion in catalog.yaml but has tavern_tier {}",
+                    card.name, card.tavern_tier
+                )));
+            }
+        }
+    }
+    // Retired Solo minions in no pool: registered, in no catalog.
+    let solo_out_of_pool = cards::solo_out_of_pool_catalog();
+    check(list_diff(
+        "solo_out_of_pool_catalog()",
+        &template_names(&solo_out_of_pool),
+        &want
+            .solo_out_of_pool
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ));
+    for (tier, names) in &want.solo_out_of_pool {
+        for card in solo_out_of_pool.iter().filter(|c| names.contains(&c.name)) {
+            if card.tavern_tier != *tier {
+                check(Some(format!(
+                    "{} is a Tier {tier} Solo out-of-pool minion in catalog.yaml but has tavern_tier {}",
                     card.name, card.tavern_tier
                 )));
             }
@@ -445,6 +476,7 @@ fn check_catalog(path: &Path) -> Result<(), Failed> {
     let everything = seaglass::full_catalog()
         .into_iter()
         .chain(duos_exclusive)
+        .chain(solo_out_of_pool)
         .chain(out_of_pool)
         .chain(trinket_minions)
         .map(|t| (t.card_id, t.name))

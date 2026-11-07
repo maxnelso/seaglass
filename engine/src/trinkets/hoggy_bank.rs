@@ -1,4 +1,4 @@
-//! `Hoggy Bank` (`BG30_MagicItem_411`) — Lesser, 0 Gold, Quilboar.
+//! `Hoggy Bank` (`BG30_MagicItem_411`) — Lesser, 1 Gold, Quilboar.
 //!
 //! Start of Combat: Give your Quilboar "Deathrattle: Get 2 Blood Gems."
 //!

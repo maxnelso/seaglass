@@ -1,4 +1,4 @@
-//! `Chromatic Tear` (`BG35_MagicItem_840`) — Lesser, 3 Gold, Dragon.
+//! `Chromatic Tear` (`BG35_MagicItem_840`) — Lesser, 2 Gold, Dragon.
 //!
 //! Get a random Chromadrake. At the start of each turn, repeat this.
 //!

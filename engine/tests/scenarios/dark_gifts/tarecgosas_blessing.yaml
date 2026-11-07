@@ -1,8 +1,8 @@
 dark_gift: Tarecgosa's Blessing
 scenarios:
   - name: keeps_double_the_stats_gained_in_combat
-    description: Hostility gives it +1 Attack in combat; it keeps +2.
+    description: Hostility gives +15 Attack (+16/1) and +16 Attack in combat; it keeps +32 (48/1).
     tavern: {board: ["1/1 dragon gift:tarecgosas_blessing gift:hostility"]}
     steps:
       - fight: {board: []}
-    expect: {board: ["3/1"]}
+    expect: {board: ["48/1"]}

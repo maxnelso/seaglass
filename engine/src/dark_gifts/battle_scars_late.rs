@@ -1,4 +1,4 @@
-//! `Battle Scars (late)` (`BG36_MidGameEffect_000t28`) — turns 7–10, weight 100.
+//! `Battle Scars (late)` (`BG36_MidGameEffect_000t28`) — turns 7–9, weight 100.
 //!
 //! Has +3/+3 for each Battlecry you've triggered this game. ({1})
 //!

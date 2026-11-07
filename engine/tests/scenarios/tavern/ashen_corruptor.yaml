@@ -1,6 +1,6 @@
 card: Ashen Corruptor
 scenarios:
-  - name: rewinds_hero_damage_and_gives_tavern_minions_2_2
+  - name: rewinds_hero_damage_and_gives_tavern_minions_1_2
     tavern:
       board: [Ashen Corruptor]
       shop: [Iron Groundskeeper, Hasty Excavation]   # the spell costs 3 Health
@@ -8,7 +8,7 @@ scenarios:
       - buy: Hasty Excavation
     expect:
       health: 30
-      shop: ["Iron Groundskeeper 4/4"]
+      shop: ["Iron Groundskeeper 3/4"]
 
   - name: health_refresh_via_malchezaar_buffs_rolled_shop_for_the_turn
     seeds: "1..=5"
@@ -18,7 +18,7 @@ scenarios:
     steps:
       - refresh
     expect:
-      auras: {tavern_turn_atk: 2, tavern_turn_hp: 2}
+      auras: {tavern_turn_atk: 1, tavern_turn_hp: 2}
       shop:
         where: {is_spell: false}
-        all: {attack: ">= @base_attack + 2", health: ">= @base_health + 2"}
+        all: {attack: ">= @base_attack + 1", health: ">= @base_health + 2"}

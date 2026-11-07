@@ -1,8 +1,8 @@
 //! `Stuffed Coin Purse` (`BG35_MagicItem_814`) — Lesser, 0 Gold.
 //!
-//! When you reach Tier 6, gain 12 gold.
+//! When you reach Tier 6, gain 14 gold.
 //!
-//! `trinket_after_upgrade`: the Upgrade to Tier 6 gives 12 Gold, once (`stacks`). Picked at Tier 6
+//! `trinket_after_upgrade`: the Upgrade to Tier 6 gives 14 Gold, once (`stacks`). Picked at Tier 6
 //! already, it gives them at once (**engine decision**).
 
 use crate::cards::CardHooks;
@@ -15,7 +15,7 @@ pub const ID: CardId = 130832;
 /// The Tier to reach.
 const TIER: u32 = 6;
 /// The Gold it gives.
-const GOLD: u32 = 12;
+const GOLD: u32 = 14;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

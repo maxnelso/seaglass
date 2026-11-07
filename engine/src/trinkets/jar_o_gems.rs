@@ -1,39 +1,32 @@
-//! `Jar o' Gems` (`BG30_MagicItem_546`) — Greater, 0 Gold, Quilboar.
+//! `Jar o' Gems` (`BG30_MagicItem_546`) — Greater, 3 Gold, Quilboar.
 //!
-//! After 2 friendly minions attack each combat, this plays a Blood Gem on all your Quilboar. (2 left!)
+//! After a friendly Quilboar attacks each combat, this plays a Blood Gems on all your Quilboar.
 //!
-//! `trinket_friendly_attack`: the attacks of friendly minions in a combat count (`counter`, which
-//! starts again each combat: confirmed); once the 2nd has attacked, a Blood Gem is played (not
-//! cast: `tavern.md` §7.4) on every friendly Quilboar, once per combat (**engine decision**: not
-//! every 2 attacks). Attacks in the Tavern don't count.
+//! `trinket_friendly_attack`: whenever a friendly Quilboar attacks in combat, a Blood Gem is
+//! played (not cast: `tavern.md` §7.4) on every living friendly Quilboar. Attacks in the Tavern
+//! don't count.
 
 use crate::cards::{BoardCtx, CardHooks};
 use crate::model::{CardId, Tribe, UnitId};
 
 pub const ID: CardId = 112398;
 
-/// Attacks before the Blood Gems.
-const ATTACKS: i32 = 2;
-
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     vec![(
         ID,
-        CardHooks::EMPTY
-            .on_trinket_combat_start(super::reset_per_combat)
-            .on_trinket_friendly_attack(friendly_attack),
+        CardHooks::EMPTY.on_trinket_friendly_attack(friendly_attack),
     )]
 }
 
-fn friendly_attack(ctx: &mut BoardCtx<'_>, _: UnitId) {
+fn friendly_attack(ctx: &mut BoardCtx<'_>, attacker_id: UnitId) {
     if !ctx.in_combat {
         return;
     }
-    let Some(trinket) = super::state_mut(ctx.auras, ID) else {
+    let Some(attacker) = ctx.board.iter().find(|u| u.id == attacker_id) else {
         return;
     };
-    trinket.counter += 1;
-    if trinket.counter != ATTACKS {
+    if !attacker.tribe.matches(Tribe::Quilboar) {
         return;
     }
     let auras = ctx.auras.clone();

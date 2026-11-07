@@ -1,4 +1,4 @@
-//! `Sunken Anchor` (`BG35_MagicItem_890`) — Lesser, 6 Gold, Pirate.
+//! `Sunken Anchor` (`BG35_MagicItem_890`) — Lesser, 5 Gold, Pirate.
 //!
 //! Get 2 random Bounties. At the start of each turn, repeat this.
 //!

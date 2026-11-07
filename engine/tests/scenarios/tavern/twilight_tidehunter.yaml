@@ -1,20 +1,20 @@
 card: Twilight Tidehunter
 scenarios:
-  - name: a_spell_cast_on_it_gives_the_left_most_hand_minion_8_8
+  - name: a_spell_cast_on_it_gives_the_left_most_hand_minion_9_9
     tavern: {board: [Twilight Tidehunter], hand: [Iron Groundskeeper, Tavern Dish Banana]}
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}   # on the Tidehunter
-    expect: {hand: ["Iron Groundskeeper 10/10"]}
+    expect: {hand: ["Iron Groundskeeper 11/11"]}
 
   - name: a_blood_gem_a_card_plays_on_it_doesnt_trigger_it
     description: >-
       Brigand's Share plays 3 Blood Gems on each of your minions, the Tidehunter included: they
       aren't spells you cast on it, so the Groundskeeper in hand gets nothing.
-    tavern: {board: [Twilight Tidehunter], hand: [Iron Groundskeeper]}   # a 4/6 Murloc; a 2/2
+    tavern: {board: [Twilight Tidehunter], hand: [Iron Groundskeeper]}   # a 3/7 Murloc; a 2/2
     steps:
       - add_to_hand: Veteran Brigand   # an 8/8 Quilboar
       - play: Veteran Brigand
       - choose_discover: 0   # Brigand's Share
     expect:
-      board: ["Twilight Tidehunter 7/9", "Veteran Brigand 11/11"]   # +3/+3
+      board: ["Twilight Tidehunter 6/10", "Veteran Brigand 11/11"]   # +3/+3
       hand: ["Iron Groundskeeper 2/2"]

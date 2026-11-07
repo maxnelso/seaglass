@@ -4,4 +4,4 @@ scenarios:
     tavern: {board: ["1/1 pirate", "1/1 beast"], hand: [Tavern Coin], auras: {trinkets: [Miniature Ship]}}
     steps:
       - play: {hand: 0, pos: 0}
-    expect: {board: ["4/4", "1/1"]}
+    expect: {board: ["5/5", "1/1"]}

@@ -1,4 +1,4 @@
-//! `Magician's Top Hat` (`BG35_MagicItem_815`) — Lesser, 2 Gold.
+//! `Magician's Top Hat` (`BG35_MagicItem_815`) — Lesser, 1 Gold.
 //!
 //! Get two minions each from Tiers 1, 2, and 3.
 //!

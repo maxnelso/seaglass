@@ -1,4 +1,4 @@
-//! `Token of the Old Gods` (`BG30_MagicItem_416`) — Lesser, 2 Gold.
+//! `Token of the Old Gods` (`BG30_MagicItem_416`) — Lesser, 1 Gold.
 //!
 //! Spellcraft: Choose a minion. Then choose a minion from a Tier higher to transform it into.
 //!

@@ -1,4 +1,4 @@
-//! `Boom's Monster Portrait` (`BG32_MagicItem_172`) — Greater, 6 Gold, Mech.
+//! `Boom's Monster Portrait` (`BG32_MagicItem_172`) — Greater, 4 Gold, Mech.
 //!
 //! Get a Dr. Boom's Monster. At the start of every turn, get another.
 //!

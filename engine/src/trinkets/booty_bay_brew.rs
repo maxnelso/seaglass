@@ -1,4 +1,4 @@
-//! `Booty Bay Brew` (`BG30_MagicItem_924`) — Lesser, 2 Gold, Pirate.
+//! `Booty Bay Brew` (`BG30_MagicItem_924`) — Lesser, 0 Gold, Pirate.
 //!
 //! Whenever you spend Gold, give two friendly Pirates +3/+3.
 //!

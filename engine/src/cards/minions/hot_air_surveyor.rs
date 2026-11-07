@@ -1,4 +1,4 @@
-//! `Hot-Air Surveyor` (`BG30_121`) — Tier 4 Quilboar (`3/7`).
+//! `Hot-Air Surveyor` (`BG30_121`) — Tier 5 Quilboar (`3/7`).
 //!
 //! Blood Gems played from your hand cast an extra time (`2` extra times if Golden).
 //!
@@ -13,7 +13,7 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 431;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Hot-Air Surveyor", 3, 7, 4)
+    CardTemplate::new(ID, "Hot-Air Surveyor", 3, 7, 5)
         .with_tribe(Tribe::Quilboar)
         .with_passive(passive)
 }

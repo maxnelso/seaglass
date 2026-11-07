@@ -1,4 +1,4 @@
-//! `Sludge Portrait` (`BG36_MagicItem_430`) — Greater, 5 Gold.
+//! `Sludge Portrait` (`BG36_MagicItem_430`) — Greater, 7 Gold.
 //!
 //! Get a Sludge Corrosion. After you discard a spell, get a Sludge Corrosion.
 //!

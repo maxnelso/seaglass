@@ -21,7 +21,7 @@ pub use deities::{instantiate_deity, DEITY_SACRIFICE_REQUIREMENT};
 pub use hooks::{CardFlags, CardHooks, Passive, Played, SocAction};
 pub use registry::{
     all_templates, duos_exclusive_templates, duos_out_of_pool_templates, hooks, plain_instance,
-    template, trinket_minion_templates,
+    solo_out_of_pool_templates, template, trinket_minion_templates,
 };
 
 use crate::combat::MAX_BOARD_SIZE;
@@ -866,6 +866,12 @@ pub fn duos_out_of_pool_catalog() -> Vec<CardTemplate> {
 /// like any card, but neither in a pool nor in its random draws.
 pub fn trinket_minion_catalog() -> Vec<CardTemplate> {
     minions::trinket_catalog()
+}
+
+/// Solo minions rotated out of the active pool, kept registered for scenarios, replays, and the RL
+/// card vocabulary, but in no pool and no random draws.
+pub fn solo_out_of_pool_catalog() -> Vec<CardTemplate> {
+    minions::solo_out_of_pool_catalog()
 }
 
 /// The minions a player's effects that generate random minions draw from

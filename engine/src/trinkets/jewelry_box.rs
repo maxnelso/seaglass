@@ -1,4 +1,4 @@
-//! `Jewelry Box` (`BG35_MagicItem_434`) — Lesser, 0 Gold, Quilboar.
+//! `Jewelry Box` (`BG35_MagicItem_434`) — Lesser, 1 Gold, Quilboar.
 //!
 //! Get a Blood Gem that gives a Quilboar Taunt, Divine Shield, or Reborn. At the start of each turn, repeat this.
 //!

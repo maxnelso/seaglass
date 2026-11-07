@@ -1,8 +1,8 @@
-//! `Portable Factory (Greater)` (`BG32_MagicItem_361t`) — Greater, 0 Gold.
+//! `Portable Factory (Greater)` (`BG32_MagicItem_361t`) — Greater, 2 Gold.
 //!
-//! Discover a Tier 5 minion with a type. At the start of each turn, get another copy of it.
+//! Discover a Tier 6 minion with a type. At the start of each turn, get another copy of it.
 //!
-//! As the Lesser one, Tier 5.
+//! As the Lesser one, Tier 6.
 
 use crate::cards::CardHooks;
 use crate::model::CardId;
@@ -10,7 +10,7 @@ use crate::model::CardId;
 pub const ID: CardId = 120925;
 
 /// The Tier offered.
-const TIER: u32 = 5;
+const TIER: u32 = 6;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

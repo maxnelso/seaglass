@@ -1,4 +1,4 @@
-//! `Training Certificate` (`BG30_MagicItem_962`) — Lesser, 3 Gold, Dragon.
+//! `Training Certificate` (`BG30_MagicItem_962`) — Lesser, 4 Gold, Dragon.
 //!
 //! Start of Combat: Double the stats of your two lowest-Attack minions.
 //!

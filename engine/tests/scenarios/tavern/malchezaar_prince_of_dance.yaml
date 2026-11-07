@@ -68,20 +68,24 @@ scenarios:
   - name: health_refreshes_trigger_tichondrius_and_count_for_eredar_escapist
     description: >-
       Each Health Refresh is 1 hero damage: Tichondrius gives the Demons +4/+4 each time, and the
-      4th completes Eredar Escapist's 4 damage.
+      5th completes Eredar Escapist's 5 damage.
     seed: 323
     tavern:
-      board: [Tichondrius, Eredar Escapist, "Malchezaar, Prince of Dance", "Malchezaar, Prince of Dance"]
+      board:
+        - Tichondrius
+        - Eredar Escapist
+        - {card: "golden Malchezaar, Prince of Dance 8/6", charges: 4}
+        - "Malchezaar, Prince of Dance"
     steps:
-      - repeat: 3   # with 0 Gold: 3 Health
+      - repeat: 4   # with 0 Gold: 4 Health
         steps: [refresh]
-      - expect: {health: 27, hand: []}
-      - refresh   # the 4th damage
+      - expect: {health: 26, hand: []}
+      - refresh   # the 5th damage
     expect:
-      health: 26
+      health: 25
       hand: [Corrupted Cupcakes]
-      board:   # all Demons: +4/+4 x 4
-        - "Tichondrius 20/20"
-        - "Eredar Escapist 22/24"
-        - "Malchezaar, Prince of Dance 20/19"
-        - "Malchezaar, Prince of Dance 20/19"
+      board:   # all Demons: +4/+4 x 5
+        - "Tichondrius 24/24"
+        - "Eredar Escapist 25/30"
+        - "golden Malchezaar, Prince of Dance 28/26"
+        - "Malchezaar, Prince of Dance 24/23"

@@ -4,4 +4,4 @@ scenarios:
     combat:
       board_a: ["2/3 gift:hostility"]
       board_b: []
-    expect: {survivors_a: ["4/3"]}
+    expect: {survivors_a: ["34/3"]}

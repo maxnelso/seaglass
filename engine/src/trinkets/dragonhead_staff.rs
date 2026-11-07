@@ -1,9 +1,9 @@
 //! `Dragonhead Staff` (`BG36_MagicItem_407`) — Lesser, 0 Gold, Dragon.
 //!
-//! After 13 friendly minions attack, replace this with a random Greater Dragon Trinket. (13 left!)
+//! After 11 friendly minions attack, replace this with a random Greater Dragon Trinket. (11 left!)
 //!
 //! `trinket_friendly_attack`: each friendly attack, in combat or in the Tavern (a Fishbait),
-//! counts (`counter`, across combats). Once 13 have attacked, it is replaced by a random Greater
+//! counts (`counter`, across combats). Once 11 have attacked, it is replaced by a random Greater
 //! Dragon trinket the player doesn't own (`trinkets::replace_with_random`, `docs/trinkets.md`
 //! §3.5): after the Tavern action, or at the next turn start for a count reached in combat
 //! **(engine decision)**.
@@ -16,7 +16,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 134435;
 
 /// Friendly attacks until the replacement.
-const ATTACKS: i32 = 13;
+const ATTACKS: i32 = 11;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

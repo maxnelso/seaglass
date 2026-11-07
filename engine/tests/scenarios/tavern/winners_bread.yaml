@@ -22,12 +22,12 @@ scenarios:
       Mech; the Blood Gem it plays next turn triggers neither.
     seed: 815
     tavern:
-      board: [Felboar, Glambot]   # Felboar: 2/6; Glambot: 4/4 Mech
+      board: [Felboar, Glambot]   # Felboar: 2/6; Glambot: 5/5 Mech
       hand: ["Winner's Bread"]
     steps:
-      - play: {hand: "Winner's Bread", pos: 1}   # on Glambot: +2/+3 and a 4/4 Satellite
-      - expect: {board: [{card: Felboar, counter: 1}, "Glambot 10/11"]}
+      - play: {hand: "Winner's Bread", pos: 1}   # on Glambot: +2/+3 and a 5/5 Satellite
+      - expect: {board: [{card: Felboar, counter: 1}, "Glambot 12/13"]}
       - fight: {board: [Patient Scout]}
       - start_turn   # plays 1 Blood Gem on Glambot
     expect:
-      board: [{card: Felboar, counter: 1}, {card: Glambot, stats: 11/12, blood_gems_played: 1}]
+      board: [{card: Felboar, counter: 1}, {card: Glambot, stats: 13/14, blood_gems_played: 1}]

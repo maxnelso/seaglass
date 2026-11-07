@@ -1,8 +1,8 @@
 //! `Incubation` (`BG36_MidGameEffect_000t4`) — turns 6–8, weight 100.
 //!
-//! +4/+4. In 2 turns, double this minion's stats.
+//! +6/+6. In 2 turns, double this minion's stats.
 //!
-//! Given: +4/+4. At the 2nd start of turn after it was given, on the board or in the hand, it gains
+//! Given: +6/+6. At the 2nd start of turn after it was given, on the board or in the hand, it gains
 //! its Attack and Health, once (`counter`: the turns left; `docs/dark_gifts.md` §11.2). Only on
 //! minions with a type (§5.2). A stat gift.
 
@@ -30,7 +30,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 }
 
 fn given(unit: &mut Unit, gift: &mut DarkGift) {
-    unit.add_stats(4, 4);
+    unit.add_stats(6, 6);
     gift.counter = TURNS;
 }
 

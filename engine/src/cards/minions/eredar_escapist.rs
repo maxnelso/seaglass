@@ -1,6 +1,6 @@
-//! `Eredar Escapist` (`BG36_733`) — Tier 6 Demon (`6/8`).
+//! `Eredar Escapist` (`BG36_733`) — Tier 6 Demon (`5/10`).
 //!
-//! After your hero takes 4 damage, get a copy (`two` copies if Golden) of `Corrupted Cupcakes`.
+//! After your hero takes 5 damage, get a copy (`two` copies if Golden) of `Corrupted Cupcakes`.
 //!
 //! Damage that `Soul Rewinder` or `Ashen Corruptor` rewinds counts: the hero took it first.
 //! Combat damage doesn't count (`docs/tavern.md` §7.2).
@@ -12,7 +12,7 @@ use crate::tavern::TavernState;
 pub const ID: CardId = 609;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Eredar Escapist", 6, 8, 6)
+    CardTemplate::new(ID, "Eredar Escapist", 5, 10, 6)
         .with_tribe(Tribe::Demon)
         .on_after_hero_damage(after_hero_damage)
 }
@@ -24,8 +24,8 @@ pub fn after_hero_damage(state: &mut TavernState, self_idx: usize, amount: i32) 
     let eredar = &mut state.board[self_idx];
     eredar.counter += amount;
     let mut cupcakes = 0;
-    while eredar.counter >= 4 {
-        eredar.counter -= 4;
+    while eredar.counter >= 5 {
+        eredar.counter -= 5;
         cupcakes += eredar.golden_mult();
     }
     for _ in 0..cupcakes {

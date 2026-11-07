@@ -1,4 +1,4 @@
-//! Tier 1 through Tier 7 Tavern Spells (`Patch 36.6.3`), and the Duos spells.
+//! Tier 1 through Tier 7 Tavern Spells (`Patch 37.0.2`), and the Duos spells.
 //!
 //! Each spell (Tavern spells and token spells) lives in its own submodule with its `cast` hook
 //! and other card text; this module holds the spell ids and tables, lookups and random draws,
@@ -340,7 +340,7 @@ pub fn tier4_spells() -> Vec<Unit> {
             2,
             false,
         ),
-        make_tavern_spell(SPELL_MISPLACED_TEA_SET, "Misplaced Tea Set", 4, 3, false),
+        make_tavern_spell(SPELL_MISPLACED_TEA_SET, "Misplaced Tea Set", 4, 2, false),
         make_tavern_spell(SPELL_NATURAL_BLESSING, "Natural Blessing", 4, 2, false),
         tokens::make_sludge_corrosion(),
         make_tavern_spell(SPELL_TEMPERATURE_SHIFT, "Temperature Shift", 4, 4, false),
@@ -401,7 +401,7 @@ pub fn tier6_spells() -> Vec<Unit> {
             2,
             false,
         ),
-        make_tavern_spell(SPELL_PERFECT_VISION, "Perfect Vision", 6, 2, false),
+        make_tavern_spell(SPELL_PERFECT_VISION, "Perfect Vision", 6, 1, false),
     ]
 }
 
@@ -730,9 +730,9 @@ pub fn can_target_in_shop(spell_id: CardId, unit: &Unit) -> bool {
         && card.spell_target_filter.is_none_or(|filter| filter(unit))
 }
 
-/// Apply the `Misplaced Tea Set` effect (`Give a friendly minion of each type +4/+4`).
+/// Apply the `Misplaced Tea Set` effect (`Give a friendly minion of each type +3/+3`).
 pub fn apply_misplaced_tea_set(state: &mut TavernState, rng: &mut Rng) {
-    let (atk, hp) = state.auras.spell_stat_buff(4, 4);
+    let (atk, hp) = state.auras.spell_stat_buff(3, 3);
     let chosen_indices = crate::types::select_menagerie_targets(&state.board, rng);
     for idx in chosen_indices {
         state.board[idx].add_stats(atk, hp);

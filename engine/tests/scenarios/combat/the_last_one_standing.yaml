@@ -1,34 +1,34 @@
 card: The Last One Standing
 scenarios:
-  - name: rally_gives_a_minion_of_each_type_15_15_permanently
+  - name: rally_gives_a_minion_of_each_type_10_10_permanently
     seed: 712
-    tavern: {board: [The Last One Standing, Flittering Bat]}   # 15/15 All, 1/4 Beast
+    tavern: {board: [The Last One Standing, Flittering Bat]}   # 10/10 All, 1/4 Beast
     steps:
       - fight: {board: [Patient Scout]}
     expect:
       combat: {outcome: a_win}
-      board: ["The Last One Standing 30/30", "Flittering Bat 16/19"]   # kept in the Tavern
+      board: ["The Last One Standing 20/20", "Flittering Bat 11/14"]   # kept in the Tavern
 
   - name: rally_buffs_the_best_assignment_of_minions_to_types
     description: >-
       As for Misplaced Tea Set, the most minions get it: the Last One Standing (All), the Parrot
       as the Pirate and the Bat as the Beast.
     seeds: "1..10"
-    tavern: {board: [The Last One Standing, Treasure Parrot, Flittering Bat]}   # 15/15, 5/5, 1/4
+    tavern: {board: [The Last One Standing, Treasure Parrot, Flittering Bat]}   # 10/10, 5/5, 1/4
     steps:
       - fight: {board: [Patient Scout]}
     expect:
       combat: {outcome: a_win}
-      board: ["The Last One Standing 30/30", "Treasure Parrot 20/20", "Flittering Bat 16/19"]
+      board: ["The Last One Standing 20/20", "Treasure Parrot 15/15", "Flittering Bat 11/14"]
 
   - name: rally_counts_naga_as_a_type
     description: >-
       The Last One Standing (All), Glim Guardian as the Dragon and Firescale Hoarder (Dragon/Naga)
       as the Naga all get it.
     seeds: "1..10"
-    tavern: {board: [The Last One Standing, Glim Guardian, Firescale Hoarder]}   # 15/15, 1/4, 5/5
+    tavern: {board: [The Last One Standing, Glim Guardian, Firescale Hoarder]}   # 10/10, 1/4, 5/5
     steps:
       - fight: {board: [Patient Scout]}
     expect:
       combat: {outcome: a_win}
-      board: ["The Last One Standing 30/30", "Glim Guardian 16/19", "Firescale Hoarder 20/20"]
+      board: ["The Last One Standing 20/20", "Glim Guardian 11/14", "Firescale Hoarder 15/15"]

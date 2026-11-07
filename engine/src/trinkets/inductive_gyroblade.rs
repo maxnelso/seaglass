@@ -1,8 +1,8 @@
 //! `Inductive Gyroblade` (`BG36_MagicItem_810`) — Lesser, 0 Gold, Mech.
 //!
-//! At the end of your turn, get a 4/4 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!)
+//! At the end of your turn, get a 6/6 Magnetic Satellite. (Improved by each Tavern spell you've cast this turn!)
 //!
-//! `trinket_end_turn`: a `Satellite` of `4/4` plus `+4/+4` per Tavern spell cast this turn
+//! `trinket_end_turn`: a `Satellite` of `6/6` plus `+6/+6` per Tavern spell cast this turn
 //! (confirmed: the base amount per spell), to the hand or waiting for room; repeated by the
 //! end-of-turn repeat count. `trinket_spell_cast` counts the casts (`counter`, every cast of a
 //! Tavern spell, repeats too), from 0 at each turn start.
@@ -15,7 +15,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 133062;
 
 /// The Satellite's base stats, and its improvement per Tavern spell.
-const STATS: i32 = 4;
+const STATS: i32 = 6;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

@@ -2,43 +2,43 @@ card: Stalwart Kodo
 scenarios:
   - name: summoned_skeletons_gain_its_maximum_stats
     description: >-
-      Harmless Bonehead's Deathrattle summons two 1/1 Skeletons; the 16/32 Kodo gives them its
-      maximum stats (17/33). Risen Rider's Reborn would be the third summon.
+      Harmless Bonehead's Deathrattle summons two 1/1 Skeletons; the 15/30 Kodo gives them double
+      its maximum stats (31/61). Risen Rider's Reborn would be a third summon (beyond its 2).
     seed: 709
     combat:
       board_a: [Harmless Bonehead, Risen Rider, Stalwart Kodo]
       board_b: [Zoatroid, Zoatroid]
     expect:
       outcome: a_win
-      survivors_a: {any: {card: Skeleton, attack: 17, max_health: 33}}
+      survivors_a: {any: {card: Skeleton, attack: 31, max_health: 61}}
 
   - name: a_reborn_copy_is_a_summon
     description: >-
-      Risen Rider attacks first and dies; its Reborn copy (2/1) gets the Kodo's maximum stats:
-      2/1 + 16/32 = 18/33.
+      Risen Rider attacks first and dies; its Reborn copy (2/1) gets double the Kodo's maximum
+      stats: 2/1 + 30/60 = 32/61.
     seed: 709
     combat:
       board_a: [Risen Rider, Stalwart Kodo]
       board_b: [Stalwart Kodo]
     expect:
       events:
-        any: {type: unit_summoned, side: a, name: Risen Rider, reason: Reborn, attack: 18, health: 33}
+        any: {type: unit_summoned, side: a, name: Risen Rider, reason: Reborn, attack: 32, health: 61}
 
-  # Unit ids: A's Risen Rider 0, Cadaver Caretaker 1, Stalwart Kodo 2; B's Stalwart Kodos 3, 4.
+  # Unit ids: A's Risen Rider 0, Cadaver Caretaker 1, Stalwart Kodo 2; B's 70/10s 3, 4.
   # Risen Rider dies first: its Reborn copy uses one of the three triggers. Cadaver Caretaker then
-  # dies and summons three Skeletons, left to right: the first two get 1/1 + 16/32 = 17/33.
+  # dies and summons three Skeletons, left to right: the first two get 1/1 + 30/60 = 31/61.
   - name: with_fewer_triggers_left_the_left_most_summons_get_them
     description: >-
-      Two triggers left for three Skeletons summoned at once: the two left-most get the Kodo's
-      stats, the right-most stays 1/1.
+      Two triggers left for three Skeletons summoned at once: the two left-most get double the
+      Kodo's stats, while the third stays 1/1.
     seed: 1
     combat:
       board_a: [Risen Rider, Cadaver Caretaker, Stalwart Kodo]
-      board_b: [Stalwart Kodo, Stalwart Kodo]
+      board_b: ["70/10", "70/10"]
     expect:
       events:
         where: {type: unit_summoned, source: 1}
         count: 3
-        0: {name: Skeleton, attack: 17, health: 33}
-        1: {name: Skeleton, attack: 17, health: 33}
+        0: {name: Skeleton, attack: 31, health: 61}
+        1: {name: Skeleton, attack: 31, health: 61}
         2: {name: Skeleton, attack: 1, health: 1}

@@ -13,4 +13,4 @@ scenarios:
       auras: {trinkets: [Azerite Portrait]}
     steps:
       - play: {hand: 0, pos: 2}
-    expect: {board: ["12/9", "5/4", "1/4"]}
+    expect: {board: ["9/9", "4/4", "1/4"]}

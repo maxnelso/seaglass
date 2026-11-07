@@ -1,4 +1,4 @@
-//! `Volumizer Portrait (Greater)` (`BG36_MagicItem_423t`) — Greater, 3 Gold, Mech.
+//! `Volumizer Portrait (Greater)` (`BG36_MagicItem_423t`) — Greater, 1 Gold, Mech.
 //!
 //! Get 2 random Magnetic Volumizers. At the start of each turn, repeat this.
 //!

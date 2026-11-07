@@ -1,8 +1,8 @@
 //! `Booty Bay Brew (Greater)` (`BG30_MagicItem_924t`) — Greater, 1 Gold, Pirate.
 //!
-//! Whenever you spend Gold, give two friendly Pirates +6/+6.
+//! Whenever you spend Gold, give two friendly Pirates +8/+8.
 //!
-//! As the Lesser one (`booty_bay_brew.rs`), +6/+6.
+//! As the Lesser one (`booty_bay_brew.rs`), +8/+8.
 
 use crate::cards::CardHooks;
 use crate::model::CardId;
@@ -17,5 +17,5 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 }
 
 fn gold_spent(state: &mut TavernState, _: u32, _: &mut CardPool, rng: &mut Rng) {
-    super::buff_random_pirates(state, 2, 6, 6, rng);
+    super::buff_random_pirates(state, 2, 8, 8, rng);
 }

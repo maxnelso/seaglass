@@ -1,4 +1,4 @@
-//! `The Eye of Sargeras` (`BG30_MagicItem_701`) — Greater, 5 Gold, Demon.
+//! `The Eye of Sargeras` (`BG30_MagicItem_701`) — Greater, 6 Gold, Demon.
 //!
 //! Every fourth card you buy costs Health instead of Gold. (3 left!)
 //!

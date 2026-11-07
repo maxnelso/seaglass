@@ -12,7 +12,7 @@ scenarios:
       hand_a: [Flighty Scout]
     expect:
       survivors_a:
-        any: {name: Flighty Scout, attack: 19, max_health: 35}
+        any: {name: Flighty Scout, attack: 33, max_health: 63}
 
   # Unit ids: A's Patient Scout 0; B's Boom-in-a-Box 1; the Flighty Scout copy 2.
   - name: its_copy_is_summoned_before_minion_start_of_combat_effects

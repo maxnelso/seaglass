@@ -1760,8 +1760,8 @@ fn use_venomous(unit: &mut Unit) {
     }
 }
 
-/// The attacker at `atk_pos` attacked the minion at `def_pos`: if the attack killed it, the
-/// attacker's own `attack_kill` hook (before the deaths resolve; the attacker may be dying too).
+/// The attacker at `atk_pos` attacked the minion at `def_pos`: run `attack_kill` and `kill` hooks
+/// (before the deaths resolve; either combatant may be dying too).
 #[allow(clippy::too_many_arguments)]
 fn attack_kill(
     side: Side,
@@ -1773,16 +1773,42 @@ fn attack_kill(
     rng: &mut Rng,
     events: &mut Vec<Event>,
 ) {
-    if def_side.board[def_pos].health > 0 {
-        return;
+    let atk_id = atk_side.board[atk_pos].id;
+    let def_id = def_side.board[def_pos].id;
+    if def_side.board[def_pos].health <= 0 {
+        if let Some(attack_kill) = cards::hooks(atk_side.board[atk_pos].card_id).attack_kill {
+            let victim = def_side.board[def_pos].clone();
+            attack_kill(
+                &mut atk_side.ctx(side, next_id, rng, events),
+                atk_pos,
+                &victim,
+            );
+        }
     }
-    if let Some(attack_kill) = cards::hooks(atk_side.board[atk_pos].card_id).attack_kill {
-        let victim = def_side.board[def_pos].clone();
-        attack_kill(
-            &mut atk_side.ctx(side, next_id, rng, events),
-            atk_pos,
-            &victim,
-        );
+    if let Some(on_kill) = cards::hooks(atk_side.board[atk_pos].card_id).kill {
+        let victims: Vec<Unit> = def_side
+            .board
+            .iter()
+            .filter(|u| u.health <= 0 && u.killed_by == Some(atk_id))
+            .cloned()
+            .collect();
+        for victim in &victims {
+            on_kill(
+                &mut atk_side.ctx(side, next_id, rng, events),
+                atk_pos,
+                victim,
+            );
+        }
+    }
+    if atk_side.board[atk_pos].health <= 0 && atk_side.board[atk_pos].killed_by == Some(def_id) {
+        if let Some(on_kill) = cards::hooks(def_side.board[def_pos].card_id).kill {
+            let victim = atk_side.board[atk_pos].clone();
+            on_kill(
+                &mut def_side.ctx(side.other(), next_id, rng, events),
+                def_pos,
+                &victim,
+            );
+        }
     }
 }
 

@@ -45,9 +45,9 @@ scenarios:
         - {board: {sum: {attack: "> 7"}}}
         - {auras: {tavern_spells_cast: "> 0"}}
 
-  - name: it_is_offered_for_5_gold
+  - name: it_is_offered_for_3_gold
     seed: 2
-    tavern: {gold: 5}
+    tavern: {gold: 3}
     steps:
       - offer_trinkets: [Yogg-Tastic Pastry]
       - choose_trinket: Yogg-Tastic Pastry

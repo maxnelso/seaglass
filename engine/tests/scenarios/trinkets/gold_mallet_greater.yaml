@@ -4,4 +4,4 @@ scenarios:
     tavern: {board: ["1/1"], auras: {trinkets: [{trinket: Gold Mallet (Greater), counter: 2}]}}
     steps:
       - end_turn
-    expect: {board: ["13/7"]}
+    expect: {board: ["13/13"]}

@@ -1,4 +1,4 @@
-//! `Snarky Portrait` (`BG36_MagicItem_450`) — Greater, 2 Gold, Beast.
+//! `Snarky Portrait` (`BG36_MagicItem_450`) — Greater, 4 Gold, Beast.
 //!
 //! Get 2 Snarky Sharks. Whenever a Fishbait dies, give your Beasts +4/+4 and improve this.
 //!

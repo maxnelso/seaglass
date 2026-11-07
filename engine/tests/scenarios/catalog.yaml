@@ -51,7 +51,6 @@ minions:
     - Decoy Conjurer
     - Electric Synthesizer
     - Eternal Knight
-    - Expert Aviator
     - Fire Baller
     - Forest Rover
     - Green Volumizer
@@ -76,6 +75,7 @@ minions:
     - Underrot Spawn
     - Very Hungry Winterfinner
     - Wandering Willbreaker
+    - Murcules
   3:  # 43
     - Abyssal Envoy
     - Accord-o-Tron
@@ -151,7 +151,6 @@ minions:
     - Heroic Underdog
     - Hoarding Hyena
     - Holy Vanguard
-    - Hot-Air Surveyor
     - Humon'gozz
     - Ichoron the Protector
     - Imp-lusionist
@@ -232,7 +231,9 @@ minions:
     - Tichondrius
     - Titus Rivendare
     - Turquoise Skitterer
-  6:  # 32
+    - Hot-Air Surveyor
+    - Harbinger Aph'lass
+  6:  # 31
     - Auto Reveille
     - Balinda Stonehearth
     - Choral Mrrrglr
@@ -245,7 +246,6 @@ minions:
     - Falling Sky Golem
     - Forsaken Weaver
     - Gatekeeper Amalgam
-    - Harbinger Aph'lass
     - Heroic Broodmother
     - Hooktusk, Master Marauder
     - Magicfin Mycologist
@@ -281,12 +281,19 @@ minions:
 
 minion_ids:
   1: [101, 121]
-  2: [201, 234]
+  2: [201, 235]
   3: [301, 343]
   4: [401, 458]
   5: [501, 552]
   6: [601, 632]
   7: [701, 712]
+
+tier_moved_minion_ids:
+  5: [431, 613]
+
+solo_out_of_pool:
+  2:  # 1
+    - Expert Aviator
 
 duos_minions:
   1:  # 1

@@ -5,7 +5,7 @@ scenarios:
     steps:
       - buy: 0
       - buy: 0
-    expect: {board: ["17/17", "1/1"]}
+    expect: {board: ["21/21", "1/1"]}
 
   - name: not_a_pirate_played
     tavern: {board: ["1/1"], hand: ["1/1 pirate"], auras: {trinkets: [Trusty Crowbar]}}

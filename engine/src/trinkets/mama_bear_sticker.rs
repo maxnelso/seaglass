@@ -1,8 +1,8 @@
 //! `Mama Bear Sticker` (`BG35_MagicItem_871`) — Lesser, 0 Gold, Beast.
 //!
-//! Whenever you summon a Beast, give it +6/+6.
+//! Whenever you summon a Beast, give it +7/+7.
 //!
-//! Every friendly Beast summoned gains +6/+6: in the Tavern (`trinket_tavern_summon`: a minion
+//! Every friendly Beast summoned gains +7/+7: in the Tavern (`trinket_tavern_summon`: a minion
 //! played, or summoned by a card) and in combat (`trinket_combat_summon`), as `Mama Bear`'s.
 
 use crate::cards::CardHooks;
@@ -22,6 +22,6 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 
 fn summon(_: &mut TrinketState, summoned: &mut Unit) {
     if summoned.tribe.matches(Tribe::Beast) {
-        summoned.add_stats(6, 6);
+        summoned.add_stats(7, 7);
     }
 }

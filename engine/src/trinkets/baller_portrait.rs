@@ -1,4 +1,4 @@
-//! `Baller Portrait` (`BG36_MagicItem_390`) — Lesser, 2 Gold, Elemental.
+//! `Baller Portrait` (`BG36_MagicItem_390`) — Lesser, 1 Gold, Elemental.
 //!
 //! Get a Fire Baller or a Snow Baller. At the start of each turn, repeat this.
 //!

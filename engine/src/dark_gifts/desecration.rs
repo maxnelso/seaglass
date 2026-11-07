@@ -1,8 +1,8 @@
 //! `Desecration` (`BG36_MidGameEffect_000t88`) — turns 5–7, weight 100.
 //!
-//! Has +3/+3 for each card you've discarded this game. ({1})
+//! Has +3/+2 for each card you've discarded this game. ({1})
 //!
-//! `gift_aura`: +3/+3 for each card the player discarded this game (`auras.cards_discarded`),
+//! `gift_aura`: +3/+2 for each card the player discarded this game (`auras.cards_discarded`),
 //! wherever it is. Only once the player discarded at least one card (confirmed;
 //! `docs/dark_gifts.md` §5.2). A stat gift.
 
@@ -13,7 +13,8 @@ use crate::model::{CardId, DarkGift, PlayerAuras, Unit};
 pub const ID: CardId = 134731;
 
 /// The stats it has for each one.
-const PER: i32 = 3;
+const PER_ATK: i32 = 3;
+const PER_HP: i32 = 2;
 
 /// The gift's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {
@@ -31,8 +32,8 @@ fn count(auras: &PlayerAuras) -> u32 {
 }
 
 fn aura(_: &Unit, _: &DarkGift, auras: &PlayerAuras) -> (i32, i32) {
-    let bonus = PER.saturating_mul(count(auras).min(i32::MAX as u32) as i32);
-    (bonus, bonus)
+    let n = count(auras).min(i32::MAX as u32) as i32;
+    (PER_ATK.saturating_mul(n), PER_HP.saturating_mul(n))
 }
 
 fn offerable(ctx: &OfferCtx<'_>, _: &CardTemplate) -> bool {

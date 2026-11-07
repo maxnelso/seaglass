@@ -17,7 +17,7 @@ scenarios:
       - expect_legal: end_turn
     expect:
       trinket_options: []
-      gold: 7
+      gold: 6
       auras: {trinkets: [{name: Training Certificate, counter: 0}]}
 
   - name: the_price_is_gold_spent
@@ -41,7 +41,7 @@ scenarios:
     description: An engine decision (docs/trinkets.md §4); the guaranteed cheap option makes it rare.
     tavern: {gold: 2}
     steps:
-      - offer_trinkets: [Eternal Portrait, Training Certificate, Baleful Incense]
+      - offer_trinkets: [Eternal Portrait, Staff of the Scourge, Baleful Incense]
       - expect_illegal: {choose_trinket: 0}
       - expect_legal: {choose_trinket: 1}
       - expect_legal: {choose_trinket: 2}

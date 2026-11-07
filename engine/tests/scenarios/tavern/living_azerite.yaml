@@ -1,24 +1,24 @@
 card: Living Azerite
 scenarios:
-  - name: casting_a_tavern_spell_gives_tavern_elementals_4_3
+  - name: casting_a_tavern_spell_gives_tavern_elementals_3_3
     tavern: {board: [Living Azerite], hand: [Armor Stash]}
     steps:
       - play: {hand: Armor Stash, pos: 0}
-    expect: {auras: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}}
+    expect: {auras: {tavern_elemental_atk: 3, tavern_elemental_hp: 3}}
 
   - name: a_spell_your_minion_casts_in_combat_buffs_the_tavern_elementals_after_it
     description: >-
       Crimson Vindicator casts Mighty Dragonbreath when it attacks, and Living Azerite gives the
-      Elementals in the Tavern +4/+3 this game first. Once the combat is over, the Elemental in the
+      Elementals in the Tavern +3/+3 this game first. Once the combat is over, the Elemental in the
       Tavern has it, just once: a frozen shop keeps it as it is.
     tavern: {board: [Crimson Vindicator, Living Azerite], shop: [Firelands Fugitive, Patient Scout]}   # a 5/7 Elemental
     steps:
       - fight: {board: [Patient Scout]}   # A has more minions: the Vindicator attacks first, once
       - expect:
-          combat: {auras_a: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}}
-          auras: {tavern_elemental_atk: 4, tavern_elemental_hp: 3}
-          board: ["Crimson Vindicator 8/9", "Living Azerite 8/6"]
-          shop: ["Firelands Fugitive 9/10", "Patient Scout 1/1"]
+          combat: {auras_a: {tavern_elemental_atk: 3, tavern_elemental_hp: 3}}
+          auras: {tavern_elemental_atk: 3, tavern_elemental_hp: 3}
+          board: ["Crimson Vindicator 9/7", "Living Azerite 6/6"]
+          shop: ["Firelands Fugitive 8/10", "Patient Scout 1/1"]
       - toggle_freeze
       - start_turn
-    expect: {shop: {0: "Firelands Fugitive 9/10", 1: "Patient Scout 1/1"}}
+    expect: {shop: {0: "Firelands Fugitive 8/10", 1: "Patient Scout 1/1"}}

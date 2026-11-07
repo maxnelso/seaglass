@@ -1,4 +1,4 @@
-//! `Perfect Vision` — Tier 6 Tavern spell (`2` Gold).
+//! `Perfect Vision` — Tier 6 Tavern spell (`1` Gold).
 //!
 //! Set a minion's stats to 20/20. Spell power adds to them (`21/22` with `Humon'gozz`). Set net of
 //! the auras on it (`aura_applied` clears), which then apply again on top (a Volumizer with a

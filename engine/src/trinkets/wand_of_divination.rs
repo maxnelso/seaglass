@@ -1,9 +1,9 @@
-//! `Wand of Divination` (`BG36_MagicItem_307`) — Lesser, 0 Gold, Quilboar, Naga.
+//! `Wand of Divination` (`BG36_MagicItem_307`) — Lesser, 2 Gold.
 //!
-//! After you cast 3 spells on minions, gain 1 Gold. (3 left!)
+//! After you cast 2 spells on minions, gain 1 Gold. (2 left!)
 //!
 //! `trinket_after_spell`: every cast of a spell on a minion (on the board or in the Tavern) counts
-//! (`counter`, across turns); each 3rd gives 1 Gold.
+//! (`counter`, across turns); each 2nd gives 1 Gold.
 
 use crate::cards::CardHooks;
 use crate::model::CardId;
@@ -15,7 +15,7 @@ use super::SpellCast;
 pub const ID: CardId = 133379;
 
 /// Spells on minions per Gold.
-const SPELLS: i32 = 3;
+const SPELLS: i32 = 2;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

@@ -32,8 +32,8 @@ def test_trinket_actions_are_appended_last() -> None:
 
 def test_the_trinket_table_has_the_pool() -> None:
     table = seaglass.trinkets_table()
-    assert len(table) == 246
-    assert sum(1 for (_, _, greater, _, _) in table if not greater) == 120
+    assert len(table) == 243
+    assert sum(1 for (_, _, greater, _, _) in table if not greater) == 118
     ids = set(seaglass.all_card_ids())
     assert all(tid in ids for (tid, *_rest) in table)
 

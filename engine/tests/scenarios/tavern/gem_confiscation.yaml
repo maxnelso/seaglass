@@ -31,7 +31,7 @@ scenarios:
       One spell cast on the Lullabot, not 4: Felboar counts 1 (no Tavern minion consumed) and
       Glambot magnetizes 1 Satellite to the Mech.
     tavern:
-      board: [Felboar, Glambot, Lullabot]   # Felboar: 2/6; Glambot: 4/4 Mech; Lullabot: 2/2 Mech
+      board: [Felboar, Glambot, Lullabot]   # Felboar: 2/6; Glambot: 5/5 Mech; Lullabot: 2/2 Mech
       shop: [Firelands Fugitive]
       hand: [Gem Confiscation]
     steps:
@@ -40,5 +40,5 @@ scenarios:
       shop: [Firelands Fugitive]
       board:
         - {card: Felboar, stats: 2/6, counter: 1}
-        - "Glambot 4/4"
-        - {card: Lullabot, stats: 9/9, blood_gems_played: 3}   # 2/2 +3/+3 and one 4/4 Satellite
+        - "Glambot 5/5"
+        - {card: Lullabot, stats: 10/10, blood_gems_played: 3}   # 2/2 +3/+3 and one 5/5 Satellite

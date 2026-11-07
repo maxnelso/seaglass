@@ -1,4 +1,4 @@
-//! `Bloodbound Earrings` (`BG32_MagicItem_808`) — Lesser, 1 Gold, Quilboar.
+//! `Bloodbound Earrings` (`BG32_MagicItem_808`) — Lesser, 2 Gold, Quilboar.
 //!
 //! After you cast 4 spells, this plays a Blood Gem on all your minions. (4 left!)
 //!

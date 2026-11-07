@@ -1,4 +1,4 @@
-//! `Glass of Perspective` (`BG36_MagicItem_303`) — Lesser, 2 Gold, Quilboar.
+//! `Glass of Perspective` (`BG36_MagicItem_303`) — Lesser, 3 Gold, Quilboar.
 //!
 //! Get a random Choose One card. At the start of each turn, get another.
 //!

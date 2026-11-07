@@ -1,4 +1,4 @@
-//! `Trailblazer Sticker` (`BG36_MagicItem_308`) — Greater, 4 Gold, Quilboar.
+//! `Trailblazer Sticker` (`BG36_MagicItem_308`) — Greater, 5 Gold, Quilboar.
 //!
 //! Your Choose One cards have both effects combined.
 //!

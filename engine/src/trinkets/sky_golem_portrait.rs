@@ -1,10 +1,10 @@
 //! `Sky Golem Portrait` (`BG35_MagicItem_740`) — Greater, 3 Gold, Mech.
 //!
-//! Get a Falling Sky Golem. Start of Combat: Give your minions "Deathrattle: Give your minions +2/+2 permanently."
+//! Get a Falling Sky Golem. Start of Combat: Give your minions "Deathrattle: Give your minions +3/+3 permanently."
 //!
 //! Picked: a plain `Falling Sky Golem`. Step 1c: every friendly minion gains the extra Deathrattle
 //! *Skyward* (`BG35_MagicItem_740e`, `Unit::extra_deathrattles`) for the combat: the friendly
-//! minions alive then gain +2/+2, kept after the combat (`perm_atk_gained`, as `Devout
+//! minions alive then gain +3/+3, kept after the combat (`perm_atk_gained`, as `Devout
 //! Hellcaller`'s).
 
 use crate::cards::minions::falling_sky_golem;
@@ -18,7 +18,7 @@ pub const ID: CardId = 131138;
 pub const SKYWARD: CardId = 131142;
 
 /// The stats the Deathrattle gives.
-const STATS: i32 = 2;
+const STATS: i32 = 3;
 
 /// The trinket's hooks, for the card registry.
 pub fn behaviors() -> Vec<(CardId, CardHooks)> {

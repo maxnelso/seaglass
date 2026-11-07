@@ -1045,12 +1045,14 @@ fn duos_card_ids() -> &'static BTreeSet<u32> {
     })
 }
 
-/// The Duos-exclusive minions in no pool (the Naga-only ones, `docs/duos_tavern.md` §8).
+/// Minions registered in no pool (`Expert Aviator` removed from Solo pool, and the Duos Naga-only
+/// ones, `docs/duos_tavern.md` §8).
 fn out_of_pool_ids() -> &'static BTreeSet<u32> {
     static IDS: std::sync::OnceLock<BTreeSet<u32>> = std::sync::OnceLock::new();
     IDS.get_or_init(|| {
-        cards::duos_out_of_pool_catalog()
+        cards::solo_out_of_pool_catalog()
             .iter()
+            .chain(&cards::duos_out_of_pool_catalog())
             .map(|t| t.card_id)
             .collect()
     })

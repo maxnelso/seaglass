@@ -1,6 +1,6 @@
-//! `Sanguine Refiner` (`BG33_885`) — Tier 5 Quilboar (`3/8`).
+//! `Sanguine Refiner` (`BG33_885`) — Tier 5 Quilboar (`4/9`).
 //!
-//! Rally: Your Blood Gems give an extra `+1/+2` (`+2/+4` if Golden) this game.
+//! Rally: Your Blood Gems give an extra `+1/+1` (`+2/+2` if Golden) this game.
 
 use crate::cards::CardTemplate;
 use crate::model::{CardId, PlayerAuras, Tribe, Unit};
@@ -8,7 +8,7 @@ use crate::model::{CardId, PlayerAuras, Tribe, Unit};
 pub const ID: CardId = 543;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Sanguine Refiner", 3, 8, 5)
+    CardTemplate::new(ID, "Sanguine Refiner", 4, 9, 5)
         .with_tribe(Tribe::Quilboar)
         .on_rally(|c| {
             on_rally(&c.board[c.attacker_pos], c.auras);
@@ -19,5 +19,5 @@ pub fn template() -> CardTemplate {
 pub fn on_rally(attacker: &Unit, auras: &mut PlayerAuras) {
     let mult = if attacker.is_golden { 2 } else { 1 };
     auras.blood_gem_bonus_atk += mult;
-    auras.blood_gem_bonus_hp += 2 * mult;
+    auras.blood_gem_bonus_hp += mult;
 }

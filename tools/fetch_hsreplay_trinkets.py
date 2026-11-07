@@ -58,6 +58,13 @@ TAG_SPELL_SCHOOL = "1635"
 TAG_DUOS_EXCLUSIVE = "3166"
 TAG_IN_POOL = "3407"
 SCHOOLS = {"11": "Lesser", "12": "Greater"}
+# Trinkets removed in Patch 37.0.2 that can still appear in HSReplay's 7-day rolling window.
+REMOVED_IN_PATCH = {
+    "BG30_MagicItem_410t2",  # Quilligraphy Set (Greater)
+    "BG30_MagicItem_545",  # Fridge Magnet
+    "BG32_MagicItem_170",  # Spell-powered Wrench
+    "BG36_MagicItem_606",  # Writhing Tentacles
+}
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "data/trinkets_hsreplay.tsv"
 
@@ -113,6 +120,8 @@ def main() -> None:
         if not found:
             sys.exit(f"dbf {r['trinket_dbf_id']}: not in CardDefs build {build}")
         cid, e = found
+        if cid in REMOVED_IN_PATCH:
+            continue
         kind = SCHOOLS.get(e["tags"].get(TAG_SPELL_SCHOOL))
         if kind is None or kind.lower() != r.get("group"):
             sys.exit(f"{cid}: HSReplay says {r.get('group')}, CardDefs says {kind}")

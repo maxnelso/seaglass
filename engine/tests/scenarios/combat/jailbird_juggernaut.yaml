@@ -2,20 +2,20 @@ card: Jailbird Juggernaut
 scenarios:
   - name: rally_golem_attacks_first_and_kills_the_target
     description: >-
-      With more minions, side A attacks first. When the 6/15 Juggernaut attacks, its Rally summons
-      a 6/15 Blood Golem that attacks Living Azerite (8/6) first and kills it, so the Juggernaut's
+      With more minions, side A attacks first. When the 13/17 Juggernaut attacks, its Rally summons
+      a 13/17 Blood Golem that attacks Living Azerite (6/6) first and kills it, so the Juggernaut's
       own strike is aborted and it takes no damage.
     seed: 705
     combat: {board_a: [Jailbird Juggernaut, Patient Scout], board_b: [Living Azerite]}
     expect:
       outcome: a_win
-      survivors_a: ["Jailbird Juggernaut 6/15", "Blood Golem 6/7", Patient Scout]
+      survivors_a: ["Jailbird Juggernaut 13/17", "Blood Golem 13/11", Patient Scout]
 
   - name: the_golems_attack_triggers_friendly_attack_observers
     description: >-
       Side A (3 minions) attacks first. The Juggernaut's attack and then its Golem's attack each
-      trigger Prodigious Tusker (a Blood Gem on the attacker: both become 7/16) and Ravaging
-      Scorpid (Beetles +4/+4, twice). The 7/16 Golem kills the 8/6 and takes 8.
+      trigger Prodigious Tusker (a Blood Gem on the attacker: both become 14/18) and Ravaging
+      Scorpid (Beetles +4/+4, twice). The 14/18 Golem kills the 6/6 and takes 6.
     seed: 705
     combat:
       board_a: [Jailbird Juggernaut, Prodigious Tusker, Ravaging Scorpid]
@@ -23,8 +23,8 @@ scenarios:
     expect:
       outcome: a_win
       survivors_a:
-        - "Jailbird Juggernaut 7/16"   # 6/15 + a Blood Gem (after its Rally copied 6/15)
-        - "Blood Golem 7/8"   # 6/15 + a Blood Gem, then 8 damage
+        - "Jailbird Juggernaut 14/18"   # 13/17 + a Blood Gem (after its Rally copied 13/17)
+        - "Blood Golem 14/12"   # 13/17 + a Blood Gem, then 6 damage
         - Prodigious Tusker
         - Ravaging Scorpid
       auras_a: {counters: {Beetle: [8, 8]}}   # +4/+4 for each of the two attacks
@@ -32,9 +32,9 @@ scenarios:
   # Unit ids: A's Jailbird Juggernaut 0, Stalwart Kodo 1; B's Tyrael 2; the Golem 3.
   - name: stalwart_kodo_buffs_the_golem_before_it_attacks
     description: >-
-      Side A (2 minions) attacks first. The Golem is summoned with the Juggernaut's 6/15 and
-      Stalwart Kodo gives it its maximum stats (16/32) before it attacks: the 22/47 kills Tyrael
-      (10/10) in one hit, so the Juggernaut's own attack ends and it takes no damage.
+      Side A (2 minions) attacks first. The Golem is summoned with the Juggernaut's 13/17 and
+      Stalwart Kodo gives it double its maximum stats (30/60) before it attacks: the 43/77 kills
+      Tyrael (10/10) in one hit, so the Juggernaut's own attack ends and it takes no damage.
     seed: 705
     combat:
       board_a: [Jailbird Juggernaut, Stalwart Kodo]
@@ -43,10 +43,10 @@ scenarios:
       outcome: a_win
       events:
         sequence:
-          - {type: unit_summoned, side: a, unit: 3, name: Blood Golem, attack: 22, health: 47}
+          - {type: unit_summoned, side: a, unit: 3, name: Blood Golem, attack: 43, health: 77}
           - {type: attack_declared, side: a, attacker: 3, target: 2}
-          - {type: damage_dealt, unit: 2, amount: 22, from: 3}
-      survivors_a: ["Jailbird Juggernaut 6/15", "Blood Golem 22/37", Stalwart Kodo]
+          - {type: damage_dealt, unit: 2, amount: 43, from: 3}
+      survivors_a: ["Jailbird Juggernaut 13/17", "Blood Golem 43/67", Stalwart Kodo]
 
   - name: its_rally_in_the_tavern_makes_a_golem_that_stays
     description: >-
@@ -56,7 +56,7 @@ scenarios:
     steps:
       - activate: {pos: Sky-hatch Runaway, target: 1}
       - start_turn
-    expect: {board: [Sky-hatch Runaway, "Jailbird Juggernaut 6/15", "Blood Golem 6/15"]}
+    expect: {board: [Sky-hatch Runaway, "Jailbird Juggernaut 13/17", "Blood Golem 13/17"]}
 
   - name: its_rally_in_the_tavern_makes_no_golem_on_a_full_board
     tavern:

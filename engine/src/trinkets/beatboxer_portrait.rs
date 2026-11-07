@@ -1,4 +1,4 @@
-//! `Beatboxer Portrait` (`BG35_MagicItem_741`) — Greater, 6 Gold, Mech.
+//! `Beatboxer Portrait` (`BG35_MagicItem_741`) — Greater, 7 Gold, Mech.
 //!
 //! Get a Polarizing Beatboxer.
 //!

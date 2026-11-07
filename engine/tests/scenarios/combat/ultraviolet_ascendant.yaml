@@ -5,7 +5,7 @@ scenarios:
     tavern: {board: [Ultraviolet Ascendant], hand: [Dune Dweller]}   # Dune Dweller: an Elemental
     steps:
       - play: Dune Dweller
-      - expect: {board: {0: {card: Ultraviolet Ascendant, stacks: 1}}}   # +3/+3 -> +6/+6
+      - expect: {board: {0: {card: Ultraviolet Ascendant, stacks: 1}}}   # +4/+4 -> +8/+8
       - fight: {board: [Patient Scout]}
     expect:
-      combat: {survivors_a: {any: "Dune Dweller 9/9"}}   # 3/3 + 6/6
+      combat: {survivors_a: {any: "Dune Dweller 11/11"}}   # 3/3 + 8/8

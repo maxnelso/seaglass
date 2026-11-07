@@ -21,7 +21,7 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 | Spellcraft outside Duos | Deferred **(confirmed)** | `Lady Vashj`. The Duos Spellcraft minions and the Spellcraft trinkets are implemented ([`duos_tavern.md`](duos_tavern.md) §8.3, [`trinkets.md`](trinkets.md) §11.6). |
 | Custom Undead creations | Deferred **(confirmed)** | `Professor Putricide`, `Putricide Sticker`. |
 | StarCraft multi-piece boards and upgrade spells | Deferred **(confirmed)** | `Jim Raynor`, `Kerrigan, Queen of Blades`, `Artanis`. |
-| Naga | Out of scope: no lobby of Patch 36.6.3 has Naga **(confirmed)** | `Queen Azshara`; the Naga-only minions are implemented but in no pool (`Private Chef`, `Storm Splitter`: [`duos_tavern.md`](duos_tavern.md) §8); a trinket whose only type is Naga is never offered ([`trinkets.md`](trinkets.md) §1). |
+| Naga | Out of scope: no lobby of Patch 37.0.2 has Naga **(confirmed)** | `Queen Azshara`; the Naga-only minions are implemented but in no pool (`Private Chef`, `Storm Splitter`: [`duos_tavern.md`](duos_tavern.md) §8); a trinket whose only type is Naga is never offered ([`trinkets.md`](trinkets.md) §1). |
 | Combat damage caps (Solo and Duos) | Not modelled | `LobbyGame` ([`lobby_game.md`](lobby_game.md)) applies combat damage in full. |
 | Duos gift delivery during combat | Out of scope | The incoming queue is delivered in the Tavern ([`duos_tavern.md`](duos_tavern.md) §6). |
 
@@ -59,6 +59,7 @@ In the trinket table, not implemented, never offered ([`trinkets.md`](trinkets.m
 | `Surprise Portrait` | Deferred **(confirmed)** | Its hidden rule ("More appear when you least expect them") is unknown. |
 | `Wisdomball Supply` | Deferred **(confirmed)** | Its spell's "helpful" Refreshes aren't worth a rule now. |
 | `Putricide Sticker` | Deferred **(confirmed)** | Custom Undead creations. |
+| `Kiri's Double Eclipse` (Lesser and Greater) | Deferred **(confirmed)** | Choose One Tavern spell aura not implemented yet. |
 | Any trinket whose only type is Naga | Out of scope **(confirmed)** | Naga. |
 
 ## 4. Dark Gifts

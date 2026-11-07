@@ -1,9 +1,9 @@
-//! `Toughened Shield` (`BG36_MidGameEffect_000t75`) — turns 3–6, weight 100.
+//! `Toughened Shield` (`BG36_MidGameEffect_000t75`) — turns 3–5, weight 100.
 //!
-//! Whenever you play a card, gain +3 Health.
+//! Whenever you play a card, gain +2 Health.
 //!
 //! `gift_card_played`: on the board, each card the player plays from the hand (a minion or a spell,
-//! as it leaves the hand; not this minion's own play) gives it +3 Health (engine decision: the
+//! as it leaves the hand; not this minion's own play) gives it +2 Health (engine decision: the
 //! board only; `docs/dark_gifts.md` §11.2). Not in a Quilboar (or Naga) lobby (§5.1 rule 5). A stat
 //! gift.
 
@@ -26,7 +26,7 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
 }
 
 fn card_played(state: &mut TavernState, pos: usize, _: usize) {
-    state.board[pos].add_stats(0, 3);
+    state.board[pos].add_stats(0, 2);
 }
 
 fn offerable(ctx: &OfferCtx<'_>, _: &CardTemplate) -> bool {

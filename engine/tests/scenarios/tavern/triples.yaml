@@ -33,7 +33,7 @@ scenarios:
 
   - name: a_third_copy_robust_evolution_makes_forms_a_triple
     description: A minion transformed into a third copy forms a Triple too (confirmed).
-    seed: 7   # Robust Evolution turns the Glim Guardian into a Roadboar
+    seed: 17   # Robust Evolution turns the Glim Guardian into a Roadboar
     tavern:
       board: [Roadboar, Roadboar, Glim Guardian]
       hand: [Robust Evolution]

@@ -1,6 +1,6 @@
-//! `Glambot` (`BG36_853`) — Tier 4 Mech (`4/4`).
+//! `Glambot` (`BG36_853`) — Tier 4 Mech (`5/5`).
 //!
-//! Whenever you cast a spell on a Mech, Magnetize a 4/4 Satellite to it (`twice` if Golden).
+//! Whenever you cast a spell on a Mech, Magnetize a 5/5 Satellite to it (`twice` if Golden).
 //!
 //! A Mech in the Tavern counts too: the Satellite merges into it, without the friendly Magnetize
 //! observers. A Blood Gem that a card plays on a Mech (`Geomagus Roogug`, `Veteran Brigand`, ...)
@@ -14,7 +14,7 @@ use crate::tavern::{CardPool, MinionSlot, TavernState};
 pub const ID: CardId = 424;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Glambot", 4, 4, 4)
+    CardTemplate::new(ID, "Glambot", 5, 5, 4)
         .with_tribe(Tribe::Mech)
         .on_after_targeted_spell(after_targeted_spell)
 }
@@ -35,6 +35,11 @@ pub fn after_targeted_spell(
     let count = state.board[self_idx].golden_mult();
     for _ in 0..count {
         let mut satellite = tokens::make_satellite(false);
+        satellite.attack = 5;
+        satellite.health = 5;
+        satellite.base_attack = 5;
+        satellite.base_health = 5;
+        satellite.sync_max_stats();
         match target {
             MinionSlot::Board(pos) => cards::magnetize(state, &mut satellite, pos, pool, rng),
             MinionSlot::Shop(idx) => cards::merge_magnetization(&mut state.shop[idx], &satellite),

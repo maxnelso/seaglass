@@ -1,4 +1,4 @@
-//! `Jailbird Juggernaut` (`BG36_333`) — Tier 7 Quilboar (`6/15`).
+//! `Jailbird Juggernaut` (`BG36_333`) — Tier 7 Quilboar (`13/17`).
 //!
 //! Rally: Summon a Golem with this minion's stats (double if Golden) to attack the target first.
 //!
@@ -11,7 +11,7 @@ use crate::model::{CardId, Tribe, Unit};
 pub const ID: CardId = 705;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Jailbird Juggernaut", 6, 15, 7)
+    CardTemplate::new(ID, "Jailbird Juggernaut", 13, 17, 7)
         .with_tribe(Tribe::Quilboar)
         .on_rally(|c| {
             c.summons_attack_target = true;

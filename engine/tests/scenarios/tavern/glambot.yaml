@@ -1,17 +1,17 @@
 card: Glambot
 scenarios:
-  - name: a_spell_on_a_mech_magnetizes_a_4_4_satellite_to_it
-    tavern: {board: [Glambot], hand: [Tavern Dish Banana]}   # Glambot: 4/4 Mech; Banana: +2/+2
+  - name: a_spell_on_a_mech_magnetizes_a_5_5_satellite_to_it
+    tavern: {board: [Glambot], hand: [Tavern Dish Banana]}   # Glambot: 5/5 Mech; Banana: +2/+2
     steps:
       - play: {hand: Tavern Dish Banana, pos: 0}
-    expect: {board: ["Glambot 10/10"]}   # +2/+2 and the 4/4 Satellite
+    expect: {board: ["Glambot 12/12"]}   # +2/+2 and the 5/5 Satellite
 
   - name: a_spell_on_a_mech_in_the_tavern_magnetizes_a_satellite_to_it
     tavern: {board: [Glambot], shop: [Lullabot, Bubble Gunner], hand: [Tavern Dish Banana, Tavern Dish Banana]}   # Lullabot: a 2/2 Mech; Bubble Gunner: a 2/3 Murloc
     steps:
-      - play: {hand: Tavern Dish Banana, shop: 0}   # +2/+2 and the 4/4 Satellite
+      - play: {hand: Tavern Dish Banana, shop: 0}   # +2/+2 and the 5/5 Satellite
       - play: {hand: Tavern Dish Banana, shop: 1}   # not a Mech: only the +2/+2
-    expect: {board: ["Glambot 4/4"], shop: ["Lullabot 8/8", "Bubble Gunner 4/5"]}
+    expect: {board: ["Glambot 5/5"], shop: ["Lullabot 9/9", "Bubble Gunner 4/5"]}
 
   # A Blood Gem that a card plays on a Mech isn't a spell you cast on it (docs/tavern.md §7.4): no
   # Satellite.
@@ -25,13 +25,13 @@ scenarios:
       board:
         - "Geomagus Roogug 5/7"
         - {card: Lullabot, stats: 3/3, blood_gems_played: 1}   # only the +1/+1
-        - "Glambot 4/4"
+        - "Glambot 5/5"
 
   - name: brigands_share_magnetizes_no_satellite
-    tavern: {board: [Glambot, Lullabot]}   # 4/4 and 2/2 Mechs
+    tavern: {board: [Glambot, Lullabot]}   # 5/5 and 2/2 Mechs
     steps:
       - add_to_hand: Veteran Brigand   # an 8/8 Quilboar
       - play: Veteran Brigand
       - choose_discover: 0   # Brigand's Share: 3 Blood Gems on each of your minions
     expect:
-      board: ["Glambot 7/7", "Lullabot 5/5", "Veteran Brigand 11/11"]   # only the +3/+3
+      board: ["Glambot 8/8", "Lullabot 5/5", "Veteran Brigand 11/11"]   # only the +3/+3

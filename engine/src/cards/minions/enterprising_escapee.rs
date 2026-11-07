@@ -1,6 +1,6 @@
-//! `Enterprising Escapee` (`BG36_523`) — Tier 5 Pirate (`6/6`).
+//! `Enterprising Escapee` (`BG36_523`) — Tier 5 Pirate (`7/5`).
 //!
-//! After you spend 6 Gold, get a `Lockbox`. If you already have one, it opens `1` (`2` if Golden) turn(s) sooner instead.
+//! After you spend 5 Gold, get a `Lockbox`. If you already have one, it opens `1` (`2` if Golden) turn(s) sooner instead.
 
 use crate::cards::{self, tokens, CardTemplate};
 use crate::model::{CardId, Tribe};
@@ -10,7 +10,7 @@ use crate::tavern::{CardPool, TavernState};
 pub const ID: CardId = 515;
 
 pub fn template() -> CardTemplate {
-    CardTemplate::new(ID, "Enterprising Escapee", 6, 6, 5)
+    CardTemplate::new(ID, "Enterprising Escapee", 7, 5, 5)
         .with_tribe(Tribe::Pirate)
         .on_gold_spent(on_gold_spent)
 }
@@ -24,8 +24,8 @@ pub fn on_gold_spent(
 ) {
     let escapee = &mut state.board[self_idx];
     escapee.counter += amount as i32;
-    let triggers = escapee.counter / 6;
-    escapee.counter %= 6;
+    let triggers = escapee.counter / 5;
+    escapee.counter %= 5;
     let reduction = escapee.golden_mult() as u32;
     for _ in 0..triggers {
         if let Some(lockbox) = state
