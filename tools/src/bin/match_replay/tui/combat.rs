@@ -20,7 +20,7 @@ use seaglass::{
 use seaglass_tools::fmt::CombatNames;
 
 /// Number of simulated combats per fight for pre-combat outcome probabilities.
-pub const ODDS_RUNS: u32 = if cfg!(debug_assertions) { 100 } else { 1000 };
+pub const ODDS_RUNS: u32 = if cfg!(debug_assertions) { 100 } else { 2500 };
 
 /// Base seed mixed with a combat's seed or turn to sample independent RNG streams.
 pub const ODDS_BASE_SEED: u64 = 0x5EA6_1A55_0DD5_2026;

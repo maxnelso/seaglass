@@ -4,7 +4,6 @@
 
 use super::{record_effect, spell, SPELL_BROOD_OF_NOZDORMU};
 use crate::cards::{CardHooks, CombatSides};
-use crate::events::Event;
 use crate::model::{EffectDuration, PlayerEffect, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -23,18 +22,8 @@ pub fn cast(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, _: &m
 /// minion (once per stack).
 fn start_of_combat(sides: &mut CombatSides<'_>, effect: &mut PlayerEffect) {
     for _ in 0..std::mem::take(&mut effect.stacks) {
-        if let Some(leftmost) = sides.board.first_mut() {
-            let add = leftmost.attack;
-            leftmost.add_stats(add, 0);
-            sides.events.push(Event::StatBuff {
-                side: sides.side,
-                unit: leftmost.id,
-                atk_delta: add,
-                hp_delta: 0,
-                attack: leftmost.attack,
-                health: leftmost.health,
-                reason: "Brood of Nozdormu",
-            });
+        if let Some(add) = sides.board.first().map(|u| u.attack) {
+            sides.buff_unit(0, add, 0, "Brood of Nozdormu");
         }
     }
 }

@@ -171,9 +171,16 @@ impl<'a> BoardCtx<'a> {
         hp_delta: i32,
         reason: &'static str,
     ) {
-        if let Some(u) = self.board.get_mut(board_idx) {
-            buff_logged(self.side, u, atk_delta, hp_delta, reason, self.events);
-        }
+        buff_board_unit(
+            self.side,
+            self.board,
+            board_idx,
+            atk_delta,
+            hp_delta,
+            reason,
+            self.in_combat,
+            self.events,
+        );
     }
 
     /// Buff all friendly minions currently on `self.board` by `(atk_delta, hp_delta)`.
@@ -227,12 +234,125 @@ impl<'a> BoardCtx<'a> {
     pub fn cast_ctx(&mut self) -> CombatCastCtx<'_> {
         CombatCastCtx {
             side: self.side,
+            in_combat: self.in_combat,
             board: &mut self.board[..],
             hand: &mut self.hand[..],
             auras: &mut *self.auras,
             events: &mut *self.events,
         }
     }
+}
+
+/// Multiplier (`1` or `2`) applied immediately to positive Attack/Health gains on `board[idx]`
+/// during combat: `2` for `Golden Tarecgosa`, a minion with `Tarecgosa's Blessing`, or a Dragon
+/// adjacent to a living `Golden Persistent Poet` (`1` otherwise; never stacks to `4`).
+pub fn combat_gain_mult(board: &[Unit], idx: usize) -> i32 {
+    let Some(unit) = board.get(idx) else {
+        return 1;
+    };
+    let self_mult = hooks(unit.card_id)
+        .post_combat_keep_mult
+        .map_or(0, |f| f(unit))
+        .max(crate::dark_gifts::keep_combat_mult(unit));
+    let neighbor_mult = [idx.checked_sub(1), Some(idx + 1)]
+        .into_iter()
+        .flatten()
+        .filter_map(|n| {
+            let neighbor = board.get(n).filter(|u| u.health > 0)?;
+            let f = hooks(neighbor.card_id).post_combat_neighbor_mult?;
+            Some(f(board, n, idx))
+        })
+        .max()
+        .unwrap_or(0);
+    self_mult.max(neighbor_mult).max(1)
+}
+
+fn scale_combat_deltas(
+    board: &[Unit],
+    idx: usize,
+    atk_delta: i32,
+    hp_delta: i32,
+    in_combat: bool,
+) -> (i32, i32) {
+    if !in_combat || (atk_delta <= 0 && hp_delta <= 0) {
+        return (atk_delta, hp_delta);
+    }
+    let m = combat_gain_mult(board, idx);
+    (
+        if atk_delta > 0 {
+            atk_delta * m
+        } else {
+            atk_delta
+        },
+        if hp_delta > 0 { hp_delta * m } else { hp_delta },
+    )
+}
+
+/// Buff `board[idx]` by `(atk_delta, hp_delta)` (doubling positive gains in combat when
+/// [`combat_gain_mult`] is `2`) and emit a `StatBuff` event.
+#[allow(clippy::too_many_arguments)]
+pub fn buff_board_unit(
+    side: Side,
+    board: &mut [Unit],
+    idx: usize,
+    atk_delta: i32,
+    hp_delta: i32,
+    reason: &'static str,
+    in_combat: bool,
+    events: &mut Vec<Event>,
+) {
+    let (atk_delta, hp_delta) = scale_combat_deltas(board, idx, atk_delta, hp_delta, in_combat);
+    if let Some(u) = board.get_mut(idx) {
+        buff_logged(side, u, atk_delta, hp_delta, reason, events);
+    }
+}
+
+/// Buff `board[idx]` by `(atk_delta, hp_delta)` without emitting a `StatBuff` event (for callers
+/// whose caller logs board stat diffs, such as `Rally` or `C'Thun`).
+pub fn buff_board_unit_quiet(
+    board: &mut [Unit],
+    idx: usize,
+    atk_delta: i32,
+    hp_delta: i32,
+    in_combat: bool,
+) {
+    let (atk_delta, hp_delta) = scale_combat_deltas(board, idx, atk_delta, hp_delta, in_combat);
+    if let Some(u) = board.get_mut(idx) {
+        u.add_stats(atk_delta, hp_delta);
+    }
+}
+
+/// Play `count` Blood Gems on `board[idx]`, scaling positive stat gains in combat when
+/// [`combat_gain_mult`] is `2`, and return the `(atk_delta, hp_delta)` actually applied.
+pub fn play_blood_gems_on_board_unit(
+    board: &mut [Unit],
+    idx: usize,
+    count: u32,
+    auras: &PlayerAuras,
+    in_combat: bool,
+) -> (i32, i32) {
+    if count == 0 {
+        return (0, 0);
+    }
+    let mult = if in_combat {
+        combat_gain_mult(board, idx)
+    } else {
+        1
+    };
+    let Some(u) = board.get_mut(idx) else {
+        return (0, 0);
+    };
+    let (pre_atk, pre_hp) = (u.attack, u.health);
+    u.play_blood_gems(count, auras);
+    if mult > 1 {
+        let (g_atk, g_hp) = auras.blood_gem_stats();
+        let extra_atk = g_atk.max(0) * (count as i32) * (mult - 1);
+        let extra_hp = g_hp.max(0) * (count as i32) * (mult - 1);
+        if extra_atk > 0 || extra_hp > 0 {
+            u.add_stats(extra_atk, extra_hp);
+        }
+    }
+    (u.attack - pre_atk, u.health - pre_hp)
 }
 
 /// `unit` gains `(atk_delta, hp_delta)`, logged as a `StatBuff` event of `side`.
@@ -290,6 +410,7 @@ impl RallyCtx<'_> {
     pub fn cast_ctx(&mut self) -> CombatCastCtx<'_> {
         CombatCastCtx {
             side: self.side,
+            in_combat: self.in_combat,
             board: &mut *self.board,
             hand: &mut *self.hand,
             auras: &mut *self.auras,
@@ -308,11 +429,35 @@ pub struct CombatSides<'a> {
     pub events: &'a mut Vec<Event>,
 }
 
+impl CombatSides<'_> {
+    /// Buff `self.board[board_idx]` in combat by `(atk_delta, hp_delta)` and emit a `StatBuff`
+    /// event.
+    pub fn buff_unit(
+        &mut self,
+        board_idx: usize,
+        atk_delta: i32,
+        hp_delta: i32,
+        reason: &'static str,
+    ) {
+        buff_board_unit(
+            self.side,
+            self.board,
+            board_idx,
+            atk_delta,
+            hp_delta,
+            reason,
+            true,
+            self.events,
+        );
+    }
+}
+
 /// One side as seen by a Tavern spell that a friendly minion casts in combat, and by the
 /// `combat_spell_cast` observers it triggers (see [`cast_tavern_spell_in_combat`]): its board,
 /// its hand and the player's auras.
 pub struct CombatCastCtx<'a> {
     pub side: Side,
+    pub in_combat: bool,
     pub board: &'a mut [Unit],
     pub hand: &'a mut [Unit],
     pub auras: &'a mut PlayerAuras,
@@ -328,9 +473,16 @@ impl CombatCastCtx<'_> {
         hp_delta: i32,
         reason: &'static str,
     ) {
-        if let Some(u) = self.board.get_mut(board_idx) {
-            buff_logged(self.side, u, atk_delta, hp_delta, reason, self.events);
-        }
+        buff_board_unit(
+            self.side,
+            self.board,
+            board_idx,
+            atk_delta,
+            hp_delta,
+            reason,
+            self.in_combat,
+            self.events,
+        );
     }
 
     /// Re-synchronize the "wherever this is" auras of the minions on the board and in the hand
@@ -359,9 +511,16 @@ impl HeroCombatCtx<'_> {
     /// event (of the enemy's side).
     pub fn buff_enemy(&mut self, idx: usize, atk_delta: i32, hp_delta: i32, reason: &'static str) {
         let side = self.own.side.other();
-        if let Some(u) = self.enemy_board.get_mut(idx) {
-            buff_logged(side, u, atk_delta, hp_delta, reason, self.own.events);
-        }
+        buff_board_unit(
+            side,
+            self.enemy_board,
+            idx,
+            atk_delta,
+            hp_delta,
+            reason,
+            self.own.in_combat,
+            self.own.events,
+        );
     }
 }
 
@@ -909,9 +1068,58 @@ pub fn board_passive(board: &[Unit], passive: Passive) -> u32 {
     }
 }
 
+thread_local! {
+    static DEFER_STAT_THRESHOLDS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    static IN_COMBAT_RESOLUTION: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// `true` while a battle (`resolve_battle` or `resolve_duos_battle`) is resolving on this thread.
+pub fn in_combat_resolution() -> bool {
+    IN_COMBAT_RESOLUTION.with(|c| c.get() > 0)
+}
+
+/// Mark `f` as running inside combat resolution (`resolve_battle` / `resolve_duos_battle`).
+pub fn with_combat_resolution<R>(f: impl FnOnce() -> R) -> R {
+    struct Guard;
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            IN_COMBAT_RESOLUTION.with(|c| c.set(c.get().saturating_sub(1)));
+        }
+    }
+    IN_COMBAT_RESOLUTION.with(|c| c.set(c.get() + 1));
+    let _guard = Guard;
+    f()
+}
+
+/// Defer `stat_threshold` checks (`Scarlet Survivor`) until the current attack exchange finishes
+/// combat damage, so a unit that dies in the strike does not gain its threshold effect mid-attack.
+pub fn with_deferred_stat_thresholds<R>(f: impl FnOnce() -> R) -> R {
+    struct Guard;
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            DEFER_STAT_THRESHOLDS.with(|d| d.set(d.get().saturating_sub(1)));
+        }
+    }
+    DEFER_STAT_THRESHOLDS.with(|d| d.set(d.get() + 1));
+    let _guard = Guard;
+    f()
+}
+
+/// Run `stat_threshold` checks on all surviving units (`u.health > 0`) on `board`.
+pub fn flush_stat_thresholds(board: &mut [Unit]) {
+    for u in board.iter_mut() {
+        if u.health > 0 {
+            check_stat_thresholds(u);
+        }
+    }
+}
+
 /// Run the unit's stat-threshold checks (its `stat_threshold` hook) whenever its stats change
 /// (in Tavern or Combat).
 pub fn check_stat_thresholds(unit: &mut Unit) {
+    if DEFER_STAT_THRESHOLDS.with(std::cell::Cell::get) > 0 {
+        return;
+    }
     if let Some(stat_threshold) = hooks(unit.card_id).stat_threshold {
         stat_threshold(unit);
     }
@@ -1788,7 +1996,11 @@ pub fn on_activate(
     // A Dark Gift can make it trigger more than once (`Efficiency`; `docs/dark_gifts.md` §11.2).
     let (card_id, times) = (unit.card_id, 1 + crate::dark_gifts::extra_activations(unit));
     for _ in 0..times {
-        if state.board.get(source_pos).is_none_or(|u| u.card_id != card_id) {
+        if state
+            .board
+            .get(source_pos)
+            .is_none_or(|u| u.card_id != card_id)
+        {
             break;
         }
         activate(state, source_pos, target_pos, pool, rng);
@@ -1940,7 +2152,11 @@ pub fn on_rally(
         .collect();
     let mut def_target = def_target;
     let mut rallied = (Vec::new(), false);
-    for rally in hooks(attacker.card_id).rally.into_iter().chain(gift_rallies) {
+    for rally in hooks(attacker.card_id)
+        .rally
+        .into_iter()
+        .chain(gift_rallies)
+    {
         let Some(attacker) = board.get(attacker_pos) else {
             break;
         };
@@ -2508,7 +2724,9 @@ pub fn on_post_combat_unit(
         .unwrap_or(0);
     let keep_mult = self_mult.max(neighbor_mult);
     if keep_mult > 0 {
-        keep_combat_gains(pre_combat, post, tavern_unit, keep_mult);
+        // Positive combat stat gains were already scaled in combat (`combat_gain_mult`), so `post`
+        // already holds the full kept total (`mult = 1` here).
+        keep_combat_gains(pre_combat, post, tavern_unit, 1);
     } else if post.perm_atk_gained != 0 || post.perm_hp_gained != 0 {
         tavern_unit.add_stats(post.perm_atk_gained, post.perm_hp_gained);
     }

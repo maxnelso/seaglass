@@ -11,8 +11,16 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Heroic Underdog", 1, 10, 4)
         .with_keyword(Keyword::Stealth)
         .on_rally(|c| {
-            let def_unit = c.def_target.as_ref().and_then(|(b, idx)| b.get(*idx));
-            on_rally(&mut c.board[c.attacker_pos], def_unit);
+            if let Some(t_atk) = c
+                .def_target
+                .as_ref()
+                .and_then(|(b, idx)| b.get(*idx))
+                .map(|t| t.attack)
+            {
+                let mult = if c.is_golden { 2 } else { 1 };
+                let gain = (t_atk * mult).max(0);
+                crate::cards::buff_board_unit_quiet(c.board, c.attacker_pos, gain, 0, c.in_combat);
+            }
             Vec::new()
         })
 }

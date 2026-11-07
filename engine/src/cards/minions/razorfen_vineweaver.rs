@@ -15,7 +15,20 @@ pub fn template() -> CardTemplate {
     CardTemplate::new(ID, "Razorfen Vineweaver", 4, 4, 5)
         .with_tribe(Tribe::Quilboar)
         .on_rally(|c| {
-            on_rally(&mut c.board[c.attacker_pos], c.auras, c.in_combat);
+            let gems = if c.is_golden { 8 } else { 4 };
+            let (da, dh) = crate::cards::play_blood_gems_on_board_unit(
+                c.board,
+                c.attacker_pos,
+                gems,
+                c.auras,
+                c.in_combat,
+            );
+            if c.in_combat {
+                let attacker = &mut c.board[c.attacker_pos];
+                attacker.perm_atk_gained += da;
+                attacker.perm_hp_gained += dh;
+                attacker.perm_blood_gems_gained += gems;
+            }
             Vec::new()
         })
 }

@@ -37,18 +37,18 @@ pub fn on_start_of_combat(
             .rev()
             .find(|u| u.health > 0)
             .map_or(0, |u| u.health);
-        let Some(elder) = board.iter_mut().find(|u| u.id == source_id && u.health > 0) else {
+        let Some(idx) = board.iter().position(|u| u.id == source_id && u.health > 0) else {
             return;
         };
-        elder.add_stats(attack.max(0), health.max(0));
-        events.push(Event::StatBuff {
+        crate::cards::buff_board_unit(
             side,
-            unit: elder.id,
-            atk_delta: attack.max(0),
-            hp_delta: health.max(0),
-            attack: elder.attack,
-            health: elder.health,
-            reason: NAME,
-        });
+            board,
+            idx,
+            attack.max(0),
+            health.max(0),
+            NAME,
+            true,
+            events,
+        );
     }
 }

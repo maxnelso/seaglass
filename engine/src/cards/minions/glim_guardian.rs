@@ -10,7 +10,11 @@ pub const NAME: &str = "Glim Guardian";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 1, 4, 1)
         .with_tribe(Tribe::Dragon)
-        .on_rally(|c| on_rally(&mut c.board[c.attacker_pos]))
+        .on_rally(|c| {
+            let bonus = if c.is_golden { 4 } else { 2 };
+            crate::cards::buff_board_unit_quiet(c.board, c.attacker_pos, bonus, 0, c.in_combat);
+            Vec::new()
+        })
 }
 
 pub fn on_rally(attacker: &mut Unit) -> Vec<Unit> {

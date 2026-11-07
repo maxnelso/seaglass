@@ -25,18 +25,18 @@ pub fn on_start_of_combat(
 ) {
     let delta = if is_golden { 2 } else { 1 };
     *combat_beast_bonus_atk += delta;
-    for u in board.iter_mut() {
-        if u.tribe.matches(Tribe::Beast) {
-            u.add_stats(delta, 0);
-            events.push(Event::StatBuff {
+    for idx in 0..board.len() {
+        if board[idx].tribe.matches(Tribe::Beast) {
+            crate::cards::buff_board_unit(
                 side,
-                unit: u.id,
-                atk_delta: delta,
-                hp_delta: 0,
-                attack: u.attack,
-                health: u.health,
-                reason: "StartOfCombat",
-            });
+                board,
+                idx,
+                delta,
+                0,
+                "StartOfCombat",
+                true,
+                events,
+            );
         }
     }
 }

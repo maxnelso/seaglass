@@ -38,16 +38,16 @@ pub fn on_start_of_combat(
     if d_atk <= 0 && d_hp <= 0 {
         return;
     }
-    if let Some(u) = board.iter_mut().find(|u| u.id == source_id && u.health > 0) {
-        u.add_stats(d_atk, d_hp);
-        events.push(Event::StatBuff {
+    if let Some(idx) = board.iter().position(|u| u.id == source_id && u.health > 0) {
+        crate::cards::buff_board_unit(
             side,
-            unit: u.id,
-            atk_delta: d_atk,
-            hp_delta: d_hp,
-            attack: u.attack,
-            health: u.health,
-            reason: "Choral Mrrrglr",
-        });
+            board,
+            idx,
+            d_atk,
+            d_hp,
+            "Choral Mrrrglr",
+            true,
+            events,
+        );
     }
 }

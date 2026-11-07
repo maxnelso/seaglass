@@ -126,6 +126,10 @@ pub enum BoardSource {
     Missing,
 }
 
+fn is_zero_i32(&x: &i32) -> bool {
+    x == 0
+}
+
 /// One player's warband and context at the start of a combat.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerSetup {
@@ -144,8 +148,14 @@ pub struct PlayerSetup {
     /// combat: Y'Shaarj's Embrace Your Rage).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub hero_power_activated: bool,
+    /// `TAG_SCRIPT_DATA_NUM_1` on the hero power (`Wax Warband`'s buff, `Tentacular`'s size).
+    #[serde(default, skip_serializing_if = "is_zero_i32")]
+    pub hero_power_number: i32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trinkets: Vec<String>,
+    /// Per-trinket `TAG_SCRIPT_DATA_NUM_1`, parallel to `trinkets`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trinket_script_data: Vec<i32>,
     /// The number each trinket's text shows (`TAG_SCRIPT_DATA_NUM_1`), by card ID: `Hammer of
     /// Twilight`'s current bonus, which tells how many cards the player discarded.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -332,6 +342,9 @@ struct Ent {
     card_id: String,
     name: String,
     tags: HashMap<String, String>,
+    /// Transformed via `CHANGE_ENTITY`: subsequent `TAG_CHANGE` brackets can still carry the
+    /// pre-transform `entityName`/`cardId` until `PowerTaskList` catches up.
+    changed: bool,
 }
 
 impl Ent {
@@ -488,14 +501,16 @@ impl<'a> Tracker<'a> {
         }
         if let Some((id, name, cid)) = bracket(s) {
             let e = self.ents.entry(id).or_default();
-            if let Some(n) = name {
-                if !n.starts_with("UNKNOWN ENTITY") {
-                    e.name = n;
+            if let Some(c) = &cid {
+                if !c.is_empty() && (!e.changed || e.card_id.is_empty()) {
+                    e.card_id = c.clone();
                 }
             }
-            if let Some(c) = cid {
-                if !c.is_empty() {
-                    e.card_id = c;
+            if let Some(n) = name {
+                if !n.starts_with("UNKNOWN ENTITY")
+                    && (!e.changed || cid.as_deref() == Some(e.card_id.as_str()))
+                {
+                    e.name = n;
                 }
             }
             return Some(id);
@@ -526,6 +541,7 @@ impl<'a> Tracker<'a> {
         self.card_names
             .get(&e.card_id)
             .cloned()
+            .or_else(|| crate::cards::engine_card(&e.card_id, "").map(|c| c.name.to_string()))
             .unwrap_or_else(|| e.card_id.clone())
     }
 
@@ -1441,12 +1457,20 @@ impl<'a> Tracker<'a> {
             hero_power_start_of_combat: hero_power.is_some_and(|h| h.int("START_OF_COMBAT") > 0),
             hero_power_activated: hero_power
                 .is_some_and(|h| h.int("BACON_HERO_POWER_ACTIVATED") > 0),
+            hero_power_number: hero_power.map_or(0, |h| h.int("TAG_SCRIPT_DATA_NUM_1")),
             trinkets: p
                 .trinkets
                 .iter()
                 .filter_map(|&id| self.ent(id))
                 .filter(|t| t.int("BACON_IS_POTENTIAL_TRINKET") == 0)
                 .map(|t| t.card_id.clone())
+                .collect(),
+            trinket_script_data: p
+                .trinkets
+                .iter()
+                .filter_map(|&id| self.ent(id))
+                .filter(|t| t.int("BACON_IS_POTENTIAL_TRINKET") == 0)
+                .map(|t| t.int("TAG_SCRIPT_DATA_NUM_1"))
                 .collect(),
             trinket_numbers: p
                 .trinkets
@@ -1492,7 +1516,12 @@ impl<'a> Tracker<'a> {
                 .local_hero_power
                 .as_ref()
                 .is_some_and(|h| h.int("BACON_HERO_POWER_ACTIVATED") > 0),
+            hero_power_number: c
+                .local_hero_power
+                .as_ref()
+                .map_or(0, |h| h.int("TAG_SCRIPT_DATA_NUM_1")),
             trinkets: Vec::new(),
+            trinket_script_data: Vec::new(),
             trinket_numbers: BTreeMap::new(),
             deity: {
                 let t = &c.local_tags;
@@ -1510,6 +1539,7 @@ impl<'a> Tracker<'a> {
             package_board: None,
         };
         // The local hero power and trinkets: entities controlled by us in PLAY.
+        let mut local_trinkets: Vec<(String, i32)> = Vec::new();
         for (id, e) in &self.ents {
             if e.int("CONTROLLER") != self.local_pid || e.str("ZONE") != "PLAY" {
                 continue;
@@ -1518,18 +1548,22 @@ impl<'a> Tracker<'a> {
                 "HERO_POWER" if local_player.hero_power.is_none() => {
                     local_player.hero_power = Some(e.card_id.clone());
                     local_player.hero_power_start_of_combat = e.int("START_OF_COMBAT") > 0;
+                    local_player.hero_power_number = e.int("TAG_SCRIPT_DATA_NUM_1");
                 }
                 "BATTLEGROUND_TRINKET" if e.int("BACON_IS_POTENTIAL_TRINKET") == 0 => {
                     let _ = id;
-                    local_player.trinkets.push(e.card_id.clone());
-                    local_player
-                        .trinket_numbers
-                        .insert(e.card_id.clone(), e.int("TAG_SCRIPT_DATA_NUM_1"));
+                    let n1 = e.int("TAG_SCRIPT_DATA_NUM_1");
+                    local_trinkets.push((e.card_id.clone(), n1));
+                    local_player.trinket_numbers.insert(e.card_id.clone(), n1);
                 }
                 _ => {}
             }
         }
-        local_player.trinkets.sort();
+        local_trinkets.sort();
+        for (cid, n1) in local_trinkets {
+            local_player.trinkets.push(cid);
+            local_player.trinket_script_data.push(n1);
+        }
         let copy: Vec<(String, i32, i32)> = c
             .local_copy
             .iter()
@@ -1590,7 +1624,9 @@ impl<'a> Tracker<'a> {
                         hero_power: None,
                         hero_power_start_of_combat: false,
                         hero_power_activated: false,
+                        hero_power_number: 0,
                         trinkets: Vec::new(),
+                        trinket_script_data: Vec::new(),
                         trinket_numbers: BTreeMap::new(),
                         deity: None,
                         board: snap.board.clone(),
@@ -1769,6 +1805,7 @@ pub fn reconstruct_combats(
                             card_id: cid,
                             name,
                             tags: HashMap::new(),
+                            changed: false,
                         },
                     );
                     init = Some((eid, indent, true));
@@ -1776,6 +1813,7 @@ pub fn reconstruct_combats(
             }
             continue;
         }
+        let is_change = s.starts_with("CHANGE_ENTITY - Updating Entity=");
         if let Some(rest) = s
             .strip_prefix("SHOW_ENTITY - Updating Entity=")
             .or_else(|| s.strip_prefix("CHANGE_ENTITY - Updating Entity="))
@@ -1785,11 +1823,21 @@ pub fn reconstruct_combats(
                     let cid = cid.trim().to_string();
                     let name = t.card_names.get(&cid).cloned();
                     let e = t.ents.entry(eid).or_default();
-                    if !cid.is_empty() {
-                        e.card_id = cid;
-                    }
-                    if let Some(n) = name {
-                        e.name = n;
+                    if is_change {
+                        e.changed = true;
+                        if !cid.is_empty() && e.card_id != cid {
+                            e.card_id = cid;
+                            e.name = name.unwrap_or_default();
+                        } else if let Some(n) = name {
+                            e.name = n;
+                        }
+                    } else {
+                        if !cid.is_empty() {
+                            e.card_id = cid;
+                        }
+                        if let Some(n) = name {
+                            e.name = n;
+                        }
                     }
                     init = Some((eid, indent, false));
                 }

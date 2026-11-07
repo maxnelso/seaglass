@@ -33,21 +33,20 @@ pub fn on_rally(
     for _ in 0..repeats {
         let indices = types::select_menagerie_targets(board, rng);
         for idx in indices {
-            let target = &mut board[idx];
-            target.add_stats(15, 15);
             if in_combat {
-                target.perm_atk_gained += 15;
-                target.perm_hp_gained += 15;
+                board[idx].perm_atk_gained += 15;
+                board[idx].perm_hp_gained += 15;
             }
-            events.push(Event::StatBuff {
+            crate::cards::buff_board_unit(
                 side,
-                unit: target.id,
-                atk_delta: 15,
-                hp_delta: 15,
-                attack: target.attack,
-                health: target.health,
-                reason: "The Last One Standing",
-            });
+                board,
+                idx,
+                15,
+                15,
+                "The Last One Standing",
+                in_combat,
+                events,
+            );
         }
     }
 }

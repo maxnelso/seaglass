@@ -35,18 +35,18 @@ pub fn on_start_of_combat(
     events: &mut Vec<Event>,
 ) {
     let delta = if is_golden { 2 } else { 1 };
-    for u in board.iter_mut() {
-        if u.id != source_id && u.tribe.matches(Tribe::Dragon) {
-            u.add_stats(delta, delta);
-            events.push(Event::StatBuff {
+    for idx in 0..board.len() {
+        if board[idx].id != source_id && board[idx].tribe.matches(Tribe::Dragon) {
+            crate::cards::buff_board_unit(
                 side,
-                unit: u.id,
-                atk_delta: delta,
-                hp_delta: delta,
-                attack: u.attack,
-                health: u.health,
-                reason: "StartOfCombat",
-            });
+                board,
+                idx,
+                delta,
+                delta,
+                "StartOfCombat",
+                true,
+                events,
+            );
         }
     }
 }

@@ -37,9 +37,9 @@ fn friendly_attack(ctx: &mut BoardCtx<'_>, _: UnitId) {
         return;
     }
     let auras = ctx.auras.clone();
-    for unit in ctx.board.iter_mut() {
-        if unit.health > 0 && unit.tribe.matches(Tribe::Quilboar) {
-            unit.play_blood_gems(1, &auras);
+    for idx in 0..ctx.board.len() {
+        if ctx.board[idx].health > 0 && ctx.board[idx].tribe.matches(Tribe::Quilboar) {
+            crate::cards::play_blood_gems_on_board_unit(ctx.board, idx, 1, &auras, ctx.in_combat);
         }
     }
 }

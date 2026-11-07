@@ -22,17 +22,18 @@ pub fn on_friendly_attack(ctx: &mut BoardCtx<'_>, self_idx: usize, attacker_id: 
         return;
     }
     let gems = ctx.board[self_idx].golden_mult() as u32;
-    let Some(attacker) = ctx.board.iter_mut().find(|u| u.id == attacker_id) else {
+    let Some(pos) = ctx.board.iter().position(|u| u.id == attacker_id) else {
         return;
     };
-    let (pre_atk, pre_hp) = (attacker.attack, attacker.health);
-    attacker.play_blood_gems(gems, ctx.auras);
-    if attacker.attack != pre_atk || attacker.health != pre_hp {
+    let (atk_delta, hp_delta) =
+        crate::cards::play_blood_gems_on_board_unit(ctx.board, pos, gems, ctx.auras, ctx.in_combat);
+    if atk_delta != 0 || hp_delta != 0 {
+        let attacker = &ctx.board[pos];
         ctx.events.push(Event::StatBuff {
             side: ctx.side,
             unit: attacker_id,
-            atk_delta: attacker.attack - pre_atk,
-            hp_delta: attacker.health - pre_hp,
+            atk_delta,
+            hp_delta,
             attack: attacker.attack,
             health: attacker.health,
             reason: "ProdigiousTusker",

@@ -13,7 +13,17 @@ pub const NAME: &str = "Tusked Camper";
 pub fn template() -> CardTemplate {
     CardTemplate::new(ID, NAME, 2, 3, 1)
         .with_tribe(Tribe::Quilboar)
-        .on_rally(|c| on_rally(&mut c.board[c.attacker_pos], c.auras))
+        .on_rally(|c| {
+            let count = if c.is_golden { 2 } else { 1 };
+            crate::cards::play_blood_gems_on_board_unit(
+                c.board,
+                c.attacker_pos,
+                count,
+                c.auras,
+                c.in_combat,
+            );
+            Vec::new()
+        })
 }
 
 pub fn on_rally(attacker: &mut Unit, auras: &PlayerAuras) -> Vec<Unit> {

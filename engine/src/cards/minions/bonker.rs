@@ -30,16 +30,17 @@ pub fn on_rally(
     events: &mut Vec<Event>,
 ) {
     let count = if board[attacker_pos].is_golden { 2 } else { 1 };
-    for (idx, u) in board.iter_mut().enumerate() {
+    let in_combat = crate::cards::in_combat_resolution();
+    for idx in 0..board.len() {
         if idx != attacker_pos {
-            let old_atk = u.attack;
-            let old_hp = u.health;
-            u.play_blood_gems(count, auras);
+            let (atk_delta, hp_delta) =
+                crate::cards::play_blood_gems_on_board_unit(board, idx, count, auras, in_combat);
+            let u = &board[idx];
             events.push(Event::StatBuff {
                 side,
                 unit: u.id,
-                atk_delta: u.attack - old_atk,
-                hp_delta: u.health - old_hp,
+                atk_delta,
+                hp_delta,
                 attack: u.attack,
                 health: u.health,
                 reason: "Bonker",

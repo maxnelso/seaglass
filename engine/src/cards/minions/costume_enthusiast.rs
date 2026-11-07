@@ -36,16 +36,16 @@ pub fn on_start_of_combat(
     }
     let mult = if is_golden { 2 } else { 1 };
     let gain = max_hand_atk * mult;
-    if let Some(u) = board.iter_mut().find(|u| u.id == source_id && u.health > 0) {
-        u.add_stats(gain, 0);
-        events.push(Event::StatBuff {
+    if let Some(idx) = board.iter().position(|u| u.id == source_id && u.health > 0) {
+        crate::cards::buff_board_unit(
             side,
-            unit: u.id,
-            atk_delta: gain,
-            hp_delta: 0,
-            attack: u.attack,
-            health: u.health,
-            reason: "Costume Enthusiast",
-        });
+            board,
+            idx,
+            gain,
+            0,
+            "Costume Enthusiast",
+            true,
+            events,
+        );
     }
 }

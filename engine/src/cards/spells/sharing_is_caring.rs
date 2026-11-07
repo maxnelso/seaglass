@@ -5,7 +5,6 @@
 
 use super::{record_effect, spell, SPELL_SHARING_IS_CARING};
 use crate::cards::{CardHooks, CombatSides};
-use crate::events::Event;
 use crate::model::{EffectDuration, PlayerEffect, Unit};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernState};
@@ -25,22 +24,15 @@ pub fn cast(state: &mut TavernState, _: &Unit, _: usize, _: &mut CardPool, _: &m
 /// the nearest enemy minion (once per stack).
 fn start_of_combat(sides: &mut CombatSides<'_>, effect: &mut PlayerEffect) {
     for _ in 0..std::mem::take(&mut effect.stacks) {
-        if let (Some(leftmost), Some(nearest_opp)) = (
-            sides.board.first_mut(),
-            sides.enemy_board.iter().find(|u| u.health > 0),
-        ) {
-            let add_atk = nearest_opp.attack.max(0);
-            let add_hp = nearest_opp.health.max(0);
-            leftmost.add_stats(add_atk, add_hp);
-            sides.events.push(Event::StatBuff {
-                side: sides.side,
-                unit: leftmost.id,
-                atk_delta: add_atk,
-                hp_delta: add_hp,
-                attack: leftmost.attack,
-                health: leftmost.health,
-                reason: "Sharing is Caring",
-            });
+        if !sides.board.is_empty() {
+            if let Some((add_atk, add_hp)) = sides
+                .enemy_board
+                .iter()
+                .find(|u| u.health > 0)
+                .map(|u| (u.attack.max(0), u.health.max(0)))
+            {
+                sides.buff_unit(0, add_atk, add_hp, "Sharing is Caring");
+            }
         }
     }
 }

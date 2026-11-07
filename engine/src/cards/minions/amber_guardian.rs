@@ -54,17 +54,7 @@ pub fn on_start_of_combat(
             pickable[rng.below(pickable.len())]
         };
         candidates.retain(|&i| i != idx);
-        let u = &mut board[idx];
-        u.add_stats(2, 2);
-        u.apply_keyword(Keyword::DivineShield, true);
-        events.push(Event::StatBuff {
-            side,
-            unit: u.id,
-            atk_delta: 2,
-            hp_delta: 2,
-            attack: u.attack,
-            health: u.health,
-            reason: NAME,
-        });
+        board[idx].apply_keyword(Keyword::DivineShield, true);
+        crate::cards::buff_board_unit(side, board, idx, 2, 2, NAME, true, events);
     }
 }

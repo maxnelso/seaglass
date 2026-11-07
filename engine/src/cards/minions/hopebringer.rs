@@ -34,16 +34,7 @@ pub fn on_start_of_combat(
     let mult = (1 + stacks) * (if is_golden { 2 } else { 1 });
     let d_atk = 4 * mult;
     let d_hp = 3 * mult;
-    for u in board.iter_mut() {
-        u.add_stats(d_atk, d_hp);
-        events.push(Event::StatBuff {
-            side,
-            unit: u.id,
-            atk_delta: d_atk,
-            hp_delta: d_hp,
-            attack: u.attack,
-            health: u.health,
-            reason: "Hopebringer",
-        });
+    for idx in 0..board.len() {
+        crate::cards::buff_board_unit(side, board, idx, d_atk, d_hp, "Hopebringer", true, events);
     }
 }

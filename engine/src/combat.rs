@@ -235,6 +235,15 @@ pub fn resolve_battle(
     state: &GameState,
     seed: u64,
 ) -> BattleResult {
+    cards::with_combat_resolution(|| resolve_battle_inner(board_a, board_b, state, seed))
+}
+
+fn resolve_battle_inner(
+    board_a: &[Unit],
+    board_b: &[Unit],
+    state: &GameState,
+    seed: u64,
+) -> BattleResult {
     let mut next_id: UnitId = 0;
     let units_a = with_combat_ids(board_a, &mut next_id);
     let units_b = with_combat_ids(board_b, &mut next_id);
@@ -651,6 +660,10 @@ impl DuosTeamState {
 /// Resolve one deterministic Duos combat from `(team_a, team_b, seed)` (`docs/duos.md`): the
 /// teams' warbands fight as a relay, each with the Solo rules and its own player context.
 pub fn resolve_duos_battle(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> DuosResult {
+    cards::with_combat_resolution(|| resolve_duos_battle_inner(team_a, team_b, seed))
+}
+
+fn resolve_duos_battle_inner(team_a: &DuosTeam, team_b: &DuosTeam, seed: u64) -> DuosResult {
     for team in [team_a, team_b] {
         assert!(
             team.first < 2,
@@ -1298,9 +1311,11 @@ fn resolve_start_of_combat_attacks(
         {
             break;
         }
+        trace_sides(side, own_side, opp_side, events);
         perform_one_strike(
             side, src_id, own_side, opp_side, false, next_id, rng, events,
         );
+        trace_sides(side, own_side, opp_side, events);
     }
 }
 
@@ -1398,303 +1413,315 @@ fn perform_one_strike(
         target: target_id,
     });
 
-    // 2. Fire On-Attack (Rally) hook before damage.
-    let attacker_has_rally = cards::has_rally(&atk_side.board[initial_atk_pos]);
-    let before_rally: Vec<(UnitId, i32, i32)> = atk_side
-        .board
-        .iter()
-        .map(|u| (u.id, u.attack, u.health))
-        .collect();
-    let events_len_before_rally = events.len();
-    let mut generated_hand = Vec::new();
-    let (rally_summons, summons_attack_target) = cards::on_rally(
-        side,
-        &mut atk_side.board,
-        initial_atk_pos,
-        Some((&mut def_side.board, initial_def_pos)),
-        &mut def_side.hand,
-        &mut atk_side.auras,
-        &mut atk_side.hand,
-        &mut atk_side.hand_summoned,
-        &mut generated_hand,
-        &mut Vec::new(), // spells cast by a Rally in the Tavern only
-        rng,
-        events,
-    );
-    let already_logged_units: Vec<UnitId> = events[events_len_before_rally..]
-        .iter()
-        .filter_map(|ev| match *ev {
-            Event::StatBuff {
-                side: ev_side,
-                unit,
-                ..
-            } if ev_side == side => Some(unit),
-            _ => None,
-        })
-        .collect();
-    for (id, old_atk, old_hp) in before_rally {
-        if already_logged_units.contains(&id) {
-            continue;
-        }
-        if let Some(u) = atk_side.board.iter().find(|u| u.id == id) {
-            if u.attack != old_atk || u.health != old_hp {
-                events.push(Event::StatBuff {
-                    side,
-                    unit: id,
-                    atk_delta: u.attack - old_atk,
-                    hp_delta: u.health - old_hp,
-                    attack: u.attack,
-                    health: u.health,
-                    reason: "Rally",
-                });
+    // 2. Fire On-Attack (Rally) hook before damage. Stat thresholds (`Scarlet Survivor`) are
+    //    deferred until combat damage finishes so a minion killed in the strike does not gain its
+    //    threshold effect mid-attack.
+    let (atk_pos, should_emit_deaths) = cards::with_deferred_stat_thresholds(|| {
+        let attacker_has_rally = cards::has_rally(&atk_side.board[initial_atk_pos]);
+        let before_rally: Vec<(UnitId, i32, i32)> = atk_side
+            .board
+            .iter()
+            .map(|u| (u.id, u.attack, u.health))
+            .collect();
+        let events_len_before_rally = events.len();
+        let mut generated_hand = Vec::new();
+        let (rally_summons, summons_attack_target) = cards::on_rally(
+            side,
+            &mut atk_side.board,
+            initial_atk_pos,
+            Some((&mut def_side.board, initial_def_pos)),
+            &mut def_side.hand,
+            &mut atk_side.auras,
+            &mut atk_side.hand,
+            &mut atk_side.hand_summoned,
+            &mut generated_hand,
+            &mut Vec::new(), // spells cast by a Rally in the Tavern only
+            rng,
+            events,
+        );
+        let already_logged_units: Vec<UnitId> = events[events_len_before_rally..]
+            .iter()
+            .filter_map(|ev| match *ev {
+                Event::StatBuff {
+                    side: ev_side,
+                    unit,
+                    ..
+                } if ev_side == side => Some(unit),
+                _ => None,
+            })
+            .collect();
+        for (id, old_atk, old_hp) in before_rally {
+            if already_logged_units.contains(&id) {
+                continue;
             }
-        }
-    }
-    for mut card in generated_hand {
-        if atk_side.hand.len() < 10 {
-            cards::sync_unit_auras(&mut card, &atk_side.auras);
-            atk_side.hand.push(card);
-            atk_side.hand_summoned.push(false);
-            atk_side.hand_given_by.push(None);
-            cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
-        }
-    }
-    let mut forced_striker: Option<UnitId> = None;
-    if !rally_summons.is_empty() {
-        let mut insert_pos = initial_atk_pos + 1;
-        for mut token in rally_summons {
-            if atk_side.board.len() < MAX_BOARD_SIZE {
-                token.id = *next_id;
-                *next_id += 1;
-                if summons_attack_target {
-                    forced_striker = Some(token.id);
+            if let Some(u) = atk_side.board.iter().find(|u| u.id == id) {
+                if u.attack != old_atk || u.health != old_hp {
+                    events.push(Event::StatBuff {
+                        side,
+                        unit: id,
+                        atk_delta: u.attack - old_atk,
+                        hp_delta: u.health - old_hp,
+                        attack: u.attack,
+                        health: u.health,
+                        reason: "Rally",
+                    });
                 }
-                atk_side.prepare_summoned_unit(&mut token);
-                events.push(Event::UnitSummoned {
-                    side,
-                    source: attacker_id,
-                    unit: token.id,
-                    name: token.name.clone(),
-                    attack: token.attack,
-                    health: token.health,
-                    reason: "Rally",
-                });
-                atk_side.board.insert(insert_pos, token);
-                insert_pos += 1;
             }
         }
-        crate::trinkets::after_combat_summon(&mut atk_side.ctx(side, next_id, rng, events));
-    }
-
-    if attacker_has_rally {
-        cards::after_friendly_rally(&mut atk_side.ctx(side, next_id, rng, events));
-    }
-
-    // 2b. Fire friendly-attack observers.
-    cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
-
-    // 2c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
-    resolve_effect_deaths(side, atk_side, def_side, next_id, rng, events);
-
-    // 2d. Rally summons that attack the target first (e.g. `Jailbird Juggernaut`'s Golem).
-    if let Some(striker_id) = forced_striker {
-        perform_forced_target_strike(
-            side, striker_id, target_id, atk_side, def_side, next_id, rng, events,
-        );
-    }
-
-    let Some(atk_pos) = atk_side
-        .board
-        .iter()
-        .position(|u| u.id == attacker_id && u.health > 0)
-    else {
-        return;
-    };
-    let Some(def_pos) = def_side
-        .board
-        .iter()
-        .position(|u| u.id == target_id && u.health > 0)
-    else {
-        if advance_ptr {
-            atk_side.ptr = unit_after(&atk_side.board, atk_pos);
+        for mut card in generated_hand {
+            if atk_side.hand.len() < 10 {
+                cards::sync_unit_auras(&mut card, &atk_side.auras);
+                atk_side.hand.push(card);
+                atk_side.hand_summoned.push(false);
+                atk_side.hand_given_by.push(None);
+                cards::on_card_added_to_hand(&atk_side.board, &mut atk_side.auras);
+            }
         }
-        return;
-    };
-
-    let attacker_attack = atk_side.board[atk_pos].attack;
-    let attacker_venomous = atk_side.board[atk_pos].venomous;
-
-    let target_attack = def_side.board[def_pos].attack;
-    let target_venomous = def_side.board[def_pos].venomous;
-    let def_pre_hp = def_side.board[def_pos].health;
-
-    // 4. Simultaneous damage (target first, then attacker). A Venomous attacker destroys every
-    //    minion its attack damages (cleave included); its Venomous is used up afterwards.
-    let (mut atk_consumed_venom, def_took_damage) = apply_damage(
-        &mut def_side.board,
-        def_pos,
-        attacker_attack,
-        attacker_id,
-        attacker_venomous,
-        events,
-    );
-    if def_took_damage {
-        cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
-        cards::on_damage_dealt(
-            &mut atk_side.ctx(side, next_id, rng, events),
-            attacker_id,
-            attacker_attack,
-        );
-    }
-
-    // A minion Immune while attacking takes nothing (`Invulnerability`; `docs/dark_gifts.md`).
-    let (def_consumed_venom, atk_took_damage) =
-        if crate::dark_gifts::immune_attacking(&atk_side.board[atk_pos]) {
-            (false, false)
-        } else {
-            apply_damage(
-                &mut atk_side.board,
-                atk_pos,
-                target_attack,
-                target_id,
-                target_venomous,
-                events,
-            )
-        };
-    if def_consumed_venom {
-        use_venomous(&mut def_side.board[def_pos]);
-    }
-    if atk_took_damage {
-        cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
-        cards::on_damage_dealt(
-            &mut def_side.ctx(side.other(), next_id, rng, events),
-            target_id,
-            target_attack,
-        );
-    }
-
-    // 4a. Cleave damage to adjacent enemies (`Blade Collector`).
-    if cards::cleaves_adjacent_enemies(atk_side.board[atk_pos].card_id) {
-        let mut adj_positions = Vec::with_capacity(2);
-        if def_pos > 0 {
-            adj_positions.push(def_pos - 1);
+        let mut forced_striker: Option<UnitId> = None;
+        if !rally_summons.is_empty() {
+            let mut insert_pos = initial_atk_pos + 1;
+            for mut token in rally_summons {
+                if atk_side.board.len() < MAX_BOARD_SIZE {
+                    token.id = *next_id;
+                    *next_id += 1;
+                    if summons_attack_target {
+                        forced_striker = Some(token.id);
+                    }
+                    atk_side.prepare_summoned_unit(&mut token);
+                    events.push(Event::UnitSummoned {
+                        side,
+                        source: attacker_id,
+                        unit: token.id,
+                        name: token.name.clone(),
+                        attack: token.attack,
+                        health: token.health,
+                        reason: "Rally",
+                    });
+                    atk_side.board.insert(insert_pos, token);
+                    insert_pos += 1;
+                }
+            }
+            crate::trinkets::after_combat_summon(&mut atk_side.ctx(side, next_id, rng, events));
         }
-        if def_pos + 1 < def_side.board.len() {
-            adj_positions.push(def_pos + 1);
+
+        if attacker_has_rally {
+            cards::after_friendly_rally(&mut atk_side.ctx(side, next_id, rng, events));
         }
-        for n_pos in adj_positions {
-            let (n_consumed_venom, n_took_damage) = apply_damage(
-                &mut def_side.board,
-                n_pos,
-                attacker_attack,
-                attacker_id,
-                attacker_venomous,
-                events,
+
+        // 2b. Fire friendly-attack observers.
+        cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
+
+        // 2c. Resolve any deaths caused during Rally (`Obsidian Ravager`, `Deathstrider`).
+        resolve_effect_deaths(side, atk_side, def_side, next_id, rng, events);
+
+        // 2d. Rally summons that attack the target first (e.g. `Jailbird Juggernaut`'s Golem).
+        if let Some(striker_id) = forced_striker {
+            perform_forced_target_strike(
+                side, striker_id, target_id, atk_side, def_side, next_id, rng, events,
             );
-            atk_consumed_venom |= n_consumed_venom;
-            if n_took_damage {
-                cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
-                cards::on_damage_dealt(
-                    &mut atk_side.ctx(side, next_id, rng, events),
-                    attacker_id,
-                    attacker_attack,
-                );
-            }
         }
-    }
-    if atk_consumed_venom {
-        use_venomous(&mut atk_side.board[atk_pos]);
-    }
 
-    // 4b. Excess attack damage to adjacent enemies (e.g., `Wildfire Elemental`).
-    if def_took_damage && def_side.board[def_pos].health <= 0 {
-        let excess = (attacker_attack - def_pre_hp).max(0);
-        let has_cleave = cards::deals_excess_damage_to_neighbors(atk_side.board[atk_pos].card_id);
-        let is_golden_cleave = atk_side.board[atk_pos].is_golden;
-        if excess > 0 && has_cleave {
-            let mut neighbors = Vec::with_capacity(2);
+        let Some(atk_pos) = atk_side
+            .board
+            .iter()
+            .position(|u| u.id == attacker_id && u.health > 0)
+        else {
+            return (0, false);
+        };
+        let Some(def_pos) = def_side
+            .board
+            .iter()
+            .position(|u| u.id == target_id && u.health > 0)
+        else {
+            if advance_ptr {
+                atk_side.ptr = unit_after(&atk_side.board, atk_pos);
+            }
+            return (atk_pos, false);
+        };
+
+        let attacker_attack = atk_side.board[atk_pos].attack;
+        let attacker_venomous = atk_side.board[atk_pos].venomous;
+
+        let target_attack = def_side.board[def_pos].attack;
+        let target_venomous = def_side.board[def_pos].venomous;
+        let def_pre_hp = def_side.board[def_pos].health;
+
+        // 4. Simultaneous damage (target first, then attacker). A Venomous attacker destroys every
+        //    minion its attack damages (cleave included); its Venomous is used up afterwards.
+        let (mut atk_consumed_venom, def_took_damage) = apply_damage(
+            &mut def_side.board,
+            def_pos,
+            attacker_attack,
+            attacker_id,
+            attacker_venomous,
+            events,
+        );
+        if def_took_damage {
+            cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
+            cards::on_damage_dealt(
+                &mut atk_side.ctx(side, next_id, rng, events),
+                attacker_id,
+                attacker_attack,
+            );
+        }
+
+        // A minion Immune while attacking takes nothing (`Invulnerability`; `docs/dark_gifts.md`).
+        let (def_consumed_venom, atk_took_damage) =
+            if crate::dark_gifts::immune_attacking(&atk_side.board[atk_pos]) {
+                (false, false)
+            } else {
+                apply_damage(
+                    &mut atk_side.board,
+                    atk_pos,
+                    target_attack,
+                    target_id,
+                    target_venomous,
+                    events,
+                )
+            };
+        if def_consumed_venom {
+            use_venomous(&mut def_side.board[def_pos]);
+        }
+        if atk_took_damage {
+            cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
+            cards::on_damage_dealt(
+                &mut def_side.ctx(side.other(), next_id, rng, events),
+                target_id,
+                target_attack,
+            );
+        }
+
+        // 4a. Cleave damage to adjacent enemies (`Blade Collector`).
+        if cards::cleaves_adjacent_enemies(atk_side.board[atk_pos].card_id) {
+            let mut adj_positions = Vec::with_capacity(2);
             if def_pos > 0 {
-                neighbors.push(def_pos - 1);
+                adj_positions.push(def_pos - 1);
             }
             if def_pos + 1 < def_side.board.len() {
-                neighbors.push(def_pos + 1);
+                adj_positions.push(def_pos + 1);
             }
-            let targets: Vec<usize> = if !is_golden_cleave && !neighbors.is_empty() {
-                let pick = if neighbors.len() == 1 {
-                    0
-                } else {
-                    rng.below(neighbors.len())
-                };
-                vec![neighbors[pick]]
-            } else {
-                neighbors
-            };
-            for n_pos in targets {
-                let (_, n_took_damage) = apply_damage(
+            for n_pos in adj_positions {
+                let (n_consumed_venom, n_took_damage) = apply_damage(
                     &mut def_side.board,
                     n_pos,
-                    excess,
+                    attacker_attack,
                     attacker_id,
-                    false,
+                    attacker_venomous,
                     events,
                 );
+                atk_consumed_venom |= n_consumed_venom;
                 if n_took_damage {
                     cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
                     cards::on_damage_dealt(
                         &mut atk_side.ctx(side, next_id, rng, events),
                         attacker_id,
-                        excess,
+                        attacker_attack,
                     );
                 }
             }
         }
-    }
+        if atk_consumed_venom {
+            use_venomous(&mut atk_side.board[atk_pos]);
+        }
 
-    // 4c. After-attack bonus damage (`De-volition-ist`).
-    let after_dmg = cards::after_attack_damage(&atk_side.board[atk_pos]);
-    if after_dmg > 0 {
-        let max_hp = def_side
-            .board
-            .iter()
-            .filter(|u| u.health > 0)
-            .map(|u| u.health)
-            .max();
-        if let Some(m_hp) = max_hp {
-            let candidates: Vec<usize> = def_side
-                .board
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| u.health == m_hp)
-                .map(|(i, _)| i)
-                .collect();
-            let pick_pos = if candidates.len() == 1 {
-                candidates[0]
-            } else {
-                candidates[rng.below(candidates.len())]
-            };
-            let (_, took) = apply_damage(
-                &mut def_side.board,
-                pick_pos,
-                after_dmg,
-                attacker_id,
-                false,
-                events,
-            );
-            if took {
-                cards::on_damage_taken(&def_side.board[pick_pos], &mut def_side.hand, rng);
-                cards::on_damage_dealt(
-                    &mut atk_side.ctx(side, next_id, rng, events),
-                    attacker_id,
-                    after_dmg,
-                );
+        // 4b. Excess attack damage to adjacent enemies (e.g., `Wildfire Elemental`).
+        if def_took_damage && def_side.board[def_pos].health <= 0 {
+            let excess = (attacker_attack - def_pre_hp).max(0);
+            let has_cleave =
+                cards::deals_excess_damage_to_neighbors(atk_side.board[atk_pos].card_id);
+            let is_golden_cleave = atk_side.board[atk_pos].is_golden;
+            if excess > 0 && has_cleave {
+                let mut neighbors = Vec::with_capacity(2);
+                if def_pos > 0 {
+                    neighbors.push(def_pos - 1);
+                }
+                if def_pos + 1 < def_side.board.len() {
+                    neighbors.push(def_pos + 1);
+                }
+                let targets: Vec<usize> = if !is_golden_cleave && !neighbors.is_empty() {
+                    let pick = if neighbors.len() == 1 {
+                        0
+                    } else {
+                        rng.below(neighbors.len())
+                    };
+                    vec![neighbors[pick]]
+                } else {
+                    neighbors
+                };
+                for n_pos in targets {
+                    let (_, n_took_damage) = apply_damage(
+                        &mut def_side.board,
+                        n_pos,
+                        excess,
+                        attacker_id,
+                        false,
+                        events,
+                    );
+                    if n_took_damage {
+                        cards::on_damage_taken(&def_side.board[n_pos], &mut def_side.hand, rng);
+                        cards::on_damage_dealt(
+                            &mut atk_side.ctx(side, next_id, rng, events),
+                            attacker_id,
+                            excess,
+                        );
+                    }
+                }
             }
         }
-    }
 
-    // 4d. The attacker killed its target (`Tide Oracle Morgl`).
-    attack_kill(
-        side, atk_pos, def_pos, atk_side, def_side, next_id, rng, events,
-    );
+        // 4c. After-attack bonus damage (`De-volition-ist`).
+        let after_dmg = cards::after_attack_damage(&atk_side.board[atk_pos]);
+        if after_dmg > 0 {
+            let max_hp = def_side
+                .board
+                .iter()
+                .filter(|u| u.health > 0)
+                .map(|u| u.health)
+                .max();
+            if let Some(m_hp) = max_hp {
+                let candidates: Vec<usize> = def_side
+                    .board
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, u)| u.health == m_hp)
+                    .map(|(i, _)| i)
+                    .collect();
+                let pick_pos = if candidates.len() == 1 {
+                    candidates[0]
+                } else {
+                    candidates[rng.below(candidates.len())]
+                };
+                let (_, took) = apply_damage(
+                    &mut def_side.board,
+                    pick_pos,
+                    after_dmg,
+                    attacker_id,
+                    false,
+                    events,
+                );
+                if took {
+                    cards::on_damage_taken(&def_side.board[pick_pos], &mut def_side.hand, rng);
+                    cards::on_damage_dealt(
+                        &mut atk_side.ctx(side, next_id, rng, events),
+                        attacker_id,
+                        after_dmg,
+                    );
+                }
+            }
+        }
+
+        // 4d. The attacker killed its target (`Tide Oracle Morgl`).
+        attack_kill(
+            side, atk_pos, def_pos, atk_side, def_side, next_id, rng, events,
+        );
+        (atk_pos, true)
+    });
+
+    cards::flush_stat_thresholds(&mut atk_side.board);
+    cards::flush_stat_thresholds(&mut def_side.board);
+    if !should_emit_deaths {
+        return;
+    }
 
     // 5. Emit Deaths (defending side first left->right, then attacking side left->right).
     for u in &def_side.board {
@@ -1788,72 +1815,81 @@ fn perform_forced_target_strike(
         target: target_id,
     });
 
-    cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
+    let should_emit_deaths = cards::with_deferred_stat_thresholds(|| {
+        cards::on_friendly_attack(&mut atk_side.ctx(side, next_id, rng, events), attacker_id);
 
-    let Some(atk_pos) = atk_side
-        .board
-        .iter()
-        .position(|u| u.id == attacker_id && u.health > 0)
-    else {
-        return;
-    };
-    let Some(def_pos) = def_side
-        .board
-        .iter()
-        .position(|u| u.id == target_id && u.health > 0)
-    else {
-        return;
-    };
+        let Some(atk_pos) = atk_side
+            .board
+            .iter()
+            .position(|u| u.id == attacker_id && u.health > 0)
+        else {
+            return false;
+        };
+        let Some(def_pos) = def_side
+            .board
+            .iter()
+            .position(|u| u.id == target_id && u.health > 0)
+        else {
+            return false;
+        };
 
-    let attacker_attack = atk_side.board[atk_pos].attack;
-    let attacker_venomous = atk_side.board[atk_pos].venomous;
-    let target_attack = def_side.board[def_pos].attack;
-    let target_venomous = def_side.board[def_pos].venomous;
+        let attacker_attack = atk_side.board[atk_pos].attack;
+        let attacker_venomous = atk_side.board[atk_pos].venomous;
+        let target_attack = def_side.board[def_pos].attack;
+        let target_venomous = def_side.board[def_pos].venomous;
 
-    let (atk_consumed_venom, def_took_damage) = apply_damage(
-        &mut def_side.board,
-        def_pos,
-        attacker_attack,
-        attacker_id,
-        attacker_venomous,
-        events,
-    );
-    if atk_consumed_venom {
-        use_venomous(&mut atk_side.board[atk_pos]);
-    }
-    if def_took_damage {
-        cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
-        cards::on_damage_dealt(
-            &mut atk_side.ctx(side, next_id, rng, events),
-            attacker_id,
+        let (atk_consumed_venom, def_took_damage) = apply_damage(
+            &mut def_side.board,
+            def_pos,
             attacker_attack,
+            attacker_id,
+            attacker_venomous,
+            events,
         );
-    }
+        if atk_consumed_venom {
+            use_venomous(&mut atk_side.board[atk_pos]);
+        }
+        if def_took_damage {
+            cards::on_damage_taken(&def_side.board[def_pos], &mut def_side.hand, rng);
+            cards::on_damage_dealt(
+                &mut atk_side.ctx(side, next_id, rng, events),
+                attacker_id,
+                attacker_attack,
+            );
+        }
 
-    let (def_consumed_venom, atk_took_damage) = apply_damage(
-        &mut atk_side.board,
-        atk_pos,
-        target_attack,
-        target_id,
-        target_venomous,
-        events,
-    );
-    if def_consumed_venom {
-        use_venomous(&mut def_side.board[def_pos]);
-    }
-    if atk_took_damage {
-        cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
-        cards::on_damage_dealt(
-            &mut def_side.ctx(side.other(), next_id, rng, events),
-            target_id,
+        let (def_consumed_venom, atk_took_damage) = apply_damage(
+            &mut atk_side.board,
+            atk_pos,
             target_attack,
+            target_id,
+            target_venomous,
+            events,
         );
-    }
+        if def_consumed_venom {
+            use_venomous(&mut def_side.board[def_pos]);
+        }
+        if atk_took_damage {
+            cards::on_damage_taken(&atk_side.board[atk_pos], &mut atk_side.hand, rng);
+            cards::on_damage_dealt(
+                &mut def_side.ctx(side.other(), next_id, rng, events),
+                target_id,
+                target_attack,
+            );
+        }
 
-    // The attacker killed its target (`Tide Oracle Morgl`).
-    attack_kill(
-        side, atk_pos, def_pos, atk_side, def_side, next_id, rng, events,
-    );
+        // The attacker killed its target (`Tide Oracle Morgl`).
+        attack_kill(
+            side, atk_pos, def_pos, atk_side, def_side, next_id, rng, events,
+        );
+        true
+    });
+
+    cards::flush_stat_thresholds(&mut atk_side.board);
+    cards::flush_stat_thresholds(&mut def_side.board);
+    if !should_emit_deaths {
+        return;
+    }
 
     for u in &def_side.board {
         if u.health <= 0 {

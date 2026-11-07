@@ -44,18 +44,21 @@ pub fn on_start_of_combat(
     };
     let mult = (1 + src.stacks) * (if is_golden { 2 } else { 1 });
     let buff = 3 * mult;
-    for u in board.iter_mut() {
-        if u.health > 0 && u.id != source_id && u.tribe.matches(Tribe::Elemental) {
-            u.add_stats(buff, buff);
-            events.push(Event::StatBuff {
+    for idx in 0..board.len() {
+        if board[idx].health > 0
+            && board[idx].id != source_id
+            && board[idx].tribe.matches(Tribe::Elemental)
+        {
+            crate::cards::buff_board_unit(
                 side,
-                unit: u.id,
-                atk_delta: buff,
-                hp_delta: buff,
-                attack: u.attack,
-                health: u.health,
-                reason: "Ultraviolet Ascendant",
-            });
+                board,
+                idx,
+                buff,
+                buff,
+                "Ultraviolet Ascendant",
+                true,
+                events,
+            );
         }
     }
 }

@@ -30,18 +30,10 @@ pub fn on_rally(
     let m = if is_golden { 2 } else { 1 };
     let d_atk = 4 * m;
     let d_hp = m;
-    for u in board.iter_mut() {
-        if u.id != attacker_id && u.health > 0 {
-            u.add_stats(d_atk, d_hp);
-            events.push(Event::StatBuff {
-                side,
-                unit: u.id,
-                atk_delta: d_atk,
-                hp_delta: d_hp,
-                attack: u.attack,
-                health: u.health,
-                reason: NAME,
-            });
+    let in_combat = crate::cards::in_combat_resolution();
+    for idx in 0..board.len() {
+        if board[idx].id != attacker_id && board[idx].health > 0 {
+            crate::cards::buff_board_unit(side, board, idx, d_atk, d_hp, NAME, in_combat, events);
         }
     }
 }

@@ -59,6 +59,7 @@ pub fn on_cthun_awaken(board: &mut [Unit], cthun_idx: usize, rng: &mut Rng) {
         return;
     }
 
+    let in_combat = crate::cards::in_combat_resolution();
     for _ in 0..total_atk {
         let pick_idx = if candidates.len() == 1 {
             0
@@ -66,7 +67,7 @@ pub fn on_cthun_awaken(board: &mut [Unit], cthun_idx: usize, rng: &mut Rng) {
             rng.below(candidates.len())
         };
         let target_pos = candidates[pick_idx];
-        board[target_pos].add_stats(1, 0);
+        crate::cards::buff_board_unit_quiet(board, target_pos, 1, 0, in_combat);
     }
 
     for _ in 0..total_hp {
@@ -76,7 +77,7 @@ pub fn on_cthun_awaken(board: &mut [Unit], cthun_idx: usize, rng: &mut Rng) {
             rng.below(candidates.len())
         };
         let target_pos = candidates[pick_idx];
-        board[target_pos].add_stats(0, 1);
+        crate::cards::buff_board_unit_quiet(board, target_pos, 0, 1, in_combat);
     }
 }
 

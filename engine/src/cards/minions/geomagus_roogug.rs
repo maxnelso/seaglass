@@ -42,6 +42,12 @@ pub fn resolve_procs(board: &mut [Unit], self_idx: usize, auras: &PlayerAuras, r
             1 => candidates[0],
             n => candidates[rng.below(n)],
         };
-        board[pick].play_blood_gems(gems, auras);
+        crate::cards::play_blood_gems_on_board_unit(
+            board,
+            pick,
+            gems,
+            auras,
+            crate::cards::in_combat_resolution(),
+        );
     }
 }

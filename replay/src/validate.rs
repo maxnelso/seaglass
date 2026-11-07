@@ -64,17 +64,41 @@ pub fn trinket_simulated(card_id: &str) -> bool {
 }
 
 /// The player's trinkets for the engine (`engine/docs/trinkets.md` §10): the implemented ones
-/// among those the log shows them owning, once each (a `Souvenir Stand` copy shows twice).
+/// among those the log shows them owning (including duplicates from `Souvenir Stand`), with their
+/// persisted scaling/countdown state read from `TAG_SCRIPT_DATA_NUM_1`.
 fn trinket_states(p: &PlayerSetup) -> Vec<TrinketState> {
     let mut states: Vec<TrinketState> = Vec::new();
-    for card_id in &p.trinkets {
+    let per_trinket = p
+        .trinket_script_data
+        .iter()
+        .copied()
+        .chain(std::iter::repeat(0));
+    for (card_id, raw_n1) in p.trinkets.iter().zip(per_trinket) {
         let Some(t) = trinkets::by_card_id(card_id).filter(|t| trinkets::is_implemented(t.id))
         else {
             continue;
         };
-        if !states.iter().any(|s| s.card_id == t.id) {
-            states.push(trinkets::new_state(t.id));
+        let mut state = trinkets::new_state(t.id);
+        let shown = if raw_n1 != 0 {
+            raw_n1
+        } else {
+            p.trinket_numbers.get(card_id).copied().unwrap_or(0)
+        };
+        match t.id {
+            trinkets::all_purpose_kibble::ID if shown >= 3 => state.stacks = shown - 3,
+            trinkets::fang_anklet::ID if shown >= 1 => state.stacks = shown - 1,
+            trinkets::dragonhead_staff::ID if (1..=13).contains(&shown) => {
+                state.counter = 13 - shown;
+            }
+            trinkets::soul_battery::ID if (1..=25).contains(&shown) => {
+                state.counter = 25 - shown;
+            }
+            trinkets::wildfeather_duster::ID if (1..=6).contains(&shown) => {
+                state.counter = 6 - shown;
+            }
+            _ => {}
         }
+        states.push(state);
     }
     states
 }
@@ -104,6 +128,17 @@ fn hero_state(p: &PlayerSetup) -> Option<HeroState> {
     };
     state.power.card_id = power;
     state.power.uses_left = 0;
+    if p.hero_power_number > 0 {
+        match power {
+            heroes::queen_wagtoggle::POWER if p.hero_power_number >= 1 => {
+                state.power.stacks = p.hero_power_number - 1;
+            }
+            heroes::ozumat::POWER if p.hero_power_number >= 2 => {
+                state.power.stacks = p.hero_power_number - 2;
+            }
+            _ => {}
+        }
+    }
     // Armed for this combat: a power the player used for it (Y'Shaarj), or one that acts once per
     // combat once unlocked (Vanndar, Drek'Thar), which the log shows as `START_OF_COMBAT` on it.
     let unlocked = p.hero_power_start_of_combat
@@ -209,6 +244,9 @@ impl Builder {
         for id in log_dark_gifts(&m.enchantments) {
             dark_gifts::attach(&mut u, id);
         }
+        // Per-minion scaling stacks, countdown counters, and one-shot thresholds from
+        // `TAG_SCRIPT_DATA_NUM_1/2` (and threshold enchantments).
+        populate_unit_script_state(&mut u, m);
         // The log's stats already include the "wherever this is" auras: mark them applied (on the
         // board, the trinkets' board auras too: `Hammer of Twilight`'s +1 Attack).
         if on_board {
@@ -233,6 +271,76 @@ impl Builder {
             return None;
         }
         card_index().by_id(card.card_id).map(|c| c.proto.clone())
+    }
+}
+
+fn populate_unit_script_state(u: &mut Unit, m: &LogMinion) {
+    use seaglass::cards::minions;
+    let [n1, n2] = m.script_data;
+    let mult = u.golden_mult();
+    match u.card_id {
+        minions::hopebringer::ID => {
+            let base = 4 * mult;
+            if n1 >= base {
+                u.stacks = n1 / base - 1;
+            }
+        }
+        minions::ultraviolet_ascendant::ID => {
+            let base = 3 * mult;
+            if n1 >= base {
+                u.stacks = n1 / base - 1;
+            }
+        }
+        minions::lurking_leviathan::ID => {
+            let base = 3 * mult;
+            if n1 >= base {
+                u.stacks = n1 / base - 1;
+            }
+        }
+        minions::harbinger_aphlass::ID | minions::spark_snapper::ID => {
+            let base = 2 * mult;
+            if n1 >= base {
+                u.stacks = n1 / base - 1;
+            }
+        }
+        minions::sacrificial_wrathguard::ID => {
+            let base = 2 * mult;
+            if n1 >= base {
+                u.stacks = n1 - base;
+            }
+        }
+        minions::gathering_stormer::ID => {
+            if n1 >= mult {
+                u.counter = n1 / mult - 1;
+            }
+        }
+        minions::scarlet_survivor::ID => {
+            u.threshold_triggered = n2 > 0 || m.enchantments.iter().any(|e| e == "BG35_814e");
+        }
+        minions::treasure_parrot::ID => {
+            let max = minions::treasure_parrot::DAMAGE_THRESHOLD;
+            if (1..=max).contains(&n1) {
+                u.counter = max - n1;
+            } else if n2 >= max && n1 <= 0 {
+                u.counter = max;
+                u.threshold_triggered = true;
+            }
+        }
+        minions::air_revenant::ID if (1..=7).contains(&n1) => u.counter = 7 - n1,
+        minions::auto_reveille::ID | minions::felboar::ID if (1..=3).contains(&n1) => {
+            u.counter = 3 - n1;
+        }
+        minions::doubloon_grifter::ID
+        | minions::eredar_escapist::ID
+        | minions::unbound_tempest::ID
+            if (1..=4).contains(&n1) =>
+        {
+            u.counter = 4 - n1;
+        }
+        minions::gunpowder_courier::ID if (1..=5).contains(&n1) => u.counter = 5 - n1,
+        minions::enterprising_escapee::ID if (1..=6).contains(&n1) => u.counter = 6 - n1,
+        minions::sky_admiral_rogers::ID if (1..=9).contains(&n1) => u.counter = 9 - n1,
+        _ => {}
     }
 }
 
@@ -271,9 +379,36 @@ pub fn deity_kind_of(card_or_dbid: &str) -> Option<DeityKind> {
     }
 }
 
+/// Combat minions whose effects depend on Blood Gem size, Tavern spell bonus/count, or Beetles.
+const BLOOD_GEM_COMBAT_READERS: [&str; 5] = [
+    "Bonker",
+    "Geomagus Roogug",
+    "Prodigious Tusker",
+    "Razorfen Vineweaver",
+    "Tusked Camper",
+];
+const SPELL_BONUS_COMBAT_READERS: [&str; 4] = [
+    "Crimson Vindicator",
+    "C'Thrax Wrecker",
+    "Faceless Converter",
+    "Runic Arcanist",
+];
+const BEETLE_COMBAT_READERS: [&str; 4] = [
+    "Buzzing Vermin",
+    "Forest Rover",
+    "Ravaging Scorpid",
+    "Turquoise Skitterer",
+];
+
 /// The player auras the log gives for `p` (see [`crate::reconstruct`] for the tags).
-fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> PlayerAuras {
+fn player_auras(
+    p: &PlayerSetup,
+    deity: DeityKind,
+    is_duos: bool,
+    gaps: &mut Vec<String>,
+) -> PlayerAuras {
     let mut a = PlayerAuras::default();
+    a.duos_game = is_duos;
     let tag = |k: &str| p.player_tags.get(k).and_then(|v| v.parse::<i32>().ok());
     a.deity = match p.deity {
         Some((attack, health)) => DeityState {
@@ -314,6 +449,8 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
         }
     }
     if p.tags_known {
+        a.blood_gem_bonus_atk = tag("BACON_BLOODGEMBUFFATKVALUE").unwrap_or(0);
+        a.blood_gem_bonus_hp = tag("BACON_BLOODGEMBUFFHEALTHVALUE").unwrap_or(0);
         a.spell_bonus_atk = tag("TAVERN_SPELL_ATTACK_INCREASE").unwrap_or(0);
         a.spell_bonus_hp = tag("TAVERN_SPELL_HEALTH_INCREASE").unwrap_or(0);
         // Tavern spells cast this game (`Faceless Converter`).
@@ -332,6 +469,11 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
             "BG34_170pe" => volumizers::add_volumizer_bonus(&mut a, n1, n2),
             // Ballers: future Ballers improved by N1.
             "BG31_816pe" => ballers::improve_ballers(&mut a, n1),
+            // Blood Gems: the bonus over +1/+1 (also BACON_BLOODGEMBUFFATKVALUE/HEALTHVALUE).
+            "BG26_159pe" if !p.tags_known => {
+                a.blood_gem_bonus_atk = n1;
+                a.blood_gem_bonus_hp = n2;
+            }
             // Beetle Army: the Beetle bonus (also player tags 3874/3924).
             "BG31_808pe" if !p.tags_known => tokens::add_beetle_bonus(&mut a, n1, n2),
             // Eternal Knight: the friendly Eternal Knights that died this game.
@@ -340,6 +482,22 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
                 a.add_counter(key, n1 - a.counter(key));
             }
             _ => {}
+        }
+    }
+    // `Tasty Lobster`'s Deathrattle reads `a.counter(tasty_lobster::ID)`, which shows on any
+    // `Tasty Lobster` on the board or in hand as `script_data[1] = mult + counter`.
+    for m in p
+        .board
+        .iter()
+        .chain(p.hand.iter().filter_map(|c| c.minion.as_ref()))
+    {
+        if matches!(m.card_id.as_str(), "BG36_202" | "BG36_202_G") {
+            let mult = if m.golden { 2 } else { 1 };
+            let want = (m.script_data[1] - mult).max(0);
+            let key = seaglass::cards::minions::tasty_lobster::ID;
+            if want > a.counter(key) {
+                a.add_counter(key, want - a.counter(key));
+            }
         }
     }
     // Spells waiting for this combat (`Brood of Nozdormu`, ...): their player effects.
@@ -362,8 +520,48 @@ fn player_auras(p: &PlayerSetup, deity: DeityKind, gaps: &mut Vec<String>) -> Pl
         }
     }
     if !p.tags_known {
+        let has_gem_pe = p
+            .player_enchantments
+            .iter()
+            .any(|e| e.card_id == "BG26_159pe");
+        let has_beetle_pe = p
+            .player_enchantments
+            .iter()
+            .any(|e| e.card_id == "BG31_808pe");
+        let mut readers: Vec<String> = Vec::new();
+        for m in &p.board {
+            let n = m.name.as_str();
+            if (!has_gem_pe && BLOOD_GEM_COMBAT_READERS.contains(&n))
+                || SPELL_BONUS_COMBAT_READERS.contains(&n)
+                || (!has_beetle_pe && BEETLE_COMBAT_READERS.contains(&n))
+            {
+                if !readers.iter().any(|r| r == n) {
+                    readers.push(m.name.clone());
+                }
+            }
+        }
+        for cid in &p.trinkets {
+            let reads = match cid.as_str() {
+                "BG30_MagicItem_546" | "BG32_MagicItem_808" | "BG32_MagicItem_808t" => !has_gem_pe,
+                "BG32_MagicItem_801t" | "BG36_MagicItem_373" | "BG36_MagicItem_418" => true,
+                "BG32_MagicItem_860" | "BG32_MagicItem_860t" => !has_beetle_pe,
+                _ => false,
+            };
+            if reads && trinket_simulated(cid) {
+                let name = trinkets::by_card_id(cid)
+                    .map_or_else(|| cid.clone(), |t| trinkets::display_name(t));
+                if !readers.contains(&name) {
+                    readers.push(name);
+                }
+            }
+        }
+        let note = if readers.is_empty() {
+            String::new()
+        } else {
+            format!(" — it matters: {} read(s) player tags", readers.join(", "))
+        };
         gaps.push(format!(
-            "{} (player {}): player tags unknown (Tavern spell bonus, Beetles)",
+            "{} (player {}): player tags unknown (Blood Gems, Tavern spell bonus, Beetles){note}",
             p.hero_name, p.player_id
         ));
     }
@@ -381,7 +579,7 @@ pub fn engine_input(setup: &CombatSetup, deity: DeityKind) -> EngineInput {
         let mut warbands: Vec<Warband> = Vec::new();
         let mut ids = Vec::new();
         for p in players.iter().take(2) {
-            let auras = player_auras(p, deity, gaps);
+            let auras = player_auras(p, deity, setup.is_duos, gaps);
             let board = p.board.iter().map(|m| b.unit(m, &auras, true)).collect();
             let hand = p
                 .hand
