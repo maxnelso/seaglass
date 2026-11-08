@@ -20,7 +20,11 @@ pub fn template() -> CardTemplate {
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize) {
     if source_pos < state.board.len() {
-        let mult = if state.board[source_pos].is_golden { 2 } else { 1 };
+        let mult = if state.board[source_pos].is_golden {
+            2
+        } else {
+            1
+        };
         state.board[source_pos].charges += mult;
     }
 }

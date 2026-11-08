@@ -131,7 +131,10 @@ fn print_game_summary(g: &GameReplay) {
             t.tavern.deity_attack,
             t.tavern.deity_health,
         );
-        println!("  [Tavern] Start Shop : {}", fmt_cards(&t.tavern.initial_shop));
+        println!(
+            "  [Tavern] Start Shop : {}",
+            fmt_cards(&t.tavern.initial_shop)
+        );
         let mut action_summaries = Vec::new();
         for act in &t.tavern.actions {
             let s = match act {
@@ -185,7 +188,10 @@ fn print_game_summary(g: &GameReplay) {
                 action_summaries.join(" -> ")
             }
         );
-        println!("  [Tavern] End Board  : {}", fmt_units(&t.tavern.final_board));
+        println!(
+            "  [Tavern] End Board  : {}",
+            fmt_units(&t.tavern.final_board)
+        );
 
         if let Some(ref c) = t.combat {
             println!(
@@ -253,7 +259,10 @@ fn print_turn_detail(g: &GameReplay, t: &TurnReplay) {
     println!("  Initial Board : {}", fmt_units(&t.tavern.initial_board));
     println!("  Initial Hand  : {}", fmt_cards(&t.tavern.initial_hand));
     println!("  Initial Shop  : {}", fmt_cards(&t.tavern.initial_shop));
-    println!("\n  Chronological Tavern Actions ({}):", t.tavern.actions.len());
+    println!(
+        "\n  Chronological Tavern Actions ({}):",
+        t.tavern.actions.len()
+    );
     if t.tavern.actions.is_empty() {
         println!("    (no actions taken)");
     }
@@ -265,9 +274,7 @@ fn print_turn_detail(g: &GameReplay, t: &TurnReplay) {
                 shop_pos,
                 gold_after,
             } => {
-                let pos_str = shop_pos
-                    .map(|p| format!(" [slot {p}]"))
-                    .unwrap_or_default();
+                let pos_str = shop_pos.map(|p| format!(" [slot {p}]")).unwrap_or_default();
                 println!(
                     "    {step_no:>2}. [Buy Minion]  {card}{pos_str}  (gold left: {gold_after}g)"
                 );
@@ -450,7 +457,10 @@ fn print_turn_detail(g: &GameReplay, t: &TurnReplay) {
         }
     }
 
-    println!("\n  Server Combat Result: {}", fmt_outcome(c.outcome, c.hero_damage));
+    println!(
+        "\n  Server Combat Result: {}",
+        fmt_outcome(c.outcome, c.hero_damage)
+    );
     println!("    Side A Survivors: {}", fmt_units(&c.survivors_a));
     println!("    Side B Survivors: {}", fmt_units(&c.survivors_b));
 
@@ -462,9 +472,7 @@ fn print_turn_detail(g: &GameReplay, t: &TurnReplay) {
     };
     let dist = simulate_batch(&board_a, &board_b, &state, 2026, 10000);
     println!("--------------------------------------------------------------------------------");
-    println!(
-        "  Seaglass 1v1 Monte Carlo (10,000 rollouts on initial starting boards):"
-    );
+    println!("  Seaglass 1v1 Monte Carlo (10,000 rollouts on initial starting boards):");
     println!(
         "    Side A Win: {:>6.2}%  |  Tie: {:>6.2}%  |  Side B Win: {:>6.2}%  |  Mean Hero Dmg: {:+.2}",
         dist.a_win_rate * 100.0,
@@ -618,7 +626,11 @@ fn main() {
                 seed,
                 verbose,
                 turn: turn_num,
-                games: if game_given { vec![game_num] } else { Vec::new() },
+                games: if game_given {
+                    vec![game_num]
+                } else {
+                    Vec::new()
+                },
             },
         );
         return;

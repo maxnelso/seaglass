@@ -32,7 +32,11 @@ pub fn on_activate(
     if t_pos >= state.board.len() || t_pos == source_pos {
         return;
     }
-    let buff = if state.board[source_pos].is_golden { 14 } else { 7 };
+    let buff = if state.board[source_pos].is_golden {
+        14
+    } else {
+        7
+    };
     let target = &mut state.board[t_pos];
     target.add_stats(buff, buff);
     let missing: Vec<_> = BONUS_KEYWORDS

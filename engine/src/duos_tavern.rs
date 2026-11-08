@@ -607,7 +607,8 @@ impl DuosTavern {
     /// `Soul Rewinder` doesn't rewind it, `Ashen Corruptor` and `Tichondrius` don't trigger,
     /// `Eredar Escapist` doesn't count it.
     fn take_combat_damage(&mut self, damage: u32) {
-        let dmg = damage as i32;
+        // The lobby may cap it (`docs/lobby_game.md` §5); both players' views carry the cap.
+        let dmg = crate::model::capped_damage(damage, self.players[0].lobby.damage_cap) as i32;
         let absorbed = dmg.min(self.armor.max(0));
         // A player's trinket may prevent the team's fatal damage (`docs/trinkets.md` §6).
         if self.health - (dmg - absorbed) <= 0

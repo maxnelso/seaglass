@@ -711,11 +711,7 @@ fn snapshot_shop(
         .collect();
     spells.sort_by_key(|(pos, c)| (*pos, c.entity_id));
 
-    minions
-        .into_iter()
-        .chain(spells)
-        .map(|(_, c)| c)
-        .collect()
+    minions.into_iter().chain(spells).map(|(_, c)| c).collect()
 }
 
 fn snapshot_hand(
@@ -820,8 +816,12 @@ fn sync_snapshots(
     if tavern.snapshots.len() >= tavern.actions.len() {
         return;
     }
-    let (_, _, tier, health, armor) =
-        find_active_hero(entities, local_player_id, local_player_entity_id, card_names);
+    let (_, _, tier, health, armor) = find_active_hero(
+        entities,
+        local_player_id,
+        local_player_entity_id,
+        card_names,
+    );
     let shop = snapshot_shop(entities, dummy_player_id, card_names);
     let is_frozen = shop.iter().any(|c| {
         entities
@@ -1214,7 +1214,9 @@ fn parse_single_game(
             let tag_name = tag_name.trim();
             let tag_val = tag_val.trim();
 
-            if local_player_name.is_empty() && tag_name == "MULLIGAN_STATE" && !ent_str.starts_with('[')
+            if local_player_name.is_empty()
+                && tag_name == "MULLIGAN_STATE"
+                && !ent_str.starts_with('[')
             {
                 local_player_name = ent_str.trim().to_string();
             }
@@ -1253,7 +1255,11 @@ fn parse_single_game(
             if eid == game_entity_id && tag_name == "PROPOSED_ATTACKER" {
                 if let Ok(aid) = tag_val.parse::<u32>() {
                     if aid > 0 {
-                        if let Some(blk) = block_stack.iter_mut().rev().find(|b| b.block_type == "ATTACK") {
+                        if let Some(blk) = block_stack
+                            .iter_mut()
+                            .rev()
+                            .find(|b| b.block_type == "ATTACK")
+                        {
                             blk.attacker_id = aid;
                         }
                     }
@@ -1262,7 +1268,11 @@ fn parse_single_game(
             if eid == game_entity_id && tag_name == "PROPOSED_DEFENDER" {
                 if let Ok(did) = tag_val.parse::<u32>() {
                     if did > 0 {
-                        if let Some(blk) = block_stack.iter_mut().rev().find(|b| b.block_type == "ATTACK") {
+                        if let Some(blk) = block_stack
+                            .iter_mut()
+                            .rev()
+                            .find(|b| b.block_type == "ATTACK")
+                        {
                             blk.defender_id = did;
                         }
                     }
@@ -1279,11 +1289,8 @@ fn parse_single_game(
                             "B"
                         };
                         if tag_val == "GRAVEYARD" && prev_zone == "PLAY" {
-                            let label = format!(
-                                "[{side_tag}#{}] {}",
-                                ent.id,
-                                ent.display_name(card_names)
-                            );
+                            let label =
+                                format!("[{side_tag}#{}] {}", ent.id, ent.display_name(card_names));
                             if let Some(blk) = block_stack
                                 .iter_mut()
                                 .rev()
@@ -1291,7 +1298,10 @@ fn parse_single_game(
                             {
                                 blk.died_units.push(label);
                             }
-                        } else if tag_val == "PLAY" && prev_zone != "PLAY" && combat_boards_captured_this_turn {
+                        } else if tag_val == "PLAY"
+                            && prev_zone != "PLAY"
+                            && combat_boards_captured_this_turn
+                        {
                             let label = format!(
                                 "[{side_tag}#{}] {} ({}/{})",
                                 ent.id,
@@ -1785,4 +1795,3 @@ fn check_combat_tag_in(
         }
     }
 }
-

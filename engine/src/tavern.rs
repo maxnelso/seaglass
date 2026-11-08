@@ -1810,8 +1810,9 @@ impl TavernState {
         );
 
         if lost {
-            // Combat damage triggers no hero-damage minion (`docs/tavern.md` §7.2).
-            let dmg = res.hero_damage as i32;
+            // Combat damage triggers no hero-damage minion (`docs/tavern.md` §7.2). The lobby
+            // may cap it (`docs/lobby_game.md` §5).
+            let dmg = crate::model::capped_damage(res.hero_damage, self.lobby.damage_cap) as i32;
             let absorbed = dmg.min(self.armor.max(0));
             // A trinket may prevent fatal damage (`docs/trinkets.md` §6).
             let fatal = self.health - (dmg - absorbed) <= 0;

@@ -54,9 +54,7 @@ fn default_hero_tier() -> u32 {
 /// Parse a compact unit specification string (`"<attack>/<health> [tokens...]"`).
 pub fn parse_unit(spec: &str, defaults: &Defaults) -> Result<Unit, String> {
     let mut tokens = spec.split_whitespace();
-    let stats_tok = tokens
-        .next()
-        .ok_or_else(|| "empty unit spec".to_string())?;
+    let stats_tok = tokens.next().ok_or_else(|| "empty unit spec".to_string())?;
     let (atk_str, hp_str) = stats_tok
         .split_once('/')
         .ok_or_else(|| format!("unit spec {spec:?} must start with '<attack>/<health>'"))?;

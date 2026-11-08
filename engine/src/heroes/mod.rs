@@ -293,7 +293,10 @@ const IMPLEMENTED: &[Implemented] = &[
     (tickatus::ID, tickatus::behaviors),
     (time_twister_chromie::ID, time_twister_chromie::behaviors),
     (trade_prince_gallywix::ID, trade_prince_gallywix::behaviors),
-    (trastath_soul_parasite::ID, trastath_soul_parasite::behaviors),
+    (
+        trastath_soul_parasite::ID,
+        trastath_soul_parasite::behaviors,
+    ),
     (vanndar_stormpike::ID, vanndar_stormpike::behaviors),
     (varden_dawngrasp::ID, varden_dawngrasp::behaviors),
     (voljin::ID, voljin::behaviors),

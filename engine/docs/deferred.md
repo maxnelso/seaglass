@@ -22,7 +22,6 @@ Status: **deferred** (not planned now) or **out of scope** (not part of the engi
 | Custom Undead creations | Deferred **(confirmed)** | `Professor Putricide`, `Putricide Sticker`. |
 | StarCraft multi-piece boards and upgrade spells | Deferred **(confirmed)** | `Jim Raynor`, `Kerrigan, Queen of Blades`, `Artanis`. |
 | Naga | Out of scope: no lobby of Patch 37.0.2 has Naga **(confirmed)** | `Queen Azshara`; the Naga-only minions are implemented but in no pool (`Private Chef`, `Storm Splitter`: [`duos_tavern.md`](duos_tavern.md) §8); a trinket whose only type is Naga is never offered ([`trinkets.md`](trinkets.md) §1). |
-| Combat damage caps (Solo and Duos) | Not modelled | `LobbyGame` ([`lobby_game.md`](lobby_game.md)) applies combat damage in full. |
 | Duos gift delivery during combat | Out of scope | The incoming queue is delivered in the Tavern ([`duos_tavern.md`](duos_tavern.md) §6). |
 
 Bounties are not a missing system: the engine has the 5 Bounty spells (`spells::BOUNTY_SPELL_IDS`, `CardFlags::BOUNTY`), so `Sunken Anchor` and `Privateer Portrait` are implemented. The systems above have no code in the engine (only their cards' table rows); `Silas Darkmoon`'s Darkmoon Tickets are his Hero Power, not Darkmoon Prizes. Darkmoon Prizes are implemented ([`darkmoon_prizes.md`](darkmoon_prizes.md)).

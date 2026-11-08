@@ -40,8 +40,7 @@ pub fn on_activate(
         if state.hand.len() >= 10 {
             break;
         }
-        if let Some(drawn) =
-            pool.draw_by_tribe(Tribe::Aberration, Some(ID), state.tavern_tier, rng)
+        if let Some(drawn) = pool.draw_by_tribe(Tribe::Aberration, Some(ID), state.tavern_tier, rng)
         {
             state.add_to_hand(drawn);
         }

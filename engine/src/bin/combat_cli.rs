@@ -203,55 +203,60 @@ fn main() {
         i += 1;
     }
 
-    let (title, board_a, board_b, state, single_seed, base_seed, sims) =
-        if team_a_inline.is_some() || team_b_inline.is_some() {
-            let defaults = Defaults::default();
-            let parse_list = |raw: Option<String>| -> Vec<Unit> {
-                raw.unwrap_or_default()
-                    .split(';')
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .map(|spec| {
-                        parse_unit(spec, &defaults)
-                            .unwrap_or_else(|e| panic!("invalid unit spec {spec:?}: {e}"))
-                    })
-                    .collect()
-            };
-            let ba = parse_list(team_a_inline);
-            let bb = parse_list(team_b_inline);
-            let s = seed_override.unwrap_or(42);
-            let n = sims_override.unwrap_or(10_000);
-            ("inline_cli_matchup".to_string(), ba, bb, GameState::default(), s, s, n)
-        } else {
-            let path = yaml_path.unwrap_or_else(|| {
-                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("examples/matchups/tier1_showdown.yaml")
-            });
-            let content = fs::read_to_string(&path).unwrap_or_else(|e| {
-                panic!("failed to read YAML file {}: {e}", path.display())
-            });
-            let matchup: Matchup = serde_yaml::from_str(&content).unwrap_or_else(|e| {
-                panic!("failed to parse YAML file {}: {e}", path.display())
-            });
-            let (ba, bb, st) = teams_and_state(&matchup).unwrap_or_else(|e| {
-                panic!("invalid matchup in {}: {e}", path.display())
-            });
-            let s = seed_override.unwrap_or(matchup.seed);
-            let (b_seed, b_n) = match &matchup.batch {
-                Some(b) => (b.base_seed, b.n),
-                None => (s, 10_000),
-            };
-            let n = sims_override.unwrap_or(b_n);
-            (
-                format!("{} ({})", matchup.name, path.display()),
-                ba,
-                bb,
-                st,
-                s,
-                b_seed,
-                n,
-            )
+    let (title, board_a, board_b, state, single_seed, base_seed, sims) = if team_a_inline.is_some()
+        || team_b_inline.is_some()
+    {
+        let defaults = Defaults::default();
+        let parse_list = |raw: Option<String>| -> Vec<Unit> {
+            raw.unwrap_or_default()
+                .split(';')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|spec| {
+                    parse_unit(spec, &defaults)
+                        .unwrap_or_else(|e| panic!("invalid unit spec {spec:?}: {e}"))
+                })
+                .collect()
         };
+        let ba = parse_list(team_a_inline);
+        let bb = parse_list(team_b_inline);
+        let s = seed_override.unwrap_or(42);
+        let n = sims_override.unwrap_or(10_000);
+        (
+            "inline_cli_matchup".to_string(),
+            ba,
+            bb,
+            GameState::default(),
+            s,
+            s,
+            n,
+        )
+    } else {
+        let path = yaml_path.unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/matchups/tier1_showdown.yaml")
+        });
+        let content = fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("failed to read YAML file {}: {e}", path.display()));
+        let matchup: Matchup = serde_yaml::from_str(&content)
+            .unwrap_or_else(|e| panic!("failed to parse YAML file {}: {e}", path.display()));
+        let (ba, bb, st) = teams_and_state(&matchup)
+            .unwrap_or_else(|e| panic!("invalid matchup in {}: {e}", path.display()));
+        let s = seed_override.unwrap_or(matchup.seed);
+        let (b_seed, b_n) = match &matchup.batch {
+            Some(b) => (b.base_seed, b.n),
+            None => (s, 10_000),
+        };
+        let n = sims_override.unwrap_or(b_n);
+        (
+            format!("{} ({})", matchup.name, path.display()),
+            ba,
+            bb,
+            st,
+            s,
+            b_seed,
+            n,
+        )
+    };
 
     println!("================================================================================");
     println!(" SEAGLASS COMBAT SIMULATOR — {title}");
@@ -434,9 +439,7 @@ fn main() {
                 };
                 let new_tag = tracked.tag(*unit);
                 tracker.insert(*unit, tracked);
-                println!(
-                    "  [Summon] ({reason}) {src_str} summons {new_tag} ({attack}/{health})"
-                );
+                println!("  [Summon] ({reason}) {src_str} summons {new_tag} ({attack}/{health})");
             }
             Event::UnitTransformed {
                 side,
@@ -460,10 +463,7 @@ fn main() {
                 println!("  [Transform] {old_tag} becomes {new_tag} ({attack}/{health})");
             }
             Event::DeityAwakened {
-                side,
-                unit,
-                name,
-                ..
+                side, unit, name, ..
             } => {
                 let (atk, hp) = match side {
                     Side::A => (state.auras_a.deity.attack, state.auras_a.deity.health),
@@ -498,8 +498,12 @@ fn main() {
                 hero_damage,
             } => {
                 let label = match outcome {
-                    BattleOutcome::AWin => format!("Side A Wins! (deals {hero_damage} hero damage to Side B)"),
-                    BattleOutcome::BWin => format!("Side B Wins! (deals {hero_damage} hero damage to Side A)"),
+                    BattleOutcome::AWin => {
+                        format!("Side A Wins! (deals {hero_damage} hero damage to Side B)")
+                    }
+                    BattleOutcome::BWin => {
+                        format!("Side B Wins! (deals {hero_damage} hero damage to Side A)")
+                    }
                     BattleOutcome::Draw => "Draw! (0 hero damage)".to_string(),
                 };
                 println!("\n  [End]    {label}");

@@ -30,12 +30,7 @@ pub struct BattleDistribution {
 }
 
 /// Simulate one deterministic battle from `(board_a, board_b, state, seed)`.
-pub fn simulate(
-    board_a: &[Unit],
-    board_b: &[Unit],
-    state: &GameState,
-    seed: u64,
-) -> BattleResult {
+pub fn simulate(board_a: &[Unit], board_b: &[Unit], state: &GameState, seed: u64) -> BattleResult {
     resolve_battle(board_a, board_b, state, seed)
 }
 

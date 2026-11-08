@@ -21,9 +21,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::game::{Match, MatchSetup, PlayerSetup, PoolMode};
+use crate::game::{CombatResult, Match, MatchSetup, PlayerSetup, PoolMode};
 use crate::heroes;
-use crate::model::{DeityKind, Unit};
+use crate::model::{BattleOutcome, DeityKind, Tribe, Unit, LOBBY_TRIBES};
 use crate::replay::pb;
 use crate::rng::Rng;
 use crate::tavern::{TavernAction, TavernState};
@@ -31,6 +31,7 @@ use crate::tavern::{TavernAction, TavernState};
 /// Salts mixed into the lobby's seed: its pairings' RNG, its hero offers.
 const PAIRING_SALT: u64 = 0x5EA6_1A55_0B0B_0001;
 const HERO_SALT: u64 = 0x5EA6_1A55_0B0B_0002;
+const TRIBE_SALT: u64 = 0x5EA6_1A55_0B0B_0003;
 /// The most actions [`LobbyGame::force_end`] takes to close a player's phase.
 const MAX_FORCED_ACTIONS: usize = 64;
 /// The random pairings [`LobbyGame`] tries each turn, keeping the one with the fewest repeats.
@@ -57,6 +58,11 @@ pub struct LobbyConfig {
     pub first_fighter_switch_chance: f64,
     /// Avoid pairing a unit with any of its last `avoid_recent` opponents, while possible.
     pub avoid_recent: usize,
+    /// Cap combat damage as the game does (§5 of `docs/lobby_game.md`).
+    pub damage_caps: bool,
+    /// The number of minion types in the lobby, drawn at random from `LOBBY_TRIBES` (§1 of
+    /// `docs/lobby_game.md`); 0 or 10: every type.
+    pub tribes: usize,
     /// Seeds the shared card pool and RNG, the hero offers and the pairings.
     pub seed: u64,
     /// The players' names (default `p0`, `p1`, ...) and the replay's labels.
@@ -78,6 +84,8 @@ impl Default for LobbyConfig {
             deity: DeityKind::None,
             first_fighter_switch_chance: crate::duos_tavern::DEFAULT_FIRST_FIGHTER_SWITCH_CHANCE,
             avoid_recent: 3,
+            damage_caps: true,
+            tribes: 5,
             seed: 0,
             names: Vec::new(),
             meta: BTreeMap::new(),
@@ -126,8 +134,9 @@ pub enum Phase {
     Over,
 }
 
-/// What a player knows about one opponent: what the leaderboard shows, plus the board they
-/// entered their last combat with.
+/// What a player knows about one opponent: what the leaderboard shows (Health, Armor, Tavern
+/// Tier, win streak), and the board they had the last time this player fought them, if ever. A
+/// player never sees an opponent's board otherwise.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OpponentInfo {
     pub player: usize,
@@ -135,11 +144,18 @@ pub struct OpponentInfo {
     pub health: i32,
     pub armor: i32,
     pub tier: u32,
+    /// Their hero (its id; 0 before they pick one): the leaderboard shows it.
+    pub hero_id: u32,
+    /// Their unit's current streak of combat wins.
+    pub win_streak: u32,
     /// Their unit is this player's next opponent (or ghost).
     pub is_next: bool,
     /// Their unit was this player's last opponent.
     pub is_last: bool,
-    pub last_board: Vec<Unit>,
+    /// The board they entered combat with the last time this player fought them (Duos: if their
+    /// warband stepped in), and the turn of that combat. Empty and `None` if never seen.
+    pub seen_board: Vec<Unit>,
+    pub seen_turn: Option<u32>,
 }
 
 /// A player's view of their lobby, as of the start of the turn ([`LobbyGame::context`]).
@@ -152,6 +168,10 @@ pub struct LobbyContext {
     pub health_rank: usize,
     /// The player's unit fights a ghost this turn.
     pub next_is_ghost: bool,
+    /// The most combat damage the player's unit can take this turn, if capped (§5).
+    pub damage_cap: Option<u32>,
+    /// The minion types in the lobby (every player sees them from the start; empty: every type).
+    pub tribes: Vec<Tribe>,
     /// The next opponent first (Duos: the opposing player in this seat, then their teammate),
     /// then the others: the living ones by Health plus Armor, then the ones who are out.
     pub opponents: Vec<OpponentInfo>,
@@ -182,7 +202,15 @@ pub struct LobbyGame {
     /// What the leaderboard shows of each player: Health, Armor and Tavern Tier, refreshed at the
     /// start of each phase and after the combats.
     summary: Vec<(i32, i32, u32)>,
+    /// Each unit's current streak of combat wins (the leaderboard shows it).
+    win_streak: Vec<u32>,
+    /// `seen[p][q]`: the board player `q` entered combat with the last time player `p` fought
+    /// them, and that turn.
+    seen: Vec<Vec<Option<SeenBoard>>>,
 }
+
+/// A board a player saw in combat, and the turn they saw it.
+type SeenBoard = (Vec<Unit>, u32);
 
 impl LobbyGame {
     /// A new lobby, before the hero phase (or, without heroes, before Turn 1).
@@ -215,6 +243,7 @@ impl LobbyGame {
                 ..Default::default()
             })
             .collect();
+        let lobby_tribes = draw_tribes(config.tribes, &mut Rng::new(config.seed ^ TRIBE_SALT));
         let mut meta = config.meta.clone();
         meta.entry("source".to_string())
             .or_insert_with(|| "LobbyGame".to_string());
@@ -229,6 +258,7 @@ impl LobbyGame {
             meta,
             duos: config.duos,
             first_fighter_switch_chance: config.first_fighter_switch_chance,
+            lobby_tribes: lobby_tribes.clone(),
         })?;
         let units = config.units();
         let mut lobby = Self {
@@ -247,6 +277,8 @@ impl LobbyGame {
             ghost_fighter: None,
             done: vec![true; n],
             summary: vec![(0, 0, 1); n],
+            win_streak: vec![0; units],
+            seen: vec![vec![None; n]; n],
             config,
             game,
         };
@@ -258,6 +290,12 @@ impl LobbyGame {
 
     pub fn config(&self) -> &LobbyConfig {
         &self.config
+    }
+
+    /// The minion types in the lobby (`LOBBY_TRIBES` order; empty: every type).
+    pub fn tribes(&self) -> Vec<Tribe> {
+        let header = &self.game.header().lobby_tribes;
+        header.iter().map(|&i| LOBBY_TRIBES[i as usize]).collect()
     }
 
     /// The recorded match ([`Match::save`] saves its replay).
@@ -384,7 +422,8 @@ impl LobbyGame {
                     .zip(self.unit_players(ghost)),
             );
         }
-        self.game.set_pairs(&player_pairs);
+        let cap = self.damage_cap();
+        self.game.set_pairs_with_damage_cap(&player_pairs, cap);
         for u in 0..self.num_units() {
             if self.alive[u] {
                 self.game.start_turn(u);
@@ -492,13 +531,57 @@ impl LobbyGame {
         for (a, b) in self.pairs.clone() {
             self.history[a].insert(0, Some(b));
             self.history[b].insert(0, Some(a));
-            self.game.unit_combat(a, b, None);
+            let (players_a, players_b) = (self.unit_players(a), self.unit_players(b));
+            let board = |g: &Self, p: usize| g.game.player(p).board.clone();
+            let boards_a: Vec<Vec<Unit>> = players_a.iter().map(|&p| board(self, p)).collect();
+            let boards_b: Vec<Vec<Unit>> = players_b.iter().map(|&p| board(self, p)).collect();
+            let result = self.game.unit_combat(a, b, None);
+            // Which warbands stepped in: every Solo board; a Duos warband only if it fought.
+            let (fought_a, fought_b): (Vec<bool>, Vec<bool>) = match &result {
+                CombatResult::Solo(_) => (vec![true], vec![true]),
+                CombatResult::Duos(r) => (
+                    r.team_a.iter().map(|w| w.fought).collect(),
+                    r.team_b.iter().map(|w| w.fought).collect(),
+                ),
+            };
+            let turn = self.turn;
+            for &p in &players_a {
+                for (i, &q) in players_b.iter().enumerate() {
+                    if fought_b[i] {
+                        self.seen[p][q] = Some((boards_b[i].clone(), turn));
+                    }
+                }
+            }
+            for &p in &players_b {
+                for (i, &q) in players_a.iter().enumerate() {
+                    if fought_a[i] {
+                        self.seen[p][q] = Some((boards_a[i].clone(), turn));
+                    }
+                }
+            }
+            // A win extends the winner's streak; a loss or a draw ends it.
+            let winner = match result.outcome() {
+                BattleOutcome::AWin => Some(a),
+                BattleOutcome::BWin => Some(b),
+                BattleOutcome::Draw => None,
+            };
+            for u in [a, b] {
+                self.win_streak[u] = if Some(u) == winner {
+                    self.win_streak[u] + 1
+                } else {
+                    0
+                };
+            }
         }
         if let Some(u) = self.ghost_fighter {
             match self.knocked_out.last() {
                 Some(&ghost) => {
                     self.history[u].insert(0, Some(ghost));
-                    self.game.ghost_combat(u, ghost);
+                    let result = self.game.ghost_combat(u, ghost);
+                    match result.outcome() {
+                        BattleOutcome::AWin => self.win_streak[u] += 1,
+                        _ => self.win_streak[u] = 0,
+                    }
                 }
                 None => self.history[u].insert(0, None),
             }
@@ -588,6 +671,27 @@ impl LobbyGame {
         self.ghost_fighter = (order.len() % 2 == 1).then(|| order[order.len() - 1]);
     }
 
+    /// The most combat damage a unit can take this turn (with [`LobbyConfig::damage_caps`]): in
+    /// Solo 5 on turns 1-3, 10 on turns 4-7 and 15 from turn 8, until only 4 players are left; in
+    /// Duos 15 until only 2 teams are left. Then none.
+    pub fn damage_cap(&self) -> Option<u32> {
+        if !self.config.damage_caps {
+            return None;
+        }
+        let living = self.alive.iter().filter(|&&a| a).count();
+        if self.config.duos {
+            (living > 2).then_some(15)
+        } else if living <= 4 {
+            None
+        } else {
+            Some(match self.turn {
+                0..=3 => 5,
+                4..=7 => 10,
+                _ => 15,
+            })
+        }
+    }
+
     /// Refresh what the leaderboard shows (the last values for a player who is out).
     fn summarize(&mut self) {
         for p in 0..self.config.players {
@@ -649,15 +753,22 @@ impl LobbyGame {
             .map(|q| {
                 let u = self.unit_of(q);
                 let (health, armor, tier) = self.summary[q];
+                let (seen_board, seen_turn) = match &self.seen[p][q] {
+                    Some((board, turn)) => (board.clone(), Some(*turn)),
+                    None => (Vec::new(), None),
+                };
                 OpponentInfo {
                     player: q,
                     alive: self.alive[u],
                     health,
                     armor,
                     tier,
+                    hero_id: self.game.player(q).hero().map_or(0, |h| h.hero_id),
+                    win_streak: self.win_streak[u],
                     is_next: Some(u) == next_unit,
                     is_last: Some(u) == last_unit,
-                    last_board: self.game.lobby().last_warbands[q].clone(),
+                    seen_board,
+                    seen_turn,
                 }
             })
             .collect();
@@ -667,9 +778,25 @@ impl LobbyGame {
             alive_units: living.len(),
             health_rank,
             next_is_ghost,
+            damage_cap: self.game.lobby().damage_cap,
+            tribes: self.tribes(),
             opponents,
         }
     }
+}
+
+/// `count` distinct lobby types, uniformly at random, in `LOBBY_TRIBES` order (none if `count` is
+/// 0 or at least the number of types: every type).
+fn draw_tribes(count: usize, rng: &mut Rng) -> Vec<Tribe> {
+    if count == 0 || count >= LOBBY_TRIBES.len() {
+        return Vec::new();
+    }
+    let mut left: Vec<usize> = (0..LOBBY_TRIBES.len()).collect();
+    let mut picked: Vec<usize> = (0..count)
+        .map(|_| left.remove(rng.below(left.len())))
+        .collect();
+    picked.sort_unstable();
+    picked.into_iter().map(|i| LOBBY_TRIBES[i]).collect()
 }
 
 #[cfg(test)]

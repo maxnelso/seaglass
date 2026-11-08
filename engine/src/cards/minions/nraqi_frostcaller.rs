@@ -33,7 +33,11 @@ pub fn on_activate(
     if hand_idx >= state.hand.len() {
         return;
     }
-    let bonus = if state.board[source_pos].is_golden { 2 } else { 1 };
+    let bonus = if state.board[source_pos].is_golden {
+        2
+    } else {
+        1
+    };
     state.discard_hand_card(hand_idx, pool, rng);
     state.auras.spell_bonus_atk += bonus;
     state.auras.spell_bonus_hp += bonus;

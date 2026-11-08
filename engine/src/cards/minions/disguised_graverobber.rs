@@ -74,4 +74,3 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
         state.add_to_hand(plain);
     }
 }
-

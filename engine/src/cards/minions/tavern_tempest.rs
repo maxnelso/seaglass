@@ -21,8 +21,7 @@ pub fn on_battlecry(state: &mut TavernState, unit: &Unit, pool: &mut CardPool, r
         if state.hand.len() >= 10 {
             break;
         }
-        if let Some(drawn) =
-            pool.draw_by_tribe(Tribe::Elemental, Some(ID), state.tavern_tier, rng)
+        if let Some(drawn) = pool.draw_by_tribe(Tribe::Elemental, Some(ID), state.tavern_tier, rng)
         {
             state.add_to_hand(drawn);
         }

@@ -118,6 +118,17 @@ impl PyUnit {
         self.inner.tribe.as_str()
     }
 
+    /// The single minion types the unit counts as (`model::SINGLE_TRIBES` order): a dual type
+    /// gives two, `All` every one.
+    #[getter]
+    fn tribes(&self) -> Vec<&'static str> {
+        crate::model::SINGLE_TRIBES
+            .iter()
+            .filter(|&&t| self.inner.tribe.has_single(t))
+            .map(|t| t.as_str())
+            .collect()
+    }
+
     #[getter]
     fn is_golden(&self) -> bool {
         self.inner.is_golden
@@ -219,6 +230,48 @@ impl PyUnit {
     #[getter]
     fn unplayable(&self) -> bool {
         self.inner.unplayable || self.inner.lockbox_turns_left > 0 || self.inner.locked_turns > 0
+    }
+
+    /// The card's own stack count (`Unit::stacks`, what its text counts up).
+    #[getter]
+    fn stacks(&self) -> i32 {
+        self.inner.stacks
+    }
+
+    /// Its charges left (`Unit::charges`: Health Refreshes, ...).
+    #[getter]
+    fn charges(&self) -> u32 {
+        self.inner.charges
+    }
+
+    /// Its Avenge progress (`Unit::avenge_counter`).
+    #[getter]
+    fn avenge_counter(&self) -> u32 {
+        self.inner.avenge_counter
+    }
+
+    /// The turns before it can be played (a Lockbox's countdown, a locked card).
+    #[getter]
+    fn locked_turns(&self) -> u32 {
+        self.inner.lockbox_turns_left.max(self.inner.locked_turns)
+    }
+
+    /// The permanent Attack and Health it gained (`Unit::perm_atk_gained`, `perm_hp_gained`).
+    #[getter]
+    fn perm_stats(&self) -> (i32, i32) {
+        (self.inner.perm_atk_gained, self.inner.perm_hp_gained)
+    }
+
+    /// The Blood Gems played on it.
+    #[getter]
+    fn blood_gems_played(&self) -> u32 {
+        self.inner.blood_gems_played
+    }
+
+    /// The Deathrattles it was given (`Unit::extra_deathrattles`).
+    #[getter]
+    fn extra_deathrattles(&self) -> usize {
+        self.inner.extra_deathrattles.len()
     }
 
     fn __repr__(&self) -> String {
@@ -670,6 +723,18 @@ pub struct PyTavernObservation {
     pub trinket_tribes: Vec<u32>,
     #[pyo3(get)]
     pub trinket_option_tribes: Vec<u32>,
+    /// The player's game-long counters and auras, in `player_counter_names()` order (the
+    /// scaling buffs, the per-type Tavern buffs, the tallies cards read, the last combat's result).
+    #[pyo3(get)]
+    pub player_counters: Vec<i32>,
+    /// The "this game" counters card text keeps (`PlayerAuras::card_counters`): `(card id, value,
+    /// value)` for each card that keeps one (`Eternal Knight` deaths, `Baller` improvements, ...).
+    #[pyo3(get)]
+    pub card_counters: Vec<(u32, i32, i32)>,
+    /// The player-level effects recorded by card text (`PlayerAuras::effects`): `(card id,
+    /// stacks, lasts this turn only)`, e.g. a Tavern spell's next-combat buff.
+    #[pyo3(get)]
+    pub effects: Vec<(u32, u32, bool)>,
 }
 
 /// A trinket's minion type in the observation (`docs/trinkets.md` §8.2): its index in
@@ -764,8 +829,225 @@ impl From<&TavernState> for PyTavernObservation {
                 .iter()
                 .map(|o| trinket_tribe_index(o.tribe))
                 .collect(),
+            player_counters: player_counters(s),
+            card_counters: s
+                .auras
+                .card_counters
+                .iter()
+                .map(|(&id, &(a, b))| (id, a, b))
+                .collect(),
+            effects: s
+                .auras
+                .effects
+                .iter()
+                .map(|e| {
+                    (
+                        e.card_id,
+                        e.stacks,
+                        e.duration == crate::model::EffectDuration::Turn,
+                    )
+                })
+                .collect(),
         }
     }
+}
+
+/// The names of `TavernObservation.player_counters`, in order: the scaling buffs, then a pair
+/// (Attack, Health) of Tavern buffs per single minion type (`model::SINGLE_TRIBES` order), then
+/// the tallies and states card text reads.
+const PLAYER_COUNTER_NAMES: &[&str] = &[
+    "tavern_elemental_atk",
+    "tavern_elemental_hp",
+    "tavern_all_atk",
+    "tavern_all_hp",
+    "tavern_turn_atk",
+    "tavern_turn_hp",
+    "undead_bonus_attack",
+    "undead_bonus_health",
+    "blood_gem_bonus_atk",
+    "blood_gem_bonus_hp",
+    "spell_bonus_atk",
+    "spell_bonus_hp",
+    "aberration_tavern_atk",
+    "aberration_tavern_hp",
+    "beast_tavern_atk",
+    "beast_tavern_hp",
+    "demon_tavern_atk",
+    "demon_tavern_hp",
+    "dragon_tavern_atk",
+    "dragon_tavern_hp",
+    "elemental_tavern_atk",
+    "elemental_tavern_hp",
+    "mech_tavern_atk",
+    "mech_tavern_hp",
+    "murloc_tavern_atk",
+    "murloc_tavern_hp",
+    "pirate_tavern_atk",
+    "pirate_tavern_hp",
+    "quilboar_tavern_atk",
+    "quilboar_tavern_hp",
+    "undead_tavern_atk",
+    "undead_tavern_hp",
+    "naga_tavern_atk",
+    "naga_tavern_hp",
+    "refresh_buffs",
+    "refresh_blood_gems",
+    "base_max_gold_bonus",
+    "bonus_gold_next_turn",
+    "gold_spent_this_turn",
+    "next_spell_discount",
+    "tavern_spells_cast",
+    "elementals_played",
+    "elementals_played_this_turn",
+    "golden_minions_played",
+    "deathrattles_triggered",
+    "battlecries_triggered",
+    "magnetizations",
+    "cards_discarded",
+    "discovers_queued",
+    "deity_attack",
+    "deity_health",
+    "last_combat_won",
+    "last_combat_lost",
+];
+
+/// A player's `player_counters` (`PLAYER_COUNTER_NAMES` order).
+fn player_counters(s: &TavernState) -> Vec<i32> {
+    let a = &s.auras;
+    let mut out = vec![
+        a.tavern_elemental_atk,
+        a.tavern_elemental_hp,
+        a.tavern_all_atk,
+        a.tavern_all_hp,
+        a.tavern_turn_atk,
+        a.tavern_turn_hp,
+        a.undead_bonus_attack,
+        a.undead_bonus_health,
+        a.blood_gem_bonus_atk,
+        a.blood_gem_bonus_hp,
+        a.spell_bonus_atk,
+        a.spell_bonus_hp,
+    ];
+    for single in crate::model::SINGLE_TRIBES {
+        let (mut atk, mut hp) = (0, 0);
+        for &(tribe, at, he) in &a.tavern_tribe_buffs {
+            if tribe.has_single(single) {
+                atk += at;
+                hp += he;
+            }
+        }
+        out.push(atk);
+        out.push(hp);
+    }
+    out.extend([
+        a.refresh_random_buffs.len() as i32,
+        a.refresh_blood_gems as i32,
+        a.base_max_gold_bonus as i32,
+        s.bonus_gold_next_turn as i32,
+        s.gold_spent_this_turn as i32,
+        a.next_spell_discount,
+        a.tavern_spells_cast as i32,
+        a.elementals_played as i32,
+        s.elementals_played_this_turn as i32,
+        a.golden_minions_played as i32,
+        a.deathrattles_triggered as i32,
+        a.battlecries_triggered as i32,
+        a.magnetizations as i32,
+        a.cards_discarded as i32,
+        s.discover_queue.len() as i32,
+        a.deity.attack,
+        a.deity.health,
+        s.last_combat_won as i32,
+        s.last_combat_lost as i32,
+    ]);
+    debug_assert_eq!(out.len(), PLAYER_COUNTER_NAMES.len());
+    out
+}
+
+/// The names of `TavernObservation.player_counters`, in order.
+#[pyfunction]
+fn player_counter_names() -> Vec<&'static str> {
+    PLAYER_COUNTER_NAMES.to_vec()
+}
+
+/// The effect tags of every card of the vocabulary (`all_card_ids()`) and every hero:
+/// `(names, table)`, where `table[card_id]` holds one value per name. The tags are what the engine
+/// implements for the card: which of its hooks it has (`CardHooks::HOOK_NAMES`: Battlecry,
+/// Deathrattle, Avenge, Start of Combat, end of turn, auras, ...), its flags (`CardFlags::NAMES`,
+/// as `flag_cleave`, ...), and whether it has an Activate ability, a targeted spell or a
+/// Tavern-spell aura, all 0/1. Then, for a minion (`CardTemplate`): `minion`, its Tavern Tier
+/// (`tier_1`..`tier_7`, one-hot), its printed `attack` and `health` (/ 10), its types
+/// (`tribe_beast`, ..., from `SINGLE_TRIBES`; `All` has every one), its keywords and
+/// `intrinsic_golden`; all 0 for other cards. A hero has its Hero Power's tags.
+#[pyfunction]
+fn card_tags() -> (Vec<String>, std::collections::HashMap<u32, Vec<f32>>) {
+    const MAX_TIER: u32 = 7;
+    let mut names: Vec<String> = cards::CardHooks::HOOK_NAMES
+        .iter()
+        .map(|n| n.to_string())
+        .collect();
+    names.extend(cards::CardFlags::NAMES.iter().map(|n| format!("flag_{n}")));
+    names.extend(["activate", "targeted_spell", "spell_aura", "minion"].map(String::from));
+    names.extend((1..=MAX_TIER).map(|t| format!("tier_{t}")));
+    names.extend(["attack", "health"].map(String::from));
+    let tribes = crate::model::SINGLE_TRIBES;
+    names.extend(tribes.iter().map(|t| format!("tribe_{}", t.as_str())));
+    names.extend(
+        [
+            "taunt",
+            "divine_shield",
+            "windfury",
+            "reborn",
+            "venomous",
+            "stealth",
+            "magnetic",
+            "intrinsic_golden",
+        ]
+        .map(String::from),
+    );
+    let tags = |h: &cards::CardHooks, t: Option<&cards::CardTemplate>| -> Vec<f32> {
+        let bit = |b: bool| b as u8 as f32;
+        let mut out: Vec<f32> = h.hook_presence().into_iter().map(bit).collect();
+        out.extend((0..cards::CardFlags::COUNT).map(|i| bit(h.flags.bit(i))));
+        out.push(bit(h.activate_cost.is_some()));
+        out.push(bit(!matches!(
+            h.spell_target,
+            cards::hooks::SpellTarget::None
+        )));
+        out.push(bit(h.spell_aura != (0, 0)));
+        out.push(bit(t.is_some()));
+        out.extend((1..=MAX_TIER).map(|tier| bit(t.is_some_and(|t| t.tavern_tier == tier))));
+        out.push(t.map_or(0.0, |t| t.attack as f32 / 10.0));
+        out.push(t.map_or(0.0, |t| t.health as f32 / 10.0));
+        out.extend(
+            tribes
+                .iter()
+                .map(|&tr| bit(t.is_some_and(|t| t.tribe.has_single(tr)))),
+        );
+        out.extend(
+            [
+                t.is_some_and(|t| t.taunt),
+                t.is_some_and(|t| t.divine_shield),
+                t.is_some_and(|t| t.windfury),
+                t.is_some_and(|t| t.reborn),
+                t.is_some_and(|t| t.venomous),
+                t.is_some_and(|t| t.stealth),
+                t.is_some_and(|t| t.magnetic),
+                t.is_some_and(|t| t.intrinsic_golden),
+            ]
+            .map(bit),
+        );
+        out
+    };
+    let mut table = std::collections::HashMap::new();
+    for id in all_card_ids() {
+        table.insert(id, tags(cards::hooks(id), cards::template(id)));
+    }
+    for hero in heroes::table() {
+        table.insert(hero.id, tags(cards::hooks(hero.power.id), None));
+    }
+    debug_assert!(table.values().all(|row| row.len() == names.len()));
+    (names, table)
 }
 
 /// Each Duos player's hero, as given to `DuosTavernGame` (a name, an id or `None`).
@@ -790,9 +1072,9 @@ pub(crate) fn parse_hero(hero: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Her
 #[pyclass(name = "TavernGame")]
 #[derive(Clone, Debug)]
 pub struct PyTavernGame {
-    state: TavernState,
-    pool: CardPool,
-    rng: Rng,
+    pub(crate) state: TavernState,
+    pub(crate) pool: CardPool,
+    pub(crate) rng: Rng,
 }
 
 #[pymethods]
@@ -933,18 +1215,22 @@ impl PyTavernGame {
         }
     }
 
-    #[pyo3(signature = (opponent_board, opponent_tier=1, n=32, base_seed=None))]
+    #[pyo3(signature = (opponent_board, opponent_tier=1, n=32, base_seed=None, board=None))]
     fn equity_against(
         &self,
         opponent_board: Vec<PyUnit>,
         opponent_tier: u32,
         n: u32,
         base_seed: Option<u64>,
+        board: Option<Vec<PyUnit>>,
     ) -> PyResult<PyDistribution> {
         if n == 0 {
             return Err(PyValueError::new_err("equity_against requires n > 0"));
         }
         let units_b: Vec<Unit> = opponent_board.into_iter().map(|u| u.inner).collect();
+        let own_board: Option<Vec<Unit>> =
+            board.map(|b| b.into_iter().map(|u| u.inner).collect());
+        let units_a: &[Unit] = own_board.as_deref().unwrap_or(&self.state.board);
         let state = GameState {
             hero_tier_a: self.state.tavern_tier,
             hero_tier_b: opponent_tier,
@@ -954,19 +1240,13 @@ impl PyTavernGame {
             hand_b: Vec::new(),
         };
         let seed = base_seed.unwrap_or(self.state.turn as u64 * 10_007 + 1);
-        let dist = rust_simulate_batch(&self.state.board, &units_b, &state, seed, n);
-        Ok(PyDistribution {
-            battles: dist.battles,
-            a_wins: dist.a_wins,
-            b_wins: dist.b_wins,
-            draws: dist.draws,
-            a_win_rate: dist.a_win_rate,
-            b_win_rate: dist.b_win_rate,
-            draw_rate: dist.draw_rate,
-            damage_min: dist.damage.min,
-            damage_max: dist.damage.max,
-            damage_mean: dist.damage.mean,
-        })
+        let dist = rust_simulate_batch(units_a, &units_b, &state, seed, n);
+        Ok(py_distribution(dist))
+    }
+
+    /// Replace the lookahead RNG seed (for chance-node resampling in search).
+    fn reseed(&mut self, seed: u64) {
+        self.rng = Rng::new(seed);
     }
 
     #[pyo3(signature = (deity=None))]
@@ -1416,6 +1696,13 @@ pub struct PyDuosObservation {
     pub trinket_tribes: Vec<u32>,
     #[pyo3(get)]
     pub trinket_option_tribes: Vec<u32>,
+    /// This player's counters, card counters and effects, as in `TavernObservation`.
+    #[pyo3(get)]
+    pub player_counters: Vec<i32>,
+    #[pyo3(get)]
+    pub card_counters: Vec<(u32, i32, i32)>,
+    #[pyo3(get)]
+    pub effects: Vec<(u32, u32, bool)>,
 }
 
 impl PyDuosObservation {
@@ -1489,6 +1776,9 @@ impl PyDuosObservation {
             dark_discovery_usable: own.dark_discovery_usable && !team.ended[player],
             trinket_tribes: own.trinket_tribes,
             trinket_option_tribes: own.trinket_option_tribes,
+            player_counters: own.player_counters,
+            card_counters: own.card_counters,
+            effects: own.effects,
         }
     }
 }
@@ -1498,9 +1788,9 @@ impl PyDuosObservation {
 #[pyclass(name = "DuosTavernGame")]
 #[derive(Clone, Debug)]
 pub struct PyDuosTavernGame {
-    team: DuosTavern,
-    pool: CardPool,
-    rng: Rng,
+    pub(crate) team: DuosTavern,
+    pub(crate) pool: CardPool,
+    pub(crate) rng: Rng,
 }
 
 impl PyDuosTavernGame {
@@ -1674,6 +1964,64 @@ impl PyDuosTavernGame {
         Self::check_player(player)?;
         self.team.players[player].offer_heroes(parse_hero_options(&options)?);
         Ok(())
+    }
+
+    /// Replace the lookahead RNG seed (for chance-node resampling in search).
+    fn reseed(&mut self, seed: u64) {
+        self.rng = Rng::new(seed);
+    }
+
+    /// Batch Duos combat distribution against `opponent`, preserving both teammates' auras and hands.
+    #[pyo3(signature = (opponent, first=0, hero_tiers=(1, 1), n=32, base_seed=None, boards=None))]
+    fn equity_against(
+        &self,
+        opponent: Vec<Vec<PyUnit>>,
+        first: usize,
+        hero_tiers: (u32, u32),
+        n: u32,
+        base_seed: Option<u64>,
+        boards: Option<Vec<Vec<PyUnit>>>,
+    ) -> PyResult<PyDistribution> {
+        if n == 0 {
+            return Err(PyValueError::new_err("equity_against requires n > 0"));
+        }
+        let team_b = duos_team(opponent, first, hero_tiers)?;
+        let custom_boards: Option<[Vec<Unit>; 2]> = match boards {
+            Some(bs) => {
+                let count = bs.len();
+                let [b0, b1]: [Vec<PyUnit>; 2] = bs.try_into().map_err(|_| {
+                    PyValueError::new_err(format!(
+                        "boards must list two players' boards, got {count}"
+                    ))
+                })?;
+                Some([
+                    b0.into_iter().map(|u| u.inner).collect(),
+                    b1.into_iter().map(|u| u.inner).collect(),
+                ])
+            }
+            None => None,
+        };
+        let warband_for = |idx: usize| {
+            let p = &self.team.players[idx];
+            let board = custom_boards
+                .as_ref()
+                .map(|bs| bs[idx].clone())
+                .unwrap_or_else(|| p.board.clone());
+            Warband {
+                board,
+                hero_tier: p.tavern_tier,
+                auras: p.auras.clone(),
+                hand: p.hand.clone(),
+            }
+        };
+        let team_a = DuosTeam {
+            warbands: [warband_for(0), warband_for(1)],
+            first: self.team.first_fighter,
+        };
+        let seed = base_seed.unwrap_or(self.team.players[0].turn as u64 * 10_007 + 1);
+        Ok(py_distribution(rust_simulate_duos_batch(
+            &team_a, &team_b, seed, n,
+        )))
     }
 
     /// An independent copy of the team: its Taverns, card pool and RNG (to look ahead).
@@ -1997,6 +2345,8 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(catalog, m)?)?;
     m.add_function(wrap_pyfunction!(all_card_ids, m)?)?;
     m.add_function(wrap_pyfunction!(heroes_table, m)?)?;
+    m.add_function(wrap_pyfunction!(player_counter_names, m)?)?;
+    m.add_function(wrap_pyfunction!(card_tags, m)?)?;
     m.add_function(wrap_pyfunction!(draw_hero_offers, m)?)?;
     m.add_function(wrap_pyfunction!(trinkets_table, m)?)?;
     m.add_function(wrap_pyfunction!(dark_gifts_table, m)?)?;

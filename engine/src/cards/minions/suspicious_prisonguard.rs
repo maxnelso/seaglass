@@ -22,7 +22,11 @@ pub fn template() -> CardTemplate {
 pub fn on_activate(state: &mut TavernState, source_pos: usize, target_pos: Option<usize>) {
     if let Some(t_pos) = target_pos {
         if t_pos < state.board.len() && t_pos != source_pos {
-            let mult = if state.board[source_pos].is_golden { 2 } else { 1 };
+            let mult = if state.board[source_pos].is_golden {
+                2
+            } else {
+                1
+            };
             state.board[t_pos].add_stats(3 * mult, 3 * mult);
         }
     }

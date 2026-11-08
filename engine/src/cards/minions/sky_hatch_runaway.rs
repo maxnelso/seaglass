@@ -34,7 +34,11 @@ pub fn on_activate(
     if t_pos >= state.board.len() {
         return;
     }
-    let repeats = if state.board[source_pos].is_golden { 2 } else { 1 };
+    let repeats = if state.board[source_pos].is_golden {
+        2
+    } else {
+        1
+    };
     for _ in 0..repeats {
         if t_pos >= state.board.len() {
             break;

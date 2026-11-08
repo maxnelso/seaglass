@@ -29,24 +29,27 @@ pub fn on_battlecry(
     // Target selection after `Sprightly Scarab` will be inserted at `board_pos`:
     // Prefer the Beast currently at `board_pos` (which shifts to `board_pos + 1`),
     // otherwise `board_pos - 1`, otherwise the first Beast on `board`, otherwise `board_pos` itself.
-    let target_after_insert = if board_pos < state.board.len()
-        && state.board[board_pos].tribe.matches(Tribe::Beast)
-    {
-        board_pos + 1
-    } else if board_pos > 0
-        && board_pos - 1 < state.board.len()
-        && state.board[board_pos - 1].tribe.matches(Tribe::Beast)
-    {
-        board_pos - 1
-    } else if let Some(idx) = state.board.iter().position(|u| u.tribe.matches(Tribe::Beast)) {
-        if idx >= board_pos {
-            idx + 1
+    let target_after_insert =
+        if board_pos < state.board.len() && state.board[board_pos].tribe.matches(Tribe::Beast) {
+            board_pos + 1
+        } else if board_pos > 0
+            && board_pos - 1 < state.board.len()
+            && state.board[board_pos - 1].tribe.matches(Tribe::Beast)
+        {
+            board_pos - 1
+        } else if let Some(idx) = state
+            .board
+            .iter()
+            .position(|u| u.tribe.matches(Tribe::Beast))
+        {
+            if idx >= board_pos {
+                idx + 1
+            } else {
+                idx
+            }
         } else {
-            idx
-        }
-    } else {
-        return;
-    };
+            return;
+        };
     state.pending_choice_target = Some(MinionSlot::Board(target_after_insert));
     let g = unit.is_golden;
     let opt0 = make_choice_option(CHOICE_SCARAB_REBORN, "Sprightly Sprucing", g);

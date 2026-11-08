@@ -104,6 +104,45 @@ impl CardFlags {
     /// Poisonous: its Venomous is never used up (`Tide Oracle Morgl`).
     pub const POISONOUS: CardFlags = CardFlags(1 << 25);
 
+    /// The number of flag bits ([`Self::bit`]).
+    pub const COUNT: u32 = 26;
+
+    /// Each flag bit's name, in bit order (for the RL card features, `python::card_tags`).
+    pub const NAMES: [&'static str; Self::COUNT as usize] = [
+        "cleave",
+        "excess_damage_to_neighbors",
+        "no_triple",
+        "triple_wildcard_elemental",
+        "unbuyable",
+        "rewinds_hero_damage",
+        "choose_one_option",
+        "health_refreshes",
+        "combines_choose_one",
+        "bounty",
+        "not_in_pool",
+        "not_tavern_spell",
+        "blood_gem",
+        "free_pass",
+        "temporary",
+        "not_discoverable_power",
+        "not_a_turn_power",
+        "avenge",
+        "gift_gives_stats",
+        "gift_for_deathrattle",
+        "gift_for_battlecry",
+        "gift_immune_attacking",
+        "gift_keeps_spellcraft",
+        "dark_gifts",
+        "trinket_minion_type",
+        "poisonous",
+    ];
+
+    /// Whether flag bit `i` (`0..COUNT`) is set.
+    #[inline]
+    pub const fn bit(self, i: u32) -> bool {
+        self.0 & (1 << i) != 0
+    }
+
     #[inline]
     pub const fn contains(self, other: CardFlags) -> bool {
         self.0 & other.0 == other.0
@@ -303,6 +342,15 @@ macro_rules! card_hooks {
                     self
                 }
             )*
+
+            /// The names of the optional hooks, in declaration order ([`Self::hook_presence`]).
+            pub const HOOK_NAMES: &'static [&'static str] = &[ $( stringify!($field), )* ];
+
+            /// Which optional hooks the card has, in [`Self::HOOK_NAMES`] order: what its text
+            /// does, as the engine implements it (the RL effect tags).
+            pub fn hook_presence(&self) -> Vec<bool> {
+                vec![ $( self.$field.is_some(), )* ]
+            }
         }
 
         impl crate::cards::CardTemplate {

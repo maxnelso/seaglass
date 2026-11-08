@@ -33,6 +33,10 @@ message Header {
   bool duos = 8;
   // Duos: each team's chance of switching its first fighter each turn (`duos_tavern.md` §4.3).
   double first_fighter_switch_chance = 9;
+  // The minion types in the lobby (indices into `model::LOBBY_TRIBES`); empty: every type. The
+  // pool then has only the minions with one of them, or with no type, or every type
+  // (`docs/lobby_game.md` §1).
+  repeated uint32 lobby_tribes = 10;
 }
 
 enum PoolMode {
@@ -86,6 +90,9 @@ message Record {
 // pairings, then `apply` (every player gets their view).
 message SetPairs {
   repeated Pair pairs = 1;
+  // The most combat damage a player (Duos: a team) can take this turn, if the game caps it
+  // (`docs/lobby_game.md` §5).
+  optional uint32 damage_cap = 2;
 }
 
 message Pair {

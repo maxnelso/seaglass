@@ -362,7 +362,7 @@ fn rerun(game: &mut Match, record: &pb::Record) -> Result<FrameKind, String> {
                     Ok((a, b))
                 })
                 .collect::<Result<Vec<_>, String>>()?;
-            game.set_pairs(&pairs);
+            game.set_pairs_with_damage_cap(&pairs, set.damage_cap);
             Ok(FrameKind::SetPairs { pairs })
         }
         Kind::DeliverGifts(_) => {

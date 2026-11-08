@@ -497,7 +497,10 @@ impl PlayerAuras {
     /// Current stats granted by a Tavern spell with base stat buff `(base_atk, base_hp)`.
     #[inline]
     pub fn spell_stat_buff(&self, base_atk: i32, base_hp: i32) -> (i32, i32) {
-        (base_atk + self.spell_bonus_atk, base_hp + self.spell_bonus_hp)
+        (
+            base_atk + self.spell_bonus_atk,
+            base_hp + self.spell_bonus_hp,
+        )
     }
 
     /// Value of the card counter `key` (0 if unset).
@@ -1121,6 +1124,10 @@ pub struct LobbyView {
     pub featured_pair: Option<(usize, usize)>,
     #[serde(default)]
     pub last_pair_outcome: Option<BattleOutcome>,
+    /// The most combat damage the player can take this turn (`docs/lobby_game.md` §5): the
+    /// lobby's damage cap, if any.
+    #[serde(default)]
+    pub damage_cap: Option<u32>,
 }
 
 impl LobbyView {
@@ -1130,7 +1137,13 @@ impl LobbyView {
             && self.last_opponent.is_none()
             && self.featured_pair.is_none()
             && self.last_pair_outcome.is_none()
+            && self.damage_cap.is_none()
     }
+}
+
+/// `damage` limited to the lobby's damage `cap`, if there is one.
+pub fn capped_damage(damage: u32, cap: Option<u32>) -> u32 {
+    cap.map_or(damage, |cap| damage.min(cap))
 }
 
 /// Pre-battle game state for both sides (hero tiers, persistent player auras/deities, and hands).

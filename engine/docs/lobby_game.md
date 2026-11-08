@@ -34,11 +34,21 @@ action at a time and enforces the rules.
 | `deity` | none | Every player's Deity. |
 | `first_fighter_switch_chance` | 0.75 | Duos (`duos_tavern.md` §4.3). |
 | `avoid_recent` | 3 | Pairings avoid a unit's last 3 opponents while they can (§3). |
+| `damage_caps` | on | Cap combat damage as the game does (§5). |
+| `tribes` | 5 | The minion types in the lobby, drawn at random from the 10 (`LOBBY_TRIBES`); 0: every type. |
 | `seed` | 0 | Seeds the shared pool and RNG, the hero offers and the pairings. |
 | `names`, `meta` | `p0`, `p1`, ... | The replay's player names and labels. |
 
 **One pool.** All players draw from one shared card pool and RNG (`PoolMode::Shared`), so players
 of the same tribe compete for its copies. In Duos the four teams share it too.
+
+**Five minion types.** As in the game, each lobby has 5 of the 10 minion types, drawn uniformly
+from the lobby's own RNG and recorded in the replay header (`MatchSetup::lobby_tribes`). The pool
+keeps a minion if it has one of the lobby's types (a two-type minion through either of them: a
+Dragon/Naga is in a lobby with Dragons), no type, or every type (`game::in_lobby`). Every effect
+that asks whether the lobby has a type reads the pool (`CardPool::lobby_has`: the Dark Gift
+filters, "a random lobby type"). Every player sees the types from the start (`context(p).tribes`).
+Only minions are filtered: Tavern spells, heroes and trinkets are offered whatever the types.
 
 ---
 
@@ -111,14 +121,18 @@ stand in as the next opponents.
 ## 4. What a player knows (`context`)
 
 `context(p)` is player `p`'s view of the lobby as of the start of the turn: what the game shows a
-person. RL observations encode it (`rl/seaglass_rl/features.py`).
+person, and no more. The leaderboard shows each opponent's Health, Armor, Tavern Tier and win
+streak, but not their board; a player only knows the boards they fought. RL observations encode it
+(`rl/seaglass_rl/features.py`).
 
 | Field | Meaning |
 | :--- | :--- |
 | `units`, `alive_units` | |
 | `health_rank` | 1 + the living units with more Health plus Armor. |
 | `next_is_ghost` | This unit fights a ghost this turn. |
-| `opponents[]` | `player`, `alive`, `health`, `armor`, `tier`, `is_next`, `is_last`, `last_board` (the board they last fought with). The next opponent comes first (in Duos, the opposing player in this seat, then their teammate), then the living ones by Health plus Armor, then those who are out. |
+| `damage_cap` | This turn's damage cap, if any (§5). |
+| `tribes` | The lobby's minion types (§1). |
+| `opponents[]` | `player`, `alive`, `health`, `armor`, `tier`, `hero_id`, `win_streak` (the leaderboard), `is_next`, `is_last`, and `seen_board` / `seen_turn`: the board they entered combat with the last time *this player* fought them (Duos: if their warband stepped in), and when. A player never sees an opponent's board otherwise, so it is empty for an opponent never fought. The next opponent comes first (in Duos, the opposing player in this seat, then their teammate), then the living ones by Health plus Armor, then those who are out. |
 
 Health, Armor and Tier are the leaderboard's. They are refreshed at the start of each phase and
 after the combats, and a player who is out keeps their last values.
@@ -135,7 +149,20 @@ After a turn's combats, every living unit at 0 Health or less is out:
 - **Recording.** `Match::record_deaths` records who is out. The end is recorded with every unit's
   place (`Match::finish_with_placements`, `End.placements`). In Duos the winner is a team.
 
-**Not modelled:** combat damage caps (`deferred.md`).
+**Damage caps** (`damage_caps`, on by default), as the game applies them (patch 31.2):
+
+| Mode | Cap on the combat damage a unit takes | Until |
+| :--- | :--- | :--- |
+| Solo | 5 on turns 1–3, 10 on turns 4–7, 15 from turn 8 | only 4 players are left (then none) |
+| Duos | 15 from the first turn | only 2 teams are left (then none) |
+
+- **When the cap is set.** `begin_phase` sets the turn's cap from the turn number and the units left
+  at the start of the turn (`LobbyGame::damage_cap`). It records the cap with the pairings
+  (`Match::set_pairs_with_damage_cap`, `SetPairs.damage_cap`), so replays re-simulate it.
+- **Who sees it.** Every player's lobby view carries it (`LobbyView::damage_cap`).
+- **Where it applies.** A losing Solo player's Tavern, or Duos team's pool, takes at most the cap,
+  pair combats and ghost combats alike.
+- **What gets recorded.** The combat's recorded `hero_damage` is the damage taken (capped).
 
 ---
 
@@ -143,11 +170,12 @@ After a turn's combats, every living unit at 0 Health or less is out:
 
 `seaglass.LobbyGame(players=8, duos=False, seed=0, max_turns=30, heroes=True, hero_offers=2,
 trinkets=True, dark_gifts=True, catalog=None, deity=None, first_fighter_switch_chance=0.75,
-avoid_recent=3, names=None, meta=None)`:
+avoid_recent=3, damage_caps=True, tribes=5, names=None, meta=None)`:
 
 - **Properties:** `phase` (`"hero"`, `"turn"`, `"over"`), `turn`, `done`, `placements` (per unit,
-  `None` while in), `alive` (per unit), `pairs` (the pairs, the ghost's fighter), `num_players`,
-  `num_units`, `duos`.
+  `None` while in), `alive` (per unit), `pairs` (the pairs, the ghost's fighter), `damage_cap`
+  (this turn's, or `None`), `tribes` (the lobby's minion types), `num_players`, `num_units`,
+  `duos`.
 - **Units:** `unit_of(p)`, `unit_players(u)`, `unit_health(u)`.
 - **Phases:** `begin_phase()`, `end_phase()` (returns the units placed), `active_players()`,
   `is_done(p)`.

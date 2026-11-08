@@ -8,11 +8,40 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+use crate::cards;
+use crate::game::in_lobby;
 use crate::lobby_game::{LobbyConfig, LobbyContext, LobbyGame, OpponentInfo, Phase};
 use crate::replay::{self, Timeline};
+use crate::rng::Rng;
+use crate::tavern::{CardPool, TavernState};
 
 use super::replay::{optional_note, PyTimeline};
-use super::{parse_deity_kind, PyDuosObservation, PyTavernAction, PyTavernObservation, PyUnit};
+use super::{
+    parse_deity_kind, PyDuosObservation, PyDuosTavernGame, PyTavernAction, PyTavernGame,
+    PyTavernObservation, PyUnit,
+};
+
+fn take_tavern_visible_units(pool: &mut CardPool, state: &TavernState) {
+    for u in state
+        .board
+        .iter()
+        .chain(state.hand.iter())
+        .chain(state.shop.iter())
+        .chain(state.waiting_for_hand.iter())
+    {
+        pool.take_unit(u);
+    }
+    if let Some(opts) = &state.discover_pending {
+        for u in opts {
+            pool.take_unit(u);
+        }
+    }
+    for opts in &state.discover_queue {
+        for u in opts {
+            pool.take_unit(u);
+        }
+    }
+}
 
 /// A full lobby: 8 Solo players, or Duos teams of 2, played phase by phase from the hero choice to
 /// the last unit standing (`engine/docs/lobby_game.md`). Every engine call is recorded, so
@@ -57,7 +86,7 @@ impl PyLobbyGame {
     #[pyo3(signature = (
         players=8, duos=false, seed=0, max_turns=30, heroes=true, hero_offers=2, trinkets=true,
         dark_gifts=true, catalog=None, deity=None, first_fighter_switch_chance=0.75,
-        avoid_recent=3, names=None, meta=None
+        avoid_recent=3, damage_caps=true, tribes=5, names=None, meta=None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -73,6 +102,8 @@ impl PyLobbyGame {
         deity: Option<&str>,
         first_fighter_switch_chance: f64,
         avoid_recent: usize,
+        damage_caps: bool,
+        tribes: usize,
         names: Option<Vec<String>>,
         meta: Option<BTreeMap<String, String>>,
     ) -> PyResult<Self> {
@@ -93,6 +124,8 @@ impl PyLobbyGame {
             deity: parse_deity_kind(deity)?,
             first_fighter_switch_chance,
             avoid_recent,
+            damage_caps,
+            tribes,
             seed,
             names: names.unwrap_or_default(),
             meta: meta.unwrap_or_default(),
@@ -155,6 +188,18 @@ impl PyLobbyGame {
         (0..self.inner.num_units())
             .map(|u| self.inner.is_alive(u))
             .collect()
+    }
+
+    /// The minion types in the lobby (empty: every type).
+    #[getter]
+    fn tribes(&self) -> Vec<&'static str> {
+        self.inner.tribes().iter().map(|t| t.as_str()).collect()
+    }
+
+    /// The most combat damage a unit can take this turn, if the game caps it.
+    #[getter]
+    fn damage_cap(&self) -> Option<u32> {
+        self.inner.game().lobby().damage_cap
     }
 
     /// This turn's pairings (units) and the unit fighting the ghost, if any.
@@ -260,6 +305,116 @@ impl PyLobbyGame {
         self.clone()
     }
 
+    /// Build an imperfect-information `TavernGame` for player `p` (Solo or Duos) using only legal
+    /// player/team/public observations, a belief-adjusted `CardPool`, and caller-supplied `seed`.
+    #[pyo3(signature = (p, seed=0, extra_units=None))]
+    fn belief_tavern(
+        &self,
+        p: usize,
+        seed: u64,
+        extra_units: Option<Vec<PyUnit>>,
+    ) -> PyResult<PyTavernGame> {
+        self.check_player(p)?;
+        let catalog_name = &self.inner.game().header().catalog;
+        let mut templates = cards::catalog_for(catalog_name).map_err(PyValueError::new_err)?;
+        let lobby_tribes = self.inner.tribes();
+        if !lobby_tribes.is_empty() {
+            templates.retain(|t| in_lobby(t.tribe, &lobby_tribes));
+        }
+        let mut pool = CardPool::new(templates);
+        let state = self.inner.player(p).clone();
+        if self.duos() {
+            let duos_team = &self.inner.game().teams()[p / 2];
+            for s in &duos_team.players {
+                take_tavern_visible_units(&mut pool, s);
+            }
+            for q in &duos_team.incoming {
+                for u in q {
+                    pool.take_unit(u);
+                }
+            }
+        } else {
+            take_tavern_visible_units(&mut pool, &state);
+        }
+        match extra_units {
+            Some(units) => {
+                for u in &units {
+                    pool.take_unit(&u.inner);
+                }
+            }
+            None => {
+                let ctx = self.inner.context(p);
+                for opp in &ctx.opponents {
+                    if opp.alive {
+                        for u in &opp.seen_board {
+                            pool.take_unit(u);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(PyTavernGame {
+            state,
+            pool,
+            rng: Rng::new(seed),
+        })
+    }
+
+    /// Build an imperfect-information `DuosTavernGame` for Duos team `team` using only legal
+    /// team/public observations, a belief-adjusted `CardPool`, and caller-supplied `seed`.
+    #[pyo3(signature = (team, seed=0, extra_units=None))]
+    fn belief_duos_tavern(
+        &self,
+        team: usize,
+        seed: u64,
+        extra_units: Option<Vec<PyUnit>>,
+    ) -> PyResult<PyDuosTavernGame> {
+        if !self.duos() {
+            return Err(PyValueError::new_err(
+                "belief_duos_tavern is for Duos lobbies; use belief_tavern in Solo",
+            ));
+        }
+        self.check_unit(team)?;
+        let catalog_name = &self.inner.game().header().catalog;
+        let mut templates = cards::catalog_for(catalog_name).map_err(PyValueError::new_err)?;
+        let lobby_tribes = self.inner.tribes();
+        if !lobby_tribes.is_empty() {
+            templates.retain(|t| in_lobby(t.tribe, &lobby_tribes));
+        }
+        let mut pool = CardPool::new(templates);
+        let duos_team = self.inner.game().teams()[team].clone();
+        for s in &duos_team.players {
+            take_tavern_visible_units(&mut pool, s);
+        }
+        for q in &duos_team.incoming {
+            for u in q {
+                pool.take_unit(u);
+            }
+        }
+        match extra_units {
+            Some(units) => {
+                for u in &units {
+                    pool.take_unit(&u.inner);
+                }
+            }
+            None => {
+                let ctx = self.inner.context(2 * team);
+                for opp in &ctx.opponents {
+                    if opp.alive {
+                        for u in &opp.seen_board {
+                            pool.take_unit(u);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(PyDuosTavernGame {
+            team: duos_team,
+            pool,
+            rng: Rng::new(seed),
+        })
+    }
+
     #[getter]
     fn meta(&self) -> BTreeMap<String, String> {
         self.inner.game().header().meta.clone()
@@ -314,6 +469,10 @@ pub struct PyLobbyContext {
     /// 1 + the number of living units with more Health plus Armor.
     pub health_rank: usize,
     pub next_is_ghost: bool,
+    /// The most combat damage the player's unit can take this turn, if capped.
+    pub damage_cap: Option<u32>,
+    /// The minion types in the lobby (empty: every type).
+    pub tribes: Vec<&'static str>,
     /// The next opponent first (Duos: the opposing player in this seat, then their teammate),
     /// then the others.
     pub opponents: Vec<PyOpponentInfo>,
@@ -327,6 +486,8 @@ impl From<LobbyContext> for PyLobbyContext {
             alive_units: ctx.alive_units,
             health_rank: ctx.health_rank,
             next_is_ghost: ctx.next_is_ghost,
+            damage_cap: ctx.damage_cap,
+            tribes: ctx.tribes.iter().map(|t| t.as_str()).collect(),
             opponents: ctx
                 .opponents
                 .into_iter()
@@ -348,7 +509,9 @@ impl PyLobbyContext {
     }
 }
 
-/// One opponent, as a player sees them (`LobbyContext.opponents`).
+/// One opponent, as a player sees them (`LobbyContext.opponents`): the leaderboard, and the board
+/// they had when this player last fought them (`seen_board`, from turn `seen_turn`; empty and
+/// `None` if never).
 #[pyclass(name = "OpponentInfo", get_all)]
 #[derive(Clone)]
 pub struct PyOpponentInfo {
@@ -357,9 +520,12 @@ pub struct PyOpponentInfo {
     pub health: i32,
     pub armor: i32,
     pub tier: u32,
+    pub hero_id: u32,
+    pub win_streak: u32,
     pub is_next: bool,
     pub is_last: bool,
-    pub last_board: Vec<PyUnit>,
+    pub seen_board: Vec<PyUnit>,
+    pub seen_turn: Option<u32>,
 }
 
 impl From<OpponentInfo> for PyOpponentInfo {
@@ -370,13 +536,16 @@ impl From<OpponentInfo> for PyOpponentInfo {
             health: o.health,
             armor: o.armor,
             tier: o.tier,
+            hero_id: o.hero_id,
+            win_streak: o.win_streak,
             is_next: o.is_next,
             is_last: o.is_last,
-            last_board: o
-                .last_board
+            seen_board: o
+                .seen_board
                 .into_iter()
                 .map(|inner| PyUnit { inner })
                 .collect(),
+            seen_turn: o.seen_turn,
         }
     }
 }

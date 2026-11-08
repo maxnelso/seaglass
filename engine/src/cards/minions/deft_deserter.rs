@@ -20,7 +20,11 @@ pub fn template() -> CardTemplate {
 }
 
 pub fn on_activate(state: &mut TavernState, source_pos: usize, rng: &mut Rng) {
-    let buff = if state.board[source_pos].is_golden { 16 } else { 8 };
+    let buff = if state.board[source_pos].is_golden {
+        16
+    } else {
+        8
+    };
     for u in &mut state.shop {
         if !u.is_spell {
             u.add_stats(buff, buff);

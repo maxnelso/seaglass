@@ -14,7 +14,7 @@ use crate::cards;
 use crate::combat::{BattleResult, DuosResult, DuosTeam, Warband};
 use crate::duos_tavern::DuosTavern;
 use crate::lobby::Lobby;
-use crate::model::{BattleOutcome, DeityKind, HeroId, PlayerAuras};
+use crate::model::{BattleOutcome, DeityKind, HeroId, PlayerAuras, Tribe, LOBBY_TRIBES};
 use crate::replay::{self, pb};
 use crate::rng::Rng;
 use crate::tavern::{CardPool, TavernAction, TavernState};
@@ -88,6 +88,10 @@ pub struct MatchSetup {
     pub duos: bool,
     /// Duos: each team's chance of switching its first fighter each turn (`duos_tavern.md` §4.3).
     pub first_fighter_switch_chance: f64,
+    /// The minion types in the lobby (`docs/lobby_game.md` §1); empty: every type. The card pool
+    /// keeps only the minions with one of them (a two-type minion through either), with no type,
+    /// or with every type.
+    pub lobby_tribes: Vec<Tribe>,
 }
 
 impl Default for MatchSetup {
@@ -100,6 +104,7 @@ impl Default for MatchSetup {
             meta: BTreeMap::new(),
             duos: false,
             first_fighter_switch_chance: crate::duos_tavern::DEFAULT_FIRST_FIGHTER_SWITCH_CHANCE,
+            lobby_tribes: Vec::new(),
         }
     }
 }
@@ -139,6 +144,12 @@ impl MatchSetup {
             } else {
                 0.0
             },
+            lobby_tribes: self
+                .lobby_tribes
+                .iter()
+                .filter_map(|t| LOBBY_TRIBES.iter().position(|l| l == t))
+                .map(|i| i as u32)
+                .collect(),
         }
     }
 
@@ -194,6 +205,16 @@ impl MatchSetup {
             } else {
                 crate::duos_tavern::DEFAULT_FIRST_FIGHTER_SWITCH_CHANCE
             },
+            lobby_tribes: header
+                .lobby_tribes
+                .iter()
+                .map(|&i| {
+                    LOBBY_TRIBES
+                        .get(i as usize)
+                        .copied()
+                        .ok_or_else(|| format!("invalid lobby type {i}"))
+                })
+                .collect::<Result<_, String>>()?,
         })
     }
 }
@@ -260,7 +281,10 @@ impl Match {
                 setup.players.len()
             ));
         }
-        let templates = cards::catalog_for(&setup.catalog)?;
+        let mut templates = cards::catalog_for(&setup.catalog)?;
+        if !setup.lobby_tribes.is_empty() {
+            templates.retain(|t| in_lobby(t.tribe, &setup.lobby_tribes));
+        }
         let mut players: Vec<TavernState> = setup
             .players
             .iter()
@@ -547,6 +571,13 @@ impl Match {
     /// (every player's Tavern gets their view). Call it before the players start their turns. In
     /// Duos, pair each player with the opposing team's player in their seat.
     pub fn set_pairs(&mut self, pairs: &[(usize, usize)]) {
+        self.set_pairs_with_damage_cap(pairs, None);
+    }
+
+    /// [`Self::set_pairs`], with the most combat damage a player (Duos: a team) can take this
+    /// turn ([`Lobby::damage_cap`]; `None`: uncapped). Every player's view carries the cap, and
+    /// the combats until the next call apply it.
+    pub fn set_pairs_with_damage_cap(&mut self, pairs: &[(usize, usize)], damage_cap: Option<u32>) {
         for &(a, b) in pairs {
             self.check_player(a);
             self.check_player(b);
@@ -564,8 +595,10 @@ impl Match {
                     b: b as u32,
                 })
                 .collect(),
+            damage_cap,
         })));
         self.lobby.set_next_pairs(pairs);
+        self.lobby.damage_cap = damage_cap;
         let lobby = std::mem::take(&mut self.lobby);
         self.with_states(|states| lobby.apply(states));
         self.lobby = lobby;
@@ -664,6 +697,7 @@ impl Match {
                 player_a, player_b, seed,
             )))
         };
+        let result = self.cap_damage(result);
         for i in 0..players_a.len() {
             let (pa, pb_) = (players_a[i], players_b[i]);
             self.lobby.record_combat(pa, Some(pb_), &boards_a[i]);
@@ -729,6 +763,7 @@ impl Match {
                 seed,
             )))
         };
+        let result = self.cap_damage(result);
         for i in 0..players.len() {
             self.lobby
                 .record_combat(players[i], Some(ghosts[i]), &boards[i]);
@@ -771,6 +806,21 @@ impl Match {
         let winner = placements.iter().position(|&p| p == 1);
         self.push_end(winner, placements.to_vec());
         winner
+    }
+
+    /// `result` with its hero damage limited to the damage the loser took: the lobby's damage
+    /// cap ([`Lobby::damage_cap`]), which the Taverns applied.
+    fn cap_damage(&self, mut result: CombatResult) -> CombatResult {
+        let cap = self.lobby.damage_cap;
+        match &mut result {
+            CombatResult::Solo(r) => {
+                r.hero_damage = crate::model::capped_damage(r.hero_damage, cap)
+            }
+            CombatResult::Duos(r) => {
+                r.hero_damage = crate::model::capped_damage(r.hero_damage, cap)
+            }
+        }
+        result
     }
 
     fn push_end(&mut self, winner: Option<usize>, placements: Vec<u32>) {
@@ -848,6 +898,12 @@ impl Match {
             self.num_units()
         );
     }
+}
+
+/// Whether a minion of type `tribe` is in a lobby of the types `lobby`: it has no type, every
+/// type, or one of them (a two-type minion through either of its types).
+pub fn in_lobby(tribe: Tribe, lobby: &[Tribe]) -> bool {
+    tribe == Tribe::None || tribe == Tribe::All || lobby.iter().any(|&t| tribe.has_single(t))
 }
 
 fn record(kind: Kind) -> pb::Record {

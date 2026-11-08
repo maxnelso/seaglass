@@ -116,9 +116,10 @@ Replay
 │   │                     hero_options[]
 │   ├── meta              string labels
 │   ├── duos              players 2t, 2t+1 are team t; units are teams
-│   └── first_fighter_switch_chance   (Duos)
+│   ├── first_fighter_switch_chance   (Duos)
+│   └── lobby_tribes[]    the lobby's minion types (empty: every type)
 └── records[]: one per engine call, in order
-    ├── SetPairs          pairs[] (a, b)
+    ├── SetPairs          pairs[] (a, b), damage_cap (the turn's, if capped)
     ├── StartTurn         player (Duos: the team), turn (the player's turn after the call)
     ├── DeliverGifts
     ├── Act               player, action, card_id, note
@@ -270,6 +271,15 @@ ASCII instead, for fonts that draw some of those symbols two columns wide.
   an arrow to its target, the damage on each card hit, popped shields flashing and the minions
   about to die faded to `░`) and the boards after it. The caption lists the strike's events. If
   the re-run's result differs from the replay's, the screen says so.
+  - **Duos combats** play the same way, re-run from both teams' Taverns before it
+    (`DuosTavern::resolve_combat_pair`): the two warbands fighting are drawn top and bottom (the
+    shown player's team at the bottom), each labelled with its player, team, Tier and the team's
+    Health. The trace also snapshots both boards each time a warband steps in (§3.2 of
+    `duos.md`), so when a warband is wiped and its teammate's steps in, a step shows the new
+    warband with the caption `p3 steps in for team 2`, and the combat goes on from there.
+  - **Ghost combats** (Solo or Duos) are re-run against the boards the ghost's players last
+    fought with (`Lobby::last_warbands`, found in the timeline from the ghost's last combat), at
+    their Tiers; the ghost's boards are labelled `ghost of p4` or `ghost of team 3 / p6`.
 - **Keys.** ←/→ step (a strike, in a combat), space plays and pauses, +/− change the speed, n/p go
   a whole frame, ↑/↓ a turn, c/C to the next/previous combat, Home/End to either end, Tab shows the
   next player's Tavern, f follows whoever acts (the default) or stays on one player, i inspects

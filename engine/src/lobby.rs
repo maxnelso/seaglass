@@ -33,6 +33,9 @@ pub struct Lobby {
     pub featured_pair: Option<(usize, usize)>,
     /// The outcome of the last turn's featured combat, for its first player.
     pub last_pair_outcome: Option<BattleOutcome>,
+    /// The most combat damage a player can take this turn (`docs/lobby_game.md` §5), if the game
+    /// caps it; every player's view carries it.
+    pub damage_cap: Option<u32>,
 }
 
 impl Lobby {
@@ -47,6 +50,7 @@ impl Lobby {
             next_opponent: vec![None; players],
             featured_pair: None,
             last_pair_outcome: None,
+            damage_cap: None,
         }
     }
 
@@ -95,6 +99,7 @@ impl Lobby {
             last_opponent: index(self.last_opponent.get(p).copied().flatten()),
             featured_pair,
             last_pair_outcome: self.last_pair_outcome,
+            damage_cap: self.damage_cap,
         }
     }
 

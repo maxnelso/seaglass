@@ -1520,7 +1520,9 @@ fn print_tavern(state: &TavernState, pool: &CardPool) {
         for (i, u) in opts.iter().enumerate() {
             println!("{}", format_unit_row(i, u, Some(pool), false));
         }
-        println!("--------------------------------------------------------------------------------");
+        println!(
+            "--------------------------------------------------------------------------------"
+        );
     }
 
     println!(" BOB'S SHOP ({} minions){}:", state.shop.len(), frozen_tag);
@@ -1739,11 +1741,7 @@ fn execute_command(
     true
 }
 
-fn parse_action_cmd(
-    cmd: &str,
-    args: &[&str],
-    state: &TavernState,
-) -> Result<TavernAction, String> {
+fn parse_action_cmd(cmd: &str, args: &[&str], state: &TavernState) -> Result<TavernAction, String> {
     match cmd {
         "b" | "buy" => args
             .first()
@@ -1838,28 +1836,53 @@ fn parse_action_cmd(
             })
             .map(|option_index| TavernAction::ChooseDiscover { option_index }),
         "e" | "end" | "n" | "next" => Ok(TavernAction::EndTurn),
-        other => Err(format!("Unknown command {other:?} (type `help` for commands)")),
+        other => Err(format!(
+            "Unknown command {other:?} (type `help` for commands)"
+        )),
     }
 }
 
-fn run_demo(state: &mut TavernState, pool: &mut CardPool, rng: &mut Rng, templates: &[CardTemplate]) {
+fn run_demo(
+    state: &mut TavernState,
+    pool: &mut CardPool,
+    rng: &mut Rng,
+    templates: &[CardTemplate],
+) {
     println!("=== SEAGLASS TAVERN PHASE DEMO ===");
     print_tavern(state, pool);
 
     let script = [
-        ("b 0", "Turn 1: Buy the leftmost minion from Bob's Shop (costs 3g)"),
+        (
+            "b 0",
+            "Turn 1: Buy the leftmost minion from Bob's Shop (costs 3g)",
+        ),
         ("p 0", "Turn 1: Play it from hand onto the board"),
-        ("e", "End Turn 1 -> Advance to Turn 2 (4g, upgrade cost decays 5g -> 4g)"),
+        (
+            "e",
+            "End Turn 1 -> Advance to Turn 2 (4g, upgrade cost decays 5g -> 4g)",
+        ),
         ("b 0", "Turn 2: Buy a minion (costs 3g, 1g left)"),
         ("p 0", "Turn 2: Play it onto the board"),
         ("r", "Turn 2: Spend remaining 1g to Refresh Bob's shop"),
         ("f", "Turn 2: Freeze the shop for Turn 3"),
-        ("e", "End Turn 2 -> Advance to Turn 3 (5g, shop stays frozen)"),
-        ("give Cord Puller", "Sandbox check: Add Cord Puller (Mech) to hand"),
+        (
+            "e",
+            "End Turn 2 -> Advance to Turn 3 (5g, shop stays frozen)",
+        ),
+        (
+            "give Cord Puller",
+            "Sandbox check: Add Cord Puller (Mech) to hand",
+        ),
         ("p 0", "Play Cord Puller to board"),
-        ("give Lullabot", "Sandbox check: Add Lullabot (Magnetic Mech) to hand"),
+        (
+            "give Lullabot",
+            "Sandbox check: Add Lullabot (Magnetic Mech) to hand",
+        ),
         ("p 0 2", "Magnetize Lullabot onto Cord Puller at board[2]!"),
-        ("e", "End Turn 3 -> Watch Magnetized Cord Puller gain +1 Health at End of Turn!"),
+        (
+            "e",
+            "End Turn 3 -> Watch Magnetized Cord Puller gain +1 Health at End of Turn!",
+        ),
     ];
 
     for (cmd, note) in script {

@@ -20,8 +20,7 @@ pub fn on_deathrattle(dying: &Unit, ctx: &mut DeathrattleContext<'_>) {
         .iter()
         .position(|c| c.card_id == tokens::SPELL_LOCKBOX && c.lockbox_turns_left > 0)
     {
-        ctx.hand[idx].lockbox_turns_left =
-            ctx.hand[idx].lockbox_turns_left.saturating_sub(accel);
+        ctx.hand[idx].lockbox_turns_left = ctx.hand[idx].lockbox_turns_left.saturating_sub(accel);
     } else {
         ctx.add_to_hand(tokens::make_lockbox());
     }
