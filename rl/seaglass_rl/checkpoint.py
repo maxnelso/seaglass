@@ -18,8 +18,10 @@ from typing import Any
 import torch
 
 from .actions import ACTION_SPACE_SIZE
+from .card_features import STATIC_DIM
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, VOCAB_SIZE
 from .model import BattlegroundsMLP
+from .transformer import EntityTransformer
 
 # What a model's inputs and outputs mean. A model only works with the code that encodes them.
 FEATURE_SPEC: dict[str, int] = {
@@ -28,9 +30,22 @@ FEATURE_SPEC: dict[str, int] = {
     "slot_num_dim": SLOT_NUM_DIM,
     "vocab_size": VOCAB_SIZE,
     "action_space": ACTION_SPACE_SIZE,
+    # The static card features' width (`card_features.py`); checkpoints saved before it existed
+    # don't have it and are only checked on the other keys.
+    "static_dim": STATIC_DIM,
 }
 
-MODELS: dict[str, type[torch.nn.Module]] = {"BattlegroundsMLP": BattlegroundsMLP}
+MODELS: dict[str, type[torch.nn.Module]] = {
+    "BattlegroundsMLP": BattlegroundsMLP,
+    "EntityTransformer": EntityTransformer,
+}
+# The class each `model.config["arch"]` builds (a config without one is an MLP's).
+ARCHS: dict[str, type[torch.nn.Module]] = {"mlp": BattlegroundsMLP, "transformer": EntityTransformer}
+
+
+def model_from_config(config: dict[str, Any]) -> torch.nn.Module:
+    """A fresh model from its `model.config` (the `(config, state_dict)` sources of `play.py`)."""
+    return ARCHS[config.get("arch", "mlp")](**config)
 
 
 def save(
@@ -64,8 +79,9 @@ def load(path: str | os.PathLike[str]) -> tuple[BattlegroundsMLP, dict[str, Any]
     """Load the model saved at `path`. Returns `(model, checkpoint)`; the model is in eval mode."""
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
     spec = ckpt.get("feature_spec")
-    if spec != FEATURE_SPEC:
-        diff = {k: (spec.get(k) if spec else None, v) for k, v in FEATURE_SPEC.items()}
+    expected = {k: v for k, v in FEATURE_SPEC.items() if k != "static_dim" or (spec and k in spec)}
+    if spec != expected:
+        diff = {k: (spec.get(k) if spec else None, v) for k, v in expected.items()}
         diff = {k: d for k, d in diff.items() if d[0] != d[1]}
         raise ValueError(f"{path}: trained on other features (checkpoint, now): {diff}")
     cls = MODELS[ckpt["model_class"]]

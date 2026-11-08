@@ -26,7 +26,7 @@ def test_the_gift_table_and_vocabulary() -> None:
     start = ids.index(DARK_GIFT_IDS[0])
     assert ids[start : start + len(DARK_GIFT_IDS)] == DARK_GIFT_IDS
     # Then the 10 trinket type features (`engine/docs/trinkets.md` §3.4).
-    assert SLOT_NUM_DIM == BASE_SLOT_NUM_DIM + 47 + 10 + 1
+    assert SLOT_NUM_DIM == BASE_SLOT_NUM_DIM + 47 + 10 + 1 + 11 + 1 + 15
 
 
 def _play_to_turn(game: seaglass.TavernGame, turn: int) -> None:
@@ -53,7 +53,7 @@ def test_a_game_without_dark_gifts_is_unchanged() -> None:
     assert not action_mask(game)[DARK_DISCOVERY_INDEX]
     player_vec, _, slot_num_feats = encode_observation(obs)
     assert player_vec.shape == (PLAYER_DIM,) and not np.any(player_vec[TAVERN_PLAYER_DIM - 2 : TAVERN_PLAYER_DIM])
-    assert not np.any(slot_num_feats[:, BASE_SLOT_NUM_DIM:])
+    assert not np.any(slot_num_feats[:, BASE_SLOT_NUM_DIM : BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)])
 
 
 def test_the_button_discovers_a_minion_with_a_gift() -> None:
@@ -74,6 +74,6 @@ def test_the_button_discovers_a_minion_with_a_gift() -> None:
     assert all(len(g) == 1 for g in gifts) and len({g[0] for g in gifts}) == len(gifts)
     _, _, slot_num_feats = encode_observation(obs)
     discover = slice(7 + 10 + 7, 7 + 10 + 7 + len(options))
-    assert np.all(slot_num_feats[discover, BASE_SLOT_NUM_DIM:].sum(axis=1) == 1.0)
+    assert np.all(slot_num_feats[discover, BASE_SLOT_NUM_DIM : BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)].sum(axis=1) == 1.0)
     game.step(seaglass.TavernAction.choose_discover(0))
     assert game.observe().hand[-1].dark_gifts == gifts[0]

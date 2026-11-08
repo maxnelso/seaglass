@@ -56,7 +56,9 @@ Each iteration plays `--games` lobbies (64) across `--workers` processes (12):
 - **Reward.** The unit's **placement**: +1 for first down to -1 for last, linear (`play.placement_reward`). A Duos team's two players share it.
 - **Optional shaping.** `--shaping` (default 0.3) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier.
 - **Discounting.** `--gamma` (0.97) applies once per turn, not per action, so a 10-action turn isn't discounted ten times.
-- **Actions.** Everything is unmasked, including Reposition and Freeze. `--prune` restores the `prune_dominated` sell and refresh rules. A turn is force-ended after `--max-steps-per-turn` (30) actions.
+- **Actions.** Everything is unmasked, including Freeze. `--prune` restores the `prune_dominated` sell and refresh rules. A turn is force-ended after `--max-steps-per-turn` (30) actions.
+- **End-of-turn step.** A model's turn has two parts. **Shopping** covers everything but Reposition and Toggle Freeze; where a card is played still picks its slot. Choosing End Turn opens an **end-of-turn step** ("prepping the board for battle") when there is something to do in it. The only legal actions in the step are Reposition (at most board size − 1 moves, with 2+ minions), **one** Toggle Freeze, and End Turn. The turn ends once nothing is left to do. The observation flags the step (`features.PHASE_OFFSET`). `--no-positioning-phase` allows repositioning and freezing at any time. Without the step, the models made 6–12 moves a turn, and toggled Freeze on and off to pad turns.
+- **Damage caps.** Lobbies cap combat damage as the game does (`engine/docs/lobby_game.md` §5). `--no-damage-caps` turns this off.
 - **Update.** `--epochs` (4) passes of minibatches (`--minibatch` 4096). An epoch stops early once the approximate KL passes 1.5 × `--target-kl`.
 
 Every `--eval-every` iterations, the learner plays `--eval-games` lobbies alone against HeuristicBots, and `latest.pt` is saved. `runs/NAME/` holds:
@@ -77,18 +79,31 @@ Evaluation. An agent as good as the field places `(units + 1) / 2` on average: 4
 
 `encode_observation(obs, context=None)` returns `(player_vec, slot_card_ids, slot_num_feats)`:
 
-- **`player_vec`** (`PLAYER_DIM` = 101):
+- **`player_vec`** (`PLAYER_DIM` = 192):
   - The player's Tavern: 33 features (`TAVERN_PLAYER_DIM`), described in the sections below.
-  - The lobby (`LOBBY_DIM` 8, all 0 without a `context`): units, units alive, Health rank, whether the next opponent is a ghost, and the next opponent's Health, Armor and Tier.
-  - 7 opponents × 7 features (`OPPONENT_DIM`): present, alive, Health, Armor, Tier, is next, is last. The next opponent comes first (in Duos, the opposing player in this seat, then their teammate), then the rest by Health.
+  - The lobby (`LOBBY_DIM` 20, all 0 without a `context`): units, units alive, Health rank, whether the next opponent is a ghost, the next opponent's Health, Armor and Tier, this turn's damage cap (capped, cap / 15), and the lobby's 5 minion types (a multi-hot of the 10).
+  - 7 opponents × 10 features (`OPPONENT_DIM`): present, alive, Health, Armor, Tier, win streak, is next, is last, whether this player has seen their board, and how many turns ago. The next opponent comes first (in Duos, the opposing player in this seat, then their teammate), then the rest by Health.
   - The Duos team (`DUOS_DIM` 11, 0 in Solo): the teammate's Tier, Gold, ended, has a hero, fights first, free Passes, both incoming queues, and the team's Pass counters.
-- **73 card slots** (`NUM_SLOTS`), each a card id (embedded) plus `SLOT_NUM_DIM` = 72 numeric features:
+  - Whether the player is in the positioning step (`PHASE_OFFSET`).
+  - The player's game-long counters (`COUNTERS_OFFSET`, 57): `TavernObservation.player_counters` in `seaglass.player_counter_names()` order (the scaling buffs: Blood Gems, Tavern spell power, Undead Attack, the Tavern buffs per minion type; the tallies card text reads; the deity; the last combat's result), then both Hero Powers' counters and stacks. All are sign-preserving log-scaled (`symlog`).
+- **101 card slots** (`NUM_SLOTS`), each a card id (embedded) plus `SLOT_NUM_DIM` = 99 numeric features. After the keywords, Dark Gifts and trinket types come the minion types the card counts as (`TRIBES_OFFSET`, a multi-hot of the 11 single types), its counter (`COUNTER_OFFSET`), and 15 more (`UNIT_EXTRA_OFFSET`): Stealth, a spell's price and Health cost, unplayable and turns locked, stacks, charges, Avenge progress, permanent stats and Blood Gems gained, Deathrattles given, Attack/Health above base, activated this turn. The slots are:
   - The player's Tavern: board 7, hand 10, shop 7, Discover 4, waiting 3, trinkets 2, trinket offers 4 (`TAVERN_SLOTS` = 37).
   - The hero and the offered heroes (`HERO_OFFSET`, 1 + 4). Hero ids are appended to the card vocabulary.
   - The Duos teammate's board and hand (`TEAMMATE_OFFSET`, 7 + 10).
-  - The next opponents' boards as they entered their last combat (`OPPONENT_BOARD_OFFSET`, 2 × 7).
+  - The next opponents' boards **as this player last saw them**, in their own last combat against them (`OPPONENT_BOARD_OFFSET`, 2 × 7; empty if never fought).
+  - The Duos teammate's shop (`TEAMMATE_SHOP_OFFSET`, 7), the opponents' heroes (`OPPONENT_HERO_OFFSET`, 7), the "this game" card counters (`CARD_COUNTER_OFFSET`, 8: the card, then its two values where Attack and Health go: Eternal Knight deaths, ...), and the player-level effects (`EFFECT_OFFSET`, 6: the card, its stacks, whether it lasts this turn only).
 
-The lobby features hold only what the game shows a player: the leaderboard (each opponent's Health, Armor and Tier) and the boards they fought with. They come from `seaglass.LobbyGame.context`, never from the engine's internal `Lobby` (featured pair, gifts, deaths). Neither observation exposes that `Lobby`.
+The lobby features hold only what the game shows a player: the leaderboard (each opponent's Health, Armor, Tier and win streak) and the boards *this player* fought. They come from `seaglass.LobbyGame.context`, never from the engine's internal `Lobby` (featured pair, gifts, deaths). Neither observation exposes that `Lobby`.
+
+---
+
+## Static card features (`card_features.py`)
+
+A learned card embedding has to learn every card's effect from experience, and a rare card gets few updates. `static_card_table()` gives each vocabulary entry a fixed description that models can read instead (`STATIC_DIM` 278, a non-persistent buffer, so checkpoints don't store it):
+- Engine tags (`seaglass.card_tags()`, 246): which hooks the engine implements for the card (Battlecry, Deathrattle, Rally, Start of Combat, end of turn, auras, Hero Power and trinket triggers, ...), its `CardFlags`, Activate / targeted spell / spell aura, and for minions the printed Tier (one-hot), Attack and Health `/ 10`, types and keywords. A hero has its Hero Power's tags.
+- A rules-text embedding (32): `scripts/embed_card_text.py` embeds every card's text from the engine's doc comments (and the Hero Power texts in `heroes/table.rs`) with `all-MiniLM-L6-v2`, reduces it with PCA and saves `seaglass_rl/data/card_text_embeddings.npz`. Rerun it when cards change. About 2% of the vocabulary (unimplemented trinkets) has no text and gets zeros.
+
+`BattlegroundsMLP(static_features=True)` adds a learned projection of a card's static row to its embedding, at no rollout cost (`card_table()` is computed once per `act_batch`).
 
 ---
 

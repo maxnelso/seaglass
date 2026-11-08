@@ -21,6 +21,7 @@ from seaglass_rl.features import (
     OPPONENT_BOARD_OFFSET,
     OPPONENTS_OFFSET,
     PLAYER_DIM,
+    SLOT_NUM_DIM,
     TEAMMATE_OFFSET,
     encode_observation,
 )
@@ -137,9 +138,12 @@ def test_the_encoding_fills_the_lobby_and_team_features(duos: bool) -> None:
     pv, ids, nums = encode_observation(obs, game.context(0))
     assert pv.shape == (PLAYER_DIM,) and ids.shape == (NUM_SLOTS,)
     assert pv[LOBBY_OFFSET] == 1.0
-    assert pv[OPPONENTS_OFFSET] == 1.0 and pv[OPPONENTS_OFFSET + 5] == 1.0  # next opponent first
+    assert pv[OPPONENTS_OFFSET] == 1.0 and pv[OPPONENTS_OFFSET + 6] == 1.0  # next opponent first
     assert ids[HERO_OFFSET] != 0  # the chosen hero
-    assert (ids[OPPONENT_BOARD_OFFSET:] != 0).any()  # their last board
+    # The next opponents' boards are the ones this player saw in their own last combat against them.
+    ctx = game.context(0)
+    seen = [o for o in ctx.opponents if o.is_next and o.seen_turn is not None and o.seen_board]
+    assert (ids[OPPONENT_BOARD_OFFSET : OPPONENT_BOARD_OFFSET + 14] != 0).any() == bool(seen)
     assert (pv[DUOS_OFFSET] == 1.0) == duos
     assert (ids[TEAMMATE_OFFSET : OPPONENT_BOARD_OFFSET] != 0).any() == duos
     # Without a context the lobby features stay 0.
@@ -244,6 +248,156 @@ def test_behavior_cloning_learns_from_recorded_bots() -> None:
     model = BattlegroundsMLP(hidden_dim=32, card_embed_dim=4, kind_prior=True)
     stats = train(model, data, epochs=2, lr=3e-3, minibatch=256, holdout=0.2)
     assert 0.0 <= stats["accuracy"] <= 1.0 and np.isfinite(stats["value_mse"])
+
+
+def test_behavior_stats_read_the_heuristic_bots_habits() -> None:
+    from seaglass_rl.behavior import behavior_stats, format_behavior
+
+    config = LobbyConfig(players=4)
+    (res,) = play_games(config, [GameSpec(seed=3, controllers=["heuristic"] * 4)], {}, record=("heuristic",))
+    stats = behavior_stats(res.trajectories)
+    # The HeuristicBot never rolls or sells, and levels up over the game.
+    assert all(b["refresh"] == 0 and b["sell"] == 0 for b in stats["per_turn"].values())
+    assert stats["tier_at"][max(stats["tier_at"])] > stats["tier_at"][min(stats["tier_at"])]
+    assert "rolls" in format_behavior(stats)
+
+
+def test_pure_self_play_fills_every_unit_until_the_first_snapshot() -> None:
+    import random
+
+    from seaglass_rl.train_lobby import make_specs
+
+    config = LobbyConfig()
+    (spec,) = make_specs(config, 1, 4, [], 0.0, random.Random(0), seed=0)
+    assert spec.controllers == ["learner"] * 8
+    (spec,) = make_specs(config, 1, 4, ["snap.pt"], 0.0, random.Random(0), seed=0)
+    assert sorted(spec.controllers) == ["learner"] * 4 + ["snap.pt"] * 4
+
+
+@pytest.mark.parametrize("duos", [False, True])
+def test_models_reposition_only_in_the_positioning_step(duos: bool) -> None:
+    from seaglass_rl.actions import ACTIONS
+    from seaglass_rl.features import PHASE_OFFSET
+
+    config = LobbyConfig(duos=duos)
+    model = BattlegroundsMLP(seed=4, kind_prior=True)
+    with torch.no_grad():
+        # Make Repositions very likely whenever they are allowed.
+        for i, a in enumerate(ACTIONS):
+            if a.kind == "reposition":
+                model.actor.bias[i] = 5.0
+    (res,) = play_games(config, [GameSpec(seed=6, controllers=["learner"] * config.units)], {"learner": model})
+    moves = 0
+    for tr in res.trajectories:
+        kinds = [ACTIONS[a].kind for a in tr["actions"]]
+        arranging = tr["player_vec"][:, PHASE_OFFSET] == 1.0
+        turns = np.rint(tr["player_vec"][:, 0] * 20).astype(int)
+        for i, kind in enumerate(kinds):
+            if kind == "reposition":
+                moves += 1
+                assert arranging[i], "a Reposition outside the end-of-turn step"
+            if arranging[i]:
+                assert kind in ("reposition", "toggle_freeze", "end_turn")
+        for t in set(turns):
+            in_turn = [k for k, tt in zip(kinds, turns) if tt == t]
+            assert in_turn.count("reposition") <= 6
+    assert moves > 0
+
+
+@pytest.mark.parametrize("duos", [False, True])
+def test_models_freeze_at_most_once_a_turn_and_only_at_its_end(duos: bool) -> None:
+    from seaglass_rl.actions import ACTIONS
+    from seaglass_rl.features import PHASE_OFFSET
+
+    config = LobbyConfig(duos=duos)
+    model = BattlegroundsMLP(seed=5, kind_prior=True)
+    with torch.no_grad():
+        # Make Toggle Freeze very likely whenever it is allowed.
+        for i, a in enumerate(ACTIONS):
+            if a.kind == "toggle_freeze":
+                model.actor.bias[i] = 8.0
+    (res,) = play_games(config, [GameSpec(seed=8, controllers=["learner"] * config.units)], {"learner": model})
+    freezes = 0
+    for tr in res.trajectories:
+        kinds = [ACTIONS[a].kind for a in tr["actions"]]
+        arranging = tr["player_vec"][:, PHASE_OFFSET] == 1.0
+        turns = np.rint(tr["player_vec"][:, 0] * 20).astype(int)
+        for i, kind in enumerate(kinds):
+            if kind == "toggle_freeze":
+                freezes += 1
+                assert arranging[i], "a Toggle Freeze outside the end-of-turn step"
+        for t in set(turns):
+            in_turn = [k for k, tt in zip(kinds, turns) if tt == t]
+            assert in_turn.count("toggle_freeze") <= 1
+    assert freezes > 0
+
+
+@pytest.mark.parametrize("duos", [False, True])
+def test_players_only_see_the_boards_they_fought(duos: bool) -> None:
+    game = LobbyConfig(duos=duos, heroes=False).make(13)
+    game.begin_phase()
+    first = game.context(0)
+    assert all(o.seen_turn is None and not o.seen_board for o in first.opponents)
+    game.end_phase()  # turn 1's combats
+    game.begin_phase()
+    ctx = game.context(0)
+    last = [o for o in ctx.opponents if o.is_last]
+    others = [o for o in ctx.opponents if not o.is_last]
+    # Only the last opponent's board (Duos: the warbands that stepped in) has been seen, on turn 1.
+    assert last and all(o.seen_turn in (None, 1) for o in last)
+    assert any(o.seen_turn == 1 for o in last)
+    assert all(o.seen_turn is None and not o.seen_board for o in others)
+
+
+def test_tribes_and_counters_are_slot_features() -> None:
+    from seaglass_rl.features import COUNTER_OFFSET, SINGLE_TRIBES, TRIBES_OFFSET, _encode_unit_into
+
+    catalog = {t.name: t for t in seaglass.catalog("full")}
+    tribes = slice(TRIBES_OFFSET, TRIBES_OFFSET + len(SINGLE_TRIBES))
+    out = np.zeros(SLOT_NUM_DIM, dtype=np.float32)
+    _encode_unit_into(catalog["Tad"].instantiate(), out)
+    assert out[TRIBES_OFFSET + SINGLE_TRIBES.index("murloc")] == 1.0 and out[tribes].sum() == 1.0
+    assert out[COUNTER_OFFSET] == 0.0
+    # A dual type sets both of its types.
+    out = np.zeros(SLOT_NUM_DIM, dtype=np.float32)
+    _encode_unit_into(catalog["Ominous Seer"].instantiate(), out)
+    assert {SINGLE_TRIBES[i] for i in np.flatnonzero(out[tribes])} == {"demon", "naga"}
+
+
+def test_player_counters_are_observed_and_encoded() -> None:
+    from seaglass_rl.features import COUNTERS_OFFSET, PLAYER_COUNTER_NAMES
+
+    game = seaglass.TavernGame(seed=2)
+    game.start_turn()
+    obs = game.observe()
+    assert len(obs.player_counters) == len(PLAYER_COUNTER_NAMES)
+    assert "blood_gem_bonus_atk" in PLAYER_COUNTER_NAMES and "spell_bonus_atk" in PLAYER_COUNTER_NAMES
+    pv, _, _ = encode_observation(obs)
+    values = pv[COUNTERS_OFFSET : COUNTERS_OFFSET + len(PLAYER_COUNTER_NAMES)]
+    assert np.isfinite(values).all()
+
+
+def test_lobbies_have_five_minion_types() -> None:
+    from seaglass_rl.features import LOBBY_OFFSET, LOBBY_TRIBE_NAMES
+
+    game = seaglass.LobbyGame(seed=4, heroes=False)
+    assert len(game.tribes) == 5 and set(game.tribes) <= set(LOBBY_TRIBE_NAMES)
+    game.begin_phase()
+    ctx = game.context(0)
+    assert ctx.tribes == game.tribes
+    pv, _, _ = encode_observation(game.observe(0), ctx)
+    assert pv[LOBBY_OFFSET + 10 : LOBBY_OFFSET + 20].sum() == 5.0
+    assert seaglass.LobbyGame(seed=4, tribes=0).tribes == []
+
+
+def test_damage_caps_reach_python() -> None:
+    game = seaglass.LobbyGame(seed=1, heroes=False)
+    game.begin_phase()
+    assert game.damage_cap == 5
+    assert seaglass.LobbyGame(seed=1, heroes=False, damage_caps=False).damage_cap is None
+    duos = seaglass.LobbyGame(duos=True, heroes=False)
+    duos.begin_phase()
+    assert duos.damage_cap == 15
 
 
 def test_evaluate_reports_the_average_place() -> None:

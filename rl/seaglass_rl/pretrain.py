@@ -2,6 +2,7 @@
 
     python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400
     python -m seaglass_rl.pretrain --out runs/bc-duos.pt --duos --games 400
+    python -m seaglass_rl.pretrain --out runs/bc-solo-tf.pt --model transformer --games 400
     python -m seaglass_rl.train_lobby --run-dir runs/solo --init runs/bc-solo.pt
 
 An untrained policy places last against HeuristicBots almost every game. From there, a reward
@@ -25,7 +26,6 @@ import torch
 import torch.nn as nn
 
 from . import checkpoint
-from .model import BattlegroundsMLP
 from .play import LobbyConfig, GameSpec, Player
 from .ppo import gae
 from .train_lobby import play_options
@@ -49,7 +49,7 @@ def collect(config: LobbyConfig, games: int, workers: int, options, seed: int) -
 
 
 def train(
-    model: BattlegroundsMLP,
+    model: torch.nn.Module,
     data: dict[str, np.ndarray],
     epochs: int,
     lr: float,
@@ -109,7 +109,7 @@ def train(
 
 
 def main() -> None:
-    from .train_lobby import parse_args as lobby_args
+    from .train_lobby import add_model_args, build_model, parse_args as lobby_args
 
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", required=True)
@@ -120,8 +120,7 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--minibatch", type=int, default=2048)
-    p.add_argument("--hidden", type=int, default=256)
-    p.add_argument("--embed", type=int, default=16)
+    add_model_args(p)
     p.add_argument("--threads", type=int, default=12)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
@@ -134,7 +133,7 @@ def main() -> None:
     t0 = time.time()
     data = collect(config, args.games, args.workers, play_options(targs), seed=10_000_000 + args.seed)
     print(f"{len(data['actions'])} decisions from {args.games} games in {time.time() - t0:.0f}s", flush=True)
-    model = BattlegroundsMLP(hidden_dim=args.hidden, card_embed_dim=args.embed, seed=args.seed, kind_prior=True)
+    model = build_model(args, kind_prior=True)
     stats = train(model, data, args.epochs, args.lr, args.minibatch, seed=args.seed)
     checkpoint.save(args.out, model, iteration=0, args=vars(args), extra={"bc": stats})
     print(f"saved {args.out}", flush=True)

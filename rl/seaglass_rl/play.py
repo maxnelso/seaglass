@@ -7,7 +7,8 @@ and placements. This module only decides who acts and what they do.
 A controller drives one unit of a lobby (a Solo player, or both players of a Duos team). It is named
 by a string, so that game specs can be sent to worker processes:
 - `"learner"`: the model being trained. Its decisions are recorded as trajectories.
-- `"heuristic"`, `"random"`: `bots.HeuristicBot`, `bots.RandomBot`. Recording a bot (`record`)
+- `"heuristic"`, `"random"`, `"9kgamerbot"`: `bots.HeuristicBot`, `bots.RandomBot`,
+  `gamerbot.NineKGamerBot`. Recording a bot (`record`)
   gives its decisions for behavior cloning (`pretrain.py`), with log-probs and values of 0.
 - any other name: a model passed in `models` (a frozen past checkpoint, an agent being evaluated).
 
@@ -17,9 +18,10 @@ action. The model seats of all games are batched into one forward pass per model
 Rewards (for the recorded seats):
 - **Placement**, when the seat's unit is placed (knocked out, or the game ends):
   `placement_reward(place, units)`, from +1 for first to -1 for last.
-- **Optional shaping** (`shaping > 0`): potential-based, with potential `shaping * potential(obs)`
-  (`log1p` of `env.compute_board_power`). So it changes no optimal policy and only moves credit
-  earlier.
+- **Optional shaping**: potential-based, with potential
+  `shaping * log1p(board power) + health_shaping * (Health + Armor) / 40` (`potential`). Being
+  potential-based, it changes no optimal policy and only moves credit earlier: the board's strength
+  while building it, the damage when it is taken.
 - **Discounting per turn**: `gamma` applies when a turn ends (`turn_end`), not at every action.
 """
 
@@ -35,21 +37,41 @@ from typing import Any
 import numpy as np
 import seaglass
 
-from .actions import ACTION_SPACE_SIZE, END_TURN_INDEX, action_from_index, action_mask
+from .actions import (
+    ACTION_KIND_IDS,
+    ACTION_KINDS,
+    ACTION_SPACE_SIZE,
+    END_TURN_INDEX,
+    action_from_index,
+    action_mask,
+)
 from .bots import HeuristicBot, RandomBot
+from .gamerbot import NineKGamerBot
 from .env import compute_board_power
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from .model import BattlegroundsMLP
 
 LEARNER = "learner"
-BOTS = ("heuristic", "random")
+BOTS = ("heuristic", "random", "9kgamerbot", "9kgamerbot-tempo")
+# A bot's turn may take more steps than a model's (`PlayOptions.max_steps_per_turn`): 9kgamerbot
+# rolls, buys and sells many times a turn.
+BOT_MAX_STEPS_PER_TURN = 100
+# The Reposition actions: allowed only in the positioning step (`PlayOptions.positioning_phase`).
+REPOSITION = ACTION_KIND_IDS == ACTION_KINDS.index("reposition")
+# The Toggle Freeze action: with the positioning step, allowed only there, once a turn.
+FREEZE = ACTION_KIND_IDS == ACTION_KINDS.index("toggle_freeze")
 
 
-def potential(obs: Any) -> float:
-    """The shaping potential of a state, before its coefficient: `log1p` of the board power
-    (`env.compute_board_power`), so that late-game boards with huge stats don't swamp the
-    placement reward."""
-    return math.log1p(max(0.0, compute_board_power(obs)))
+def potential(obs: Any, board: float = 1.0, health: float = 0.0) -> float:
+    """The shaping potential of a state: `board` × `log1p` of the board power
+    (`env.compute_board_power`; `log1p` so that late-game boards with huge stats don't swamp the
+    placement reward), plus `health` × (Health + Armor) / 40 (a Duos team's shared pool)."""
+    value = 0.0
+    if board:
+        value += board * math.log1p(max(0.0, compute_board_power(obs)))
+    if health:
+        value += health * (obs.health + obs.armor) / 40.0
+    return value
 
 
 def placement_reward(place: int, units: int) -> float:
@@ -74,6 +96,10 @@ class LobbyConfig:
     catalog: str | None = None
     first_fighter_switch_chance: float = 0.75
     avoid_recent: int = 3
+    # The game's damage caps (`engine/docs/lobby_game.md` §5).
+    damage_caps: bool = True
+    # The minion types in each lobby, drawn at random (0: every type).
+    tribes: int = 5
 
     def __post_init__(self) -> None:
         if self.duos and (self.players % 2 or not 4 <= self.players <= 8):
@@ -100,6 +126,8 @@ class LobbyConfig:
             catalog=self.catalog,
             first_fighter_switch_chance=self.first_fighter_switch_chance,
             avoid_recent=self.avoid_recent,
+            damage_caps=self.damage_caps,
+            tribes=self.tribes,
             meta=meta,
         )
 
@@ -133,12 +161,19 @@ class PlayOptions:
     """How the controllers play."""
 
     max_steps_per_turn: int = 30
+    # A model's turn has two parts: shopping (everything but Reposition and Toggle Freeze), then,
+    # once it picks End Turn, an end-of-turn step ("prepping the board for battle"): only
+    # Repositions (at most board size - 1 of them), one Toggle Freeze, and End Turn. Without it, a
+    # model may reposition and freeze at any time (`allow_reposition`, `allow_freeze`).
+    positioning_phase: bool = True
     allow_reposition: bool = True
     allow_freeze: bool = True
     prune_dominated: bool = False
     deterministic: bool = False
     gamma: float = 0.99
     shaping: float = 0.0
+    # The Health potential's coefficient (`potential`).
+    health_shaping: float = 0.0
     # Record the models' value and log-probability with their actions, and keep every game's
     # replay (`GameResult.replay`, for `match_replay`).
     keep_replays: bool = False
@@ -222,6 +257,11 @@ class _Seat:
         self.traj = traj
         self.steps = 0
         self.context = None
+        # In the positioning step, the Repositions left in it, and whether it froze (or unfroze)
+        # the shop this turn.
+        self.arranging = False
+        self.moves_left = 0
+        self.froze = False
 
 
 def _bot(controller: str, seed: int) -> Any | None:
@@ -229,6 +269,10 @@ def _bot(controller: str, seed: int) -> Any | None:
         return HeuristicBot()
     if controller == "random":
         return RandomBot(seed=seed)
+    if controller == "9kgamerbot":
+        return NineKGamerBot()
+    if controller == "9kgamerbot-tempo":
+        return NineKGamerBot(tempo_levels=True)
     return None
 
 
@@ -261,14 +305,50 @@ def play_games(
         seats.append(row)
         views.append([Seat(game, p) for p in range(config.players)])
 
-    def mask_for(seat: Seat, obs: Any) -> np.ndarray:
-        return action_mask(
+    def mask_for(seat: Seat, obs: Any, st: _Seat) -> np.ndarray:
+        if not opts.positioning_phase:
+            return action_mask(
+                seat,
+                allow_reposition=opts.allow_reposition,
+                allow_freeze=opts.allow_freeze,
+                prune_dominated=opts.prune_dominated,
+                obs=obs,
+            )
+        mask = action_mask(
             seat,
-            allow_reposition=opts.allow_reposition,
-            allow_freeze=opts.allow_freeze,
+            allow_reposition=st.arranging,
+            allow_freeze=opts.allow_freeze and st.arranging and not st.froze,
             prune_dominated=opts.prune_dominated,
             obs=obs,
         )
+        if st.arranging:
+            # The end-of-turn step: Repositions (while any are left), one Toggle Freeze, End Turn.
+            if st.moves_left <= 0:
+                mask &= ~REPOSITION
+            mask &= REPOSITION | FREEZE | (np.arange(ACTION_SPACE_SIZE) == END_TURN_INDEX)
+        return mask
+
+    def model_step(g: int, p: int, idx: int, note: dict[str, Any] | None, board: int) -> None:
+        """Take a model's action, with the end-of-turn step ("prepping the board for battle"): its
+        first End Turn opens the step instead of ending the turn, if there is anything to do in it
+        (2+ minions to reorder, or the shop to freeze). In the step, it may make up to (board - 1)
+        Repositions and one Toggle Freeze; the step ends with End Turn, or by itself once there is
+        nothing left to do."""
+        st = seats[g][p]
+        can_freeze = opts.allow_freeze and not st.froze
+        if opts.positioning_phase and idx == END_TURN_INDEX and not st.arranging and (board >= 2 or can_freeze):
+            st.arranging = True
+            st.moves_left = board - 1 if opts.allow_reposition else 0
+            st.steps += 1
+            return
+        _apply(games[g], p, st, idx, note)
+        if st.arranging and idx != END_TURN_INDEX:
+            if FREEZE[idx]:
+                st.froze = True
+            else:
+                st.moves_left -= 1
+            if st.moves_left <= 0 and (st.froze or not opts.allow_freeze) and not games[g].is_done(p):
+                _apply(games[g], p, st, END_TURN_INDEX, None)
 
     def close(traj: Trajectory, reward: float) -> None:
         """The seat's unit was placed: the terminal reward (and potential 0) end it."""
@@ -294,6 +374,9 @@ def play_games(
             for st in seats[g]:
                 st.steps = 0
                 st.context = None
+                st.arranging = False
+                st.moves_left = 0
+                st.froze = False
         step = 0
         while True:
             # Who acts now: every player still to act, unless they are over the step cap. In Duos,
@@ -308,7 +391,8 @@ def play_games(
                 units: set[int] = set()
                 for p in active:
                     st = seats[g][p]
-                    if st.steps >= opts.max_steps_per_turn:
+                    cap = opts.max_steps_per_turn if st.bot is None else BOT_MAX_STEPS_PER_TURN
+                    if st.steps >= cap:
                         force_end(g, p)
                         continue
                     unit = game.unit_of(p)
@@ -320,7 +404,7 @@ def play_games(
                 break
             step += 1
             # The bots act one by one; the models in one batch each.
-            by_model: dict[str, list[tuple[int, int, tuple, np.ndarray, float]]] = {}
+            by_model: dict[str, list[tuple[int, int, tuple, np.ndarray, float, int]]] = {}
             for g, p in todo:
                 game, st, seat = games[g], seats[g][p], views[g][p]
                 if st.bot is not None and st.traj is None:
@@ -332,12 +416,12 @@ def play_games(
                 obs = seat.observe()
                 if st.context is None and game.phase == "turn":
                     st.context = game.context(p)
-                enc = encode_observation(obs, st.context)
-                mask = mask_for(seat, obs)
+                enc = encode_observation(obs, st.context, arranging=st.arranging)
+                mask = mask_for(seat, obs, st)
                 if not mask.any():
                     force_end(g, p)
                     continue
-                phi = opts.shaping * potential(obs) if opts.shaping else 0.0
+                phi = potential(obs, opts.shaping, opts.health_shaping)
                 if st.bot is not None:
                     # A recorded bot (for behavior cloning): its action, with no log-prob or value.
                     idx = st.bot.act(seat)
@@ -347,7 +431,7 @@ def play_games(
                     _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
                     _apply(game, p, st, idx, None)
                     continue
-                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi))
+                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, len(obs.board)))
             for ctrl, rows in by_model.items():
                 model = models[ctrl]
                 pv = np.stack([r[2][0] for r in rows])
@@ -355,12 +439,12 @@ def play_games(
                 nf = np.stack([r[2][2] for r in rows])
                 mk = np.stack([r[3] for r in rows])
                 acts, lps, vals = model.act_batch(pv, ci, nf, mk, deterministic=opts.deterministic)
-                for i, (g, p, enc, mask, phi) in enumerate(rows):
+                for i, (g, p, enc, mask, phi, board) in enumerate(rows):
                     st = seats[g][p]
                     if st.traj is not None:
                         _record(st.traj, enc, mask, int(acts[i]), float(lps[i]), float(vals[i]), phi, opts.gamma)
                     note = {"value": float(vals[i]), "logp": float(lps[i])} if opts.keep_replays else None
-                    _apply(games[g], p, st, int(acts[i]), note)
+                    model_step(g, p, int(acts[i]), note, board)
         for g in live:
             game = games[g]
             for unit in game.end_phase():
@@ -445,7 +529,7 @@ def _model_from(name: str, source: Any, seed: int) -> BattlegroundsMLP:
             _MODEL_CACHE[source] = model
     else:
         config, state = source
-        model = BattlegroundsMLP(**config)
+        model = checkpoint.model_from_config(config)
         model.load_state_dict(state)
         model.eval()
     model._np_rng = np.random.default_rng(seed)

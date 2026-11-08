@@ -34,15 +34,29 @@ TAVERN_SLOTS: int = (
     MAX_BOARD + MAX_HAND + MAX_SHOP + MAX_DISCOVER + MAX_WAITING + MAX_TRINKETS + MAX_TRINKET_OPTIONS
 )  # 7 + 10 + 7 + 4 + 3 + 2 + 4 = 37
 # Appended after them: the hero and the offered heroes (`engine/docs/heroes.md` §6), the Duos
-# teammate's board and hand (empty in Solo), and the next opponents' boards as they entered their
-# last combat (Solo: the next opponent; Duos: the opposing player in this seat, then their teammate).
+# teammate's board and hand (empty in Solo), and the next opponents' boards as the player last saw
+# them, in their own last combat against them (`OpponentInfo.seen_board`; empty if never fought).
+# Solo: the next opponent; Duos: the opposing player in this seat, then their teammate.
 HERO_SLOTS: int = 1 + MAX_HERO_OPTIONS
 TEAMMATE_SLOTS: int = MAX_BOARD + MAX_HAND
 OPPONENT_BOARD_SLOTS: int = 2 * MAX_BOARD
 HERO_OFFSET: int = TAVERN_SLOTS
 TEAMMATE_OFFSET: int = HERO_OFFSET + HERO_SLOTS
 OPPONENT_BOARD_OFFSET: int = TEAMMATE_OFFSET + TEAMMATE_SLOTS
-NUM_SLOTS: int = OPPONENT_BOARD_OFFSET + OPPONENT_BOARD_SLOTS  # 37 + 5 + 17 + 14 = 73
+# Then: the Duos teammate's shop (empty in Solo); the opponents' heroes, in `LobbyContext.opponents`
+# order (the leaderboard shows them); the player's "this game" card counters
+# (`TavernObservation.card_counters`: the card, then its two values where a card's Attack and
+# Health go); and the player-level effects (`effects`: the card, its stacks where Attack goes, and
+# whether it lasts this turn only where the Tier goes).
+TEAMMATE_SHOP_SLOTS: int = MAX_SHOP
+MAX_OPPONENTS_SLOTS: int = 7
+MAX_CARD_COUNTERS: int = 8
+MAX_EFFECTS: int = 6
+TEAMMATE_SHOP_OFFSET: int = OPPONENT_BOARD_OFFSET + OPPONENT_BOARD_SLOTS
+OPPONENT_HERO_OFFSET: int = TEAMMATE_SHOP_OFFSET + TEAMMATE_SHOP_SLOTS
+CARD_COUNTER_OFFSET: int = OPPONENT_HERO_OFFSET + MAX_OPPONENTS_SLOTS
+EFFECT_OFFSET: int = CARD_COUNTER_OFFSET + MAX_CARD_COUNTERS
+NUM_SLOTS: int = EFFECT_OFFSET + MAX_EFFECTS  # 73 + 7 + 7 + 8 + 6 = 101
 # The Dark Gifts (`engine/docs/dark_gifts.md` §8.2), in their append-only vocabulary order: each card
 # slot's last features count the copies of each gift on the card.
 DARK_GIFT_IDS: list[int] = seaglass.dark_gifts_vocabulary()
@@ -50,14 +64,26 @@ DARK_GIFT_TO_FEATURE: dict[int, int] = {gid: i for i, gid in enumerate(DARK_GIFT
 # The Dark Discovery button's uses left (/ 3) and whether it is usable now, appended last.
 TAVERN_PLAYER_DIM: int = 33
 # Appended after them (`seaglass.LobbyContext`): the lobby, each opponent, and the Duos team.
-LOBBY_DIM: int = 8
+# The lobby's minion types (`LobbyContext.tribes`), a multi-hot of the 10 lobby types, end the block.
+LOBBY_TRIBE_NAMES: list[str] = [
+    "aberration", "beast", "demon", "dragon", "elemental", "mech", "murloc", "pirate", "quilboar", "undead",
+]
+LOBBY_DIM: int = 10 + len(LOBBY_TRIBE_NAMES)
 MAX_OPPONENTS: int = 7
-OPPONENT_DIM: int = 7
+OPPONENT_DIM: int = 10
 DUOS_DIM: int = 11
 LOBBY_OFFSET: int = TAVERN_PLAYER_DIM
 OPPONENTS_OFFSET: int = LOBBY_OFFSET + LOBBY_DIM
 DUOS_OFFSET: int = OPPONENTS_OFFSET + MAX_OPPONENTS * OPPONENT_DIM
-PLAYER_DIM: int = DUOS_OFFSET + DUOS_DIM  # 33 + 8 + 49 + 11 = 101
+# Last: whether the player is in the positioning step of their turn (`play.PlayOptions`).
+PHASE_OFFSET: int = DUOS_OFFSET + DUOS_DIM
+# Then the player's game-long counters (`TavernObservation.player_counters`, in
+# `seaglass.player_counter_names()` order), then both Hero Powers' counters and stacks; all
+# sign-preserving log-scaled.
+PLAYER_COUNTER_NAMES: list[str] = seaglass.player_counter_names()
+COUNTERS_OFFSET: int = PHASE_OFFSET + 1
+COUNTERS_DIM: int = len(PLAYER_COUNTER_NAMES) + 4
+PLAYER_DIM: int = COUNTERS_OFFSET + COUNTERS_DIM  # 33 + 20 + 70 + 11 + 1 + 53 + 4 = 192
 BASE_SLOT_NUM_DIM: int = 14
 # The minion type a trinket names (`engine/docs/trinkets.md` §3.4): a one-hot of the 10 lobby types,
 # appended after the Dark Gift features, set only in the trinket slots (owned and offered).
@@ -66,7 +92,27 @@ TRINKET_TRIBE_OFFSET: int = BASE_SLOT_NUM_DIM + len(DARK_GIFT_IDS)
 # The stats a card gains at the end of each turn from an effect given to it (`Gruul Rules`,
 # `engine/docs/darkmoon_prizes.md` §4.2), log-scaled, appended after the trinket types.
 END_OF_TURN_STATS_OFFSET: int = TRINKET_TRIBE_OFFSET + NUM_TRINKET_TRIBES
-SLOT_NUM_DIM: int = END_OF_TURN_STATS_OFFSET + 1
+# The minion types the card counts as (`Unit.tribes`: a multi-hot of the 11 single types), then its
+# counter (`Unit.counter`, log-scaled: a scaling card's charge, a Golden's Triple Reward Tier, ...).
+SINGLE_TRIBES: list[str] = [
+    "aberration", "beast", "demon", "dragon", "elemental", "mech", "murloc", "pirate", "quilboar",
+    "undead", "naga",
+]
+TRIBE_TO_FEATURE: dict[str, int] = {t: i for i, t in enumerate(SINGLE_TRIBES)}
+TRIBES_OFFSET: int = END_OF_TURN_STATS_OFFSET + 1
+COUNTER_OFFSET: int = TRIBES_OFFSET + len(SINGLE_TRIBES)
+# Last, what else a card carries (`_encode_unit_extra`): Stealth, a spell's price (and whether it
+# costs Health), whether it can't be played yet and for how long, its stacks, charges and Avenge
+# progress, the permanent stats and Blood Gems it gained, the Deathrattles it was given, and how far
+# its Attack and Health are above its base.
+UNIT_EXTRA_OFFSET: int = COUNTER_OFFSET + 1
+UNIT_EXTRA_DIM: int = 15
+SLOT_NUM_DIM: int = UNIT_EXTRA_OFFSET + UNIT_EXTRA_DIM  # 14 + 47 + 10 + 1 + 11 + 1 + 15 = 99
+
+
+def symlog(x: float) -> float:
+    """A sign-preserving log scale for counters: `sign(x) * log1p(|x|) / 5`."""
+    return math.copysign(math.log1p(abs(x)), x) / 5.0
 
 
 def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
@@ -90,6 +136,29 @@ def _encode_unit_into(u: seaglass.Unit, out_num: np.ndarray) -> int:
         if feature is not None:
             out_num[BASE_SLOT_NUM_DIM + feature] += 1.0
     out_num[END_OF_TURN_STATS_OFFSET] = math.log1p(max(0, u.end_of_turn_stats)) / 5.0
+    for tribe in u.tribes:  # a dual type sets two, `All` every one
+        feature = TRIBE_TO_FEATURE.get(tribe)
+        if feature is not None:
+            out_num[TRIBES_OFFSET + feature] = 1.0
+    out_num[COUNTER_OFFSET] = math.log1p(max(0, u.counter)) / 5.0
+    perm_atk, perm_hp = u.perm_stats
+    out_num[UNIT_EXTRA_OFFSET : UNIT_EXTRA_OFFSET + UNIT_EXTRA_DIM] = [
+        1.0 if u.stealth else 0.0,
+        u.spell_cost / 10.0 if u.is_spell else 0.0,
+        1.0 if u.costs_health else 0.0,
+        1.0 if u.unplayable else 0.0,
+        u.locked_turns / 3.0,
+        symlog(u.stacks),
+        u.charges / 3.0,
+        u.avenge_counter / 5.0,
+        symlog(perm_atk),
+        symlog(perm_hp),
+        math.log1p(u.blood_gems_played) / 5.0,
+        u.extra_deathrattles / 3.0,
+        symlog(u.attack - u.base_attack),
+        symlog(u.health - u.base_health),
+        1.0 if u.activated_this_turn else 0.0,
+    ]
     return CARD_ID_TO_IDX.get(u.card_id, 0)
 
 
@@ -102,12 +171,14 @@ def _encode_trinket_tribe(tribes: list[int], i: int, out_num: np.ndarray) -> Non
 def encode_observation(
     obs: seaglass.TavernObservation | seaglass.DuosObservation,
     context: seaglass.LobbyContext | None = None,
+    arranging: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Encode a `TavernObservation` (or a `DuosObservation`) into `(player_vec, slot_card_ids,
     slot_num_feats)`.
 
     `context` is the player's view of their lobby (`seaglass.LobbyGame.context`). Without one, the
     lobby features are 0. A `DuosObservation` also fills the teammate's features and slots.
+    `arranging`: the player is in the positioning step of their turn.
 
     Returns:
       - `player_vec`: float32 array of shape `(PLAYER_DIM,)`
@@ -192,6 +263,8 @@ def encode_observation(
         slot_card_ids[offset + i] = CARD_ID_TO_IDX.get(tid, 0)
         slot_num_feats[offset + i, 0] = 1.0
         _encode_trinket_tribe(obs.trinket_tribes, i, slot_num_feats[offset + i])
+        if i < len(obs.trinket_counters):
+            slot_num_feats[offset + i, COUNTER_OFFSET] = symlog(obs.trinket_counters[i])
     offset += MAX_TRINKETS
     for i, tid in enumerate(obs.trinket_options[:MAX_TRINKET_OPTIONS]):
         slot_card_ids[offset + i] = CARD_ID_TO_IDX.get(tid, 0)
@@ -208,7 +281,9 @@ def encode_observation(
     if teammate_board is not None:
         _encode_duos(obs, player_vec, slot_card_ids, slot_num_feats)
     if context is not None:
-        _encode_lobby(context, player_vec, slot_card_ids, slot_num_feats)
+        _encode_lobby(context, obs.turn, player_vec, slot_card_ids, slot_num_feats)
+    player_vec[PHASE_OFFSET] = 1.0 if arranging else 0.0
+    _encode_counters(obs, player_vec, slot_card_ids, slot_num_feats)
 
     return player_vec, slot_card_ids, slot_num_feats
 
@@ -240,18 +315,52 @@ def _encode_duos(
     for i, u in enumerate(obs.teammate_hand[:MAX_HAND]):
         slot = TEAMMATE_OFFSET + MAX_BOARD + i
         slot_card_ids[slot] = _encode_unit_into(u, slot_num_feats[slot])
+    for i, u in enumerate(obs.teammate_shop[:MAX_SHOP]):
+        slot = TEAMMATE_SHOP_OFFSET + i
+        slot_card_ids[slot] = _encode_unit_into(u, slot_num_feats[slot])
 
 
-def _encode_lobby(
-    context: seaglass.LobbyContext,
+def _encode_counters(
+    obs: seaglass.TavernObservation | seaglass.DuosObservation,
     player_vec: np.ndarray,
     slot_card_ids: np.ndarray,
     slot_num_feats: np.ndarray,
 ) -> None:
-    """The lobby (`seaglass.LobbyContext`): who is left, each opponent as the leaderboard shows them,
-    and the next opponents' last boards."""
+    """The player's game-long state that lives on no card: their counters and auras, the Hero
+    Powers' counters, the "this game" card counters and the player-level effects."""
+    values = list(obs.player_counters) + [
+        obs.hero_power_counter,
+        obs.hero_power_stacks,
+        obs.second_hero_power_counter,
+        obs.second_hero_power_stacks,
+    ]
+    player_vec[COUNTERS_OFFSET : COUNTERS_OFFSET + COUNTERS_DIM] = [symlog(v) for v in values]
+    for i, (card_id, a, b) in enumerate(obs.card_counters[:MAX_CARD_COUNTERS]):
+        slot = CARD_COUNTER_OFFSET + i
+        slot_card_ids[slot] = CARD_ID_TO_IDX.get(card_id, 0)
+        slot_num_feats[slot, 0] = 1.0
+        slot_num_feats[slot, 1] = symlog(a)
+        slot_num_feats[slot, 2] = symlog(b)
+    for i, (card_id, stacks, this_turn) in enumerate(obs.effects[:MAX_EFFECTS]):
+        slot = EFFECT_OFFSET + i
+        slot_card_ids[slot] = CARD_ID_TO_IDX.get(card_id, 0)
+        slot_num_feats[slot, 0] = 1.0
+        slot_num_feats[slot, 1] = symlog(stacks)
+        slot_num_feats[slot, 3] = 1.0 if this_turn else 0.0
+
+
+def _encode_lobby(
+    context: seaglass.LobbyContext,
+    turn: int,
+    player_vec: np.ndarray,
+    slot_card_ids: np.ndarray,
+    slot_num_feats: np.ndarray,
+) -> None:
+    """The lobby (`seaglass.LobbyContext`): who is left, this turn's damage cap, each opponent as
+    the leaderboard shows them, and the next opponents' boards as the player last saw them."""
     nxt = [o for o in context.opponents if o.is_next]
     first = nxt[0] if nxt else None
+    cap = context.damage_cap
     player_vec[LOBBY_OFFSET : LOBBY_OFFSET + LOBBY_DIM] = [
         1.0,  # a lobby game
         context.units / 8.0,
@@ -261,19 +370,33 @@ def _encode_lobby(
         first.health / 30.0 if first else 0.0,
         first.armor / 20.0 if first else 0.0,
         first.tier / 7.0 if first else 0.0,
+        1.0 if cap is not None else 0.0,
+        cap / 15.0 if cap is not None else 0.0,
+        # Every type is in a lobby that names none.
+        *[1.0 if (not context.tribes or t in context.tribes) else 0.0 for t in LOBBY_TRIBE_NAMES],
     ]
     for i, o in enumerate(context.opponents[:MAX_OPPONENTS]):
         at = OPPONENTS_OFFSET + i * OPPONENT_DIM
+        seen = o.seen_turn is not None
         player_vec[at : at + OPPONENT_DIM] = [
             1.0,
             1.0 if o.alive else 0.0,
             o.health / 30.0,
             o.armor / 20.0,
             o.tier / 7.0,
+            min(o.win_streak, 10) / 5.0,
             1.0 if o.is_next else 0.0,
             1.0 if o.is_last else 0.0,
+            1.0 if seen else 0.0,
+            # How stale the board seen is: the turns since that combat.
+            max(0, turn - o.seen_turn) / 10.0 if seen else 0.0,
         ]
+    for i, o in enumerate(context.opponents[:MAX_OPPONENTS_SLOTS]):
+        if o.hero_id:
+            slot = OPPONENT_HERO_OFFSET + i
+            slot_card_ids[slot] = CARD_ID_TO_IDX.get(o.hero_id, 0)
+            slot_num_feats[slot, 0] = 1.0 if o.alive else 0.5
     for k, o in enumerate(nxt[:2]):
-        for i, u in enumerate(o.last_board[:MAX_BOARD]):
+        for i, u in enumerate(o.seen_board[:MAX_BOARD]):
             slot = OPPONENT_BOARD_OFFSET + k * MAX_BOARD + i
             slot_card_ids[slot] = _encode_unit_into(u, slot_num_feats[slot])

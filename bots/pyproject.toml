@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seaglass-bots"
+version = "0.2.0"
+description = "Search, physics-rollout, belief-filtering, positioning, and Set-Transformer value bots for Seaglass"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["seaglass_bots*"]

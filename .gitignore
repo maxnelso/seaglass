@@ -38,6 +38,7 @@ tensorboard/
 *.swo
 *~
 
-# Recorded match replays (`engine/docs/replays.md`)
+# Recorded match replays (`engine/docs/replays.md`) and Hearthstone Power.log dumps
 replays/
 *.replay.pb
+*.log

@@ -118,13 +118,20 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1_000_000)
     parser.add_argument("--max-turns", type=int, default=30)
     parser.add_argument("--no-heroes", action="store_true")
+    parser.add_argument("--no-damage-caps", action="store_true")
+    parser.add_argument("--tribes", type=int, default=5)
     parser.add_argument("--deterministic", action="store_true", help="take the most likely action")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--replays", default=None, metavar="DIR", help="save a few games as replays in DIR")
     args = parser.parse_args()
 
     config = LobbyConfig(
-        duos=args.duos, players=args.players, max_turns=args.max_turns, heroes=not args.no_heroes
+        duos=args.duos,
+        players=args.players,
+        max_turns=args.max_turns,
+        heroes=not args.no_heroes,
+        damage_caps=not args.no_damage_caps,
+        tribes=args.tribes,
     )
     opts = PlayOptions(deterministic=args.deterministic)
     player = Player(args.workers)

@@ -18,7 +18,7 @@ def test_the_prizes_are_in_the_card_vocabulary() -> None:
 
 
 def test_gruul_rules_end_of_turn_stats_are_a_slot_feature() -> None:
-    assert END_OF_TURN_STATS_OFFSET == SLOT_NUM_DIM - 1
+    assert END_OF_TURN_STATS_OFFSET < SLOT_NUM_DIM
     unit = seaglass.Unit("Joyous", 2, 3)
     out = np.zeros(SLOT_NUM_DIM, dtype=np.float32)
     _encode_unit_into(unit, out)
