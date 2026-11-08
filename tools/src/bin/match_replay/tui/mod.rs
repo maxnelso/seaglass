@@ -30,7 +30,7 @@ use show::Source;
 
 pub const USAGE: &str = "\
 usage: match_replay tui <file> [--frame N | --turn T] [--game G] [--focus WHO] [--ascii]
-                        [--dump [--step S] [--engine] [--size WxH] [--plain]]
+                        [--dump [--step S] [--engine] [--sample win|tie|loss[:N]] [--size WxH] [--plain]]
 
   <file>       a seaglass replay (*.replay.pb) or a Hearthstone Power.log
   --game G     the Power.log game to play (1-based; default: the last one)
@@ -39,6 +39,7 @@ usage: match_replay tui <file> [--frame N | --turn T] [--game G] [--focus WHO] [
                `o` toggles it in the player
   --ascii      draw cards with plain ASCII (for fonts that draw some symbols two columns wide)
   --dump       print the screen at the frame (and combat step S) instead of starting the player:
+               --sample shows a simulated win, tie, or loss (optional 1-based :N picks seed N),
                --size sets the screen size (default 160x48), --plain drops the colours";
 
 /// The app for the file named by the first argument: a seaglass replay or a `Power.log` game,
@@ -167,7 +168,41 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
 
 /// `--dump`: print one screen.
 fn dump(app: &mut App, args: &[String]) -> Result<ExitCode, String> {
-    if args.iter().any(|a| a == "--engine") {
+    if let Some(spec) = option(args, &["--sample"]) {
+        if app.combat.is_none()
+            && option(args, &["--frame", "-f"]).is_none()
+            && option(args, &["--turn", "-t"]).is_some()
+        {
+            let turn = app.source.info(app.frame).turn;
+            app.next_combat();
+            if app.combat.is_none() || app.source.info(app.frame).turn != turn {
+                return Err(format!("turn {turn} has no combat"));
+            }
+        }
+        let (kind_str, nth) = match spec.split_once(':') {
+            Some((k, n)) => {
+                let n: usize = n
+                    .parse()
+                    .ok()
+                    .filter(|&n| n >= 1)
+                    .ok_or_else(|| format!("bad --sample {spec:?} (seed index must be >= 1)"))?;
+                (k, n - 1)
+            }
+            None => (spec, 0),
+        };
+        let kind = combat::SampleKind::parse(kind_str).ok_or_else(|| {
+            format!("bad --sample {spec:?} (expected win, tie, or loss, optionally :N)")
+        })?;
+        if app.combat.is_none() {
+            return Err(format!("frame {} is not a combat", app.frame));
+        }
+        if !app.select_sample(kind, nth) {
+            return Err(format!(
+                "no simulated {} in this combat's sample",
+                kind.label()
+            ));
+        }
+    } else if args.iter().any(|a| a == "--engine") {
         app.toggle_alt();
     }
     if let Some(step) = option(args, &["--step"]) {
@@ -271,6 +306,16 @@ fn handle_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
         KeyCode::Tab => app.cycle_perspective(),
         KeyCode::Char('f') => app.toggle_follow(),
         KeyCode::Char('o') => app.toggle_focus(),
+        KeyCode::Char('1') | KeyCode::Char('w') => {
+            app.show_sample(combat::SampleKind::Win);
+        }
+        KeyCode::Char('2') | KeyCode::Char('t') | KeyCode::Char('d') => {
+            app.show_sample(combat::SampleKind::Tie);
+        }
+        KeyCode::Char('3') | KeyCode::Char('L') => {
+            app.show_sample(combat::SampleKind::Loss);
+        }
+        KeyCode::Char('0') | KeyCode::Char('r') | KeyCode::Backspace => app.clear_sample(),
         KeyCode::Char('e') => app.toggle_alt(),
         KeyCode::Char('i') | KeyCode::Enter => {
             app.playing = false;
@@ -688,5 +733,142 @@ mod tests {
             };
             assert!(row(other) < row(unit), "{}", screen.join("\n"));
         }
+    }
+
+    #[test]
+    fn sample_combats_play_each_available_outcome_from_either_perspective() {
+        use super::combat::SampleKind;
+        use seaglass::Side;
+
+        let mut seen = [false; 3];
+        let mut cycled = false;
+        let mut ghost_checked = false;
+        for (seed, is_duos) in [(1, false), (2, false), (3, true), (4, true)] {
+            let timeline = lobby(seed, is_duos);
+            let mut app = App::new(
+                Box::new(ReplaySource::new(timeline.clone())),
+                "g.replay.pb".into(),
+                0,
+                Glyphs::UNICODE,
+            );
+            for frame in 0..app.len() {
+                if app.source.info(frame).kind != show::Kind::Combat {
+                    continue;
+                }
+                app.go_to(frame);
+                let is_ghost = matches!(timeline.frames[frame].kind, FrameKind::GhostCombat { .. });
+                let players_b = app.combat.as_ref().unwrap().players[1].clone();
+                let perspectives: Vec<usize> = if let Some(&p) = players_b.first() {
+                    vec![0, p]
+                } else {
+                    vec![0]
+                };
+                for p in perspectives {
+                    app.follow = false;
+                    app.perspective = p;
+                    app.clear_sample();
+                    let bottom = app.bottom_side();
+                    let odds = app
+                        .combat
+                        .as_ref()
+                        .unwrap()
+                        .odds
+                        .as_ref()
+                        .expect("combat has odds")
+                        .clone();
+                    assert_eq!(odds.a_wins > 0, !odds.a_win_seeds.is_empty());
+                    assert_eq!(odds.draws > 0, !odds.draw_seeds.is_empty());
+                    assert_eq!(odds.b_wins > 0, !odds.b_win_seeds.is_empty());
+
+                    let (us, them) = match bottom {
+                        Side::A => (&odds.side_names[0], &odds.side_names[1]),
+                        Side::B => (&odds.side_names[1], &odds.side_names[0]),
+                    };
+                    for (idx, kind) in [SampleKind::Win, SampleKind::Tie, SampleKind::Loss]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        let seeds = odds.seeds_for(bottom, kind);
+                        if seeds.is_empty() {
+                            assert!(!app.show_sample(kind));
+                            continue;
+                        }
+                        seen[idx] = true;
+                        ghost_checked |= is_ghost;
+                        assert!(app.show_sample(kind));
+                        let sample = app.shown_combat().unwrap().clone();
+                        check_playback(
+                            &sample,
+                            &format!("seed {seed} frame {frame} {bottom:?} {kind:?}"),
+                        );
+                        match kind {
+                            SampleKind::Win => assert!(
+                                sample.result.starts_with(&format!("{us} wins · ")),
+                                "expected {us} win, got {}",
+                                sample.result
+                            ),
+                            SampleKind::Tie => assert_eq!(sample.result, "Draw"),
+                            SampleKind::Loss => assert!(
+                                sample.result.starts_with(&format!("{them} wins · ")),
+                                "expected {them} win, got {}",
+                                sample.result
+                            ),
+                        }
+                        // Draw at multiple sizes while viewing the sample.
+                        for (w, h) in [(160, 48), (90, 26), (40, 12)] {
+                            let plain = screen::draw(&app, w, h).to_plain().join("\n");
+                            if w >= 90 {
+                                assert!(
+                                    plain.contains(&format!(
+                                        "SAMPLE {} 1/",
+                                        kind.label().to_uppercase()
+                                    )),
+                                    "{plain}"
+                                );
+                            }
+                        }
+                        if seeds.len() > 1 {
+                            assert!(app.show_sample(kind));
+                            assert_eq!(app.sample.as_ref().unwrap().index, 1);
+                            cycled = true;
+                        }
+                        app.clear_sample();
+                        assert!(app.sample.is_none());
+                    }
+                }
+            }
+        }
+        assert_eq!(seen, [true, true, true], "must exercise Win, Tie, and Loss");
+        assert!(cycled, "must exercise cycling multiple sample seeds");
+        assert!(ghost_checked, "must exercise ghost sample combat");
+
+        // Flipping perspective with Tab flips SAMPLE WIN <-> SAMPLE LOSS to match bottom_side.
+        let timeline = game(1);
+        let frame = (0..timeline.len())
+            .find(|&i| matches!(timeline.frames[i].kind, FrameKind::Combat { .. }))
+            .unwrap();
+        let mut app = App::new(
+            Box::new(ReplaySource::new(timeline)),
+            "g.replay.pb".into(),
+            frame,
+            Glyphs::UNICODE,
+        );
+        app.follow = false;
+        app.perspective = 0;
+        let kind = if app.show_sample(SampleKind::Win) {
+            SampleKind::Win
+        } else {
+            assert!(app.show_sample(SampleKind::Loss));
+            SampleKind::Loss
+        };
+        let flipped = kind.flipped();
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
+        let plain = screen::draw(&app, 160, 48).to_plain().join("\n");
+        assert!(
+            plain.contains(&format!("SAMPLE {} 1/", flipped.label().to_uppercase())),
+            "{plain}"
+        );
+        handle_key(&mut app, KeyCode::Char('0'), KeyModifiers::NONE);
+        assert!(app.sample.is_none());
     }
 }

@@ -2,13 +2,35 @@
 
 use std::time::Duration;
 
+use seaglass::Side;
 use seaglass_tools::render::Glyphs;
 
-use super::combat::{CombatPlayback, Phase};
+use super::combat::{CombatPlayback, Phase, SampleKind};
 use super::show::{Kind, Source};
 
 /// The playback speeds `+` and `-` step through.
 const SPEEDS: [f32; 7] = [0.25, 0.5, 1.0, 1.5, 2.0, 4.0, 8.0];
+
+/// Currently shown simulated combat from [`CombatPlayback::odds`].
+#[derive(Clone, Debug)]
+pub struct ActiveSample {
+    /// Side from whose perspective `kind` was chosen.
+    pub side: Side,
+    pub kind: SampleKind,
+    pub index: usize,
+    pub count: usize,
+    pub playback: CombatPlayback,
+}
+
+impl ActiveSample {
+    pub fn kind_for(&self, side: Side) -> SampleKind {
+        if side == self.side {
+            self.kind
+        } else {
+            self.kind.flipped()
+        }
+    }
+}
 
 /// The replay player: a [`Source`] and where the player is in it.
 pub struct App {
@@ -21,6 +43,8 @@ pub struct App {
     pub step: usize,
     /// The current frame's combat, ready to play back.
     pub combat: Option<CombatPlayback>,
+    /// Simulated Win / Tie / Loss combat currently viewed in place of the recorded combat.
+    pub sample: Option<ActiveSample>,
     /// Show the combat's other version (the engine's) instead.
     pub show_alt: bool,
     /// The player whose Tavern is shown (when not following the actor).
@@ -47,6 +71,7 @@ impl App {
             frame: 0,
             step: 0,
             combat: None,
+            sample: None,
             show_alt: false,
             perspective: 0,
             follow: true,
@@ -81,12 +106,64 @@ impl App {
         self.speed = self.speed.saturating_sub(1);
     }
 
-    /// The combat version shown: the frame's, or its other version when toggled.
+    /// Which side of the current combat is drawn at the bottom of the screen.
+    pub fn bottom_side(&self) -> Side {
+        match &self.combat {
+            Some(c) if c.players[1].contains(&self.shown_player()) => Side::B,
+            _ => Side::A,
+        }
+    }
+
+    /// The combat version shown: a simulated sample if selected, else the frame's or its alternate.
     pub fn shown_combat(&self) -> Option<&CombatPlayback> {
+        if let Some(sample) = &self.sample {
+            return Some(&sample.playback);
+        }
         let combat = self.combat.as_ref()?;
         match (&combat.alt, self.show_alt) {
             (Some(alt), true) => Some(alt),
             _ => Some(combat),
+        }
+    }
+
+    /// Show the `index`-th simulated combat for `kind` from the bottom side's perspective.
+    pub fn select_sample(&mut self, kind: SampleKind, index: usize) -> bool {
+        let side = self.bottom_side();
+        let Some(combat) = &self.combat else {
+            return false;
+        };
+        let Some((idx, count, playback)) = combat.sample_combat(side, kind, index) else {
+            return false;
+        };
+        self.playing = false;
+        self.inspect = None;
+        self.step = 0;
+        self.sample = Some(ActiveSample {
+            side,
+            kind,
+            index: idx,
+            count,
+            playback,
+        });
+        true
+    }
+
+    /// Show a simulated `kind` combat (or advance to the next seed in that bucket if already shown).
+    pub fn show_sample(&mut self, kind: SampleKind) -> bool {
+        let side = self.bottom_side();
+        let next = match &self.sample {
+            Some(s) if s.kind_for(side) == kind => s.index + 1,
+            _ => 0,
+        };
+        self.select_sample(kind, next)
+    }
+
+    /// Return from a simulated sample combat to the recorded combat.
+    pub fn clear_sample(&mut self) {
+        if self.sample.take().is_some() {
+            self.playing = false;
+            self.inspect = None;
+            self.step = 0;
         }
     }
 
@@ -99,6 +176,7 @@ impl App {
             return;
         }
         let step = current.steps[self.step.min(current.steps.len() - 1)].clone();
+        self.sample = None;
         self.show_alt = !self.show_alt;
         let target = self.shown_combat().unwrap();
         self.step = target.matching_step(&step);
@@ -175,6 +253,7 @@ impl App {
     pub fn go_to(&mut self, frame: usize) {
         self.frame = frame.min(self.len().saturating_sub(1));
         self.step = 0;
+        self.sample = None;
         self.inspect = None;
         self.combat = self.source.combat(self.frame);
         if self.follow {

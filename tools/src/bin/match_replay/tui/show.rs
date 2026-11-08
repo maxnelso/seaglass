@@ -8,14 +8,14 @@
 use seaglass::combat::MAX_BOARD_SIZE;
 use seaglass::replay::{Frame, FrameKind};
 use seaglass::{
-    heroes, trinkets, CombatResult, DuosTavern, DuosTeam, PlayerAuras, TavernState, Timeline, Unit,
-    Warband,
+    heroes, trinkets, with_combat_trace, CombatResult, DuosTavern, DuosTeam, PlayerAuras,
+    TavernState, Timeline, Unit, Warband,
 };
 use seaglass_tools::replay_text::{frame_title, player_name, unit_players};
 
 use super::combat::{
     duos_ghost_odds, duos_odds, solo_ghost_odds, tavern_label, trinkets_clause, CombatPlayback,
-    DuosSide, SoloSide,
+    DuosSide, SimBuilder, SoloSide,
 };
 
 /// What kind of moment a frame is (for colours, auto-play pacing and navigation).
@@ -324,15 +324,49 @@ impl Source for ReplaySource {
                 let (pre_a, pre_b) = (team_tavern(before, *a), team_tavern(before, *b));
                 let (side_a, side_b) = (self.team_side(frame, *a), self.team_side(frame, *b));
                 let odds = duos_odds([&side_a.team, &side_b.team], &pre_a, &pre_b, *seed);
+                let damage_cap = before.players[2 * a].lobby.damage_cap;
+                let (cap_a, cap_b) = (pre_a.clone(), pre_b.clone());
+                let (names_a, names_b) = (side_a.names.clone(), side_b.names.clone());
+                let (players_a, players_b) = (side_a.players.clone(), side_b.players.clone());
+                let (ua, ub) = (*a, *b);
+                let sim = SimBuilder::new(move |s| {
+                    let (mut sim_a, mut sim_b) = (cap_a.clone(), cap_b.clone());
+                    let (res, snapshots) = with_combat_trace(|| {
+                        DuosTavern::resolve_combat_pair(&mut sim_a, &mut sim_b, s)
+                    });
+                    CombatPlayback::build_duos(
+                        res,
+                        snapshots,
+                        None,
+                        damage_cap,
+                        [
+                            duos_side_from_tavern(
+                                names_a.clone(),
+                                ua,
+                                &cap_a,
+                                &sim_a,
+                                players_a.clone(),
+                            ),
+                            duos_side_from_tavern(
+                                names_b.clone(),
+                                ub,
+                                &cap_b,
+                                &sim_b,
+                                players_b.clone(),
+                            ),
+                        ],
+                    )
+                });
                 let (mut team_a, mut team_b) = (pre_a, pre_b);
                 Some(
                     CombatPlayback::from_duos(
                         || DuosTavern::resolve_combat_pair(&mut team_a, &mut team_b, *seed),
                         result,
-                        before.players[2 * a].lobby.damage_cap,
+                        damage_cap,
                         [side_a, side_b],
                     )
-                    .with_odds(odds),
+                    .with_odds(odds)
+                    .with_sim(sim),
                 )
             }
             FrameKind::GhostCombat {
@@ -342,31 +376,62 @@ impl Source for ReplaySource {
                 result,
             } => Some(match &**result {
                 CombatResult::Solo(recorded) => {
-                    let mut state = before.players[*unit].clone();
+                    let pre_state = before.players[*unit].clone();
+                    let mut state = pre_state.clone();
                     let board = self.last_warband(frame, *ghost);
                     let tier = before.players[*ghost].tavern_tier;
-                    let name = &self.names[*unit];
+                    let name = self.names[*unit].clone();
                     let ghost_name = format!("ghost of {}", self.names[*ghost]);
-                    let odds = solo_ghost_odds([name, &ghost_name], &state, &board, tier, *seed);
+                    let odds = solo_ghost_odds([&name, &ghost_name], &state, &board, tier, *seed);
                     let ghost_trinkets = trinkets_clause(&before.players[*ghost])
                         .map(|t| format!(" · {t}"))
                         .unwrap_or_default();
                     let ghost_label = format!("{ghost_name} · Tier {tier}{ghost_trinkets}");
+                    let ghost_side = SoloSide {
+                        name: ghost_name,
+                        label: ghost_label.clone(),
+                        end_label: ghost_label,
+                        players: Vec::new(),
+                    };
                     let sides = [
                         SoloSide {
                             name: name.clone(),
-                            label: tavern_label(name, &state, &after.players[*unit], false),
-                            end_label: tavern_label(name, &state, &after.players[*unit], true),
+                            label: tavern_label(&name, &state, &after.players[*unit], false),
+                            end_label: tavern_label(&name, &state, &after.players[*unit], true),
                             players: vec![*unit],
                         },
-                        SoloSide {
-                            name: ghost_name,
-                            label: ghost_label.clone(),
-                            end_label: ghost_label,
-                            players: Vec::new(),
-                        },
+                        ghost_side.clone(),
                     ];
                     let damage_cap = state.lobby.damage_cap;
+                    let cap_board = board.clone();
+                    let u = *unit;
+                    let sim = SimBuilder::new(move |s| {
+                        let mut sim_a = pre_state.clone();
+                        let (res, snapshots) = with_combat_trace(|| {
+                            sim_a.resolve_combat_against(
+                                &cap_board,
+                                tier,
+                                &PlayerAuras::default(),
+                                &[],
+                                s,
+                            )
+                        });
+                        CombatPlayback::build_solo(
+                            res,
+                            snapshots,
+                            None,
+                            damage_cap,
+                            [
+                                SoloSide {
+                                    name: name.clone(),
+                                    label: tavern_label(&name, &pre_state, &sim_a, false),
+                                    end_label: tavern_label(&name, &pre_state, &sim_a, true),
+                                    players: vec![u],
+                                },
+                                ghost_side.clone(),
+                            ],
+                        )
+                    });
                     CombatPlayback::from_battle(
                         || {
                             state.resolve_combat_against(
@@ -382,6 +447,7 @@ impl Source for ReplaySource {
                         sides,
                     )
                     .with_odds(odds)
+                    .with_sim(sim)
                 }
                 CombatResult::Duos(recorded) => {
                     let ghosts = unit_players(&self.timeline, *ghost);
@@ -417,18 +483,67 @@ impl Source for ReplaySource {
                     let side_a = self.team_side(frame, *unit);
                     let odds =
                         duos_ghost_odds([&side_a.team, &ghost_side.team], &pre_a, &opponent, *seed);
+                    let damage_cap = before.players[2 * unit].lobby.damage_cap;
+                    let cap_a = pre_a.clone();
+                    let cap_opp = opponent.clone();
+                    let cap_ghost_side = ghost_side.clone();
+                    let names_a = side_a.names.clone();
+                    let players_a = side_a.players.clone();
+                    let u = *unit;
+                    let sim = SimBuilder::new(move |s| {
+                        let mut sim_a = cap_a.clone();
+                        let (res, snapshots) =
+                            with_combat_trace(|| sim_a.resolve_combat_against(&cap_opp, s));
+                        CombatPlayback::build_duos(
+                            res,
+                            snapshots,
+                            None,
+                            damage_cap,
+                            [
+                                duos_side_from_tavern(
+                                    names_a.clone(),
+                                    u,
+                                    &cap_a,
+                                    &sim_a,
+                                    players_a.clone(),
+                                ),
+                                cap_ghost_side.clone(),
+                            ],
+                        )
+                    });
                     let mut tavern = pre_a;
                     CombatPlayback::from_duos(
                         || tavern.resolve_combat_against(&opponent, *seed),
                         recorded,
-                        before.players[2 * unit].lobby.damage_cap,
+                        damage_cap,
                         [side_a, ghost_side],
                     )
                     .with_odds(odds)
+                    .with_sim(sim)
                 }
             }),
             _ => None,
         }
+    }
+}
+
+fn duos_side_from_tavern(
+    names: [String; 2],
+    u: usize,
+    pre: &DuosTavern,
+    post: &DuosTavern,
+    players: Vec<usize>,
+) -> DuosSide {
+    let label = |i: usize, end: bool| {
+        let name = format!("{} · team {}", names[i], u + 1);
+        tavern_label(&name, &pre.players[i], &post.players[i], end)
+    };
+    DuosSide {
+        team: format!("team {}", u + 1),
+        labels: [0, 1].map(|i| label(i, false)),
+        end_labels: [0, 1].map(|i| label(i, true)),
+        names,
+        players,
     }
 }
 

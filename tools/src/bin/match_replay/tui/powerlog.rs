@@ -13,10 +13,11 @@
 use std::collections::HashMap;
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
+use std::sync::Arc;
 
 use seaglass::{
-    full_catalog, resolve_battle, resolve_duos_battle, CardTemplate, CombatSnapshot, DeityKind,
-    Event, GameState, Side, Tribe, Unit,
+    full_catalog, resolve_battle, resolve_duos_battle, with_combat_trace, BattleOutcome,
+    CardTemplate, CombatSnapshot, DeityKind, Event, GameState, Side, Tribe, Unit,
 };
 use seaglass_replay::reconstruct::{BoardSource, CombatSetup, LogMinion, PlayerSetup, ServerEvent};
 use seaglass_replay::validate::{deity_kind_of, engine_input, engine_trace, EngineInput};
@@ -27,7 +28,8 @@ use seaglass_replay::{
 use seaglass_tools::fmt::CombatNames;
 
 use super::combat::{
-    engine_steps, ids, CombatOdds, CombatPlayback, Phase, Step, ODDS_BASE_SEED, ODDS_RUNS,
+    engine_steps, ids, CombatOdds, CombatPlayback, Phase, SimBuilder, Step, ODDS_BASE_SEED,
+    ODDS_RUNS,
 };
 use super::show::{fresh, FrameInfo, Kind, Row, Source, TavernView};
 
@@ -734,14 +736,19 @@ fn log_combat(
         version: "real",
         warning: None,
         odds: None,
+        sim: None,
         alt: None,
     };
     if setup.frames.is_empty() {
-        real.odds = panic::catch_unwind(AssertUnwindSafe(|| {
-            let input = engine_input(setup, deity);
-            powerlog_odds(setup, local, &input)
-        }))
-        .ok();
+        if let Ok((odds, sim)) = panic::catch_unwind(AssertUnwindSafe(|| {
+            let input = Arc::new(engine_input(setup, deity));
+            let odds = powerlog_odds(setup, local, &input);
+            let sim = powerlog_sim(setup, local, card_names, Arc::clone(&input));
+            (odds, sim)
+        })) {
+            real.odds = Some(odds);
+            real.sim = Some(sim);
+        }
         real.warning = Some("the log has no board snapshots for this combat".to_string());
         return real;
     }
@@ -752,6 +759,7 @@ fn log_combat(
             let note = compare(&real, &engine);
             real.warning = note.clone();
             real.odds = engine.odds.clone();
+            real.sim = engine.sim.clone();
             let mut engine = engine;
             if engine.warning.is_none() {
                 engine.warning = note;
@@ -854,6 +862,60 @@ fn powerlog_odds(setup: &CombatSetup, local: &str, input: &EngineInput) -> Comba
     }
 }
 
+/// Builder to replay any simulated seed from `powerlog_odds` as a traced [`CombatPlayback`].
+fn powerlog_sim(
+    setup: &CombatSetup,
+    local: &str,
+    card_names: &HashMap<String, String>,
+    input: Arc<EngineInput>,
+) -> SimBuilder {
+    let setup = setup.clone();
+    let local = local.to_string();
+    let card_names = card_names.clone();
+    SimBuilder::new(move |seed| {
+        if input.is_duos {
+            let (r, snapshots) =
+                with_combat_trace(|| resolve_duos_battle(&input.team_a, &input.team_b, seed));
+            traced_powerlog_combat(
+                &setup,
+                &local,
+                &card_names,
+                &input,
+                snapshots,
+                &r.events,
+                r.outcome,
+                r.hero_damage,
+                "",
+                None,
+            )
+        } else {
+            let [a, b] = [&input.team_a.warbands[0], &input.team_b.warbands[0]];
+            let state = GameState {
+                hero_tier_a: a.hero_tier,
+                hero_tier_b: b.hero_tier,
+                auras_a: a.auras.clone(),
+                auras_b: b.auras.clone(),
+                hand_a: a.hand.clone(),
+                hand_b: b.hand.clone(),
+            };
+            let (r, snapshots) =
+                with_combat_trace(|| resolve_battle(&a.board, &b.board, &state, seed));
+            traced_powerlog_combat(
+                &setup,
+                &local,
+                &card_names,
+                &input,
+                snapshots,
+                &r.events,
+                r.outcome,
+                r.hero_damage,
+                "",
+                None,
+            )
+        }
+    })
+}
+
 /// The seeds tried for the engine's version of a combat.
 const ENGINE_SEEDS: u64 = 64;
 
@@ -866,8 +928,9 @@ fn engine_combat(
     card_names: &HashMap<String, String>,
     deity: DeityKind,
 ) -> CombatPlayback {
-    let input = engine_input(setup, deity);
+    let input = Arc::new(engine_input(setup, deity));
     let odds = Some(powerlog_odds(setup, local, &input));
+    let sim = Some(powerlog_sim(setup, local, card_names, Arc::clone(&input)));
     // The run that follows the real attacks the longest (who attacks first on a tie, and the
     // random draws after the engine stops following, depend on the seed).
     let mut trace = engine_trace(setup, &input, 0);
@@ -883,15 +946,45 @@ fn engine_combat(
             trace = other;
         }
     }
+    let mut pb = traced_powerlog_combat(
+        setup,
+        local,
+        card_names,
+        &input,
+        trace.snapshots,
+        &trace.events,
+        trace.outcome,
+        trace.damage,
+        "engine",
+        trace.lost.as_ref().map(|(k, why)| (*k, why.as_str())),
+    );
+    pb.odds = odds;
+    pb.sim = sim;
+    pb
+}
+
+#[allow(clippy::too_many_arguments)]
+fn traced_powerlog_combat(
+    setup: &CombatSetup,
+    local: &str,
+    card_names: &HashMap<String, String>,
+    input: &EngineInput,
+    snapshots: Vec<CombatSnapshot>,
+    events: &[Event],
+    outcome: BattleOutcome,
+    raw_damage: u32,
+    version: &'static str,
+    lost: Option<(usize, &str)>,
+) -> CombatPlayback {
     let mut units: Vec<(u32, Side, String)> = Vec::new();
-    for s in &trace.snapshots {
+    for s in &snapshots {
         for (side, board) in [(Side::A, &s.board_a), (Side::B, &s.board_b)] {
             units.extend(board.iter().map(|u| (u.id, side, u.name.clone())));
         }
     }
     let mut names = CombatNames::from_units(["us", "them"], units);
-    let texts: Vec<String> = trace.events.iter().map(|e| names.describe(e)).collect();
-    let mut steps = engine_steps(&trace.snapshots, &trace.events);
+    let texts: Vec<String> = events.iter().map(|e| names.describe(e)).collect();
+    let mut steps = engine_steps(&snapshots, events);
     // Who fights: the first warbands, then whoever steps in.
     let pid = |team: usize, player: usize| {
         let players = if team == 0 {
@@ -904,7 +997,7 @@ fn engine_combat(
     let first = [pid(0, input.team_a.first), pid(1, input.team_b.first)];
     for step in &mut steps {
         let mut f = first;
-        for e in &trace.events[..step.events.end] {
+        for e in &events[..step.events.end] {
             if let Event::WarbandSteppedIn { team, player, .. } = e {
                 let t = (*team == Side::B) as usize;
                 f[t] = pid(t, *player);
@@ -916,7 +1009,7 @@ fn engine_combat(
         });
     }
     let mut warnings = Vec::new();
-    if let Some((k, why)) = &trace.lost {
+    if let Some((k, why)) = lost {
         warnings.push(format!(
             "the engine stops following the real attacks at strike {}: {why}",
             k + 1
@@ -934,18 +1027,19 @@ fn engine_combat(
         ));
     }
     let damage = match setup.damage_cap {
-        Some(cap) => trace.damage.min(cap.max(0) as u32),
-        None => trace.damage,
+        Some(cap) => raw_damage.min(cap.max(0) as u32),
+        None => raw_damage,
     };
     CombatPlayback {
-        snapshots: trace.snapshots,
+        snapshots,
         texts,
         steps,
         players: [vec![0], Vec::new()],
-        result: team_result(trace.outcome, damage),
-        version: "engine",
+        result: team_result(outcome, damage),
+        version,
         warning: (!warnings.is_empty()).then(|| warnings.join(" · ")),
-        odds,
+        odds: None,
+        sim: None,
         alt: None,
     }
 }
@@ -1322,6 +1416,15 @@ TAG_CHANGE Entity=GameEntity tag=BACON_IN_COMBAT_PHASE value=0
         assert_eq!(engine.version, "engine");
         assert_eq!(engine.result, "Draw");
         assert!(combat.warning.is_none(), "{:?}", combat.warning);
+
+        // Simulated sample outcomes from the Power.log combat replay cleanly too.
+        let mut sample_app = App::new(Box::new(super::tests::source()), "Power.log".into(), 1, Glyphs::UNICODE);
+        assert!(sample_app.show_sample(crate::tui::combat::SampleKind::Tie));
+        assert_eq!(sample_app.shown_combat().unwrap().result, "Draw");
+        let sample_plain = screen::draw(&sample_app, 120, 40).to_plain().join("\n");
+        assert!(sample_plain.contains("SAMPLE TIE 1/"), "{sample_plain}");
+        sample_app.clear_sample();
+        assert_eq!(sample_app.shown_combat().unwrap().version, "real");
 
         // Every frame and step draws, both versions, at any size.
         let mut app = App::new(Box::new(source), "Power.log".into(), 0, Glyphs::UNICODE);

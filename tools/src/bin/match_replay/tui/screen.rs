@@ -10,7 +10,7 @@ use seaglass_tools::render::{
 };
 
 use super::app::App;
-use super::combat::{CombatOdds, CombatPlayback, Phase, Step};
+use super::combat::{CombatOdds, CombatPlayback, Phase, SampleKind, Step};
 use super::show::Kind;
 
 const RULE: char = '─';
@@ -78,12 +78,19 @@ fn footer(app: &App, c: &mut Canvas, y: usize) {
     let keys = if app.inspect.is_some() {
         " ←/→ card  i/Esc done  ? help  q quit".to_string()
     } else if let Some(combat) = &app.combat {
+        let sample = if app.sample.is_some() {
+            "  1/2/3 sample  0 actual"
+        } else if combat.sim.is_some() {
+            "  1/2/3 sample"
+        } else {
+            ""
+        };
         let alt = if combat.alt.is_some() {
             "  e real/engine"
         } else {
             ""
         };
-        format!(" ←/→ strike  ␣ play  +/- speed  n/p frame  ↑/↓ turn  c/C combat{alt}  i inspect  ? help  q quit")
+        format!(" ←/→ strike  ␣ play  +/- speed{sample}{alt}  n/p frame  ↑/↓ turn  c/C combat  i inspect  ? help  q quit")
     } else {
         " ←/→ step  ␣ play  +/- speed  ↑/↓ turn  c/C combat  Tab player  f follow  o only  i inspect  ? help  q quit".to_string()
     };
@@ -280,11 +287,11 @@ fn combat_body(
     let step = &combat.steps[app.step.min(combat.steps.len() - 1)];
     let snapshot = combat.snapshots.get(step.snapshot);
     // The shown player (or their Duos team) at the bottom, their opponent on top.
-    let bottom_side = if combat.players[1].contains(&app.shown_player()) {
-        Side::B
-    } else {
-        Side::A
-    };
+    let bottom_side = app.bottom_side();
+    let active_sample = app
+        .sample
+        .as_ref()
+        .map(|s| (s.kind_for(bottom_side), s.index, s.count));
     let empty: Vec<Unit> = Vec::new();
     let board = |side: Side| -> &[Unit] {
         match (snapshot, side) {
@@ -296,8 +303,8 @@ fn combat_body(
     let width = c.width();
     let size = fit(7, width - 2);
     let room = bottom - top;
-    let header_lines =
-        usize::from(!combat.version.is_empty()) + usize::from(combat.odds.is_some());
+    let show_badge = active_sample.is_some() || !combat.version.is_empty();
+    let header_lines = usize::from(show_badge) + usize::from(combat.odds.is_some());
     let size = if room >= 2 * size.height() + 9 + header_lines {
         size
     } else {
@@ -310,7 +317,49 @@ fn combat_body(
 
     let top_side = bottom_side.other();
     let mut y = top;
-    if !combat.version.is_empty() {
+    if let Some((kind, idx, count)) = active_sample {
+        let badge = format!(
+            " SAMPLE {} {}/{} ",
+            kind.label().to_uppercase(),
+            idx + 1,
+            count
+        );
+        let style = match kind {
+            SampleKind::Win => Style::fg(Color::Green).bold().reversed(),
+            SampleKind::Tie => Style::fg(Color::Yellow).bold().reversed(),
+            SampleKind::Loss => Style::fg(Color::Red).bold().reversed(),
+        };
+        c.text(1, y, &badge, style);
+        let cycle = if count > 1 {
+            format!("{}: next {} · ", kind.key(), kind.lower())
+        } else {
+            String::new()
+        };
+        let alt = if combat.alt.is_some() {
+            " · e: real/engine"
+        } else {
+            ""
+        };
+        let hint = format!("{cycle}0: actual combat{alt}");
+        c.text(
+            2 + badge.chars().count(),
+            y,
+            &truncate(&hint, width.saturating_sub(3 + badge.chars().count())),
+            Style::fg(Color::Gray),
+        );
+        if let Some(w) = &combat.warning {
+            let used = 2 + badge.chars().count() + hint.chars().count() + 2;
+            if width > used + 4 {
+                c.text_right(
+                    width - 1,
+                    y,
+                    &truncate(w, width - used),
+                    Style::fg(Color::Yellow).bold(),
+                );
+            }
+        }
+        y += 1;
+    } else if !combat.version.is_empty() {
         let other = combat.alt.is_some() || app.show_alt;
         let badge = format!(" {} ", combat.version.to_uppercase());
         let style = if combat.version == "engine" {
@@ -339,7 +388,16 @@ fn combat_body(
         y += 1;
     }
     if let Some(odds) = &combat.odds {
-        draw_odds(c, 1, y, width - 2, odds, bottom_side);
+        draw_odds(
+            c,
+            1,
+            y,
+            width - 2,
+            odds,
+            bottom_side,
+            combat.sim.is_some(),
+            active_sample.map(|(k, _, _)| k),
+        );
         y += 1;
     }
     c.text(
@@ -413,7 +471,7 @@ fn combat_body(
             Style::fg(Color::Cyan).bold()
         };
         c.text(1, caption_y, &format!("▸ {heading}"), style);
-        if combat.version.is_empty() {
+        if combat.version.is_empty() && active_sample.is_none() {
             if let Some(w) = &combat.warning {
                 c.text_right(
                     width - 1,
@@ -578,6 +636,10 @@ const HELP: &[(&str, &str)] = &[
     ("f", "follow whoever acts (on) / stay on one player"),
     ("o", "only the shown player's (team's) moments / everyone's"),
     (
+        "1 / 2 / 3",
+        "a combat: play a sample Win / Tie / Loss (0: actual)",
+    ),
+    (
         "e",
         "a Power.log combat: switch between the real one and the engine's",
     ),
@@ -613,36 +675,51 @@ fn help(c: &mut Canvas) {
     c.blit(x, y, &panel);
 }
 
-fn draw_odds(c: &mut Canvas, x0: usize, y: usize, width: usize, odds: &CombatOdds, side: Side) {
+#[allow(clippy::too_many_arguments)]
+fn draw_odds(
+    c: &mut Canvas,
+    x0: usize,
+    y: usize,
+    width: usize,
+    odds: &CombatOdds,
+    side: Side,
+    can_sample: bool,
+    active: Option<SampleKind>,
+) {
     let p = odds.parts(side);
+    let seg = |kind: SampleKind, text: String, has: bool, color: Color, bold: bool| {
+        if can_sample && has {
+            let base = if bold {
+                Style::fg(color).bold()
+            } else {
+                Style::fg(color)
+            };
+            if active == Some(kind) {
+                (
+                    format!(" [{}] {text} ", kind.key()),
+                    Style::fg(color).bold().reversed(),
+                )
+            } else {
+                (format!("[{}] {text}", kind.key()), base)
+            }
+        } else if has {
+            let base = if bold {
+                Style::fg(color).bold()
+            } else {
+                Style::fg(color)
+            };
+            (text, base)
+        } else {
+            (text, Style::fg(Color::Gray))
+        }
+    };
     let mut spans: Vec<(String, Style)> = vec![
         (format!("Odds ({}): ", p.who), Style::fg(Color::Cyan).bold()),
-        (
-            p.win,
-            if p.has_wins {
-                Style::fg(Color::Green).bold()
-            } else {
-                Style::fg(Color::Gray)
-            },
-        ),
+        seg(SampleKind::Win, p.win, p.has_wins, Color::Green, true),
         (" · ".to_string(), Style::fg(Color::Gray)),
-        (
-            p.tie,
-            if p.has_ties {
-                Style::fg(Color::Yellow)
-            } else {
-                Style::fg(Color::Gray)
-            },
-        ),
+        seg(SampleKind::Tie, p.tie, p.has_ties, Color::Yellow, false),
         (" · ".to_string(), Style::fg(Color::Gray)),
-        (
-            p.loss,
-            if p.has_losses {
-                Style::fg(Color::Red).bold()
-            } else {
-                Style::fg(Color::Gray)
-            },
-        ),
+        seg(SampleKind::Loss, p.loss, p.has_losses, Color::Red, true),
         (" · ".to_string(), Style::fg(Color::Gray)),
         (p.damage, Style::PLAIN),
     ];

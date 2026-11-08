@@ -282,10 +282,13 @@ ASCII instead, for fonts that draw some of those symbols two columns wide.
     their Tiers; the ghost's boards are labelled `ghost of p4` or `ghost of team 3 / p6`.
 - **Keys.** ←/→ step (a strike, in a combat), space plays and pauses, +/− change the speed, n/p go
   a whole frame, ↑/↓ a turn, c/C to the next/previous combat, Home/End to either end, Tab shows the
-  next player's Tavern, f follows whoever acts (the default) or stays on one player, i inspects
-  cards (←/→ pick one, its big card shows beside it), ? lists the keys, q quits.
-- `--dump [--step S] [--size WxH] [--plain]` prints one screen (combat step S) instead of starting
-  the player, for checking a screen or pasting one somewhere.
+  next player's Tavern, f follows whoever acts (the default) or stays on one player, o focuses on
+  the shown player's moments, 1/2/3 (or w/t/L) play a simulated Win / Tie / Loss from the combat's
+  Monte Carlo sample (press again to cycle seeds, 0 or r for the actual combat), i inspects cards
+  (←/→ pick one, its big card shows beside it), ? lists the keys, q quits.
+- `--dump [--step S] [--engine] [--sample win|tie|loss[:N]] [--size WxH] [--plain]` prints one
+  screen (combat step S) instead of starting the player, for checking a screen or pasting one
+  somewhere.
 
 **Games from a Hearthstone `Power.log`.** `tui` (and `cast`) also open a `Power.log`
 (`match_replay tui ~/Hearthstone/Logs/Power.log --game 2`; the default is the log's last game).

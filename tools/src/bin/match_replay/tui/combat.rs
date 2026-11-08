@@ -14,7 +14,9 @@
 //! - A `Power.log` combat comes with the boards the log showed before every attack
 //!   (`powerlog`), and can carry the engine's version of it ([`CombatPlayback::alt`]).
 
+use std::fmt;
 use std::ops::Range;
+use std::sync::Arc;
 
 use seaglass::combat::MAX_BOARD_SIZE;
 use seaglass::model::capped_damage;
@@ -30,6 +32,80 @@ pub const ODDS_RUNS: u32 = if cfg!(debug_assertions) { 100 } else { 2500 };
 
 /// Base seed mixed with a combat's seed or turn to sample independent RNG streams.
 pub const ODDS_BASE_SEED: u64 = 0x5EA6_1A55_0DD5_2026;
+
+/// Maximum number of seeds kept per outcome bucket for sample combat playback.
+const MAX_SAMPLE_SEEDS: usize = 64;
+
+/// One of the three simulated outcome buckets from [`CombatOdds`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SampleKind {
+    Win,
+    Tie,
+    Loss,
+}
+
+impl SampleKind {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "win" | "w" | "1" => Some(Self::Win),
+            "tie" | "draw" | "t" | "d" | "2" => Some(Self::Tie),
+            "loss" | "lose" | "l" | "3" => Some(Self::Loss),
+            _ => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Win => "Win",
+            Self::Tie => "Tie",
+            Self::Loss => "Loss",
+        }
+    }
+
+    pub fn lower(self) -> &'static str {
+        match self {
+            Self::Win => "win",
+            Self::Tie => "tie",
+            Self::Loss => "loss",
+        }
+    }
+
+    pub fn key(self) -> char {
+        match self {
+            Self::Win => '1',
+            Self::Tie => '2',
+            Self::Loss => '3',
+        }
+    }
+
+    pub fn flipped(self) -> Self {
+        match self {
+            Self::Win => Self::Loss,
+            Self::Tie => Self::Tie,
+            Self::Loss => Self::Win,
+        }
+    }
+}
+
+/// Re-runs a combat from its pre-combat state with a given seed into a traced [`CombatPlayback`].
+#[derive(Clone)]
+pub struct SimBuilder(Arc<dyn Fn(u64) -> CombatPlayback + Send + Sync>);
+
+impl SimBuilder {
+    pub fn new(f: impl Fn(u64) -> CombatPlayback + Send + Sync + 'static) -> Self {
+        Self(Arc::new(f))
+    }
+
+    pub fn build(&self, seed: u64) -> CombatPlayback {
+        (self.0)(seed)
+    }
+}
+
+impl fmt::Debug for SimBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SimBuilder(..)")
+    }
+}
 
 /// Formatted segments of [`CombatOdds`] from one side's perspective.
 pub struct OddsParts {
@@ -55,6 +131,12 @@ pub struct CombatOdds {
     pub a_wins: u32,
     pub b_wins: u32,
     pub draws: u32,
+    /// Representative seeds from the sample where Side A won.
+    pub a_win_seeds: Vec<u64>,
+    /// Representative seeds from the sample where the combat tied.
+    pub draw_seeds: Vec<u64>,
+    /// Representative seeds from the sample where Side B won.
+    pub b_win_seeds: Vec<u64>,
     /// Runs where Side A dealt fatal combat damage to Side B.
     pub a_lethals: u32,
     /// Runs where Side B dealt fatal combat damage to Side A.
@@ -77,7 +159,8 @@ fn signed_damage(v: i32) -> String {
 
 impl CombatOdds {
     /// Sample `runs` combats from `base_seed` and aggregate Win / Tie / Loss / Lethal % and capped
-    /// hero damage. `lethal_threshold` is `[hp_needed_to_kill_a, hp_needed_to_kill_b]`.
+    /// hero damage, retaining seeds for each outcome bucket. `lethal_threshold` is
+    /// `[hp_needed_to_kill_a, hp_needed_to_kill_b]`.
     pub fn sample(
         side_names: [String; 2],
         runs: u32,
@@ -90,16 +173,23 @@ impl CombatOdds {
         let runs = runs.max(1);
         let mut seeder = Rng::new(base_seed);
         let (mut a_wins, mut b_wins, mut draws) = (0, 0, 0);
+        let mut a_win_seeds = Vec::new();
+        let mut draw_seeds = Vec::new();
+        let mut b_win_seeds = Vec::new();
         let (mut a_lethals, mut b_lethals) = (0, 0);
         let mut total_a: i64 = 0;
         let mut min_a = i32::MAX;
         let mut max_a = i32::MIN;
         for _ in 0..runs {
-            let (outcome, raw_damage) = run(seeder.next_u64());
+            let seed = seeder.next_u64();
+            let (outcome, raw_damage) = run(seed);
             let dmg = capped_damage(raw_damage, damage_cap);
             let signed = match outcome {
                 BattleOutcome::AWin => {
                     a_wins += 1;
+                    if a_win_seeds.len() < MAX_SAMPLE_SEEDS {
+                        a_win_seeds.push(seed);
+                    }
                     if lethal_threshold[1].is_some_and(|th| dmg >= th) {
                         a_lethals += 1;
                     }
@@ -107,6 +197,9 @@ impl CombatOdds {
                 }
                 BattleOutcome::BWin => {
                     b_wins += 1;
+                    if b_win_seeds.len() < MAX_SAMPLE_SEEDS {
+                        b_win_seeds.push(seed);
+                    }
                     if lethal_threshold[0].is_some_and(|th| dmg >= th) {
                         b_lethals += 1;
                     }
@@ -114,6 +207,9 @@ impl CombatOdds {
                 }
                 BattleOutcome::Draw => {
                     draws += 1;
+                    if draw_seeds.len() < MAX_SAMPLE_SEEDS {
+                        draw_seeds.push(seed);
+                    }
                     0
                 }
             };
@@ -127,12 +223,24 @@ impl CombatOdds {
             a_wins,
             b_wins,
             draws,
+            a_win_seeds,
+            draw_seeds,
+            b_win_seeds,
             a_lethals,
             b_lethals,
             mean_damage_a: total_a as f64 / f64::from(runs),
             min_damage_a: min_a,
             max_damage_a: max_a,
             note,
+        }
+    }
+
+    /// Recorded simulation seeds for `kind` from `side`'s perspective.
+    pub fn seeds_for(&self, side: Side, kind: SampleKind) -> &[u64] {
+        match (side, kind) {
+            (Side::A, SampleKind::Win) | (Side::B, SampleKind::Loss) => &self.a_win_seeds,
+            (_, SampleKind::Tie) => &self.draw_seeds,
+            (Side::A, SampleKind::Loss) | (Side::B, SampleKind::Win) => &self.b_win_seeds,
         }
     }
 
@@ -502,6 +610,8 @@ pub struct CombatPlayback {
     pub warning: Option<String>,
     /// Pre-combat outcome distribution across simulated runs.
     pub odds: Option<CombatOdds>,
+    /// Builder to trace any simulated seed from `odds`.
+    pub sim: Option<SimBuilder>,
     /// Another version of the same combat (the engine's, for a `Power.log` combat).
     pub alt: Option<Box<CombatPlayback>>,
 }
@@ -534,6 +644,34 @@ impl CombatPlayback {
         self
     }
 
+    pub fn with_sim(mut self, sim: SimBuilder) -> Self {
+        self.sim = Some(sim);
+        self
+    }
+
+    /// Build a traced playback for the `index`-th simulated seed of `kind` from `side`'s
+    /// perspective, returning `(wrapped_index, total_seeds_in_bucket, playback)`.
+    pub fn sample_combat(
+        &self,
+        side: Side,
+        kind: SampleKind,
+        index: usize,
+    ) -> Option<(usize, usize, Self)> {
+        let odds = self.odds.as_ref()?;
+        let sim = self.sim.as_ref()?;
+        let seeds = odds.seeds_for(side, kind);
+        if seeds.is_empty() {
+            return None;
+        }
+        let idx = index % seeds.len();
+        let mut pb = sim.build(seeds[idx]);
+        pb.odds = Some(odds.clone());
+        pb.sim = Some(sim.clone());
+        pb.players = self.players.clone();
+        pb.alt = self.alt.clone();
+        Some((idx, seeds.len(), pb))
+    }
+
     /// Re-run a seaglass replay's combat of `a` and `b` from their states before it (`pre`) with
     /// `seed`, and break it into steps. `recorded` is the result the replay re-simulated; `post`
     /// are the states after it (for the Health the loser drops to).
@@ -551,6 +689,35 @@ impl CombatPlayback {
             end_label: tavern_label(name, pre, post, true),
             players: vec![p],
         };
+        let odds = solo_odds(names, pre_a, pre_b, seed);
+        let (cap_a, cap_b) = (pre_a.clone(), pre_b.clone());
+        let [name_a, name_b] = names.map(str::to_string);
+        let sim = SimBuilder::new(move |s| {
+            let (mut sim_a, mut sim_b) = (cap_a.clone(), cap_b.clone());
+            let (result, snapshots) = with_combat_trace(|| {
+                TavernState::resolve_combat_pair(&mut sim_a, &mut sim_b, s)
+            });
+            Self::build_solo(
+                result,
+                snapshots,
+                None,
+                cap_a.lobby.damage_cap,
+                [
+                    SoloSide {
+                        name: name_a.clone(),
+                        label: tavern_label(&name_a, &cap_a, &sim_a, false),
+                        end_label: tavern_label(&name_a, &cap_a, &sim_a, true),
+                        players: vec![a],
+                    },
+                    SoloSide {
+                        name: name_b.clone(),
+                        label: tavern_label(&name_b, &cap_b, &sim_b, false),
+                        end_label: tavern_label(&name_b, &cap_b, &sim_b, true),
+                        players: vec![b],
+                    },
+                ],
+            )
+        });
         Self::from_battle(
             || TavernState::resolve_combat_pair(&mut pre_a.clone(), &mut pre_b.clone(), seed),
             recorded,
@@ -560,7 +727,8 @@ impl CombatPlayback {
                 side(b, names[1], pre_b, post_b),
             ],
         )
-        .with_odds(solo_odds(names, pre_a, pre_b, seed))
+        .with_odds(odds)
+        .with_sim(sim)
     }
 
     /// Re-run a Solo combat inside a [`with_combat_trace`] (`run` resolves it: a replay's combat,
@@ -572,7 +740,18 @@ impl CombatPlayback {
         damage_cap: Option<u32>,
         sides: [SoloSide; 2],
     ) -> Self {
-        let (mut result, snapshots) = with_combat_trace(run);
+        let (result, snapshots) = with_combat_trace(run);
+        Self::build_solo(result, snapshots, Some(recorded), damage_cap, sides)
+    }
+
+    /// Assemble a Solo [`CombatPlayback`] from an already-traced [`BattleResult`].
+    pub fn build_solo(
+        mut result: BattleResult,
+        snapshots: Vec<CombatSnapshot>,
+        recorded: Option<&BattleResult>,
+        damage_cap: Option<u32>,
+        sides: [SoloSide; 2],
+    ) -> Self {
         result.hero_damage = capped_damage(result.hero_damage, damage_cap);
         let names = [sides[0].name.as_str(), sides[1].name.as_str()];
         let mut combat_names = snapshot_names(names, &snapshots);
@@ -592,8 +771,9 @@ impl CombatPlayback {
         Self {
             result: result_text(result.outcome, result.hero_damage, names),
             version: "",
-            warning: diverged(result == *recorded),
+            warning: recorded.and_then(|rec| diverged(result == *rec)),
             odds: None,
+            sim: None,
             alt: None,
             players: sides.map(|s| s.players),
             snapshots,
@@ -614,7 +794,18 @@ impl CombatPlayback {
         damage_cap: Option<u32>,
         sides: [DuosSide; 2],
     ) -> Self {
-        let (mut result, snapshots) = with_combat_trace(run);
+        let (result, snapshots) = with_combat_trace(run);
+        Self::build_duos(result, snapshots, Some(recorded), damage_cap, sides)
+    }
+
+    /// Assemble a Duos [`CombatPlayback`] from an already-traced [`DuosResult`].
+    pub fn build_duos(
+        mut result: DuosResult,
+        snapshots: Vec<CombatSnapshot>,
+        recorded: Option<&DuosResult>,
+        damage_cap: Option<u32>,
+        sides: [DuosSide; 2],
+    ) -> Self {
         result.hero_damage = capped_damage(result.hero_damage, damage_cap);
         let teams = [sides[0].team.as_str(), sides[1].team.as_str()];
         let index = |side: Side| (side == Side::B) as usize;
@@ -667,8 +858,9 @@ impl CombatPlayback {
         Self {
             result: result_text(result.outcome, result.hero_damage, teams),
             version: "",
-            warning: diverged(result == *recorded),
+            warning: recorded.and_then(|rec| diverged(result == *rec)),
             odds: None,
+            sim: None,
             alt: None,
             players: sides.map(|s| s.players),
             snapshots,
