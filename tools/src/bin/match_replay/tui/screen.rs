@@ -85,7 +85,7 @@ fn footer(app: &App, c: &mut Canvas, y: usize) {
         };
         format!(" ←/→ strike  ␣ play  +/- speed  n/p frame  ↑/↓ turn  c/C combat{alt}  i inspect  ? help  q quit")
     } else {
-        " ←/→ step  ␣ play  +/- speed  ↑/↓ turn  c/C combat  Tab player  f follow  i inspect  ? help  q quit".to_string()
+        " ←/→ step  ␣ play  +/- speed  ↑/↓ turn  c/C combat  Tab player  f follow  o only  i inspect  ? help  q quit".to_string()
     };
     c.text(0, y, &truncate(&keys, c.width()), Style::fg(Color::Gray));
 }
@@ -112,7 +112,7 @@ fn scrubber(app: &App, c: &mut Canvas, y: usize) {
         c.put(x0 + x, y, if x < cursor { '━' } else { '─' }, style);
     }
     for i in 0..app.len() {
-        if app.source.info(i).kind == Kind::Combat {
+        if app.source.info(i).kind == Kind::Combat && app.visible(i) {
             c.put(x0 + col(i), y, '┿', Style::fg(Color::Red));
         }
     }
@@ -138,10 +138,18 @@ fn tavern_body(app: &App, c: &mut Canvas, (top, bottom): (usize, usize), placed:
     } else {
         " · pinned".to_string()
     };
+    // A focus goes first, so that a long line of opponents never hides it.
+    let focus = match &app.focus {
+        Some(focus) => {
+            let names: Vec<&str> = focus.iter().map(|&p| app.names()[p].as_str()).collect();
+            format!("[only {}] ", names.join(" + "))
+        }
+        None => String::new(),
+    };
     c.text(
         1,
         y,
-        &truncate(&format!("{}{follow}", view.detail_line), width - 2),
+        &truncate(&format!("{focus}{}{follow}", view.detail_line), width - 2),
         Style::fg(Color::Gray),
     );
     y += 1;
@@ -271,8 +279,8 @@ fn combat_body(
 ) {
     let step = &combat.steps[app.step.min(combat.steps.len() - 1)];
     let snapshot = combat.snapshots.get(step.snapshot);
-    // The shown player at the bottom, their opponent on top.
-    let bottom_side = if combat.players[1] == Some(app.shown_player()) {
+    // The shown player (or their Duos team) at the bottom, their opponent on top.
+    let bottom_side = if combat.players[1].contains(&app.shown_player()) {
         Side::B
     } else {
         Side::A
@@ -288,7 +296,8 @@ fn combat_body(
     let width = c.width();
     let size = fit(7, width - 2);
     let room = bottom - top;
-    let header_lines = usize::from(!combat.version.is_empty()) + usize::from(combat.odds.is_some());
+    let header_lines =
+        usize::from(!combat.version.is_empty()) + usize::from(combat.odds.is_some());
     let size = if room >= 2 * size.height() + 9 + header_lines {
         size
     } else {
@@ -390,14 +399,14 @@ fn combat_body(
             .iter()
             .filter(|s| s.phase == Phase::Strike)
             .count();
-        let heading = match step.phase {
+        let heading = step.heading.clone().unwrap_or_else(|| match step.phase {
             Phase::Start => "Warbands enter the combat".to_string(),
             Phase::StartOfCombat => "Start of Combat".to_string(),
             Phase::TagIn => "A warband steps in".to_string(),
             Phase::Strike => format!("Strike {}/{strikes}", step.strike + 1),
             Phase::Settle => format!("After strike {}/{strikes}", step.strike),
             Phase::End => combat.result.clone(),
-        };
+        });
         let style = if step.phase == Phase::End {
             Style::fg(Color::Yellow).bold()
         } else {
@@ -563,10 +572,11 @@ const HELP: &[(&str, &str)] = &[
     ("+ / -", "faster / slower"),
     ("n / p", "next / previous frame (skips a combat's strikes)"),
     ("↑ / ↓", "previous / next turn"),
-    ("c / C", "next / previous combat"),
+    ("c / C", "next / previous combat (Solo, Duos or ghost)"),
     ("Home / End", "first / last frame"),
     ("Tab", "show the next player's Tavern"),
     ("f", "follow whoever acts (on) / stay on one player"),
+    ("o", "only the shown player's (team's) moments / everyone's"),
     (
         "e",
         "a Power.log combat: switch between the real one and the engine's",

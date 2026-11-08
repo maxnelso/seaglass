@@ -6,16 +6,22 @@
 //!
 //! - A seaglass replay's combat is re-run from the players' states before it with the frame's
 //!   seed inside [`with_combat_trace`] ([`CombatPlayback::from_replay`]), which snapshots both
-//!   boards before and after Start of Combat and after every strike.
+//!   boards before and after Start of Combat and after every strike. A Duos combat is re-run the
+//!   same way ([`CombatPlayback::from_duos`]): the trace also snapshots both boards each time a
+//!   warband steps in for its teammate, so the playback follows the relay leg by leg. A ghost
+//!   combat is either, against the boards the ghost's players last fought with
+//!   ([`CombatPlayback::from_battle`], [`CombatPlayback::from_duos`]).
 //! - A `Power.log` combat comes with the boards the log showed before every attack
 //!   (`powerlog`), and can carry the engine's version of it ([`CombatPlayback::alt`]).
 
 use std::ops::Range;
 
 use seaglass::combat::MAX_BOARD_SIZE;
+use seaglass::model::capped_damage;
 use seaglass::{
-    resolve_battle, with_combat_trace, BattleOutcome, BattleResult, CombatSnapshot, Event,
-    GameState, Rng, Side, TavernState, UnitId,
+    resolve_battle, resolve_duos_battle, with_combat_trace, BattleOutcome, BattleResult,
+    CombatSnapshot, DuosResult, DuosTavern, DuosTeam, Event, GameState, PlayerAuras, Rng, Side,
+    TavernState, Unit, UnitId,
 };
 use seaglass_tools::fmt::CombatNames;
 
@@ -90,7 +96,7 @@ impl CombatOdds {
         let mut max_a = i32::MIN;
         for _ in 0..runs {
             let (outcome, raw_damage) = run(seeder.next_u64());
-            let dmg = damage_cap.map_or(raw_damage, |cap| raw_damage.min(cap));
+            let dmg = capped_damage(raw_damage, damage_cap);
             let signed = match outcome {
                 BattleOutcome::AWin => {
                     a_wins += 1;
@@ -205,6 +211,19 @@ fn solo_lethal_threshold(state: &TavernState) -> Option<u32> {
     }
 }
 
+fn duos_lethal_threshold(tavern: &DuosTavern) -> Option<u32> {
+    if tavern.health <= 0
+        || tavern
+            .players
+            .iter()
+            .any(|p| seaglass::trinkets::prevent_fatal(&mut p.auras.clone()))
+    {
+        None
+    } else {
+        Some((tavern.health + tavern.armor.max(0)) as u32)
+    }
+}
+
 /// Pre-combat odds for a Solo combat between `pre_a` and `pre_b`.
 pub fn solo_odds(
     names: [&str; 2],
@@ -232,11 +251,106 @@ pub fn solo_odds(
         names.map(str::to_string),
         ODDS_RUNS,
         seed ^ ODDS_BASE_SEED,
-        None,
+        a.lobby.damage_cap,
         thresholds,
         None,
         |s| {
             let r = resolve_battle(&board_a, &board_b, &state, s);
+            (r.outcome, r.hero_damage)
+        },
+    )
+}
+
+/// Pre-combat odds for a Solo combat against a ghost board.
+pub fn solo_ghost_odds(
+    names: [&str; 2],
+    pre_a: &TavernState,
+    ghost_board: &[Unit],
+    ghost_tier: u32,
+    seed: u64,
+) -> CombatOdds {
+    let mut a = pre_a.clone();
+    a.sync_all_auras();
+    let mut board_a = a.board.clone();
+    board_a.truncate(MAX_BOARD_SIZE);
+    let state = GameState {
+        hero_tier_a: a.tavern_tier,
+        hero_tier_b: ghost_tier,
+        auras_a: a.auras.clone(),
+        auras_b: PlayerAuras::default(),
+        hand_a: a.hand.clone(),
+        hand_b: Vec::new(),
+    };
+    let thresholds = [solo_lethal_threshold(&a), None];
+    CombatOdds::sample(
+        names.map(str::to_string),
+        ODDS_RUNS,
+        seed ^ ODDS_BASE_SEED,
+        a.lobby.damage_cap,
+        thresholds,
+        None,
+        |s| {
+            let r = resolve_battle(&board_a, ghost_board, &state, s);
+            (r.outcome, r.hero_damage)
+        },
+    )
+}
+
+/// Pre-combat odds for a Duos combat between two teams.
+pub fn duos_odds(
+    names: [&str; 2],
+    pre_a: &DuosTavern,
+    pre_b: &DuosTavern,
+    seed: u64,
+) -> CombatOdds {
+    let (mut a, mut b) = (pre_a.clone(), pre_b.clone());
+    a.mirror();
+    for s in &mut a.players {
+        s.sync_all_auras();
+    }
+    b.mirror();
+    for s in &mut b.players {
+        s.sync_all_auras();
+    }
+    let (team_a, team_b) = (a.team(), b.team());
+    let thresholds = [duos_lethal_threshold(&a), duos_lethal_threshold(&b)];
+    CombatOdds::sample(
+        names.map(str::to_string),
+        ODDS_RUNS,
+        seed ^ ODDS_BASE_SEED,
+        a.players[0].lobby.damage_cap,
+        thresholds,
+        None,
+        |s| {
+            let r = resolve_duos_battle(&team_a, &team_b, s);
+            (r.outcome, r.hero_damage)
+        },
+    )
+}
+
+/// Pre-combat odds for a Duos combat against a ghost team.
+pub fn duos_ghost_odds(
+    names: [&str; 2],
+    pre_a: &DuosTavern,
+    ghost_team: &DuosTeam,
+    seed: u64,
+) -> CombatOdds {
+    let mut a = pre_a.clone();
+    a.mirror();
+    for s in &mut a.players {
+        s.sync_all_auras();
+    }
+    let team_a = a.team();
+    let thresholds = [duos_lethal_threshold(&a), None];
+    CombatOdds::sample(
+        names.map(str::to_string),
+        ODDS_RUNS,
+        seed ^ ODDS_BASE_SEED,
+        a.players[0].lobby.damage_cap,
+        thresholds,
+        None,
+        |s| {
+            let r = resolve_duos_battle(&team_a, ghost_team, s);
             (r.outcome, r.hero_damage)
         },
     )
@@ -281,6 +395,8 @@ pub struct Step {
     pub dying: Vec<UnitId>,
     /// The units whose Divine Shield the strike pops.
     pub popped: Vec<UnitId>,
+    /// A heading to show instead of the phase's (a Duos step-in: `p3 steps in for team 2`).
+    pub heading: Option<String>,
 }
 
 impl Step {
@@ -296,30 +412,24 @@ impl Step {
             damage: Vec::new(),
             dying: Vec::new(),
             popped: Vec::new(),
+            heading: None,
         }
     }
 }
 
-/// A combat ready to play back.
+/// One team of a Duos combat as its playback shows it.
 #[derive(Clone, Debug)]
-pub struct CombatPlayback {
-    pub snapshots: Vec<CombatSnapshot>,
-    /// Every event of the combat in words.
-    pub texts: Vec<String>,
-    pub steps: Vec<Step>,
-    /// The source's player on each side, if it can show their Tavern (the shown player is drawn
-    /// at the bottom).
-    pub players: [Option<usize>; 2],
-    /// The result in words (`P1 wins · 5 damage`).
-    pub result: String,
-    /// What the version is (`real`, `engine`), when a combat has two.
-    pub version: &'static str,
-    /// Something to warn about (the re-run differs from the replay, where the engine diverges).
-    pub warning: Option<String>,
-    /// Pre-combat outcome distribution across simulated runs.
-    pub odds: Option<CombatOdds>,
-    /// Another version of the same combat (the engine's, for a `Power.log` combat).
-    pub alt: Option<Box<CombatPlayback>>,
+pub struct DuosSide {
+    /// The team's name, in the result and the combat's texts (`team 2`, `ghost of team 3`).
+    pub team: String,
+    /// Each player's name (player 0, then player 1), in the step-in captions.
+    pub names: [String; 2],
+    /// Each player's board label while their warband fights (`p3 · team 2 · Tier 4 · ♥25`).
+    pub labels: [String; 2],
+    /// Each player's board label at the end (with the Health the team drops to).
+    pub end_labels: [String; 2],
+    /// The source's players on the team (to draw the shown one at the bottom).
+    pub players: Vec<usize>,
 }
 
 /// `Trinkets: A, B` for a player's owned trinkets, if any.
@@ -335,6 +445,80 @@ pub fn trinkets_clause(s: &TavernState) -> Option<String> {
     (!names.is_empty()).then(|| format!("Trinkets: {}", names.join(", ")))
 }
 
+/// A combat label from a player's Tavern before and after it: `p1 · Tier 3 · ♥25+2`, with
+/// ` → ♥20` once `end` if the combat cost them Health (a Duos player's mirrors their team's),
+/// followed by their owned trinkets.
+pub fn tavern_label(name: &str, pre: &TavernState, post: &TavernState, end: bool) -> String {
+    let armor = if pre.armor > 0 {
+        format!("+{}", pre.armor)
+    } else {
+        String::new()
+    };
+    let drop = if end && post.health + post.armor < pre.health + pre.armor {
+        format!(" → ♥{}", post.health)
+    } else {
+        String::new()
+    };
+    let trinkets = trinkets_clause(pre)
+        .map(|t| format!(" · {t}"))
+        .unwrap_or_default();
+    format!(
+        "{name} · Tier {} · ♥{}{armor}{drop}{trinkets}",
+        pre.tavern_tier, pre.health
+    )
+}
+
+/// The names of the units of a traced combat whose boards don't come from two Taverns: every
+/// unit any snapshot shows (the others take the names their events give them).
+fn snapshot_names<'a>(labels: [&'a str; 2], snapshots: &[CombatSnapshot]) -> CombatNames<'a> {
+    let units = snapshots.iter().flat_map(|s| {
+        let a = s.board_a.iter().map(|u| (u.id, Side::A, u.name.clone()));
+        let b = s.board_b.iter().map(|u| (u.id, Side::B, u.name.clone()));
+        a.chain(b)
+    });
+    CombatNames::from_units(labels, units)
+}
+
+/// The warning for a re-run whose result is not the replay's.
+fn diverged(same: bool) -> Option<String> {
+    (!same).then(|| "the re-run differs from the replay".into())
+}
+
+/// A combat ready to play back.
+#[derive(Clone, Debug)]
+pub struct CombatPlayback {
+    pub snapshots: Vec<CombatSnapshot>,
+    /// Every event of the combat in words.
+    pub texts: Vec<String>,
+    pub steps: Vec<Step>,
+    /// The source's players on each side whose Taverns it can show (a Duos team's two; none for
+    /// a ghost). The shown player's side is drawn at the bottom.
+    pub players: [Vec<usize>; 2],
+    /// The result in words (`P1 wins · 5 damage`).
+    pub result: String,
+    /// What the version is (`real`, `engine`), when a combat has two.
+    pub version: &'static str,
+    /// Something to warn about (the re-run differs from the replay, where the engine diverges).
+    pub warning: Option<String>,
+    /// Pre-combat outcome distribution across simulated runs.
+    pub odds: Option<CombatOdds>,
+    /// Another version of the same combat (the engine's, for a `Power.log` combat).
+    pub alt: Option<Box<CombatPlayback>>,
+}
+
+/// One side of a Solo combat as its playback shows it.
+#[derive(Clone, Debug)]
+pub struct SoloSide {
+    /// The side's name, in the result and the combat's texts (`p1`, `ghost of p4`).
+    pub name: String,
+    /// Its board label during the combat.
+    pub label: String,
+    /// Its board label at the end (with the Health it drops to).
+    pub end_label: String,
+    /// The source's player on the side, if it can show their Tavern.
+    pub players: Vec<usize>,
+}
+
 /// `P1 wins · 5 damage`.
 pub fn result_text(outcome: BattleOutcome, damage: u32, names: [&str; 2]) -> String {
     match outcome {
@@ -345,6 +529,11 @@ pub fn result_text(outcome: BattleOutcome, damage: u32, names: [&str; 2]) -> Str
 }
 
 impl CombatPlayback {
+    pub fn with_odds(mut self, odds: CombatOdds) -> Self {
+        self.odds = Some(odds);
+        self
+    }
+
     /// Re-run a seaglass replay's combat of `a` and `b` from their states before it (`pre`) with
     /// `seed`, and break it into steps. `recorded` is the result the replay re-simulated; `post`
     /// are the states after it (for the Health the loser drops to).
@@ -356,49 +545,132 @@ impl CombatPlayback {
         recorded: &BattleResult,
         names: [&str; 2],
     ) -> Self {
-        let (result, snapshots) = with_combat_trace(|| {
-            TavernState::resolve_combat_pair(&mut pre_a.clone(), &mut pre_b.clone(), seed)
-        });
-        let mut combat_names = CombatNames::new(names, pre_a, pre_b);
+        let side = |p: usize, name: &str, pre: &TavernState, post: &TavernState| SoloSide {
+            name: name.to_string(),
+            label: tavern_label(name, pre, post, false),
+            end_label: tavern_label(name, pre, post, true),
+            players: vec![p],
+        };
+        Self::from_battle(
+            || TavernState::resolve_combat_pair(&mut pre_a.clone(), &mut pre_b.clone(), seed),
+            recorded,
+            pre_a.lobby.damage_cap,
+            [
+                side(a, names[0], pre_a, post_a),
+                side(b, names[1], pre_b, post_b),
+            ],
+        )
+        .with_odds(solo_odds(names, pre_a, pre_b, seed))
+    }
+
+    /// Re-run a Solo combat inside a [`with_combat_trace`] (`run` resolves it: a replay's combat,
+    /// or a player against a ghost's boards) and break it into steps. `recorded` is the result
+    /// the replay re-simulated, which the lobby's `damage_cap` (if any) capped.
+    pub fn from_battle(
+        run: impl FnOnce() -> BattleResult,
+        recorded: &BattleResult,
+        damage_cap: Option<u32>,
+        sides: [SoloSide; 2],
+    ) -> Self {
+        let (mut result, snapshots) = with_combat_trace(run);
+        result.hero_damage = capped_damage(result.hero_damage, damage_cap);
+        let names = [sides[0].name.as_str(), sides[1].name.as_str()];
+        let mut combat_names = snapshot_names(names, &snapshots);
         let texts = result
             .events
             .iter()
             .map(|e| combat_names.describe(e))
             .collect();
-        let label = |name: &str, pre: &TavernState, post: &TavernState, end: bool| {
-            let armor = if pre.armor > 0 {
-                format!("+{}", pre.armor)
-            } else {
-                String::new()
-            };
-            let drop = if end && post.health + post.armor < pre.health + pre.armor {
-                format!(" → ♥{}", post.health)
-            } else {
-                String::new()
-            };
-            let trinkets = trinkets_clause(pre)
-                .map(|t| format!(" · {t}"))
-                .unwrap_or_default();
-            format!(
-                "{name} · Tier {} · ♥{}{armor}{drop}{trinkets}",
-                pre.tavern_tier, pre.health
-            )
-        };
         let mut steps = engine_steps(&snapshots, &result.events);
         for step in &mut steps {
-            let end = step.phase == Phase::End;
-            step.labels = [
-                label(names[0], pre_a, post_a, end),
-                label(names[1], pre_b, post_b, end),
-            ];
+            step.labels = if step.phase == Phase::End {
+                sides.clone().map(|s| s.end_label)
+            } else {
+                sides.clone().map(|s| s.label)
+            };
         }
         Self {
-            players: [Some(a), Some(b)],
             result: result_text(result.outcome, result.hero_damage, names),
             version: "",
-            warning: (result != *recorded).then(|| "the re-run differs from the replay".into()),
-            odds: Some(solo_odds(names, pre_a, pre_b, seed)),
+            warning: diverged(result == *recorded),
+            odds: None,
             alt: None,
+            players: sides.map(|s| s.players),
+            snapshots,
+            texts,
+            steps,
+        }
+    }
+
+    /// Re-run a Duos combat inside a [`with_combat_trace`] (`run` resolves it: two teams' combat,
+    /// or a team against a ghost team's boards) and break it into steps, leg by leg: each time a
+    /// warband is wiped and its teammate's steps in, a [`Phase::TagIn`] step shows the new
+    /// warband (with a caption saying who stepped in), and the boards and labels follow it.
+    /// `recorded` is the result the replay re-simulated, which the lobby's `damage_cap` (if any)
+    /// capped.
+    pub fn from_duos(
+        run: impl FnOnce() -> DuosResult,
+        recorded: &DuosResult,
+        damage_cap: Option<u32>,
+        sides: [DuosSide; 2],
+    ) -> Self {
+        let (mut result, snapshots) = with_combat_trace(run);
+        result.hero_damage = capped_damage(result.hero_damage, damage_cap);
+        let teams = [sides[0].team.as_str(), sides[1].team.as_str()];
+        let index = |side: Side| (side == Side::B) as usize;
+        let stepped_in = |team: Side, player: usize| {
+            let side = &sides[index(team)];
+            format!("{} steps in for {}", side.names[player], side.team)
+        };
+        let mut combat_names = snapshot_names(teams, &snapshots);
+        let texts = result
+            .events
+            .iter()
+            .map(|e| match *e {
+                Event::WarbandSteppedIn {
+                    team,
+                    player,
+                    first_attacker,
+                } => format!(
+                    "{} (first attacker: {})",
+                    stepped_in(team, player),
+                    teams[index(first_attacker)]
+                ),
+                _ => combat_names.describe(e),
+            })
+            .collect();
+        let mut steps = engine_steps(&snapshots, &result.events);
+        // Who fights for each team: the warband that stepped in last by the end of the step.
+        let mut fighting = [0, 0];
+        for step in &mut steps {
+            let mut entered = Vec::new();
+            for e in &result.events[step.events.clone()] {
+                if let Event::WarbandSteppedIn { team, player, .. } = *e {
+                    fighting[index(team)] = player;
+                    entered.push(stepped_in(team, player));
+                }
+            }
+            let end = step.phase == Phase::End;
+            step.labels = [0, 1].map(|t| {
+                let side = &sides[t];
+                let labels = if end { &side.end_labels } else { &side.labels };
+                labels[fighting[t]].clone()
+            });
+            // A warband a Start of Combat wiped is stepped in for before the first strike.
+            step.heading = match step.phase {
+                _ if entered.is_empty() => None,
+                Phase::TagIn => Some(entered.join(" · ")),
+                Phase::StartOfCombat => Some(format!("Start of Combat · {}", entered.join(" · "))),
+                _ => None,
+            };
+        }
+        Self {
+            result: result_text(result.outcome, result.hero_damage, teams),
+            version: "",
+            warning: diverged(result == *recorded),
+            odds: None,
+            alt: None,
+            players: sides.map(|s| s.players),
             snapshots,
             texts,
             steps,

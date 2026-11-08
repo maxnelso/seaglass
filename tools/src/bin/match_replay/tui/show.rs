@@ -5,11 +5,18 @@
 //! (a re-simulated [`Timeline`]); `powerlog::PowerLogSource` reads a game from a Hearthstone
 //! `Power.log`. The screen only draws what a source gives it.
 
-use seaglass::replay::FrameKind;
-use seaglass::{heroes, trinkets, TavernState, Timeline, Unit};
+use seaglass::combat::MAX_BOARD_SIZE;
+use seaglass::replay::{Frame, FrameKind};
+use seaglass::{
+    heroes, trinkets, CombatResult, DuosTavern, DuosTeam, PlayerAuras, TavernState, Timeline, Unit,
+    Warband,
+};
 use seaglass_tools::replay_text::{frame_title, player_name, unit_players};
 
-use super::combat::{trinkets_clause, CombatPlayback};
+use super::combat::{
+    duos_ghost_odds, duos_odds, solo_ghost_odds, tavern_label, trinkets_clause, CombatPlayback,
+    DuosSide, SoloSide,
+};
 
 /// What kind of moment a frame is (for colours, auto-play pacing and navigation).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +75,20 @@ pub trait Source {
     fn tavern(&self, frame: usize, player: usize) -> TavernView;
     /// The frame's combat, ready to play back.
     fn combat(&self, frame: usize) -> Option<CombatPlayback>;
+    /// The players a frame concerns (its actor, or a combat's fighters, with their teammates in
+    /// Duos), for focusing on some players. `None`: everyone (the start and the end); empty:
+    /// nobody (lobby bookkeeping). By default every frame concerns everyone.
+    fn involves(&self, _frame: usize) -> Option<Vec<usize>> {
+        None
+    }
+    /// `player` and the players on their team (Duos), in order.
+    fn team_of(&self, player: usize) -> Vec<usize> {
+        vec![player]
+    }
+    /// The player a replay marks as its agent (an RL `agent` or `learner` controller), if any.
+    fn agent(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// The units of `now` that were not in `before` (by id and card).
@@ -150,13 +171,12 @@ impl Source for ReplaySource {
                 Some(unit_players(&self.timeline, *player)[0]),
             ),
             FrameKind::Act { player, .. } => (Kind::Act, Some(*player)),
-            FrameKind::Combat { .. } => (Kind::Combat, None),
-            // Duos and ghost combats show as their title for now (no event playback).
+            FrameKind::Combat { .. }
+            | FrameKind::DuosCombat { .. }
+            | FrameKind::GhostCombat { .. } => (Kind::Combat, None),
             FrameKind::SetPairs { .. }
             | FrameKind::DeliverGifts
-            | FrameKind::RecordDeaths { .. }
-            | FrameKind::DuosCombat { .. }
-            | FrameKind::GhostCombat { .. } => (Kind::Lobby, None),
+            | FrameKind::RecordDeaths { .. } => (Kind::Lobby, None),
             FrameKind::End { .. } => (Kind::End, None),
         };
         FrameInfo {
@@ -172,6 +192,38 @@ impl Source for ReplaySource {
 
     fn players(&self) -> &[String] {
         &self.names
+    }
+
+    fn involves(&self, frame: usize) -> Option<Vec<usize>> {
+        let unit = |u: usize| unit_players(&self.timeline, u);
+        Some(match &self.timeline.frames[frame].kind {
+            FrameKind::Start | FrameKind::End { .. } => return None,
+            FrameKind::Act { player, .. } => vec![*player],
+            FrameKind::StartTurn { player, .. } => unit(*player),
+            FrameKind::Combat { a, b, .. } => vec![*a, *b],
+            FrameKind::DuosCombat { a, b, .. } => [unit(*a), unit(*b)].concat(),
+            FrameKind::GhostCombat { unit: u, .. } => unit(*u),
+            FrameKind::SetPairs { .. }
+            | FrameKind::DeliverGifts
+            | FrameKind::RecordDeaths { .. } => Vec::new(),
+        })
+    }
+
+    fn team_of(&self, player: usize) -> Vec<usize> {
+        if self.timeline.header.duos {
+            unit_players(&self.timeline, player / 2)
+        } else {
+            vec![player]
+        }
+    }
+
+    fn agent(&self) -> Option<usize> {
+        // `seaglass_rl` labels each unit's controller (`meta.controllers`, one per unit).
+        let controllers = self.timeline.header.meta.get("controllers")?;
+        let u = controllers
+            .split(',')
+            .position(|c| c == "agent" || c == "learner")?;
+        Some(unit_players(&self.timeline, u)[0])
     }
 
     fn tavern(&self, frame: usize, p: usize) -> TavernView {
@@ -257,18 +309,197 @@ impl Source for ReplaySource {
     }
 
     fn combat(&self, frame: usize) -> Option<CombatPlayback> {
-        let FrameKind::Combat { a, b, seed, result } = &self.timeline.frames[frame].kind else {
-            return None;
+        let frames = &self.timeline.frames;
+        let (before, after) = (frames.get(frame.checked_sub(1)?)?, &frames[frame]);
+        match &after.kind {
+            FrameKind::Combat { a, b, seed, result } => Some(CombatPlayback::from_replay(
+                [*a, *b],
+                [&before.players[*a], &before.players[*b]],
+                [&after.players[*a], &after.players[*b]],
+                *seed,
+                result,
+                [&self.names[*a], &self.names[*b]],
+            )),
+            FrameKind::DuosCombat { a, b, seed, result } => {
+                let (pre_a, pre_b) = (team_tavern(before, *a), team_tavern(before, *b));
+                let (side_a, side_b) = (self.team_side(frame, *a), self.team_side(frame, *b));
+                let odds = duos_odds([&side_a.team, &side_b.team], &pre_a, &pre_b, *seed);
+                let (mut team_a, mut team_b) = (pre_a, pre_b);
+                Some(
+                    CombatPlayback::from_duos(
+                        || DuosTavern::resolve_combat_pair(&mut team_a, &mut team_b, *seed),
+                        result,
+                        before.players[2 * a].lobby.damage_cap,
+                        [side_a, side_b],
+                    )
+                    .with_odds(odds),
+                )
+            }
+            FrameKind::GhostCombat {
+                unit,
+                ghost,
+                seed,
+                result,
+            } => Some(match &**result {
+                CombatResult::Solo(recorded) => {
+                    let mut state = before.players[*unit].clone();
+                    let board = self.last_warband(frame, *ghost);
+                    let tier = before.players[*ghost].tavern_tier;
+                    let name = &self.names[*unit];
+                    let ghost_name = format!("ghost of {}", self.names[*ghost]);
+                    let odds = solo_ghost_odds([name, &ghost_name], &state, &board, tier, *seed);
+                    let ghost_trinkets = trinkets_clause(&before.players[*ghost])
+                        .map(|t| format!(" · {t}"))
+                        .unwrap_or_default();
+                    let ghost_label = format!("{ghost_name} · Tier {tier}{ghost_trinkets}");
+                    let sides = [
+                        SoloSide {
+                            name: name.clone(),
+                            label: tavern_label(name, &state, &after.players[*unit], false),
+                            end_label: tavern_label(name, &state, &after.players[*unit], true),
+                            players: vec![*unit],
+                        },
+                        SoloSide {
+                            name: ghost_name,
+                            label: ghost_label.clone(),
+                            end_label: ghost_label,
+                            players: Vec::new(),
+                        },
+                    ];
+                    let damage_cap = state.lobby.damage_cap;
+                    CombatPlayback::from_battle(
+                        || {
+                            state.resolve_combat_against(
+                                &board,
+                                tier,
+                                &PlayerAuras::default(),
+                                &[],
+                                *seed,
+                            )
+                        },
+                        recorded,
+                        damage_cap,
+                        sides,
+                    )
+                    .with_odds(odds)
+                }
+                CombatResult::Duos(recorded) => {
+                    let ghosts = unit_players(&self.timeline, *ghost);
+                    let warband = |g: usize| Warband {
+                        board: self.last_warband(frame, g),
+                        hand: Vec::new(),
+                        auras: PlayerAuras::default(),
+                        hero_tier: before.players[g].tavern_tier,
+                    };
+                    let opponent = DuosTeam {
+                        warbands: [warband(ghosts[0]), warband(ghosts[1])],
+                        first: 0,
+                    };
+                    let team = format!("ghost of team {}", ghost + 1);
+                    let labels = [0, 1].map(|i| {
+                        let g = ghosts[i];
+                        let trinkets = trinkets_clause(&before.players[g])
+                            .map(|t| format!(" · {t}"))
+                            .unwrap_or_default();
+                        format!(
+                            "{team} / {} · Tier {}{trinkets}",
+                            self.names[g], before.players[g].tavern_tier
+                        )
+                    });
+                    let ghost_side = DuosSide {
+                        names: [0, 1].map(|i| self.names[ghosts[i]].clone()),
+                        end_labels: labels.clone(),
+                        labels,
+                        team,
+                        players: Vec::new(),
+                    };
+                    let pre_a = team_tavern(before, *unit);
+                    let side_a = self.team_side(frame, *unit);
+                    let odds =
+                        duos_ghost_odds([&side_a.team, &ghost_side.team], &pre_a, &opponent, *seed);
+                    let mut tavern = pre_a;
+                    CombatPlayback::from_duos(
+                        || tavern.resolve_combat_against(&opponent, *seed),
+                        recorded,
+                        before.players[2 * unit].lobby.damage_cap,
+                        [side_a, ghost_side],
+                    )
+                    .with_odds(odds)
+                }
+            }),
+            _ => None,
+        }
+    }
+}
+
+impl ReplaySource {
+    /// Duos team `u` in the combat at `frame`, as its playback shows it: each player's board
+    /// labelled with their name, team, Tier and the team's Health (before, and at the end after,
+    /// the combat).
+    fn team_side(&self, frame: usize, u: usize) -> DuosSide {
+        let (before, after) = (
+            &self.timeline.frames[frame - 1],
+            &self.timeline.frames[frame],
+        );
+        let players = unit_players(&self.timeline, u);
+        let label = |i: usize, end: bool| {
+            let p = players[i];
+            let name = format!("{} · team {}", self.names[p], u + 1);
+            tavern_label(&name, &before.players[p], &after.players[p], end)
         };
-        let before = &self.timeline.frames[frame - 1];
-        let after = &self.timeline.frames[frame];
-        Some(CombatPlayback::from_replay(
-            [*a, *b],
-            [&before.players[*a], &before.players[*b]],
-            [&after.players[*a], &after.players[*b]],
-            *seed,
-            result,
-            [&self.names[*a], &self.names[*b]],
-        ))
+        DuosSide {
+            team: format!("team {}", u + 1),
+            names: [0, 1].map(|i| self.names[players[i]].clone()),
+            labels: [0, 1].map(|i| label(i, false)),
+            end_labels: [0, 1].map(|i| label(i, true)),
+            players,
+        }
+    }
+
+    /// The board player `p` entered their last combat before `frame` with (at most 7 minions):
+    /// the board their ghost fights with ([`seaglass::lobby::Lobby::last_warbands`], which the
+    /// lobby updates at every combat of `p`'s unit, but not when `p` is the ghost).
+    fn last_warband(&self, frame: usize, p: usize) -> Vec<Unit> {
+        let duos = self.timeline.header.duos;
+        let unit = if duos { p / 2 } else { p };
+        let frames = &self.timeline.frames;
+        (1..frame)
+            .rev()
+            .find(|&k| match &frames[k].kind {
+                FrameKind::Combat { a, b, .. } | FrameKind::DuosCombat { a, b, .. } => {
+                    *a == unit || *b == unit
+                }
+                FrameKind::GhostCombat { unit: u, .. } => *u == unit,
+                _ => false,
+            })
+            .map(|k| {
+                frames[k - 1].players[p]
+                    .board
+                    .iter()
+                    .take(MAX_BOARD_SIZE)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+}
+
+/// Duos team `u`'s Tavern at `frame` (its players' states and the team's own), to re-run its
+/// combat from.
+fn team_tavern(frame: &Frame, u: usize) -> DuosTavern {
+    let team = &frame.teams[u];
+    DuosTavern {
+        players: [
+            frame.players[2 * u].clone(),
+            frame.players[2 * u + 1].clone(),
+        ],
+        health: team.health,
+        armor: team.armor,
+        passes_this_turn: team.passes_this_turn,
+        passes_this_game: team.passes_this_game,
+        incoming: team.incoming.clone(),
+        ended: team.ended,
+        first_fighter: team.first_fighter,
+        ..DuosTavern::new()
     }
 }

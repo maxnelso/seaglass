@@ -154,6 +154,50 @@ pub fn tribe_label(tribe: Tribe) -> &'static str {
     }
 }
 
+/// A stat in the game's shorthand: as is below 1,000; then `K`, `M` and `B`, with one decimal
+/// below 10 of the unit (`1.5K`, `5K`, `9.9K`) and none from 10 on (`17K`, `172K`, `1.2M`). It
+/// rounds down, as the game does, so a number never reads bigger than it is.
+pub fn short_stat(value: i32) -> String {
+    short_stat_with(value, true)
+}
+
+/// [`short_stat`], with or without its one decimal below 10 of the unit.
+fn short_stat_with(value: i32, decimals: bool) -> String {
+    let n = i64::from(value).abs();
+    let sign = if value < 0 { "-" } else { "" };
+    let Some(&(unit, suffix)) = [(1_000_000_000_i64, "B"), (1_000_000, "M"), (1_000, "K")]
+        .iter()
+        .find(|&&(unit, _)| n >= unit)
+    else {
+        return value.to_string();
+    };
+    let tenths = n * 10 / unit;
+    if decimals && tenths < 100 && tenths % 10 != 0 {
+        format!("{sign}{}.{}{suffix}", tenths / 10, tenths % 10)
+    } else {
+        format!("{sign}{}{suffix}", n / unit)
+    }
+}
+
+/// A board card's Attack and Health texts for a row of `span` columns: [`short_stat`], dropping
+/// the decimals if both don't fit with a space between, and as a last resort cutting the Attack.
+fn stat_texts(unit: &Unit, span: usize) -> (String, String) {
+    let fits = |a: &str, h: &str| a.chars().count() + 1 + h.chars().count() <= span;
+    let (attack, health) = (short_stat(unit.attack), short_stat(unit.health));
+    if fits(&attack, &health) {
+        return (attack, health);
+    }
+    let (attack, health) = (
+        short_stat_with(unit.attack, false),
+        short_stat_with(unit.health, false),
+    );
+    if fits(&attack, &health) {
+        return (attack, health);
+    }
+    let room = span.saturating_sub(health.chars().count() + 1);
+    (attack.chars().take(room).collect(), health)
+}
+
 /// The style of a stat: green above `base`, red below `full` (damaged), plain otherwise.
 fn stat_style(value: i32, base: i32, full: i32) -> Style {
     if value < full {
@@ -236,7 +280,7 @@ fn frame(unit: &Unit, size: CardSize, glyphs: &Glyphs) -> Canvas {
 
 /// The stats row: Attack on the left, Health on the right (or a spell's cost).
 fn stats_row(c: &mut Canvas, unit: &Unit, size: CardSize, y: usize) {
-    let (left, right) = (2, size.width() - 2);
+    let left = 2;
     if unit.is_spell {
         let cost = if unit.costs_health {
             format!("{}♥", unit.spell_cost)
@@ -252,20 +296,33 @@ fn stats_row(c: &mut Canvas, unit: &Unit, size: CardSize, y: usize) {
         );
         return;
     }
-    let attack = unit.attack.to_string();
-    let health = unit.health.to_string();
+    let (from, to, attack, health) = stat_layout(unit, size);
     c.text(
-        left + 1,
+        from,
         y,
         &attack,
         stat_style(unit.attack, unit.base_attack, unit.attack),
     );
     c.text_right(
-        right - 1,
+        to,
         y,
         &health,
         stat_style(unit.health, unit.base_health, unit.max_health),
     );
+}
+
+/// Where a board card's stats go: `(from, to, attack, health)`, the Attack starting at column
+/// `from` and the Health ending just before column `to`. They sit one column in from the frame,
+/// or, when their shorthand doesn't fit there, against it.
+fn stat_layout(unit: &Unit, size: CardSize) -> (usize, usize, String, String) {
+    let (left, right) = (2, size.width() - 2);
+    let span = (right - 1) - (left + 1);
+    let (attack, health) = (short_stat(unit.attack), short_stat(unit.health));
+    if attack.chars().count() + 1 + health.chars().count() <= span {
+        return (left + 1, right - 1, attack, health);
+    }
+    let (attack, health) = stat_texts(unit, span + 2);
+    (left, right, attack, health)
 }
 
 /// The badges centred in the inner columns of row `y`, between columns `from` and `to`.
@@ -315,8 +372,9 @@ pub fn card(unit: &Unit, size: CardSize, glyphs: &Glyphs) -> Canvas {
             // Attack, badges and Health on one row.
             stats_row(&mut c, unit, size, 2);
             if !unit.is_spell {
-                let attack_end = 3 + unit.attack.to_string().len();
-                let health_start = size.width() - 3 - unit.health.to_string().len();
+                let (from, to, attack, health) = stat_layout(unit, size);
+                let attack_end = from + attack.chars().count();
+                let health_start = to - health.chars().count();
                 badge_row(
                     &mut c,
                     unit,
@@ -541,6 +599,59 @@ mod tests {
                 " '.Dragon.' "
             ]
         );
+    }
+
+    #[test]
+    fn big_stats_use_the_games_shorthand() {
+        let cases = [
+            (0, "0"),
+            (999, "999"),
+            (1_000, "1K"),
+            (1_500, "1.5K"),
+            (5_000, "5K"),
+            (9_999, "9.9K"),
+            (17_127, "17K"),
+            (172_223, "172K"),
+            (1_250_000, "1.2M"),
+            (45_000_000, "45M"),
+            (2_100_000_000, "2.1B"),
+            (-28, "-28"),
+            (-1_500, "-1.5K"),
+        ];
+        for (value, text) in cases {
+            assert_eq!(short_stat(value), text, "{value}");
+        }
+    }
+
+    #[test]
+    fn big_stats_never_overlap_on_a_card() {
+        let mut unit = poet();
+        for (attack, health, small) in [
+            (17_131, 16_612, "│ 17K    16K │"),
+            (172_223, 166_430, "│ 172K  166K │"),
+            (1_234, 5_678, "│ 1.2K  5.6K │"),
+            (999_999, 999_999, "│ 999K  999K │"),
+        ] {
+            unit.attack = attack;
+            unit.health = health;
+            unit.max_health = health;
+            let lines = card(&unit, CardSize::Small, &Glyphs::UNICODE).to_plain();
+            assert!(lines[4].contains(small), "{:?}", lines[4]);
+            // The compact card fits them too, against its frame if need be.
+            let compact = card(&unit, CardSize::Compact, &Glyphs::ASCII).to_plain();
+            let row: String = compact[2]
+                .chars()
+                .skip(2)
+                .take(compact[2].chars().count() - 4)
+                .collect();
+            let words: Vec<&str> = row.split_whitespace().collect();
+            assert_eq!(words.len(), 2, "{row:?}");
+            assert!(
+                [short_stat(health), short_stat_with(health, false)]
+                    .contains(&words[1].to_string()),
+                "{row:?}"
+            );
+        }
     }
 
     #[test]

@@ -29,11 +29,14 @@ use app::App;
 use show::Source;
 
 pub const USAGE: &str = "\
-usage: match_replay tui <file> [--frame N | --turn T] [--game G] [--ascii]
+usage: match_replay tui <file> [--frame N | --turn T] [--game G] [--focus WHO] [--ascii]
                         [--dump [--step S] [--engine] [--size WxH] [--plain]]
 
   <file>       a seaglass replay (*.replay.pb) or a Hearthstone Power.log
   --game G     the Power.log game to play (1-based; default: the last one)
+  --focus WHO  only show one player's moments (with their Duos teammate): `agent` (the RL agent
+               a replay marks), a player's name or index (`p4`, `4`), or a team (`team3`, 1-based);
+               `o` toggles it in the player
   --ascii      draw cards with plain ASCII (for fonts that draw some symbols two columns wide)
   --dump       print the screen at the frame (and combat step S) instead of starting the player:
                --size sets the screen size (default 160x48), --plain drops the colours";
@@ -70,21 +73,59 @@ pub(crate) fn open(args: &[String]) -> Result<App, String> {
                 None => 0,
             },
         };
-        return Ok(App::new(
-            Box::new(source),
-            format!("{file} · {label}"),
-            frame,
-            glyphs,
-        ));
+        let mut app = App::new(Box::new(source), format!("{file} · {label}"), frame, glyphs);
+        apply_focus(&mut app, args)?;
+        return Ok(app);
     }
     let timeline = load_one(args)?;
     let frame = frame_arg(&timeline, args)?.unwrap_or(0);
-    Ok(App::new(
+    let mut app = App::new(
         Box::new(show::ReplaySource::new(timeline)),
         file,
         frame,
         glyphs,
-    ))
+    );
+    apply_focus(&mut app, args)?;
+    Ok(app)
+}
+
+/// Focus `app` on the players `--focus` names, if it names any.
+fn apply_focus(app: &mut App, args: &[String]) -> Result<(), String> {
+    let Some(who) = option(args, &["--focus"]) else {
+        return Ok(());
+    };
+    let names = app.names();
+    let player = if who == "agent" {
+        app.source
+            .agent()
+            .ok_or("the replay marks no agent (`meta.controllers`)")?
+    } else if let Some(team) = who.strip_prefix("team") {
+        let team: usize = team
+            .trim()
+            .parse()
+            .map_err(|_| format!("bad --focus {who:?}"))?;
+        let first = (0..names.len())
+            .filter(|&p| app.source.team_of(p)[0] == p)
+            .nth(team.saturating_sub(1))
+            .ok_or_else(|| format!("there is no team {team}"))?;
+        first
+    } else if let Some(p) = names.iter().position(|n| *n == who) {
+        p
+    } else {
+        let p: usize = who.parse().map_err(|_| {
+            format!(
+                "--focus {who:?} names no player (players: {})",
+                names.join(", ")
+            )
+        })?;
+        if p >= names.len() {
+            return Err(format!("there is no player {p}"));
+        }
+        p
+    };
+    let team = app.source.team_of(player);
+    app.set_focus(Some(team));
+    Ok(())
 }
 
 /// Run `match_replay compare`: every game of the log (or `--game G`) against the engine.
@@ -229,6 +270,7 @@ fn handle_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> bool {
         KeyCode::End | KeyCode::Char('G') => app.go_to(usize::MAX),
         KeyCode::Tab => app.cycle_perspective(),
         KeyCode::Char('f') => app.toggle_follow(),
+        KeyCode::Char('o') => app.toggle_focus(),
         KeyCode::Char('e') => app.toggle_alt(),
         KeyCode::Char('i') | KeyCode::Enter => {
             app.playing = false;
@@ -339,6 +381,82 @@ mod tests {
         Timeline::new(&game.replay()).unwrap()
     }
 
+    /// A Duos lobby played to the end by random bots.
+    fn duos_lobby(seed: u64) -> Timeline {
+        lobby(seed, true)
+    }
+
+    /// A lobby (Solo or Duos) played to the end by random bots.
+    fn lobby(seed: u64, duos: bool) -> Timeline {
+        use seaglass::{LobbyConfig, LobbyGame};
+        let mut game = LobbyGame::new(LobbyConfig {
+            seed,
+            duos,
+            heroes: false,
+            ..Default::default()
+        })
+        .unwrap();
+        let mut bot = Rng::new(seed);
+        while !game.is_over() {
+            game.begin_phase().unwrap();
+            for _ in 0..8 {
+                for p in game.active_players() {
+                    let actions = game.valid_actions(p);
+                    if actions.is_empty() {
+                        continue;
+                    }
+                    let action = if actions.contains(&TavernAction::EndTurn) && bot.below(3) == 0 {
+                        TavernAction::EndTurn
+                    } else {
+                        actions[bot.below(actions.len())]
+                    };
+                    game.step(p, action, None).unwrap();
+                }
+            }
+            for p in game.active_players() {
+                game.force_end(p).unwrap();
+            }
+            game.end_phase().unwrap();
+        }
+        Timeline::new(&game.game().replay()).unwrap()
+    }
+
+    #[test]
+    fn up_steps_back_a_turn_at_a_time_with_a_focus() {
+        let timeline = duos_lobby(3);
+        let last = timeline.len() - 1;
+        for team in [vec![0, 1], vec![2, 3], vec![6, 7]] {
+            let mut app = App::new(
+                Box::new(ReplaySource::new(timeline.clone())),
+                "g.replay.pb".into(),
+                last,
+                Glyphs::UNICODE,
+            );
+            app.set_focus(Some(team.clone()));
+            let first_shown = (0..app.len()).find(|&i| app.visible(i)).unwrap();
+            // Every press goes to an earlier frame of an earlier (or the same, from mid-turn) turn,
+            // until the first shown frame: it never gets stuck.
+            let mut presses = 0;
+            while app.frame != first_shown {
+                let (frame, turn) = (app.frame, app.source.info(app.frame).turn);
+                app.prev_turn();
+                assert!(
+                    app.frame < frame,
+                    "team {team:?}: Up stuck at frame {frame} (turn {turn})"
+                );
+                assert!(app.visible(app.frame));
+                presses += 1;
+                assert!(presses < 2 * last, "team {team:?}: too many presses");
+            }
+            // Down then Up comes back to the same turn's first shown frame.
+            app.next_turn();
+            let down = app.frame;
+            app.next_turn();
+            app.prev_turn();
+            assert_eq!(app.frame, down, "team {team:?}");
+        }
+    }
+
     #[test]
     fn every_frame_and_combat_step_draws_at_every_size() {
         for seed in 0..3 {
@@ -423,5 +541,152 @@ mod tests {
         let screen = screen::draw(&app, 130, 40).to_plain().join("\n");
         assert!(screen.contains('▲') || screen.contains('▼'), "{screen}");
         assert!(screen.contains("▸ Strike 1/"), "{screen}");
+    }
+
+    /// Check that `combat` (the playback of `frame`) re-ran faithfully and that its steps are
+    /// well formed: Start first, End last, every strike followed by its settle with its attacker
+    /// on the board it shows, and the events following on from step to step.
+    fn check_playback(combat: &combat::CombatPlayback, what: &str) {
+        assert!(combat.warning.is_none(), "{what}: {:?}", combat.warning);
+        let steps = &combat.steps;
+        assert_eq!(steps[0].phase, Phase::Start, "{what}");
+        assert_eq!(steps.last().unwrap().phase, Phase::End, "{what}");
+        for (i, step) in steps.iter().enumerate() {
+            assert!(step.snapshot < combat.snapshots.len(), "{what}");
+            assert!(
+                step.labels.iter().all(|l| !l.is_empty()),
+                "{what}: step {i} has no labels"
+            );
+            if step.phase == Phase::Strike {
+                assert_eq!(steps[i + 1].phase, Phase::Settle, "{what}: step {i}");
+                let (side, attacker) = step.attacker.expect("a strike has an attacker");
+                let shown = &combat.snapshots[step.snapshot];
+                let board = match side {
+                    seaglass::Side::A => &shown.board_a,
+                    seaglass::Side::B => &shown.board_b,
+                };
+                assert!(
+                    board.iter().any(|u| u.id == attacker),
+                    "{what}: step {i}: the attacker is not on its board"
+                );
+            }
+            if i > 0 && step.phase != Phase::Settle {
+                assert_eq!(
+                    step.events.start,
+                    steps[i - 1].events.end,
+                    "{what}: step {i}"
+                );
+            }
+        }
+        assert_eq!(
+            steps.last().unwrap().events.end,
+            combat.texts.len(),
+            "{what}"
+        );
+    }
+
+    #[test]
+    fn duos_and_ghost_combats_play_strike_by_strike() {
+        let (mut duos, mut ghosts, mut step_ins) = (0, 0, 0);
+        let mut duos_ghost = false;
+        for (seed, is_duos) in [(1, true), (2, true), (3, true), (4, false), (5, false)] {
+            let timeline = lobby(seed, is_duos);
+            assert!(timeline.is_faithful(), "seed {seed}");
+            let source = ReplaySource::new(timeline.clone());
+            for (frame, f) in timeline.frames.iter().enumerate() {
+                let ghost = match &f.kind {
+                    FrameKind::DuosCombat { .. } => false,
+                    FrameKind::GhostCombat { result, .. } => {
+                        duos_ghost |= matches!(**result, seaglass::CombatResult::Duos(_));
+                        true
+                    }
+                    _ => continue,
+                };
+                let what = format!("seed {seed} frame {frame}");
+                let combat = source.combat(frame).expect("a combat to play back");
+                check_playback(&combat, &what);
+                if ghost {
+                    ghosts += 1;
+                    assert!(
+                        combat.steps[0].labels[1].starts_with("ghost of "),
+                        "{what}: {:?}",
+                        combat.steps[0].labels
+                    );
+                    assert!(combat.players[1].is_empty(), "{what}");
+                } else {
+                    duos += 1;
+                }
+                for step in &combat.steps {
+                    if step.phase == Phase::TagIn {
+                        step_ins += 1;
+                        let heading = step.heading.as_deref().unwrap_or_default();
+                        assert!(heading.contains(" steps in for "), "{what}: {heading}");
+                    }
+                }
+            }
+        }
+        assert!(duos > 20, "{duos} Duos combats");
+        assert!(
+            ghosts > 2 && duos_ghost,
+            "{ghosts} ghost combats (Duos: {duos_ghost})"
+        );
+        assert!(step_ins > 0, "no warband stepped in");
+    }
+
+    #[test]
+    fn every_duos_combat_step_draws_at_every_size() {
+        let timeline = duos_lobby(6);
+        let mut app = App::new(
+            Box::new(ReplaySource::new(timeline)),
+            "g.replay.pb".into(),
+            0,
+            Glyphs::UNICODE,
+        );
+        let mut step_in_shown = false;
+        while app.next() {
+            let Some(combat) = &app.combat else {
+                continue;
+            };
+            assert!(combat.warning.is_none(), "frame {}", app.frame);
+            for (w, h) in [(172, 50), (120, 36), (90, 26), (40, 12), (30, 8)] {
+                let canvas = screen::draw(&app, w, h);
+                assert_eq!((canvas.width(), canvas.height()), (w, h));
+            }
+            if combat.steps[app.step].phase == Phase::TagIn {
+                let screen = screen::draw(&app, 160, 48).to_plain().join("\n");
+                assert!(screen.contains(" steps in for team "), "{screen}");
+                step_in_shown = true;
+            }
+        }
+        assert!(step_in_shown, "no step-in shown");
+    }
+
+    #[test]
+    fn a_duos_combat_shows_the_focused_team_at_the_bottom() {
+        let timeline = duos_lobby(7);
+        let frame = (0..timeline.len())
+            .find(|&i| matches!(timeline.frames[i].kind, FrameKind::DuosCombat { .. }))
+            .expect("a Duos combat");
+        let FrameKind::DuosCombat { a, b, .. } = timeline.frames[frame].kind else {
+            unreachable!()
+        };
+        for (unit, other) in [(a, b), (b, a)] {
+            let mut app = App::new(
+                Box::new(ReplaySource::new(timeline.clone())),
+                "g.replay.pb".into(),
+                frame,
+                Glyphs::UNICODE,
+            );
+            app.set_focus(Some(vec![2 * unit + 1, 2 * unit]));
+            assert_eq!(app.frame, frame, "a Duos combat concerns both teams");
+            let screen = screen::draw(&app, 160, 48).to_plain();
+            let row = |team: usize| {
+                screen
+                    .iter()
+                    .position(|l| l.contains(&format!(" · team {} · ", team + 1)))
+                    .unwrap_or_else(|| panic!("team {}: {}", team + 1, screen.join("\n")))
+            };
+            assert!(row(other) < row(unit), "{}", screen.join("\n"));
+        }
     }
 }

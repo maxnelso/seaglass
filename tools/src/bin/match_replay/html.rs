@@ -20,9 +20,7 @@ use seaglass::{
 };
 use seaglass::{heroes, trinkets};
 use seaglass_tools::fmt::{diff_auras, format_deity_kind, format_tribe, CombatNames, PoolCounts};
-use seaglass_tools::replay_text::{
-    frame_pool, frame_title, note_text, player_name, unit_players,
-};
+use seaglass_tools::replay_text::{frame_pool, frame_title, note_text, player_name, unit_players};
 
 /// The viewer page. [`DATA`] marks where the replay's JSON goes.
 const TEMPLATE: &str = include_str!("../../../viewer/replay.html");

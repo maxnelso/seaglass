@@ -27,6 +27,8 @@ pub struct App {
     pub perspective: usize,
     /// Show the Tavern of whoever acts in the frame.
     pub follow: bool,
+    /// Only show the frames that concern these players (one player, or a Duos team).
+    pub focus: Option<Vec<usize>>,
     /// Auto-play is on.
     pub playing: bool,
     /// Index into [`SPEEDS`].
@@ -48,6 +50,7 @@ impl App {
             show_alt: false,
             perspective: 0,
             follow: true,
+            focus: None,
             playing: false,
             speed: 2,
             inspect: None,
@@ -101,14 +104,71 @@ impl App {
         self.step = target.matching_step(&step);
     }
 
+    /// Whether player `p` is one the screen may show: any, or one of the focused players.
+    fn in_focus(&self, p: usize) -> bool {
+        self.focus.as_ref().is_none_or(|f| f.contains(&p))
+    }
+
     /// The player whose Tavern the screen shows.
     pub fn shown_player(&self) -> usize {
         if self.follow {
             if let Some(actor) = self.source.info(self.frame).actor {
-                return actor;
+                if self.in_focus(actor) {
+                    return actor;
+                }
             }
         }
-        self.perspective.min(self.names().len().saturating_sub(1))
+        match &self.focus {
+            Some(f) if !f.contains(&self.perspective) => f[0],
+            _ => self.perspective.min(self.names().len().saturating_sub(1)),
+        }
+    }
+
+    /// Whether frame `i` is shown: every frame, or with a focus only those about the focused
+    /// players (and the start and the end).
+    pub fn visible(&self, i: usize) -> bool {
+        let Some(focus) = &self.focus else {
+            return true;
+        };
+        match self.source.involves(i) {
+            None => true,
+            Some(players) => players.iter().any(|p| focus.contains(p)),
+        }
+    }
+
+    /// The first shown frame after `frame`, if any.
+    fn next_visible(&self, frame: usize) -> Option<usize> {
+        (frame + 1..self.len()).find(|&i| self.visible(i))
+    }
+
+    /// The last shown frame before `frame`, if any.
+    fn prev_visible(&self, frame: usize) -> Option<usize> {
+        (0..frame).rev().find(|&i| self.visible(i))
+    }
+
+    /// Only show the frames about `players` (`None`: every frame), moving to a shown frame.
+    pub fn set_focus(&mut self, players: Option<Vec<usize>>) {
+        self.focus = players.filter(|p| !p.is_empty());
+        if let Some(f) = &self.focus {
+            self.perspective = f[0];
+        }
+        if !self.visible(self.frame) {
+            let target = self
+                .next_visible(self.frame)
+                .or_else(|| self.prev_visible(self.frame))
+                .unwrap_or(self.frame);
+            self.go_to(target);
+        }
+    }
+
+    /// Focus on the shown player (and their Duos teammate), or show everyone again.
+    pub fn toggle_focus(&mut self) {
+        if self.focus.is_some() {
+            self.set_focus(None);
+        } else {
+            let team = self.source.team_of(self.shown_player());
+            self.set_focus(Some(team));
+        }
     }
 
     /// Show `frame` (clamped), from its first step.
@@ -119,7 +179,9 @@ impl App {
         self.combat = self.source.combat(self.frame);
         if self.follow {
             if let Some(actor) = self.source.info(self.frame).actor {
-                self.perspective = actor;
+                if self.in_focus(actor) {
+                    self.perspective = actor;
+                }
             }
         }
     }
@@ -133,8 +195,8 @@ impl App {
         if self.step + 1 < self.steps() {
             self.step += 1;
             true
-        } else if self.frame + 1 < self.len() {
-            self.go_to(self.frame + 1);
+        } else if let Some(next) = self.next_visible(self.frame) {
+            self.go_to(next);
             true
         } else {
             false
@@ -145,51 +207,60 @@ impl App {
     pub fn prev(&mut self) {
         if self.step > 0 {
             self.step -= 1;
-        } else if self.frame > 0 {
-            self.go_to(self.frame - 1);
+        } else if let Some(prev) = self.prev_visible(self.frame) {
+            self.go_to(prev);
             self.step = self.steps() - 1;
         }
     }
 
     /// The next frame, skipping the rest of a combat.
     pub fn next_frame(&mut self) {
-        self.go_to(self.frame + 1);
+        if let Some(next) = self.next_visible(self.frame) {
+            self.go_to(next);
+        }
     }
 
     pub fn prev_frame(&mut self) {
-        self.go_to(self.frame.saturating_sub(1));
+        if let Some(prev) = self.prev_visible(self.frame) {
+            self.go_to(prev);
+        }
     }
 
-    /// The first frame of the next turn (or the last frame).
+    /// The first shown frame of the next turn (or the last frame).
     pub fn next_turn(&mut self) {
         let turn = self.source.info(self.frame).turn;
         let next = (self.frame + 1..self.len())
-            .find(|&i| self.source.info(i).turn > turn)
+            .find(|&i| self.source.info(i).turn > turn && self.visible(i))
             .unwrap_or(self.len() - 1);
         self.go_to(next);
     }
 
-    /// The first frame of this turn, or of the previous turn if already there.
+    /// The first shown frame of this turn, or of the previous turn (with shown frames) if already
+    /// there.
     pub fn prev_turn(&mut self) {
-        let turn_start = |i: usize| {
-            let t = self.source.info(i).turn;
-            (0..=i)
+        let turn = |i: usize| self.source.info(i).turn;
+        // The first shown frame of `frame`'s turn, up to `frame`.
+        let first_shown = |frame: usize| {
+            (0..=frame)
                 .rev()
-                .take_while(|&j| self.source.info(j).turn == t)
+                .take_while(|&j| turn(j) == turn(frame))
+                .filter(|&j| self.visible(j))
                 .last()
-                .unwrap_or(0)
         };
-        let start = turn_start(self.frame);
-        let target = if start == self.frame && start > 0 {
-            turn_start(start - 1)
-        } else {
-            start
+        let target = match first_shown(self.frame) {
+            Some(first) if first < self.frame => first,
+            // Already at this turn's first shown frame: the previous turn's (with a focus, frames
+            // about other players are hidden, so a turn's own first frame may not be shown).
+            _ => match self.prev_visible(self.frame) {
+                Some(p) => first_shown(p).unwrap_or(p),
+                None => self.frame,
+            },
         };
         self.go_to(target);
     }
 
     fn is_combat(&self, i: usize) -> bool {
-        self.source.info(i).kind == Kind::Combat
+        self.source.info(i).kind == Kind::Combat && self.visible(i)
     }
 
     /// The next combat frame.
@@ -206,10 +277,18 @@ impl App {
         }
     }
 
-    /// Show the next player's Tavern (and stop following the actor).
+    /// Show the next player's Tavern (the next focused one, with a focus), and stop following the
+    /// actor.
     pub fn cycle_perspective(&mut self) {
         self.follow = false;
-        self.perspective = (self.shown_player() + 1) % self.names().len().max(1);
+        let shown = self.shown_player();
+        self.perspective = match &self.focus {
+            Some(f) => {
+                let i = f.iter().position(|&p| p == shown).unwrap_or(0);
+                f[(i + 1) % f.len()]
+            }
+            None => (shown + 1) % self.names().len().max(1),
+        };
     }
 
     pub fn toggle_follow(&mut self) {
