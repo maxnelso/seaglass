@@ -1442,4 +1442,30 @@ TAG_CHANGE Entity=GameEntity tag=BACON_IN_COMBAT_PHASE value=0
             }
         }
     }
+
+    #[test]
+    fn finds_latest_session_log_with_a_game() {
+        let root = std::env::temp_dir().join(format!("seaglass_wsl_logs_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let older = root.join("Hearthstone_2026_11_08_18_00_00");
+        let newer = root.join("Hearthstone_2026_11_08_22_24_42");
+        let empty = root.join("Hearthstone_2026_11_09_09_00_00");
+        std::fs::create_dir_all(&older).unwrap();
+        std::fs::create_dir_all(&newer).unwrap();
+        std::fs::create_dir_all(&empty).unwrap();
+
+        let game_log: String = LOG
+            .lines()
+            .map(|l| format!("D 00:00:00.0000000 GameState.DebugPrintPower() - {l}\n"))
+            .collect();
+        std::fs::write(older.join("Power_old.log"), &game_log).unwrap();
+        std::fs::write(newer.join("Power_old.log"), &game_log).unwrap();
+        // A newer session folder with an empty menu log should be skipped in favor of `newer`.
+        std::fs::write(empty.join("Power.log"), "").unwrap();
+
+        let found = seaglass_replay::find_latest_power_log_in(&root).unwrap();
+        assert_eq!(found, newer.join("Power_old.log"));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

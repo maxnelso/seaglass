@@ -7,8 +7,10 @@
 //! hero damage, and conversion to [`Matchup`] / [`Unit`] for `seaglass` simulation).
 
 use std::collections::HashMap;
+use std::env;
 use std::fs;
-use std::path::Path;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -489,10 +491,143 @@ impl RawEntity {
     }
 }
 
-/// Parse a `Power.log` file from disk into a list of [`GameReplay`]s.
+/// Default Windows Hearthstone `Logs` directory when accessed from WSL.
+pub const DEFAULT_WINDOWS_LOGS_DIR: &str = "/mnt/c/Program Files (x86)/Hearthstone/Logs";
+
+/// Candidate Windows Hearthstone `Logs` directories under WSL mounts.
+const WINDOWS_LOGS_DIRS: &[&str] = &[
+    DEFAULT_WINDOWS_LOGS_DIR,
+    "/mnt/c/Program Files/Hearthstone/Logs",
+    "/mnt/d/Program Files (x86)/Hearthstone/Logs",
+    "/mnt/d/Hearthstone/Logs",
+];
+
+/// Find the latest `Power.log` (or `Power_old.log`) from the Windows Hearthstone installation
+/// mounted in WSL (or the directory named by `HEARTHSTONE_LOGS`).
+pub fn find_windows_power_log() -> Result<PathBuf, String> {
+    if let Ok(custom) = env::var("HEARTHSTONE_LOGS") {
+        let path = PathBuf::from(custom);
+        if path.exists() {
+            return find_latest_power_log_in(&path);
+        }
+    }
+    for dir in WINDOWS_LOGS_DIRS {
+        let path = Path::new(dir);
+        if path.exists() {
+            return find_latest_power_log_in(path);
+        }
+    }
+    Err(format!(
+        "Windows Hearthstone Logs directory not found (checked {DEFAULT_WINDOWS_LOGS_DIR})"
+    ))
+}
+
+/// Find the most recent `Power.log` or `Power_old.log` containing a game inside `path`
+/// (which may be a log file, a session folder, or the top-level Hearthstone `Logs` directory).
+pub fn find_latest_power_log_in(path: &Path) -> Result<PathBuf, String> {
+    if path.is_file() {
+        return Ok(path.to_path_buf());
+    }
+    if !path.exists() {
+        return Err(format!("{}: does not exist", path.display()));
+    }
+
+    #[derive(Debug)]
+    struct Candidate {
+        parent_name: String,
+        is_current: bool,
+        modified: Option<std::time::SystemTime>,
+        path: PathBuf,
+    }
+
+    let mut candidates = Vec::new();
+    let mut check_dir = |dir: &Path, parent_name: String| {
+        for (name, is_current) in [("Power.log", true), ("Power_old.log", false)] {
+            let file = dir.join(name);
+            if file.is_file() {
+                let modified = fs::metadata(&file).and_then(|m| m.modified()).ok();
+                candidates.push(Candidate {
+                    parent_name: parent_name.clone(),
+                    is_current,
+                    modified,
+                    path: file,
+                });
+            }
+        }
+    };
+
+    check_dir(path, String::new());
+    let entries =
+        fs::read_dir(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    for entry in entries.flatten() {
+        let sub = entry.path();
+        if sub.is_dir() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            check_dir(&sub, name);
+        }
+    }
+
+    if candidates.is_empty() {
+        return Err(format!(
+            "no Power.log or Power_old.log found in {}",
+            path.display()
+        ));
+    }
+
+    candidates.sort_by(|a, b| {
+        if a.parent_name != b.parent_name {
+            let a_hs = a.parent_name.starts_with("Hearthstone_");
+            let b_hs = b.parent_name.starts_with("Hearthstone_");
+            if a_hs && b_hs {
+                return b
+                    .parent_name
+                    .cmp(&a.parent_name)
+                    .then_with(|| b.modified.cmp(&a.modified));
+            }
+            return b
+                .modified
+                .cmp(&a.modified)
+                .then_with(|| b.parent_name.cmp(&a.parent_name));
+        }
+        // Within the same directory, prefer `Power.log` over `Power_old.log` unless `Power_old.log`
+        // has a strictly newer modification timestamp.
+        match (a.modified, b.modified) {
+            (Some(ma), Some(mb)) if ma != mb => mb.cmp(&ma),
+            _ => b.is_current.cmp(&a.is_current),
+        }
+    });
+
+    let has_create_game = |file: &Path| -> bool {
+        let Ok(mut f) = fs::File::open(file) else {
+            return false;
+        };
+        let mut head = vec![0u8; 1 << 16];
+        let n = f.read(&mut head).unwrap_or(0);
+        String::from_utf8_lossy(&head[..n]).contains("CREATE_GAME")
+    };
+
+    if let Some(c) = candidates.iter().find(|c| has_create_game(&c.path)) {
+        return Ok(c.path.clone());
+    }
+    if let Some(c) = candidates
+        .iter()
+        .find(|c| fs::metadata(&c.path).is_ok_and(|m| m.len() > 0))
+    {
+        return Ok(c.path.clone());
+    }
+    Ok(candidates[0].path.clone())
+}
+
+/// Parse a `Power.log` file (or the latest log in a Hearthstone `Logs` directory) from disk
+/// into a list of [`GameReplay`]s.
 pub fn parse_power_log_file(path: &Path) -> Result<Vec<GameReplay>, String> {
-    let content =
-        fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let resolved = if path.is_dir() {
+        find_latest_power_log_in(path)?
+    } else {
+        path.to_path_buf()
+    };
+    let content = fs::read_to_string(&resolved)
+        .map_err(|e| format!("failed to read {}: {e}", resolved.display()))?;
     parse_power_log_str(&content)
 }
 

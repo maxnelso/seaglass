@@ -29,10 +29,12 @@ use app::App;
 use show::Source;
 
 pub const USAGE: &str = "\
-usage: match_replay tui <file> [--frame N | --turn T] [--game G] [--focus WHO] [--ascii]
+usage: match_replay tui [<file> | --wsl] [--frame N | --turn T] [--game G] [--focus WHO] [--ascii]
                         [--dump [--step S] [--engine] [--sample win|tie|loss[:N]] [--size WxH] [--plain]]
 
-  <file>       a seaglass replay (*.replay.pb) or a Hearthstone Power.log
+  <file>       a seaglass replay (*.replay.pb), a Hearthstone Power.log, or a Hearthstone Logs dir
+  --wsl        read the latest Windows Hearthstone Power.log in WSL and play the last game
+               (aliases: --last, --windows)
   --game G     the Power.log game to play (1-based; default: the last one)
   --focus WHO  only show one player's moments (with their Duos teammate): `agent` (the RL agent
                a replay marks), a player's name or index (`p4`, `4`), or a team (`team3`, 1-based);
@@ -42,26 +44,44 @@ usage: match_replay tui <file> [--frame N | --turn T] [--game G] [--focus WHO] [
                --sample shows a simulated win, tie, or loss (optional 1-based :N picks seed N),
                --size sets the screen size (default 160x48), --plain drops the colours";
 
-/// The app for the file named by the first argument: a seaglass replay or a `Power.log` game,
-/// at the frame `--frame` / `--turn` pick.
+/// Whether `--wsl`, `--last`, or `--windows` was passed.
+pub(crate) fn has_wsl_flag(args: &[String]) -> bool {
+    args.iter()
+        .any(|a| matches!(a.as_str(), "--wsl" | "--last" | "--windows"))
+}
+
+/// Resolve the replay or `Power.log` path from positional `<file>` or `--wsl`/`--last`/`--windows`.
+pub(crate) fn resolve_path(args: &[String], usage: &str) -> Result<std::path::PathBuf, String> {
+    if let Some(raw) = args.first().filter(|a| !a.starts_with('-')) {
+        let p = std::path::Path::new(raw);
+        if p.is_dir() {
+            return seaglass_replay::find_latest_power_log_in(p);
+        }
+        return Ok(p.to_path_buf());
+    }
+    if has_wsl_flag(args) {
+        return seaglass_replay::find_windows_power_log();
+    }
+    Err(format!("missing the replay file\n\n{usage}"))
+}
+
+/// The app for the file named by the first argument (or `--wsl`): a seaglass replay or a
+/// `Power.log` game, at the frame `--frame` / `--turn` pick.
 pub(crate) fn open(args: &[String]) -> Result<App, String> {
-    let path = args
-        .first()
-        .filter(|a| !a.starts_with('-'))
-        .ok_or_else(|| format!("missing the replay file\n\n{USAGE}"))?;
+    let path = resolve_path(args, USAGE)?;
     let glyphs = if args.iter().any(|a| a == "--ascii") {
         Glyphs::ASCII
     } else {
         Glyphs::UNICODE
     };
-    let file = std::path::Path::new(path)
+    let file = path
         .file_name()
-        .map_or_else(|| path.clone(), |f| f.to_string_lossy().into_owned());
-    if powerlog::is_power_log(std::path::Path::new(path)) {
+        .map_or_else(|| path.display().to_string(), |f| f.to_string_lossy().into_owned());
+    if powerlog::is_power_log(&path) {
         let game = option(args, &["--game"])
             .map(|g| g.parse().map_err(|_| format!("bad --game {g:?}")))
             .transpose()?;
-        let (source, label) = powerlog::load(std::path::Path::new(path), game)?;
+        let (source, label) = powerlog::load(&path, game)?;
         let frame = match option(args, &["--frame", "-f"]) {
             Some(f) => f.parse().map_err(|_| format!("bad --frame {f:?}"))?,
             None => match option(args, &["--turn", "-t"]) {
@@ -129,20 +149,20 @@ fn apply_focus(app: &mut App, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Run `match_replay compare`: every game of the log (or `--game G`) against the engine.
+/// Run `match_replay compare`: every game of the log (or `--game G` / `--last` / `--wsl`) against the engine.
 pub fn compare(args: &[String]) -> Result<ExitCode, String> {
-    let path = args
-        .first()
-        .filter(|a| !a.starts_with('-'))
-        .ok_or("usage: match_replay compare <Power.log> [--game G] [--turn T] [--full]")?;
-    let path = std::path::Path::new(path);
-    if !powerlog::is_power_log(path) {
+    let path = resolve_path(
+        args,
+        "usage: match_replay compare [<Power.log> | --wsl] [--last] [--game G] [--turn T] [--full]",
+    )?;
+    if !powerlog::is_power_log(&path) {
         return Err(format!("{} is not a Power.log", path.display()));
     }
     let games: Vec<Option<usize>> = match option(args, &["--game"]) {
         Some(g) => vec![Some(g.parse().map_err(|_| format!("bad --game {g:?}"))?)],
+        None if has_wsl_flag(args) => vec![None],
         None => {
-            let n = seaglass_replay::parse_power_log_file(path)?.len();
+            let n = seaglass_replay::parse_power_log_file(&path)?.len();
             (1..=n).map(Some).collect()
         }
     };
@@ -151,7 +171,7 @@ pub fn compare(args: &[String]) -> Result<ExitCode, String> {
             .map(|t| t.parse().map_err(|_| format!("bad --turn {t:?}")))
             .transpose()?;
         let full = args.iter().any(|a| a == "--full");
-        println!("{}", powerlog::compare_report(path, game, turn, full)?);
+        println!("{}", powerlog::compare_report(&path, game, turn, full)?);
     }
     Ok(ExitCode::SUCCESS)
 }

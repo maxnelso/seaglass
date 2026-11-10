@@ -32,13 +32,16 @@ commands:
   log <file>                           the whole game, call by call, with combat logs
   show <file> [--frame N | --turn T]   every player's full state at a frame (default: last)
   step <file> [--frame N | --turn T]   step through the game interactively
-  tui <file> [--frame N | --turn T]    play the game back in a terminal UI, combats strike by
+  tui [<file> | --wsl] [--frame N | --turn T]
+                                       play the game back in a terminal UI, combats strike by
                                        strike (`match_replay tui --help` for its options)
-  cast <file> [-o out.cast]            record that play-back as an asciinema recording
+  cast [<file> | --wsl] [-o out.cast]  record that play-back as an asciinema recording
                                        (`match_replay cast --help` for its options)
-  compare <Power.log> [--game G] [--turn T] [--full]
+  compare [<Power.log> | --wsl] [--last] [--game G] [--turn T] [--full]
                                        every combat of a Power.log game next to the engine's
                                        version: results and the first strike the boards differ
+  --wsl / --last                       shortcut for `tui --wsl`: play the last game from the
+                                       Windows Hearthstone Power.log in WSL
   verify <file>...                     re-simulate replays; exit 1 if any diverges
   html <file> [-o out.html]            write a self-contained HTML viewer
   scenario <file> (--frame N | --turn T) [--steps K] [--player P] [-o out.yaml]
@@ -77,6 +80,7 @@ fn main() -> ExitCode {
             Ok(ExitCode::SUCCESS)
         }
         "tui" => tui::run(rest),
+        "--wsl" | "--last" | "--windows" => tui::run(&args),
         "cast" if rest.iter().any(|a| a == "--help" || a == "-h") => {
             println!("{}", tui::cast::USAGE);
             Ok(ExitCode::SUCCESS)

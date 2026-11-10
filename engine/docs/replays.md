@@ -292,6 +292,9 @@ ASCII instead, for fonts that draw some of those symbols two columns wide.
 
 **Games from a Hearthstone `Power.log`.** `tui` (and `cast`) also open a `Power.log`
 (`match_replay tui ~/Hearthstone/Logs/Power.log --game 2`; the default is the log's last game).
+In WSL, `--wsl` (or `--last` / `--windows`, e.g. `match_replay --wsl`, `match_replay tui --wsl`,
+`match_replay compare --wsl`, or `replay_cli --wsl`) finds the latest `Power.log` / `Power_old.log`
+in `/mnt/c/Program Files (x86)/Hearthstone/Logs` and plays the last game in it.
 They can't be re-simulated (Blizzard's random draws aren't seaglass's), so they play back what
 the log shows, from the `seaglass_replay` parser (`replay/`):
 

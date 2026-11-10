@@ -10,7 +10,7 @@ use super::screen;
 use crate::option;
 
 pub const USAGE: &str = "\
-usage: match_replay cast <file> [-o out.cast] [--frame N | --turn T] [--game G] [--frames K]
+usage: match_replay cast [<file> | --wsl] [-o out.cast] [--frame N | --turn T] [--game G] [--frames K]
                          [--size WxH] [--speed X] [--ascii]
 
   Records the player's auto-play from the frame (default: the start) for K frames (default: to
@@ -21,14 +21,22 @@ usage: match_replay cast <file> [-o out.cast] [--frame N | --turn T] [--game G] 
 pub fn run(args: &[String]) -> Result<ExitCode, String> {
     let mut app = super::open(args)?;
     let start = app.frame;
-    let input = PathBuf::from(&args[0]);
+    let explicit_file = args.first().filter(|a| !a.starts_with('-')).is_some();
+    let input = super::resolve_path(args, USAGE)?;
     let file = input
         .file_name()
-        .map_or_else(|| args[0].clone(), |f| f.to_string_lossy().into_owned());
+        .map_or_else(|| input.display().to_string(), |f| f.to_string_lossy().into_owned());
     let out = option(args, &["-o", "--output"]).map_or_else(
         || {
-            let stem = file.strip_suffix(".replay.pb").unwrap_or(&file);
-            input.with_file_name(format!("{stem}.cast"))
+            let stem = file
+                .strip_suffix(".replay.pb")
+                .or_else(|| file.strip_suffix(".log"))
+                .unwrap_or(&file);
+            if explicit_file {
+                input.with_file_name(format!("{stem}.cast"))
+            } else {
+                PathBuf::from(format!("{stem}.cast"))
+            }
         },
         PathBuf::from,
     );

@@ -19,8 +19,8 @@ use std::process;
 
 use seaglass::{simulate_batch, BattleOutcome, GameState};
 use seaglass_replay::{
-    parse_power_log_file, CombatLogEvent, GameReplay, ReplayCard, ReplayUnit, TavernActionRecord,
-    TurnReplay,
+    find_latest_power_log_in, find_windows_power_log, parse_power_log_file, CombatLogEvent,
+    GameReplay, ReplayCard, ReplayUnit, TavernActionRecord, TurnReplay,
 };
 
 fn default_power_log_path() -> PathBuf {
@@ -30,22 +30,26 @@ fn default_power_log_path() -> PathBuf {
             return candidate;
         }
     }
+    if let Ok(win_log) = find_windows_power_log() {
+        return win_log;
+    }
     PathBuf::from("/usr/local/google/home/maxnelso/scratch/Power.log")
 }
 
 fn print_usage() {
     println!("Usage:");
-    println!("  cargo run --bin replay_cli -- list [<Power.log>]");
-    println!("  cargo run --bin replay_cli -- summary [<Power.log>] [--game <N>]");
-    println!("  cargo run --bin replay_cli -- turn <TURN> [<Power.log>] [--game <N>]");
+    println!("  cargo run --bin replay_cli -- [--wsl | --last] [command] [<Power.log>]");
+    println!("  cargo run --bin replay_cli -- list [<Power.log>] [--wsl]");
+    println!("  cargo run --bin replay_cli -- summary [<Power.log>] [--game <N> | --last | --wsl]");
+    println!("  cargo run --bin replay_cli -- turn <TURN> [<Power.log>] [--game <N> | --last | --wsl]");
     println!(
-        "  cargo run --bin replay_cli -- export-yaml [<Power.log>] [--game <N>] [--turn <T>] [-o <file.yaml>]"
+        "  cargo run --bin replay_cli -- export-yaml [<Power.log>] [--game <N> | --last | --wsl] [--turn <T>] [-o <file.yaml>]"
     );
-    println!("  cargo run --bin replay_cli -- combats [<Power.log>] [--game <N>] [--turn <T>]");
-    println!("  cargo run --bin replay_cli -- cards [<Power.log>]");
-    println!("  cargo run --bin replay_cli -- drift [<Power.log>]");
+    println!("  cargo run --bin replay_cli -- combats [<Power.log>] [--game <N> | --last | --wsl] [--turn <T>]");
+    println!("  cargo run --bin replay_cli -- cards [<Power.log>] [--wsl]");
+    println!("  cargo run --bin replay_cli -- drift [<Power.log>] [--wsl]");
     println!(
-        "  cargo run --release --bin replay_cli -- validate [<Power.log>] [--game <N>] [--turn <T>] [--runs <N>] [--guided-runs <N>] [--seed <S>] [-v]"
+        "  cargo run --release --bin replay_cli -- validate [<Power.log>] [--game <N> | --last | --wsl] [--turn <T>] [--runs <N>] [--guided-runs <N>] [--seed <S>] [-v]"
     );
 }
 
@@ -497,6 +501,8 @@ fn main() {
     let mut turn_num: Option<u32> = None;
     let mut out_path: Option<PathBuf> = None;
     let mut game_given = false;
+    let mut use_wsl = false;
+    let mut last_game = false;
     let mut runs: u32 = 2000;
     let mut guided_runs: u32 = 200;
     let mut seed: u64 = 2026;
@@ -508,6 +514,13 @@ fn main() {
             "-h" | "--help" | "help" => {
                 print_usage();
                 return;
+            }
+            "--wsl" | "--windows" => {
+                use_wsl = true;
+                last_game = true;
+            }
+            "--last" => {
+                last_game = true;
             }
             "list" | "summary" | "turn" | "export-yaml" | "combats" | "validate" | "cards"
             | "drift" => {
@@ -594,7 +607,22 @@ fn main() {
         i += 1;
     }
 
-    let path = log_path.unwrap_or_else(default_power_log_path);
+    let raw_path = match log_path {
+        Some(p) => p,
+        None if use_wsl => find_windows_power_log().unwrap_or_else(|e| {
+            eprintln!("{e}");
+            process::exit(1);
+        }),
+        None => default_power_log_path(),
+    };
+    let path = if raw_path.is_dir() {
+        find_latest_power_log_in(&raw_path).unwrap_or_else(|e| {
+            eprintln!("{e}");
+            process::exit(1);
+        })
+    } else {
+        raw_path
+    };
     let games = parse_power_log_file(&path).unwrap_or_else(|e| {
         eprintln!("Error parsing {}: {e}", path.display());
         process::exit(1);
@@ -603,6 +631,11 @@ fn main() {
     if games.is_empty() {
         eprintln!("No Battlegrounds games found in {}", path.display());
         process::exit(1);
+    }
+
+    if last_game && !game_given {
+        game_num = games.last().unwrap().game_index;
+        game_given = true;
     }
 
     if cmd == "list" {
