@@ -9,6 +9,7 @@ from typing import Dict, List, Protocol
 
 import seaglass
 
+from .apex_search import ApexBot
 from .baseline import GreedyLevelBot, SemiRandomBot, TempoBot
 from .duos import DuosSequentialRolloutBot
 from .search import ExpectimaxMctsBot, ShopEpochBeamBot
@@ -61,7 +62,9 @@ def run_solo_benchmark(
             s_seed = seed + logical_idx * 13
             if logical_idx in (0, 1):
                 seat_to_group[seat] = f"Search({bot_kind})"
-                if bot_kind == "mcts":
+                if bot_kind == "apex":
+                    bots[seat] = ApexBot(seed=s_seed)
+                elif bot_kind == "mcts":
                     bots[seat] = ExpectimaxMctsBot(seed=s_seed)
                 else:
                     bots[seat] = ShopEpochBeamBot(seed=s_seed)
@@ -148,12 +151,14 @@ def run_solo_benchmark(
 
 def run_duos_benchmark(
     num_games: int = 4,
+    bot_kind: str = "apex",
     base_seed: int = 5000,
     save_replay_dir: str | None = None,
 ) -> None:
-    """Pit 1 DuosSequentialRolloutBot team against 3 SemiRandom/Tempo teams (4 teams = 8 players)."""
+    """Pit 1 Search/Apex Duos team against 3 SemiRandom/Tempo/DuosRollout teams (4 teams = 8 players)."""
+    our_label = "ApexDuos" if bot_kind == "apex" else "DuosRollout"
     team_places: Dict[str, List[int]] = {
-        "DuosRollout": [],
+        our_label: [],
         "BaselineTeams": [],
     }
     turn_ms: List[float] = []
@@ -167,8 +172,11 @@ def run_duos_benchmark(
             for s in range(2):
                 p = 2 * t + s
                 if t == our_team:
-                    bots[p] = DuosSequentialRolloutBot(seed=seed + p)
-                    names.append(f"DuosRollout_p{p}")
+                    if bot_kind == "apex":
+                        bots[p] = ApexBot(catalog_name="duos", seed=seed + p)
+                    else:
+                        bots[p] = DuosSequentialRolloutBot(seed=seed + p)
+                    names.append(f"{our_label}_p{p}")
                 else:
                     bots[p] = SemiRandomBot(seed=seed + p) if t % 2 == 1 else TempoBot(seed=seed + p)
                     names.append(f"Base_p{p}")
@@ -201,21 +209,21 @@ def run_duos_benchmark(
             our_pl = places[our_team]
             out_path = os.path.join(
                 save_replay_dir,
-                f"duos_rollout_g{g_idx + 1}_seed{seed}_team{our_team}_place{our_pl}.replay.pb",
+                f"duos_{bot_kind}_g{g_idx + 1}_seed{seed}_team{our_team}_place{our_pl}.replay.pb",
             )
-            lobby.set_meta("bot", "DuosSequentialRolloutBot")
+            lobby.set_meta("bot", our_label)
             lobby.save(out_path)
             print(f"  -> saved {out_path}")
 
         for t, pl in enumerate(places):
             if pl is not None:
                 if t == our_team:
-                    team_places["DuosRollout"].append(pl)
+                    team_places[our_label].append(pl)
                 else:
                     team_places["BaselineTeams"].append(pl)
         print(
             f"[Duos Game {g_idx + 1}/{num_games} | turns={lobby.turn}] "
-            f"DuosRollout team={our_team} place={places[our_team]} | all={places}"
+            f"{our_label} team={our_team} place={places[our_team]} | all={places}"
         )
 
     print("\n=== Duos 4-Team Summary ===")
@@ -228,7 +236,7 @@ def run_duos_benchmark(
             f"| Top-2: {top2:5.1f}% | 1st: {win1:5.1f}%"
         )
     if turn_ms:
-        print(f"DuosRollout Python Turn Latency: mean={sum(turn_ms)/len(turn_ms):.1f} ms/turn")
+        print(f"{our_label} Python Turn Latency: mean={sum(turn_ms)/len(turn_ms):.1f} ms/turn")
 
 
 def run_head2head_benchmark(
@@ -332,7 +340,7 @@ def run_head2head_benchmark(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seaglass Python Search Bots Arena")
     parser.add_argument("--mode", choices=["solo", "duos", "both", "head2head"], default="both")
-    parser.add_argument("--bot", choices=["beam", "mcts"], default="beam")
+    parser.add_argument("--bot", choices=["apex", "beam", "mcts"], default="apex")
     parser.add_argument("--games", type=int, default=6)
     parser.add_argument("--seed", type=int, default=1000)
     parser.add_argument("--replay-dir", type=str, default=None)
@@ -355,7 +363,8 @@ def main() -> None:
         )
     if args.mode in ("duos", "both"):
         run_duos_benchmark(
-            num_games=max(2, args.games // 2),
+            num_games=args.games if args.mode == "duos" else max(2, args.games // 2),
+            bot_kind=args.bot,
             base_seed=args.seed + 4000,
             save_replay_dir=args.replay_dir,
         )

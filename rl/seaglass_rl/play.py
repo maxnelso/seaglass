@@ -52,7 +52,7 @@ from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from .model import BattlegroundsMLP
 
 LEARNER = "learner"
-BOTS = ("heuristic", "random", "9kgamerbot", "9kgamerbot-tempo")
+BOTS = ("heuristic", "random", "9kgamerbot", "9kgamerbot-tempo", "apex")
 # A bot's turn may take more steps than a model's (`PlayOptions.max_steps_per_turn`): 9kgamerbot
 # rolls, buys and sells many times a turn.
 BOT_MAX_STEPS_PER_TURN = 100
@@ -273,6 +273,10 @@ def _bot(controller: str, seed: int) -> Any | None:
         return NineKGamerBot()
     if controller == "9kgamerbot-tempo":
         return NineKGamerBot(tempo_levels=True)
+    if controller == "apex":
+        from seaglass_bots import ApexBot
+
+        return ApexBot(seed=seed)
     return None
 
 

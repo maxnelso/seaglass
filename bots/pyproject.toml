@@ -16,3 +16,6 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["seaglass_bots*"]
+
+[tool.setuptools.package-data]
+seaglass_bots = ["data/*.npz"]
