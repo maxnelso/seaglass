@@ -13,9 +13,24 @@ from .duos import DuosSequentialRolloutBot
 from .evaluator import LeafEvaluator
 from .positioning import PositioningSolver
 from .search import ExpectimaxMctsBot, ShopEpochBeamBot
+from .sovereign_belief import SovereignBeliefTracker, SovereignOpponentParticles
+from .sovereign_evaluator import SovereignEvaluator
+from .sovereign_knowledge import SovereignKnowledge, get_sovereign_knowledge
+from .sovereign_model import SovereignNumpyPredictor, SovereignValueNet
+from .sovereign_positioning import SovereignPositioner
+from .sovereign_search import SovereignBot
 from .value_model import SynergyValueNet, SynergyValuePredictor
 
 __all__ = [
+    "SovereignBot",
+    "SovereignEvaluator",
+    "SovereignBeliefTracker",
+    "SovereignOpponentParticles",
+    "SovereignPositioner",
+    "SovereignValueNet",
+    "SovereignNumpyPredictor",
+    "SovereignKnowledge",
+    "get_sovereign_knowledge",
     "ApexBot",
     "ApexEvaluator",
     "ApexBeliefTracker",

@@ -13,6 +13,7 @@ from .apex_search import ApexBot
 from .baseline import GreedyLevelBot, SemiRandomBot, TempoBot
 from .duos import DuosSequentialRolloutBot
 from .search import ExpectimaxMctsBot, ShopEpochBeamBot
+from .sovereign_search import SovereignBot
 
 
 class LobbyActor(Protocol):
@@ -62,7 +63,9 @@ def run_solo_benchmark(
             s_seed = seed + logical_idx * 13
             if logical_idx in (0, 1):
                 seat_to_group[seat] = f"Search({bot_kind})"
-                if bot_kind == "apex":
+                if bot_kind == "sovereign":
+                    bots[seat] = SovereignBot(seed=s_seed)
+                elif bot_kind == "apex":
                     bots[seat] = ApexBot(seed=s_seed)
                 elif bot_kind == "mcts":
                     bots[seat] = ExpectimaxMctsBot(seed=s_seed)
@@ -156,7 +159,11 @@ def run_duos_benchmark(
     save_replay_dir: str | None = None,
 ) -> None:
     """Pit 1 Search/Apex Duos team against 3 SemiRandom/Tempo/DuosRollout teams (4 teams = 8 players)."""
-    our_label = "ApexDuos" if bot_kind == "apex" else "DuosRollout"
+    our_label = (
+        "SovereignDuos"
+        if bot_kind == "sovereign"
+        else ("ApexDuos" if bot_kind == "apex" else "DuosRollout")
+    )
     team_places: Dict[str, List[int]] = {
         our_label: [],
         "BaselineTeams": [],
@@ -172,7 +179,9 @@ def run_duos_benchmark(
             for s in range(2):
                 p = 2 * t + s
                 if t == our_team:
-                    if bot_kind == "apex":
+                    if bot_kind == "sovereign":
+                        bots[p] = SovereignBot(catalog_name="duos", seed=seed + p)
+                    elif bot_kind == "apex":
                         bots[p] = ApexBot(catalog_name="duos", seed=seed + p)
                     else:
                         bots[p] = DuosSequentialRolloutBot(seed=seed + p)
@@ -340,7 +349,7 @@ def run_head2head_benchmark(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seaglass Python Search Bots Arena")
     parser.add_argument("--mode", choices=["solo", "duos", "both", "head2head"], default="both")
-    parser.add_argument("--bot", choices=["apex", "beam", "mcts"], default="apex")
+    parser.add_argument("--bot", choices=["sovereign", "apex", "beam", "mcts"], default="sovereign")
     parser.add_argument("--games", type=int, default=6)
     parser.add_argument("--seed", type=int, default=1000)
     parser.add_argument("--replay-dir", type=str, default=None)
