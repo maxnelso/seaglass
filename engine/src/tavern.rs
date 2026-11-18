@@ -56,51 +56,48 @@ pub fn base_upgrade_cost(current_tier: u32) -> u32 {
     }
 }
 
-#[derive(Clone, Debug)]
-struct PoolEntry {
-    template: CardTemplate,
-    remaining: u32,
-}
-
 /// Shared finite card pool with depletion (`docs/tavern.md` §2).
+///
+/// Stores immutable `CardTemplate` metadata behind `Arc<[CardTemplate]>` so cloning `CardPool`
+/// during lookahead search copies only the `remaining: Vec<u32>` count array (zero per-template
+/// String heap allocations and zero multi-thread allocator contention, 100% bit-for-bit identical).
 #[derive(Clone, Debug)]
 pub struct CardPool {
-    entries: Vec<PoolEntry>,
+    templates: std::sync::Arc<[CardTemplate]>,
+    remaining: Vec<u32>,
 }
 
 impl CardPool {
     /// Construct a shared card pool from a list of templates.
     pub fn new(templates: Vec<CardTemplate>) -> Self {
-        let entries = templates
-            .into_iter()
-            .map(|t| {
-                let remaining = base_copies_for_tier(t.tavern_tier);
-                PoolEntry {
-                    template: t,
-                    remaining,
-                }
-            })
+        let remaining = templates
+            .iter()
+            .map(|t| base_copies_for_tier(t.tavern_tier))
             .collect();
-        Self { entries }
+        Self {
+            templates: std::sync::Arc::from(templates),
+            remaining,
+        }
     }
 
     /// Remaining copies in the pool for `card_id`.
     pub fn remaining_copies(&self, card_id: CardId) -> u32 {
-        self.entries
+        self.templates
             .iter()
-            .find(|e| e.template.card_id == card_id)
-            .map(|e| e.remaining)
+            .zip(&self.remaining)
+            .find(|(t, _)| t.card_id == card_id)
+            .map(|(_, &r)| r)
             .unwrap_or(0)
     }
 
     /// The pool's cards, in pool (catalog) order.
     pub fn card_ids(&self) -> Vec<CardId> {
-        self.entries.iter().map(|e| e.template.card_id).collect()
+        self.templates.iter().map(|t| t.card_id).collect()
     }
 
     /// The remaining copies of each card, in pool order (see [`Self::card_ids`]).
     pub fn remaining(&self) -> Vec<u32> {
-        self.entries.iter().map(|e| e.remaining).collect()
+        self.remaining.clone()
     }
 
     /// Draw one minion with `tavern_tier <= max_tier`, weighted by remaining copies.
@@ -118,10 +115,11 @@ impl CardPool {
     ) -> Option<Unit> {
         let in_range = |t: u32| (min_tier..=max_tier).contains(&t);
         let total_copies: u32 = self
-            .entries
+            .templates
             .iter()
-            .filter(|e| in_range(e.template.tavern_tier) && e.remaining > 0)
-            .map(|e| e.remaining)
+            .zip(&self.remaining)
+            .filter(|(t, &r)| in_range(t.tavern_tier) && r > 0)
+            .map(|(_, &r)| r)
             .sum();
 
         if total_copies == 0 {
@@ -129,13 +127,13 @@ impl CardPool {
         }
 
         let mut pick = rng.below(total_copies as usize) as u32;
-        for entry in &mut self.entries {
-            if in_range(entry.template.tavern_tier) && entry.remaining > 0 {
-                if pick < entry.remaining {
-                    entry.remaining -= 1;
-                    return Some(entry.template.instantiate());
+        for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+            if in_range(tmpl.tavern_tier) && *rem > 0 {
+                if pick < *rem {
+                    *rem -= 1;
+                    return Some(tmpl.instantiate());
                 }
-                pick -= entry.remaining;
+                pick -= *rem;
             }
         }
         unreachable!("draw_from_pool pick must land inside total_copies");
@@ -154,15 +152,16 @@ impl CardPool {
             return None;
         }
         let total_copies: u32 = self
-            .entries
+            .templates
             .iter()
-            .filter(|e| {
-                e.template.tavern_tier <= max_tier
-                    && e.remaining > 0
-                    && e.template.tribe.matches(tribe)
-                    && Some(e.template.card_id) != exclude_card_id
+            .zip(&self.remaining)
+            .filter(|(t, &r)| {
+                t.tavern_tier <= max_tier
+                    && r > 0
+                    && t.tribe.matches(tribe)
+                    && Some(t.card_id) != exclude_card_id
             })
-            .map(|e| e.remaining)
+            .map(|(_, &r)| r)
             .sum();
 
         if total_copies == 0 {
@@ -170,17 +169,17 @@ impl CardPool {
         }
 
         let mut pick = rng.below(total_copies as usize) as u32;
-        for entry in &mut self.entries {
-            if entry.template.tavern_tier <= max_tier
-                && entry.remaining > 0
-                && entry.template.tribe.matches(tribe)
-                && Some(entry.template.card_id) != exclude_card_id
+        for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+            if tmpl.tavern_tier <= max_tier
+                && *rem > 0
+                && tmpl.tribe.matches(tribe)
+                && Some(tmpl.card_id) != exclude_card_id
             {
-                if pick < entry.remaining {
-                    entry.remaining -= 1;
-                    return Some(entry.template.instantiate());
+                if pick < *rem {
+                    *rem -= 1;
+                    return Some(tmpl.instantiate());
                 }
-                pick -= entry.remaining;
+                pick -= *rem;
             }
         }
         unreachable!("draw_by_tribe pick must land inside total_copies");
@@ -195,16 +194,18 @@ impl CardPool {
         rng: &mut Rng,
     ) -> Vec<Unit> {
         let target_tier = if self
-            .entries
+            .templates
             .iter()
-            .any(|e| e.template.tavern_tier == exact_tier && e.remaining > 0)
+            .zip(&self.remaining)
+            .any(|(t, &r)| t.tavern_tier == exact_tier && r > 0)
         {
             exact_tier
         } else {
-            self.entries
+            self.templates
                 .iter()
-                .filter(|e| e.template.tavern_tier <= exact_tier && e.remaining > 0)
-                .map(|e| e.template.tavern_tier)
+                .zip(&self.remaining)
+                .filter(|(t, &r)| t.tavern_tier <= exact_tier && r > 0)
+                .map(|(t, _)| t.tavern_tier)
                 .max()
                 .unwrap_or(exact_tier)
         };
@@ -214,14 +215,13 @@ impl CardPool {
 
         for _ in 0..count {
             let total_copies: u32 = self
-                .entries
+                .templates
                 .iter()
-                .filter(|e| {
-                    e.template.tavern_tier == target_tier
-                        && e.remaining > 0
-                        && !chosen_ids.contains(&e.template.card_id)
+                .zip(&self.remaining)
+                .filter(|(t, &r)| {
+                    t.tavern_tier == target_tier && r > 0 && !chosen_ids.contains(&t.card_id)
                 })
-                .map(|e| e.remaining)
+                .map(|(_, &r)| r)
                 .sum();
 
             if total_copies == 0 {
@@ -229,18 +229,18 @@ impl CardPool {
             }
 
             let mut pick = rng.below(total_copies as usize) as u32;
-            for entry in &mut self.entries {
-                if entry.template.tavern_tier == target_tier
-                    && entry.remaining > 0
-                    && !chosen_ids.contains(&entry.template.card_id)
+            for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+                if tmpl.tavern_tier == target_tier
+                    && *rem > 0
+                    && !chosen_ids.contains(&tmpl.card_id)
                 {
-                    if pick < entry.remaining {
-                        entry.remaining -= 1;
-                        chosen_ids.push(entry.template.card_id);
-                        options.push(entry.template.instantiate());
+                    if pick < *rem {
+                        *rem -= 1;
+                        chosen_ids.push(tmpl.card_id);
+                        options.push(tmpl.instantiate());
                         break;
                     }
-                    pick -= entry.remaining;
+                    pick -= *rem;
                 }
             }
         }
@@ -273,15 +273,16 @@ impl CardPool {
 
         for _ in 0..count {
             let total_copies: u32 = self
-                .entries
+                .templates
                 .iter()
-                .filter(|e| {
-                    e.template.tavern_tier <= max_tier
-                        && e.remaining > 0
-                        && e.template.tribe.matches(tribe)
-                        && !chosen_ids.contains(&e.template.card_id)
+                .zip(&self.remaining)
+                .filter(|(t, &r)| {
+                    t.tavern_tier <= max_tier
+                        && r > 0
+                        && t.tribe.matches(tribe)
+                        && !chosen_ids.contains(&t.card_id)
                 })
-                .map(|e| e.remaining)
+                .map(|(_, &r)| r)
                 .sum();
 
             if total_copies == 0 {
@@ -289,19 +290,19 @@ impl CardPool {
             }
 
             let mut pick = rng.below(total_copies as usize) as u32;
-            for entry in &mut self.entries {
-                if entry.template.tavern_tier <= max_tier
-                    && entry.remaining > 0
-                    && entry.template.tribe.matches(tribe)
-                    && !chosen_ids.contains(&entry.template.card_id)
+            for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+                if tmpl.tavern_tier <= max_tier
+                    && *rem > 0
+                    && tmpl.tribe.matches(tribe)
+                    && !chosen_ids.contains(&tmpl.card_id)
                 {
-                    if pick < entry.remaining {
-                        entry.remaining -= 1;
-                        chosen_ids.push(entry.template.card_id);
-                        options.push(entry.template.instantiate());
+                    if pick < *rem {
+                        *rem -= 1;
+                        chosen_ids.push(tmpl.card_id);
+                        options.push(tmpl.instantiate());
                         break;
                     }
-                    pick -= entry.remaining;
+                    pick -= *rem;
                 }
             }
         }
@@ -324,15 +325,16 @@ impl CardPool {
                 continue;
             }
             let total_copies: u32 = self
-                .entries
+                .templates
                 .iter()
-                .filter(|e| {
-                    e.template.tavern_tier <= max_tier
-                        && e.remaining > 0
-                        && e.template.tribe.matches(tribe)
-                        && !chosen_ids.contains(&e.template.card_id)
+                .zip(&self.remaining)
+                .filter(|(t, &r)| {
+                    t.tavern_tier <= max_tier
+                        && r > 0
+                        && t.tribe.matches(tribe)
+                        && !chosen_ids.contains(&t.card_id)
                 })
-                .map(|e| e.remaining)
+                .map(|(_, &r)| r)
                 .sum();
 
             if total_copies == 0 {
@@ -340,19 +342,19 @@ impl CardPool {
             }
 
             let mut pick = rng.below(total_copies as usize) as u32;
-            for entry in &mut self.entries {
-                if entry.template.tavern_tier <= max_tier
-                    && entry.remaining > 0
-                    && entry.template.tribe.matches(tribe)
-                    && !chosen_ids.contains(&entry.template.card_id)
+            for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+                if tmpl.tavern_tier <= max_tier
+                    && *rem > 0
+                    && tmpl.tribe.matches(tribe)
+                    && !chosen_ids.contains(&tmpl.card_id)
                 {
-                    if pick < entry.remaining {
-                        entry.remaining -= 1;
-                        chosen_ids.push(entry.template.card_id);
-                        options.push(entry.template.instantiate());
+                    if pick < *rem {
+                        *rem -= 1;
+                        chosen_ids.push(tmpl.card_id);
+                        options.push(tmpl.instantiate());
                         break;
                     }
-                    pick -= entry.remaining;
+                    pick -= *rem;
                 }
             }
         }
@@ -375,15 +377,16 @@ impl CardPool {
 
         for _ in 0..count {
             let total_copies: u32 = self
-                .entries
+                .templates
                 .iter()
-                .filter(|e| {
-                    e.template.tavern_tier <= max_tier
-                        && e.remaining > 0
-                        && predicate(e.template.card_id)
-                        && !chosen_ids.contains(&e.template.card_id)
+                .zip(&self.remaining)
+                .filter(|(t, &r)| {
+                    t.tavern_tier <= max_tier
+                        && r > 0
+                        && predicate(t.card_id)
+                        && !chosen_ids.contains(&t.card_id)
                 })
-                .map(|e| e.remaining)
+                .map(|(_, &r)| r)
                 .sum();
 
             if total_copies == 0 {
@@ -391,19 +394,19 @@ impl CardPool {
             }
 
             let mut pick = rng.below(total_copies as usize) as u32;
-            for entry in &mut self.entries {
-                if entry.template.tavern_tier <= max_tier
-                    && entry.remaining > 0
-                    && predicate(entry.template.card_id)
-                    && !chosen_ids.contains(&entry.template.card_id)
+            for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+                if tmpl.tavern_tier <= max_tier
+                    && *rem > 0
+                    && predicate(tmpl.card_id)
+                    && !chosen_ids.contains(&tmpl.card_id)
                 {
-                    if pick < entry.remaining {
-                        entry.remaining -= 1;
-                        chosen_ids.push(entry.template.card_id);
-                        options.push(entry.template.instantiate());
+                    if pick < *rem {
+                        *rem -= 1;
+                        chosen_ids.push(tmpl.card_id);
+                        options.push(tmpl.instantiate());
                         break;
                     }
-                    pick -= entry.remaining;
+                    pick -= *rem;
                 }
             }
         }
@@ -413,7 +416,7 @@ impl CardPool {
     /// `true` if the pool has a minion whose only type is `tribe`: the lobby has that type
     /// (`docs/dark_gifts.md` §5.1).
     pub fn lobby_has(&self, tribe: Tribe) -> bool {
-        self.entries.iter().any(|e| e.template.tribe == tribe)
+        self.templates.iter().any(|t| t.tribe == tribe)
     }
 
     /// Draw one minion whose template `keep` accepts, weighted by remaining copies, taken out of
@@ -425,22 +428,23 @@ impl CardPool {
         rng: &mut Rng,
     ) -> Option<Unit> {
         let total_copies: u32 = self
-            .entries
+            .templates
             .iter()
-            .filter(|e| e.remaining > 0 && keep(&e.template))
-            .map(|e| e.remaining)
+            .zip(&self.remaining)
+            .filter(|(t, &r)| r > 0 && keep(t))
+            .map(|(_, &r)| r)
             .sum();
         if total_copies == 0 {
             return None;
         }
         let mut pick = rng.below(total_copies as usize) as u32;
-        for entry in &mut self.entries {
-            if entry.remaining > 0 && keep(&entry.template) {
-                if pick < entry.remaining {
-                    entry.remaining -= 1;
-                    return Some(entry.template.instantiate());
+        for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+            if *rem > 0 && keep(tmpl) {
+                if pick < *rem {
+                    *rem -= 1;
+                    return Some(tmpl.instantiate());
                 }
-                pick -= entry.remaining;
+                pick -= *rem;
             }
         }
         unreachable!("draw_template_where pick must land inside total_copies");
@@ -448,9 +452,9 @@ impl CardPool {
 
     /// Take 1 copy of `card_id` from the shared card pool if available (`Disguised Graverobber`).
     pub fn take_copy(&mut self, card_id: CardId) {
-        for entry in &mut self.entries {
-            if entry.template.card_id == card_id {
-                entry.remaining = entry.remaining.saturating_sub(1);
+        for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+            if tmpl.card_id == card_id {
+                *rem = rem.saturating_sub(1);
                 break;
             }
         }
@@ -463,10 +467,10 @@ impl CardPool {
             return;
         }
         let copies = Self::copies_of(unit);
-        for entry in &mut self.entries {
-            if entry.template.card_id == unit.card_id {
-                let cap = base_copies_for_tier(entry.template.tavern_tier);
-                entry.remaining = (entry.remaining + copies).min(cap);
+        for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+            if tmpl.card_id == unit.card_id {
+                let cap = base_copies_for_tier(tmpl.tavern_tier);
+                *rem = (*rem + copies).min(cap);
                 break;
             }
         }
@@ -480,9 +484,9 @@ impl CardPool {
             return;
         }
         let copies = Self::copies_of(unit);
-        for entry in &mut self.entries {
-            if entry.template.card_id == unit.card_id {
-                entry.remaining = entry.remaining.saturating_sub(copies);
+        for (tmpl, rem) in self.templates.iter().zip(&mut self.remaining) {
+            if tmpl.card_id == unit.card_id {
+                *rem = rem.saturating_sub(copies);
                 break;
             }
         }
