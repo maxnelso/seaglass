@@ -1,4 +1,4 @@
-//! `Writhing Tentacles` (`BG36_MagicItem_606`) — Greater, 0 Gold.
+//! `Writhing Tentacles` (`BG36_MagicItem_606`) — Greater, 0 Gold, Aberration.
 //!
 //! After you discard your first minion each turn, get a copy of it with double stats. (1 left!)
 //!

@@ -1,4 +1,4 @@
-//! `Corrupted Baton` (`BG36_MagicItem_404`) — Lesser, 2 Gold.
+//! `Corrupted Baton` (`BG36_MagicItem_404`) — Lesser, 2 Gold, Aberration.
 //!
 //! After you cast a Tavern spell, give your Deity +4/+4.
 //!

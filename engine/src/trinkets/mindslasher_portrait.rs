@@ -1,4 +1,4 @@
-//! `Mindslasher Portrait` (`BG36_MagicItem_402`) — Lesser, 4 Gold.
+//! `Mindslasher Portrait` (`BG36_MagicItem_402`) — Lesser, 4 Gold, Aberration.
 //!
 //! Get a Vicious Mindslasher. Your Vicious Mindslashers also give stats to adjacent minions.
 //!

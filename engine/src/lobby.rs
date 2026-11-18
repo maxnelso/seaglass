@@ -11,7 +11,7 @@
 //! living players. In Duos a player's teammate is not an opponent: their teammate's gifts reach them
 //! through their team's Tavern (`docs/duos_tavern.md` §7.2), not through the lobby.
 
-use crate::model::{BattleOutcome, LobbyView, OpponentView, Unit};
+use crate::model::{BattleOutcome, LobbyView, OpponentView, Tribe, Unit};
 use crate::tavern::TavernState;
 
 /// The players of a game, as the lobby sees them (`docs/tavern.md` §3.1).
@@ -36,6 +36,8 @@ pub struct Lobby {
     /// The most combat damage a player can take this turn (`docs/lobby_game.md` §5), if the game
     /// caps it; every player's view carries it.
     pub damage_cap: Option<u32>,
+    /// The minion types in the lobby (`docs/lobby_game.md` §1); empty: every type.
+    pub tribes: Vec<Tribe>,
 }
 
 impl Lobby {
@@ -51,6 +53,7 @@ impl Lobby {
             featured_pair: None,
             last_pair_outcome: None,
             damage_cap: None,
+            tribes: Vec::new(),
         }
     }
 
@@ -100,6 +103,7 @@ impl Lobby {
             featured_pair,
             last_pair_outcome: self.last_pair_outcome,
             damage_cap: self.damage_cap,
+            tribes: self.tribes.clone(),
         }
     }
 

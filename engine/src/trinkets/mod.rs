@@ -703,11 +703,14 @@ pub fn naga_only(t: &TrinketData) -> bool {
 }
 
 /// The trinkets a game can offer (`docs/trinkets.md` §3.1): the implemented ones, not of the Naga
-/// type only, Duos-only ones only in Duos, in table order.
+/// type only (and excluding `Weighted Gauntlet`), Duos-only ones only in Duos, in table order.
 pub fn offerable(duos: bool) -> impl Iterator<Item = &'static TrinketData> {
-    TRINKETS
-        .iter()
-        .filter(move |t| is_implemented(t.id) && (duos || !t.duos_only) && !naga_only(t))
+    TRINKETS.iter().filter(move |t| {
+        is_implemented(t.id)
+            && t.id != weighted_gauntlet::ID
+            && (duos || !t.duos_only)
+            && !naga_only(t)
+    })
 }
 
 /// A fresh state for the trinket `id`.
@@ -739,9 +742,44 @@ pub fn state(auras: &PlayerAuras, id: CardId) -> Option<&TrinketState> {
 // Offers
 // ---------------------------------------------------------------------------------------------
 
+/// Whether `tribe` is in the lobby (`LobbyView::tribes`; empty means every lobby type is active).
+fn in_lobby_type(state: &TavernState, tribe: Tribe) -> bool {
+    state.lobby.tribes.is_empty() || state.lobby.tribes.contains(&tribe)
+}
+
+/// Per-trinket board / health prerequisites (`docs/trinkets.md` §3.2 rule 7).
+fn meets_offer_prerequisites(state: &TavernState, id: CardId) -> bool {
+    if id == safety_patch::ID {
+        return !state.auras.duos_game && state.health + state.armor <= 15;
+    }
+    if matches!(
+        id,
+        glowing_crystal::ID | multilayered_shield::ID | tableware_portrait::ID
+    ) {
+        let warband: Vec<Unit> = state
+            .board
+            .iter()
+            .chain(&state.hand)
+            .filter(|u| !u.is_spell && u.health > 0)
+            .cloned()
+            .collect();
+        return crate::types::menagerie_type_count(&warband) >= 3;
+    }
+    if id == ironforge_anvil::ID {
+        let typeless = state
+            .board
+            .iter()
+            .chain(&state.hand)
+            .filter(|u| !u.is_spell && u.tribe == Tribe::None)
+            .count();
+        return typeless >= 2;
+    }
+    true
+}
+
 /// For each lobby type (`LOBBY_TRIBES` order), the minions on the board and in the hand that have
 /// it (`docs/trinkets.md` §3.2 rule 3): a two-type minion counts for both, an `All` minion for
-/// every type, a spell for none.
+/// every active lobby type, a spell for none.
 pub fn type_counts(state: &TavernState) -> [u32; LOBBY_TRIBES.len()] {
     let mut counts = [0; LOBBY_TRIBES.len()];
     for unit in state
@@ -751,7 +789,7 @@ pub fn type_counts(state: &TavernState) -> [u32; LOBBY_TRIBES.len()] {
         .filter(|u| !u.is_spell)
     {
         for (i, &t) in LOBBY_TRIBES.iter().enumerate() {
-            if unit.tribe.has_single(t) {
+            if in_lobby_type(state, t) && unit.tribe.has_single(t) {
                 counts[i] += 1;
             }
         }
@@ -787,6 +825,9 @@ fn candidates_in<'a>(
     let threshold = if greater { 3 } else { 2 };
     let best = counts.iter().copied().max().unwrap_or(0);
     let count_of = |t: Tribe| {
+        if !in_lobby_type(state, t) {
+            return 0;
+        }
         LOBBY_TRIBES
             .iter()
             .position(|&l| l == t)
@@ -794,6 +835,7 @@ fn candidates_in<'a>(
     };
     pool.filter(|t| t.greater == greater && !owns(&state.auras, t.id))
         .filter(|t| state.dark_gifts_enabled || !hooks(t.id).has(CardFlags::DARK_GIFTS))
+        .filter(|t| meets_offer_prerequisites(state, t.id))
         .filter_map(|t| {
             if t.tribes.is_empty() {
                 return Some((t.id, OfferClass::Neutral, t.cost));
@@ -815,9 +857,9 @@ fn candidates_in<'a>(
         .collect()
 }
 
-/// Draw an offer for the player (`docs/trinkets.md` §3.3): a Neutral option, then a cheap one
-/// if none is yet, then the rest up to [`OFFER_COUNT`] (at most one Off option), each a uniform
-/// `rng.below(k)` over what is left; then a Fisher-Yates shuffle.
+/// Draw an offer for the player (`docs/trinkets.md` §3.3): a Neutral option, a Main option if
+/// eligible, a cheap one if none is yet, then the rest up to [`OFFER_COUNT`] (at most one Off
+/// option), each a uniform `rng.below(k)` over what is left; then a Fisher-Yates shuffle.
 pub fn draw_offer(state: &TavernState, greater: bool, rng: &mut Rng) -> Vec<TrinketOption> {
     let mut options = draw_from(&candidates(state, greater), rng);
     for option in &mut options {
@@ -833,13 +875,22 @@ pub fn is_typed(id: CardId) -> bool {
 }
 
 /// The minion type a trinket offered to the player now names (`docs/trinkets.md` §3.4,
-/// confirmed): their most common type, counted as for the offer rules ([`type_counts`]); a tie
-/// (no minion at all too) is broken at random among the tied types, one `rng.below(k)`
-/// (**engine decision**).
+/// confirmed): their most common active lobby type, counted as for the offer rules
+/// ([`type_counts`]); a tie (no minion at all too) is broken at random among the tied active
+/// lobby types, one `rng.below(k)` (**engine decision**).
 pub fn most_common_type(state: &TavernState, rng: &mut Rng) -> Tribe {
     let counts = type_counts(state);
-    let best = counts.iter().copied().max().unwrap_or(0);
-    let tied: Vec<usize> = (0..counts.len()).filter(|&i| counts[i] == best).collect();
+    let active: Vec<usize> = (0..counts.len())
+        .filter(|&i| in_lobby_type(state, LOBBY_TRIBES[i]))
+        .collect();
+    let best = active.iter().map(|&i| counts[i]).max().unwrap_or(0);
+    let tied: Vec<usize> = active
+        .into_iter()
+        .filter(|&i| counts[i] == best)
+        .collect();
+    if tied.is_empty() {
+        return LOBBY_TRIBES[rng.below(LOBBY_TRIBES.len())];
+    }
     LOBBY_TRIBES[pick_tied(&tied, rng)]
 }
 
@@ -876,8 +927,12 @@ fn draw_from(candidates: &[(CardId, OfferClass, u32)], rng: &mut Rng) -> Vec<Tri
         }
     };
     draw(&mut drawn, &|c| c.1 == OfferClass::Neutral);
+    draw(&mut drawn, &|c| c.1 == OfferClass::Main);
     if !drawn.iter().any(|&i| candidates[i].2 <= CHEAP_COST) {
-        draw(&mut drawn, &|c| c.2 <= CHEAP_COST);
+        let off_drawn = drawn.iter().any(|&i| candidates[i].1 == OfferClass::Off);
+        draw(&mut drawn, &|c| {
+            c.2 <= CHEAP_COST && !(off_drawn && c.1 == OfferClass::Off)
+        });
     }
     while drawn.len() < OFFER_COUNT {
         let before = drawn.len();
@@ -1069,7 +1124,13 @@ pub fn random_trinkets(
     let mut left: Vec<CardId> = offerable(state.auras.duos_game)
         .filter(|t| t.greater == greater && !owns(&state.auras, t.id))
         .filter(|t| state.dark_gifts_enabled || !hooks(t.id).has(CardFlags::DARK_GIFTS))
-        .filter(|t| tribe == Tribe::None || t.tribes.contains(&tribe))
+        .filter(|t| {
+            if tribe == Tribe::None {
+                t.tribes.is_empty() || t.tribes.iter().any(|&tr| in_lobby_type(state, tr))
+            } else {
+                t.tribes.contains(&tribe)
+            }
+        })
         .map(|t| t.id)
         .collect();
     let mut drawn = Vec::with_capacity(count);
@@ -2416,6 +2477,7 @@ mod tests {
     fn offers_from_the_whole_pool_follow_the_rules() {
         let tribes = [
             Tribe::None,
+            Tribe::Aberration,
             Tribe::Beast,
             Tribe::Demon,
             Tribe::Dragon,
@@ -2479,6 +2541,14 @@ mod tests {
             assert!(offer
                 .iter()
                 .any(|o| class(o.card_id) == Some(OfferClass::Neutral)));
+            if candidates.iter().any(|c| c.1 == OfferClass::Main) {
+                assert!(
+                    offer
+                        .iter()
+                        .any(|o| class(o.card_id) == Some(OfferClass::Main)),
+                    "a Main-type option when eligible"
+                );
+            }
             let off = offer
                 .iter()
                 .filter(|o| class(o.card_id) == Some(OfferClass::Off))
@@ -2501,5 +2571,103 @@ mod tests {
             (at(Tribe::Beast), at(Tribe::Pirate), at(Tribe::Undead)),
             (3, 2, 1)
         );
+    }
+
+    #[test]
+    fn aberration_trinkets_require_aberration_minions() {
+        let mut state = TavernState::new();
+        state.board = vec![minion(Tribe::Beast), minion(Tribe::Beast), minion(Tribe::Pirate)];
+        for greater in [false, true] {
+            let cands = candidates(&state, greater);
+            assert!(
+                cands.iter().all(|&(id, _, _)| {
+                    !data(id).unwrap().tribes.contains(&Tribe::Aberration)
+                }),
+                "no Aberration trinket should be offered without Aberrations"
+            );
+            assert!(
+                !cands.iter().any(|&(id, _, _)| id == corrupted_coin_portrait::ID),
+                "Corrupted Coin Portrait should not be offered without >= 2 Aberrations"
+            );
+        }
+        state.board.push(minion(Tribe::Aberration));
+        state.board.push(minion(Tribe::Aberration));
+        let lesser_cands = candidates(&state, false);
+        assert!(
+            lesser_cands
+                .iter()
+                .any(|&(id, _, _)| id == corrupted_coin_portrait::ID),
+            "Corrupted Coin Portrait should be eligible with 2 Aberrations"
+        );
+    }
+
+    #[test]
+    fn offer_rules_guarantee_main_and_gate_lobby_safety_menagerie_anvil() {
+        // 1. Lobby-type gating: 3 `All` minions in a [Beast, Pirate, Mech, Demon, Undead] lobby
+        //    never offer Aberration / Dragon / Murloc / Quilboar / Elemental trinkets or name them.
+        let mut state = TavernState::new();
+        state.lobby.tribes = vec![
+            Tribe::Beast,
+            Tribe::Pirate,
+            Tribe::Mech,
+            Tribe::Demon,
+            Tribe::Undead,
+        ];
+        state.board = vec![minion(Tribe::All), minion(Tribe::All), minion(Tribe::All)];
+        for greater in [false, true] {
+            let cands = candidates(&state, greater);
+            for &(id, _, _) in &cands {
+                let t = data(id).unwrap();
+                assert!(
+                    t.tribes.is_empty()
+                        || t.tribes.iter().any(|x| state.lobby.tribes.contains(x)),
+                    "banned lobby type offered: {}",
+                    t.name
+                );
+            }
+        }
+        let mut rng = Rng::new(77);
+        for _ in 0..50 {
+            let named = most_common_type(&state, &mut rng);
+            assert!(state.lobby.tribes.contains(&named), "named banned type {named:?}");
+        }
+
+        // 2. Guaranteed Main-type option + Safety Patch / Menagerie / Anvil prerequisites:
+        let mut mono = TavernState::new();
+        mono.health = 30;
+        mono.armor = 5;
+        mono.board = vec![
+            minion(Tribe::Beast),
+            minion(Tribe::Beast),
+            minion(Tribe::Beast),
+        ];
+        let mono_cands = candidates(&mono, true);
+        assert!(!mono_cands.iter().any(|&(id, _, _)| id == safety_patch::ID));
+        assert!(!mono_cands.iter().any(|&(id, _, _)| id == tableware_portrait::ID));
+        assert!(!mono_cands.iter().any(|&(id, _, _)| id == multilayered_shield::ID));
+        assert!(!mono_cands.iter().any(|&(id, _, _)| id == ironforge_anvil::ID));
+        for _ in 0..100 {
+            let offer = draw_offer(&mono, true, &mut rng);
+            assert!(
+                offer
+                    .iter()
+                    .any(|o| data(o.card_id).unwrap().tribes.contains(&Tribe::Beast)),
+                "committed Beast board must get >= 1 Beast Greater trinket"
+            );
+        }
+
+        // Low-EHP Solo unlocks Safety Patch; 3+ types unlocks Tableware; 2+ typeless unlocks Anvil.
+        mono.health = 15;
+        mono.armor = 0;
+        mono.board.push(minion(Tribe::Pirate));
+        mono.board.push(minion(Tribe::Mech));
+        mono.board.push(minion(Tribe::None));
+        mono.board.push(minion(Tribe::None));
+        let full_cands = candidates(&mono, true);
+        assert!(full_cands.iter().any(|&(id, _, _)| id == safety_patch::ID));
+        assert!(full_cands.iter().any(|&(id, _, _)| id == tableware_portrait::ID));
+        assert!(full_cands.iter().any(|&(id, _, _)| id == ironforge_anvil::ID));
+        assert!(!offerable(false).any(|t| t.id == weighted_gauntlet::ID));
+        assert!(!offerable(true).any(|t| t.id == weighted_gauntlet::ID));
     }
 }

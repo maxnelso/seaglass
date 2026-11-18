@@ -293,6 +293,9 @@ impl Match {
                 state.trinkets_enabled = p.trinkets;
                 state.dark_gifts_enabled = p.dark_gifts;
                 state.auras.deity.kind = p.deity;
+                if !setup.lobby_tribes.is_empty() {
+                    state.lobby.tribes = setup.lobby_tribes.clone();
+                }
                 if !setup.duos {
                     match p.hero {
                         Some(id) => state
@@ -353,10 +356,12 @@ impl Match {
                 )
             }
         };
+        let mut lobby = Lobby::new(players.len(), setup.duos);
+        lobby.tribes = setup.lobby_tribes.clone();
         Ok(Self {
             header: setup.to_header(),
             pool_mode: setup.pool,
-            lobby: Lobby::new(players.len(), setup.duos),
+            lobby,
             players,
             teams,
             pools,

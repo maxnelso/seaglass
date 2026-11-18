@@ -61,6 +61,28 @@ TRIBES = {
     "ABERRATION": "Aberration",
 }
 
+# HearthstoneJSON's `cards.json` omits `battlegroundsAssociatedRaces` on Patch 36/37 Aberration
+# trinkets; fall back to `Aberration` when upstream leaves it empty so they aren't offered Neutral.
+ABERRATION_CARD_IDS = frozenset(
+    {
+        "BG36_MagicItem_400",   # Corrupted Coin Portrait
+        "BG36_MagicItem_402",   # Mindslasher Portrait
+        "BG36_MagicItem_403",   # Hammer of Twilight (Lesser)
+        "BG36_MagicItem_403t",  # Hammer of Twilight (Greater)
+        "BG36_MagicItem_404",   # Corrupted Baton (Lesser)
+        "BG36_MagicItem_404t",  # Corrupted Baton (Greater)
+        "BG36_MagicItem_406",   # Shath'Yar Shrine
+        "BG36_MagicItem_416",   # Evil Experiment
+        "BG36_MagicItem_417",   # Makeshift Master
+        "BG36_MagicItem_418",   # Tome of the Ancients
+        "BG36_MagicItem_430",   # Sludge Portrait
+        "BG36_MagicItem_600",   # Converter Portrait
+        "BG36_MagicItem_602",   # Mask of Ancient Ones
+        "BG36_MagicItem_606",   # Writhing Tentacles
+        "BG36_MagicItem_852",   # Willbreaker Sticker
+    }
+)
+
 DEFAULT_OVERRIDE = Path(__file__).resolve().parent / "data/trinkets_hsreplay.tsv"
 # Implemented trinkets removed from the active pool in Patch 37.0.2, kept in `REMOVED_TRINKETS`
 # so their scenarios and older Power.log replays keep working.
@@ -84,6 +106,8 @@ def trinkets(entities: dict[str, dict], hsjson: dict[str, dict]) -> dict[str, di
         if school not in (SCHOOL_LESSER, SCHOOL_GREATER):
             continue
         races = h.get("battlegroundsAssociatedRaces", [])
+        if not races and cid in ABERRATION_CARD_IDS:
+            races = ["ABERRATION"]
         for race in races:
             if race not in TRIBES:
                 sys.exit(f"{cid}: unknown minion type {race}")

@@ -1,4 +1,4 @@
-//! `Corrupted Coin Portrait` (`BG36_MagicItem_400`) — Lesser, 3 Gold.
+//! `Corrupted Coin Portrait` (`BG36_MagicItem_400`) — Lesser, 3 Gold, Aberration.
 //!
 //! Get 2 Corrupted Coins.
 //!

@@ -1,4 +1,4 @@
-//! `Willbreaker Sticker` (`BG36_MagicItem_852`) — Lesser, 2 Gold.
+//! `Willbreaker Sticker` (`BG36_MagicItem_852`) — Lesser, 2 Gold, Aberration.
 //!
 //! Get 2 random Tavern spells. When you play one, discard the other. At the start of your turn, repeat this.
 //!

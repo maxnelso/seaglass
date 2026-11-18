@@ -906,6 +906,12 @@ fn check_trinket_offer(s: &TavernState) -> Result<(), Violation> {
             .any(|o| class(o.card_id) == Some(OfferClass::Neutral))
     {
         Some("no option without a type".to_string())
+    } else if has(&|c| c.1 == OfferClass::Main)
+        && !options
+            .iter()
+            .any(|o| class(o.card_id) == Some(OfferClass::Main))
+    {
+        Some("no option of the most common type".to_string())
     } else if has(&|c| c.2 <= trinkets::CHEAP_COST)
         && !options.iter().any(|o| o.cost <= trinkets::CHEAP_COST)
     {

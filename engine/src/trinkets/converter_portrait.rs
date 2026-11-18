@@ -1,4 +1,4 @@
-//! `Converter Portrait` (`BG36_MagicItem_600`) — Greater, 6 Gold.
+//! `Converter Portrait` (`BG36_MagicItem_600`) — Greater, 6 Gold, Aberration.
 //!
 //! Get a Faceless Converter. Start of Combat: Give your Faceless Converters Reborn.
 //!

@@ -1,4 +1,4 @@
-//! `Evil Experiment` (`BG36_MagicItem_416`) — Greater, 4 Gold.
+//! `Evil Experiment` (`BG36_MagicItem_416`) — Greater, 4 Gold, Aberration.
 //!
 //! After your Deity awakens, give it Reborn.
 //!

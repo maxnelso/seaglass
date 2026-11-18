@@ -76,22 +76,28 @@ Every rule below is **(confirmed)** but where it says otherwise.
 
 1. 4 options, none the player owns.
 2. At least one costs 2 Gold or less.
-3. A typed trinket needs minions of its type in the player's board and hand: at least 2 for a Lesser offer, at least 3 for a Greater offer. A minion counts for each of its types: a two-type minion for both, an `All` minion for every type (`Tribe::has_single`, `tavern.md` §7.8) **(engine decision)**. A spell counts for nothing. A trinket of two types needs it for one of them **(engine decision)**.
+3. A typed trinket needs a lobby type (`LobbyView::tribes`; every type when none are restricted) and minions of that type in the player's board and hand: at least 2 for a Lesser offer, at least 3 for a Greater offer. A minion counts for each of its lobby types: a two-type minion for both, an `All` minion for every lobby type (`Tribe::has_single`, `tavern.md` §7.8) **(engine decision)**. A spell counts for nothing. A trinket of two types needs it for one of them **(engine decision)**.
 4. At least one option has no type.
-5. At most one option has a type that isn't the player's most common type, and that option costs 2 less (never below 0). The most common types are those with the most minions (as counted in rule 3); with a tie, every tied type is a most common type **(engine decision)**. A trinket of two types is of a most common type if either is **(engine decision)**.
+5. If the player is in at least one minion type (at least 2 minions of a lobby type for a Lesser offer, at least 3 for a Greater offer), at least one option is of their most common type **(confirmed)**.
+6. At most one option has a type that isn't the player's most common type, and that option costs 2 less (never below 0). The most common types are those with the most minions (as counted in rule 3); with a tie, every tied type is a most common type **(engine decision)**. A trinket of two types is of a most common type if either is **(engine decision)**.
+7. Per-trinket prerequisites **(confirmed)**:
+   - `Safety Patch` is offered only in Solo when `health + armor <= 15`.
+   - Untyped Menagerie trinkets (`Glowing Crystal`, `Multilayered Shield`, `Tableware Portrait`) need at least 3 distinct minion types across the player's board and hand (`types::menagerie_type_count`).
+   - `Ironforge Anvil` needs at least 2 typeless minions (`Tribe::None`) across the player's board and hand.
 
 ### 3.3 The Draw (`trinkets::draw_offer`) **(engine decision)**
 
-1. **Counts.** For each lobby type (`LOBBY_TRIBES`), `count[t]` is the number of minions on the board and in the hand that have it (rule 3). The threshold is `T = 2` (Lesser) or `3` (Greater). A type is *eligible* if `count[t] >= T`; the *most common* types are the eligible ones with the highest count.
-2. **Candidates**, in table order (by name): every offerable trinket of the kind the player doesn't own, classified as:
+1. **Counts.** For each active lobby type (`LOBBY_TRIBES` filtered by `LobbyView::tribes`; all 10 when empty), `count[t]` is the number of minions on the board and in the hand that have it (rule 3). The threshold is `T = 2` (Lesser) or `3` (Greater). A type is *eligible* if `count[t] >= T`; the *most common* types are the eligible ones with the highest count.
+2. **Candidates**, in table order (by name): every offerable trinket of the kind the player doesn't own that meets rule 7, classified as:
    - **Neutral**: no type; its price is its cost.
-   - **Main**: a type that is a most common type; its price is its cost.
-   - **Off**: no most common type, but an eligible one; its price is its cost minus 2 (never below 0).
-   - A typed trinket with no eligible type is not a candidate.
+   - **Main**: a lobby type that is a most common type; its price is its cost.
+   - **Off**: no most common type, but an eligible lobby type; its price is its cost minus 2 (never below 0).
+   - A typed trinket with no eligible lobby type is not a candidate.
 3. **Draws**, each one `rng.below(k)` over the list as it is then (in table order, without the options already drawn); a step whose list is empty draws nothing:
    1. one **Neutral** option (rule 4);
-   2. if no option drawn so far costs 2 or less: one option among the candidates whose price is 2 or less (rule 2);
-   3. then, until there are 4 options: one among the candidates left (Neutral, Main, and Off as long as no Off option was drawn: rule 5).
+   2. one **Main** option, if there is any (rule 5);
+   3. if no option drawn so far costs 2 or less: one option among the candidates whose price is 2 or less (rule 2);
+   4. then, until there are 4 options: one among the candidates left (Neutral, Main, and Off as long as no Off option was drawn: rule 6).
 4. **Shuffle**: the drawn options are shuffled (Fisher–Yates: for `i` from the last index down to 1, `j = rng.below(i + 1)` and swap), so their place says nothing about why they were drawn.
 
 Every trinket is equally likely among those a step draws from (uniform weights) **(engine decision)**. With a pool too small (early in the engine's life, few implemented trinkets of a kind), an offer can have fewer than 4 options or break rule 2 or 4; an empty offer is no offer.

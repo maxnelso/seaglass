@@ -1140,6 +1140,9 @@ pub struct LobbyView {
     /// lobby's damage cap, if any.
     #[serde(default)]
     pub damage_cap: Option<u32>,
+    /// The minion types in the lobby (`docs/lobby_game.md` §1); empty: every type.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tribes: Vec<Tribe>,
 }
 
 impl LobbyView {
@@ -1150,6 +1153,7 @@ impl LobbyView {
             && self.featured_pair.is_none()
             && self.last_pair_outcome.is_none()
             && self.damage_cap.is_none()
+            && self.tribes.is_empty()
     }
 }
 

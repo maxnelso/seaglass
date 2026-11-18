@@ -1,4 +1,4 @@
-//! `Hammer of Twilight` (`BG36_MagicItem_403`) — Lesser, 2 Gold.
+//! `Hammer of Twilight` (`BG36_MagicItem_403`) — Lesser, 2 Gold, Aberration.
 //!
 //! Your minions have +1 Attack. (Improved by each card you've discarded this game!)
 //!

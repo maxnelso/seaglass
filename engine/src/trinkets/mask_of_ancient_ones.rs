@@ -1,4 +1,4 @@
-//! `Mask of Ancient Ones` (`BG36_MagicItem_602`) — Greater, 4 Gold.
+//! `Mask of Ancient Ones` (`BG36_MagicItem_602`) — Greater, 4 Gold, Aberration.
 //!
 //! Make your Deity Golden this game.
 //!

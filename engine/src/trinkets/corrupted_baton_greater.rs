@@ -1,4 +1,4 @@
-//! `Corrupted Baton (Greater)` (`BG36_MagicItem_404t`) — Greater, 3 Gold.
+//! `Corrupted Baton (Greater)` (`BG36_MagicItem_404t`) — Greater, 3 Gold, Aberration.
 //!
 //! After you cast a Tavern spell, give your Deity +10/+10.
 //!

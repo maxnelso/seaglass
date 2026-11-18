@@ -1,4 +1,4 @@
-//! `Tome of the Ancients` (`BG36_MagicItem_418`) — Greater, 2 Gold.
+//! `Tome of the Ancients` (`BG36_MagicItem_418`) — Greater, 2 Gold, Aberration.
 //!
 //! After you discard 3 cards, your Tavern spells give an extra +1/+1 this game. (3 left!)
 //!

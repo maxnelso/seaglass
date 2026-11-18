@@ -1,4 +1,4 @@
-//! `Shath'Yar Shrine` (`BG36_MagicItem_406`) — Greater, 4 Gold.
+//! `Shath'Yar Shrine` (`BG36_MagicItem_406`) — Greater, 4 Gold, Aberration.
 //!
 //! After you discard a spell, get a random Aberration.
 //!

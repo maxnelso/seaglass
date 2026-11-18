@@ -719,7 +719,11 @@ mod tests {
             }
             if combat.steps[app.step].phase == Phase::TagIn {
                 let screen = screen::draw(&app, 160, 48).to_plain().join("\n");
-                assert!(screen.contains(" steps in for team "), "{screen}");
+                assert!(
+                    screen.contains(" steps in for team ")
+                        || screen.contains(" steps in for ghost of team "),
+                    "{screen}"
+                );
                 step_in_shown = true;
             }
         }

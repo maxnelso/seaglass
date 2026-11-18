@@ -1,4 +1,4 @@
-//! `Makeshift Master` (`BG36_MagicItem_417`) — Greater, 3 Gold.
+//! `Makeshift Master` (`BG36_MagicItem_417`) — Greater, 3 Gold, Aberration.
 //!
 //! Spellcraft: Choose a minion. After it gains stats outside combat this turn, your Deity also gains them.
 //!

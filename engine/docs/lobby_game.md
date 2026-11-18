@@ -47,8 +47,9 @@ from the lobby's own RNG and recorded in the replay header (`MatchSetup::lobby_t
 keeps a minion if it has one of the lobby's types (a two-type minion through either of them: a
 Dragon/Naga is in a lobby with Dragons), no type, or every type (`game::in_lobby`). Every effect
 that asks whether the lobby has a type reads the pool (`CardPool::lobby_has`: the Dark Gift
-filters, "a random lobby type"). Every player sees the types from the start (`context(p).tribes`).
-Only minions are filtered: Tavern spells, heroes and trinkets are offered whatever the types.
+filters, "a random lobby type"), and trinket offers gate typed trinkets and named types by the
+lobby's active types (`LobbyView::tribes`, `trinkets.md` §3.2). Every player sees the types from
+the start (`context(p).tribes`). Tavern spells and heroes are offered whatever the types.
 
 ---
 
