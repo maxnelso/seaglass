@@ -504,7 +504,7 @@ fn target_ok(state: &TavernState, kind: ActivateTargetKind, target: Option<usize
         (ActivateTargetKind::BoardAny, Some(t)) => t < state.board.len(),
         (ActivateTargetKind::ShopCard, Some(t)) => t < state.shop.len(),
         (ActivateTargetKind::HandCard, Some(t)) => {
-            state.hand.get(t).is_some_and(|c| c.locked_turns == 0)
+            state.hand.get(t).is_some_and(|c| !c.is_locked())
         }
         (ActivateTargetKind::BoardOrShopMinion, Some(t)) if t < 7 => t < state.board.len(),
         (ActivateTargetKind::BoardOrShopMinion, Some(t)) if (7..14).contains(&t) => {

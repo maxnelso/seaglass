@@ -121,8 +121,7 @@ pub fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAc
 
     // 2. Play playable spells from hand if legal.
     for (h_idx, card) in state.hand.iter().enumerate() {
-        if !card.is_spell || card.unplayable || card.lockbox_turns_left > 0 || card.locked_turns > 0
-        {
+        if !card.is_spell || card.unplayable || card.is_locked() {
             continue;
         }
         // Skip Butchering if no Undead on board, or Corrupted Cupcakes if no Demon on board.
@@ -148,8 +147,7 @@ pub fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAc
 
     // 3. Play minions from hand (or Magnetize onto board).
     for (h_idx, card) in state.hand.iter().enumerate() {
-        if card.is_spell || card.unplayable || card.lockbox_turns_left > 0 || card.locked_turns > 0
-        {
+        if card.is_spell || card.unplayable || card.is_locked() {
             continue;
         }
         let pos = choose_play_position(state, card, rng);
@@ -168,9 +166,7 @@ pub fn choose_semi_random_action(state: &TavernState, rng: &mut Rng) -> TavernAc
         let best_hand_minion = state
             .hand
             .iter()
-            .filter(|c| {
-                !c.is_spell && !c.unplayable && c.lockbox_turns_left == 0 && c.locked_turns == 0
-            })
+            .filter(|c| !c.is_spell && !c.unplayable && !c.is_locked())
             .max_by_key(|c| (c.is_golden, c.tavern_tier, c.attack + c.health));
 
         if let Some(hand_m) = best_hand_minion {

@@ -229,7 +229,12 @@ impl PyUnit {
 
     #[getter]
     fn unplayable(&self) -> bool {
-        self.inner.unplayable || self.inner.lockbox_turns_left > 0 || self.inner.locked_turns > 0
+        self.inner.unplayable || self.inner.is_locked()
+    }
+
+    #[getter]
+    fn locked(&self) -> bool {
+        self.inner.is_locked()
     }
 
     /// The card's own stack count (`Unit::stacks`, what its text counts up).

@@ -277,7 +277,7 @@ impl DuosTavern {
     /// A locked card can't be passed (§5.3): one locked until next turn (`Search Through Time`)
     /// or still in a `Lockbox`.
     fn is_locked(card: &Unit) -> bool {
-        card.locked_turns > 0 || card.lockbox_turns_left > 0
+        card.is_locked()
     }
 
     /// `player` takes `action` (§4.2): a Pass, or an action of their own Tavern. Returns

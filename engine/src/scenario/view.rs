@@ -249,6 +249,7 @@ fn unit_view(value: &Value, m: &Mapping) -> View {
     let mut view = fields(m);
     with_default(&mut view, "marked", View::Bool(false));
     with_default(&mut view, "frozen", View::Bool(false));
+    with_default(&mut view, "locked", View::Bool(false));
     with_default(&mut view, "until_next_turn_atk", View::Int(0));
     with_default(&mut view, "hats", View::Int(0));
     with_default(&mut view, "extra_deathrattles", View::List(Vec::new()));

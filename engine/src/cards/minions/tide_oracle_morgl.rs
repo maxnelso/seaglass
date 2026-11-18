@@ -26,7 +26,7 @@ pub fn attack_kill(ctx: &mut BoardCtx<'_>, self_idx: usize, victim: &Unit) {
         .hand
         .iter()
         .enumerate()
-        .filter(|(_, u)| !u.is_spell && !u.unplayable && u.lockbox_turns_left == 0)
+        .filter(|(_, u)| !u.is_spell && !u.unplayable && !u.is_locked())
         .map(|(i, _)| i)
         .collect();
     if candidates.is_empty() {

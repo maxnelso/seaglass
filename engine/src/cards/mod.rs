@@ -2243,7 +2243,7 @@ fn with_tavern_ctx<R>(
 ) -> R {
     let old_tavern_all = (state.auras.tavern_all_atk, state.auras.tavern_all_hp);
     let reserved_slots = usize::from(state.play_slot.is_some());
-    let mut hand_summoned = vec![false; state.hand.len()];
+    let mut hand_summoned: Vec<bool> = state.hand.iter().map(|u| u.is_locked()).collect();
     let mut hand_given_by = vec![None; state.hand.len()];
     let mut beast_bonus_atk = 0;
     let mut pending_attacks = Vec::new();
@@ -2328,7 +2328,7 @@ fn tavern_rally(
     let is_rally = has_rally(&state.board[target_pos]);
     let mut generated_hand = Vec::new();
     let mut tavern_casts = Vec::new();
-    let mut hand_summoned = vec![false; state.hand.len()];
+    let mut hand_summoned: Vec<bool> = state.hand.iter().map(|u| u.is_locked()).collect();
     let mut events = Vec::new();
     let (summons, _) = on_rally(
         Side::A,

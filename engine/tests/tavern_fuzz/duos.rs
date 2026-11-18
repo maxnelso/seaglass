@@ -486,7 +486,7 @@ fn check_duos_legality(
                 && s.trinket_options.is_empty()
                 && s.hand
                     .get(hand_index)
-                    .is_some_and(|card| card.locked_turns == 0 && card.lockbox_turns_left == 0)
+                    .is_some_and(|card| !card.is_locked())
                 && can_pay;
             if legal != expected {
                 let card = s.hand.get(hand_index).map(unit_desc).unwrap_or_default();

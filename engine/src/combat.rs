@@ -145,7 +145,7 @@ impl SideCombatState {
         for h in &mut hand {
             cards::sync_unit_auras(h, &auras);
         }
-        let hand_summoned = vec![false; hand.len()];
+        let hand_summoned: Vec<bool> = hand.iter().map(|u| u.is_locked()).collect();
         let hand_given_by = vec![None; hand.len()];
         let ptr = board.first().map(|u| u.id);
         Self {

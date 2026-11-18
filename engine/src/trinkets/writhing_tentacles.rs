@@ -37,6 +37,7 @@ fn after_discard(state: &mut TavernState, card: &Unit, _: &mut CardPool, _: &mut
     t.armed = 1;
     let mut copy = card.clone();
     copy.locked_turns = 0;
+    copy.locked = false;
     copy.add_stats(copy.attack, copy.health);
     state.add_to_hand_or_wait(copy);
 }

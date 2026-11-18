@@ -19,7 +19,7 @@ pub fn on_damage_taken(unit: &Unit, hand: &mut [Unit], rng: &mut Rng) {
     let candidates: Vec<usize> = hand
         .iter()
         .enumerate()
-        .filter(|(_, u)| !u.is_spell && !u.unplayable && u.lockbox_turns_left == 0)
+        .filter(|(_, u)| !u.is_spell && !u.unplayable && !u.is_locked())
         .map(|(i, _)| i)
         .collect();
     if candidates.is_empty() {

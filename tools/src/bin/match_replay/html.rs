@@ -660,6 +660,8 @@ impl UnitView {
             }
             if u.locked_turns > 0 {
                 notes.push(format!("locked {}t", u.locked_turns));
+            } else if u.locked {
+                notes.push("locked".to_string());
             }
             if u.combine_choose_one {
                 notes.push("FandralCombined".to_string());
@@ -679,6 +681,8 @@ impl UnitView {
             }
             if u.locked_turns > 0 {
                 notes.push(format!("locked:{}t", u.locked_turns));
+            } else if u.locked {
+                notes.push("locked".to_string());
             }
             if u.dies_on_play_this_turn {
                 notes.push("DiesOnPlay".to_string());

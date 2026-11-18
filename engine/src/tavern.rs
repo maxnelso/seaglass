@@ -903,7 +903,7 @@ impl TavernState {
         pool.return_unit(&dying);
 
         let old_tavern_all = (self.auras.tavern_all_atk, self.auras.tavern_all_hp);
-        let mut hand_summoned = vec![false; self.hand.len()];
+        let mut hand_summoned: Vec<bool> = self.hand.iter().map(|u| u.is_locked()).collect();
         let mut hand_given_by = vec![None; self.hand.len()];
         let mut beast_bonus_atk = 0;
         let mut pending_attacks = Vec::new();
@@ -1034,7 +1034,7 @@ impl TavernState {
         pool: &mut CardPool,
         rng: &mut Rng,
     ) -> Option<Unit> {
-        if hand_idx >= self.hand.len() || self.hand[hand_idx].locked_turns > 0 {
+        if hand_idx >= self.hand.len() || self.hand[hand_idx].is_locked() {
             return None;
         }
         let discarded = self.hand.remove(hand_idx);
@@ -1079,7 +1079,7 @@ impl TavernState {
             return;
         }
         while let Some(idx) = self.hand.iter().rposition(|h| {
-            h.willbreaker_group == grp && h.willbreaker_remaining == 0 && h.locked_turns == 0
+            h.willbreaker_group == grp && h.willbreaker_remaining == 0 && !h.is_locked()
         }) {
             self.discard_hand_card(idx, pool, rng);
         }
@@ -2006,7 +2006,7 @@ impl TavernState {
                 let Some(card) = self.hand.get(hand_index) else {
                     return false;
                 };
-                if card.unplayable || card.lockbox_turns_left > 0 || card.locked_turns > 0 {
+                if card.unplayable || card.is_locked() {
                     return false;
                 }
                 if card.is_spell {
@@ -2032,7 +2032,7 @@ impl TavernState {
                 let Some(card) = self.hand.get(hand_index) else {
                     return false;
                 };
-                if card.unplayable || card.lockbox_turns_left > 0 || card.locked_turns > 0 {
+                if card.unplayable || card.is_locked() {
                     return false;
                 }
                 card.is_spell
@@ -2096,7 +2096,7 @@ impl TavernState {
                     ActivateTargetKind::HandCard => {
                         matches!(
                             target_pos,
-                            Some(t) if t < self.hand.len() && self.hand[t].locked_turns == 0
+                            Some(t) if t < self.hand.len() && !self.hand[t].is_locked()
                         )
                     }
                     ActivateTargetKind::ShopCard => {
@@ -2160,7 +2160,7 @@ impl TavernState {
         }
 
         for (h_idx, card) in self.hand.iter().enumerate() {
-            if card.unplayable || card.lockbox_turns_left > 0 || card.locked_turns > 0 {
+            if card.unplayable || card.is_locked() {
                 continue;
             }
             if card.is_spell {
@@ -2289,7 +2289,7 @@ impl TavernState {
                             }
                             ActivateTargetKind::HandCard => {
                                 for (t_pos, h_card) in self.hand.iter().enumerate() {
-                                    if h_card.locked_turns == 0 {
+                                    if !h_card.is_locked() {
                                         actions.push(TavernAction::Activate {
                                             board_pos: b_pos,
                                             target_pos: Some(t_pos),
@@ -2674,6 +2674,7 @@ impl TavernState {
             !u.is_golden
                 && !u.intrinsic_golden
                 && !u.is_spell
+                && !u.is_locked()
                 && u.card_id != 0
                 && !no_triple(u.card_id)
         };

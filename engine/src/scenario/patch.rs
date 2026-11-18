@@ -45,7 +45,7 @@ const UNIT_LIST_LISTS: [&str; 2] = ["discover_queue", "incoming"];
 
 /// Unit fields serde leaves out while they have their default (`skip_serializing_if`): a patch
 /// can still set them.
-const SKIPPED_UNIT_FIELDS: [&str; 16] = [
+const SKIPPED_UNIT_FIELDS: [&str; 17] = [
     "granted_taunt",
     "pass_aura",
     "unchosen_to_teammate",
@@ -62,6 +62,7 @@ const SKIPPED_UNIT_FIELDS: [&str; 16] = [
     "hats",
     "frozen",
     "to_hero_power",
+    "locked",
 ];
 
 /// `PlayerAuras` fields serde leaves out while they are 0: a patch can still set them.
