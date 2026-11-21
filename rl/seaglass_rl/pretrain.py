@@ -18,7 +18,10 @@ collected `--chunk` at a time, and only the arrays are kept. The policy is train
 cross-entropy on the bots' actions. With a placement critic (`--value-head placement`, the
 default), the value is trained with cross-entropy against the seat's final place, as in PPO;
 with a scalar critic, it is regressed on the per-turn-discounted return (the placement, plus the
-shaping if any).
+shaping if any). By default the critic is not trained here at all (`--value-epochs 0`): on
+150 games of 9kgamerbot, its held-out cross-entropy on whole unseen games was 2.17 after one
+epoch and 7.1 after twelve, against 2.08 for a uniform guess. It memorises each game's outcome,
+and PPO then starts from confident wrong values. PPO trains it from its own games instead.
 
 The move rules (`--no-reposition`, `--no-freeze`, `--no-positioning-phase`, `--prune`,
 `--max-steps-per-turn`) apply to the recorded games and are saved in the checkpoint's arguments,
@@ -63,6 +66,8 @@ def collect(
             ]
             results = player.play(config, specs, {}, options, record=(teacher,), seed=seed + start)
             trajs = [t for r in results for t in r.trajectories]
+            # Each decision's game (for a held-out split by game, not by decision).
+            game_ids = [r.seed - seed for r in results for _ in r.trajectories]
             del results
             if not trajs:
                 continue
@@ -75,6 +80,9 @@ def collect(
             ).astype(np.float32)
             part["places"] = np.concatenate(
                 [np.full(len(t["actions"]), int(t["place"]) - 1 if int(t["place"]) > 0 else -1, dtype=np.int64) for t in trajs]
+            )
+            part["game"] = np.concatenate(
+                [np.full(len(t["actions"]), gid, dtype=np.int32) for t, gid in zip(trajs, game_ids)]
             )
             parts.append(part)
     finally:
@@ -91,17 +99,30 @@ def train(
     vf_coef: float = 0.5,
     holdout: float = 0.05,
     seed: int = 0,
+    value_epochs: int | None = None,
 ) -> dict[str, float]:
     """Cross-entropy on the actions plus `vf_coef` × the value loss: cross-entropy against the final
     place with a placement critic, else MSE on the returns. Returns the held-out accuracy, action
     cross-entropy, value MSE (of the expected value against the returns) and, with a placement
-    critic, value cross-entropy, for the last epoch."""
+    critic, value cross-entropy, for the last epoch.
+
+    The held-out set is whole games (`data["game"]`), when known: every decision of a game shares
+    its final place, so a split by decision lets the critic score well by recognising the game.
+    The value loss is applied for the first `value_epochs` epochs only (all, if None): a critic
+    trained longer memorises the games' outcomes, and PPO then starts from confident wrong values."""
     placement = model.config.get("value_places", 0) > 0
     rng = np.random.default_rng(seed)
     n = len(data["actions"])
-    perm = rng.permutation(n)
-    n_val = max(1, int(n * holdout))
-    val, tr = perm[:n_val], perm[n_val:]
+    if "game" in data:
+        games = np.unique(data["game"])
+        held = rng.permutation(games)[: max(1, int(len(games) * holdout))]
+        is_val = np.isin(data["game"], held)
+        val, tr = np.nonzero(is_val)[0], np.nonzero(~is_val)[0]
+    else:
+        perm = rng.permutation(n)
+        n_val = max(1, int(n * holdout))
+        val, tr = perm[:n_val], perm[n_val:]
+    n_val = len(val)
     device = next(model.parameters()).device
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -128,7 +149,8 @@ def train(
                 vloss_t = nn.functional.cross_entropy(value_logits, plc, ignore_index=-1)
             else:
                 vloss_t = (value - ret).pow(2).mean()
-            loss = nn.functional.cross_entropy(logits, act) + vf_coef * vloss_t
+            vf = vf_coef if value_epochs is None or epoch < value_epochs else 0.0
+            loss = nn.functional.cross_entropy(logits, act) + vf * vloss_t
             opt.zero_grad(set_to_none=True)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -183,6 +205,12 @@ def main() -> None:
     p.add_argument("--prune", action="store_true", help="mask the sells and refreshes `prune_dominated` rules out")
     p.add_argument("--workers", type=int, default=default_workers(), help="default: $SEAGLASS_WORKERS, else half the cores")
     p.add_argument("--epochs", type=int, default=4)
+    p.add_argument(
+        "--value-epochs",
+        type=int,
+        default=0,
+        help="train the critic for the first N epochs only (default 0: not at all; it memorises the games)",
+    )
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--minibatch", type=int, default=2048)
     add_model_args(p)
@@ -212,7 +240,7 @@ def main() -> None:
     )
     print(f"{len(data['actions'])} decisions from {args.games} games in {time.time() - t0:.0f}s", flush=True)
     model = build_model(args, kind_prior=True, units=config.units).to(device)
-    stats = train(model, data, args.epochs, args.lr, args.minibatch, seed=args.seed)
+    stats = train(model, data, args.epochs, args.lr, args.minibatch, seed=args.seed, value_epochs=args.value_epochs)
     checkpoint.save(args.out, model, iteration=0, args=vars(args), extra={"bc": stats})
     print(f"saved {args.out}", flush=True)
 
