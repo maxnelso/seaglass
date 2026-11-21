@@ -9,7 +9,9 @@
 //!   match_replay cast <file> [-o out.cast]           record that play-back for asciinema
 //!   match_replay compare <Power.log> [--game G]      a Power.log game's combats vs the engine
 //!   match_replay verify <file>...                    re-simulate replays; fail if any diverges
-//!   match_replay html <file> [-o out.html]           a self-contained HTML viewer
+//!   match_replay html <file> [--player P] [-o out.html]
+//!                                                    a self-contained HTML viewer; with --player
+//!                                                    P, a page that steps through P's actions
 //!   match_replay scenario <file> (--frame N | --turn T) [--steps K] [--player P]
 //!                                                    a scenario test reproducing a frame
 
@@ -22,7 +24,9 @@ use std::process::ExitCode;
 
 use seaglass::replay::FrameKind;
 use seaglass::Timeline;
-use seaglass_tools::replay_text::{print_frame, print_problems, print_state, print_summary};
+use seaglass_tools::replay_text::{
+    player_name, print_frame, print_problems, print_state, print_summary,
+};
 
 const USAGE: &str = "\
 usage: match_replay <command> <file> [options]
@@ -43,7 +47,10 @@ commands:
   --wsl / --last                       shortcut for `tui --wsl`: play the last game from the
                                        Windows Hearthstone Power.log in WSL
   verify <file>...                     re-simulate replays; exit 1 if any diverges
-  html <file> [-o out.html]            write a self-contained HTML viewer
+  html <file> [--player P] [-o out.html]
+                                       write a self-contained HTML viewer; --player P (a name or
+                                       a 0-based index) writes the page that steps through that
+                                       player's actions instead (default: <file>.p<index>.html)
   scenario <file> (--frame N | --turn T) [--steps K] [--player P] [-o out.yaml]
                                        write a scenario test that reproduces a frame";
 
@@ -134,6 +141,28 @@ pub(crate) fn option<'a>(args: &'a [String], names: &[&str]) -> Option<&'a str> 
         .position(|a| names.contains(&a.as_str()))
         .and_then(|i| args.get(i + 1))
         .map(String::as_str)
+}
+
+/// A player given by name (case-insensitive), or by 0-based index (`3` or `p3`, for players named
+/// like `Search(sovereign)_p3`).
+pub(crate) fn parse_player(timeline: &Timeline, text: &str) -> Result<usize, String> {
+    let players = timeline.num_players();
+    if let Some(p) = (0..players).find(|&p| player_name(timeline, p).eq_ignore_ascii_case(text)) {
+        return Ok(p);
+    }
+    let index = text.strip_prefix(['p', 'P']).unwrap_or(text);
+    match index.parse::<usize>() {
+        Ok(p) if p < players => Ok(p),
+        _ => {
+            let names: Vec<String> = (0..players)
+                .map(|p| format!("{} ({p})", player_name(timeline, p)))
+                .collect();
+            Err(format!(
+                "no player {text:?} (players: {})",
+                names.join(", ")
+            ))
+        }
+    }
 }
 
 /// The frame chosen by `--frame N` or `--turn T`, if either is given.

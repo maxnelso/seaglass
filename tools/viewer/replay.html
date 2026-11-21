@@ -389,6 +389,7 @@ kbd { padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px;
     if (u.deity) classes.push("deity");
     if (opt.mark) classes.push(opt.mark);
     const tip = [unitText(u)];
+    if (DATA.card_text && DATA.card_text[u.card]) tip.push(DATA.card_text[u.card]);
     if (opt.was !== undefined) tip.push("was " + unitText(UNITS[opt.was]));
     if (opt.pool) tip.push(`${opt.pool[0]} of ${opt.pool[1]} copies left in the pool`);
     let corner = "";
