@@ -177,6 +177,7 @@ def main() -> None:
     # the same ones (they are saved with it, and `ladder.py` rates it under them).
     p.add_argument("--max-steps-per-turn", type=int, default=30)
     p.add_argument("--no-reposition", action="store_true")
+    p.add_argument("--auto-position", action="store_true", help="recorded with the checkpoint; the bots do not use it")
     p.add_argument("--no-positioning-phase", action="store_true")
     p.add_argument("--no-freeze", action="store_true")
     p.add_argument("--prune", action="store_true", help="mask the sells and refreshes `prune_dominated` rules out")
@@ -198,6 +199,7 @@ def main() -> None:
     rules = ["--max-steps-per-turn", str(args.max_steps_per_turn)]
     rules += [f for f, on in (
         ("--no-reposition", args.no_reposition),
+        ("--auto-position", args.auto_position),
         ("--no-positioning-phase", args.no_positioning_phase),
         ("--no-freeze", args.no_freeze),
         ("--prune", args.prune),

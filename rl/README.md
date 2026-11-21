@@ -29,6 +29,7 @@ flowchart LR
 | `pretrain.py` | Behavior cloning on rule-bot games (policy cross-entropy + value loss), the starting point for PPO (`train_lobby.py --init`). |
 | `evaluate.py` | Average placement (with standard error, top-half and first-place rates) of a checkpoint against a fixed pool. |
 | `ladder.py` | Rates any agent on a fixed ladder of rule bots (paired seeds, clustered standard errors, behavior by turn) and compares two ratings. |
+| `positioning.py` | Board order by search: the environment orders a model's board at the end of each turn (`--auto-position`). |
 | `probe.py` | The per-turn board probe: the win rate of an end-of-turn board against a frozen library of reference boards from the same turn. |
 | `checkpoint.py` | `save` / `load`. A checkpoint stores the model's config and weights, the optimizer state, and the feature spec it was trained on; loading one with another feature spec fails. |
 | `features.py`, `actions.py`, `model.py` | The observation encoding, the 330 flat actions with their legality mask, and the network. |
@@ -73,6 +74,8 @@ Every `--eval-every` iterations, the learner is rated on a ladder of rule bots (
 - `evals/iter_XXXXX.json`, the full ladder result of each evaluation.
 
 Evaluation. An agent as good as the field places `(units + 1) / 2` on average: 4.5 in Solo, 2.5 in Duos. Lower is better.
+
+**Automatic positioning (`--auto-position`).** The simulator can score a board order exactly, so the environment can order the board instead of the policy learning 42 Reposition logits from the final place. With `--auto-position` (meant for `--no-reposition`), just before a model seat's turn ends, `positioning.py` searches for a better order with the combat simulator. It scores each order by its win rate (a draw counts half) against up to 4 opponent boards: the boards this player has seen (the next opponent first, then the most recently seen), filled up from the probe library's reference boards for the turn. Every order uses the same fight seeds, 2 fights per opponent. The search is a first-improvement hill climb over swaps with a budget of 16 scored orders per turn, and knows nothing about cards. The moves are counted as `auto_position` actions and never enter a trajectory. It applies to model seats only, Solo only. Cost: about 0.4 ms per seat-turn with a 5-minion board and 0.8 ms with 6 (measured on the Mac mini, 4 opponents, whole search), plus the one-time library build (a few seconds) in each worker. `ladder.py` rates a checkpoint with it when it was trained with it; `rate --auto-position on|off` overrides that. **Measured gain: none so far.** On the fast ladder, the 150-game 9kgamerbot clone placed 5.22 without it, 5.21 with it, and 5.25 with a search 16 times larger (8 opponents, 8 fights each, 48 orders). Each is ± 0.13 at two sigma. So it is off by default; try it again once agents build boards where order matters more.
 
 ### Rating agents (`ladder.py`)
 
@@ -238,6 +241,7 @@ rl/
 │   ├── pretrain.py      # Behavior cloning on rule-bot games
 │   ├── evaluate.py      # Average placement against a fixed pool
 │   ├── ladder.py        # Rate an agent on the fixed bot ladders, compare ratings
+│   ├── positioning.py   # Board order by hill-climbing with the combat simulator
 │   ├── probe.py         # Per-turn board strength against reference boards
 │   ├── checkpoint.py    # Save / load models with their feature spec
 │   ├── features.py      # Observation encoding

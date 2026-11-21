@@ -47,6 +47,7 @@ from . import ladder
 from .evaluate import evaluate, format_result
 from .model import BattlegroundsMLP
 from .play import BOTS, LobbyConfig, LEARNER, GameSpec, Player, PlayOptions
+from .positioning import PositionSpec
 from .probe import ProbeSpec
 from .ppo import build_batch, ppo_update
 from .transformer import EntityTransformer
@@ -64,6 +65,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--no-heroes", action="store_true")
     p.add_argument("--max-steps-per-turn", type=int, default=30)
     p.add_argument("--no-reposition", action="store_true")
+    p.add_argument(
+        "--auto-position",
+        action="store_true",
+        help="order the board at the end of each turn by search with the combat simulator (positioning.py); "
+        "meant for --no-reposition",
+    )
     p.add_argument(
         "--no-positioning-phase",
         action="store_true",
@@ -215,6 +222,7 @@ def play_options(args: argparse.Namespace, deterministic: bool = False) -> PlayO
         allow_reposition=not args.no_reposition,
         allow_freeze=not args.no_freeze,
         prune_dominated=args.prune,
+        auto_position=PositionSpec() if args.auto_position else None,
         deterministic=deterministic,
         gamma=args.gamma,
         shaping=args.shaping,

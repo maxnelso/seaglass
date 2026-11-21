@@ -37,6 +37,7 @@ from typing import Any
 import numpy as np
 
 from .device import default_workers
+from .positioning import PositionSpec
 from .play import BOTS, GameSpec, LobbyConfig, Player, PlayOptions
 from .probe import ProbeSpec, library_for, library_summary
 
@@ -120,6 +121,7 @@ def checkpoint_options(agent: Any) -> PlayOptions:
         allow_reposition=not a.get("no_reposition", False),
         allow_freeze=not a.get("no_freeze", False),
         prune_dominated=bool(a.get("prune", False)),
+        auto_position=PositionSpec() if a.get("auto_position", False) else None,
     )
 
 
@@ -476,6 +478,12 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("--games", type=int, default=None, help="default: the ladder's own size")
     r.add_argument("--seed", type=int, default=None, help="default: the ladder's own seed")
     r.add_argument("--workers", type=int, default=default_workers(), help="default: $SEAGLASS_WORKERS, else half the cores")
+    r.add_argument(
+        "--auto-position",
+        choices=("checkpoint", "on", "off"),
+        default="checkpoint",
+        help="order the model's board by search (positioning.py): as the checkpoint was trained, or override",
+    )
     r.add_argument("--no-probe", action="store_true")
     r.add_argument("--deterministic", action="store_true", help="take the most likely action")
     r.add_argument(
@@ -494,6 +502,7 @@ def main(argv: list[str] | None = None) -> None:
         opts = dataclasses.replace(
             checkpoint_options(args.agent),
             deterministic=args.deterministic,
+            **({} if args.auto_position == "checkpoint" else {"auto_position": PositionSpec() if args.auto_position == "on" else None}),
             **({"max_steps_per_turn": args.max_steps_per_turn} if args.max_steps_per_turn else {}),
         )
         res = rate(

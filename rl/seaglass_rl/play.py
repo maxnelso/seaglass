@@ -46,6 +46,7 @@ from .actions import (
     ACTION_KIND_IDS,
     ACTION_KINDS,
     ACTION_SPACE_SIZE,
+    ACTION_TO_INDEX,
     END_TURN_INDEX,
     action_from_index,
     action_mask,
@@ -57,6 +58,7 @@ from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from .model import BattlegroundsMLP
 
 if TYPE_CHECKING:
+    from .positioning import PositionSpec
     from .probe import ProbeSpec
 
 LEARNER = "learner"
@@ -190,6 +192,9 @@ class PlayOptions:
     # With `turn_stats`: also score the end-of-turn board of each unit in `GameSpec.probe_units`
     # against the reference library (`probe.py`).
     probe: "ProbeSpec | None" = None
+    # Order every model seat's board by search with the combat simulator just before its turn ends
+    # (`positioning.py`; Solo only). The moves are counted as "auto_position", never recorded.
+    auto_position: "PositionSpec | None" = None
 
 
 @dataclass
@@ -338,6 +343,10 @@ def play_games(
     opts = options or PlayOptions()
     if (opts.turn_stats or opts.probe is not None) and config.duos:
         raise ValueError("turn stats and the probe are Solo-only")
+    if opts.auto_position is not None and config.duos:
+        raise ValueError("auto positioning is Solo-only")
+    if opts.auto_position is not None:
+        from . import positioning
     library = None
     if opts.probe is not None:
         from . import probe
@@ -386,6 +395,27 @@ def play_games(
             mask &= REPOSITION | FREEZE | (np.arange(ACTION_SPACE_SIZE) == END_TURN_INDEX)
         return mask
 
+    def position(g: int, p: int) -> None:
+        """Order the model seat's board by search, just before its turn ends."""
+        pos = opts.auto_position
+        game, st = games[g], seats[g][p]
+        if pos is None or st.bot is not None or game.is_done(p):
+            return
+        obs = views[g][p].observe()
+        board = list(obs.board)
+        if len(board) < 2:
+            return
+        opponents = positioning.opponent_boards(game, p, config, pos)
+        if not opponents:
+            return
+        seed = specs[g].seed * 7_919 + p * 101 + game.turn
+        perm, _ = positioning.best_order(board, opponents, obs.tavern_tier, seed, pos)
+        for f, t in positioning.moves_to(perm):
+            idx = ACTION_TO_INDEX[("reposition", f, t)]
+            if not game.is_legal(p, action_from_index(idx)):
+                break
+            _apply(game, p, st, idx, {"auto": "position"} if opts.keep_replays else None, kind="auto_position")
+
     def model_step(g: int, p: int, idx: int, note: dict[str, Any] | None, board: int) -> None:
         """Take a model's action, with the end-of-turn step ("prepping the board for battle"): its
         first End Turn opens the step instead of ending the turn, if there is anything to do in it
@@ -399,6 +429,8 @@ def play_games(
             st.moves_left = board - 1 if opts.allow_reposition else 0
             st.steps += 1
             return
+        if idx == END_TURN_INDEX:
+            position(g, p)
         _apply(games[g], p, st, idx, note)
         if st.arranging and idx != END_TURN_INDEX:
             if FREEZE[idx]:
@@ -406,6 +438,7 @@ def play_games(
             else:
                 st.moves_left -= 1
             if st.moves_left <= 0 and (st.froze or not opts.allow_freeze) and not games[g].is_done(p):
+                position(g, p)
                 _apply(games[g], p, st, END_TURN_INDEX, None)
 
     def close(traj: Trajectory, reward: float, place: int) -> None:
@@ -603,11 +636,19 @@ def _record(
     traj.potentials.append(phi)
 
 
-def _apply(game: seaglass.LobbyGame, p: int, st: _Seat, idx: int, note: dict[str, Any] | None) -> None:
-    """Take action `idx` for player `p`; mark the end of their turn on their trajectory."""
+def _apply(
+    game: seaglass.LobbyGame,
+    p: int,
+    st: _Seat,
+    idx: int,
+    note: dict[str, Any] | None,
+    kind: str | None = None,
+) -> None:
+    """Take action `idx` for player `p`; mark the end of their turn on their trajectory. `kind`
+    overrides the action's kind in `st.kinds`."""
     done = game.step(p, action_from_index(idx), note)
     st.steps += 1
-    kind = ACTION_KINDS[ACTION_KIND_IDS[idx]]
+    kind = kind or ACTION_KINDS[ACTION_KIND_IDS[idx]]
     st.kinds[kind] = st.kinds.get(kind, 0) + 1
     if done and st.traj is not None and st.traj.actions:
         st.traj.turn_end[-1] = True
