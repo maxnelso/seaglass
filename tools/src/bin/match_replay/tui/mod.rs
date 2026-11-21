@@ -74,9 +74,10 @@ pub(crate) fn open(args: &[String]) -> Result<App, String> {
     } else {
         Glyphs::UNICODE
     };
-    let file = path
-        .file_name()
-        .map_or_else(|| path.display().to_string(), |f| f.to_string_lossy().into_owned());
+    let file = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |f| f.to_string_lossy().into_owned(),
+    );
     if powerlog::is_power_log(&path) {
         let game = option(args, &["--game"])
             .map(|g| g.parse().map_err(|_| format!("bad --game {g:?}")))
@@ -201,11 +202,10 @@ fn dump(app: &mut App, args: &[String]) -> Result<ExitCode, String> {
         }
         let (kind_str, nth) = match spec.split_once(':') {
             Some((k, n)) => {
-                let n: usize = n
-                    .parse()
-                    .ok()
-                    .filter(|&n| n >= 1)
-                    .ok_or_else(|| format!("bad --sample {spec:?} (seed index must be >= 1)"))?;
+                let n: usize =
+                    n.parse().ok().filter(|&n| n >= 1).ok_or_else(|| {
+                        format!("bad --sample {spec:?} (seed index must be >= 1)")
+                    })?;
                 (k, n - 1)
             }
             None => (spec, 0),

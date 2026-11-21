@@ -1418,7 +1418,12 @@ TAG_CHANGE Entity=GameEntity tag=BACON_IN_COMBAT_PHASE value=0
         assert!(combat.warning.is_none(), "{:?}", combat.warning);
 
         // Simulated sample outcomes from the Power.log combat replay cleanly too.
-        let mut sample_app = App::new(Box::new(super::tests::source()), "Power.log".into(), 1, Glyphs::UNICODE);
+        let mut sample_app = App::new(
+            Box::new(super::tests::source()),
+            "Power.log".into(),
+            1,
+            Glyphs::UNICODE,
+        );
         assert!(sample_app.show_sample(crate::tui::combat::SampleKind::Tie));
         assert_eq!(sample_app.shown_combat().unwrap().result, "Draw");
         let sample_plain = screen::draw(&sample_app, 120, 40).to_plain().join("\n");
