@@ -29,6 +29,7 @@ import numpy as np
 import seaglass
 import torch
 import torch.nn.functional as F
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, pick_device
 
 from ..sovereign_model import (
     SovereignStateFeaturizer,
@@ -235,6 +236,7 @@ def train_architect_net(
     batch_size: int = 256,
     lr: float = 4.5e-4,
     seed: int = 2029,
+    device: str | None = None,
 ) -> None:
     from ..train_sovereign import _augment_train_inputs, _build_ordinal_soft_targets, _build_same_lobby_pairs
 
@@ -264,7 +266,7 @@ def train_architect_net(
     val_idx = np.nonzero(val_mask)[0]
 
     featurizer = SovereignStateFeaturizer("full")
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(device)
     print(f"Training ArchitectValueNet on {dev} | train={len(train_idx)} val={len(val_idx)} games={len(uniq_games)}")
 
     tag_mat = np.asarray(featurizer.meta.tag_matrix, dtype=np.float32)
@@ -288,7 +290,7 @@ def train_architect_net(
     w_t = torch.from_numpy(ARCHITECT_PLACE_WEIGHTS).to(dev)
     net.place_weights.copy_(w_t)
 
-    soft_targets = _build_ordinal_soft_targets(place, sigma=0.75)
+    soft_targets = _build_ordinal_soft_targets(place, sigma=0.75).astype(np.float32)
     eot_flags = glob[:, 1]
     p_hi, p_lo, p_m = _build_same_lobby_pairs(game_id, turn, eot_flags, place, train_idx, rng, max_pairs_per_bucket=12)
 
@@ -426,14 +428,21 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["generate", "train", "both"], default="both")
     parser.add_argument("--games", type=int, default=64)
-    parser.add_argument("--workers", type=int, default=6)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=6),
+        help="data-generation worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 6)",
+    )
     parser.add_argument("--base-seed", type=int, default=70000)
     parser.add_argument("--dataset", type=str, default="/tmp/architect_p37_ds.npz")
     parser.add_argument("--extra-datasets", type=str, nargs="*", default=[])
     parser.add_argument("--out-weights", type=str, default=DEFAULT_ARCHITECT_NPZ_PATH)
     parser.add_argument("--epochs", type=int, default=14)
     parser.add_argument("--lr", type=float, default=6.0e-5)
+    add_device_arg(parser)
     args = parser.parse_args()
+    torch.set_num_threads(default_threads())
 
     if args.mode in ("generate", "both"):
         generate_dataset(
@@ -449,6 +458,7 @@ def main() -> None:
             out_weights=args.out_weights,
             epochs=args.epochs,
             lr=args.lr,
+            device=args.device,
         )
 
 

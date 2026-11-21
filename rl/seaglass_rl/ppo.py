@@ -79,8 +79,10 @@ def ppo_update(
 ) -> dict[str, float]:
     """Clipped PPO over shuffled minibatches, with the advantages normalized over the batch.
 
-    Stops early once the approximate KL to the rollout policy passes `target_kl`.
+    Stops early once the approximate KL to the rollout policy passes `target_kl`. The batch stays
+    on the CPU; each minibatch moves to the model's device.
     """
+    device = next(model.parameters()).device
     n = batch["actions"].shape[0]
     adv = batch["advantages"]
     adv = (adv - adv.mean()) / (adv.std() + 1e-8) if n > 1 else adv
@@ -93,20 +95,20 @@ def ppo_update(
         for start in range(0, n, minibatch_size):
             idx = perm[start : start + minibatch_size]
             logits, values = model(
-                batch["player_vec"][idx],
-                batch["slot_card_ids"][idx],
-                batch["slot_num_feats"][idx],
-                batch["action_mask"][idx],
+                batch["player_vec"][idx].to(device),
+                batch["slot_card_ids"][idx].to(device),
+                batch["slot_num_feats"][idx].to(device),
+                batch["action_mask"][idx].to(device),
             )
             log_probs = torch.log_softmax(logits, dim=-1)
-            new_lp = log_probs.gather(1, batch["actions"][idx].unsqueeze(-1)).squeeze(-1)
+            new_lp = log_probs.gather(1, batch["actions"][idx].to(device).unsqueeze(-1)).squeeze(-1)
             probs = log_probs.exp()
             entropy = -(probs * log_probs.clamp(min=-20.0)).sum(-1).mean()
-            log_ratio = new_lp - batch["old_log_probs"][idx]
+            log_ratio = new_lp - batch["old_log_probs"][idx].to(device)
             ratio = log_ratio.exp()
-            a = adv[idx]
+            a = adv[idx].to(device)
             policy_loss = -torch.min(ratio * a, ratio.clamp(1 - clip_eps, 1 + clip_eps) * a).mean()
-            value_loss = 0.5 * (values - batch["returns"][idx]).pow(2).mean()
+            value_loss = 0.5 * (values - batch["returns"][idx].to(device)).pow(2).mean()
             loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
             optimizer.zero_grad(set_to_none=True)
             loss.backward()

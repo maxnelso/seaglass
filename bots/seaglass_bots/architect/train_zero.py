@@ -28,6 +28,7 @@ import numpy as np
 import seaglass
 import torch
 import torch.nn.functional as F
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, pick_device
 
 from .zero_bot import ZeroPhysicsBot, _total_stats
 from .zero_model import (
@@ -339,6 +340,7 @@ def train_zero_net(
     first_weight: float = 1.0,
     val_first_only: bool = False,
     seed: int = 2029,
+    device: str | None = None,
 ) -> None:
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -360,14 +362,15 @@ def train_zero_net(
         is_primary_l.append(np.full(n_rows, ds_i == 0, dtype=bool))
         ds_i += 1
 
+    # Floats as float32 (MPS has no float64). The compact int ids stay as stored: the net casts them.
     vocab = np.concatenate(arrays["vocab"], axis=0)
     zone = np.concatenate(arrays["zone"], axis=0)
     pos = np.concatenate(arrays["pos"], axis=0)
-    num = np.concatenate(arrays["num"], axis=0)
-    mask = np.concatenate(arrays["mask"], axis=0)
-    glob = np.concatenate(arrays["glob"], axis=0)
-    place = np.concatenate(arrays["place"], axis=0)
-    fut_pow = np.concatenate(arrays["fut_pow"], axis=0)
+    num = np.concatenate(arrays["num"], axis=0).astype(np.float32, copy=False)
+    mask = np.concatenate(arrays["mask"], axis=0).astype(np.bool_, copy=False)
+    glob = np.concatenate(arrays["glob"], axis=0).astype(np.float32, copy=False)
+    place = np.concatenate(arrays["place"], axis=0).astype(np.int64)
+    fut_pow = np.concatenate(arrays["fut_pow"], axis=0).astype(np.float32, copy=False)
     game_id = np.concatenate(arrays["game_id"], axis=0)
     turn = np.concatenate(arrays["turn"], axis=0)
     sample_w = np.concatenate(weights_l, axis=0)
@@ -389,7 +392,7 @@ def train_zero_net(
     tr_idx = np.where(~is_val)[0]
     va_idx = np.where(is_val)[0]
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(device)
     print(
         f"Training ZeroValueNet (d={d_model}, L={n_layers}, first_w={first_weight}) on {dev} | "
         f"train={len(tr_idx)} val={len(va_idx)} games={len(ug_all)}",
@@ -538,7 +541,12 @@ def main() -> None:
     parser.add_argument("--mode", choices=["generate", "train", "both"], default="both")
     parser.add_argument("--lobby-type", choices=["selfplay", "mixed", "mixed_arch"], default="selfplay")
     parser.add_argument("--games", type=int, default=200)
-    parser.add_argument("--workers", type=int, default=10)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=10),
+        help="data-generation worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 10)",
+    )
     parser.add_argument("--base-seed", type=int, default=120000)
     parser.add_argument("--dataset", type=str, default="/tmp/zero_gen0.npz")
     parser.add_argument("--extra-datasets", type=str, nargs="*", default=[])
@@ -554,7 +562,9 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=3.0e-4)
     parser.add_argument("--first-weight", type=float, default=1.0)
     parser.add_argument("--val-first-only", action="store_true")
+    add_device_arg(parser)
     args = parser.parse_args()
+    torch.set_num_threads(default_threads())
 
     if args.mode in ("generate", "both"):
         generate_zero_dataset(
@@ -580,6 +590,7 @@ def main() -> None:
             lr=args.lr,
             first_weight=args.first_weight,
             val_first_only=args.val_first_only,
+            device=args.device,
         )
 
 
