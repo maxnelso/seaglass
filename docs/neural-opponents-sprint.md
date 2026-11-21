@@ -56,6 +56,43 @@ The probe matters because placement arrives once per game and is noisy. Board st
 
 **Gate.** Two runs of the same agent on different seeds agree within the stated interval. The rule-bot order from [Section 4](#4-measurements) reproduces.
 
+#### Stage 1 Result (2026-11-21): the gate passes
+
+The instrument is `python -m seaglass_rl.ladder` (`rl/seaglass_rl/ladder.py`, `probe.py`), described in the [`rl` README](../rl/README.md#rating-agents-ladderpy). `train_lobby` now rates itself on the fast ladder. The result files are in [`results/stage1/`](results/stage1/), taken at commit `2004905`, engine build `34fd1ee4a7df`, on the Mac mini's CPU with 2 to 3 worker processes. A fast-ladder rating took 8 seconds for a rule bot and 24 seconds for the MLP.
+
+Two seeds of the same agent agree. The ± figures are one standard error, clustered by lobby. The difference column is at two sigma.
+
+| Agent on the fast ladder | Seed 5,000,000 | Seed 5,500,000 | Difference |
+| :--- | :--- | :--- | :--- |
+| HeuristicBot | 5.06 ± 0.06 | 5.08 ± 0.06 | -0.03 ± 0.17 |
+| 9kgamerbot | 4.32 ± 0.07 | 4.34 ± 0.08 | -0.02 ± 0.20 |
+| Clone of HeuristicBot (60 games, MLP) | 5.88 ± 0.05 | 5.88 ± 0.06 | -0.00 ± 0.15 |
+
+The rule-bot order reproduces. Rating `random` seats two each of four bots, the composition of the 400-lobby ranking in [Section 4](#how-the-rule-bots-rank). The anchors in that run came out at 3.04, 3.20 and 4.28 for 9kgamerbot, 9kgamerbot-tempo and HeuristicBot, against 3.13, 3.13 and 4.29 there. Random placed 7.48, against 7.46.
+
+| Agent on the fast ladder | Average place | Top 4 | First |
+| :--- | :--- | :--- | :--- |
+| 9kgamerbot-tempo | 4.14 ± 0.07 | 56% | 14% |
+| 9kgamerbot | 4.32 ± 0.07 | 54% | 16% |
+| HeuristicBot | 5.06 ± 0.06 | 40% | 3% |
+| Clone of HeuristicBot | 5.88 ± 0.05 | 23% | 3% |
+| Random | 7.48 ± 0.01 | 0% | 0% |
+
+The slow ladder took 12 minutes for 100 lobbies on 3 workers, about 21 seconds of CPU per lobby. Its file is marked dirty only because this document was being edited during the run. SovereignBot placed 1.27 ± 0.07 with 81% firsts, against 1.40 in the 48-lobby table of [Section 4](#how-the-search-bots-rank). 9kgamerbot as the agent placed 5.21 ± 0.15, and the anchors 4.71 to 5.31. So the slow ladder spends most of its resolution on SovereignBot's dominance, and it will only matter once an agent is near the top of the fast ladder.
+
+Pairing two agents on the same seeds barely narrows the interval. 9kgamerbot against HeuristicBot is -0.73 ± 0.17 at two sigma paired and ± 0.18 unpaired. Once the agent's own play differs, a shared seed shares little luck, so the 500-lobby size is what buys the precision.
+
+The probe shows each bot's curve, and it reproduces to within 0.02 across seeds. It is the win rate of the agent's end-of-turn board against 32 reference boards from the same turn.
+
+| Probe by turn | 2 | 4 | 6 | 8 | 10 | 12 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| HeuristicBot | 0.46 | 0.63 | 0.59 | 0.46 | 0.34 | 0.32 |
+| 9kgamerbot | 0.45 | 0.19 | 0.31 | 0.65 | 0.59 | 0.59 |
+| 9kgamerbot-tempo | 0.45 | 0.51 | 0.55 | 0.54 | 0.47 | 0.49 |
+| Clone of HeuristicBot | 0.37 | 0.45 | 0.41 | 0.32 | 0.29 | 0.34 |
+
+HeuristicBot is strongest on turns 4 to 6 and fades. 9kgamerbot gives up board strength on turns 4 to 6 and is the strongest from turn 8. That is the tempo-against-greed trade the probe was meant to show. The clone is weaker than its teacher on every turn, which fits its deficit of 0.8 places.
+
 ### Stage 2: Fix the Learner's Defaults, Then Run It at Scale
 
 The PPO pipeline in `rl/` is the right base. Its defaults push it toward buying stats every turn, and its runs are far too short. Change the defaults in one pass, then spend the compute on a single long run.
