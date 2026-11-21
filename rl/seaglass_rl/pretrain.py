@@ -21,7 +21,8 @@ with a scalar critic, it is regressed on the per-turn-discounted return (the pla
 shaping if any). By default the critic is not trained here at all (`--value-epochs 0`): on
 150 games of 9kgamerbot, its held-out cross-entropy on whole unseen games was 2.17 after one
 epoch and 7.1 after twelve, against 2.08 for a uniform guess. It memorises each game's outcome,
-and PPO then starts from confident wrong values. PPO trains it from its own games instead.
+and PPO then starts from confident wrong values. So its last layer is zeroed (a uniform guess)
+and PPO trains it from its own games.
 
 The move rules (`--no-reposition`, `--no-freeze`, `--no-positioning-phase`, `--prune`,
 `--max-steps-per-turn`) apply to the recorded games and are saved in the checkpoint's arguments,
@@ -177,7 +178,19 @@ def train(
             f"ce {stats['cross_entropy']:.3f} {value_text} | {time.time() - t0:.0f}s",
             flush=True,
         )
+    if value_epochs == 0:
+        reset_critic_head(model)
     return stats
+
+
+def reset_critic_head(model: torch.nn.Module) -> None:
+    """Zero the critic's last layer, so an untrained critic predicts a uniform place (value 0)
+    instead of whatever the policy-trained features happen to give."""
+    critic = model.critic
+    last = critic if isinstance(critic, nn.Linear) else [m for m in critic.modules() if isinstance(m, nn.Linear)][-1]
+    with torch.no_grad():
+        last.weight.zero_()
+        last.bias.zero_()
 
 
 def main() -> None:
@@ -209,7 +222,7 @@ def main() -> None:
         "--value-epochs",
         type=int,
         default=0,
-        help="train the critic for the first N epochs only (default 0: not at all; it memorises the games)",
+        help="train the critic for the first N epochs only (default 0: not at all, and its last layer is zeroed; it memorises the games)",
     )
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--minibatch", type=int, default=2048)

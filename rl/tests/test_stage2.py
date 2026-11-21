@@ -226,3 +226,23 @@ def test_recorded_bots_also_end_the_end_of_turn_step() -> None:
         config, [GameSpec(seed=4, controllers=["heuristic"] * 8)], {}, PlayOptions(positioning_phase=False), record=("heuristic",)
     )
     assert all(not (tr["player_vec"][:, PHASE_OFFSET] > 0.5).any() for tr in off.trajectories)
+
+
+@pytest.mark.parametrize("arch", ["mlp", "transformer"])
+def test_reset_critic_head_gives_a_uniform_place(arch: str) -> None:
+    from seaglass_rl.pretrain import reset_critic_head
+
+    m = BattlegroundsMLP(seed=0, value_places=8) if arch == "mlp" else EntityTransformer(seed=0, value_places=8)
+    reset_critic_head(m)
+    config = LobbyConfig()
+    (res,) = play_games(config, [GameSpec(seed=2, controllers=["heuristic"] * 8)], {}, record=("heuristic",))
+    tr = res.trajectories[0]
+    with torch.no_grad():
+        _, value, logits = m(
+            torch.from_numpy(tr["player_vec"][:4]),
+            torch.from_numpy(tr["slot_card_ids"][:4].astype(np.int64)),
+            torch.from_numpy(tr["slot_num_feats"][:4].astype(np.float32)),
+            torch.from_numpy(tr["action_mask"][:4]),
+            return_value_logits=True,
+        )
+    assert torch.allclose(logits, torch.zeros_like(logits)) and torch.allclose(value, torch.zeros_like(value), atol=1e-6)
