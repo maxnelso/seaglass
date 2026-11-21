@@ -26,7 +26,7 @@ flowchart LR
 | `play.py` | `LobbyConfig` (the lobby settings) and `Seat` (one player with the `TavernGame` interface, so the bots and `action_mask` play Solo and Duos alike). `play_games`: plays many lobbies in lockstep with one batched forward pass per model, with a mix of controllers per unit (`"learner"`, `"heuristic"`, `"random"`, or a named model such as a checkpoint), and records the learner's decisions as trajectories. `Player` spreads games over worker processes. |
 | `ppo.py` | GAE with **per-turn discounting** and a minibatched, KL-limited PPO update. |
 | `train_lobby.py` | The trainer (below). |
-| `pretrain.py` | Behavior cloning on HeuristicBot games (policy cross-entropy + value regression), the starting point for PPO (`train_lobby.py --init`). |
+| `pretrain.py` | Behavior cloning on rule-bot games (policy cross-entropy + value loss), the starting point for PPO (`train_lobby.py --init`). |
 | `evaluate.py` | Average placement (with standard error, top-half and first-place rates) of a checkpoint against a fixed pool. |
 | `ladder.py` | Rates any agent on a fixed ladder of rule bots (paired seeds, clustered standard errors, behavior by turn) and compares two ratings. |
 | `probe.py` | The per-turn board probe: the win rate of an end-of-turn board against a frozen library of reference boards from the same turn. |
@@ -41,7 +41,7 @@ flowchart LR
 ## Training (`train_lobby.py`)
 
 ```bash
-python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400                 # clone the HeuristicBots
+python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400                 # clone 9kgamerbot
 python -m seaglass_rl.train_lobby --run-dir runs/solo --init runs/bc-solo.pt --lr 1e-4
 python -m seaglass_rl.train_lobby --run-dir runs/solo --iterations 500           # Solo, 8 players, from scratch
 python -m seaglass_rl.train_lobby --run-dir runs/duos --duos --iterations 500    # Duos, 4 teams
@@ -49,18 +49,20 @@ python -m seaglass_rl.train_lobby --run-dir runs/solo --resume runs/solo/latest.
 python -m seaglass_rl.evaluate runs/duos/latest.pt --duos --games 200
 ```
 
-**Start from behavior cloning.** From scratch, an untrained policy places last against HeuristicBots nearly every game, and a reward that arrives only at the end of the game is too weak to climb out from there. `pretrain.py` clones the bots in about a minute: 95% held-out action accuracy, average place 4.9 against them in Solo and 2.7 in Duos. PPO then starts from there (`--init`).
+**Start from behavior cloning.** From scratch, an untrained policy places last against rule bots nearly every game, and a reward that arrives only at the end of the game is too weak to climb out from there. `pretrain.py` clones a rule bot (`--teacher`: `9kgamerbot` by default, or `9kgamerbot-tempo` or `heuristic`) from games where every seat is that bot. It collects `--chunk` (40) games at a time to bound memory. With the old HeuristicBot teacher it took about a minute for 95% held-out action accuracy. PPO then starts from there (`--init`). Pretrain records and trains under the same move rules as the PPO run that follows: give it the same `--no-reposition`, `--no-freeze`, `--no-positioning-phase`, `--prune` and `--max-steps-per-turn`. They are saved in the checkpoint, so `ladder.py` rates it under them. The critic is trained like PPO's (below): cross-entropy against the seat's final place. Bots shop, reposition and freeze in one go and never see the end-of-turn step (below), so each recorded End Turn is followed by a recorded End Turn in that step. Without it, a clone wanders in the step: the HeuristicBot clone made 12 actions a turn against its teacher's 6.
 
 The policy's logits get a **kind prior** (`model.py`, on for `train_lobby`): each is lowered by log(number of legal actions of its kind). An untrained policy then picks among Buy, Play, Reposition, End Turn and the rest evenly, instead of mostly Repositioning: there are 42 Reposition actions and 1 End Turn.
 
 Each iteration plays `--games` lobbies (64) across `--workers` processes (default: half the cores):
-- **Who plays.** The learner controls `--learner-units` units: half by default, so 4 Solo players or 2 Duos teams. In Duos both teammates use the learner's policy, each acting on their own Tavern. Each other unit is a HeuristicBot (`--p-heuristic`, 30%) or a frozen snapshot of the learner. Snapshots are taken every `--snapshot-every` iterations, and the last `--pool-size` are kept.
+- **Who plays.** The learner controls `--learner-units` units: half by default, so 4 Solo players or 2 Duos teams. In Duos both teammates use the learner's policy, each acting on their own Tavern. Each other unit is, with chance `--p-bot` (30%), a rule bot drawn evenly from `--bots` (`9kgamerbot,9kgamerbot-tempo` by default), and otherwise a frozen snapshot of the learner. Before the first snapshot every opponent is a bot (with `--pure`, the learner fills every seat). Snapshots are taken every `--snapshot-every` iterations and all are kept on disk. Each iteration's snapshot opponents are the latest `--pool-recent` (4) plus `--pool-history` (4) drawn at random from the older ones, so the league keeps past selves in the field. A game only sends its workers the snapshots it uses.
 - **Reward.** The unit's **placement**: +1 for first down to -1 for last, linear (`play.placement_reward`). A Duos team's two players share it.
-- **Optional shaping.** `--shaping` (default 0.3) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier.
-- **Discounting.** `--gamma` (0.97) applies once per turn, not per action, so a 10-action turn isn't discounted ten times.
+- **Optional shaping.** `--shaping` (default 0, off) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier. It is off because the stat-sum potential rewards buying stats now, and it is blind to scaling.
+- **Discounting and λ.** `--gamma` (1) applies once per turn, not per action. `--lam` (0.95) now applies once per turn too (`--lam-per turn`): the actions within a turn are one step of GAE, so credit decays by λ per turn, not per action. `--lam-per action` applies it at every action, as before.
+- **The critic.** `--value-head placement` (the default) makes the critic a distribution over the final place, 1 to 8 in Solo (`value_places` in the model's config). It is trained with cross-entropy against the unit's final place. The value PPO uses is its expectation over the placement rewards (+1 for first to -1 for last, linear). That equals the return only with `--gamma 1` and no shaping, so the trainer exits if you combine a placement critic with `--gamma` other than 1, `--shaping` or `--health-shaping`. `--value-head scalar` keeps the old scalar critic, which old checkpoints have. With `--init` or `--resume`, the head comes from the checkpoint.
 - **Actions.** Everything is unmasked, including Freeze. `--prune` restores the `prune_dominated` sell and refresh rules. A turn is force-ended after `--max-steps-per-turn` (30) actions.
 - **End-of-turn step.** A model's turn has two parts. **Shopping** covers everything but Reposition and Toggle Freeze; where a card is played still picks its slot. Choosing End Turn opens an **end-of-turn step** ("prepping the board for battle") when there is something to do in it. The only legal actions in the step are Reposition (at most board size − 1 moves, with 2+ minions), **one** Toggle Freeze, and End Turn. The turn ends once nothing is left to do. The observation flags the step (`features.PHASE_OFFSET`). `--no-positioning-phase` allows repositioning and freezing at any time. Without the step, the models made 6–12 moves a turn, and toggled Freeze on and off to pad turns.
 - **Damage caps.** Lobbies cap combat damage as the game does (`engine/docs/lobby_game.md` §5). `--no-damage-caps` turns this off.
+- **The old behavior.** `--gamma 0.97 --lam-per action --shaping 0.3 --value-head scalar --p-heuristic 0.3 --pool-size 10` restores the earlier defaults (HeuristicBots and the last ten snapshots). For `pretrain.py`, the old behavior is `--teacher heuristic --value-head scalar`.
 - **Update.** `--epochs` (4) passes of minibatches (`--minibatch` 4096). An epoch stops early once the approximate KL passes 1.5 × `--target-kl`.
 
 Every `--eval-every` iterations, the learner is rated on a ladder of rule bots (`--eval-ladder`: `fast`, the default in 8-player Solo, or `slow`; see "Rating agents" below) and `latest.pt` is saved. `--eval-games` sets the lobbies (default: the ladder's own, 500 fast or 100 slow), and `--no-eval-probe` skips the board probe. `--eval-ladder heuristic` keeps the older check: the learner alone against HeuristicBots (96 lobbies). The ladders need an 8-player Solo lobby, so Duos and smaller lobbies default to `heuristic`. `runs/NAME/` holds:
@@ -232,8 +234,8 @@ rl/
 ├── seaglass_rl/
 │   ├── play.py          # Lockstep play of seaglass.LobbyGame with mixed controllers, trajectories
 │   ├── ppo.py           # Per-turn GAE and the minibatched PPO update
-│   ├── train_lobby.py   # The trainer (league of snapshots + HeuristicBots)
-│   ├── pretrain.py      # Behavior cloning on HeuristicBot games
+│   ├── train_lobby.py   # The trainer (league of snapshots + rule bots)
+│   ├── pretrain.py      # Behavior cloning on rule-bot games
 │   ├── evaluate.py      # Average placement against a fixed pool
 │   ├── ladder.py        # Rate an agent on the fixed bot ladders, compare ratings
 │   ├── probe.py         # Per-turn board strength against reference boards

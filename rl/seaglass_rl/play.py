@@ -35,6 +35,7 @@ import math
 import multiprocessing as mp
 import os
 import random
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -230,6 +231,8 @@ class Trajectory:
     rewards: list[float] = field(default_factory=list)
     turn_end: list[bool] = field(default_factory=list)
     done: bool = False
+    # The unit's final place (1 is first); 0 while unknown.
+    place: int = 0
     # The shaping potential of each decision's state.
     potentials: list[float] = field(default_factory=list)
 
@@ -251,6 +254,7 @@ class Trajectory:
             "rewards": np.asarray(self.rewards, dtype=np.float32),
             "turn_end": np.asarray(self.turn_end, dtype=np.bool_),
             "done": np.asarray(self.done),
+            "place": np.asarray(self.place, dtype=np.int64),
         }
 
 
@@ -404,8 +408,9 @@ def play_games(
             if st.moves_left <= 0 and (st.froze or not opts.allow_freeze) and not games[g].is_done(p):
                 _apply(games[g], p, st, END_TURN_INDEX, None)
 
-    def close(traj: Trajectory, reward: float) -> None:
+    def close(traj: Trajectory, reward: float, place: int) -> None:
         """The seat's unit was placed: the terminal reward (and potential 0) end it."""
+        traj.place = place
         if traj.done or not traj.actions:
             traj.done = True
             return
@@ -484,6 +489,22 @@ def play_games(
                         idx = END_TURN_INDEX
                     mask[idx] = True
                     _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
+                    board = len(obs.board)
+                    if (
+                        idx == END_TURN_INDEX
+                        and opts.positioning_phase
+                        and game.phase == "turn"
+                        and (board >= 2 or (opts.allow_freeze and not st.froze))
+                    ):
+                        # A model's End Turn would open the end-of-turn step here. Record the bot as
+                        # ending the step too, so a clone has seen that state and leaves it (bots
+                        # reposition and freeze while shopping instead).
+                        st.arranging = True
+                        st.moves_left = board - 1 if opts.allow_reposition else 0
+                        enc = encode_observation(obs, st.context, arranging=True)
+                        mask = mask_for(seat, obs, st)
+                        mask[idx] = True
+                        _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
                     _apply(game, p, st, idx, None)
                     continue
                 by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, len(obs.board)))
@@ -536,7 +557,7 @@ def play_games(
                 for p in game.unit_players(unit):
                     traj = seats[g][p].traj
                     if traj is not None:
-                        close(traj, placement_reward(place, config.units))
+                        close(traj, placement_reward(place, config.units), place)
 
     results = []
     for g, (game, spec) in enumerate(zip(games, specs)):
@@ -594,7 +615,10 @@ def _apply(game: seaglass.LobbyGame, p: int, st: _Seat, idx: int, note: dict[str
 
 # -- Worker processes ---------------------------------------------------------------------------
 
-_MODEL_CACHE: dict[str, BattlegroundsMLP] = {}
+# Checkpoint models loaded in this worker, least recently used first; capped so a long run with
+# hundreds of snapshots doesn't grow a worker's memory without bound.
+_MODEL_CACHE: OrderedDict[str, BattlegroundsMLP] = OrderedDict()
+_MODEL_CACHE_SIZE = 32
 _THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
 
 
@@ -613,6 +637,10 @@ def _model_from(name: str, source: Any, seed: int) -> BattlegroundsMLP:
         if model is None:
             model, _ = checkpoint.load(source)
             _MODEL_CACHE[source] = model
+            while len(_MODEL_CACHE) > _MODEL_CACHE_SIZE:
+                _MODEL_CACHE.popitem(last=False)
+        else:
+            _MODEL_CACHE.move_to_end(source)
     else:
         config, state = source
         model = checkpoint.model_from_config(config)
@@ -663,11 +691,18 @@ class Player:
         seed: int = 0,
     ) -> list[GameResult]:
         options = options or PlayOptions()
+        def used_by(chunk: list[GameSpec]) -> dict[str, Any]:
+            # Only the models this chunk's games use (a worker loads them per chunk).
+            names = {name for spec in chunk for name in spec.controllers}
+            return {k: v for k, v in sources.items() if k in names}
+
         if self.pool is None:
-            return _play_chunk((config, specs, sources, options, record, seed))
+            return _play_chunk((config, specs, used_by(specs), options, record, seed))
         n = max(1, min(self.workers, len(specs)))
         chunks = [specs[i::n] for i in range(n)]
-        jobs = [(config, c, sources, options, record, seed + 7919 * i) for i, c in enumerate(chunks)]
+        jobs = []
+        for i, c in enumerate(chunks):
+            jobs.append((config, c, used_by(c), options, record, seed + 7919 * i))
         results: list[GameResult] = []
         for part in self.pool.map(_play_chunk, jobs):
             results.extend(part)

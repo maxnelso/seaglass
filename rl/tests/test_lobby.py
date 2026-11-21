@@ -268,9 +268,9 @@ def test_pure_self_play_fills_every_unit_until_the_first_snapshot() -> None:
     from seaglass_rl.train_lobby import make_specs
 
     config = LobbyConfig()
-    (spec,) = make_specs(config, 1, 4, [], 0.0, random.Random(0), seed=0)
+    (spec,) = make_specs(config, 1, 4, [], [], 0.0, random.Random(0), seed=0)
     assert spec.controllers == ["learner"] * 8
-    (spec,) = make_specs(config, 1, 4, ["snap.pt"], 0.0, random.Random(0), seed=0)
+    (spec,) = make_specs(config, 1, 4, ["snap.pt"], [], 0.0, random.Random(0), seed=0)
     assert sorted(spec.controllers) == ["learner"] * 4 + ["snap.pt"] * 4
 
 

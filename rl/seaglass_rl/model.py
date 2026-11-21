@@ -26,6 +26,14 @@ def sample_categorical(probs: np.ndarray, rng: np.random.Generator) -> np.ndarra
     return np.minimum(acts, last)
 
 
+def place_atoms(k: int) -> torch.Tensor:
+    """The reward of each place 1..k, `play.placement_reward(place, k)`: 1 for first to -1 for last
+    (0 for a single place)."""
+    if k <= 1:
+        return torch.zeros(max(k, 1))
+    return torch.tensor([1.0 - 2.0 * i / (k - 1) for i in range(k)], dtype=torch.float32)
+
+
 class BattlegroundsMLP(nn.Module):
     """Embeds each slot's `card_id` (`nn.Embedding`), concatenates slot stats + player state, and runs an MLP.
 
@@ -44,6 +52,7 @@ class BattlegroundsMLP(nn.Module):
         seed: int = 42,
         kind_prior: bool = False,
         static_features: bool = False,
+        value_places: int = 0,
     ) -> None:
         super().__init__()
         # The constructor's arguments, saved with checkpoints (`checkpoint.py`).
@@ -54,6 +63,7 @@ class BattlegroundsMLP(nn.Module):
             "num_actions": num_actions,
             "kind_prior": kind_prior,
             "static_features": static_features,
+            "value_places": value_places,
         }
         # Subtract log(number of legal actions of its kind) from each logit, so that an untrained
         # policy picks among the legal kinds evenly (`actions.ACTION_KIND_IDS`).
@@ -80,7 +90,12 @@ class BattlegroundsMLP(nn.Module):
             nn.ReLU(),
         )
         self.actor = nn.Linear(hidden_dim, num_actions)
-        self.critic = nn.Linear(hidden_dim, 1)
+        # The value: a scalar, or with `value_places` K > 0 a distribution over the places 1..K
+        # whose expectation (over the reward of each place, `value_atoms`) is the value.
+        self.value_places = value_places
+        self.critic = nn.Linear(hidden_dim, value_places if value_places > 0 else 1)
+        if value_places > 0:
+            self.register_buffer("value_atoms", place_atoms(value_places), persistent=False)
         self._np_rng = np.random.default_rng(seed)
         self._x_buf = np.empty((32, self.in_dim), dtype=np.float32)
 
@@ -90,8 +105,10 @@ class BattlegroundsMLP(nn.Module):
         slot_card_ids: torch.Tensor,
         slot_num_feats: torch.Tensor,
         action_mask: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass returning `(masked_logits, value)`."""
+        return_value_logits: bool = False,
+    ) -> tuple[torch.Tensor, ...]:
+        """Forward pass returning `(masked_logits, value)`; with `return_value_logits`,
+        `(masked_logits, value, value_logits)` (the place logits, None for a scalar critic)."""
         if self.static_features:
             emb = self.card_table()[slot_card_ids].flatten(start_dim=1)
         else:
@@ -106,7 +123,15 @@ class BattlegroundsMLP(nn.Module):
                 per_action = counts @ self.kind_onehot.T  # (B, actions)
                 logits = logits - torch.log(per_action.clamp(min=1.0))
             logits = logits.masked_fill(~action_mask, -1e9)
-        value = self.critic(h).squeeze(-1)
+        out = self.critic(h)
+        if self.value_places > 0:
+            value = torch.softmax(out, dim=-1) @ self.value_atoms
+            value_logits = out
+        else:
+            value = out.squeeze(-1)
+            value_logits = None
+        if return_value_logits:
+            return logits, value, value_logits
         return logits, value
 
     def card_table(self) -> torch.Tensor:
@@ -153,7 +178,13 @@ class BattlegroundsMLP(nn.Module):
             per_action = (m @ self._kind_onehot_np) @ self._kind_onehot_np.T
             raw = raw - np.log(np.maximum(per_action, 1.0))
         logits = np.where(m_np, raw, -1e9)
-        vals = (h2 @ wc.T + bc).squeeze(-1)
+        vals = h2 @ wc.T + bc
+        if self.value_places > 0:
+            vals = vals - vals.max(axis=-1, keepdims=True)
+            pv = np.exp(vals)
+            vals = (pv / pv.sum(axis=-1, keepdims=True)) @ self.value_atoms.numpy()
+        else:
+            vals = vals.squeeze(-1)
 
         logits -= logits.max(axis=-1, keepdims=True)
         exp_l = np.exp(logits)

@@ -16,13 +16,20 @@ def gae(
     done: bool,
     gamma: float,
     lam: float,
+    lam_per: str = "turn",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generalized advantage estimation for one trajectory. Returns `(advantages, returns)`.
 
-    Discounting happens only between turns: step `t` discounts the next value by `gamma` (and the
-    next advantage by `gamma * lam`) if its action ended a turn, and by 1 (and `lam`) otherwise.
+    Discounting happens only between turns: step `t` discounts the next value by `gamma` if its
+    action ended a turn, and by 1 otherwise.
+    - `lam_per="turn"` (default): `lam` also applies only at a turn end, so a turn's actions are one
+      step of the estimator (the next advantage is scaled by `gamma * lam` at a turn end and by 1
+      within a turn). Credit then decays per turn, not per action.
+    - `lam_per="action"`: `lam` applies at every step (the next advantage is scaled by `g * lam`).
     A trajectory that is not `done` was cut short and bootstraps from its last value.
     """
+    if lam_per not in ("turn", "action"):
+        raise ValueError(f"lam_per must be 'turn' or 'action', not {lam_per!r}")
     T = len(rewards)
     adv = np.zeros(T, dtype=np.float32)
     last = 0.0
@@ -33,35 +40,42 @@ def gae(
         else:
             next_value = values[t + 1]
         delta = rewards[t] + g * next_value - values[t]
-        last = delta + g * lam * last
+        l = (lam if turn_end[t] else 1.0) if lam_per == "turn" else lam
+        last = delta + g * l * last
         adv[t] = last
     return adv, adv + values
 
 
-def build_batch(trajectories: list[dict[str, np.ndarray]], gamma: float, lam: float) -> dict[str, Any]:
+def build_batch(
+    trajectories: list[dict[str, np.ndarray]], gamma: float, lam: float, lam_per: str = "turn"
+) -> dict[str, Any]:
     """Concatenate trajectories (`Trajectory.arrays`) into one training batch, with advantages and
-    returns."""
+    returns. `slot_num_feats` stays float16 (`ppo_update` casts each minibatch). `places` is each
+    decision's trajectory's final place, 0-based (-1 if unknown): the placement critic's target."""
     cols: dict[str, list[np.ndarray]] = {
         k: [] for k in ("player_vec", "slot_card_ids", "slot_num_feats", "action_mask", "actions", "log_probs")
     }
-    advs, rets, values = [], [], []
+    advs, rets, values, places = [], [], [], []
     for tr in trajectories:
-        a, r = gae(tr["rewards"], tr["values"], tr["turn_end"], bool(tr["done"]), gamma, lam)
+        a, r = gae(tr["rewards"], tr["values"], tr["turn_end"], bool(tr["done"]), gamma, lam, lam_per)
         advs.append(a)
         rets.append(r)
         values.append(tr["values"])
+        place = int(tr["place"]) - 1 if "place" in tr and int(tr["place"]) > 0 else -1
+        places.append(np.full(len(tr["actions"]), place, dtype=np.int64))
         for k in cols:
             cols[k].append(tr[k])
     return {
         "player_vec": torch.from_numpy(np.concatenate(cols["player_vec"])),
         "slot_card_ids": torch.from_numpy(np.concatenate(cols["slot_card_ids"]).astype(np.int64)),
-        "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"]).astype(np.float32)),
+        "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"])),
         "action_mask": torch.from_numpy(np.concatenate(cols["action_mask"])),
         "actions": torch.from_numpy(np.concatenate(cols["actions"])),
         "old_log_probs": torch.from_numpy(np.concatenate(cols["log_probs"])),
         "old_values": torch.from_numpy(np.concatenate(values)),
         "advantages": torch.from_numpy(np.concatenate(advs)),
         "returns": torch.from_numpy(np.concatenate(rets)),
+        "places": torch.from_numpy(np.concatenate(places)),
     }
 
 
@@ -87,6 +101,7 @@ def ppo_update(
     adv = batch["advantages"]
     adv = (adv - adv.mean()) / (adv.std() + 1e-8) if n > 1 else adv
     stats: dict[str, list[float]] = {"policy_loss": [], "value_loss": [], "entropy": [], "kl": [], "clip_frac": []}
+    placement = model.config.get("value_places", 0) > 0
     model.train()
     stop = False
     epochs_run = 0
@@ -94,12 +109,16 @@ def ppo_update(
         perm = torch.randperm(n)
         for start in range(0, n, minibatch_size):
             idx = perm[start : start + minibatch_size]
-            logits, values = model(
+            args = (
                 batch["player_vec"][idx].to(device),
                 batch["slot_card_ids"][idx].to(device),
-                batch["slot_num_feats"][idx].to(device),
+                batch["slot_num_feats"][idx].float().to(device),
                 batch["action_mask"][idx].to(device),
             )
+            if placement:
+                logits, values, value_logits = model(*args, return_value_logits=True)
+            else:
+                logits, values = model(*args)
             log_probs = torch.log_softmax(logits, dim=-1)
             new_lp = log_probs.gather(1, batch["actions"][idx].to(device).unsqueeze(-1)).squeeze(-1)
             probs = log_probs.exp()
@@ -108,7 +127,12 @@ def ppo_update(
             ratio = log_ratio.exp()
             a = adv[idx].to(device)
             policy_loss = -torch.min(ratio * a, ratio.clamp(1 - clip_eps, 1 + clip_eps) * a).mean()
-            value_loss = 0.5 * (values - batch["returns"][idx].to(device)).pow(2).mean()
+            if placement:
+                value_loss = nn.functional.cross_entropy(
+                    value_logits, batch["places"][idx].to(device), ignore_index=-1
+                )
+            else:
+                value_loss = 0.5 * (values - batch["returns"][idx].to(device)).pow(2).mean()
             loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
