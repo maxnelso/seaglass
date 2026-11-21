@@ -300,9 +300,18 @@ impl PyLobbyGame {
         Ok(PyLobbyContext::from(self.inner.context(p)))
     }
 
-    /// An independent copy of the lobby (to look ahead).
+    /// An independent copy of the lobby (to look ahead). It replays the same future as this one
+    /// until it is reseeded (`reseed`).
     fn copy(&self) -> Self {
         self.clone()
+    }
+
+    /// Deal the rest of the game from another seed: the shop draws, Discovers, random effects,
+    /// combats and pairings from here on. What is already on the table stays. Copies of one lobby,
+    /// each reseeded differently and played on, are independent samples of how the game goes from
+    /// here. A reseeded lobby's replay does not re-simulate past the reseed.
+    fn reseed(&mut self, seed: u64) {
+        self.inner.reseed(seed);
     }
 
     /// Build an imperfect-information `TavernGame` for player `p` (Solo or Duos) using only legal
