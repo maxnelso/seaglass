@@ -15,11 +15,12 @@ use serde::Serialize;
 use seaglass::cards::{self, spells};
 use seaglass::replay::{self, pb, FrameKind};
 use seaglass::{
-    base_copies_for_tier, ActivateTargetKind, BattleOutcome, BattleResult, CardId, Event,
+    base_copies_for_tier, ActivateTargetKind, BattleOutcome, BattleResult, CardId, Event, HeroId,
     HeroPowerState, Side, TavernAction, TavernState, Timeline, Tribe, Unit,
 };
-use seaglass::{heroes, trinkets};
+use seaglass::{dark_gifts, heroes, trinkets};
 use seaglass_tools::fmt::{diff_auras, format_deity_kind, format_tribe, CombatNames, PoolCounts};
+use seaglass_tools::render::text::card_text;
 use seaglass_tools::replay_text::{frame_pool, frame_title, note_text, player_name, unit_players};
 
 /// The viewer page. [`DATA`] marks where the replay's JSON goes.
@@ -142,6 +143,13 @@ struct ViewerData<'a> {
     turns: u32,
     /// Every distinct unit, referenced by its index.
     units: Vec<UnitView>,
+    /// The rules text of the units' cards, by card id (cards whose source documents one;
+    /// [`card_text`]).
+    card_text: BTreeMap<u32, &'static str>,
+    /// The rules text of the trinkets, Hero Powers and heroes the player states name, keyed
+    /// `trinket:<name>`, `power:<name>` and `hero:<name>` (a hero's text is its Hero Power's).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    texts: BTreeMap<String, String>,
     /// One per timeline frame.
     frames: Vec<FrameView>,
     /// The player the one-player page starts on (`--player`). Not in the normal page's data.
@@ -271,9 +279,9 @@ struct PlayerView {
     /// The trinkets on offer.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     trinket_options: Vec<TrinketOptionView>,
-    /// Dark Discovery is available (the game has Dark Gifts).
-    #[serde(skip_serializing_if = "is_false")]
-    dark_discovery: bool,
+    /// `[uses left, uses per game]` of the Dark Discovery button, if the game has Dark Gifts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dark_discovery: Option<[u32; 2]>,
 }
 
 /// A player's hero.
@@ -546,6 +554,13 @@ impl<'a> ViewerData<'a> {
             result,
             actions: timeline.decisions().count(),
             turns: timeline.last_turn(),
+            card_text: frames
+                .units
+                .list
+                .iter()
+                .filter_map(|u| card_text(u.card).map(|text| (u.card, text)))
+                .collect(),
+            texts: frames.units.texts,
             units: frames.units.list,
             frames: frame_views,
             focus: None,
@@ -749,11 +764,13 @@ fn changed<T: Clone + PartialEq>(shown: &mut Option<T>, new: T) -> Option<T> {
     Some(new)
 }
 
-/// Interns units by what the page shows of them.
+/// Interns units by what the page shows of them, and collects the rules text of the trinkets,
+/// Hero Powers and heroes the player views name ([`ViewerData::texts`]).
 #[derive(Default)]
 struct Units {
     index: HashMap<UnitView, usize>,
     list: Vec<UnitView>,
+    texts: BTreeMap<String, String>,
 }
 
 impl Units {
@@ -770,6 +787,37 @@ impl Units {
 
     fn ids(&mut self, units: &[Unit]) -> Vec<usize> {
         units.iter().map(|u| self.id(u)).collect()
+    }
+
+    /// The name of trinket `card_id`, noting its text.
+    fn trinket(&mut self, card_id: CardId) -> String {
+        let Some(data) = trinkets::data(card_id) else {
+            return "?".to_string();
+        };
+        self.texts
+            .entry(format!("trinket:{}", data.name))
+            .or_insert_with(|| data.text.to_string());
+        data.name.to_string()
+    }
+
+    /// The name of hero `id`, noting its text and its Hero Power's.
+    fn hero(&mut self, id: HeroId) -> String {
+        let Some(data) = heroes::data(id) else {
+            return "?".to_string();
+        };
+        let power = &data.power;
+        self.texts
+            .entry(format!("power:{}", power.name))
+            .or_insert_with(|| power.text.to_string());
+        self.texts
+            .entry(format!("hero:{}", data.name))
+            .or_insert_with(|| {
+                format!(
+                    "Hero Power: {} ({} Gold). {}",
+                    power.name, power.cost, power.text
+                )
+            });
+        data.name.to_string()
     }
 }
 
@@ -814,9 +862,7 @@ impl PlayerView {
                 let mut powers = vec![power(name(hero.hero_id), &hero.power)];
                 powers.extend(hero.second_power.as_ref().map(|p| power("Hero Power 2", p)));
                 HeroView {
-                    name: heroes::data(hero.hero_id)
-                        .map_or("?", |h| h.name)
-                        .to_string(),
+                    name: units.hero(hero.hero_id),
                     powers,
                 }
             }),
@@ -824,28 +870,26 @@ impl PlayerView {
             trinkets: auras
                 .trinkets
                 .iter()
-                .map(|t| trinket_name(t.card_id).to_string())
+                .map(|t| units.trinket(t.card_id))
                 .collect(),
             hero_options: state
                 .hero_options
                 .iter()
-                .map(|&id| heroes::data(id).map_or("?", |h| h.name).to_string())
+                .map(|&id| units.hero(id))
                 .collect(),
             trinket_options: state
                 .trinket_options
                 .iter()
                 .map(|o| TrinketOptionView {
-                    name: trinket_name(o.card_id).to_string(),
+                    name: units.trinket(o.card_id),
                     cost: o.cost,
                 })
                 .collect(),
-            dark_discovery: state.dark_gifts_enabled,
+            dark_discovery: state
+                .dark_gifts_enabled
+                .then(|| [dark_gifts::uses_left(state), dark_gifts::USES_PER_GAME]),
         }
     }
-}
-
-fn trinket_name(card_id: CardId) -> &'static str {
-    trinkets::data(card_id).map_or("?", |t| t.name)
 }
 
 impl ActionView {
@@ -1546,6 +1590,56 @@ mod tests {
             FrameKind::Act { player, .. } => *player,
             _ => unreachable!("not an action"),
         }
+    }
+
+    #[test]
+    fn the_page_has_the_rules_text_it_shows() {
+        let timeline = Timeline::new(&recorded_match(7)).unwrap();
+        let data = embedded_data(&render(&timeline, "test.replay.pb"));
+        let texts = data["card_text"].as_object().unwrap();
+        assert!(!texts.is_empty());
+        for unit in data["units"].as_array().unwrap() {
+            let card = unit["card"].as_u64().unwrap() as CardId;
+            let text = texts.get(&card.to_string()).and_then(Value::as_str);
+            assert_eq!(text, card_text(card), "{}", unit["name"]);
+        }
+        // Every trinket a state names has its text; Dark Discovery counts its uses.
+        for frame in data["frames"].as_array().unwrap() {
+            for state in frame["states"].as_array().unwrap() {
+                let owned = state["trinkets"].as_array().into_iter().flatten();
+                let offered = state["trinket_options"].as_array().into_iter().flatten();
+                for name in owned.chain(offered.map(|o| &o["name"])) {
+                    let key = format!("trinket:{}", name.as_str().unwrap());
+                    assert!(data["texts"][key.as_str()].is_string(), "{key}");
+                }
+                if let Some(button) = state["dark_discovery"].as_array() {
+                    let left = button[0].as_u64().unwrap();
+                    assert!(left <= 3 && button[1] == 3, "{button:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn trinkets_and_heroes_note_their_text() {
+        let mut units = Units::default();
+        let trinket = &trinkets::TRINKETS[0];
+        let hero = &heroes::HEROES[0];
+        assert_eq!(units.trinket(trinket.id), trinket.name);
+        assert_eq!(units.hero(hero.id), hero.name);
+        assert_eq!(units.trinket(CardId::MAX), "?");
+        let text = |key: String| units.texts.get(&key).cloned();
+        assert_eq!(
+            text(format!("trinket:{}", trinket.name)),
+            Some(trinket.text.to_string())
+        );
+        assert_eq!(
+            text(format!("power:{}", hero.power.name)),
+            Some(hero.power.text.to_string())
+        );
+        let hero_text = text(format!("hero:{}", hero.name)).unwrap();
+        assert!(hero_text.starts_with(&format!("Hero Power: {} (", hero.power.name)));
+        assert!(hero_text.ends_with(hero.power.text));
     }
 
     #[test]

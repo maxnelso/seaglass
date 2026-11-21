@@ -95,6 +95,15 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 #shop.frozen { background: linear-gradient(rgba(95, 200, 240, .20), rgba(95, 200, 240, .05)); border-radius: 14px; box-shadow: inset 0 0 0 2px rgba(95, 200, 240, .5); }
 .empty-note { color: var(--muted); font-size: 16px; font-style: italic; }
 
+/* Keyword legend, under the leaderboard. */
+.legend { position: absolute; left: 8px; right: 8px; bottom: 10px; padding: 7px 8px; border: 2px solid #5b4630; border-radius: 9px; background: var(--panel); font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.legend b { color: var(--text); font-weight: 600; }
+.legend .sw { display: inline-block; width: 16px; height: 11px; margin-right: 5px; vertical-align: -1px; border-radius: 3px; background: #4b3924; }
+
+/* The hover text: instant, and wide enough for a card's rules text. */
+#tip { position: fixed; z-index: 1000; max-width: 340px; padding: 8px 10px; border: 1px solid #d9c8a4; border-radius: 8px; background: rgba(20, 14, 8, .96); color: #f3ead8; font-size: 13px; line-height: 1.35; white-space: pre-line; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .6); }
+#tip b { color: #fff; }
+
 /* Leaderboard. */
 #board-left { left: 0; top: 0; width: 220px; height: 900px; padding: 10px 8px; background: linear-gradient(#2a1d12, #1c130c); border-right: 4px solid #6a4b2e; }
 .turnbox { padding: 4px 8px; border: 2px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 10px; }
@@ -198,6 +207,8 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 .trinket { width: 74px; height: 58px; padding: 3px; border-radius: 14px; display: grid; place-items: center; overflow: hidden; border: 3px solid #d9c8a4; background: radial-gradient(#6a8cc0, #2d3f66); font-size: 10.5px; font-weight: 700; text-align: center; line-height: 1.1; overflow-wrap: anywhere; }
 #trinkets { left: 400px; top: 776px; width: 160px; height: 70px; display: flex; flex-direction: row-reverse; gap: 6px; align-items: center; }
 #darkdisc { left: 330px; top: 700px; padding: 8px 12px; border: 3px solid #b15cff; border-radius: 12px; background: #2a0f45; font-weight: 700; }
+#darkdisc .left { margin-left: 8px; padding: 0 7px; border-radius: 8px; background: #b15cff; color: #1a0630; font-size: 13px; }
+#darkdisc.spent { opacity: .5; }
 #hand { left: 960px; top: 706px; width: 440px; height: 150px; }
 #hand .card, #hand .slot { position: absolute; top: 8px; }
 #handlabel { left: 960px; top: 862px; width: 440px; font-size: 12px; color: var(--muted); text-align: center; }
@@ -218,6 +229,9 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 #overlay .opts { display: flex; gap: 26px; align-items: center; }
 .heroopt, .trinopt { position: relative; width: 190px; height: 240px; padding: 14px; border: 4px solid #d9c8a4; border-radius: 95px 95px 18px 18px; background: linear-gradient(#5a6e92, #2d3752); text-align: center; display: flex; flex-direction: column; justify-content: flex-end; }
 .heroopt b, .trinopt b { font-size: 20px; line-height: 1.15; }
+.heroopt, .trinopt { width: 230px; height: 290px; }
+.heroopt .txt, .trinopt .txt { margin-top: 8px; font-size: 13px; line-height: 1.25; color: #e4e9f2; font-weight: 400; }
+.heroopt .txt i { display: block; font-style: normal; font-weight: 700; color: var(--gold); }
 .trinopt { border-radius: 24px; background: linear-gradient(#6a8cc0, #2d3f66); justify-content: center; align-items: center; gap: 8px; }
 .trinopt .bubble { position: static; }
 .banner-big { left: 340px; top: 18px; width: 1030px; height: 110px; display: grid; place-content: center; text-align: center; border: 5px solid #fff; border-radius: 22px; z-index: 5; box-shadow: 0 6px 24px rgba(0, 0, 0, .6); }
@@ -246,6 +260,7 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 <div id="wrap">
   <div id="stage"></div>
 </div>
+<div id="tip" hidden></div>
 <footer>
   <button id="btn-prev" type="button">◀ Prev</button>
   <div id="caption"><div id="cap-main"></div><div id="cap-sub"></div></div>
@@ -259,6 +274,9 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
   const DATA = JSON.parse(document.getElementById("replay-data").textContent);
   const FRAMES = DATA.frames;
   const UNITS = DATA.units;
+  // Rules text: cards by card id; trinkets, Hero Powers and heroes by `kind:name`.
+  const CARD_TEXT = DATA.card_text || {};
+  const TEXTS = DATA.texts || {};
   const PLAYERS = DATA.setup.players;
   const LAST = FRAMES.length - 1;
   const COLORS = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#4b5563"];
@@ -455,6 +473,7 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
     if (kw.includes("Stealth")) classes.push("stealth");
     if (o.mark) classes.push(o.mark);
     const tip = [unitText(u)];
+    if (CARD_TEXT[u.card]) tip.push(CARD_TEXT[u.card]);
     if (o.was !== undefined) tip.push("was " + unitText(UNITS[o.was]));
     if (o.mark) tip.push(o.mark === "new" ? "new since the last step" : "changed since the last step");
     const notes = [];
@@ -485,6 +504,15 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 
   // ---- Stage pieces --------------------------------------------------------------------------------
 
+  /** What the card borders and marks mean. */
+  const LEGEND = `<div class="legend">` +
+    `<div><span class="sw" style="border:3px solid #8d98a6"></span><b>Silver border</b>: Taunt</div>` +
+    `<div><span class="sw" style="box-shadow:0 0 0 2px rgba(255,215,80,.85),0 0 6px 2px rgba(255,200,40,.75)"></span><b>Gold glow</b>: Divine Shield</div>` +
+    `<div><span class="sw" style="border:2px dashed #d9c8a4"></span><b>Dashed</b>: Stealth</div>` +
+    `<div><span class="sw" style="background:linear-gradient(#8a6a22,#5a4414);border:2px solid #e0b44f"></span><b>Gold card</b>: Golden</div>` +
+    `<div>${["Windfury", "Venomous", "Reborn", "Magnetic"].map((k) => `<span style="white-space:nowrap"><b>${GLYPHS[k]}</b> ${k}</span>`).join(" · ")}</div>` +
+    `<div style="margin-top:3px">Green / orange outline: new / changed by the last action. Hover anything for its text.</div></div>`;
+
   /** A name, escaped, that may wrap after `_`, `)` or `]` (bot names like `Search(sovereign)_p0`). */
   function breakable(text) {
     return esc(text).replace(/([_)\]])/g, "$1<wbr>");
@@ -512,7 +540,7 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
         `<span class="tb">${s.tier}</span><small>${esc(hero || "")}${place}</small>` +
         (q === foe && q !== player ? `<span class="vs" title="next opponent">⚔ next</span>` : "") + `</span></span></div>`;
     });
-    return `<div class="turnbox">Turn ${FRAMES[st.frame].turn}</div>${rows.join("")}`;
+    return `<div class="turnbox">Turn ${FRAMES[st.frame].turn}</div>${rows.join("")}${LEGEND}`;
   }
 
   /** Tier badge, Bob, Reroll and Freeze. */
@@ -533,17 +561,20 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
     const powers = h ? h.powers : [];
     const parts = [];
     powers.slice(0, 2).forEach((pw, k) => {
-      parts.push(`<div class="power${pw.used ? " used" : ""}" id="power${k}" data-z="power${k}" title="${esc(pw.name)}${pw.used ? " (used)" : ""}">` +
+      const tip = [`${pw.name} (${pw.cost} Gold)${pw.used ? ", used this turn" : ""}`, TEXTS["power:" + pw.name]].filter(Boolean).join("\n");
+      parts.push(`<div class="power${pw.used ? " used" : ""}" id="power${k}" data-z="power${k}" title="${esc(tip)}">` +
         `${esc(pw.name)}<span class="bubble sm">${pw.cost}</span></div>`);
     });
     const trinkets = (s.trinkets || []).map((t) =>
-      `<div class="trinket" title="${esc(t)}">${esc(t)}</div>`).join("");
-    const dark = s.dark_discovery ? `<div id="darkdisc" data-z="darkdisc">Dark Discovery</div>` : "";
+      `<div class="trinket" title="${esc([t, TEXTS["trinket:" + t]].filter(Boolean).join("\n"))}">${esc(t)}</div>`).join("");
+    const dd = s.dark_discovery;
+    const dark = dd ? `<div id="darkdisc" data-z="darkdisc" class="${dd[0] ? "" : "spent"}" title="Dark Discovery: ${dd[0]} of ${dd[1]} uses left this game">` +
+      `Dark Discovery<span class="left">${dd[0]}/${dd[1]}</span></div>` : "";
     const base = st.base;
     const chg = base && (base.health !== s.health || base.armor !== s.armor) ? " chg" : "";
     const label = h ? h.name : name(player);
     return parts.join("") + `<div id="trinkets">${trinkets}</div>` + dark +
-      `<div class="hero${chg}" data-z="hero" style="--pc:${color(player)}" title="${esc(label)} · Health ${hp(s)}">` +
+      `<div class="hero${chg}" data-z="hero" style="--pc:${color(player)}" title="${esc([`${label} · Health ${hp(s)}`, h && TEXTS["hero:" + h.name]].filter(Boolean).join("\n"))}">` +
       `<div class="pn">${h ? "" : esc(name(player))}</div><div class="hn">${esc(label)}</div>` +
       `<div class="hpb" title="Health">${s.health}</div>` +
       (s.armor ? `<div class="arb" title="Armor">${s.armor}</div>` : "") + `</div>`;
@@ -582,11 +613,17 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
       opts = s.discover.map((id, i) => opt(cardHtml(id, { big: true }), i));
     } else if (s.hero_options && s.hero_options.length && !s.hero) {
       title = "Choose a hero";
-      opts = s.hero_options.map((h, i) => opt(`<div class="heroopt"><b>${esc(h)}</b></div>`, i));
+      opts = s.hero_options.map((h, i) => {
+        const text = TEXTS["hero:" + h] || "";
+        const m = /^Hero Power: ([^]*?\)\.) ([^]*)$/.exec(text);
+        const body = m ? `<i>${esc(m[1].replace(/\.$/, ""))}</i>${esc(m[2])}` : esc(text);
+        return opt(`<div class="heroopt"><b>${esc(h)}</b><div class="txt">${body}</div></div>`, i);
+      });
     } else if (s.trinket_options && s.trinket_options.length) {
       title = "Choose a trinket";
       opts = s.trinket_options.map((t, i) =>
-        opt(`<div class="trinopt"><b>${esc(t.name)}</b><span class="bubble">${t.cost}</span></div>`, i));
+        opt(`<div class="trinopt"><b>${esc(t.name)}</b><span class="bubble">${t.cost}</span>` +
+          `<div class="txt">${esc(TEXTS["trinket:" + t.name] || "")}</div></div>`, i));
     }
     if (!opts.length) return { html: "", chosen };
     return { html: `<div id="overlay"><h2>${title}</h2><div class="opts">${opts.join("")}</div></div>`, chosen };
@@ -634,6 +671,7 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 
   /** Draws the stage for step `st`, then the action on top of it. */
   function renderStage(st) {
+    $("tip").hidden = true;
     const f = FRAMES[st.frame];
     const s = st.state;
     const a = st.type === "act" ? f.action : null;
@@ -991,6 +1029,39 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
     return { player: p ? Number(p[1]) : null, step: k ? Number(k[1]) : null };
   }
 
+  /**
+   * Shows the stage's `title` texts at once, in a wide box (the browser's own tooltip waits a
+   * second and wraps narrowly). Each `title` moves to `data-tip` so the browser's stays away.
+   */
+  function wireTips() {
+    const tip = $("tip");
+    const hide = () => { tip.hidden = true; };
+    stage.addEventListener("mouseover", (e) => {
+      const el = e.target.closest("[title], [data-tip]");
+      if (!el || !stage.contains(el)) return hide();
+      if (el.hasAttribute("title")) {
+        el.dataset.tip = el.getAttribute("title");
+        el.removeAttribute("title");
+      }
+      const [head, ...rest] = el.dataset.tip.split("\n");
+      tip.innerHTML = `<b>${esc(head)}</b>${rest.length ? "\n" + esc(rest.join("\n")) : ""}`;
+      tip.hidden = false;
+    });
+    stage.addEventListener("mousemove", (e) => {
+      if (tip.hidden) return;
+      const pad = 14;
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+      let x = e.clientX + pad;
+      let y = e.clientY + pad;
+      if (x + w > window.innerWidth - 4) x = e.clientX - w - pad;
+      if (y + h > window.innerHeight - 4) y = e.clientY - h - pad;
+      tip.style.left = Math.max(4, x) + "px";
+      tip.style.top = Math.max(4, y) + "px";
+    });
+    stage.addEventListener("mouseleave", hide);
+  }
+
   function wireControls() {
     $("player").innerHTML = PLAYERS.map((pl, p) => `<option value="${p}">${esc(pl.name)}</option>`).join("");
     $("player").addEventListener("change", (e) => {
@@ -1003,6 +1074,7 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
       const chip = e.target.closest(".chip");
       if (chip) go(stepOfTurn(Number(chip.dataset.t)));
     });
+    wireTips();
     stage.addEventListener("click", (e) => {
       const row = e.target.closest(".lb");
       if (row && Number(row.dataset.p) !== player) follow(Number(row.dataset.p), STEPS[cur].turn);
