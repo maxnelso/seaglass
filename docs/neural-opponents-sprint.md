@@ -114,7 +114,7 @@ The warm start and the rule-bot opponents are scaffolding. Once this stage passe
 
 **Gate.** A pure network, with no search, beats 9kgamerbot on the fast ladder.
 
-#### Stage 2 Progress (2026-11-21): the gate passes on a short run, and the long run is next
+#### Stage 2 Progress (2026-11-21): the gate passes on short runs, and the long run is next
 
 The changes are in. Each one is a flag, and `rl/README.md` lists the flags that restore the old behaviour.
 
@@ -127,7 +127,7 @@ The changes are in. Each one is a flag, and `rl/README.md` lists the flags that 
 | Stronger warm start | Done: `pretrain --teacher 9kgamerbot` is the default, with the trainer's move-rule flags. |
 | Wider league | Done: both 9kgamerbots stay in the field (`--bots`, `--p-bot 0.3`), and snapshots come from the whole history (`--pool-recent 4 --pool-history 4`). |
 | Auxiliary head for future board strength | Not started. |
-| Model chosen by a matched run | Not started. All runs so far use the default MLP. |
+| Model chosen by a matched run | Done on a short run: the entity transformer wins by 1.7 places (below). |
 
 The result files are in [`results/stage2/`](results/stage2/). All runs are on the Mac mini's CPU with 3 workers. The ± figures are one standard error.
 
@@ -153,9 +153,24 @@ On a fresh seed the iteration-150 network places 3.82 ± 0.06. 9kgamerbot on the
 
 Its style is narrow. Its mean Tavern tier reaches 3.8 by turn 8 and stays there, and from turn 9 it rolls 4 to 7 times a turn. The anchors reach tier 5.5 to 6. Its probe is 0.60 to 0.74 from turn 6 to turn 11 and fades to about 0.5 after turn 12. That is a tempo strategy that out-tempos the rule bots. Whether it holds against stronger play is what the long run, the slow ladder and the `--pure` repeat should show.
 
-Speed: an iteration took 7 seconds at the start and 13 seconds by iteration 150, as games got longer and snapshots took opponent seats. The update was 40% to 60% of it. At that rate the 100,000-game run takes 5 to 6 hours on 3 CPU workers.
+Speed: an iteration took 7 seconds at the start and 13 seconds by iteration 150, as games got longer and snapshots took opponent seats. The update was 40% to 60% of it.
 
-Still to do in this stage: the 100,000-game run, the `--pure` repeat, the matched MLP-against-transformer run and the auxiliary head.
+**The transformer is far stronger.** The matched run cloned 9kgamerbot into the default entity transformer (64 wide, 3 layers) the same way, then ran the same 150 iterations. Its clone already placed 4.82 ± 0.07, against 5.07 for the MLP clone. After PPO:
+
+| Iteration | 25 | 50 | 75 | 100 | 125 | 150 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Transformer | 3.48 | 2.66 | 2.44 | 2.22 | 2.18 | 2.04 |
+| MLP | 5.63 | 4.87 | 4.28 | 4.00 | 3.82 | 3.74 |
+
+The MLP run started from the clone whose critic had memorised its games, so the first 25 iterations are not a fair match. The gap at iteration 150 is too large for that to explain.
+
+On a fresh seed the iteration-150 transformer places 2.08 ± 0.04, with 94% top 4 and 40% firsts. On the slow ladder it places 2.88 ± 0.08, second to SovereignBot at 1.55 ± 0.11, and well clear of the rule bots at 5.46 to 6.03. With 9kgamerbot in the agent seats SovereignBot placed 1.27 and took 81% of firsts; against the network it took 69%.
+
+Its play differs from the MLP's. It often skips the turn-2 level, buying a second minion instead, and its probe on turn 2 is 0.78. It reaches a mean Tavern tier of 4.0 by turn 9 and keeps levelling, to 5.9. Its probe stays between 0.68 and 0.86 from turn 6 on, so it is not trading late strength for early strength.
+
+It costs more to train. On 3 CPU threads its update took 20 to 32 seconds an iteration against 4 to 7 for the MLP, and the 150 iterations took 79 minutes. At that rate 100,000 games take about 14 hours on the CPU. The GPU gave the 64-wide transformer no speed-up in an earlier test, so that needs measuring before the long run.
+
+Still to do in this stage: the 100,000-game run with the transformer, the `--pure` repeat and the auxiliary head.
 
 ### Stage 3: Raise Throughput (in Parallel)
 
