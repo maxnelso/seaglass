@@ -114,6 +114,49 @@ The warm start and the rule-bot opponents are scaffolding. Once this stage passe
 
 **Gate.** A pure network, with no search, beats 9kgamerbot on the fast ladder.
 
+#### Stage 2 Progress (2026-11-21): the gate passes on a short run, and the long run is next
+
+The changes are in. Each one is a flag, and `rl/README.md` lists the flags that restore the old behaviour.
+
+| Change | Status |
+| :--- | :--- |
+| λ once per turn, γ = 1 | Done: `--lam-per turn` and `--gamma 1` are the defaults. |
+| 8-way placement critic, linear atoms | Done for the MLP and the transformer: `--value-head placement`, the default. Old scalar checkpoints still load. |
+| Shaping off | Done: `--shaping 0`. |
+| Positioning out of the policy | `--no-reposition` plus `--auto-position`, a budgeted search with the combat simulator that names no cards. It measured no gain, so it is off by default (below). |
+| Stronger warm start | Done: `pretrain --teacher 9kgamerbot` is the default, with the trainer's move-rule flags. |
+| Wider league | Done: both 9kgamerbots stay in the field (`--bots`, `--p-bot 0.3`), and snapshots come from the whole history (`--pool-recent 4 --pool-history 4`). |
+| Auxiliary head for future board strength | Not started. |
+| Model chosen by a matched run | Not started. All runs so far use the default MLP. |
+
+The result files are in [`results/stage2/`](results/stage2/). All runs are on the Mac mini's CPU with 3 workers. The ± figures are one standard error.
+
+**The warm start.** A clone of 9kgamerbot from 150 lobbies places 5.07 ± 0.07 on the fast ladder. The HeuristicBot clone from Stage 1 places 5.88. Two settings mattered.
+
+| Clone of 9kgamerbot, 150 lobbies | Held-out action accuracy | Fast ladder |
+| :--- | :--- | :--- |
+| 4 epochs, critic trained | 74% | 6.03 ± 0.06 |
+| 12 epochs, critic trained | 78% | 5.22 ± 0.06 |
+| 12 epochs, critic untrained and zeroed | 77% | 5.07 ± 0.07 |
+
+The cloned critic memorises each game's outcome. Every decision of a game shares its final place, so the old split by decision hid this. On whole held-out games its place cross-entropy rose from 2.17 after one epoch to 7.1 after twelve, against 2.08 for a uniform guess. PPO from that clone started with a value loss of 5.0, and its ladder place got worse, to 5.63 at iteration 25, before it recovered. `pretrain` now holds out whole games and, by default, leaves the critic untrained with its last layer zeroed. Memory caps the clone at about 150 lobbies: 157,000 decisions took a peak of 8 GB. Stage 3's packed storage would lift that cap.
+
+**Positioning by search.** The 12-epoch clone placed 5.22 without `--auto-position`, 5.21 with it, and 5.25 with a search 16 times larger: 8 opponent boards, 8 fights each and 48 orders a turn. The moves were applied, about one a turn, and changed the outcome of 475 of 500 lobbies, but not the average. At this level of play, board order is not where the places are.
+
+**A short PPO run passes the gate.** From the 12-epoch clone, with the new defaults, `--no-reposition` and `--lr 1e-4`, 150 iterations of 64 lobbies (9,600 games) took 34 minutes. The trainer's own fast-ladder check:
+
+| Iteration | 25 | 50 | 75 | 100 | 125 | 150 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Average place | 5.63 | 4.87 | 4.28 | 4.00 | 3.82 | 3.74 |
+
+On a fresh seed the iteration-150 network places 3.82 ± 0.06. 9kgamerbot on the same seed places 4.34 ± 0.08. The paired difference is -0.52 ± 0.18 at two sigma, z = -5.7. The network plays without search, so this meets the gate as written. It was still improving by about 0.1 places every 25 iterations.
+
+Its style is narrow. Its mean Tavern tier reaches 3.8 by turn 8 and stays there, and from turn 9 it rolls 4 to 7 times a turn. The anchors reach tier 5.5 to 6. Its probe is 0.60 to 0.74 from turn 6 to turn 11 and fades to about 0.5 after turn 12. That is a tempo strategy that out-tempos the rule bots. Whether it holds against stronger play is what the long run, the slow ladder and the `--pure` repeat should show.
+
+Speed: an iteration took 7 seconds at the start and 13 seconds by iteration 150, as games got longer and snapshots took opponent seats. The update was 40% to 60% of it. At that rate the 100,000-game run takes 5 to 6 hours on 3 CPU workers.
+
+Still to do in this stage: the 100,000-game run, the `--pure` repeat, the matched MLP-against-transformer run and the auxiliary head.
+
 ### Stage 3: Raise Throughput (in Parallel)
 
 The engine is fast and the Python around it is slow. Engine calls take about 3% of rollout time. Building the observation in Python takes 43% to 59%.
