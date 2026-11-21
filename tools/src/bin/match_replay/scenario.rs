@@ -50,7 +50,7 @@ use seaglass::{
 };
 use seaglass_tools::replay_text::{frame_title, player_name};
 
-use crate::{frame_arg, load_one, option};
+use crate::{frame_arg, load_one, option, parse_player};
 use yaml::Layout;
 
 const USAGE: &str = "\
@@ -155,26 +155,6 @@ fn check_args(args: &[String]) -> Result<(), String> {
         }
     }
     Ok(())
-}
-
-/// A player given by name (case-insensitive) or 0-based index.
-fn parse_player(timeline: &Timeline, text: &str) -> Result<usize, String> {
-    let players = timeline.num_players();
-    if let Some(p) = (0..players).find(|&p| player_name(timeline, p).eq_ignore_ascii_case(text)) {
-        return Ok(p);
-    }
-    match text.parse::<usize>() {
-        Ok(p) if p < players => Ok(p),
-        _ => {
-            let names: Vec<String> = (0..players)
-                .map(|p| format!("{} ({p})", player_name(timeline, p)))
-                .collect();
-            Err(format!(
-                "no player {text:?} (players: {})",
-                names.join(", ")
-            ))
-        }
-    }
 }
 
 /// The frame to export: `--frame N`, or the frame before the first action (by `player`, if
@@ -2507,6 +2487,8 @@ mod tests {
         assert_eq!(parse_player(&timeline, "P2"), Ok(1));
         assert_eq!(parse_player(&timeline, "p1"), Ok(0));
         assert_eq!(parse_player(&timeline, "1"), Ok(1));
+        // A name wins over `p<index>`; `p<index>` works for any names.
+        assert_eq!(parse_player(&timeline, "p0"), Ok(0));
         let err = parse_player(&timeline, "P3").unwrap_err();
         assert_eq!(err, "no player \"P3\" (players: P1 (0), P2 (1))");
     }

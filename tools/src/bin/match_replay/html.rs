@@ -15,8 +15,8 @@ use serde::Serialize;
 use seaglass::cards::{self, spells};
 use seaglass::replay::{self, pb, FrameKind};
 use seaglass::{
-    base_copies_for_tier, ActivateTargetKind, BattleOutcome, BattleResult, Event, Side,
-    TavernAction, TavernState, Timeline, Tribe, Unit,
+    base_copies_for_tier, ActivateTargetKind, BattleOutcome, BattleResult, CardId, Event,
+    HeroPowerState, Side, TavernAction, TavernState, Timeline, Tribe, Unit,
 };
 use seaglass::{heroes, trinkets};
 use seaglass_tools::fmt::{diff_auras, format_deity_kind, format_tribe, CombatNames, PoolCounts};
@@ -25,26 +25,41 @@ use seaglass_tools::replay_text::{frame_pool, frame_title, note_text, player_nam
 /// The viewer page. [`DATA`] marks where the replay's JSON goes.
 const TEMPLATE: &str = include_str!("../../../viewer/replay.html");
 const DATA: &str = "__REPLAY_DATA__";
+/// The one-player page (`match_replay html --player P`), with the same [`DATA`] placeholder.
+const PLAYER_TEMPLATE: &str = include_str!("../../../viewer/player.html");
 
 /// A combat uses at most this many units of each board.
 const MAX_BOARD_SIZE: usize = 7;
 
-/// `match_replay html <file> [-o out.html]`.
+/// `match_replay html <file> [--player P] [-o out.html]`.
 pub fn run(args: &[String]) -> Result<ExitCode, String> {
     let timeline = crate::load_one(args)?;
     let input = Path::new(&args[0]);
+    let focus = match crate::option(args, &["--player"]) {
+        Some(text) => Some(crate::parse_player(&timeline, text)?),
+        None if args.iter().any(|a| a == "--player") => {
+            return Err("--player needs a player (a name or a 0-based index)".to_string());
+        }
+        None => None,
+    };
     let output = match crate::option(args, &["-o", "--output"]) {
         Some(path) => PathBuf::from(path),
         None if args.iter().any(|a| a == "-o" || a == "--output") => {
             return Err("-o needs an output file".to_string());
         }
-        None => default_output(input),
+        None => match focus {
+            Some(p) => default_player_output(input, p),
+            None => default_output(input),
+        },
     };
     let source = input.file_name().map_or_else(
         || args[0].clone(),
         |name| name.to_string_lossy().into_owned(),
     );
-    let page = render(&timeline, &source);
+    let page = match focus {
+        Some(p) => render_player(&timeline, &source, p),
+        None => render(&timeline, &source),
+    };
     if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     }
@@ -61,10 +76,21 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
 /// The page's default path: the replay's, ending in `.html` instead of `.replay.pb` (or instead
 /// of its extension).
 fn default_output(input: &Path) -> PathBuf {
+    with_suffix(input, "html")
+}
+
+/// The default path of the page that follows player `player`: like [`default_output`], ending in
+/// `.p<player>.html`.
+fn default_player_output(input: &Path, player: usize) -> PathBuf {
+    with_suffix(input, &format!("p{player}.html"))
+}
+
+/// `input` with `.replay.pb` (or else its extension) replaced by `.suffix`.
+fn with_suffix(input: &Path, suffix: &str) -> PathBuf {
     let name = input.file_name().map(|n| n.to_string_lossy());
     match name.as_deref().and_then(|n| n.strip_suffix(".replay.pb")) {
-        Some(stem) if !stem.is_empty() => input.with_file_name(format!("{stem}.html")),
-        _ => input.with_extension("html"),
+        Some(stem) if !stem.is_empty() => input.with_file_name(format!("{stem}.{suffix}")),
+        _ => input.with_extension(suffix),
     }
 }
 
@@ -84,6 +110,15 @@ pub fn render(timeline: &Timeline, source: &str) -> String {
     // Without any `<`, the JSON can neither end its <script> element (`</script>`) nor open an
     // HTML comment in it (`<!--`). `<` only occurs inside JSON strings, where `\u003c` is the same.
     TEMPLATE.replacen(DATA, &json.replace('<', "\\u003c"), 1)
+}
+
+/// The one-player page of `timeline`, starting on player `focus`. Its data is [`render`]'s, plus
+/// [`ViewerData::focus`].
+pub fn render_player(timeline: &Timeline, source: &str, focus: usize) -> String {
+    let mut data = ViewerData::new(timeline, source);
+    data.focus = Some(focus);
+    let json = serde_json::to_string(&data).expect("the viewer data is plain JSON");
+    PLAYER_TEMPLATE.replacen(DATA, &json.replace('<', "\\u003c"), 1)
 }
 
 /// Everything the page shows (the `DATA` object of `tools/viewer/replay.html`).
@@ -109,6 +144,9 @@ struct ViewerData<'a> {
     units: Vec<UnitView>,
     /// One per timeline frame.
     frames: Vec<FrameView>,
+    /// The player the one-player page starts on (`--player`). Not in the normal page's data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    focus: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -179,6 +217,15 @@ struct FrameView {
     /// The winner of an `end` frame (none for a draw).
     #[serde(skip_serializing_if = "Option::is_none")]
     winner: Option<usize>,
+    /// The action of an `act` frame, structured for drawing ([`ActionView`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    action: Option<ActionView>,
+    /// The coming turn's pairings of a `SetPairs` frame (units; players in Solo).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pairs: Vec<[usize; 2]>,
+    /// The result of a ghost combat, from the fighting unit's side.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ghost: Option<GhostView>,
     /// How this frame's call differs from the recorded one ([`Timeline::divergences`]).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     divergences: Vec<String>,
@@ -211,6 +258,128 @@ struct PlayerView {
     discover: Option<Vec<usize>>,
     /// Discover prompts queued after the pending one.
     queued: usize,
+    /// The hero and its Hero Powers (`null` before a hero is chosen, and without heroes).
+    hero: Option<HeroView>,
+    /// What a refresh costs now (the page shows 0 while `free_refreshes` is above 0).
+    refresh_cost: u32,
+    /// The names of the trinkets the player owns.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    trinkets: Vec<String>,
+    /// The names of the heroes on offer.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    hero_options: Vec<String>,
+    /// The trinkets on offer.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    trinket_options: Vec<TrinketOptionView>,
+    /// Dark Discovery is available (the game has Dark Gifts).
+    #[serde(skip_serializing_if = "is_false")]
+    dark_discovery: bool,
+}
+
+/// A player's hero.
+#[derive(Serialize, Clone, PartialEq)]
+struct HeroView {
+    name: String,
+    /// The Hero Powers: the first, then the second one if the hero has one.
+    powers: Vec<PowerView>,
+}
+
+#[derive(Serialize, Clone, PartialEq)]
+struct PowerView {
+    name: String,
+    /// Its current Gold cost.
+    cost: u32,
+    /// It has no uses left this turn.
+    used: bool,
+}
+
+/// A trinket on offer.
+#[derive(Serialize, Clone, PartialEq)]
+struct TrinketOptionView {
+    name: String,
+    /// Its price in Gold.
+    cost: u32,
+}
+
+/// The result of a ghost combat from the point of view of the unit that fought the ghost.
+#[derive(Serialize)]
+struct GhostView {
+    /// The unit that fought.
+    unit: usize,
+    /// The unit whose warband the ghost copies.
+    ghost: usize,
+    /// `win`, `loss` or `draw`.
+    outcome: &'static str,
+    /// The damage the loser takes (the combat's `hero_damage`).
+    damage: u32,
+}
+
+/// An action, structured so the page can draw it. Indices are the [`TavernAction`]'s, into the
+/// actor's state before the action. Optional fields are always present (`null` when absent).
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ActionView {
+    Buy {
+        shop: usize,
+    },
+    /// A minion played to board index `board`.
+    Play {
+        hand: usize,
+        board: usize,
+    },
+    /// A Magnetic minion played onto the board minion `board`.
+    Magnetize {
+        hand: usize,
+        board: usize,
+    },
+    /// A spell; `target` is a board index if the spell needs one.
+    Cast {
+        hand: usize,
+        target: Option<usize>,
+    },
+    CastOnShop {
+        hand: usize,
+        shop: usize,
+    },
+    Sell {
+        board: usize,
+    },
+    /// The minion at `from` ends up at index `to`.
+    Move {
+        from: usize,
+        to: usize,
+    },
+    /// `zone` (`board`, `hand` or `shop`) is where `target` is; both `null` without a target.
+    Activate {
+        board: usize,
+        target: Option<usize>,
+        zone: Option<&'static str>,
+    },
+    Refresh,
+    Upgrade,
+    /// `frozen` is the shop's state after the action.
+    Freeze {
+        frozen: bool,
+    },
+    Discover {
+        option: usize,
+    },
+    EndTurn,
+    Pass {
+        hand: usize,
+    },
+    /// `second` is the second Hero Power.
+    HeroPower {
+        target: Option<usize>,
+        second: bool,
+    },
+    ChooseHero {
+        option: usize,
+    },
+    ChooseTrinket {
+        option: usize,
+    },
+    DarkDiscovery,
 }
 
 #[derive(Serialize, Clone, PartialEq)]
@@ -379,6 +548,7 @@ impl<'a> ViewerData<'a> {
             turns: timeline.last_turn(),
             units: frames.units.list,
             frames: frame_views,
+            focus: None,
         }
     }
 }
@@ -428,6 +598,9 @@ impl Frames<'_> {
             note: None,
             combat: None,
             winner: None,
+            action: None,
+            pairs: Vec::new(),
+            ghost: None,
             divergences: timeline
                 .divergences
                 .iter()
@@ -451,6 +624,7 @@ impl Frames<'_> {
                 let state = before(*player);
                 view.kind = "act";
                 view.actors = vec![*player];
+                view.action = Some(ActionView::new(state, action));
                 view.label = Some(format!(
                     "{}: {}",
                     self.names[*player],
@@ -470,7 +644,11 @@ impl Frames<'_> {
                 view.actors = vec![*a, *b];
                 view.combat = Some(self.combat([*a, *b], *seed, result, [before(*a), before(*b)]));
             }
-            FrameKind::SetPairs { .. } | FrameKind::RecordDeaths { .. } => view.kind = "lobby",
+            FrameKind::SetPairs { pairs } => {
+                view.kind = "lobby";
+                view.pairs = pairs.iter().map(|&(a, b)| [a, b]).collect();
+            }
+            FrameKind::RecordDeaths { .. } => view.kind = "lobby",
             FrameKind::DeliverGifts => {
                 view.kind = "lobby";
                 let before = prev.expect("only the first frame has no call");
@@ -486,9 +664,24 @@ impl Frames<'_> {
                     .flat_map(|&u| unit_players(timeline, u))
                     .collect();
             }
-            FrameKind::GhostCombat { unit, .. } => {
+            FrameKind::GhostCombat {
+                unit,
+                ghost,
+                result,
+                ..
+            } => {
                 view.kind = "lobby";
                 view.actors = unit_players(timeline, *unit);
+                view.ghost = Some(GhostView {
+                    unit: *unit,
+                    ghost: *ghost,
+                    outcome: match result.outcome() {
+                        BattleOutcome::AWin => "win",
+                        BattleOutcome::BWin => "loss",
+                        BattleOutcome::Draw => "draw",
+                    },
+                    damage: result.hero_damage(),
+                });
             }
             FrameKind::End { winner, .. } => {
                 view.kind = "end";
@@ -610,6 +803,137 @@ impl PlayerView {
             shop: units.ids(&state.shop),
             discover: state.discover_pending.as_deref().map(|o| units.ids(o)),
             queued: state.discover_queue.len(),
+            hero: state.hero().map(|hero| {
+                let name = |card_id| heroes::data(card_id).map_or("Hero Power", |h| h.power.name);
+                let power = |name: &str, p: &HeroPowerState| PowerView {
+                    name: name.to_string(),
+                    cost: p.cost,
+                    used: p.uses_left == 0,
+                };
+                // The engine has no name for a power's `CardId` (only a hero's first power).
+                let mut powers = vec![power(name(hero.hero_id), &hero.power)];
+                powers.extend(hero.second_power.as_ref().map(|p| power("Hero Power 2", p)));
+                HeroView {
+                    name: heroes::data(hero.hero_id)
+                        .map_or("?", |h| h.name)
+                        .to_string(),
+                    powers,
+                }
+            }),
+            refresh_cost: state.refresh_cost(),
+            trinkets: auras
+                .trinkets
+                .iter()
+                .map(|t| trinket_name(t.card_id).to_string())
+                .collect(),
+            hero_options: state
+                .hero_options
+                .iter()
+                .map(|&id| heroes::data(id).map_or("?", |h| h.name).to_string())
+                .collect(),
+            trinket_options: state
+                .trinket_options
+                .iter()
+                .map(|o| TrinketOptionView {
+                    name: trinket_name(o.card_id).to_string(),
+                    cost: o.cost,
+                })
+                .collect(),
+            dark_discovery: state.dark_gifts_enabled,
+        }
+    }
+}
+
+fn trinket_name(card_id: CardId) -> &'static str {
+    trinkets::data(card_id).map_or("?", |t| t.name)
+}
+
+impl ActionView {
+    /// The structured `action`, taken in `state`. Classified like [`short_action`].
+    fn new(state: &TavernState, action: &TavernAction) -> Self {
+        match *action {
+            TavernAction::Buy { shop_index } => Self::Buy { shop: shop_index },
+            TavernAction::Play {
+                hand_index,
+                board_pos,
+            } => match state.hand.get(hand_index) {
+                Some(card) if card.is_spell => Self::Cast {
+                    hand: hand_index,
+                    target: spells::spell_requires_board_target(card.card_id).then_some(board_pos),
+                },
+                Some(card)
+                    if card.magnetic
+                        && state
+                            .board
+                            .get(board_pos)
+                            .is_some_and(|target| target.tribe.matches(card.tribe)) =>
+                {
+                    Self::Magnetize {
+                        hand: hand_index,
+                        board: board_pos,
+                    }
+                }
+                _ => Self::Play {
+                    hand: hand_index,
+                    board: board_pos,
+                },
+            },
+            TavernAction::PlayOnShop {
+                hand_index,
+                shop_index,
+            } => Self::CastOnShop {
+                hand: hand_index,
+                shop: shop_index,
+            },
+            TavernAction::Sell { board_pos } => Self::Sell { board: board_pos },
+            TavernAction::Reposition { from_pos, to_pos } => Self::Move {
+                from: from_pos,
+                to: to_pos,
+            },
+            TavernAction::Activate {
+                board_pos,
+                target_pos,
+            } => {
+                let kind = state
+                    .board
+                    .get(board_pos)
+                    .map(|u| cards::activate_target_kind(u.card_id));
+                let zone = match kind {
+                    Some(ActivateTargetKind::HandCard) => "hand",
+                    Some(ActivateTargetKind::ShopCard) => "shop",
+                    _ => "board",
+                };
+                Self::Activate {
+                    board: board_pos,
+                    target: target_pos,
+                    zone: target_pos.map(|_| zone),
+                }
+            }
+            TavernAction::Refresh => Self::Refresh,
+            TavernAction::UpgradeTavern => Self::Upgrade,
+            TavernAction::ToggleFreeze => Self::Freeze {
+                frozen: !state.is_frozen,
+            },
+            TavernAction::ChooseDiscover { option_index } => Self::Discover {
+                option: option_index,
+            },
+            TavernAction::EndTurn => Self::EndTurn,
+            TavernAction::Pass { hand_index } => Self::Pass { hand: hand_index },
+            TavernAction::HeroPower { target } => Self::HeroPower {
+                target,
+                second: false,
+            },
+            TavernAction::HeroPower2 { target } => Self::HeroPower {
+                target,
+                second: true,
+            },
+            TavernAction::ChooseHero { option_index } => Self::ChooseHero {
+                option: option_index,
+            },
+            TavernAction::ChooseTrinket { option_index } => Self::ChooseTrinket {
+                option: option_index,
+            },
+            TavernAction::DarkDiscovery => Self::DarkDiscovery,
         }
     }
 }
@@ -1105,6 +1429,153 @@ mod tests {
         assert!(TEMPLATE.contains(&format!(
             r#"<script type="application/json" id="replay-data">{DATA}</script>"#
         )));
+    }
+
+    #[test]
+    fn the_player_template_has_one_data_placeholder() {
+        assert_eq!(PLAYER_TEMPLATE.matches(DATA).count(), 1);
+        assert!(PLAYER_TEMPLATE.contains(&format!(
+            r#"<script type="application/json" id="replay-data">{DATA}</script>"#
+        )));
+    }
+
+    #[test]
+    fn act_frames_carry_their_action() {
+        let timeline = Timeline::new(&recorded_match(7)).unwrap();
+        let data = embedded_data(&render(&timeline, "test.replay.pb"));
+        let frames = data["frames"].as_array().unwrap();
+        let mut acts = 0;
+        for (i, (frame, json)) in timeline.frames.iter().zip(frames).enumerate() {
+            let FrameKind::Act { action, .. } = &frame.kind else {
+                assert!(json.get("action").is_none(), "frame {i}");
+                continue;
+            };
+            acts += 1;
+            let a = &json["action"];
+            let state = &timeline.frames[i - 1].players[frame_player(&frame.kind)];
+            let ty = a["type"].as_str().unwrap();
+            let idx = |key: &str| a[key].as_u64().map(|n| n as usize);
+            let opt = |key: &str| {
+                assert!(a.get(key).is_some(), "frame {i}: `{key}` is always there");
+                a[key].as_u64().map(|n| n as usize)
+            };
+            match *action {
+                TavernAction::Buy { shop_index } => {
+                    assert_eq!((ty, idx("shop")), ("buy", Some(shop_index)));
+                }
+                TavernAction::Play {
+                    hand_index,
+                    board_pos,
+                } => {
+                    let card = &state.hand[hand_index];
+                    if card.is_spell {
+                        let target =
+                            spells::spell_requires_board_target(card.card_id).then_some(board_pos);
+                        assert_eq!((ty, opt("target")), ("cast", target), "frame {i}");
+                        assert_eq!(idx("hand"), Some(hand_index));
+                    } else {
+                        assert!(ty == "play" || ty == "magnetize", "frame {i}: {ty}");
+                        if ty == "magnetize" {
+                            assert!(card.magnetic);
+                        }
+                        assert_eq!(idx("hand"), Some(hand_index));
+                        assert_eq!(idx("board"), Some(board_pos));
+                    }
+                }
+                TavernAction::PlayOnShop {
+                    hand_index,
+                    shop_index,
+                } => {
+                    assert_eq!(ty, "cast_on_shop");
+                    assert_eq!(
+                        (idx("hand"), idx("shop")),
+                        (Some(hand_index), Some(shop_index))
+                    );
+                }
+                TavernAction::Sell { board_pos } => {
+                    assert_eq!((ty, idx("board")), ("sell", Some(board_pos)));
+                }
+                TavernAction::Reposition { from_pos, to_pos } => {
+                    assert_eq!(ty, "move");
+                    assert_eq!((idx("from"), idx("to")), (Some(from_pos), Some(to_pos)));
+                }
+                TavernAction::Activate {
+                    board_pos,
+                    target_pos,
+                } => {
+                    assert_eq!((ty, idx("board")), ("activate", Some(board_pos)));
+                    assert_eq!(opt("target"), target_pos);
+                    assert_eq!(a["zone"].is_string(), target_pos.is_some());
+                }
+                TavernAction::Refresh => assert_eq!(ty, "refresh"),
+                TavernAction::UpgradeTavern => assert_eq!(ty, "upgrade"),
+                TavernAction::ToggleFreeze => {
+                    assert_eq!(ty, "freeze");
+                    assert_eq!(a["frozen"], !state.is_frozen);
+                }
+                TavernAction::ChooseDiscover { option_index } => {
+                    assert_eq!((ty, idx("option")), ("discover", Some(option_index)));
+                }
+                TavernAction::EndTurn => assert_eq!(ty, "end_turn"),
+                TavernAction::Pass { hand_index } => {
+                    assert_eq!((ty, idx("hand")), ("pass", Some(hand_index)));
+                }
+                TavernAction::HeroPower { target } | TavernAction::HeroPower2 { target } => {
+                    assert_eq!(ty, "hero_power");
+                    assert_eq!(opt("target"), target);
+                    assert_eq!(
+                        a["second"],
+                        matches!(action, TavernAction::HeroPower2 { .. })
+                    );
+                }
+                TavernAction::ChooseHero { option_index } => {
+                    assert_eq!((ty, idx("option")), ("choose_hero", Some(option_index)));
+                }
+                TavernAction::ChooseTrinket { option_index } => {
+                    assert_eq!((ty, idx("option")), ("choose_trinket", Some(option_index)));
+                }
+                TavernAction::DarkDiscovery => assert_eq!(ty, "dark_discovery"),
+            }
+        }
+        assert!(acts > 0);
+    }
+
+    /// The player of an `Act` frame.
+    fn frame_player(kind: &FrameKind) -> usize {
+        match kind {
+            FrameKind::Act { player, .. } => *player,
+            _ => unreachable!("not an action"),
+        }
+    }
+
+    #[test]
+    fn the_player_page_is_the_page_with_a_focus() {
+        let timeline = Timeline::new(&recorded_match(7)).unwrap();
+        let normal = embedded_data(&render(&timeline, "test.replay.pb"));
+        assert!(normal.get("focus").is_none());
+        let page = render_player(&timeline, "test.replay.pb", 1);
+        assert!(!page.contains(DATA));
+        let mut player = embedded_data(&page);
+        assert_eq!(player["focus"], 1);
+        player.as_object_mut().unwrap().remove("focus");
+        assert_eq!(player, normal);
+        // Every player view says what a refresh costs.
+        let first = &normal["frames"][0]["states"][0];
+        assert!(first["refresh_cost"].is_u64());
+    }
+
+    #[test]
+    fn the_player_page_goes_next_to_the_replay() {
+        let out = |input: &str, p| default_player_output(Path::new(input), p);
+        assert_eq!(
+            out("replays/s7.replay.pb", 0),
+            Path::new("replays/s7.p0.html")
+        );
+        assert_eq!(out("game.pb", 0), Path::new("game.p0.html"));
+        assert_eq!(
+            out("runs/v1.2/game", 3),
+            Path::new("runs/v1.2/game.p3.html")
+        );
     }
 
     #[test]
