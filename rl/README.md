@@ -28,6 +28,8 @@ flowchart LR
 | `train_lobby.py` | The trainer (below). |
 | `pretrain.py` | Behavior cloning on HeuristicBot games (policy cross-entropy + value regression), the starting point for PPO (`train_lobby.py --init`). |
 | `evaluate.py` | Average placement (with standard error, top-half and first-place rates) of a checkpoint against a fixed pool. |
+| `ladder.py` | Rates any agent on a fixed ladder of rule bots (paired seeds, clustered standard errors, behavior by turn) and compares two ratings. |
+| `probe.py` | The per-turn board probe: the win rate of an end-of-turn board against a frozen library of reference boards from the same turn. |
 | `checkpoint.py` | `save` / `load`. A checkpoint stores the model's config and weights, the optimizer state, and the feature spec it was trained on; loading one with another feature spec fails. |
 | `features.py`, `actions.py`, `model.py` | The observation encoding, the 330 flat actions with their legality mask, and the network. |
 | `bots.py` | `RandomBot`, `HeuristicBot` (picks the best stats, plays everything, levels on curve), `PolicyBot`. |
@@ -61,13 +63,31 @@ Each iteration plays `--games` lobbies (64) across `--workers` processes (defaul
 - **Damage caps.** Lobbies cap combat damage as the game does (`engine/docs/lobby_game.md` §5). `--no-damage-caps` turns this off.
 - **Update.** `--epochs` (4) passes of minibatches (`--minibatch` 4096). An epoch stops early once the approximate KL passes 1.5 × `--target-kl`.
 
-Every `--eval-every` iterations, the learner plays `--eval-games` lobbies alone against HeuristicBots, and `latest.pt` is saved. `runs/NAME/` holds:
+Every `--eval-every` iterations, the learner is rated on a ladder of rule bots (`--eval-ladder`: `fast`, the default in 8-player Solo, or `slow`; see "Rating agents" below) and `latest.pt` is saved. `--eval-games` sets the lobbies (default: the ladder's own, 500 fast or 100 slow), and `--no-eval-probe` skips the board probe. `--eval-ladder heuristic` keeps the older check: the learner alone against HeuristicBots (96 lobbies). The ladders need an 8-player Solo lobby, so Duos and smaller lobbies default to `heuristic`. `runs/NAME/` holds:
 - `args.json`;
-- `log.jsonl`, one line per iteration: the learner's average place, steps, losses, entropy, KL, explained variance, and the evaluation;
+- `log.jsonl`, one line per iteration: the learner's average place, steps, losses, entropy, KL, explained variance, and a summary of the evaluation (`eval`);
 - `latest.pt`;
-- `snapshots/iter_XXXXX.pt`.
+- `snapshots/iter_XXXXX.pt`;
+- `evals/iter_XXXXX.json`, the full ladder result of each evaluation.
 
 Evaluation. An agent as good as the field places `(units + 1) / 2` on average: 4.5 in Solo, 2.5 in Duos. Lower is better.
+
+### Rating agents (`ladder.py`)
+
+One command rates any agent (a checkpoint or a bot name) and compares two ratings:
+
+```bash
+python -m seaglass_rl.ladder rate runs/solo/latest.pt --out results/a.json
+python -m seaglass_rl.ladder rate 9kgamerbot --out results/9k.json
+python -m seaglass_rl.ladder rate runs/solo/latest.pt --ladder slow     # adds a SovereignBot seat; slow
+python -m seaglass_rl.ladder compare results/a.json results/b.json
+```
+
+- **Ladders.** The agent takes 2 of 8 Solo seats. The **fast** ladder fills the rest with two each of `9kgamerbot`, `9kgamerbot-tempo` and `heuristic`, and plays 500 lobbies (1,000 seat-games). The **slow** ladder swaps in one `sovereign` seat and plays 100 lobbies; SovereignBot costs 30 to 50 seconds of CPU per game, so run it rarely. The seeds and the seat shuffle are fixed and do not depend on the agent, so every agent on the same ladder and seed plays the same lobbies in the same seats.
+- **Reported.** Average place (4.5 is level, lower is better) with its standard error, clustered by lobby because the agent's two seats in a lobby are not independent. Also the top-4 and first-place rates, the same for each anchor, and behavior by turn: Tavern Tier, Gold left, health, board size and actions (buys, rolls, levels), next to the anchors' Tier. The result file records the commit, whether the tree was dirty, and a fingerprint of the engine build.
+- **The probe.** Placement arrives once per game and is noisy. The probe (`probe.py`) fights the agent's end-of-turn board against a frozen library of reference boards from the same turn, made by lobbies of the rule bots on fixed seeds, and reports the win rate by turn (a draw counts half). It is a dense signal: it shows whether an agent trades early strength for late strength. Its limits: the fights are board-only, so Hero Powers, trinkets and other effects outside the board are not included, and late turns have only survivors on both sides. The library is rebuilt at each start (a few seconds), not stored.
+- **Checkpoints** are rated under the move rules they were trained with (the step cap, the end-of-turn step, `--no-reposition`, `--no-freeze`, `--prune`), read from the checkpoint's saved arguments.
+- **Comparing.** `compare` reports the difference in average place with its standard error, and whether it is within 2σ. If both results used the same seed, it also reports the paired difference per lobby. Pairing narrows the interval only a little (about 5% in the Stage 1 runs), because an agent's own play soon changes how a lobby goes. A difference inside 2σ is noise. Every claim that one agent beats another should cite the ladder result files it came from.
 
 ### Devices and CPU use
 
@@ -215,6 +235,8 @@ rl/
 │   ├── train_lobby.py   # The trainer (league of snapshots + HeuristicBots)
 │   ├── pretrain.py      # Behavior cloning on HeuristicBot games
 │   ├── evaluate.py      # Average placement against a fixed pool
+│   ├── ladder.py        # Rate an agent on the fixed bot ladders, compare ratings
+│   ├── probe.py         # Per-turn board strength against reference boards
 │   ├── checkpoint.py    # Save / load models with their feature spec
 │   ├── features.py      # Observation encoding
 │   ├── actions.py       # Action space and masks

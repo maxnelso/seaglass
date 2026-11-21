@@ -1,0 +1,524 @@
+"""Rate any agent on a fixed ladder of rule bots, and compare two ratings.
+
+    python -m seaglass_rl.ladder rate runs/solo/latest.pt                 # fast ladder, 500 lobbies
+    python -m seaglass_rl.ladder rate 9kgamerbot --out results/9k.json
+    python -m seaglass_rl.ladder rate runs/solo/latest.pt --ladder slow   # adds a SovereignBot seat; slow
+    python -m seaglass_rl.ladder compare results/a.json results/b.json
+
+The agent takes 2 of the 8 seats of every Solo lobby. The other 6 are the ladder's anchors, rule
+bots that must not change between runs. The seeds are fixed, and the seat shuffle does not depend on
+the agent, so every agent rated on the same ladder and seed plays the same lobbies in the same
+seats. That makes comparisons paired.
+
+Average place: 4.5 is level with the field, lower is better. The standard errors are clustered by
+lobby, since the agent's two seats in a lobby are not independent. A difference inside 2 standard
+errors is noise. Results record the commit and a fingerprint of the engine build.
+
+Besides placement, a result reports the agent's behavior by turn (Tavern Tier, Gold left, actions)
+and its probe score by turn (`probe.py`): the win rate of its end-of-turn board against reference
+boards from the same turn.
+"""
+
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import hashlib
+import json
+import math
+import os
+import random
+import subprocess
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from .device import default_workers
+from .play import BOTS, GameSpec, LobbyConfig, Player, PlayOptions
+from .probe import ProbeSpec, library_for, library_summary
+
+AGENT = "agent"
+KINDS = (
+    "buy",
+    "sell",
+    "refresh",
+    "upgrade_tavern",
+    "play",
+    "reposition",
+    "toggle_freeze",
+    "hero_power",
+    "choose_discover",
+)
+TIER_TURNS = (3, 5, 7, 9, 11)
+
+
+@dataclasses.dataclass(frozen=True)
+class Ladder:
+    """The agent's seats and the anchors that fill the rest."""
+
+    name: str
+    anchors: tuple[str, ...]  # the anchor seats (bot names from `play.BOTS`)
+    agent_seats: int = 2
+    games: int = 500
+    seed: int = 5_000_000
+
+
+LADDERS = {
+    "fast": Ladder(
+        "fast",
+        ("9kgamerbot", "9kgamerbot", "9kgamerbot-tempo", "9kgamerbot-tempo", "heuristic", "heuristic"),
+        games=500,
+        seed=5_000_000,
+    ),
+    "slow": Ladder(
+        "slow",
+        ("sovereign", "9kgamerbot", "9kgamerbot", "9kgamerbot-tempo", "9kgamerbot-tempo", "heuristic"),
+        games=100,
+        seed=6_000_000,
+    ),
+}
+
+
+def ladder_specs(
+    ladder: Ladder, games: int, seed: int, agent_controller: str, probe: bool
+) -> list[tuple[GameSpec, tuple[int, ...]]]:
+    """The ladder's games, each with the agent's units. The seating is shuffled with the `AGENT`
+    token, before the agent's controller is put in, so it never depends on the agent."""
+    if ladder.agent_seats + len(ladder.anchors) != 8:
+        raise ValueError(f"a ladder fills 8 seats, got {ladder.agent_seats} + {len(ladder.anchors)}")
+    for a in ladder.anchors:
+        if a not in BOTS:
+            raise ValueError(f"anchor {a!r} is not a bot")
+    rng = random.Random(seed)
+    out = []
+    for g in range(games):
+        seats = [AGENT] * ladder.agent_seats + list(ladder.anchors)
+        rng.shuffle(seats)
+        agent_units = tuple(u for u, s in enumerate(seats) if s == AGENT)
+        controllers = [agent_controller if s == AGENT else s for s in seats]
+        spec = GameSpec(seed=seed + g, controllers=controllers, probe_units=agent_units if probe else ())
+        out.append((spec, agent_units))
+    return out
+
+
+def checkpoint_options(agent: Any) -> PlayOptions:
+    """The move rules a checkpoint was trained with (`train_lobby.play_options`: the step cap, the
+    end-of-turn step, Reposition, Freeze, pruning), so it is rated under the same rules. Defaults for
+    a bot, a `(config, state_dict)` pair, or a checkpoint saved without its training arguments."""
+    if not isinstance(agent, str) or agent in BOTS or not os.path.isfile(agent):
+        return PlayOptions()
+    from . import checkpoint
+
+    _, ckpt = checkpoint.load(agent)
+    a = ckpt.get("args") or {}
+    return PlayOptions(
+        max_steps_per_turn=int(a.get("max_steps_per_turn", 30)),
+        positioning_phase=not a.get("no_positioning_phase", False),
+        allow_reposition=not a.get("no_reposition", False),
+        allow_freeze=not a.get("no_freeze", False),
+        prune_dominated=bool(a.get("prune", False)),
+    )
+
+
+# -- Rating ---------------------------------------------------------------------------------------
+
+
+def _git(*args: str) -> str | None:
+    try:
+        out = subprocess.run(
+            ["git", *args],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def _commit_info() -> tuple[str | None, bool | None]:
+    head = _git("rev-parse", "HEAD")
+    status = _git("status", "--porcelain", "--untracked-files=no")
+    return (head.strip() if head else None), (bool(status.strip()) if status is not None else None)
+
+
+def _engine_fingerprint() -> str | None:
+    """The first 12 hex characters of the sha256 of the compiled engine extension."""
+    try:
+        import seaglass
+
+        path = None
+        try:
+            import importlib
+
+            path = getattr(importlib.import_module("seaglass.seaglass"), "__file__", None)
+        except ImportError:
+            pass
+        if path is None:
+            found = sorted(Path(seaglass.__file__).resolve().parent.glob("*.so")) + sorted(
+                Path(seaglass.__file__).resolve().parent.glob("*.pyd")
+            )
+            path = str(found[0]) if found else None
+        if path is None:
+            return None
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for block in iter(lambda: f.read(1 << 20), b""):
+                h.update(block)
+        return h.hexdigest()[:12]
+    except Exception:
+        return None
+
+
+def _place_stats(per_lobby: list[list[int]]) -> dict[str, Any]:
+    """Place statistics over seats, with the standard error clustered by lobby."""
+    flat = np.asarray([p for lobby in per_lobby for p in lobby], dtype=np.float64)
+    means = np.asarray([np.mean(lobby) for lobby in per_lobby], dtype=np.float64)
+    n = len(means)
+    stderr = float(means.std(ddof=1) / math.sqrt(n)) if n > 1 else 0.0
+    return {
+        "seat_games": int(len(flat)),
+        "avg_place": float(flat.mean()),
+        "stderr": stderr,
+        "top4": float((flat <= 4).mean()),
+        "first": float((flat == 1).mean()),
+        "places": {k: int((flat == k).sum()) for k in range(1, 9)},
+    }
+
+
+def _turn_table(seats: list[list[Any]], with_probe: bool) -> dict[int, dict[str, Any]]:
+    """Per-turn means over a group's seats; `seats` is one list of `TurnStat` per seat-game."""
+    by_turn: dict[int, list[Any]] = {}
+    for stats in seats:
+        for s in stats:
+            by_turn.setdefault(s.turn, []).append(s)
+    n_seats = len(seats)
+    table: dict[int, dict[str, Any]] = {}
+    for turn in range(1, max(by_turn, default=0) + 1):
+        rows = by_turn.get(turn, [])
+        n = len(rows)
+        if not n:
+            continue
+        kinds = {k: float(np.mean([r.actions.get(k, 0) for r in rows])) for k in KINDS}
+        entry: dict[str, Any] = {
+            "n": n,
+            "alive": n / n_seats,
+            "tier": float(np.mean([r.tier for r in rows])),
+            "gold_left": float(np.mean([r.gold_left for r in rows])),
+            "health": float(np.mean([r.health for r in rows])),
+            "board": float(np.mean([r.board for r in rows])),
+            "actions": float(np.mean([sum(r.actions.values()) for r in rows])),
+            "kinds": kinds,
+        }
+        if with_probe:
+            vals = [r.probe for r in rows if r.probe is not None]
+            if vals:
+                entry["probe"] = float(np.mean(vals))
+                entry["probe_se"] = float(np.std(vals) / math.sqrt(len(vals)))
+        table[turn] = entry
+    return table
+
+
+def _behavior(seats: list[list[Any]], table: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    rows = [s for stats in seats for s in stats]
+    return {
+        "tier_at": {t: table[t]["tier"] if t in table else None for t in TIER_TURNS},
+        "gold_left": float(np.mean([r.gold_left for r in rows])) if rows else None,
+        "actions_per_turn": float(np.mean([sum(r.actions.values()) for r in rows])) if rows else None,
+    }
+
+
+def rate(
+    agent: Any,
+    ladder: str = "fast",
+    games: int | None = None,
+    seed: int | None = None,
+    config: LobbyConfig | None = None,
+    player: Player | None = None,
+    options: PlayOptions | None = None,
+    probe: ProbeSpec | None = ProbeSpec(),
+    workers: int | None = None,
+    replay_dir: str | None = None,
+    max_replays: int = 4,
+) -> dict[str, Any]:
+    """Rate `agent` (a bot name, a checkpoint path or a `(model_config, state_dict)` pair) on the
+    named ladder. Returns a JSON-serializable result (see the module docstring and `format_report`)."""
+    lad = LADDERS[ladder]
+    config = config or LobbyConfig()
+    if config.duos or config.players != 8:
+        raise ValueError("the ladders are 8-player Solo lobbies")
+    games = lad.games if games is None else games
+    seed = lad.seed if seed is None else seed
+    sources: dict[str, Any] = {}
+    if isinstance(agent, str) and agent in BOTS:
+        controller, agent_label = agent, agent
+    else:
+        controller = AGENT
+        sources[AGENT] = agent
+        agent_label = "<state_dict>" if isinstance(agent, (tuple, list)) else str(agent)
+    pairs = ladder_specs(lad, games, seed, controller, probe is not None)
+    specs = [s for s, _ in pairs]
+    agent_units = {s.seed: u for s, u in pairs}
+    options = dataclasses.replace(options or PlayOptions(), turn_stats=True, probe=probe)
+    if replay_dir:
+        options = dataclasses.replace(options, keep_replays=True)
+
+    t0 = time.time()
+    own_player = player is None
+    if player is None:
+        player = Player(workers if workers is not None else default_workers())
+    try:
+        results = player.play(config, specs, sources, options, record=(), seed=seed)
+    finally:
+        if own_player:
+            player.close()
+    by_seed = {r.seed: r for r in results}
+    results = [by_seed[s.seed] for s in specs]
+    if replay_dir:
+        for r in results[:max_replays]:
+            r.save_replay(os.path.join(replay_dir, f"solo_{r.seed}.replay.pb"))
+
+    # Group the seats: the agent's, and each anchor's (in a Solo lobby, a unit is a player).
+    places: dict[str, list[list[int]]] = {}
+    seat_stats: dict[str, list[list[Any]]] = {}
+    for r in results:
+        mine = agent_units[r.seed]
+        lobby: dict[str, list[int]] = {}
+        for u in range(config.units):
+            group = AGENT if u in mine else r.controllers[u]
+            lobby.setdefault(group, []).append(int(r.placements[u]))
+            seat_stats.setdefault(group, []).append(r.turn_stats[u])
+        for group, ps in lobby.items():
+            places.setdefault(group, []).append(ps)
+    commit, dirty = _commit_info()
+    by_turn: dict[str, Any] = {}
+    behavior: dict[str, Any] = {}
+    for group, seats in seat_stats.items():
+        table = _turn_table(seats, with_probe=group == AGENT)
+        by_turn[group] = table
+        behavior[group] = _behavior(seats, table)
+    anchors = sorted(g for g in places if g != AGENT)
+    return {
+        "meta": {
+            "ladder": lad.name,
+            "anchors": list(lad.anchors),
+            "agent_seats": lad.agent_seats,
+            "games": games,
+            "seed": seed,
+            "agent": agent_label,
+            "commit": commit,
+            "dirty": dirty,
+            "engine": _engine_fingerprint(),
+            "config": dataclasses.asdict(config),
+            "probe": dataclasses.asdict(probe) if probe is not None else None,
+            "probe_library": library_summary(library_for(probe, config)) if probe is not None else None,
+            "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "seconds": round(time.time() - t0, 1),
+        },
+        "agent": _place_stats(places[AGENT]),
+        "anchors": {a: _place_stats(places[a]) for a in anchors},
+        "by_turn": {AGENT: by_turn[AGENT], **{a: by_turn[a] for a in anchors}},
+        "behavior": {AGENT: behavior[AGENT], **{a: behavior[a] for a in anchors}},
+        "lobbies": [{"seed": r.seed, "agent_places": [int(r.placements[u]) for u in agent_units[r.seed]]} for r in results],
+    }
+
+
+# -- Reports --------------------------------------------------------------------------------------
+
+
+def _turns(table: dict[Any, Any]) -> dict[int, dict[str, Any]]:
+    """A by-turn table with int keys (JSON turns them into strings)."""
+    return {int(k): v for k, v in table.items()}
+
+
+def _line(name: str, s: dict[str, Any]) -> str:
+    return (
+        f"{name}: avg place {s['avg_place']:.2f} ± {2 * s['stderr']:.2f} (2σ) | top 4 {s['top4']:.0%} | "
+        f"1st {s['first']:.0%} | {s['seat_games']} seat-games"
+    )
+
+
+def _mean(entries: list[dict[str, Any]], key: str) -> float:
+    w = sum(e["n"] for e in entries)
+    return sum(e[key] * e["n"] for e in entries) / w if w else float("nan")
+
+
+def format_report(res: dict[str, Any]) -> str:
+    meta = res["meta"]
+    commit = (meta["commit"] or "?")[:8] + (" (dirty)" if meta.get("dirty") else "")
+    lines = [
+        f"{meta['ladder']} ladder | {meta['agent']} | {meta['games']} lobbies | seed {meta['seed']} | "
+        f"commit {commit} | engine {meta['engine'] or '?'} | {meta['seconds']:.0f}s",
+        _line("agent", res["agent"]),
+    ]
+    for name, s in res["anchors"].items():
+        lines.append(_line("  " + name, s))
+    tables = {k: _turns(v) for k, v in res["by_turn"].items()}
+    agent = tables[AGENT]
+    anchors = [t for k, t in tables.items() if k != AGENT]
+    has_probe = any("probe" in e for e in agent.values())
+    lines.append("turn alive  tier  gold health board  acts buys rolls lvls" + ("  probe" if has_probe else "") + "  | anchors' tier")
+
+    def row(label: str, entries: list[dict[str, Any]], anc: list[dict[str, Any]]) -> str:
+        n_all = sum(e["n"] for e in entries)
+        probes = [e for e in entries if "probe" in e]
+        probe = ""
+        if has_probe:
+            probe = f"  {_mean(probes, 'probe'):5.2f}" if probes else "      -"
+        alive = max(e["alive"] for e in entries)
+        kinds = lambda k: sum(e["kinds"][k] * e["n"] for e in entries) / n_all  # noqa: E731
+        return (
+            f"{label:>4} {alive:4.0%} {_mean(entries, 'tier'):5.1f} {_mean(entries, 'gold_left'):5.1f} "
+            f"{_mean(entries, 'health'):6.1f} {_mean(entries, 'board'):5.1f} {_mean(entries, 'actions'):5.1f} "
+            f"{kinds('buy'):4.1f} {kinds('refresh'):5.1f} {kinds('upgrade_tavern'):4.1f}{probe}  | "
+            + (f"{_mean(anc, 'tier'):.1f}" if anc else "-")
+        )
+
+    shown = [t for t in sorted(agent) if t <= 15]
+    for t in shown:
+        lines.append(row(str(t), [agent[t]], [a[t] for a in anchors if t in a]))
+    later = [t for t in sorted(agent) if t > 15]
+    if later:
+        lines.append(
+            row("16+", [agent[t] for t in later], [a[t] for a in anchors for t in a if t > 15])
+        )
+    return "\n".join(lines)
+
+
+def format_summary(res: dict[str, Any]) -> str:
+    meta, a = res["meta"], res["agent"]
+    parts = [
+        f"{meta['ladder']} ladder: avg place {a['avg_place']:.2f} ± {2 * a['stderr']:.2f} (2σ)",
+        f"top 4 {a['top4']:.0%}",
+        f"1st {a['first']:.0%}",
+    ]
+    table = _turns(res["by_turn"][AGENT])
+    probes = [f"T{t} {table[t]['probe']:.2f}" for t in (4, 7, 10) if t in table and "probe" in table[t]]
+    if probes:
+        parts.append("probe " + " ".join(probes))
+    parts.append(f"{meta['games']} lobbies")
+    return " | ".join(parts)
+
+
+# -- Comparing ------------------------------------------------------------------------------------
+
+
+def compare(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    """The difference in average place, `a - b` (negative: `a` is better). Both must be ratings on
+    the same ladder."""
+    ma, mb = a["meta"], b["meta"]
+    if ma["ladder"] != mb["ladder"] or list(ma["anchors"]) != list(mb["anchors"]):
+        raise ValueError("the results are from different ladders")
+    diff = a["agent"]["avg_place"] - b["agent"]["avg_place"]
+    se = math.sqrt(a["agent"]["stderr"] ** 2 + b["agent"]["stderr"] ** 2)
+    out: dict[str, Any] = {
+        "ladder": ma["ladder"],
+        "a": {"agent": ma["agent"], "avg_place": a["agent"]["avg_place"], "stderr": a["agent"]["stderr"]},
+        "b": {"agent": mb["agent"], "avg_place": b["agent"]["avg_place"], "stderr": b["agent"]["stderr"]},
+        "diff": diff,
+        "se": se,
+        "agree": abs(diff) <= 2 * se,
+        "paired": None,
+    }
+    seeds_a = [lob["seed"] for lob in a["lobbies"]]
+    seeds_b = [lob["seed"] for lob in b["lobbies"]]
+    if ma["seed"] == mb["seed"] and seeds_a == seeds_b and seeds_a:
+        d = np.asarray(
+            [np.mean(x["agent_places"]) - np.mean(y["agent_places"]) for x, y in zip(a["lobbies"], b["lobbies"])]
+        )
+        n = len(d)
+        pse = float(d.std(ddof=1) / math.sqrt(n)) if n > 1 else 0.0
+        out["paired"] = {
+            "lobbies": n,
+            "diff": float(d.mean()),
+            "se": pse,
+            "z": float(d.mean() / pse) if pse > 0 else None,
+        }
+    warnings = []
+    for key in ("commit", "dirty", "engine"):
+        if ma.get(key) != mb.get(key):
+            warnings.append(f"{key} differs: {ma.get(key)} vs {mb.get(key)}")
+    if ma.get("config") != mb.get("config"):
+        warnings.append("lobby configs differ")
+    out["warnings"] = warnings
+    return out
+
+
+def format_compare(c: dict[str, Any]) -> str:
+    lines = [
+        f"{c['ladder']} ladder",
+        f"a: {c['a']['agent']}: {c['a']['avg_place']:.2f} ± {2 * c['a']['stderr']:.2f} (2σ)",
+        f"b: {c['b']['agent']}: {c['b']['avg_place']:.2f} ± {2 * c['b']['stderr']:.2f} (2σ)",
+        f"a - b: {c['diff']:+.2f} ± {2 * c['se']:.2f} (2σ) | "
+        + ("within noise (agree)" if c["agree"] else "outside 2σ (differ)"),
+    ]
+    p = c.get("paired")
+    if p:
+        z = f"{p['z']:+.1f}" if p["z"] is not None else "n/a"
+        lines.append(f"paired over {p['lobbies']} lobbies: {p['diff']:+.2f} ± {2 * p['se']:.2f} (2σ), z {z}")
+    lines += [f"warning: {w}" for w in c["warnings"]]
+    return "\n".join(lines)
+
+
+# -- Command line ---------------------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    r = sub.add_parser("rate", help="rate an agent on a ladder")
+    r.add_argument("agent", help="a checkpoint, or a bot name")
+    r.add_argument("--ladder", choices=sorted(LADDERS), default="fast")
+    r.add_argument("--games", type=int, default=None, help="default: the ladder's own size")
+    r.add_argument("--seed", type=int, default=None, help="default: the ladder's own seed")
+    r.add_argument("--workers", type=int, default=default_workers(), help="default: $SEAGLASS_WORKERS, else half the cores")
+    r.add_argument("--no-probe", action="store_true")
+    r.add_argument("--deterministic", action="store_true", help="take the most likely action")
+    r.add_argument(
+        "--max-steps-per-turn", type=int, default=None, help="default: the checkpoint's training setting, else 30"
+    )
+    r.add_argument("--out", default=None, metavar="FILE.json", help="write the full result here")
+    r.add_argument("--json", action="store_true", help="print the full result as JSON")
+    r.add_argument("--replays", default=None, metavar="DIR", help="save a few games as replays in DIR")
+    c = sub.add_parser("compare", help="compare two result files")
+    c.add_argument("a")
+    c.add_argument("b")
+    c.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.cmd == "rate":
+        opts = dataclasses.replace(
+            checkpoint_options(args.agent),
+            deterministic=args.deterministic,
+            **({"max_steps_per_turn": args.max_steps_per_turn} if args.max_steps_per_turn else {}),
+        )
+        res = rate(
+            args.agent,
+            ladder=args.ladder,
+            games=args.games,
+            seed=args.seed,
+            options=opts,
+            probe=None if args.no_probe else ProbeSpec(),
+            workers=args.workers,
+            replay_dir=args.replays,
+        )
+        if args.out:
+            os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(res, f, indent=1)
+        print(json.dumps(res) if args.json else format_report(res))
+    else:
+        loaded = []
+        for path in (args.a, args.b):
+            with open(path, encoding="utf-8") as f:
+                loaded.append(json.load(f))
+        out = compare(*loaded)
+        print(json.dumps(out) if args.json else format_compare(out))
+
+
+if __name__ == "__main__":
+    main()

@@ -14,11 +14,13 @@ Each iteration:
 2. **Update**: PPO on the learner's decisions (`ppo.py`). The reward is the unit's placement
    (`play.placement_reward`), plus optional potential-based shaping (`--shaping`). Discounting
    happens per turn.
-3. **Every `--eval-every` iterations**: evaluate the learner's average place, alone against
-   HeuristicBots (`evaluate.py`), and save `latest.pt`.
+3. **Every `--eval-every` iterations**: rate the learner on a ladder of rule bots (`--eval-ladder`,
+   default `fast`: `ladder.py`, 500 lobbies, with the per-turn probe), and save `latest.pt`.
+   `--eval-ladder heuristic` keeps the older, weaker check: alone against HeuristicBots
+   (`evaluate.py`).
 
-The run directory holds `args.json`, `log.jsonl` (one line per iteration), `latest.pt` and
-`snapshots/iter_XXXXX.pt`.
+The run directory holds `args.json`, `log.jsonl` (one line per iteration), `latest.pt`,
+`snapshots/iter_XXXXX.pt` and `evals/iter_XXXXX.json` (the full ladder results).
 """
 
 from __future__ import annotations
@@ -36,9 +38,11 @@ import torch
 from . import checkpoint
 from .behavior import behavior_stats, format_behavior
 from .device import add_device_arg, cpu_state_dict, default_threads, default_workers, empty_cache, pick_device
+from . import ladder
 from .evaluate import evaluate, format_result
 from .model import BattlegroundsMLP
 from .play import LobbyConfig, LEARNER, GameSpec, Player, PlayOptions
+from .probe import ProbeSpec
 from .ppo import build_batch, ppo_update
 from .transformer import EntityTransformer
 
@@ -108,7 +112,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     add_device_arg(p)
     # Evaluation
     p.add_argument("--eval-every", type=int, default=20)
-    p.add_argument("--eval-games", type=int, default=96)
+    p.add_argument(
+        "--eval-ladder",
+        choices=("fast", "slow", "heuristic"),
+        default=None,
+        help="what the evaluation plays: a ladder of rule bots (`ladder.py`), or `heuristic`: alone against "
+        "HeuristicBots (default: fast in 8-player Solo, heuristic otherwise)",
+    )
+    p.add_argument(
+        "--eval-games",
+        type=int,
+        default=None,
+        help="lobbies per evaluation (default: the ladder's own size, 500 fast / 100 slow; 96 for heuristic)",
+    )
+    p.add_argument("--no-eval-probe", action="store_true", help="skip the per-turn board probe in ladder evaluations")
     p.add_argument("--replays", action="store_true", help="save a few eval games as replays in RUN_DIR/replays/iter_XXXXX")
     p.add_argument("--seed", type=int, default=0)
     return p.parse_args(argv)
@@ -207,6 +224,10 @@ def main(argv: list[str] | None = None) -> None:
     torch.set_num_threads(args.threads)
     rng = random.Random(args.seed)
     config = lobby_config(args)
+    if args.eval_ladder is None:
+        args.eval_ladder = "heuristic" if config.duos or config.players != 8 else "fast"
+    if args.eval_ladder != "heuristic" and (config.duos or config.players != 8):
+        raise SystemExit("the ladders are 8-player Solo lobbies: use --eval-ladder heuristic here")
     learner_units = args.learner_units or max(1, config.units // 2)
     if args.p_heuristic is None:
         args.p_heuristic = 0.0 if args.pure else 0.3
@@ -293,20 +314,43 @@ def main(argv: list[str] | None = None) -> None:
                 pool = (pool + [str(snap)])[-args.pool_size :]
             if it % args.eval_every == 0 or it == start + args.iterations:
                 checkpoint.save(run / "latest.pt", model, optimizer, iteration=it, args=vars(args))
-                res = evaluate(
-                    (dict(model.config), cpu_state_dict(model)),
-                    ["heuristic"],
-                    config,
-                    games=args.eval_games,
-                    agent_units=1,
-                    seed=999_000,
-                    player=player,
-                    options=play_options(args),
-                    replay_dir=str(run / "replays" / f"iter_{it:05d}") if args.replays else None,
-                )
-                row["eval_vs_heuristic"] = res
+                replays = str(run / "replays" / f"iter_{it:05d}") if args.replays else None
+                if args.eval_ladder == "heuristic":
+                    res = evaluate(
+                        (dict(model.config), cpu_state_dict(model)),
+                        ["heuristic"],
+                        config,
+                        games=args.eval_games or 96,
+                        agent_units=1,
+                        seed=999_000,
+                        player=player,
+                        options=play_options(args),
+                        replay_dir=replays,
+                    )
+                    row["eval_vs_heuristic"] = res
+                    print("  " + format_result(f"eval iter {it}", res), flush=True)
+                else:
+                    res = ladder.rate(
+                        (dict(model.config), cpu_state_dict(model)),
+                        ladder=args.eval_ladder,
+                        games=args.eval_games,
+                        config=config,
+                        player=player,
+                        options=play_options(args),
+                        probe=None if args.no_eval_probe else ProbeSpec(),
+                        replay_dir=replays,
+                    )
+                    (run / "evals").mkdir(exist_ok=True)
+                    (run / "evals" / f"iter_{it:05d}.json").write_text(json.dumps(res))
+                    row["eval"] = {
+                        "ladder": res["meta"]["ladder"],
+                        "games": res["meta"]["games"],
+                        "agent": res["agent"],
+                        "tier": {t: e["tier"] for t, e in res["by_turn"]["agent"].items()},
+                        "probe": {t: e["probe"] for t, e in res["by_turn"]["agent"].items() if "probe" in e},
+                    }
+                    print("  " + ladder.format_summary(res), flush=True)
                 row["behavior"] = behavior_stats(trajs)
-                print("  " + format_result(f"eval iter {it}", res), flush=True)
                 print(format_behavior(row["behavior"]), flush=True)
             print(
                 f"iter {it:5d} | place {row['learner_place']:.2f} | steps {row['steps']:6d} | "
