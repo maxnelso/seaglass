@@ -23,6 +23,10 @@ Rewards (for the recorded seats):
   potential-based, it changes no optimal policy and only moves credit earlier: the board's strength
   while building it, the damage when it is taken.
 - **Discounting per turn**: `gamma` applies when a turn ends (`turn_end`), not at every action.
+
+Turn stats (`PlayOptions.turn_stats`, Solo only) record every living player's board, Tier, Gold and
+actions as each turn's shopping ends. With `PlayOptions.probe`, the boards of `GameSpec.probe_units`
+are also scored against a library of reference boards (`probe.py`).
 """
 
 from __future__ import annotations
@@ -32,7 +36,7 @@ import multiprocessing as mp
 import os
 import random
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import seaglass
@@ -50,6 +54,9 @@ from .gamerbot import NineKGamerBot
 from .env import compute_board_power
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
 from .model import BattlegroundsMLP
+
+if TYPE_CHECKING:
+    from .probe import ProbeSpec
 
 LEARNER = "learner"
 BOTS = ("heuristic", "random", "9kgamerbot", "9kgamerbot-tempo", "apex", "sovereign")
@@ -177,6 +184,11 @@ class PlayOptions:
     # Record the models' value and log-probability with their actions, and keep every game's
     # replay (`GameResult.replay`, for `match_replay`).
     keep_replays: bool = False
+    # Collect `GameResult.turn_stats` for every player (Solo only).
+    turn_stats: bool = False
+    # With `turn_stats`: also score the end-of-turn board of each unit in `GameSpec.probe_units`
+    # against the reference library (`probe.py`).
+    probe: "ProbeSpec | None" = None
 
 
 @dataclass
@@ -185,6 +197,21 @@ class GameSpec:
 
     seed: int
     controllers: list[str]
+    # The units whose boards are probed (`PlayOptions.probe`).
+    probe_units: tuple[int, ...] = ()
+
+
+@dataclass
+class TurnStat:
+    """One player's turn, as it stood when the shopping ended (before the combats)."""
+
+    turn: int
+    tier: int  # Tavern Tier
+    gold_left: int  # Gold unspent
+    health: int  # Health + Armor
+    board: int  # minions on the board
+    actions: dict[str, int]  # actions taken this turn, by kind
+    probe: float | None = None  # `probe.score_board` of the board, for probed units
 
 
 @dataclass
@@ -239,6 +266,9 @@ class GameResult:
     trajectories: list[dict[str, np.ndarray]]
     # The game's replay (protobuf bytes), with `PlayOptions.keep_replays`.
     replay: bytes | None = None
+    # Each player's turns (`PlayOptions.turn_stats`; empty without it): one entry per turn in which
+    # the player's unit was alive when the shopping ended.
+    turn_stats: list[list[TurnStat]] = field(default_factory=list)
 
     def save_replay(self, path: str | os.PathLike[str]) -> None:
         if self.replay is None:
@@ -262,6 +292,8 @@ class _Seat:
         self.arranging = False
         self.moves_left = 0
         self.froze = False
+        # The actions taken this phase, by kind.
+        self.kinds: dict[str, int] = {}
 
 
 def _bot(controller: str, seed: int) -> Any | None:
@@ -290,10 +322,24 @@ def play_games(
     models: dict[str, BattlegroundsMLP],
     options: PlayOptions | None = None,
     record: tuple[str, ...] = (LEARNER,),
+    *,
+    on_turn_end: Callable[[int, int, seaglass.LobbyGame, Any], None] | None = None,
 ) -> list[GameResult]:
     """Play `specs` to the end, in lockstep. `models` maps every model controller's name to its
-    model. The seats of the `record` controllers are returned as trajectories."""
+    model. The seats of the `record` controllers are returned as trajectories.
+
+    `on_turn_end(g, p, game, obs)` is called for every living player of game `g` when a turn's
+    shopping ends, before the combats. It is for in-process use (the probe library builder).
+    """
     opts = options or PlayOptions()
+    if (opts.turn_stats or opts.probe is not None) and config.duos:
+        raise ValueError("turn stats and the probe are Solo-only")
+    library = None
+    if opts.probe is not None:
+        from . import probe
+
+        library = probe.library_for(opts.probe, config)
+    stats: list[list[list[TurnStat]]] = [[[] for _ in range(config.players)] for _ in specs]
     games = [
         config.make(spec.seed, meta={"source": "seaglass_rl.play", "controllers": ",".join(spec.controllers)})
         for spec in specs
@@ -385,6 +431,7 @@ def play_games(
                 st.arranging = False
                 st.moves_left = 0
                 st.froze = False
+                st.kinds = {}
         step = 0
         while True:
             # Who acts now: every player still to act, unless they are over the step cap. In Duos,
@@ -455,6 +502,34 @@ def play_games(
                     model_step(g, p, int(acts[i]), note, board)
         for g in live:
             game = games[g]
+            if (opts.turn_stats or on_turn_end is not None) and game.phase == "turn":
+                alive = game.alive
+                for p in range(config.players):
+                    unit = game.unit_of(p)
+                    if not alive[unit]:
+                        continue
+                    obs = game.observe(p)
+                    if on_turn_end is not None:
+                        on_turn_end(g, p, game, obs)
+                    if opts.turn_stats:
+                        stat = TurnStat(
+                            turn=game.turn,
+                            tier=obs.tavern_tier,
+                            gold_left=obs.gold,
+                            health=obs.health + obs.armor,
+                            board=len(obs.board),
+                            actions=dict(seats[g][p].kinds),
+                        )
+                        if opts.probe is not None and unit in specs[g].probe_units:
+                            stat.probe = probe.score_board(
+                                library,
+                                obs.board,
+                                obs.tavern_tier,
+                                game.turn,
+                                seed=specs[g].seed * 1_000_003 + p * 1_009 + game.turn,
+                                sims=opts.probe.sims,
+                            )
+                        stats[g][p].append(stat)
             for unit in game.end_phase():
                 place = game.placements[unit]
                 assert place is not None
@@ -474,6 +549,7 @@ def play_games(
                 turns=game.turn,
                 trajectories=trajs,
                 replay=bytes(game.replay_bytes()) if opts.keep_replays else None,
+                turn_stats=stats[g] if opts.turn_stats else [],
             )
         )
     return results
@@ -510,6 +586,8 @@ def _apply(game: seaglass.LobbyGame, p: int, st: _Seat, idx: int, note: dict[str
     """Take action `idx` for player `p`; mark the end of their turn on their trajectory."""
     done = game.step(p, action_from_index(idx), note)
     st.steps += 1
+    kind = ACTION_KINDS[ACTION_KIND_IDS[idx]]
+    st.kinds[kind] = st.kinds.get(kind, 0) + 1
     if done and st.traj is not None and st.traj.actions:
         st.traj.turn_end[-1] = True
 
