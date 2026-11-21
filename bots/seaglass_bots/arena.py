@@ -23,9 +23,6 @@ class LobbyActor(Protocol):
     ) -> seaglass.TavernAction: ...
 
 
-MAX_ACTIONS_PER_TURN = 80
-
-
 def run_solo_benchmark(
     num_games: int = 8,
     bot_kind: str = "beam",
@@ -93,15 +90,13 @@ def run_solo_benchmark(
             for p in list(lobby.active_players()):
                 is_search = seat_to_group[p].startswith("Search")
                 t0 = time.perf_counter() if (is_search and is_turn) else 0.0
-                steps = 0
-                while not lobby.is_done(p) and steps < MAX_ACTIONS_PER_TURN:
+                while not lobby.is_done(p):
                     act = bots[p].act_in_lobby(lobby, p)
                     if not lobby.is_legal(p, act):
                         lobby.force_end(p)
                         break
                     note = getattr(bots[p], "last_note", None)
                     lobby.step(p, act, note=note)
-                    steps += 1
                     if is_search and is_turn:
                         search_actions_count += 1
                 if not lobby.is_done(p):
@@ -200,15 +195,13 @@ def run_duos_benchmark(
             for p in list(lobby.active_players()):
                 is_ours = lobby.unit_of(p) == our_team
                 t0 = time.perf_counter() if (is_ours and is_turn) else 0.0
-                steps = 0
-                while not lobby.is_done(p) and steps < MAX_ACTIONS_PER_TURN:
+                while not lobby.is_done(p):
                     act = bots[p].act_in_lobby(lobby, p)
                     if not lobby.is_legal(p, act):
                         lobby.force_end(p)
                         break
                     note = getattr(bots[p], "last_note", None)
                     lobby.step(p, act, note=note)
-                    steps += 1
                 if not lobby.is_done(p):
                     lobby.force_end(p)
                 if is_ours and is_turn:
@@ -296,15 +289,13 @@ def run_head2head_benchmark(
             for p in list(lobby.active_players()):
                 is_v2 = seat_to_group[p] == "SearchV2"
                 t0 = time.perf_counter() if (is_v2 and is_turn) else 0.0
-                steps = 0
-                while not lobby.is_done(p) and steps < MAX_ACTIONS_PER_TURN:
+                while not lobby.is_done(p):
                     act = bots[p].act_in_lobby(lobby, p)
                     if not lobby.is_legal(p, act):
                         lobby.force_end(p)
                         break
                     note = getattr(bots[p], "last_note", None)
                     lobby.step(p, act, note=note)
-                    steps += 1
                 if not lobby.is_done(p):
                     lobby.force_end(p)
                 if is_v2 and is_turn:
