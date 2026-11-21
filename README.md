@@ -7,6 +7,29 @@ Seaglass is a Hearthstone Battlegrounds simulation engine and reinforcement lear
 
 ---
 
+## Project Goals
+
+- **Long term:** a patch-friendly simulator, sparring partner, superhuman opponent, and grader of human replays, for Solos and Duos.
+- **Short term:** one fixed patch and Solos only.
+- **Target architecture for the eventual opponent:** AlphaZero-style, with no human-written search heuristics or play rules.
+  - "AlphaZero-style" means researchers, human or agent, design the method: the policy and value networks, the search (MCTS or an equivalent), the shape of the network, and the training loop. The agent then learns to play by self-play.
+  - It rules out human game knowledge inside the agent. There are no lines of code like "always roll with 1 Gold left unless you plan to freeze", and no hand-engineered features at that level of specificity.
+  - The hand-written bots in [`rl/`](rl/README.md) and [`bots/`](bots/README.md) are scaffolding: strong opponents to bootstrap from and fixed points to measure against.
+
+The neural opponent's objective is linear in placement: one point per opponent beaten, so 7 points for 1st and 0 for 8th.
+
+### Near-Term Sprint
+
+The current sprint is about strength in Solos. The plan, the critique behind it, and the measurements are in [`docs/neural-opponents-sprint.md`](docs/neural-opponents-sprint.md). In order:
+
+1. **Measure.** One command that rates any agent on a fixed ladder of opponents, with enough games to tell agents apart.
+2. **Fix the learner, then run it at scale.** Whole-game credit assignment, a placement critic, no stat-sum shaping, a stronger warm start, and one run of 100,000 games or more.
+3. **Raise throughput**, in parallel. Move observation encoding out of Python and batch inference.
+4. **Add search inside the turn**, scored by the learned critic, and use it as the teacher.
+5. **Freeze `bots/`** as a reference opponent and teacher.
+
+---
+
 ## Architecture & Separation of Concerns
 
 Seaglass enforces a strict boundary between **game rules** and **machine learning**:
@@ -29,6 +52,7 @@ Seaglass enforces a strict boundary between **game rules** and **machine learnin
 ```text
 seaglass/
 ├── README.md          # Workspace overview (this file)
+├── docs/              # Project plans (neural-opponents-sprint.md)
 ├── engine/            # Rust crate (`seaglass`): Tavern + Combat engine & PyO3 bindings
 │   ├── README.md
 │   ├── Cargo.toml
