@@ -82,6 +82,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--prune", action="store_true", help="mask the sells and refreshes `prune_dominated` rules out")
     # Collection
     p.add_argument("--iterations", type=int, default=500)
+    p.add_argument(
+        "--time-limit",
+        type=float,
+        default=None,
+        metavar="HOURS",
+        help="stop after the first iteration that ends past this many hours, with a final save and evaluation",
+    )
     p.add_argument("--games", type=int, default=64, help="lobbies per iteration")
     p.add_argument(
         "--workers",
@@ -382,7 +389,9 @@ def main(argv: list[str] | None = None) -> None:
                 snap = run / "snapshots" / f"iter_{it:05d}.pt"
                 checkpoint.save(snap, model, iteration=it, args=vars(args))
                 pool = pool + [str(snap)]
-            if it % args.eval_every == 0 or it == start + args.iterations:
+            out_of_time = args.time_limit is not None and time.time() - t_start >= args.time_limit * 3600
+            last = it == start + args.iterations or out_of_time
+            if it % args.eval_every == 0 or last:
                 checkpoint.save(run / "latest.pt", model, optimizer, iteration=it, args=vars(args))
                 replays = str(run / "replays" / f"iter_{it:05d}") if args.replays else None
                 if args.eval_ladder == "heuristic":
@@ -431,6 +440,9 @@ def main(argv: list[str] | None = None) -> None:
             )
             log.write(json.dumps(row) + "\n")
             log.flush()
+            if out_of_time:
+                print(f"time limit of {args.time_limit} hours reached after iteration {it}", flush=True)
+                break
     finally:
         log.close()
         player.close()

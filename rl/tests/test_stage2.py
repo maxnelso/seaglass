@@ -246,3 +246,17 @@ def test_reset_critic_head_gives_a_uniform_place(arch: str) -> None:
             return_value_logits=True,
         )
     assert torch.allclose(logits, torch.zeros_like(logits)) and torch.allclose(value, torch.zeros_like(value), atol=1e-6)
+
+
+def test_train_lobby_time_limit_stops_with_a_final_save(tmp_path) -> None:
+    from seaglass_rl import train_lobby
+
+    run = tmp_path / "run"
+    train_lobby.main(
+        ["--run-dir", str(run), "--iterations", "5", "--games", "2", "--workers", "0", "--threads", "1",
+         "--minibatch", "256", "--eval-every", "100", "--eval-games", "2", "--max-turns", "6", "--players", "4",
+         "--time-limit", "0", "--device", "cpu"]
+    )
+    _, ckpt = checkpoint.load(run / "latest.pt")
+    assert ckpt["iteration"] == 1
+    assert len((run / "log.jsonl").read_text().splitlines()) == 1
