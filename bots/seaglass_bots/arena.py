@@ -10,6 +10,7 @@ from typing import Dict, List, Protocol
 import seaglass
 
 from .apex_search import ApexBot
+from .architect import ArchitectBot
 from .baseline import GreedyLevelBot, SemiRandomBot, TempoBot
 from .duos import DuosSequentialRolloutBot
 from .search import ExpectimaxMctsBot, ShopEpochBeamBot
@@ -63,7 +64,9 @@ def run_solo_benchmark(
             s_seed = seed + logical_idx * 13
             if logical_idx in (0, 1):
                 seat_to_group[seat] = f"Search({bot_kind})"
-                if bot_kind == "sovereign":
+                if bot_kind == "architect":
+                    bots[seat] = ArchitectBot(seed=s_seed)
+                elif bot_kind == "sovereign":
                     bots[seat] = SovereignBot(seed=s_seed)
                 elif bot_kind == "apex":
                     bots[seat] = ApexBot(seed=s_seed)
@@ -349,7 +352,7 @@ def run_head2head_benchmark(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seaglass Python Search Bots Arena")
     parser.add_argument("--mode", choices=["solo", "duos", "both", "head2head"], default="both")
-    parser.add_argument("--bot", choices=["sovereign", "apex", "beam", "mcts"], default="sovereign")
+    parser.add_argument("--bot", choices=["architect", "sovereign", "apex", "beam", "mcts"], default="sovereign")
     parser.add_argument("--games", type=int, default=6)
     parser.add_argument("--seed", type=int, default=1000)
     parser.add_argument("--replay-dir", type=str, default=None)

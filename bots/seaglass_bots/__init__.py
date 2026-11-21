@@ -6,6 +6,7 @@ from .apex_knowledge import ApexKnowledge, get_apex_knowledge
 from .apex_model import ApexValueNet, ApexValuePredictor
 from .apex_positioning import ApexPositioner
 from .apex_search import ApexBot
+from .architect import ArchitectBot, ArchitectEvaluator, ArchitectPositioner, CompPlanner
 from .baseline import GreedyLevelBot, SemiRandomBot, TempoBot
 from .belief import LobbyBeliefFilter
 from .catalog_meta import CardMetaDB
@@ -22,6 +23,10 @@ from .sovereign_search import SovereignBot
 from .value_model import SynergyValueNet, SynergyValuePredictor
 
 __all__ = [
+    "ArchitectBot",
+    "ArchitectEvaluator",
+    "ArchitectPositioner",
+    "CompPlanner",
     "SovereignBot",
     "SovereignEvaluator",
     "SovereignBeliefTracker",
