@@ -19,6 +19,7 @@ import torch
 
 from .actions import ACTION_SPACE_SIZE
 from .card_features import STATIC_DIM
+from .device import cpu_state_dict, to_cpu
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, VOCAB_SIZE
 from .model import BattlegroundsMLP
 from .transformer import EntityTransformer
@@ -62,14 +63,14 @@ def save(
     ckpt = {
         "model_class": type(model).__name__,
         "model_config": dict(model.config),
-        "model_state": model.state_dict(),
+        "model_state": cpu_state_dict(model),
         "feature_spec": dict(FEATURE_SPEC),
         "iteration": iteration,
         "args": dict(args or {}),
         "extra": dict(extra or {}),
     }
     if optimizer is not None:
-        ckpt["optimizer_state"] = optimizer.state_dict()
+        ckpt["optimizer_state"] = to_cpu(optimizer.state_dict())
     tmp = path.with_suffix(path.suffix + ".tmp")
     torch.save(ckpt, tmp)
     os.replace(tmp, path)

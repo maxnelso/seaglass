@@ -15,3 +15,10 @@ All game rules, turn transitions, and batch combat simulations stay in Rust (`en
 - `seaglass_bots/duos.py`: **Sequential Multi-Agent Rollout** coordinator for `DuosTavern` (`Pass` synergy and carry/support coordination).
 - `seaglass_bots/baseline.py`: Baseline opponent bots (`SemiRandomBot`, `TempoBot`, and `GreedyLevelBot`) for league evaluation.
 - `seaglass_bots/arena.py`: Full 8-player Solo, Head-to-Head (`v2` vs `v1`), and 4-team Duos `LobbyGame` benchmark runner with placement metrics, per-turn latency stats, and `.replay.pb` recording.
+
+## Training devices
+
+- The trainers (`train_value.py`, `train_apex.py`, `train_sovereign.py`, and `architect/train_*.py`) run their gradient updates on CUDA if present, else Apple's GPU (MPS), else the CPU. Pass `--device cpu|mps|cuda|cuda:N|auto` or set `$SEAGLASS_DEVICE`; the flag wins.
+- MPS trains in float32 (FP16 autocast and the grad scaler are CUDA-only). Self-play, data collection and inference inside bots stay on the CPU, in worker processes.
+- `--workers` defaults to half the CPU cores (capped at each trainer's old default) and the trainer process uses half the cores (at most 8) for torch threads. Override with `$SEAGLASS_WORKERS` / `$SEAGLASS_THREADS`, for example while another job shares the machine.
+- Always pass an explicit output path (`--out`, `--out-weights`, `--out-ckpt`, `--run-dir`): the defaults overwrite the bundled weights in `seaglass_bots/data/`.

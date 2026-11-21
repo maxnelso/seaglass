@@ -16,6 +16,7 @@ import seaglass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, pick_device
 
 from .baseline import GreedyLevelBot, TempoBot
 from .evaluator import LeafEvaluator
@@ -322,8 +323,10 @@ def train_synergy_net(
     n_heads: int = 4,
     n_layers: int = 2,
     warm_ckpt: Optional[Path] = None,
+    device: Optional[str] = None,
 ) -> SynergyValueNet:
-    torch.set_num_threads(max(1, min(8, (os.cpu_count() or 4) // 2)))
+    torch.set_num_threads(default_threads())
+    dev = pick_device(device)
     featurizer = StateFeaturizer("full")
     meta = featurizer.meta
     tag_mat = np.asarray(meta.tag_matrix, dtype=np.float32)
@@ -339,6 +342,7 @@ def train_synergy_net(
     if warm_ckpt is not None and warm_ckpt.is_file():
         prev = torch.load(str(warm_ckpt), map_location="cpu", weights_only=False)
         net.load_state_dict(prev["state_dict"], strict=True)
+    net.to(dev)
 
     # Split train / val strictly by game_id (90% / 10%) so zero states leak across games!
     unique_games = np.unique(dataset["game_id"])
@@ -384,17 +388,11 @@ def train_synergy_net(
 
         for start in range(0, n_train, batch_size):
             idx = perm[start : start + batch_size]
-            logits, power_pred = net(
-                tr_data["vocab"][idx],
-                tr_data["slot"][idx],
-                tr_data["pos"][idx],
-                tr_data["num"][idx],
-                tr_data["mask"][idx],
-                tr_data["glob"][idx],
-            )
-            ce_per = F.cross_entropy(logits, tr_data["place"][idx], reduction="none", label_smoothing=0.03)
-            mse_per = F.smooth_l1_loss(power_pred, tr_data["power"][idx], reduction="none")
-            w = tr_data["weight"][idx]
+            b = {k: v[idx].to(dev) for k, v in tr_data.items()}
+            logits, power_pred = net(b["vocab"], b["slot"], b["pos"], b["num"], b["mask"], b["glob"])
+            ce_per = F.cross_entropy(logits, b["place"], reduction="none", label_smoothing=0.03)
+            mse_per = F.smooth_l1_loss(power_pred, b["power"], reduction="none")
+            w = b["weight"]
             loss = ((ce_per + 0.15 * mse_per) * w).mean()
 
             optimizer.zero_grad()
@@ -410,14 +408,12 @@ def train_synergy_net(
         # Held-out validation evaluation.
         net.eval()
         with torch.inference_mode():
-            v_logits, v_pow = net(
-                va_data["vocab"],
-                va_data["slot"],
-                va_data["pos"],
-                va_data["num"],
-                va_data["mask"],
-                va_data["glob"],
-            )
+            v_chunks = []
+            for vs in range(0, n_val, 4096):
+                vb = {k: v[vs : vs + 4096].to(dev) for k, v in va_data.items()}
+                lg, _ = net(vb["vocab"], vb["slot"], vb["pos"], vb["num"], vb["mask"], vb["glob"])
+                v_chunks.append(lg.float().cpu())
+            v_logits = torch.cat(v_chunks, dim=0)
             v_ce = float(F.cross_entropy(v_logits, va_data["place"]).item())
             v_probs = F.softmax(v_logits, dim=-1).numpy()
             v_util = v_probs @ place_weights_np
@@ -427,7 +423,6 @@ def train_synergy_net(
             top4_acc = 100.0 * float((true_top4 == pred_top4).mean())
             # Higher utility should correspond to better (smaller) placement index -> negate place.
             rho = _spearman_corr(v_util, -true_places.astype(np.float32))
-            _ = v_pow
 
         if v_ce < best_val_loss:
             best_val_loss = v_ce
@@ -443,6 +438,7 @@ def train_synergy_net(
         net.load_state_dict(best_state)
 
     out_ckpt.parent.mkdir(parents=True, exist_ok=True)
+    net.cpu()
     torch.save(
         {
             "state_dict": net.state_dict(),
@@ -464,10 +460,14 @@ def main() -> None:
     parser.add_argument("--iter0-games", type=int, default=160)
     parser.add_argument("--iter1-games", type=int, default=160)
     parser.add_argument("--epochs", type=int, default=16)
-    parser.add_argument("--workers", type=int, default=max(1, min(20, (os.cpu_count() or 8) - 2)))
+    parser.add_argument("--workers", type=int, default=default_workers(cap=20),
+                        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 20)")
     parser.add_argument("--seed", type=int, default=30000)
     parser.add_argument("--out", type=str, default=str(DEFAULT_CHECKPOINT_PATH))
+    add_device_arg(parser)
     args = parser.parse_args()
+    torch.set_num_threads(default_threads())
+    print(f"Training device: {pick_device(args.device)}")
 
     out_path = Path(args.out)
     print(f"=== Expert Iteration Round 0: Generating {args.iter0_games} diverse 8-player lobbies ({args.workers} workers) ===")
@@ -479,7 +479,7 @@ def main() -> None:
         iter_idx=0,
         workers=args.workers,
     )
-    train_synergy_net(ds0, out_path, epochs=args.epochs)
+    train_synergy_net(ds0, out_path, epochs=args.epochs, device=args.device)
 
     if args.iter1_games > 0:
         print(f"\n=== Expert Iteration Round 1: Generating {args.iter1_games} Neural+Physics lobbies ({args.workers} workers) ===")
@@ -500,6 +500,7 @@ def main() -> None:
             epochs=args.epochs,
             lr=1.5e-3,
             warm_ckpt=out_path,
+            device=args.device,
         )
 
     predictor = get_value_predictor("full", checkpoint_path=out_path, force_reload=True)

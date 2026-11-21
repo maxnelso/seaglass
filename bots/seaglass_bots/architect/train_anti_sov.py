@@ -39,6 +39,7 @@ import seaglass
 import torch
 
 from seaglass_rl import checkpoint as rl_ckpt
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, empty_cache, pick_device
 from seaglass_rl.actions import ACTION_TO_INDEX, END_TURN_INDEX, action_from_index, action_mask
 from seaglass_rl.features import encode_observation
 from seaglass_rl.model import sample_categorical
@@ -272,7 +273,12 @@ def main() -> None:
     p.add_argument("--run-dir", required=True)
     p.add_argument("--iterations", type=int, default=60)
     p.add_argument("--games", type=int, default=16)
-    p.add_argument("--workers", type=int, default=8)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=8),
+        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 8)",
+    )
     p.add_argument("--n-sov", type=int, default=3)
     p.add_argument("--sov-beam", type=int, default=5)
     p.add_argument("--lr", type=float, default=8.0e-5)
@@ -280,9 +286,11 @@ def main() -> None:
     p.add_argument("--no-reposition", action="store_true")
     p.add_argument("--fast-pos", action="store_true", help="Apply <0.1ms pure-keyword EOT positioning on learner seats.")
     p.add_argument("--seed", type=int, default=777)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(args.device)
     run = Path(args.run_dir)
     (run / "snapshots").mkdir(parents=True, exist_ok=True)
 
@@ -367,8 +375,7 @@ def main() -> None:
         )
         del res_list, trajs, batch
         gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        empty_cache(dev)
     finally:
         pool.close()
         pool.join()

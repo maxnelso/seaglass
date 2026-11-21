@@ -44,6 +44,7 @@ import torch
 import torch.nn.functional as F
 
 from seaglass_rl.actions import ACTION_TO_INDEX, END_TURN_INDEX, action_from_index, action_mask
+from seaglass_rl.device import add_device_arg, default_threads, empty_cache, pick_device
 from seaglass_rl.features import encode_observation
 from seaglass_rl.play import Seat
 
@@ -522,8 +523,8 @@ def eval_unseen_samples(
             _, _, _, pl_logits, aux_pred = model.forward_all_heads(pv, ci, nf, None)
             ce = float(F.cross_entropy(pl_logits, pl, reduction="sum").item())
             aux_l = float(
-                F.smooth_l1_loss(aux_pred[:, :2], aux_t[:, :2], reduction="mean").item()
-                + 0.5 * F.binary_cross_entropy_with_logits(aux_pred[:, 2], aux_t[:, 2], reduction="mean").item()
+                F.smooth_l1_loss(aux_pred[:, :2].contiguous(), aux_t[:, :2].contiguous(), reduction="mean").item()
+                + 0.5 * F.binary_cross_entropy_with_logits(aux_pred[:, 2].contiguous(), aux_t[:, 2].contiguous(), reduction="mean").item()
             ) * len(chunk)
             tot_ce += ce
             tot_aux += aux_l
@@ -584,8 +585,8 @@ def train_gumbel_step(
         v_mse = F.smooth_l1_loss(val_pred, v_boot)
 
         # 4. Dense Auxiliary Trajectory Loss (future stats + next HP + survive t+2)
-        aux_reg = F.smooth_l1_loss(aux_pred[:, :2], aux_t[:, :2])
-        aux_surv = F.binary_cross_entropy_with_logits(aux_pred[:, 2], aux_t[:, 2])
+        aux_reg = F.smooth_l1_loss(aux_pred[:, :2].contiguous(), aux_t[:, :2].contiguous())
+        aux_surv = F.binary_cross_entropy_with_logits(aux_pred[:, 2].contiguous(), aux_t[:, 2].contiguous())
         aux_loss = aux_reg + 0.5 * aux_surv
 
         loss = (
@@ -601,7 +602,7 @@ def train_gumbel_step(
         if gm_anchor is not None and gm_anchor_weight > 0.0:
             n_gm = len(gm_anchor["ac"])
             gi = rng.integers(0, n_gm, size=min(256, n_gm))
-            g_pv = torch.from_numpy(gm_anchor["pv"][gi]).to(dev)
+            g_pv = torch.from_numpy(gm_anchor["pv"][gi].astype(np.float32)).to(dev)
             g_ci = torch.from_numpy(gm_anchor["ci"][gi].astype(np.int64)).to(dev)
             g_nf = torch.from_numpy(gm_anchor["nf"][gi].astype(np.float32)).to(dev)
             g_mk = torch.from_numpy(gm_anchor["mk"][gi]).to(dev)
@@ -658,9 +659,14 @@ def main() -> None:
     p.add_argument("--weight-decay", type=float, default=1.0e-3)
     p.add_argument("--lr", type=float, default=1.0e-4)
     p.add_argument("--seed", type=int, default=1001)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(args.device)
+    # Worker processes stay on the CPU when the trainer uses MPS (one Metal context per process would
+    # multiply memory on unified-memory machines); CUDA workers keep the training device.
+    worker_dev = "cpu" if dev.type == "mps" else str(dev)
     run = Path(args.run_dir)
     (run / "snapshots").mkdir(parents=True, exist_ok=True)
 
@@ -672,7 +678,7 @@ def main() -> None:
         pool = ctx_mp.Pool(
             processes=args.num_workers,
             initializer=_gumbel_worker_init,
-            initargs=(args.init_ckpt, list(args.anchor_ckpts), str(dev)),
+            initargs=(args.init_ckpt, list(args.anchor_ckpts), worker_dev),
         )
     else:
         opp_models = [AmberNet.from_any_checkpoint(args.init_ckpt).to(dev)]
@@ -826,8 +832,7 @@ def main() -> None:
             )
             if it % 5 == 0:
                 gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                empty_cache(dev)
     finally:
         if pool is not None:
             pool.close()

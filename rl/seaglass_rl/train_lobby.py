@@ -3,6 +3,7 @@
     python -m seaglass_rl.train_lobby --run-dir runs/solo --iterations 500
     python -m seaglass_rl.train_lobby --run-dir runs/duos --duos --iterations 500
     python -m seaglass_rl.train_lobby --run-dir runs/solo --resume runs/solo/latest.pt
+    python -m seaglass_rl.train_lobby --run-dir runs/solo --device mps  # updates on the GPU (auto: CUDA, MPS, CPU)
     python -m seaglass_rl.train_lobby --run-dir runs/solo-tf --model transformer  # `transformer.py`
 
 Each iteration:
@@ -34,6 +35,7 @@ import torch
 
 from . import checkpoint
 from .behavior import behavior_stats, format_behavior
+from .device import add_device_arg, cpu_state_dict, default_threads, default_workers, empty_cache, pick_device
 from .evaluate import evaluate, format_result
 from .model import BattlegroundsMLP
 from .play import LobbyConfig, LEARNER, GameSpec, Player, PlayOptions
@@ -65,7 +67,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # Collection
     p.add_argument("--iterations", type=int, default=500)
     p.add_argument("--games", type=int, default=64, help="lobbies per iteration")
-    p.add_argument("--workers", type=int, default=12)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(),
+        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores)",
+    )
     p.add_argument("--learner-units", type=int, default=None, help="default: half the units")
     p.add_argument("--p-heuristic", type=float, default=None, help="chance an opponent is a HeuristicBot (default 0.3; 0 with --pure)")
     p.add_argument(
@@ -92,7 +99,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # Model
     add_model_args(p)
     p.add_argument("--no-kind-prior", action="store_true", help="spread the untrained policy over actions, not kinds")
-    p.add_argument("--threads", type=int, default=8, help="torch threads for the update")
+    p.add_argument(
+        "--threads",
+        type=int,
+        default=default_threads(),
+        help="torch threads for the update (default: $SEAGLASS_THREADS, else half the cores, at most 8)",
+    )
+    add_device_arg(p)
     # Evaluation
     p.add_argument("--eval-every", type=int, default=20)
     p.add_argument("--eval-games", type=int, default=96)
@@ -188,6 +201,8 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     run = Path(args.run_dir)
     (run / "snapshots").mkdir(parents=True, exist_ok=True)
+    device = pick_device(args.device)
+    args.device = str(device)
     torch.manual_seed(args.seed)
     torch.set_num_threads(args.threads)
     rng = random.Random(args.seed)
@@ -206,7 +221,7 @@ def main(argv: list[str] | None = None) -> None:
         model, _ = checkpoint.load(args.init)
     else:
         model = build_model(args, kind_prior=not args.no_kind_prior)
-    model.eval()
+    model.to(device).eval()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, eps=1e-5)
     if args.resume and "optimizer_state" in ckpt:
         optimizer.load_state_dict(ckpt["optimizer_state"])
@@ -217,7 +232,7 @@ def main(argv: list[str] | None = None) -> None:
     print(
         f"[{'Duos' if config.duos else 'Solo'}] {config.players} players, learner in {learner_units}/"
         f"{config.units} units{' (pure self-play: every unit until the first snapshot)' if args.pure else ''}, "
-        f"{args.games} games/iter, {n_params / 1e6:.2f}M params",
+        f"{args.games} games/iter, {n_params / 1e6:.2f}M params, device {device}",
         flush=True,
     )
     player = Player(args.workers)
@@ -243,7 +258,7 @@ def main(argv: list[str] | None = None) -> None:
             specs = make_specs(
                 config, args.games, learner_units, pool, args.p_heuristic, rng, seed=args.seed * 10_000_019 + it * 1000
             )
-            source = (dict(model.config), {k: v.detach().clone() for k, v in model.state_dict().items()})
+            source = (dict(model.config), cpu_state_dict(model))
             sources: dict[str, Any] = {LEARNER: source}
             sources.update({p: p for p in pool})
             results = player.play(config, specs, sources, play_options(args), seed=it)
@@ -261,6 +276,7 @@ def main(argv: list[str] | None = None) -> None:
                 ent_coef=args.ent_coef,
                 target_kl=args.target_kl,
             )
+            empty_cache(device)
             places = [r.placements[u] for r in results for u in range(config.units) if r.controllers[u] == LEARNER]
             row: dict[str, Any] = {
                 "iter": it,
@@ -278,7 +294,7 @@ def main(argv: list[str] | None = None) -> None:
             if it % args.eval_every == 0 or it == start + args.iterations:
                 checkpoint.save(run / "latest.pt", model, optimizer, iteration=it, args=vars(args))
                 res = evaluate(
-                    (dict(model.config), model.state_dict()),
+                    (dict(model.config), cpu_state_dict(model)),
                     ["heuristic"],
                     config,
                     games=args.eval_games,

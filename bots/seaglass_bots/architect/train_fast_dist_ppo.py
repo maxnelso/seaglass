@@ -41,6 +41,7 @@ import torch
 
 from seaglass_rl import checkpoint as rl_ckpt
 from seaglass_rl.actions import END_TURN_INDEX, action_from_index, action_mask
+from seaglass_rl.device import add_device_arg, default_threads, empty_cache, pick_device
 from seaglass_rl.features import encode_observation
 from seaglass_rl.play import Seat
 from seaglass_rl.ppo import build_batch
@@ -458,9 +459,11 @@ def main() -> None:
     p.add_argument("--minibatch", type=int, default=4096)
     p.add_argument("--warmup-iters", type=int, default=-1, help="Frozen-encoder dist_critic warmup iters (-1=auto)")
     p.add_argument("--seed", type=int, default=933)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(args.device)
     run = Path(args.run_dir)
     (run / "snapshots").mkdir(parents=True, exist_ok=True)
 
@@ -526,7 +529,7 @@ def main() -> None:
                 if len(opp_cache) >= 3:
                     evict_k = next(iter(opp_cache))
                     del opp_cache[evict_k]
-                    torch.cuda.empty_cache()
+                    empty_cache(dev)
                 opp_cache[opp_path] = _load_gpu_model(opp_path, dev)
             opp_model = opp_cache[opp_path]
 
@@ -625,8 +628,7 @@ def main() -> None:
             del gpu_res, trajs, batch, pl_all
             if it % 4 == 0:
                 gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                empty_cache(dev)
     finally:
         if sov_pool is not None:
             sov_pool.close()

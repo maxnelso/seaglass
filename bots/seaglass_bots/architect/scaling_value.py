@@ -36,6 +36,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from seaglass_rl.card_features import STATIC_DIM, static_card_table
+from seaglass_rl.device import add_device_arg, default_threads, pick_device
 from seaglass_rl.features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, VOCAB_SIZE
 from seaglass_rl.transformer import MAX_ZONE_POSITIONS, ZONE_NAMES, _slot_layout
 
@@ -199,11 +200,13 @@ def main() -> None:
     p.add_argument("--weight-decay", type=float, default=1.0e-2)
     p.add_argument("--subsample", type=int, default=3, help="Keep 1 in N steps per game to cut intra-game correlation")
     p.add_argument("--seed", type=int, default=77)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(args.device)
 
     paths = sorted(glob.glob(args.shard_glob))
     keys = ("pv", "ci", "nf", "pl", "fs", "gid")
@@ -256,7 +259,7 @@ def main() -> None:
         perm = rng.permutation(tr_idx)
         for i in range(0, len(perm), args.batch_size):
             idx = perm[i : i + args.batch_size]
-            pv = torch.from_numpy(data["pv"][idx]).to(dev)
+            pv = torch.from_numpy(data["pv"][idx].astype(np.float32)).to(dev)
             ci = torch.from_numpy(data["ci"][idx].astype(np.int64)).to(dev)
             nf = torch.from_numpy(data["nf"][idx].astype(np.float32)).to(dev)
             pl = torch.from_numpy(data["pl"][idx].astype(np.int64)).to(dev)
@@ -281,7 +284,7 @@ def main() -> None:
         with torch.inference_mode():
             for i in range(0, len(va_idx), args.batch_size):
                 idx = va_idx[i : i + args.batch_size]
-                pv = torch.from_numpy(data["pv"][idx]).to(dev)
+                pv = torch.from_numpy(data["pv"][idx].astype(np.float32)).to(dev)
                 ci = torch.from_numpy(data["ci"][idx].astype(np.int64)).to(dev)
                 nf = torch.from_numpy(data["nf"][idx].astype(np.float32)).to(dev)
                 pl = torch.from_numpy(data["pl"][idx].astype(np.int64)).to(dev)

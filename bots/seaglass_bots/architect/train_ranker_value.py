@@ -37,6 +37,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from seaglass_rl.device import add_device_arg, default_threads, pick_device
+
 from .scaling_value import ScalingValueTransformer, _ordinal_target
 
 
@@ -101,12 +103,14 @@ def main() -> None:
     p.add_argument("--weight-decay", type=float, default=1.2e-2)
     p.add_argument("--subsample", type=int, default=3)
     p.add_argument("--seed", type=int, default=77)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     rng = np.random.default_rng(args.seed)
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(args.device)
 
     # Load ONLY shards with real per-turn timestamps (`gm_shard_0*.npz` — skip legacy96 which has tn=0)
     paths = sorted(p_s for p_s in glob.glob(args.shard_glob) if "legacy" not in os.path.basename(p_s))
@@ -183,7 +187,7 @@ def main() -> None:
             both = np.concatenate([wi, li], axis=0)
             b_n = len(wi)
 
-            pv = torch.from_numpy(data["pv"][both]).to(dev)
+            pv = torch.from_numpy(data["pv"][both].astype(np.float32)).to(dev)
             ci = torch.from_numpy(data["ci"][both].astype(np.int64)).to(dev)
             nf = torch.from_numpy(data["nf"][both].astype(np.float32)).to(dev)
             pl = torch.from_numpy(data["pl"][both].astype(np.int64)).to(dev)
@@ -214,7 +218,7 @@ def main() -> None:
         with torch.inference_mode():
             for i in range(0, len(va_idx), 512):
                 idx = va_idx[i : i + 512]
-                pv = torch.from_numpy(data["pv"][idx]).to(dev)
+                pv = torch.from_numpy(data["pv"][idx].astype(np.float32)).to(dev)
                 ci = torch.from_numpy(data["ci"][idx].astype(np.int64)).to(dev)
                 nf = torch.from_numpy(data["nf"][idx].astype(np.float32)).to(dev)
                 pl = torch.from_numpy(data["pl"][idx].astype(np.int64)).to(dev)
@@ -233,7 +237,7 @@ def main() -> None:
                 li = va_l[i : i + 256]
                 b_n = len(wi)
                 both = np.concatenate([wi, li], axis=0)
-                pv = torch.from_numpy(data["pv"][both]).to(dev)
+                pv = torch.from_numpy(data["pv"][both].astype(np.float32)).to(dev)
                 ci = torch.from_numpy(data["ci"][both].astype(np.int64)).to(dev)
                 nf = torch.from_numpy(data["nf"][both].astype(np.float32)).to(dev)
                 ev, _, pred_fs, p1_lg = model(pv, ci, nf)

@@ -3,6 +3,7 @@
     python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400
     python -m seaglass_rl.pretrain --out runs/bc-duos.pt --duos --games 400
     python -m seaglass_rl.pretrain --out runs/bc-solo-tf.pt --model transformer --games 400
+    python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400 --device mps  # updates on the GPU
     python -m seaglass_rl.train_lobby --run-dir runs/solo --init runs/bc-solo.pt
 
 An untrained policy places last against HeuristicBots almost every game. From there, a reward
@@ -26,6 +27,7 @@ import torch
 import torch.nn as nn
 
 from . import checkpoint
+from .device import add_device_arg, default_threads, default_workers, pick_device
 from .play import LobbyConfig, GameSpec, Player
 from .ppo import gae
 from .train_lobby import play_options
@@ -65,6 +67,7 @@ def train(
     perm = rng.permutation(n)
     n_val = max(1, int(n * holdout))
     val, tr = perm[:n_val], perm[n_val:]
+    device = next(model.parameters()).device
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
     def tensors(idx: np.ndarray) -> tuple:
@@ -83,7 +86,7 @@ def train(
         rng.shuffle(tr)
         t0 = time.time()
         for start in range(0, len(tr), minibatch):
-            pv, ci, nf, mk, act, ret = tensors(tr[start : start + minibatch])
+            pv, ci, nf, mk, act, ret = (t.to(device) for t in tensors(tr[start : start + minibatch]))
             logits, value = model(pv, ci, nf, mk)
             loss = nn.functional.cross_entropy(logits, act) + vf_coef * (value - ret).pow(2).mean()
             opt.zero_grad(set_to_none=True)
@@ -94,7 +97,7 @@ def train(
         correct, vloss, ce = 0, 0.0, 0.0
         with torch.no_grad():
             for start in range(0, n_val, minibatch):
-                pv, ci, nf, mk, act, ret = tensors(val[start : start + minibatch])
+                pv, ci, nf, mk, act, ret = (t.to(device) for t in tensors(val[start : start + minibatch]))
                 logits, value = model(pv, ci, nf, mk)
                 correct += int((logits.argmax(-1) == act).sum())
                 ce += float(nn.functional.cross_entropy(logits, act, reduction="sum"))
@@ -116,14 +119,17 @@ def main() -> None:
     p.add_argument("--duos", action="store_true")
     p.add_argument("--players", type=int, default=8)
     p.add_argument("--games", type=int, default=400)
-    p.add_argument("--workers", type=int, default=12)
+    p.add_argument("--workers", type=int, default=default_workers(), help="default: $SEAGLASS_WORKERS, else half the cores")
     p.add_argument("--epochs", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--minibatch", type=int, default=2048)
     add_model_args(p)
-    p.add_argument("--threads", type=int, default=12)
+    p.add_argument("--threads", type=int, default=default_threads(), help="default: $SEAGLASS_THREADS, else half the cores")
+    add_device_arg(p)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
+    device = pick_device(args.device)
+    args.device = str(device)  # recorded with the checkpoint's args
     torch.manual_seed(args.seed)
     torch.set_num_threads(args.threads)
 
@@ -133,7 +139,7 @@ def main() -> None:
     t0 = time.time()
     data = collect(config, args.games, args.workers, play_options(targs), seed=10_000_000 + args.seed)
     print(f"{len(data['actions'])} decisions from {args.games} games in {time.time() - t0:.0f}s", flush=True)
-    model = build_model(args, kind_prior=True)
+    model = build_model(args, kind_prior=True).to(device)
     stats = train(model, data, args.epochs, args.lr, args.minibatch, seed=args.seed)
     checkpoint.save(args.out, model, iteration=0, args=vars(args), extra={"bc": stats})
     print(f"saved {args.out}", flush=True)

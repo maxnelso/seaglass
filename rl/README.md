@@ -51,7 +51,7 @@ python -m seaglass_rl.evaluate runs/duos/latest.pt --duos --games 200
 
 The policy's logits get a **kind prior** (`model.py`, on for `train_lobby`): each is lowered by log(number of legal actions of its kind). An untrained policy then picks among Buy, Play, Reposition, End Turn and the rest evenly, instead of mostly Repositioning: there are 42 Reposition actions and 1 End Turn.
 
-Each iteration plays `--games` lobbies (64) across `--workers` processes (12):
+Each iteration plays `--games` lobbies (64) across `--workers` processes (default: half the cores):
 - **Who plays.** The learner controls `--learner-units` units: half by default, so 4 Solo players or 2 Duos teams. In Duos both teammates use the learner's policy, each acting on their own Tavern. Each other unit is a HeuristicBot (`--p-heuristic`, 30%) or a frozen snapshot of the learner. Snapshots are taken every `--snapshot-every` iterations, and the last `--pool-size` are kept.
 - **Reward.** The unit's **placement**: +1 for first down to -1 for last, linear (`play.placement_reward`). A Duos team's two players share it.
 - **Optional shaping.** `--shaping` (default 0.3) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier.
@@ -68,6 +68,15 @@ Every `--eval-every` iterations, the learner plays `--eval-games` lobbies alone 
 - `snapshots/iter_XXXXX.pt`.
 
 Evaluation. An agent as good as the field places `(units + 1) / 2` on average: 4.5 in Solo, 2.5 in Duos. Lower is better.
+
+### Devices and CPU use
+
+Self-play always runs on the CPU, in `--workers` processes. Only the gradient updates (`train_lobby`, `pretrain`) move to `--device`: `auto` (the default) picks CUDA, then Apple's MPS, then the CPU. Evaluation stays on the CPU. Checkpoints always hold CPU tensors, so they load anywhere.
+
+Three environment variables set the defaults for the whole machine; a flag wins over them:
+`SEAGLASS_DEVICE` (`auto`, `cpu`, `mps`, `cuda`), `SEAGLASS_WORKERS` (self-play processes) and `SEAGLASS_THREADS` (torch threads in the trainer). Without them, workers and threads default to half the cores (threads at most 8). While another job shares the machine, turn things down: `SEAGLASS_WORKERS=3 SEAGLASS_THREADS=2 python -m seaglass_rl.train_lobby --run-dir runs/solo`, or add `--device cpu` to leave the GPU to it.
+
+How much the GPU helps depends on the model's size. On an M-series Mac (MPS), the update of a 224-wide, 6-layer transformer runs about 2x faster than on the CPU, but the default MLP and the default 64-wide transformer gain little. The first iterations are slower while MPS compiles each new batch shape.
 
 ### Simplifications compared with the real game
 - No damage cap (`engine/docs/deferred.md`).

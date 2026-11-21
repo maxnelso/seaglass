@@ -23,6 +23,7 @@ from typing import Any
 
 import numpy as np
 
+from .device import default_workers
 from .play import LobbyConfig, BOTS, GameSpec, Player, PlayOptions
 
 AGENT = "agent"
@@ -114,7 +115,7 @@ def main() -> None:
     parser.add_argument("--players", type=int, default=8)
     parser.add_argument("--games", type=int, default=100)
     parser.add_argument("--agent-units", type=int, default=1)
-    parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--workers", type=int, default=default_workers(), help="default: $SEAGLASS_WORKERS, else half the cores")
     parser.add_argument("--seed", type=int, default=1_000_000)
     parser.add_argument("--max-turns", type=int, default=30)
     parser.add_argument("--no-heroes", action="store_true")

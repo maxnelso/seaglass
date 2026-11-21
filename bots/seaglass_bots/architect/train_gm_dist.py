@@ -41,6 +41,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from seaglass_rl.device import add_device_arg, default_threads, pick_device
+
 from .dist_transformer import DistEntityTransformer
 
 # Emphasize 1st & 2nd place winners in policy cloning while keeping critic 100% unbiased!
@@ -113,7 +115,7 @@ def eval_epoch(
     with torch.inference_mode():
         for i in range(0, len(val_idx), batch_size):
             idx = val_idx[i : i + batch_size]
-            pv = torch.from_numpy(data["pv"][idx]).to(dev, non_blocking=True)
+            pv = torch.from_numpy(data["pv"][idx].astype(np.float32)).to(dev, non_blocking=True)
             ci = torch.from_numpy(data["ci"][idx].astype(np.int64)).to(dev, non_blocking=True)
             nf = torch.from_numpy(data["nf"][idx].astype(np.float32)).to(dev, non_blocking=True)
             mk = torch.from_numpy(data["mk"][idx]).to(dev, non_blocking=True)
@@ -156,11 +158,13 @@ def main() -> None:
     p.add_argument("--val-frac", type=float, default=0.10)
     p.add_argument("--stream-shards", action="store_true", help="Stream 1 shard at a time (constant ~2-3 GiB RAM on 500k+ steps)")
     p.add_argument("--seed", type=int, default=42)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(args.device)
 
     rng = np.random.default_rng(args.seed)
     stream_train_paths: List[str] = []
@@ -267,7 +271,7 @@ def main() -> None:
             perm = rng.permutation(cur_idx)
             for i in range(0, len(perm), args.batch_size):
                 idx = perm[i : i + args.batch_size]
-                pv = torch.from_numpy(cur_data["pv"][idx]).to(dev, non_blocking=True)
+                pv = torch.from_numpy(cur_data["pv"][idx].astype(np.float32)).to(dev, non_blocking=True)
                 ci = torch.from_numpy(cur_data["ci"][idx].astype(np.int64)).to(dev, non_blocking=True)
                 nf = torch.from_numpy(cur_data["nf"][idx].astype(np.float32)).to(dev, non_blocking=True)
                 mk = torch.from_numpy(cur_data["mk"][idx]).to(dev, non_blocking=True)

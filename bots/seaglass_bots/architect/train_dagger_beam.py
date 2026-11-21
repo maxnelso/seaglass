@@ -41,6 +41,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, pick_device
 from seaglass_rl.features import encode_observation
 
 from .scaling_value import ScalingValueTransformer, _ordinal_target
@@ -182,10 +183,11 @@ def _retrain_scaling_value(
     gm_subsample: int,
     dagger_upsample: int,
     seed: int,
+    device: str | None = None,
 ) -> Dict[str, float]:
     torch.manual_seed(seed)
     np.random.seed(seed)
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(device)
 
     gm_paths = sorted(glob.glob(gm_glob))
     keys = ("pv", "ci", "nf", "pl", "fs", "gid")
@@ -255,7 +257,7 @@ def _retrain_scaling_value(
         perm = rng.permutation(tr_idx)
         for i in range(0, len(perm), 512):
             idx = perm[i : i + 512]
-            pv = torch.from_numpy(data["pv"][idx]).to(dev)
+            pv = torch.from_numpy(data["pv"][idx].astype(np.float32)).to(dev)
             ci = torch.from_numpy(data["ci"][idx].astype(np.int64)).to(dev)
             nf = torch.from_numpy(data["nf"][idx].astype(np.float32)).to(dev)
             pl = torch.from_numpy(data["pl"][idx].astype(np.int64)).to(dev)
@@ -279,7 +281,7 @@ def _retrain_scaling_value(
         with torch.inference_mode():
             for i in range(0, len(va_idx), 512):
                 idx = va_idx[i : i + 512]
-                pv = torch.from_numpy(data["pv"][idx]).to(dev)
+                pv = torch.from_numpy(data["pv"][idx].astype(np.float32)).to(dev)
                 ci = torch.from_numpy(data["ci"][idx].astype(np.int64)).to(dev)
                 nf = torch.from_numpy(data["nf"][idx].astype(np.float32)).to(dev)
                 pl = torch.from_numpy(data["pl"][idx].astype(np.int64)).to(dev)
@@ -319,7 +321,12 @@ def main() -> None:
     p.add_argument("--run-dir", required=True)
     p.add_argument("--rounds", type=int, default=5)
     p.add_argument("--games-per-round", type=int, default=24)
-    p.add_argument("--workers", type=int, default=3)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=3),
+        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 3)",
+    )
     p.add_argument("--beam-width", type=int, default=6)
     p.add_argument("--nw-schedule", default="2.2,2.8,3.4,4.0,4.6")
     p.add_argument("--p1-bonus", type=float, default=14.0)
@@ -329,7 +336,10 @@ def main() -> None:
     p.add_argument("--gm-subsample", type=int, default=5)
     p.add_argument("--dagger-upsample", type=int, default=3)
     p.add_argument("--seed", type=int, default=3030)
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
+    print(f"Training device: {pick_device(args.device)}", flush=True)
 
     run = Path(args.run_dir)
     run.mkdir(parents=True, exist_ok=True)
@@ -416,6 +426,7 @@ def main() -> None:
             gm_subsample=args.gm_subsample,
             dagger_upsample=args.dagger_upsample,
             seed=args.seed + r * 17,
+            device=args.device,
         )
         cur_ckpt = next_ckpt
 
