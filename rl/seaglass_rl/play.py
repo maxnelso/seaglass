@@ -213,6 +213,11 @@ class PlayOptions:
     # step and the hero phase are played by the policy). With `search=None` nothing changes.
     search: "SearchSpec | None" = None
     search_controllers: tuple[str, ...] = ()
+    # Auxiliary targets (Solo only): every recorded seat's end-of-turn board is scored with the probe
+    # (`probe.py`), and each recorded decision on turn t gets the probe scores of turns t + k for k in
+    # `aux_horizons` as `aux_target` / `aux_mask` (`Trajectory.arrays`). The fights are the added cost.
+    aux_probe: "ProbeSpec | None" = None
+    aux_horizons: tuple[int, ...] = (0, 2, 4)
 
 
 @dataclass
@@ -265,6 +270,29 @@ class Trajectory:
     # With search: each decision's improved policy (`SearchResult.policy_target`), zeros where the
     # decision was not searched. None without search.
     search_policy: list[np.ndarray] | None = None
+    # With `PlayOptions.aux_probe`: each decision's turn (0 in the hero phase), the seat's probe score
+    # by turn (a turn it was alive at the end of and the library covers), and the horizons.
+    decision_turn: list[int] | None = None
+    probe_by_turn: dict[int, float] = field(default_factory=dict)
+    aux_horizons: tuple[int, ...] = ()
+
+    def aux_arrays(self) -> tuple[np.ndarray, np.ndarray]:
+        """`(target float32 [T, H], mask bool [T, H])`: decision `i` on turn `t` has target
+        `probe(t + k)` for horizon `k`, masked out where that probe doesn't exist (the seat was
+        knocked out, the game ended, or the library has no boards then) and for the hero phase."""
+        turns = self.decision_turn or []
+        assert len(turns) == len(self.actions)
+        target = np.zeros((len(turns), len(self.aux_horizons)), dtype=np.float32)
+        mask = np.zeros(target.shape, dtype=np.bool_)
+        for i, t in enumerate(turns):
+            if t <= 0:
+                continue
+            for j, k in enumerate(self.aux_horizons):
+                v = self.probe_by_turn.get(t + k)
+                if v is not None:
+                    target[i, j] = v
+                    mask[i, j] = True
+        return target, mask
 
     def __len__(self) -> int:
         return len(self.actions)
@@ -285,6 +313,8 @@ class Trajectory:
             "done": np.asarray(self.done),
             "place": np.asarray(self.place, dtype=np.int64),
         }
+        if self.decision_turn is not None:
+            out["aux_target"], out["aux_mask"] = self.aux_arrays()
         if self.search_policy is not None:
             out["search_policy"] = np.asarray(self.search_policy, dtype=np.float16).reshape(-1, ACTION_SPACE_SIZE)
         sparse = bool(self.num_idx)
@@ -391,8 +421,8 @@ def play_games(
     shopping ends, before the combats. It is for in-process use (the probe library builder).
     """
     opts = options or PlayOptions()
-    if (opts.turn_stats or opts.probe is not None) and config.duos:
-        raise ValueError("turn stats and the probe are Solo-only")
+    if (opts.turn_stats or opts.probe is not None or opts.aux_probe is not None) and config.duos:
+        raise ValueError("turn stats, the probe and the auxiliary probe targets are Solo-only")
     searching = opts.search is not None and bool(opts.search_controllers)
     if searching and config.duos:
         raise ValueError("search is Solo-only")
@@ -407,6 +437,11 @@ def play_games(
         from . import probe
 
         library = probe.library_for(opts.probe, config)
+    aux_library = None
+    if opts.aux_probe is not None:
+        from . import probe
+
+        aux_library = probe.library_for(opts.aux_probe, config)
     stats: list[list[list[TurnStat]]] = [[[] for _ in range(config.players)] for _ in specs]
     games = [
         config.make(spec.seed, meta={"source": "seaglass_rl.play", "controllers": ",".join(spec.controllers)})
@@ -423,6 +458,9 @@ def play_games(
             if ctrl not in BOTS and ctrl not in models:
                 raise ValueError(f"no model for controller {ctrl!r}")
             traj = Trajectory(game=g, player=p) if ctrl in record else None
+            if traj is not None and opts.aux_probe is not None:
+                traj.decision_turn = []
+                traj.aux_horizons = tuple(opts.aux_horizons)
             if traj is not None and searching and ctrl in opts.search_controllers:
                 traj.search_policy = []
             row.append(_Seat(ctrl, _bot(ctrl, spec.seed * 16 + p), traj))
@@ -650,7 +688,14 @@ def play_games(
                     model_step(g, p, int(acts[i]), note, board)
         for g in live:
             game = games[g]
-            if (opts.turn_stats or on_turn_end is not None) and game.phase == "turn":
+            if opts.aux_probe is not None:
+                # Stamp this phase's decisions with their turn (0 in the hero phase).
+                for st in seats[g]:
+                    if st.traj is not None:
+                        st.traj.decision_turn.extend(
+                            [game.turn if game.phase == "turn" else 0] * (len(st.traj.actions) - len(st.traj.decision_turn))
+                        )
+            if (opts.turn_stats or opts.aux_probe is not None or on_turn_end is not None) and game.phase == "turn":
                 alive = game.alive
                 for p in range(config.players):
                     unit = game.unit_of(p)
@@ -659,6 +704,21 @@ def play_games(
                     obs = game.observe(p)
                     if on_turn_end is not None:
                         on_turn_end(g, p, game, obs)
+                    # One fight set per (seat, turn): the turn stat and the aux target share it.
+                    scores: dict[ProbeSpec, float | None] = {}
+
+                    def probe_of(spec: "ProbeSpec", lib: Any) -> float | None:
+                        if spec not in scores:
+                            scores[spec] = probe.score_board(
+                                lib,
+                                obs.board,
+                                obs.tavern_tier,
+                                game.turn,
+                                seed=specs[g].seed * 1_000_003 + p * 1_009 + game.turn,
+                                sims=spec.sims,
+                            )
+                        return scores[spec]
+
                     if opts.turn_stats:
                         stat = TurnStat(
                             turn=game.turn,
@@ -669,15 +729,13 @@ def play_games(
                             actions=dict(seats[g][p].kinds),
                         )
                         if opts.probe is not None and unit in specs[g].probe_units:
-                            stat.probe = probe.score_board(
-                                library,
-                                obs.board,
-                                obs.tavern_tier,
-                                game.turn,
-                                seed=specs[g].seed * 1_000_003 + p * 1_009 + game.turn,
-                                sims=opts.probe.sims,
-                            )
+                            stat.probe = probe_of(opts.probe, library)
                         stats[g][p].append(stat)
+                    traj = seats[g][p].traj
+                    if opts.aux_probe is not None and traj is not None:
+                        score = probe_of(opts.aux_probe, aux_library)
+                        if score is not None:
+                            traj.probe_by_turn[game.turn] = score
             for unit in game.end_phase():
                 place = game.placements[unit]
                 assert place is not None

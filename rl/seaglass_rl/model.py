@@ -53,6 +53,7 @@ class BattlegroundsMLP(nn.Module):
         kind_prior: bool = False,
         static_features: bool = False,
         value_places: int = 0,
+        aux_heads: int = 0,
     ) -> None:
         super().__init__()
         # The constructor's arguments, saved with checkpoints (`checkpoint.py`).
@@ -64,6 +65,7 @@ class BattlegroundsMLP(nn.Module):
             "kind_prior": kind_prior,
             "static_features": static_features,
             "value_places": value_places,
+            "aux_heads": aux_heads,
         }
         # Subtract log(number of legal actions of its kind) from each logit, so that an untrained
         # policy picks among the legal kinds evenly (`actions.ACTION_KIND_IDS`).
@@ -96,6 +98,11 @@ class BattlegroundsMLP(nn.Module):
         self.critic = nn.Linear(hidden_dim, value_places if value_places > 0 else 1)
         if value_places > 0:
             self.register_buffer("value_atoms", place_atoms(value_places), persistent=False)
+        # Auxiliary targets (`ppo_update(aux_coef=...)`): `aux_heads` logits from the trunk features,
+        # trained only by their own loss. Absent (no parameters) with 0, so old checkpoints load.
+        self.aux_heads = aux_heads
+        if aux_heads > 0:
+            self.aux = nn.Linear(hidden_dim, aux_heads)
         self._np_rng = np.random.default_rng(seed)
         self._x_buf = np.empty((32, self.in_dim), dtype=np.float32)
 
@@ -106,9 +113,12 @@ class BattlegroundsMLP(nn.Module):
         slot_num_feats: torch.Tensor,
         action_mask: torch.Tensor | None = None,
         return_value_logits: bool = False,
+        return_aux: bool = False,
     ) -> tuple[torch.Tensor, ...]:
         """Forward pass returning `(masked_logits, value)`; with `return_value_logits`,
-        `(masked_logits, value, value_logits)` (the place logits, None for a scalar critic)."""
+        `(masked_logits, value, value_logits)` (the place logits, None for a scalar critic); with
+        `return_aux` (either way), `(masked_logits, value, value_logits, aux_logits)` (the aux
+        logits `(B, aux_heads)`, None without aux heads)."""
         if self.static_features:
             emb = self.card_table()[slot_card_ids].flatten(start_dim=1)
         else:
@@ -130,6 +140,8 @@ class BattlegroundsMLP(nn.Module):
         else:
             value = out.squeeze(-1)
             value_logits = None
+        if return_aux:
+            return logits, value, value_logits, (self.aux(h) if self.aux_heads > 0 else None)
         if return_value_logits:
             return logits, value, value_logits
         return logits, value

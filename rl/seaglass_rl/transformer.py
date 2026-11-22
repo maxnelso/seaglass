@@ -197,6 +197,7 @@ class EntityTransformer(nn.Module):
         static_features: bool = True,
         arch: str = "transformer",
         value_places: int = 0,
+        aux_heads: int = 0,
     ) -> None:
         super().__init__()
         assert arch == "transformer", arch
@@ -216,6 +217,7 @@ class EntityTransformer(nn.Module):
             "static_features": static_features,
             "arch": arch,
             "value_places": value_places,
+            "aux_heads": aux_heads,
         }
         # The kind prior, as in `BattlegroundsMLP`.
         self.kind_prior = kind_prior
@@ -263,6 +265,11 @@ class EntityTransformer(nn.Module):
         )
         if value_places > 0:
             self.register_buffer("value_atoms", place_atoms(value_places), persistent=False)
+
+        # Auxiliary targets, as in `BattlegroundsMLP`: a linear head on the player token.
+        self.aux_heads = aux_heads
+        if aux_heads > 0:
+            self.aux = nn.Linear(d_model, aux_heads)
 
         # The policy: per-action scoring from the tokens each action is about.
         table = _action_table()
@@ -356,9 +363,12 @@ class EntityTransformer(nn.Module):
         slot_num_feats: torch.Tensor,
         action_mask: torch.Tensor | None = None,
         return_value_logits: bool = False,
+        return_aux: bool = False,
     ) -> tuple[torch.Tensor, ...]:
         """Forward pass returning `(masked_logits, value)`; with `return_value_logits`,
-        `(masked_logits, value, value_logits)` (the place logits, None for a scalar critic).
+        `(masked_logits, value, value_logits)` (the place logits, None for a scalar critic); with
+        `return_aux` (either way), `(masked_logits, value, value_logits, aux_logits)` (the aux
+        logits `(B, aux_heads)`, None without aux heads).
 
         With an `action_mask`, only the legal actions are scored (a few dozen of the 330); the
         others get the same -1e9 as in `BattlegroundsMLP`.
@@ -394,14 +404,21 @@ class EntityTransformer(nn.Module):
             pre = pre.index_add(0, with_tgt, self.w_tgt(h[tgt_tok]))
         scores = self.actor_out(torch.relu(pre)).squeeze(-1)
 
+        aux = self.aux(h_player) if return_aux and self.aux_heads > 0 else None
+
+        def pack(lg: torch.Tensor) -> tuple[torch.Tensor, ...]:
+            if return_aux:
+                return lg, value, value_logits, aux
+            return (lg, value, value_logits) if return_value_logits else (lg, value)
+
         if action_mask is None:
-            return (scores.view(B, A), value, value_logits) if return_value_logits else (scores.view(B, A), value)
+            return pack(scores.view(B, A))
         if self.kind_prior:
             counts = action_mask.float() @ self.kind_onehot  # (B, kinds)
             scores = scores - torch.log(counts[rows, self.act_kind[acts]].clamp(min=1.0))
         logits = torch.full((B, A), -1e9, dtype=scores.dtype, device=scores.device)
         logits = logits.index_put((rows, acts), scores)
-        return (logits, value, value_logits) if return_value_logits else (logits, value)
+        return pack(logits)
 
     def card_tokens(self) -> torch.Tensor:
         """Every card's part of its slot token, `(vocab_size, d_model)`: `card_in` of its learned

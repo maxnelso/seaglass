@@ -55,7 +55,9 @@ def build_batch(
     returns. `slot_num_feats` stays float16 (`ppo_update` casts each minibatch). Packed trajectories
     (`PlayOptions.pack`) stay packed (`num_ptr`, `num_idx`, `num_val`, `mask_bits`, as numpy arrays;
     `ppo_update` densifies each minibatch); packed and dense ones cannot be mixed. `places` is each
-    decision's trajectory's final place, 0-based (-1 if unknown): the placement critic's target."""
+    decision's trajectory's final place, 0-based (-1 if unknown): the placement critic's target.
+    When every trajectory has `aux_target` and `aux_mask` (`PlayOptions.aux_probe`), they are carried
+    too (float32 `[N, H]` and bool `[N, H]`)."""
     packed = [bool(tr["packed"]) if "packed" in tr else False for tr in trajectories]
     if any(packed) and not all(packed):
         raise ValueError("cannot batch packed and dense trajectories together")
@@ -91,6 +93,9 @@ def build_batch(
             "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"])),
             "action_mask": torch.from_numpy(np.concatenate(cols["action_mask"])),
         }
+    if all("aux_target" in tr for tr in trajectories) and trajectories:
+        feats["aux_target"] = torch.from_numpy(np.concatenate([tr["aux_target"] for tr in trajectories]))
+        feats["aux_mask"] = torch.from_numpy(np.concatenate([tr["aux_mask"] for tr in trajectories]))
     return {
         **feats,
         "player_vec": torch.from_numpy(np.concatenate(cols["player_vec"])),
@@ -115,17 +120,23 @@ def ppo_update(
     ent_coef: float = 0.01,
     max_grad_norm: float = 0.5,
     target_kl: float | None = 0.03,
+    aux_coef: float = 0.0,
 ) -> dict[str, float]:
     """Clipped PPO over shuffled minibatches, with the advantages normalized over the batch.
 
     Stops early once the approximate KL to the rollout policy passes `target_kl`. The batch stays
     on the CPU; each minibatch moves to the model's device.
+
+    With `aux_coef > 0`, a model with aux heads and a batch with `aux_target`/`aux_mask`, the loss
+    adds `aux_coef` times the binary cross-entropy of the aux logits against the probe targets,
+    averaged over the unmasked entries (0 if there are none). Reported as `aux_loss`.
     """
     device = next(model.parameters()).device
     n = batch["actions"].shape[0]
     adv = batch["advantages"]
     adv = (adv - adv.mean()) / (adv.std() + 1e-8) if n > 1 else adv
-    stats: dict[str, list[float]] = {"policy_loss": [], "value_loss": [], "entropy": [], "kl": [], "clip_frac": []}
+    stats: dict[str, list[float]] = {"policy_loss": [], "value_loss": [], "entropy": [], "kl": [], "clip_frac": [], "aux_loss": []}
+    aux_on = aux_coef > 0 and model.config.get("aux_heads", 0) > 0 and "aux_target" in batch
     placement = model.config.get("value_places", 0) > 0
     model.train()
     stop = False
@@ -146,7 +157,10 @@ def ppo_update(
                 feats.to(device),
                 mask.to(device),
             )
-            if placement:
+            aux_logits = None
+            if aux_on:
+                logits, values, value_logits, aux_logits = model(*args, return_aux=True)
+            elif placement:
                 logits, values, value_logits = model(*args, return_value_logits=True)
             else:
                 logits, values = model(*args)
@@ -165,6 +179,14 @@ def ppo_update(
             else:
                 value_loss = 0.5 * (values - batch["returns"][idx].to(device)).pow(2).mean()
             loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
+            aux_loss = torch.zeros(())
+            if aux_on:
+                w = batch["aux_mask"][idx].to(device).float()
+                bce = nn.functional.binary_cross_entropy_with_logits(
+                    aux_logits, batch["aux_target"][idx].to(device), weight=w, reduction="sum"
+                )
+                aux_loss = bce / w.sum() if w.sum() > 0 else bce * 0.0
+                loss = loss + aux_coef * aux_loss
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -176,6 +198,7 @@ def ppo_update(
             stats["policy_loss"].append(policy_loss.item())
             stats["value_loss"].append(value_loss.item())
             stats["entropy"].append(entropy.item())
+            stats["aux_loss"].append(aux_loss.item())
             if target_kl is not None and kl > 1.5 * target_kl:
                 stop = True
                 break

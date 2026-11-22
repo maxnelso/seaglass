@@ -159,6 +159,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="lobbies per evaluation (default: the ladder's own size, 500 fast / 100 slow; 96 for heuristic)",
     )
+    p.add_argument(
+        "--aux-coef",
+        type=float,
+        default=0.0,
+        help="weight of the auxiliary loss: predict the board's probe score (`probe.py`) at the turn horizons "
+        "of --aux-horizons ahead, from the trunk. 0: off. A fresh model gets one aux head per horizon",
+    )
+    p.add_argument(
+        "--aux-horizons",
+        default="0,2,4",
+        help="turns ahead the auxiliary head predicts the board probe at (comma-separated; 0 is this turn's board)",
+    )
     p.add_argument("--no-eval-probe", action="store_true", help="skip the per-turn board probe in ladder evaluations")
     p.add_argument("--replays", action="store_true", help="save a few eval games as replays in RUN_DIR/replays/iter_XXXXX")
     p.add_argument("--seed", type=int, default=0)
@@ -185,6 +197,19 @@ def add_model_args(p: argparse.ArgumentParser) -> None:
     )
 
 
+def aux_horizons(args: argparse.Namespace) -> tuple[int, ...]:
+    """`--aux-horizons` as a tuple when the auxiliary loss is on (`--aux-coef > 0`), else ()."""
+    if getattr(args, "aux_coef", 0.0) <= 0:
+        return ()
+    try:
+        hs = tuple(int(x) for x in args.aux_horizons.split(",") if x.strip())
+    except ValueError:
+        raise SystemExit(f"--aux-horizons: not a comma-separated list of integers: {args.aux_horizons!r}")
+    if not hs or any(h < 0 for h in hs):
+        raise SystemExit("--aux-horizons needs at least one non-negative integer")
+    return hs
+
+
 def build_model(args: argparse.Namespace, kind_prior: bool, units: int) -> torch.nn.Module:
     """A fresh model of the architecture `args` name (`add_model_args`), for a lobby of `units` units."""
     value_places = units if args.value_head == "placement" else 0
@@ -200,6 +225,7 @@ def build_model(args: argparse.Namespace, kind_prior: bool, units: int) -> torch
             kind_prior=kind_prior,
             static_features=not args.no_static_features,
             value_places=value_places,
+            aux_heads=len(aux_horizons(args)),
         )
     return BattlegroundsMLP(
         hidden_dim=args.hidden,
@@ -208,6 +234,7 @@ def build_model(args: argparse.Namespace, kind_prior: bool, units: int) -> torch
         kind_prior=kind_prior,
         static_features=not args.no_static_features,
         value_places=value_places,
+        aux_heads=len(aux_horizons(args)),
     )
 
 
@@ -222,8 +249,14 @@ def lobby_config(args: argparse.Namespace) -> LobbyConfig:
     )
 
 
-def play_options(args: argparse.Namespace, deterministic: bool = False) -> PlayOptions:
+def play_options(args: argparse.Namespace, deterministic: bool = False, aux: bool = False) -> PlayOptions:
+    """The rollout rules of `args`. With `aux` (training rollouts only) and `--aux-coef > 0`, the
+    recorded seats also get the probe targets."""
+    horizons = aux_horizons(args) if aux else ()
     return PlayOptions(
+        # Its own reference boards (another seed), so the ladder's probe stays an independent check.
+        aux_probe=ProbeSpec(seed=32_000_000) if horizons else None,
+        aux_horizons=horizons or (0, 2, 4),
         max_steps_per_turn=args.max_steps_per_turn,
         positioning_phase=not args.no_positioning_phase,
         allow_reposition=not args.no_reposition,
@@ -312,6 +345,12 @@ def main(argv: list[str] | None = None) -> None:
         model, _ = checkpoint.load(args.init)
     else:
         model = build_model(args, kind_prior=not args.no_kind_prior, units=config.units)
+    if args.aux_coef > 0 and model.config.get("aux_heads", 0) != len(aux_horizons(args)):
+        raise SystemExit(
+            f"--aux-coef with --aux-horizons {args.aux_horizons} needs {len(aux_horizons(args))} aux heads, but "
+            f"the {'--resume' if args.resume else '--init'} checkpoint has {model.config.get('aux_heads', 0)}. "
+            "A model can't grow a head in place: start fresh with the same horizons."
+        )
     if model.config.get("value_places", 0) > 0 and (args.gamma != 1.0 or args.shaping != 0.0 or args.health_shaping != 0.0):
         raise SystemExit(
             "a placement critic needs --gamma 1 and no shaping (--shaping 0 --health-shaping 0): the "
@@ -360,7 +399,7 @@ def main(argv: list[str] | None = None) -> None:
             sources: dict[str, Any] = {LEARNER: source}
             used = {c for spec in specs for c in spec.controllers}
             sources.update({p: p for p in opponents if p in used})
-            results = player.play(config, specs, sources, play_options(args), seed=it)
+            results = player.play(config, specs, sources, play_options(args, aux=True), seed=it)
             t_play = time.time() - t0
             trajs = [t for r in results for t in r.trajectories]
             batch = build_batch(trajs, args.gamma, args.lam, args.lam_per)
@@ -374,6 +413,7 @@ def main(argv: list[str] | None = None) -> None:
                 vf_coef=args.vf_coef,
                 ent_coef=args.ent_coef,
                 target_kl=args.target_kl,
+                aux_coef=args.aux_coef,
             )
             empty_cache(device)
             places = [r.placements[u] for r in results for u in range(config.units) if r.controllers[u] == LEARNER]
@@ -436,7 +476,8 @@ def main(argv: list[str] | None = None) -> None:
                 f"iter {it:5d} | place {row['learner_place']:.2f} | steps {row['steps']:6d} | "
                 f"turns {row['turns']:.1f} | pi {row['policy_loss']:+.3f} v {row['value_loss']:.3f} "
                 f"ent {row['entropy']:.2f} kl {row['kl']:.3f} ev {row['explained_var']:.2f} | "
-                f"play {row['play_s']}s upd {row['update_s']}s | {time.time() - t_start:.0f}s",
+                + (f"aux {row['aux_loss']:.3f} | " if args.aux_coef > 0 else "")
+                + f"play {row['play_s']}s upd {row['update_s']}s | {time.time() - t_start:.0f}s",
                 flush=True,
             )
             log.write(json.dumps(row) + "\n")
