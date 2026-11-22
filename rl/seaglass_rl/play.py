@@ -64,6 +64,7 @@ from .model import BattlegroundsMLP
 
 if TYPE_CHECKING:
     from .positioning import PositionSpec
+    from .search import SearchSpec
     from .probe import ProbeSpec
 
 LEARNER = "learner"
@@ -207,6 +208,11 @@ class PlayOptions:
     # Return the trajectories packed (`Trajectory.arrays(pack=True)`, `packing.py`): far smaller to
     # send between processes and to keep. The trainer and pretrain always pack.
     pack: bool = False
+    # Policy-guided search inside the turn (`search.py`; Solo only): a model seat whose controller is
+    # in `search_controllers` takes the search's action at its shopping decisions (the end-of-turn
+    # step and the hero phase are played by the policy). With `search=None` nothing changes.
+    search: "SearchSpec | None" = None
+    search_controllers: tuple[str, ...] = ()
 
 
 @dataclass
@@ -256,6 +262,9 @@ class Trajectory:
     place: int = 0
     # The shaping potential of each decision's state.
     potentials: list[float] = field(default_factory=list)
+    # With search: each decision's improved policy (`SearchResult.policy_target`), zeros where the
+    # decision was not searched. None without search.
+    search_policy: list[np.ndarray] | None = None
 
     def __len__(self) -> int:
         return len(self.actions)
@@ -276,6 +285,8 @@ class Trajectory:
             "done": np.asarray(self.done),
             "place": np.asarray(self.place, dtype=np.int64),
         }
+        if self.search_policy is not None:
+            out["search_policy"] = np.asarray(self.search_policy, dtype=np.float16).reshape(-1, ACTION_SPACE_SIZE)
         sparse = bool(self.num_idx)
         feats = None
         if not sparse:
@@ -382,6 +393,11 @@ def play_games(
     opts = options or PlayOptions()
     if (opts.turn_stats or opts.probe is not None) and config.duos:
         raise ValueError("turn stats and the probe are Solo-only")
+    searching = opts.search is not None and bool(opts.search_controllers)
+    if searching and config.duos:
+        raise ValueError("search is Solo-only")
+    if searching:
+        from . import search
     if opts.auto_position is not None and config.duos:
         raise ValueError("auto positioning is Solo-only")
     if opts.auto_position is not None:
@@ -407,6 +423,8 @@ def play_games(
             if ctrl not in BOTS and ctrl not in models:
                 raise ValueError(f"no model for controller {ctrl!r}")
             traj = Trajectory(game=g, player=p) if ctrl in record else None
+            if traj is not None and searching and ctrl in opts.search_controllers:
+                traj.search_policy = []
             row.append(_Seat(ctrl, _bot(ctrl, spec.seed * 16 + p), traj))
         seats.append(row)
         views.append([Seat(game, p) for p in range(config.players)])
@@ -592,6 +610,30 @@ def play_games(
                         _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
                     _apply(game, p, st, idx, None)
                     continue
+                if (
+                    searching
+                    and st.controller in opts.search_controllers
+                    and game.phase == "turn"
+                    and not st.arranging
+                    and int(mask.sum()) >= 2
+                ):
+                    dseed = search.decision_seed(specs[g].seed, p, game.turn, st.steps)
+                    res = search.search_decision(
+                        models[st.controller],
+                        game,
+                        p,
+                        opts,
+                        opts.search,
+                        np.random.default_rng(search.decision_seed(opts.search.seed, dseed, 1)),
+                        dseed,
+                        root=(enc, mask),
+                    )
+                    if st.traj is not None:
+                        _record(st.traj, enc, mask, res.action, res.log_prob, res.root_value, phi, opts.gamma)
+                        st.traj.search_policy[-1] = res.policy_target
+                    note = {"value": res.root_value, "logp": res.log_prob} if opts.keep_replays else None
+                    model_step(g, p, res.action, note, nboard)
+                    continue
                 by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, nboard))
             for ctrl, rows in by_model.items():
                 model = models[ctrl]
@@ -661,6 +703,9 @@ def play_games(
     return results
 
 
+_NO_TARGET = np.zeros(ACTION_SPACE_SIZE, dtype=np.float32)
+
+
 def _record(
     traj: Trajectory,
     enc: tuple,
@@ -698,6 +743,8 @@ def _record(
     traj.rewards.append(0.0)
     traj.turn_end.append(False)
     traj.potentials.append(phi)
+    if traj.search_policy is not None:
+        traj.search_policy.append(_NO_TARGET)
 
 
 def _apply(

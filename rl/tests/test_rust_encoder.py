@@ -234,3 +234,68 @@ def test_sparse_encode_defaults_and_zero_handling() -> None:
     assert len(out) == 5 and len(out[3]) % 2 == 0 and len(out[4]) == 2 * len(out[3])
     idx = np.frombuffer(out[3], dtype=np.uint16)
     assert (np.diff(idx.astype(np.int64)) > 0).all() and len(idx) > 0
+
+
+def _check_tavern(enc, tavern, ctx, rng: np.random.Generator) -> None:
+    obs = tavern.observe()
+    for arranging in (False, True):
+        want = encode_observation(obs, ctx, arranging=arranging)
+        got = features.fast_encode_tavern(enc, tavern, ctx, arranging)
+        for name, a, b in zip(("player_vec", "slot_card_ids", "slot_num_feats"), got, want):
+            _same(f"tavern {name} arranging={arranging}", a, b)
+        # Without a context (the lobby features are zeros).
+        want = encode_observation(obs, None, arranging=arranging)
+        got = features.fast_encode_tavern(enc, tavern, None, arranging)
+        for name, a, b in zip(("player_vec", "slot_card_ids", "slot_num_feats"), got, want):
+            _same(f"tavern (no context) {name}", a, b)
+    for rep, frz, prune in FLAGS:
+        _same(
+            f"tavern mask {(rep, frz, prune)}",
+            features.fast_mask_tavern(enc, tavern, rep, frz, prune),
+            action_mask(tavern, rep, frz, prune),
+        )
+
+
+def test_tavern_parity_over_belief_taverns() -> None:
+    """`encode_tavern` and `mask_tavern` of a belief `TavernGame`, stepped through random legal actions
+    (refreshes, Discovers, plays, spells, trinkets...), equal the Python reference."""
+    assert hasattr(features.rust_encoder(), "encode_tavern")
+    enc = features.rust_encoder()
+    rng = np.random.default_rng(11)
+    checked = 0
+    for seed in range(6):
+        game = LobbyConfig().make(900 + seed)
+        bots = [_bot("9kgamerbot" if p % 2 else "heuristic", seed * 16 + p) for p in range(8)]
+        while not game.done and checked < 4000 * (seed + 1) // 6:
+            game.begin_phase()
+            if game.phase == "turn" and game.turn >= 2:
+                for p in game.active_players()[:2]:
+                    ctx = game.context(p)
+                    for line in range(2):
+                        tav = game.belief_tavern(p, seed=seed * 1000 + p * 10 + line)
+                        for _ in range(25):
+                            _check_tavern(enc, tav, ctx, rng)
+                            checked += 1
+                            legal = tav.legal_actions()
+                            if not legal:
+                                break
+                            act = legal[int(rng.integers(len(legal)))]
+                            if act.kind == "end_turn":
+                                continue
+                            tav.step(act)
+            # Play the live turn with the bots.
+            steps = {p: 0 for p in range(8)}
+            while True:
+                active = game.active_players()
+                if not active:
+                    break
+                for p in active:
+                    seat = Seat(game, p)
+                    idx = bots[p].act(seat) if steps[p] < 40 else None
+                    steps[p] += 1
+                    if idx is None or not seat.is_legal(action_from_index(idx)):
+                        game.force_end(p)
+                    else:
+                        seat.step(action_from_index(idx))
+            game.end_phase()
+    assert checked >= 3000, checked

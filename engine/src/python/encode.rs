@@ -15,7 +15,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyByteArray, PyDict};
 
 use super::lobby::{PyLobbyContext, PyLobbyGame};
-use super::{PyDuosObservation, PyTavernAction, PyTavernObservation, PyUnit};
+use super::{PyDuosObservation, PyTavernAction, PyTavernGame, PyTavernObservation, PyUnit};
+use crate::tavern::{TavernAction, TavernState};
 
 /// `features.symlog`: `sign(x) * log1p(|x|) / 5`.
 fn symlog(x: i64) -> f64 {
@@ -738,6 +739,45 @@ impl PyEncoder {
         }
     }
 
+    /// The mask of a state's legal actions (`actions.action_mask`).
+    fn mask_bytes(
+        &self,
+        s: &TavernState,
+        legal: Vec<TavernAction>,
+        allow_reposition: bool,
+        allow_freeze: bool,
+        prune_dominated: bool,
+    ) -> Vec<u8> {
+        let (can_sell, can_refresh) = if prune_dominated {
+            let board_len = s.board.len();
+            let hand_has_minion = s.hand.iter().any(|u| !u.is_spell);
+            let gold = s.gold;
+            (
+                (board_len >= self.layout.max_board && (hand_has_minion || gold >= 2))
+                    || (board_len >= 4 && gold == 2),
+                s.auras.free_refreshes > 0 || gold >= 4,
+            )
+        } else {
+            (true, true)
+        };
+        let mut mask = vec![0u8; self.layout.action_space_size];
+        for inner in legal {
+            let act = PyTavernAction { inner };
+            let kind = act.kind();
+            if (!allow_reposition && kind == "reposition")
+                || (!allow_freeze && kind == "toggle_freeze")
+                || (!can_sell && kind == "sell")
+                || (!can_refresh && kind == "refresh")
+            {
+                continue;
+            }
+            if let Some(idx) = self.action_of(&act) {
+                mask[idx] = 1;
+            }
+        }
+        mask
+    }
+
     /// The observation of player `p` and its encoding, Solo or Duos.
     fn encode_game(
         &self,
@@ -901,35 +941,57 @@ impl PyEncoder {
                 lobby.num_players()
             )));
         }
-        let (can_sell, can_refresh) = if prune_dominated {
-            let s = lobby.player(p);
-            let board_len = s.board.len();
-            let hand_has_minion = s.hand.iter().any(|u| !u.is_spell);
-            let gold = s.gold;
-            (
-                (board_len >= self.layout.max_board && (hand_has_minion || gold >= 2))
-                    || (board_len >= 4 && gold == 2),
-                s.auras.free_refreshes > 0 || gold >= 4,
-            )
-        } else {
-            (true, true)
-        };
-        let mut mask = vec![0u8; self.layout.action_space_size];
-        for inner in lobby.valid_actions(p) {
-            let act = PyTavernAction { inner };
-            let kind = act.kind();
-            if (!allow_reposition && kind == "reposition")
-                || (!allow_freeze && kind == "toggle_freeze")
-                || (!can_sell && kind == "sell")
-                || (!can_refresh && kind == "refresh")
-            {
-                continue;
-            }
-            if let Some(idx) = self.action_of(&act) {
-                mask[idx] = 1;
-            }
-        }
+        let mask = self.mask_bytes(
+            lobby.player(p),
+            lobby.valid_actions(p),
+            allow_reposition,
+            allow_freeze,
+            prune_dominated,
+        );
         Ok(PyByteArray::new_bound(py, &mask).unbind())
+    }
+
+    /// `features.encode_observation(tavern.observe(), context, arranging=arranging)` for a Solo
+    /// `TavernGame`, as `encode` returns it (without the sparse buffers).
+    #[pyo3(signature = (tavern, context, arranging))]
+    fn encode_tavern(
+        &self,
+        py: Python<'_>,
+        tavern: &PyTavernGame,
+        context: Option<PyRef<'_, PyLobbyContext>>,
+        arranging: bool,
+    ) -> PyResult<PyObject> {
+        let obs = PyTavernObservation::from(&tavern.state);
+        let view = view_of!(obs);
+        let o = self.encode_view(&view, None, context.as_deref(), arranging)?;
+        let ids = PyByteArray::new_bound_with(py, o.ids.len() * 8, |b| {
+            for (c, x) in b.chunks_exact_mut(8).zip(&o.ids) {
+                c.copy_from_slice(&x.to_le_bytes());
+            }
+            Ok(())
+        })?
+        .unbind();
+        Ok((bytes_f32(py, &o.player)?, ids, bytes_f32(py, &o.num)?).into_py(py))
+    }
+
+    /// `actions.action_mask(tavern, allow_reposition, allow_freeze, prune_dominated)` for a Solo
+    /// `TavernGame`.
+    fn mask_tavern(
+        &self,
+        py: Python<'_>,
+        tavern: &PyTavernGame,
+        allow_reposition: bool,
+        allow_freeze: bool,
+        prune_dominated: bool,
+    ) -> Py<PyByteArray> {
+        let mask = self.mask_bytes(
+            &tavern.state,
+            tavern.state.valid_actions(),
+            allow_reposition,
+            allow_freeze,
+            prune_dominated,
+        );
+        PyByteArray::new_bound(py, &mask).unbind()
     }
 
     /// `len(game.observe(p).board)`.

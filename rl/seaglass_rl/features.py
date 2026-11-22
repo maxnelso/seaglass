@@ -7,6 +7,7 @@ import numpy as np
 import seaglass
 
 from .actions import (
+    action_mask,
     ACTION_SPACE_SIZE,
     ACTIONS,
     MAX_BOARD,
@@ -487,4 +488,34 @@ def fast_mask(
     """`actions.action_mask` of a lobby seat through the Rust encoder (a writable bool array)."""
     return np.frombuffer(
         enc.mask(game, player, allow_reposition, allow_freeze, prune_dominated), dtype=np.bool_
+    )
+
+
+def fast_encode_tavern(enc, tavern: seaglass.TavernGame, context=None, arranging: bool = False) -> tuple:
+    """`encode_observation(tavern.observe(), context, arranging=arranging)` of a Solo `TavernGame` (a
+    belief Tavern, `LobbyGame.belief_tavern`) through the Rust encoder; the Python reference when the
+    extension has no `encode_tavern` (or `enc` is None)."""
+    if enc is None or not hasattr(enc, "encode_tavern"):
+        return encode_observation(tavern.observe(), context, arranging=arranging)
+    pv, ids, nf = enc.encode_tavern(tavern, context, arranging)
+    return (
+        np.frombuffer(pv, dtype=np.float32),
+        np.frombuffer(ids, dtype=np.int64),
+        np.frombuffer(nf, dtype=np.float32).reshape(NUM_SLOTS, SLOT_NUM_DIM),
+    )
+
+
+def fast_mask_tavern(
+    enc,
+    tavern: seaglass.TavernGame,
+    allow_reposition: bool = False,
+    allow_freeze: bool = False,
+    prune_dominated: bool = False,
+) -> np.ndarray:
+    """`actions.action_mask(tavern, ...)` of a Solo `TavernGame` through the Rust encoder; the Python
+    reference when the extension has no `mask_tavern` (or `enc` is None)."""
+    if enc is None or not hasattr(enc, "mask_tavern"):
+        return action_mask(tavern, allow_reposition, allow_freeze, prune_dominated)
+    return np.frombuffer(
+        enc.mask_tavern(tavern, allow_reposition, allow_freeze, prune_dominated), dtype=np.bool_
     )

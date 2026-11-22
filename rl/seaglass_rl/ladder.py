@@ -4,6 +4,8 @@
     python -m seaglass_rl.ladder rate 9kgamerbot --out results/9k.json
     python -m seaglass_rl.ladder rate runs/solo/latest.pt --ladder slow   # adds a SovereignBot seat; slow
     python -m seaglass_rl.ladder compare results/a.json results/b.json
+    python -m seaglass_rl.ladder rate runs/solo/latest.pt --search       # search inside the turn (search.py)
+    python -m seaglass_rl.ladder versus a.pt b.pt --search-a --games 200  # head to head, 4 seats each
 
 The agent takes 2 of the 8 seats of every Solo lobby. The other 6 are the ladder's anchors, rule
 bots that must not change between runs. The seeds are fixed, and the seat shuffle does not depend on
@@ -13,6 +15,10 @@ seats. That makes comparisons paired.
 Average place: 4.5 is level with the field, lower is better. The standard errors are clustered by
 lobby, since the agent's two seats in a lobby are not independent. A difference inside 2 standard
 errors is noise. Results record the commit and a fingerprint of the engine build.
+
+`versus` plays two agents against each other instead: each takes 4 of the 8 seats of every Solo lobby
+(seats shuffled with the seed alone). It is the most sensitive check of one agent against another, for
+example the same checkpoint with and without search. 4.5 is level.
 
 Besides placement, a result reports the agent's behavior by turn (Tavern Tier, Gold left, actions)
 and its probe score by turn (`probe.py`): the win rate of its end-of-turn board against reference
@@ -40,6 +46,7 @@ from .device import default_workers
 from .positioning import PositionSpec
 from .play import BOTS, GameSpec, LobbyConfig, Player, PlayOptions
 from .probe import ProbeSpec, library_for, library_summary
+from .search import SearchSpec
 
 AGENT = "agent"
 KINDS = (
@@ -246,9 +253,11 @@ def rate(
     workers: int | None = None,
     replay_dir: str | None = None,
     max_replays: int = 4,
+    search: SearchSpec | None = None,
 ) -> dict[str, Any]:
     """Rate `agent` (a bot name, a checkpoint path or a `(model_config, state_dict)` pair) on the
-    named ladder. Returns a JSON-serializable result (see the module docstring and `format_report`)."""
+    named ladder. Returns a JSON-serializable result (see the module docstring and `format_report`).
+    With `search`, the agent's model seats search inside their turns (`search.py`); a bot can't."""
     lad = LADDERS[ladder]
     config = config or LobbyConfig()
     if config.duos or config.players != 8:
@@ -257,6 +266,8 @@ def rate(
     seed = lad.seed if seed is None else seed
     sources: dict[str, Any] = {}
     if isinstance(agent, str) and agent in BOTS:
+        if search is not None:
+            raise ValueError(f"{agent!r} is a bot: only a model can search")
         controller, agent_label = agent, agent
     else:
         controller = AGENT
@@ -268,6 +279,8 @@ def rate(
     options = dataclasses.replace(options or PlayOptions(), turn_stats=True, probe=probe)
     if replay_dir:
         options = dataclasses.replace(options, keep_replays=True)
+    if search is not None:
+        options = dataclasses.replace(options, search=search, search_controllers=(AGENT,))
 
     t0 = time.time()
     own_player = player is None
@@ -316,6 +329,7 @@ def rate(
             "dirty": dirty,
             "engine": _engine_fingerprint(),
             "config": dataclasses.asdict(config),
+            "search": dataclasses.asdict(search) if search is not None else None,
             "probe": dataclasses.asdict(probe) if probe is not None else None,
             "probe_library": library_summary(library_for(probe, config)) if probe is not None else None,
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -349,12 +363,17 @@ def _mean(entries: list[dict[str, Any]], key: str) -> float:
     return sum(e[key] * e["n"] for e in entries) / w if w else float("nan")
 
 
+def _search_label(s: dict[str, Any]) -> str:
+    return f"search m={s['top_m']} sims={s['sims']} T={s['temperature']}" + (" gumbel" if s["gumbel_noise"] else "")
+
+
 def format_report(res: dict[str, Any]) -> str:
     meta = res["meta"]
     commit = (meta["commit"] or "?")[:8] + (" (dirty)" if meta.get("dirty") else "")
     lines = [
         f"{meta['ladder']} ladder | {meta['agent']} | {meta['games']} lobbies | seed {meta['seed']} | "
-        f"commit {commit} | engine {meta['engine'] or '?'} | {meta['seconds']:.0f}s",
+        f"commit {commit} | engine {meta['engine'] or '?'} | {meta['seconds']:.0f}s"
+        + (f" | {_search_label(meta['search'])}" if meta.get("search") else ""),
         _line("agent", res["agent"]),
     ]
     for name, s in res["anchors"].items():
@@ -404,6 +423,135 @@ def format_summary(res: dict[str, Any]) -> str:
         parts.append("probe " + " ".join(probes))
     parts.append(f"{meta['games']} lobbies")
     return " | ".join(parts)
+
+
+# -- Head to head ---------------------------------------------------------------------------------
+
+RIVAL = "rival"
+# The move rules of `PlayOptions`: one set per game, so `versus` needs both agents to share them.
+_RULES = ("max_steps_per_turn", "positioning_phase", "allow_reposition", "allow_freeze", "prune_dominated", "auto_position")
+
+
+def versus(
+    a: Any,
+    b: Any,
+    games: int = 200,
+    seed: int = 7_000_000,
+    config: LobbyConfig | None = None,
+    player: Player | None = None,
+    options_a: PlayOptions | None = None,
+    options_b: PlayOptions | None = None,
+    search_a: SearchSpec | None = None,
+    search_b: SearchSpec | None = None,
+    probe: ProbeSpec | None = None,
+    workers: int | None = None,
+) -> dict[str, Any]:
+    """Agents `a` and `b` (checkpoint paths or `(model_config, state_dict)` pairs; they may be the
+    same checkpoint, with only one searching) take 4 seats each in `games` 8-seat Solo lobbies, the
+    seats shuffled with `random.Random(seed)` alone. Returns a JSON-serializable result: `a`'s and
+    `b`'s place statistics (4.5 is level; the standard error is clustered by lobby, and since the
+    places of a lobby sum to 36, `b`'s mean is `9 - a`'s and the two errors are the same) and the
+    places by lobby.
+
+    One `PlayOptions` governs a game, so both agents must play under the same move rules
+    (`checkpoint_options` of each, or `options_a`/`options_b`): anything else raises `ValueError`.
+    The same holds for the search: if both sides search, they must use the same `SearchSpec`."""
+    config = config or LobbyConfig()
+    if config.duos or config.players != 8:
+        raise ValueError("versus plays 8-player Solo lobbies")
+    for x in (a, b):
+        if isinstance(x, str) and x in BOTS:
+            raise ValueError(f"{x!r} is a bot: versus compares two models")
+    opts_a = options_a or checkpoint_options(a)
+    opts_b = options_b or checkpoint_options(b)
+    diff = [r for r in _RULES if getattr(opts_a, r) != getattr(opts_b, r)]
+    if diff:
+        raise ValueError(f"a and b play under different move rules ({', '.join(diff)}); versus needs equal rules")
+    if search_a is not None and search_b is not None and search_a != search_b:
+        raise ValueError("both sides search: they must use the same SearchSpec")
+    spec = search_a or search_b
+    controllers = tuple(c for c, s in ((AGENT, search_a), (RIVAL, search_b)) if s is not None)
+    options = dataclasses.replace(opts_a, search=spec, search_controllers=controllers)
+    if probe is not None:
+        options = dataclasses.replace(options, turn_stats=True, probe=probe)
+    rng = random.Random(seed)
+    specs, a_units = [], {}
+    for g in range(games):
+        seats = [AGENT] * 4 + [RIVAL] * 4
+        rng.shuffle(seats)
+        units = tuple(u for u, s in enumerate(seats) if s == AGENT)
+        specs.append(GameSpec(seed=seed + g, controllers=seats, probe_units=units if probe is not None else ()))
+        a_units[seed + g] = units
+    sources = {AGENT: a, RIVAL: b}
+    label = lambda x: "<state_dict>" if isinstance(x, (tuple, list)) else str(x)  # noqa: E731
+
+    t0 = time.time()
+    own_player = player is None
+    if player is None:
+        player = Player(workers if workers is not None else default_workers())
+    try:
+        results = player.play(config, specs, sources, options, record=(), seed=seed)
+    finally:
+        if own_player:
+            player.close()
+    by_seed = {r.seed: r for r in results}
+    results = [by_seed[s.seed] for s in specs]
+    places: dict[str, list[list[int]]] = {AGENT: [], RIVAL: []}
+    lobbies = []
+    for r in results:
+        mine = a_units[r.seed]
+        pa = [int(r.placements[u]) for u in range(config.units) if u in mine]
+        pb = [int(r.placements[u]) for u in range(config.units) if u not in mine]
+        places[AGENT].append(pa)
+        places[RIVAL].append(pb)
+        lobbies.append({"seed": r.seed, "a_places": pa, "b_places": pb})
+    commit, dirty = _commit_info()
+    out: dict[str, Any] = {
+        "meta": {
+            "games": games,
+            "seed": seed,
+            "a": label(a),
+            "b": label(b),
+            "search_a": dataclasses.asdict(search_a) if search_a is not None else None,
+            "search_b": dataclasses.asdict(search_b) if search_b is not None else None,
+            "rules": {r: str(getattr(options, r)) for r in _RULES},
+            "commit": commit,
+            "dirty": dirty,
+            "engine": _engine_fingerprint(),
+            "config": dataclasses.asdict(config),
+            "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "seconds": round(time.time() - t0, 1),
+        },
+        "a": _place_stats(places[AGENT]),
+        "b": _place_stats(places[RIVAL]),
+        "lobbies": lobbies,
+    }
+    if probe is not None:
+        seats = {AGENT: [], RIVAL: []}
+        for r in results:
+            for u in range(config.units):
+                seats[AGENT if u in a_units[r.seed] else RIVAL].append(r.turn_stats[u])
+        out["by_turn"] = {"a": _turn_table(seats[AGENT], True), "b": _turn_table(seats[RIVAL], True)}
+    return out
+
+
+def format_versus(res: dict[str, Any]) -> str:
+    meta = res["meta"]
+    commit = (meta["commit"] or "?")[:8] + (" (dirty)" if meta.get("dirty") else "")
+
+    def name(side: str) -> str:
+        s = meta[f"search_{side}"]
+        return f"{meta[side]}" + (f" [{_search_label(s)}]" if s else "")
+
+    return "\n".join(
+        [
+            f"versus | {meta['games']} lobbies, 4 seats each | seed {meta['seed']} | commit {commit} | "
+            f"engine {meta['engine'] or '?'} | {meta['seconds']:.0f}s",
+            "  " + _line("a", res["a"]) + f"  <- {name('a')}",
+            "  " + _line("b", res["b"]) + f"  <- {name('b')}",
+            f"a - 4.5: {res['a']['avg_place'] - 4.5:+.2f} ± {2 * res['a']['stderr']:.2f} (2σ); negative: a is better",
+        ]
+    )
 
 
 # -- Comparing ------------------------------------------------------------------------------------
@@ -469,6 +617,19 @@ def format_compare(c: dict[str, Any]) -> str:
 # -- Command line ---------------------------------------------------------------------------------
 
 
+def _search_args(parser: argparse.ArgumentParser) -> None:
+    defaults = SearchSpec()
+    parser.add_argument("--search-m", type=int, default=defaults.top_m, help="root actions tried (top_m)")
+    parser.add_argument("--search-sims", type=int, default=defaults.sims, help="lines per decision")
+    parser.add_argument(
+        "--search-temperature", type=float, default=defaults.temperature, help="the policy's temperature inside lines"
+    )
+
+
+def _search_spec(args: argparse.Namespace) -> SearchSpec:
+    return SearchSpec(top_m=args.search_m, sims=args.search_sims, temperature=args.search_temperature)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -492,6 +653,19 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("--out", default=None, metavar="FILE.json", help="write the full result here")
     r.add_argument("--json", action="store_true", help="print the full result as JSON")
     r.add_argument("--replays", default=None, metavar="DIR", help="save a few games as replays in DIR")
+    r.add_argument("--search", action="store_true", help="the agent searches inside its turns (search.py)")
+    _search_args(r)
+    v = sub.add_parser("versus", help="two checkpoints head to head, 4 seats each")
+    v.add_argument("a", help="a checkpoint")
+    v.add_argument("b", help="a checkpoint (may be the same as a)")
+    v.add_argument("--games", type=int, default=200)
+    v.add_argument("--seed", type=int, default=7_000_000)
+    v.add_argument("--workers", type=int, default=default_workers(), help="default: $SEAGLASS_WORKERS, else half the cores")
+    v.add_argument("--search-a", action="store_true", help="a searches inside its turns")
+    v.add_argument("--search-b", action="store_true", help="b searches inside its turns")
+    _search_args(v)
+    v.add_argument("--out", default=None, metavar="FILE.json", help="write the full result here")
+    v.add_argument("--json", action="store_true", help="print the full result as JSON")
     c = sub.add_parser("compare", help="compare two result files")
     c.add_argument("a")
     c.add_argument("b")
@@ -514,12 +688,29 @@ def main(argv: list[str] | None = None) -> None:
             probe=None if args.no_probe else ProbeSpec(),
             workers=args.workers,
             replay_dir=args.replays,
+            search=_search_spec(args) if args.search else None,
         )
         if args.out:
             os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
             with open(args.out, "w", encoding="utf-8") as f:
                 json.dump(res, f, indent=1)
         print(json.dumps(res) if args.json else format_report(res))
+    elif args.cmd == "versus":
+        spec = _search_spec(args)
+        res = versus(
+            args.a,
+            args.b,
+            games=args.games,
+            seed=args.seed,
+            search_a=spec if args.search_a else None,
+            search_b=spec if args.search_b else None,
+            workers=args.workers,
+        )
+        if args.out:
+            os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(res, f, indent=1)
+        print(json.dumps(res) if args.json else format_versus(res))
     else:
         loaded = []
         for path in (args.a, args.b):
