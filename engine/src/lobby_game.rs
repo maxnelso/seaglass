@@ -392,6 +392,19 @@ impl LobbyGame {
         self.game.valid_actions(p)
     }
 
+    /// Deal the rest of the game from another seed: the pairings' RNG and every RNG the match
+    /// draws from ([`Match::reseed`]). What is already on the table stays: the shops, this turn's
+    /// pairings, every player's state.
+    ///
+    /// With [`Clone`], this is how to look ahead: copies of one lobby, each reseeded differently
+    /// and played on, are independent samples of how the game goes from here. A copy that is not
+    /// reseeded replays the same future. A reseeded lobby's replay does not re-simulate past the
+    /// reseed (its header is labelled `reseeded`).
+    pub fn reseed(&mut self, seed: u64) {
+        self.rng = Rng::new(seed ^ PAIRING_SALT);
+        self.game.reseed(seed);
+    }
+
     // -- Phases -----------------------------------------------------------------------------------
 
     /// Start the hero phase or the next turn. A turn starts with its pairings, every living unit's
@@ -848,6 +861,36 @@ mod tests {
             }
             game.end_phase().unwrap();
         }
+    }
+
+    #[test]
+    fn a_copy_replays_the_same_future_until_it_is_reseeded() {
+        let mut game = LobbyGame::new(LobbyConfig {
+            heroes: false,
+            seed: 11,
+            ..Default::default()
+        })
+        .unwrap();
+        game.begin_phase().unwrap();
+        game.end_phase().unwrap();
+        let shops = |g: &LobbyGame| -> Vec<Vec<u32>> {
+            (0..g.num_players())
+                .map(|p| g.player(p).shop.iter().map(|u| u.card_id).collect())
+                .collect()
+        };
+        let mut same = game.clone();
+        let mut other = game.clone();
+        other.reseed(12345);
+        // Nothing already dealt changes.
+        assert_eq!(shops(&other), shops(&game));
+        assert_eq!(other.pairs(), game.pairs());
+        for g in [&mut game, &mut same, &mut other] {
+            g.begin_phase().unwrap();
+        }
+        assert_eq!(shops(&same), shops(&game));
+        assert_ne!(shops(&other), shops(&game));
+        assert!(other.game().header().meta.contains_key("reseeded"));
+        assert!(!same.game().header().meta.contains_key("reseeded"));
     }
 
     #[test]

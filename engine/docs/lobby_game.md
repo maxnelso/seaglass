@@ -185,7 +185,13 @@ avoid_recent=3, damage_caps=True, tribes=5, names=None, meta=None)`:
   `Match`), `force_end(p)`.
 - **The lobby:** `context(p)` returns a `LobbyContext` with `OpponentInfo`s.
 - **Replays:** `save(path)`, `replay_bytes()`, `timeline()`, `meta`, `set_meta(k, v)`.
-- **Lookahead:** `copy()` returns an independent copy.
+- **Lookahead:** `copy()` returns an independent copy. A copy replays the same future as the
+  original, because it carries the same RNG state. `reseed(seed)` deals the rest of the game from
+  another seed (the shop draws, Discovers, random effects, combats and pairings from here on) and
+  changes nothing already on the table. So copies of one lobby, each reseeded differently and
+  played on, are independent samples of how the game goes from that position
+  (`rl/scripts/phase_study.py` uses them). A reseeded lobby's replay does not re-simulate past the
+  reseed: the replay records no seed but the header's, and the header is labelled `reseeded`.
 
 ```python
 import seaglass
