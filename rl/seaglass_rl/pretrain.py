@@ -231,7 +231,9 @@ def main() -> None:
     )
     # The move rules, as in `train_lobby.py`: the PPO run that starts from this checkpoint should use
     # the same ones (they are saved with it, and `ladder.py` rates it under them).
-    p.add_argument("--max-steps-per-turn", type=int, default=30)
+    p.add_argument(
+        "--max-steps-per-turn", type=int, default=None, help="as in train_lobby (default: none, the turn timer only)"
+    )
     p.add_argument("--no-reposition", action="store_true")
     p.add_argument("--auto-position", action="store_true", help="recorded with the checkpoint; the bots do not use it")
     p.add_argument("--no-positioning-phase", action="store_true")
@@ -259,7 +261,7 @@ def main() -> None:
     torch.set_num_threads(args.threads)
 
     # The trainer's defaults for everything else (shaping, gamma, masks), so the values match.
-    rules = ["--max-steps-per-turn", str(args.max_steps_per_turn)]
+    rules = ["--max-steps-per-turn", str(args.max_steps_per_turn)] if args.max_steps_per_turn is not None else []
     rules += [f for f, on in (
         ("--no-reposition", args.no_reposition),
         ("--auto-position", args.auto_position),
