@@ -190,6 +190,25 @@ The gate is 5 times because of where the time goes. Removing encoding, masking a
 
 **Gate.** Network rollouts run at 5 times today's games per core, from a baseline of 3.6 games per second with the MLP.
 
+#### Stage 3 Progress (2026-11-22): about 2x, and the gate is out of reach this way
+
+Three of the items are in.
+
+- **The encoder and the mask are in Rust.** `seaglass.Encoder` lives in the Python-bindings layer (`engine/src/python/encode.rs`), not in the game logic. Python still owns the layout: `features.py` passes in the vocabularies, the action table and every offset, and the Rust side holds only the formulas. Its output is bit-identical to `features.encode_observation` and `actions.action_mask` over 17,815 checked decisions, Solo and Duos. One call takes 8 µs against 86 µs in Python. `PlayOptions(rust_encoder=False)` keeps the Python path, which stays the reference.
+- **Trajectories are packed.** The slot features travel as their nonzeros (about 109 a decision), the mask as bits and the card ids as uint16. That is 1.5 KB a decision against 21.5 KB, and the encoder hands the nonzeros over directly. Cloning a bot on 40 games peaked at 0.9 GB instead of 2.7 GB, and a 16-lobby rollout process at 0.4 GB instead of 1.1 GB.
+- **The baseline moved.** This Mac is about 2.5 times faster per core than the container the baseline came from, so the comparisons below are against the Python path on the same Mac. Each is one core with 8 recorded seats.
+
+| Policy | Python encoder, dense | Rust encoder, packed | Speed-up |
+| :--- | :--- | :--- | :--- |
+| Transformer, 64 wide, 3 layers | 2.2 games/s | 3.8 to 4.2 games/s | about 1.8x |
+| MLP, 256 wide | about 9 games/s (fresh weights) | 13.4 to 13.9 games/s (cloned weights) | about 2.5x |
+
+The MLP figures come from different weights, because a fresh network loses fast and plays shorter games, so treat that row as approximate.
+
+Batched multi-lobby stepping is not done, and it cannot reach 5x. The network's forward pass is now the largest cost: 43% of an MLP rollout and 42% of a transformer one. The batches are already about 100 decisions wide, because `play_games` runs every lobby in a worker in lockstep. What is left outside the network is about a third of the time.
+
+Training is also not rollout-bound now. A transformer iteration of 64 lobbies spends about 6 seconds playing and 30 seconds in the update, and more CPU threads did not shorten the update. So the next speed-up for training is in the update: the GPU when it is free, larger minibatches, or fewer epochs. More rollout speed would not help much.
+
 ### Stage 4: Add Search Only Where the Simulator Is Exact
 
 Search pays when the model of the world is exact. In this game that means combat and the rest of the current turn. The future shop is hidden and random, so deep multi-turn search mostly measures its own guesses.
