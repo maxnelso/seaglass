@@ -24,8 +24,10 @@ Packed = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 def pack_rows(dense: np.ndarray) -> Packed:
     """`(T, NUM_SLOTS, SLOT_NUM_DIM)` (float16) -> `(ptr, idx, val)`."""
-    flat = np.ascontiguousarray(dense).reshape(len(dense), ROW)
-    rows, cols = np.nonzero(flat)
+    flat = np.ascontiguousarray(dense, dtype=np.float16).reshape(len(dense), ROW)
+    # Scan the bits, not the floats (float16 comparisons are slow in NumPy); shifting out the sign
+    # bit makes -0.0 a zero, as `np.nonzero` on the floats would.
+    rows, cols = np.nonzero(flat.view(np.uint16) << np.uint16(1))
     ptr = np.zeros(len(flat) + 1, dtype=np.int64)
     np.cumsum(np.bincount(rows, minlength=len(flat)), out=ptr[1:])
     return ptr, cols.astype(np.uint16), flat[rows, cols]
