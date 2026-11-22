@@ -190,7 +190,9 @@ The gate is 5 times because of where the time goes. Removing encoding, masking a
 
 **Gate.** Network rollouts run at 5 times today's games per core, from a baseline of 3.6 games per second with the MLP.
 
-#### Stage 3 Progress (2026-11-22): about 2x, and the gate is out of reach this way
+#### Stage 3 Result (2026-11-22): done at about 2x
+
+James called this stage done on 2026-11-22. The 5x gate is not met, for the reasons below. The forward pass is where later speed-ups should come from.
 
 Three of the items are in.
 
