@@ -24,6 +24,10 @@ Rewards (for the recorded seats):
   while building it, the damage when it is taken.
 - **Discounting per turn**: `gamma` applies when a turn ends (`turn_end`), not at every action.
 
+The model and recorded-bot seats' observations and masks come from the Rust `seaglass.Encoder` when
+the extension has one (`PlayOptions.rust_encoder`, on by default); `features.py` and `actions.py` are
+the reference it matches bit for bit.
+
 Turn stats (`PlayOptions.turn_stats`, Solo only) record every living player's board, Tier, Gold and
 actions as each turn's shopping ends. With `PlayOptions.probe`, the boards of `GameSpec.probe_units`
 are also scored against a library of reference boards (`probe.py`).
@@ -54,7 +58,8 @@ from .actions import (
 from .bots import HeuristicBot, RandomBot
 from .gamerbot import NineKGamerBot
 from .env import compute_board_power
-from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
+from . import features
+from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation, fast_encode, fast_mask
 from .model import BattlegroundsMLP
 
 if TYPE_CHECKING:
@@ -195,6 +200,10 @@ class PlayOptions:
     # Order every model seat's board by search with the combat simulator just before its turn ends
     # (`positioning.py`; Solo only). The moves are counted as "auto_position", never recorded.
     auto_position: "PositionSpec | None" = None
+    # Encode the observations and build the masks of the model and recorded-bot seats with the Rust
+    # encoder (`features.rust_encoder`; bit-identical to the Python reference, about 10x faster), when
+    # the installed extension has one. False: the Python `encode_observation` and `action_mask`.
+    rust_encoder: bool = True
 
 
 @dataclass
@@ -372,22 +381,25 @@ def play_games(
         seats.append(row)
         views.append([Seat(game, p) for p in range(config.players)])
 
-    def mask_for(seat: Seat, obs: Any, st: _Seat) -> np.ndarray:
-        if not opts.positioning_phase:
-            return action_mask(
-                seat,
-                allow_reposition=opts.allow_reposition,
-                allow_freeze=opts.allow_freeze,
-                prune_dominated=opts.prune_dominated,
-                obs=obs,
-            )
-        mask = action_mask(
+    rust = features.rust_encoder() if opts.rust_encoder else None
+    # The shaping potential is the only thing left that reads a Python observation of a model seat.
+    needs_obs = bool(opts.shaping or opts.health_shaping)
+
+    def base_mask(seat: Seat, obs: Any, reposition: bool, freeze: bool) -> np.ndarray:
+        if rust is not None:
+            return fast_mask(rust, seat.game, seat.player, reposition, freeze, opts.prune_dominated)
+        return action_mask(
             seat,
-            allow_reposition=st.arranging,
-            allow_freeze=opts.allow_freeze and st.arranging and not st.froze,
+            allow_reposition=reposition,
+            allow_freeze=freeze,
             prune_dominated=opts.prune_dominated,
             obs=obs,
         )
+
+    def mask_for(seat: Seat, obs: Any, st: _Seat) -> np.ndarray:
+        if not opts.positioning_phase:
+            return base_mask(seat, obs, opts.allow_reposition, opts.allow_freeze)
+        mask = base_mask(seat, obs, st.arranging, opts.allow_freeze and st.arranging and not st.froze)
         if st.arranging:
             # The end-of-turn step: Repositions (while any are left), one Toggle Freeze, End Turn.
             if st.moves_left <= 0:
@@ -506,10 +518,16 @@ def play_games(
                         idx = END_TURN_INDEX
                     _apply(game, p, st, idx, None)
                     continue
-                obs = seat.observe()
-                if st.context is None and game.phase == "turn":
-                    st.context = game.context(p)
-                enc = encode_observation(obs, st.context, arranging=st.arranging)
+                if rust is not None:
+                    obs = seat.observe() if needs_obs else None
+                    nboard = rust.board_len(game, p)
+                    enc = fast_encode(rust, game, p, st.arranging, game.phase == "turn")
+                else:
+                    obs = seat.observe()
+                    if st.context is None and game.phase == "turn":
+                        st.context = game.context(p)
+                    nboard = len(obs.board)
+                    enc = encode_observation(obs, st.context, arranging=st.arranging)
                 mask = mask_for(seat, obs, st)
                 if not mask.any():
                     force_end(g, p)
@@ -522,7 +540,7 @@ def play_games(
                         idx = END_TURN_INDEX
                     mask[idx] = True
                     _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
-                    board = len(obs.board)
+                    board = nboard
                     if (
                         idx == END_TURN_INDEX
                         and opts.positioning_phase
@@ -534,13 +552,16 @@ def play_games(
                         # reposition and freeze while shopping instead).
                         st.arranging = True
                         st.moves_left = board - 1 if opts.allow_reposition else 0
-                        enc = encode_observation(obs, st.context, arranging=True)
+                        if rust is not None:
+                            enc = fast_encode(rust, game, p, True, game.phase == "turn")
+                        else:
+                            enc = encode_observation(obs, st.context, arranging=True)
                         mask = mask_for(seat, obs, st)
                         mask[idx] = True
                         _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
                     _apply(game, p, st, idx, None)
                     continue
-                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, len(obs.board)))
+                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, nboard))
             for ctrl, rows in by_model.items():
                 model = models[ctrl]
                 pv = np.stack([r[2][0] for r in rows])

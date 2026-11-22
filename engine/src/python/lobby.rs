@@ -57,6 +57,11 @@ pub struct PyLobbyGame {
 }
 
 impl PyLobbyGame {
+    /// The lobby itself, for the encoder (`encode.rs`).
+    pub(crate) fn lobby(&self) -> &LobbyGame {
+        &self.inner
+    }
+
     fn check_player(&self, p: usize) -> PyResult<()> {
         if p < self.inner.num_players() {
             Ok(())
