@@ -95,6 +95,10 @@ python -m seaglass_rl.ladder compare results/a.json results/b.json
 - **Checkpoints** are rated under the move rules they were trained with (the step cap, the end-of-turn step, `--no-reposition`, `--no-freeze`, `--prune`), read from the checkpoint's saved arguments.
 - **Comparing.** `compare` reports the difference in average place with its standard error, and whether it is within 2σ. If both results used the same seed, it also reports the paired difference per lobby. Pairing narrows the interval only a little (about 5% in the Stage 1 runs), because an agent's own play soon changes how a lobby goes. A difference inside 2σ is noise. Every claim that one agent beats another should cite the ladder result files it came from.
 
+### Packed trajectories
+
+The trainer and `pretrain.py` store trajectories packed (`PlayOptions(pack=True)`; `train_lobby.play_options` sets it, `pretrain --no-pack` keeps the dense format). A decision's `slot_num_feats` is over 97% zeros, so `Trajectory.arrays(pack=True)` returns it as CSR rows over the flattened `NUM_SLOTS * SLOT_NUM_DIM` values: `num_ptr` (int64, T+1), `num_idx` (uint16 columns), `num_val` (float16, the same numbers the dense float16 array holds). The action mask becomes `mask_bits` (`np.packbits`, uint8), `slot_card_ids` is uint16, and `packed` is True. A decision shrinks from about 21.5 KB to about 1.5 KB. `packing.py` has `pack_rows`, `concat_packed`, `unpack_rows` and `unpack_mask`; `ppo.build_batch` keeps a packed batch packed (it refuses a mix of packed and dense trajectories), and `ppo_update` and `pretrain.train` densify one minibatch at a time. The default, `pack=False`, is the dense format that `replays.py`, `train_ppo.py` and the bots expect.
+
 ### Devices and CPU use
 
 Self-play always runs on the CPU, in `--workers` processes. Only the gradient updates (`train_lobby`, `pretrain`) move to `--device`: `auto` (the default) picks CUDA, then Apple's MPS, then the CPU. Evaluation stays on the CPU. Checkpoints always hold CPU tensors, so they load anywhere.

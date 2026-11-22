@@ -32,13 +32,14 @@ so give the PPO run that starts from it the same ones.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import time
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from . import checkpoint
+from . import checkpoint, packing
 from .device import add_device_arg, default_threads, default_workers, pick_device
 from .play import LobbyConfig, GameSpec, Player
 from .ppo import gae
@@ -53,10 +54,13 @@ def collect(
     seed: int,
     teacher: str = "9kgamerbot",
     chunk: int = 40,
+    pack: bool = True,
 ) -> dict[str, np.ndarray]:
     """The `teacher` bot's decisions in `games` lobbies (all seats), with their discounted returns
     and final places (0-based). Games are played `chunk` at a time; after each, only the needed
-    arrays are kept."""
+    arrays are kept. With `pack` (the default) the dataset stays packed (`packing.py`: `num_ptr`,
+    `num_idx`, `num_val`, `mask_bits`, `packed`)."""
+    options = dataclasses.replace(options, pack=pack)
     parts: list[dict[str, np.ndarray]] = []
     player = Player(workers)
     try:
@@ -72,10 +76,13 @@ def collect(
             del results
             if not trajs:
                 continue
-            part = {
-                k: np.concatenate([t[k] for t in trajs])
-                for k in ("player_vec", "slot_card_ids", "slot_num_feats", "action_mask", "actions")
-            }
+            keys = ("player_vec", "slot_card_ids", "actions")
+            keys += ("mask_bits",) if pack else ("slot_num_feats", "action_mask")
+            part = {k: np.concatenate([t[k] for t in trajs]) for k in keys}
+            if pack:
+                part["num_ptr"], part["num_idx"], part["num_val"] = packing.concat_packed(
+                    [(t["num_ptr"], t["num_idx"], t["num_val"]) for t in trajs]
+                )
             part["returns"] = np.concatenate(
                 [gae(t["rewards"], np.zeros_like(t["rewards"]), t["turn_end"], True, options.gamma, 1.0)[1] for t in trajs]
             ).astype(np.float32)
@@ -88,7 +95,13 @@ def collect(
             parts.append(part)
     finally:
         player.close()
-    return {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
+    data = {k: np.concatenate([p[k] for p in parts]) for k in parts[0] if not k.startswith("num_")}
+    if pack:
+        data["num_ptr"], data["num_idx"], data["num_val"] = packing.concat_packed(
+            [(p["num_ptr"], p["num_idx"], p["num_val"]) for p in parts]
+        )
+        data["packed"] = np.asarray(True)
+    return data
 
 
 def train(
@@ -127,12 +140,20 @@ def train(
     device = next(model.parameters()).device
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
+    packed = "num_ptr" in data
+
     def tensors(idx: np.ndarray) -> tuple:
+        if packed:
+            feats = packing.unpack_rows(data["num_ptr"], data["num_idx"], data["num_val"], idx)
+            mask = packing.unpack_mask(data["mask_bits"], idx)
+        else:
+            feats = data["slot_num_feats"][idx].astype(np.float32)  # stored as float16
+            mask = data["action_mask"][idx]
         return (
             torch.from_numpy(data["player_vec"][idx]),
             torch.from_numpy(data["slot_card_ids"][idx].astype(np.int64)),
-            torch.from_numpy(data["slot_num_feats"][idx].astype(np.float32)),  # stored as float16
-            torch.from_numpy(data["action_mask"][idx]),
+            torch.from_numpy(feats),
+            torch.from_numpy(mask),
             torch.from_numpy(data["actions"][idx]),
             torch.from_numpy(data["returns"][idx]),
             torch.from_numpy(data["places"][idx]),
@@ -229,6 +250,7 @@ def main() -> None:
     add_model_args(p)
     p.add_argument("--threads", type=int, default=default_threads(), help="default: $SEAGLASS_THREADS, else half the cores")
     add_device_arg(p)
+    p.add_argument("--no-pack", action="store_true", help="keep the dataset dense (about 20x the memory)")
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
     device = pick_device(args.device)
@@ -249,7 +271,8 @@ def main() -> None:
     config = LobbyConfig(duos=args.duos, players=args.players, max_turns=targs.max_turns)
     t0 = time.time()
     data = collect(
-        config, args.games, args.workers, play_options(targs), seed=10_000_000 + args.seed, teacher=args.teacher, chunk=args.chunk
+        config, args.games, args.workers, play_options(targs), seed=10_000_000 + args.seed, teacher=args.teacher, chunk=args.chunk,
+        pack=not args.no_pack,
     )
     print(f"{len(data['actions'])} decisions from {args.games} games in {time.time() - t0:.0f}s", flush=True)
     model = build_model(args, kind_prior=True, units=config.units).to(device)

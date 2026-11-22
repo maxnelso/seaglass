@@ -58,7 +58,7 @@ from .actions import (
 from .bots import HeuristicBot, RandomBot
 from .gamerbot import NineKGamerBot
 from .env import compute_board_power
-from . import features
+from . import features, packing
 from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation, fast_encode, fast_mask
 from .model import BattlegroundsMLP
 
@@ -204,6 +204,9 @@ class PlayOptions:
     # encoder (`features.rust_encoder`; bit-identical to the Python reference, about 10x faster), when
     # the installed extension has one. False: the Python `encode_observation` and `action_mask`.
     rust_encoder: bool = True
+    # Return the trajectories packed (`Trajectory.arrays(pack=True)`, `packing.py`): far smaller to
+    # send between processes and to keep. The trainer and pretrain always pack.
+    pack: bool = False
 
 
 @dataclass
@@ -253,15 +256,14 @@ class Trajectory:
     def __len__(self) -> int:
         return len(self.actions)
 
-    def arrays(self) -> dict[str, np.ndarray]:
-        """The trajectory as arrays (compact dtypes, for sending between processes)."""
-        return {
+    def arrays(self, pack: bool = False) -> dict[str, np.ndarray]:
+        """The trajectory as arrays (compact dtypes, for sending between processes).
+
+        With `pack`, `slot_num_feats` becomes CSR rows (`num_ptr`, `num_idx`, `num_val`), `action_mask`
+        becomes `mask_bits` (`np.packbits`), `slot_card_ids` is uint16, and `packed` is True
+        (`packing.py`)."""
+        out = {
             "player_vec": np.asarray(self.player_vec, dtype=np.float32).reshape(-1, PLAYER_DIM),
-            "slot_card_ids": np.asarray(self.slot_card_ids, dtype=np.int32).reshape(-1, NUM_SLOTS),
-            "slot_num_feats": np.asarray(self.slot_num_feats, dtype=np.float16).reshape(
-                -1, NUM_SLOTS, SLOT_NUM_DIM
-            ),
-            "action_mask": np.asarray(self.action_mask, dtype=np.bool_).reshape(-1, ACTION_SPACE_SIZE),
             "actions": np.asarray(self.actions, dtype=np.int64),
             "log_probs": np.asarray(self.log_probs, dtype=np.float32),
             "values": np.asarray(self.values, dtype=np.float32),
@@ -270,6 +272,19 @@ class Trajectory:
             "done": np.asarray(self.done),
             "place": np.asarray(self.place, dtype=np.int64),
         }
+        feats = np.asarray(self.slot_num_feats, dtype=np.float16).reshape(-1, NUM_SLOTS, SLOT_NUM_DIM)
+        mask = np.asarray(self.action_mask, dtype=np.bool_).reshape(-1, ACTION_SPACE_SIZE)
+        if pack:
+            assert features.VOCAB_SIZE < 65536
+            out["slot_card_ids"] = np.asarray(self.slot_card_ids, dtype=np.uint16).reshape(-1, NUM_SLOTS)
+            out["num_ptr"], out["num_idx"], out["num_val"] = packing.pack_rows(feats)
+            out["mask_bits"] = packing.pack_mask(mask)
+            out["packed"] = np.asarray(True)
+        else:
+            out["slot_card_ids"] = np.asarray(self.slot_card_ids, dtype=np.int32).reshape(-1, NUM_SLOTS)
+            out["slot_num_feats"] = feats
+            out["action_mask"] = mask
+        return out
 
 
 @dataclass
@@ -615,7 +630,7 @@ def play_games(
 
     results = []
     for g, (game, spec) in enumerate(zip(games, specs)):
-        trajs = [s.traj.arrays() for s in seats[g] if s.traj is not None and s.traj.actions]
+        trajs = [s.traj.arrays(pack=opts.pack) for s in seats[g] if s.traj is not None and s.traj.actions]
         results.append(
             GameResult(
                 seed=spec.seed,

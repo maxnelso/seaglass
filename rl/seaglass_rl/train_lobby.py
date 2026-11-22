@@ -234,6 +234,7 @@ def play_options(args: argparse.Namespace, deterministic: bool = False) -> PlayO
         gamma=args.gamma,
         shaping=args.shaping,
         health_shaping=args.health_shaping,
+        pack=True,
     )
 
 

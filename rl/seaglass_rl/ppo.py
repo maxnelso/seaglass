@@ -8,6 +8,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from . import packing
+
 
 def gae(
     rewards: np.ndarray,
@@ -50,11 +52,19 @@ def build_batch(
     trajectories: list[dict[str, np.ndarray]], gamma: float, lam: float, lam_per: str = "turn"
 ) -> dict[str, Any]:
     """Concatenate trajectories (`Trajectory.arrays`) into one training batch, with advantages and
-    returns. `slot_num_feats` stays float16 (`ppo_update` casts each minibatch). `places` is each
+    returns. `slot_num_feats` stays float16 (`ppo_update` casts each minibatch). Packed trajectories
+    (`PlayOptions.pack`) stay packed (`num_ptr`, `num_idx`, `num_val`, `mask_bits`, as numpy arrays;
+    `ppo_update` densifies each minibatch); packed and dense ones cannot be mixed. `places` is each
     decision's trajectory's final place, 0-based (-1 if unknown): the placement critic's target."""
-    cols: dict[str, list[np.ndarray]] = {
-        k: [] for k in ("player_vec", "slot_card_ids", "slot_num_feats", "action_mask", "actions", "log_probs")
-    }
+    packed = [bool(tr["packed"]) if "packed" in tr else False for tr in trajectories]
+    if any(packed) and not all(packed):
+        raise ValueError("cannot batch packed and dense trajectories together")
+    packed = bool(packed) and packed[0]
+    keys = ["player_vec", "slot_card_ids", "actions", "log_probs"]
+    keys += ["mask_bits"] if packed else ["slot_num_feats", "action_mask"]
+    cols: dict[str, list[np.ndarray]] = {k: [] for k in keys}
+    if packed:
+        csr = []
     advs, rets, values, places = [], [], [], []
     for tr in trajectories:
         a, r = gae(tr["rewards"], tr["values"], tr["turn_end"], bool(tr["done"]), gamma, lam, lam_per)
@@ -65,11 +75,26 @@ def build_batch(
         places.append(np.full(len(tr["actions"]), place, dtype=np.int64))
         for k in cols:
             cols[k].append(tr[k])
+        if packed:
+            csr.append((tr["num_ptr"], tr["num_idx"], tr["num_val"]))
+    if packed:
+        num_ptr, num_idx, num_val = packing.concat_packed(csr)
+        feats: dict[str, Any] = {
+            "packed": True,
+            "num_ptr": num_ptr,
+            "num_idx": num_idx,
+            "num_val": num_val,
+            "mask_bits": np.concatenate(cols["mask_bits"]),
+        }
+    else:
+        feats = {
+            "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"])),
+            "action_mask": torch.from_numpy(np.concatenate(cols["action_mask"])),
+        }
     return {
+        **feats,
         "player_vec": torch.from_numpy(np.concatenate(cols["player_vec"])),
         "slot_card_ids": torch.from_numpy(np.concatenate(cols["slot_card_ids"]).astype(np.int64)),
-        "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"])),
-        "action_mask": torch.from_numpy(np.concatenate(cols["action_mask"])),
         "actions": torch.from_numpy(np.concatenate(cols["actions"])),
         "old_log_probs": torch.from_numpy(np.concatenate(cols["log_probs"])),
         "old_values": torch.from_numpy(np.concatenate(values)),
@@ -109,11 +134,17 @@ def ppo_update(
         perm = torch.randperm(n)
         for start in range(0, n, minibatch_size):
             idx = perm[start : start + minibatch_size]
+            if batch.get("packed"):
+                rows = idx.numpy()
+                feats = torch.from_numpy(packing.unpack_rows(batch["num_ptr"], batch["num_idx"], batch["num_val"], rows))
+                mask = torch.from_numpy(packing.unpack_mask(batch["mask_bits"], rows))
+            else:
+                feats, mask = batch["slot_num_feats"][idx].float(), batch["action_mask"][idx]
             args = (
                 batch["player_vec"][idx].to(device),
                 batch["slot_card_ids"][idx].to(device),
-                batch["slot_num_feats"][idx].float().to(device),
-                batch["action_mask"][idx].to(device),
+                feats.to(device),
+                mask.to(device),
             )
             if placement:
                 logits, values, value_logits = model(*args, return_value_logits=True)
