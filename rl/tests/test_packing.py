@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from seaglass_rl import packing
+from seaglass_rl import features, packing
 from seaglass_rl.actions import ACTION_SPACE_SIZE
 from seaglass_rl.features import NUM_SLOTS, SLOT_NUM_DIM
 from seaglass_rl.model import BattlegroundsMLP
@@ -136,3 +136,44 @@ def test_pretrain_on_packed_dataset() -> None:
         torch.manual_seed(0)
         stats.append(pretrain.train(model, data, epochs=1, lr=1e-3, minibatch=64, value_epochs=0))
     assert stats[0]["accuracy"] == pytest.approx(stats[1]["accuracy"], abs=1e-6)
+
+
+@pytest.mark.skipif(not features.HAS_RUST_ENCODER, reason="the extension has no seaglass.Encoder")
+def test_sparse_path_matches_pack_rows() -> None:
+    """Rust-encoder trajectories packed straight from the sparse parts equal `pack_rows` of the
+    dense float16 stack, and unpack to it."""
+    play(False)  # warm up (see `pair`)
+    dense = play(False)
+    sparse = play(True)  # the new path
+    assert len(sparse) == len(dense) > 0
+    for s, d in zip(sparse, dense):
+        assert bool(s["packed"])
+        want = packing.pack_rows(d["slot_num_feats"])
+        for name, w in zip(("num_ptr", "num_idx", "num_val"), want):
+            assert s[name].dtype == w.dtype and np.array_equal(s[name], w), name
+        rows = np.arange(len(d["actions"]))
+        got = packing.unpack_rows(s["num_ptr"], s["num_idx"], s["num_val"], rows)
+        assert np.array_equal(got, d["slot_num_feats"].astype(np.float32))
+        for k in d:
+            if k not in ("slot_num_feats", "action_mask", "slot_card_ids"):
+                assert np.array_equal(s[k], d[k]), k
+
+
+@pytest.mark.skipif(not features.HAS_RUST_ENCODER, reason="the extension has no seaglass.Encoder")
+def test_sparse_drops_float16_zeros() -> None:
+    """A float32 that underflows to zero (or -0.0) in float16 is dropped, as `pack_rows` drops it."""
+    from seaglass_rl.play import Trajectory, _record
+
+    idx = np.array([1, 5, 9, 20], dtype=np.uint16)
+    val = np.array([1e-10, 0.5, -1e-10, -2.0], dtype=np.float32)
+    traj = Trajectory(game=0, player=0)
+    pv = np.zeros(features.PLAYER_DIM, np.float32)
+    ids = np.zeros(NUM_SLOTS, np.int64)
+    dense = np.zeros((NUM_SLOTS, SLOT_NUM_DIM), np.float32)
+    dense.reshape(-1)[idx] = val
+    _record(traj, (pv, ids, dense, idx, val), np.ones(ACTION_SPACE_SIZE, bool), 0, 0.0, 0.0, 0.0, 0.99)
+    out = traj.arrays(pack=True)
+    want = packing.pack_rows(dense.astype(np.float16)[None])
+    for name, w in zip(("num_ptr", "num_idx", "num_val"), want):
+        assert out[name].dtype == w.dtype and np.array_equal(out[name], w), name
+    assert out["num_idx"].tolist() == [5, 20]

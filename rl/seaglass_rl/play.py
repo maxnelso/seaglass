@@ -241,6 +241,10 @@ class Trajectory:
     player_vec: list[np.ndarray] = field(default_factory=list)
     slot_card_ids: list[np.ndarray] = field(default_factory=list)
     slot_num_feats: list[np.ndarray] = field(default_factory=list)
+    # With the Rust encoder and `pack`, the nonzeros of each decision's features (uint16 columns,
+    # float16 values, zeros after the cast dropped) stand in for `slot_num_feats`.
+    num_idx: list[np.ndarray] = field(default_factory=list)
+    num_val: list[np.ndarray] = field(default_factory=list)
     action_mask: list[np.ndarray] = field(default_factory=list)
     actions: list[int] = field(default_factory=list)
     log_probs: list[float] = field(default_factory=list)
@@ -272,15 +276,26 @@ class Trajectory:
             "done": np.asarray(self.done),
             "place": np.asarray(self.place, dtype=np.int64),
         }
-        feats = np.asarray(self.slot_num_feats, dtype=np.float16).reshape(-1, NUM_SLOTS, SLOT_NUM_DIM)
+        sparse = bool(self.num_idx)
+        feats = None
+        if not sparse:
+            feats = np.asarray(self.slot_num_feats, dtype=np.float16).reshape(-1, NUM_SLOTS, SLOT_NUM_DIM)
         mask = np.asarray(self.action_mask, dtype=np.bool_).reshape(-1, ACTION_SPACE_SIZE)
         if pack:
             assert features.VOCAB_SIZE < 65536
             out["slot_card_ids"] = np.asarray(self.slot_card_ids, dtype=np.uint16).reshape(-1, NUM_SLOTS)
-            out["num_ptr"], out["num_idx"], out["num_val"] = packing.pack_rows(feats)
+            if sparse:
+                ptr = np.zeros(len(self.num_idx) + 1, dtype=np.int64)
+                np.cumsum([len(i) for i in self.num_idx], out=ptr[1:])
+                out["num_ptr"] = ptr
+                out["num_idx"] = np.concatenate(self.num_idx)
+                out["num_val"] = np.concatenate(self.num_val)
+            else:
+                out["num_ptr"], out["num_idx"], out["num_val"] = packing.pack_rows(feats)
             out["mask_bits"] = packing.pack_mask(mask)
             out["packed"] = np.asarray(True)
         else:
+            assert not sparse, "sparse trajectories can only be packed"
             out["slot_card_ids"] = np.asarray(self.slot_card_ids, dtype=np.int32).reshape(-1, NUM_SLOTS)
             out["slot_num_feats"] = feats
             out["action_mask"] = mask
@@ -397,6 +412,7 @@ def play_games(
         views.append([Seat(game, p) for p in range(config.players)])
 
     rust = features.rust_encoder() if opts.rust_encoder else None
+    sparse = rust is not None and opts.pack
     # The shaping potential is the only thing left that reads a Python observation of a model seat.
     needs_obs = bool(opts.shaping or opts.health_shaping)
 
@@ -536,7 +552,7 @@ def play_games(
                 if rust is not None:
                     obs = seat.observe() if needs_obs else None
                     nboard = rust.board_len(game, p)
-                    enc = fast_encode(rust, game, p, st.arranging, game.phase == "turn")
+                    enc = fast_encode(rust, game, p, st.arranging, game.phase == "turn", sparse=sparse and st.traj is not None)
                 else:
                     obs = seat.observe()
                     if st.context is None and game.phase == "turn":
@@ -568,7 +584,7 @@ def play_games(
                         st.arranging = True
                         st.moves_left = board - 1 if opts.allow_reposition else 0
                         if rust is not None:
-                            enc = fast_encode(rust, game, p, True, game.phase == "turn")
+                            enc = fast_encode(rust, game, p, True, game.phase == "turn", sparse=sparse and st.traj is not None)
                         else:
                             enc = encode_observation(obs, st.context, arranging=True)
                         mask = mask_for(seat, obs, st)
@@ -662,7 +678,19 @@ def _record(
         traj.rewards[-1] += disc * phi - traj.potentials[-1]
     traj.player_vec.append(enc[0])
     traj.slot_card_ids.append(enc[1])
-    traj.slot_num_feats.append(enc[2])
+    if len(enc) == 5:
+        # Sparse: keep only the nonzeros, as `packing.pack_rows` would (it drops entries whose
+        # float16 is zero, -0.0 included).
+        val = enc[4].astype(np.float16)
+        keep = (val.view(np.uint16) << np.uint16(1)) != 0
+        if keep.all():
+            traj.num_idx.append(enc[3])
+            traj.num_val.append(val)
+        else:
+            traj.num_idx.append(enc[3][keep])
+            traj.num_val.append(val[keep])
+    else:
+        traj.slot_num_feats.append(enc[2])
     traj.action_mask.append(mask)
     traj.actions.append(action)
     traj.log_probs.append(log_prob)

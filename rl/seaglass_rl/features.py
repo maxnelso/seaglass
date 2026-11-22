@@ -453,10 +453,21 @@ def rust_encoder():
 
 
 def fast_encode(
-    enc, game: seaglass.LobbyGame, player: int, arranging: bool = False, context: bool = True
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    enc, game: seaglass.LobbyGame, player: int, arranging: bool = False, context: bool = True, sparse: bool = False
+) -> tuple:
     """`encode_observation(game.observe(player), game.context(player) if context else None,
-    arranging)` through the Rust encoder: the same arrays (shapes, dtypes, bits), writable."""
+    arranging)` through the Rust encoder: the same arrays (shapes, dtypes, bits), writable. With
+    `sparse`, also `idx` (uint16) and `val` (float32): the flat columns and values of the nonzeros
+    of `slot_num_feats`, in increasing order."""
+    if sparse:
+        pv, ids, nf, ix, vl = enc.encode(game, player, arranging, context, True)
+        return (
+            np.frombuffer(pv, dtype=np.float32),
+            np.frombuffer(ids, dtype=np.int64),
+            np.frombuffer(nf, dtype=np.float32).reshape(NUM_SLOTS, SLOT_NUM_DIM),
+            np.frombuffer(ix, dtype=np.uint16),
+            np.frombuffer(vl, dtype=np.float32),
+        )
     pv, ids, nf = enc.encode(game, player, arranging, context)
     return (
         np.frombuffer(pv, dtype=np.float32),

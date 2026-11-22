@@ -840,7 +840,10 @@ impl PyEncoder {
 
     /// `features.encode_observation(game.observe(p), game.context(p) if context else None,
     /// arranging=arranging)` as raw little-endian buffers: `player_vec` float32, `slot_card_ids`
-    /// int64, `slot_num_feats` float32 (`NUM_SLOTS * SLOT_NUM_DIM`, row-major).
+    /// int64, `slot_num_feats` float32 (`NUM_SLOTS * SLOT_NUM_DIM`, row-major). With `sparse`, two
+    /// more buffers follow: `idx` (uint16, the flat column of each nonzero of `slot_num_feats`, in
+    /// increasing order; -0.0 is a zero) and `val` (float32, the value there).
+    #[pyo3(signature = (game, p, arranging, context, sparse=false))]
     fn encode(
         &self,
         py: Python<'_>,
@@ -848,7 +851,8 @@ impl PyEncoder {
         p: usize,
         arranging: bool,
         context: bool,
-    ) -> PyResult<(Py<PyByteArray>, Py<PyByteArray>, Py<PyByteArray>)> {
+        sparse: bool,
+    ) -> PyResult<PyObject> {
         let o = self.encode_game(game, p, arranging, context)?;
         let ids = PyByteArray::new_bound_with(py, o.ids.len() * 8, |b| {
             for (c, x) in b.chunks_exact_mut(8).zip(&o.ids) {
@@ -857,7 +861,26 @@ impl PyEncoder {
             Ok(())
         })?
         .unbind();
-        Ok((bytes_f32(py, &o.player)?, ids, bytes_f32(py, &o.num)?))
+        let (player, num) = (bytes_f32(py, &o.player)?, bytes_f32(py, &o.num)?);
+        if !sparse {
+            return Ok((player, ids, num).into_py(py));
+        }
+        if o.num.len() > 65536 {
+            return Err(bad("slot_num_feats is too wide for uint16 columns".into()));
+        }
+        let cols: Vec<u16> = (0..o.num.len())
+            .filter(|&i| o.num[i] != 0.0)
+            .map(|i| i as u16)
+            .collect();
+        let idx = PyByteArray::new_bound_with(py, cols.len() * 2, |b| {
+            for (c, x) in b.chunks_exact_mut(2).zip(&cols) {
+                c.copy_from_slice(&x.to_le_bytes());
+            }
+            Ok(())
+        })?
+        .unbind();
+        let vals: Vec<f32> = cols.iter().map(|&i| o.num[i as usize]).collect();
+        Ok((player, ids, num, idx, bytes_f32(py, &vals)?).into_py(py))
     }
 
     /// `actions.action_mask(seat, allow_reposition, allow_freeze, prune_dominated, obs)` as one

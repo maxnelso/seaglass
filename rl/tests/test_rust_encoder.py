@@ -47,6 +47,15 @@ def _check(enc, game: seaglass.LobbyGame, p: int, kind: str) -> None:
         got = fast_encode(enc, game, p, arranging, in_turn)
         for name, a, b in zip(("player_vec", "slot_card_ids", "slot_num_feats"), got, want):
             _same(f"{kind} p{p} turn {game.turn} {name} arranging={arranging}", a, b)
+        # The sparse form: exactly the nonzeros of the dense buffer (-0.0 is a zero).
+        sp = fast_encode(enc, game, p, arranging, in_turn, sparse=True)
+        assert len(sp) == 5
+        for name, a, b in zip(("player_vec", "slot_card_ids", "slot_num_feats"), sp, got):
+            _same(f"{kind} p{p} turn {game.turn} sparse {name}", a, b)
+        flat = got[2].reshape(-1)
+        cols = np.nonzero(flat)[0]
+        _same("sparse idx", sp[3], cols.astype(np.uint16))
+        _same("sparse val", sp[4], flat[cols])
     for rep, frz, prune in FLAGS:
         want = action_mask(seat, rep, frz, prune, obs=obs)
         got = fast_mask(enc, game, p, rep, frz, prune)
@@ -212,3 +221,16 @@ def test_the_encoder_rejects_a_bad_layout() -> None:
         seaglass.Encoder(bad)
     with pytest.raises(ValueError, match="missing"):
         seaglass.Encoder({})
+
+
+def test_sparse_encode_defaults_and_zero_handling() -> None:
+    enc = features.rust_encoder()
+    game = LobbyConfig().make(7)
+    game.begin_phase()
+    p = game.active_players()[0]
+    assert len(enc.encode(game, p, False, True)) == 3
+    assert len(enc.encode(game, p, False, True, False)) == 3
+    out = enc.encode(game, p, False, True, True)
+    assert len(out) == 5 and len(out[3]) % 2 == 0 and len(out[4]) == 2 * len(out[3])
+    idx = np.frombuffer(out[3], dtype=np.uint16)
+    assert (np.diff(idx.astype(np.int64)) > 0).all() and len(idx) > 0
