@@ -35,9 +35,10 @@ const TRIBE_SALT: u64 = 0x5EA6_1A55_0B0B_0003;
 /// The most actions [`LobbyGame::force_end`] takes to close a player's phase.
 const MAX_FORCED_ACTIONS: usize = 64;
 /// Each turn's Recruit-phase timer, in seconds, from turn 1; later turns use the last entry.
-/// PROVISIONAL: placeholder values until the real Battlegrounds timers are confirmed.
-pub const SOLO_TURN_SECONDS: &[u32] = &[45, 55, 65, 75, 85, 90];
-/// Duos' Recruit-phase timers (PROVISIONAL: the Solo values until the real ones are confirmed).
+/// A flat 90 s, not the game's 60 s rising by 15 s a turn to 120 s (`docs/lobby_game.md` §2).
+pub const SOLO_TURN_SECONDS: &[u32] = &[90];
+/// Duos' Recruit-phase timers: the Solo ones. The game gives Duos more time, for the teammates to
+/// talk; a team of bots needs none.
 pub const DUOS_TURN_SECONDS: &[u32] = SOLO_TURN_SECONDS;
 /// The default simulated time one action takes: 250 ms, 240 actions per minute.
 pub const DEFAULT_ACTION_MS: u32 = 250;
@@ -889,22 +890,23 @@ mod tests {
     fn the_turn_timer_ends_a_turn_after_its_actions() {
         let mut game = timer_game(true, DEFAULT_ACTION_MS);
         game.begin_phase().unwrap();
-        assert_eq!(game.turn_ms(), Some(45_000));
-        for i in 1..=180 {
+        assert_eq!(game.turn_ms(), Some(90_000));
+        for i in 1..=360 {
             let done = game.step(0, TavernAction::ToggleFreeze, None).unwrap();
-            assert_eq!(done, i == 180, "action {i}");
+            assert_eq!(done, i == 360, "action {i}");
         }
         assert!(game.is_done(0));
         assert_eq!(game.time_left_ms(0), Some(0));
         assert!(!game.is_done(1));
         assert_eq!(game.active_players(), vec![1]);
-        assert_eq!(game.time_left_ms(1), Some(45_000));
+        assert_eq!(game.time_left_ms(1), Some(90_000));
         game.end_phase().unwrap();
         game.begin_phase().unwrap();
-        assert_eq!(game.turn_ms(), Some(55_000));
-        for i in 1..=220 {
+        // The clock starts over each turn.
+        assert_eq!(game.time_left_ms(0), Some(90_000));
+        for i in 1..=360 {
             let done = game.step(0, TavernAction::ToggleFreeze, None).unwrap();
-            assert_eq!(done, i == 220, "turn 2 action {i}");
+            assert_eq!(done, i == 360, "turn 2 action {i}");
         }
     }
 
@@ -948,13 +950,20 @@ mod tests {
 
     #[test]
     fn turn_seconds_follow_the_table() {
-        assert_eq!(turn_seconds(0, false), SOLO_TURN_SECONDS[0]);
-        assert_eq!(turn_seconds(1, false), SOLO_TURN_SECONDS[0]);
-        assert_eq!(turn_seconds(2, true), DUOS_TURN_SECONDS[1]);
-        let last = *SOLO_TURN_SECONDS.last().unwrap();
-        assert_eq!(turn_seconds(SOLO_TURN_SECONDS.len() as u32, false), last);
-        assert_eq!(turn_seconds(500, false), last);
-        assert_eq!(turn_seconds(500, true), *DUOS_TURN_SECONDS.last().unwrap());
+        for duos in [false, true] {
+            let table = if duos {
+                DUOS_TURN_SECONDS
+            } else {
+                SOLO_TURN_SECONDS
+            };
+            assert_eq!(turn_seconds(0, duos), table[0]);
+            for turn in 1..=table.len() as u32 {
+                assert_eq!(turn_seconds(turn, duos), table[turn as usize - 1]);
+            }
+            assert_eq!(turn_seconds(500, duos), *table.last().unwrap());
+        }
+        assert_eq!(turn_seconds(1, false), 90);
+        assert_eq!(turn_seconds(30, true), 90);
     }
 
     #[test]

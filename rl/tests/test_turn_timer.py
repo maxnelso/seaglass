@@ -20,12 +20,12 @@ def _toggles_until_done(game: seaglass.LobbyGame, p: int, limit: int = 10_000) -
 def test_a_turn_ends_when_the_clock_runs_out() -> None:
     game = seaglass.LobbyGame(players=2, heroes=False, seed=1)
     game.begin_phase()
-    assert game.turn_seconds == 45.0
+    assert game.turn_seconds == 90.0
     assert game.turn_timer and game.action_ms == 250
-    assert _toggles_until_done(game, 0) == 180
+    assert _toggles_until_done(game, 0) == 360
     assert game.is_done(0)
     assert game.time_left(0) == 0.0
-    assert game.time_left(1) == 45.0
+    assert game.time_left(1) == 90.0
     assert not game.is_done(1)
 
 
@@ -42,13 +42,13 @@ def test_the_timer_can_be_off() -> None:
 def test_an_action_can_take_longer() -> None:
     game = seaglass.LobbyGame(players=2, heroes=False, seed=1, action_ms=500)
     game.begin_phase()
-    assert _toggles_until_done(game, 0) == 90
+    assert _toggles_until_done(game, 0) == 180
 
 
 def test_turn_seconds_by_turn() -> None:
-    assert seaglass.turn_seconds(1) == 45
-    assert seaglass.turn_seconds(0) == 45
-    assert seaglass.turn_seconds(2, duos=True) == 55
+    assert seaglass.turn_seconds(1) == 90
+    assert seaglass.turn_seconds(0) == 90
+    assert seaglass.turn_seconds(2, duos=True) == 90
     assert seaglass.turn_seconds(99) == 90
 
 

@@ -85,13 +85,20 @@ Every phase is `begin_phase()`, then the players act, then `end_phase()`.
 - **Turn timer.** With `turn_timer`, each turn has a simulated clock. Every action a player takes
   costs `action_ms` (250 ms by default: 240 actions a minute); illegal actions and forced ones
   (`force_end`) cost nothing. The budget is the turn's Recruit timer, in seconds, from turn 1 (later
-  turns use the last entry): Solo `SOLO_TURN_SECONDS` = 45, 55, 65, 75, 85, 90; Duos
-  `DUOS_TURN_SECONDS` = the same. These values are provisional until the real Battlegrounds timers
-  are confirmed. When a player's clock runs out, their turn is ended for them (`force_end`, recorded
-  as forced), and `step` returns `true`; 45 s at 250 ms is exactly 180 actions. The hero phase has no
-  clock. The clock is simulated time, never the wall clock, so a game stays a pure function of its
-  seed and actions. In the real game, long combats eat into the next Recruit phase; the engine
-  doesn't model that.
+  turns use the last entry): `SOLO_TURN_SECONDS` and `DUOS_TURN_SECONDS`, both a flat 90 s. When a
+  player's clock runs out, their turn is ended for them (`force_end`, recorded as forced), and `step`
+  returns `true`; 90 s at 250 ms is exactly 360 actions. The hero phase has no clock. The clock is
+  simulated time, never the wall clock, so a game stays a pure function of its seed and actions.
+
+  **Why a flat 90 s.** In the game, the first Recruit phase is 60 s (counted from the hero choice),
+  each later one is 15 s longer, up to 120 s, and the timer starts with the combat, so a long combat
+  leaves less time to recruit. The engine models neither the ramp nor the combat time. Early turns
+  can't go on forever anyway (every action but Reposition and Toggle Freeze costs Gold or uses up a
+  card), and late turns lose time to longer combats. The timer is there so that a comp that cycles
+  for free (a Brann comp, say) can't take an endless turn. Duos is the same 90 s: the game gives Duos
+  more time for the teammates to talk, which a team of bots doesn't need. Both values, and
+  `action_ms`, may be tuned later (for example if cycling comps come out stronger or weaker than top
+  players can pilot them).
 - **`end_phase()` after a turn:**
   1. Forces any player still acting to end their turn.
   2. Delivers the lobby gifts.
