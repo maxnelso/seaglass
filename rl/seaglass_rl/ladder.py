@@ -112,6 +112,14 @@ def ladder_specs(
     return out
 
 
+def _saved_step_cap(args: dict) -> int | None:
+    """A checkpoint's saved step cap: 30 if missing (saved before the turn timer), else None or an int."""
+    if "max_steps_per_turn" not in args:
+        return 30
+    cap = args["max_steps_per_turn"]
+    return None if cap is None else int(cap)
+
+
 def checkpoint_options(agent: Any) -> PlayOptions:
     """The move rules a checkpoint was trained with (`train_lobby.play_options`: the step cap, the
     end-of-turn step, Reposition, Freeze, pruning), so it is rated under the same rules. Defaults for
@@ -123,7 +131,7 @@ def checkpoint_options(agent: Any) -> PlayOptions:
     _, ckpt = checkpoint.load(agent)
     a = ckpt.get("args") or {}
     return PlayOptions(
-        max_steps_per_turn=int(a.get("max_steps_per_turn", 30)),
+        max_steps_per_turn=_saved_step_cap(a),
         positioning_phase=not a.get("no_positioning_phase", False),
         allow_reposition=not a.get("no_reposition", False),
         allow_freeze=not a.get("no_freeze", False),
@@ -648,7 +656,10 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("--no-probe", action="store_true")
     r.add_argument("--deterministic", action="store_true", help="take the most likely action")
     r.add_argument(
-        "--max-steps-per-turn", type=int, default=None, help="default: the checkpoint's training setting, else 30"
+        "--max-steps-per-turn",
+        type=int,
+        default=None,
+        help="default: the checkpoint's training setting (30 for checkpoints saved before the turn timer)",
     )
     r.add_argument("--out", default=None, metavar="FILE.json", help="write the full result here")
     r.add_argument("--json", action="store_true", help="print the full result as JSON")

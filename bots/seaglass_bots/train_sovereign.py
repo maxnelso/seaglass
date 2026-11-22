@@ -42,7 +42,6 @@ def _trim_memory() -> None:
 def _play_mixed_ffa_game(args_tuple: Tuple[int, str | None]) -> Dict[str, Any]:
     """Play 1 pure 8-player FFA game mixing SovereignBot and ApexBot seats and record all 8 trajectories."""
     from seaglass_rl.env import compute_board_power
-    from seaglass_rl.play import BOT_MAX_STEPS_PER_TURN
 
     seed, weights_path = args_tuple
     featurizer = SovereignStateFeaturizer("full")
@@ -104,14 +103,12 @@ def _play_mixed_ffa_game(args_tuple: Tuple[int, str | None]) -> Dict[str, Any]:
                 )
 
         for p in list(lobby.active_players()):
-            steps = 0
-            while not lobby.is_done(p) and steps < BOT_MAX_STEPS_PER_TURN:
+            while not lobby.is_done(p):
                 act = bots[p].act_in_lobby(lobby, p)
                 if not lobby.is_legal(p, act):
                     lobby.force_end(p)
                     break
                 lobby.step(p, act)
-                steps += 1
             if not lobby.is_done(p):
                 lobby.force_end(p)
 

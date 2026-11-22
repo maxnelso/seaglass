@@ -34,6 +34,25 @@ const HERO_SALT: u64 = 0x5EA6_1A55_0B0B_0002;
 const TRIBE_SALT: u64 = 0x5EA6_1A55_0B0B_0003;
 /// The most actions [`LobbyGame::force_end`] takes to close a player's phase.
 const MAX_FORCED_ACTIONS: usize = 64;
+/// Each turn's Recruit-phase timer, in seconds, from turn 1; later turns use the last entry.
+/// A flat 90 s, not the game's 60 s rising by 15 s a turn to 120 s (`docs/lobby_game.md` §2).
+pub const SOLO_TURN_SECONDS: &[u32] = &[90];
+/// Duos' Recruit-phase timers: the Solo ones. The game gives Duos more time, for the teammates to
+/// talk; a team of bots needs none.
+pub const DUOS_TURN_SECONDS: &[u32] = SOLO_TURN_SECONDS;
+/// The default simulated time one action takes: 250 ms, 240 actions per minute.
+pub const DEFAULT_ACTION_MS: u32 = 250;
+
+/// Turn `turn`'s Recruit-phase timer in seconds (turn 1 is the first; turn 0 is treated as 1).
+pub fn turn_seconds(turn: u32, duos: bool) -> u32 {
+    let table = if duos {
+        DUOS_TURN_SECONDS
+    } else {
+        SOLO_TURN_SECONDS
+    };
+    let i = (turn.max(1) - 1) as usize;
+    table[i.min(table.len() - 1)]
+}
 /// The random pairings [`LobbyGame`] tries each turn, keeping the one with the fewest repeats.
 const PAIRING_TRIES: usize = 16;
 
@@ -60,6 +79,11 @@ pub struct LobbyConfig {
     pub avoid_recent: usize,
     /// Cap combat damage as the game does (§5 of `docs/lobby_game.md`).
     pub damage_caps: bool,
+    /// Give each turn a simulated clock (§2 of `docs/lobby_game.md`): each action costs
+    /// `action_ms`, and a player whose clock runs out has their turn ended for them.
+    pub turn_timer: bool,
+    /// The simulated time one action takes, in ms (with [`LobbyConfig::turn_timer`]).
+    pub action_ms: u32,
     /// The number of minion types in the lobby, drawn at random from `LOBBY_TRIBES` (§1 of
     /// `docs/lobby_game.md`); 0 or 10: every type.
     pub tribes: usize,
@@ -85,6 +109,8 @@ impl Default for LobbyConfig {
             first_fighter_switch_chance: crate::duos_tavern::DEFAULT_FIRST_FIGHTER_SWITCH_CHANCE,
             avoid_recent: 3,
             damage_caps: true,
+            turn_timer: true,
+            action_ms: DEFAULT_ACTION_MS,
             tribes: 5,
             seed: 0,
             names: Vec::new(),
@@ -118,6 +144,9 @@ impl LobbyConfig {
         }
         if self.max_turns == 0 {
             return Err("max_turns must be at least 1".to_string());
+        }
+        if self.turn_timer && self.action_ms == 0 {
+            return Err("action_ms must be at least 1 with the turn timer".to_string());
         }
         Ok(())
     }
@@ -199,6 +228,8 @@ pub struct LobbyGame {
     ghost_fighter: Option<usize>,
     /// Each player is done with this phase (or out).
     done: Vec<bool>,
+    /// Each player's simulated time spent this turn, in ms (`LobbyConfig::turn_timer`).
+    spent_ms: Vec<u32>,
     /// What the leaderboard shows of each player: Health, Armor and Tavern Tier, refreshed at the
     /// start of each phase and after the combats.
     summary: Vec<(i32, i32, u32)>,
@@ -276,6 +307,7 @@ impl LobbyGame {
             pairs: Vec::new(),
             ghost_fighter: None,
             done: vec![true; n],
+            spent_ms: vec![0; n],
             summary: vec![(0, 0, 1); n],
             win_streak: vec![0; units],
             seen: vec![vec![None; n]; n],
@@ -315,6 +347,21 @@ impl LobbyGame {
     /// The current turn (0 before Turn 1).
     pub fn turn(&self) -> u32 {
         self.turn
+    }
+
+    /// This turn's time budget in ms ([`turn_seconds`]); `None` if the timer is off or it is not
+    /// a turn.
+    pub fn turn_ms(&self) -> Option<u32> {
+        if !self.config.turn_timer || self.phase != Phase::Turn {
+            return None;
+        }
+        Some(turn_seconds(self.turn, self.config.duos).saturating_mul(1000))
+    }
+
+    /// The time player `p` has left this turn, in ms; `None` as for [`Self::turn_ms`].
+    pub fn time_left_ms(&self, p: usize) -> Option<u32> {
+        let spent = self.spent_ms.get(p).copied().unwrap_or(0);
+        self.turn_ms().map(|budget| budget.saturating_sub(spent))
     }
 
     pub fn is_over(&self) -> bool {
@@ -392,6 +439,19 @@ impl LobbyGame {
         self.game.valid_actions(p)
     }
 
+    /// Deal the rest of the game from another seed: the pairings' RNG and every RNG the match
+    /// draws from ([`Match::reseed`]). What is already on the table stays: the shops, this turn's
+    /// pairings, every player's state.
+    ///
+    /// With [`Clone`], this is how to look ahead: copies of one lobby, each reseeded differently
+    /// and played on, are independent samples of how the game goes from here. A copy that is not
+    /// reseeded replays the same future. A reseeded lobby's replay does not re-simulate past the
+    /// reseed (its header is labelled `reseeded`).
+    pub fn reseed(&mut self, seed: u64) {
+        self.rng = Rng::new(seed ^ PAIRING_SALT);
+        self.game.reseed(seed);
+    }
+
     // -- Phases -----------------------------------------------------------------------------------
 
     /// Start the hero phase or the next turn. A turn starts with its pairings, every living unit's
@@ -408,6 +468,7 @@ impl LobbyGame {
             Phase::Turn => {}
         }
         self.turn += 1;
+        self.spent_ms.fill(0);
         self.pair();
         let mut player_pairs = Vec::new();
         for &(a, b) in &self.pairs {
@@ -439,6 +500,10 @@ impl LobbyGame {
 
     /// Player `p` takes `action` (with a note, recorded with it). Returns `true` once they are
     /// done with this phase: they ended their turn, or picked their hero.
+    ///
+    /// With [`LobbyConfig::turn_timer`], each action in a turn costs `action_ms` of the player's
+    /// simulated clock (forced actions and refused ones cost nothing); once the clock runs out,
+    /// their turn is ended for them ([`Self::force_end`]).
     pub fn step(
         &mut self,
         p: usize,
@@ -457,11 +522,20 @@ impl LobbyGame {
         if self.done[p] {
             return Err(format!("player {p} is done with this phase"));
         }
+        let forced = note.as_ref().is_some_and(|n| n.forced);
         let ended = self.game.step_with_note(p, action, note)?;
         self.done[p] = match self.phase {
             Phase::Hero => self.game.player(p).hero_options.is_empty(),
             _ => ended,
         };
+        if self.phase == Phase::Turn && self.config.turn_timer && !forced {
+            self.spent_ms[p] = self.spent_ms[p].saturating_add(self.config.action_ms);
+            let budget = self.turn_ms().unwrap_or(u32::MAX);
+            if !self.done[p] && self.spent_ms[p] >= budget {
+                self.force_end(p)?;
+                return Ok(true);
+            }
+        }
         Ok(self.done[p])
     }
 
@@ -813,6 +887,98 @@ mod tests {
         game
     }
 
+    fn timer_game(turn_timer: bool, action_ms: u32) -> LobbyGame {
+        LobbyGame::new(LobbyConfig {
+            players: 2,
+            heroes: false,
+            seed: 1,
+            turn_timer,
+            action_ms,
+            ..Default::default()
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn the_turn_timer_ends_a_turn_after_its_actions() {
+        let mut game = timer_game(true, DEFAULT_ACTION_MS);
+        game.begin_phase().unwrap();
+        assert_eq!(game.turn_ms(), Some(90_000));
+        for i in 1..=360 {
+            let done = game.step(0, TavernAction::ToggleFreeze, None).unwrap();
+            assert_eq!(done, i == 360, "action {i}");
+        }
+        assert!(game.is_done(0));
+        assert_eq!(game.time_left_ms(0), Some(0));
+        assert!(!game.is_done(1));
+        assert_eq!(game.active_players(), vec![1]);
+        assert_eq!(game.time_left_ms(1), Some(90_000));
+        game.end_phase().unwrap();
+        game.begin_phase().unwrap();
+        // The clock starts over each turn.
+        assert_eq!(game.time_left_ms(0), Some(90_000));
+        for i in 1..=360 {
+            let done = game.step(0, TavernAction::ToggleFreeze, None).unwrap();
+            assert_eq!(done, i == 360, "turn 2 action {i}");
+        }
+    }
+
+    #[test]
+    fn the_turn_timer_can_be_turned_off() {
+        let mut game = timer_game(false, 250);
+        game.begin_phase().unwrap();
+        for _ in 0..1000 {
+            assert!(!game.step(0, TavernAction::ToggleFreeze, None).unwrap());
+        }
+        assert!(!game.is_done(0));
+        assert_eq!(game.turn_ms(), None);
+        assert_eq!(game.time_left_ms(0), None);
+    }
+
+    #[test]
+    fn forced_actions_cost_no_time() {
+        let mut game = timer_game(true, 250);
+        game.begin_phase().unwrap();
+        for _ in 0..10 {
+            game.step(0, TavernAction::ToggleFreeze, None).unwrap();
+        }
+        game.force_end(0).unwrap();
+        assert!(game.is_done(0));
+        assert_eq!(game.spent_ms[0], 2_500);
+    }
+
+    #[test]
+    fn a_zero_action_time_is_refused() {
+        let config = LobbyConfig {
+            action_ms: 0,
+            ..Default::default()
+        };
+        assert!(LobbyGame::new(config.clone()).is_err());
+        assert!(LobbyGame::new(LobbyConfig {
+            turn_timer: false,
+            ..config
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn turn_seconds_follow_the_table() {
+        for duos in [false, true] {
+            let table = if duos {
+                DUOS_TURN_SECONDS
+            } else {
+                SOLO_TURN_SECONDS
+            };
+            assert_eq!(turn_seconds(0, duos), table[0]);
+            for turn in 1..=table.len() as u32 {
+                assert_eq!(turn_seconds(turn, duos), table[turn as usize - 1]);
+            }
+            assert_eq!(turn_seconds(500, duos), *table.last().unwrap());
+        }
+        assert_eq!(turn_seconds(1, false), 90);
+        assert_eq!(turn_seconds(30, true), 90);
+    }
+
     #[test]
     fn every_unit_is_placed_once() {
         for duos in [false, true] {
@@ -848,6 +1014,36 @@ mod tests {
             }
             game.end_phase().unwrap();
         }
+    }
+
+    #[test]
+    fn a_copy_replays_the_same_future_until_it_is_reseeded() {
+        let mut game = LobbyGame::new(LobbyConfig {
+            heroes: false,
+            seed: 11,
+            ..Default::default()
+        })
+        .unwrap();
+        game.begin_phase().unwrap();
+        game.end_phase().unwrap();
+        let shops = |g: &LobbyGame| -> Vec<Vec<u32>> {
+            (0..g.num_players())
+                .map(|p| g.player(p).shop.iter().map(|u| u.card_id).collect())
+                .collect()
+        };
+        let mut same = game.clone();
+        let mut other = game.clone();
+        other.reseed(12345);
+        // Nothing already dealt changes.
+        assert_eq!(shops(&other), shops(&game));
+        assert_eq!(other.pairs(), game.pairs());
+        for g in [&mut game, &mut same, &mut other] {
+            g.begin_phase().unwrap();
+        }
+        assert_eq!(shops(&same), shops(&game));
+        assert_ne!(shops(&other), shops(&game));
+        assert!(other.game().header().meta.contains_key("reseeded"));
+        assert!(!same.game().header().meta.contains_key("reseeded"));
     }
 
     #[test]

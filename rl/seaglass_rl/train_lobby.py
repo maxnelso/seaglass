@@ -63,7 +63,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--players", type=int, default=8)
     p.add_argument("--max-turns", type=int, default=30)
     p.add_argument("--no-heroes", action="store_true")
-    p.add_argument("--max-steps-per-turn", type=int, default=30)
+    p.add_argument(
+        "--max-steps-per-turn",
+        type=int,
+        default=None,
+        help="cap a model's decisions per phase, on top of the engine's turn timer (default: none, the timer "
+        "only). Set one with --no-positioning-phase, where a model can Reposition back and forth",
+    )
     p.add_argument("--no-reposition", action="store_true")
     p.add_argument(
         "--auto-position",
