@@ -60,9 +60,6 @@ if TYPE_CHECKING:
 
 LEARNER = "learner"
 BOTS = ("heuristic", "random", "9kgamerbot", "9kgamerbot-tempo", "apex", "sovereign")
-# A bot's turn may take more steps than a model's (`PlayOptions.max_steps_per_turn`): 9kgamerbot
-# rolls, buys and sells many times a turn.
-BOT_MAX_STEPS_PER_TURN = 100
 # The Reposition actions: allowed only in the positioning step (`PlayOptions.positioning_phase`).
 REPOSITION = ACTION_KIND_IDS == ACTION_KINDS.index("reposition")
 # The Toggle Freeze action: with the positioning step, allowed only there, once a turn.
@@ -105,6 +102,10 @@ class LobbyConfig:
     avoid_recent: int = 3
     # The game's damage caps (`engine/docs/lobby_game.md` §5).
     damage_caps: bool = True
+    # The simulated turn clock (`engine/docs/lobby_game.md` §2): each action costs `action_ms`, and a
+    # player whose clock runs out has their turn ended for them.
+    turn_timer: bool = True
+    action_ms: int = 250
     # The minion types in each lobby, drawn at random (0: every type).
     tribes: int = 5
 
@@ -134,6 +135,8 @@ class LobbyConfig:
             first_fighter_switch_chance=self.first_fighter_switch_chance,
             avoid_recent=self.avoid_recent,
             damage_caps=self.damage_caps,
+            turn_timer=self.turn_timer,
+            action_ms=self.action_ms,
             tribes=self.tribes,
             meta=meta,
         )
@@ -167,7 +170,10 @@ class Seat:
 class PlayOptions:
     """How the controllers play."""
 
-    max_steps_per_turn: int = 30
+    # A cap on a model's decisions per phase, on top of the engine's turn timer. None: the timer only.
+    # Set it when free actions can loop (e.g. without the positioning step, a model can Reposition back
+    # and forth until its clock runs out).
+    max_steps_per_turn: int | None = None
     # A model's turn has two parts: shopping (everything but Reposition and Toggle Freeze), then,
     # once it picks End Turn, an end-of-turn step ("prepping the board for battle"): only
     # Repositions (at most board size - 1 of them), one Toggle Freeze, and End Turn. Without it, a
@@ -446,8 +452,8 @@ def play_games(
                 units: set[int] = set()
                 for p in active:
                     st = seats[g][p]
-                    cap = opts.max_steps_per_turn if st.bot is None else BOT_MAX_STEPS_PER_TURN
-                    if st.steps >= cap:
+                    cap = opts.max_steps_per_turn if st.bot is None else None
+                    if cap is not None and st.steps >= cap:
                         force_end(g, p)
                         continue
                     unit = game.unit_of(p)

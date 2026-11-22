@@ -49,7 +49,9 @@ fn take_tavern_visible_units(pool: &mut CardPool, state: &TavernState) {
 ///
 /// Each phase: `begin_phase()`, then every player in `active_players()` acts with `step(p, action)`
 /// until it returns `True` (or `force_end(p)` ends their phase for them), then `end_phase()`, which
-/// returns the units placed. Units are players in Solo, teams in Duos (players `2t`, `2t + 1`).
+/// returns the units placed. With `turn_timer` (the default), each action in a turn costs
+/// `action_ms` of a simulated clock (`time_left(p)`) and `step` returns `True` when it runs out and
+/// the turn is ended for them. Units are players in Solo, teams in Duos (players `2t`, `2t + 1`).
 #[pyclass(name = "LobbyGame")]
 #[derive(Clone)]
 pub struct PyLobbyGame {
@@ -86,7 +88,9 @@ impl PyLobbyGame {
     #[pyo3(signature = (
         players=8, duos=false, seed=0, max_turns=30, heroes=true, hero_offers=2, trinkets=true,
         dark_gifts=true, catalog=None, deity=None, first_fighter_switch_chance=0.75,
-        avoid_recent=3, damage_caps=true, tribes=5, names=None, meta=None
+        avoid_recent=3, damage_caps=true, tribes=5, names=None, meta=None,
+        // 250 matches `lobby_game::DEFAULT_ACTION_MS`.
+        turn_timer=true, action_ms=250
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -106,6 +110,8 @@ impl PyLobbyGame {
         tribes: usize,
         names: Option<Vec<String>>,
         meta: Option<BTreeMap<String, String>>,
+        turn_timer: bool,
+        action_ms: u32,
     ) -> PyResult<Self> {
         if !(0.0..=1.0).contains(&first_fighter_switch_chance) {
             return Err(PyValueError::new_err(format!(
@@ -125,6 +131,8 @@ impl PyLobbyGame {
             first_fighter_switch_chance,
             avoid_recent,
             damage_caps,
+            turn_timer,
+            action_ms,
             tribes,
             seed,
             names: names.unwrap_or_default(),
@@ -168,6 +176,31 @@ impl PyLobbyGame {
     #[getter]
     fn turn(&self) -> u32 {
         self.inner.turn()
+    }
+
+    /// Each turn has a simulated clock: every action costs `action_ms`, and a player whose clock
+    /// runs out has their turn ended for them (`engine/docs/lobby_game.md` §2).
+    #[getter]
+    fn turn_timer(&self) -> bool {
+        self.inner.config().turn_timer
+    }
+
+    /// The simulated time one action takes, in ms.
+    #[getter]
+    fn action_ms(&self) -> u32 {
+        self.inner.config().action_ms
+    }
+
+    /// This turn's time budget in seconds; `None` if the timer is off or it is not a turn.
+    #[getter]
+    fn turn_seconds(&self) -> Option<f64> {
+        self.inner.turn_ms().map(|ms| ms as f64 / 1000.0)
+    }
+
+    /// Seconds left on player `p`'s clock this turn; `None` if the timer is off or it is not a turn.
+    fn time_left(&self, p: usize) -> PyResult<Option<f64>> {
+        self.check_player(p)?;
+        Ok(self.inner.time_left_ms(p).map(|ms| ms as f64 / 1000.0))
     }
 
     /// Every unit is placed.
@@ -569,7 +602,15 @@ impl PyOpponentInfo {
     }
 }
 
+/// Turn `turn`'s Recruit-phase timer in seconds (turn 1 is the first; later turns use the last).
+#[pyfunction]
+#[pyo3(name = "turn_seconds", signature = (turn, duos=false))]
+fn turn_seconds_py(turn: u32, duos: bool) -> u32 {
+    crate::lobby_game::turn_seconds(turn, duos)
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(turn_seconds_py, m)?)?;
     m.add_class::<PyLobbyGame>()?;
     m.add_class::<PyLobbyContext>()?;
     m.add_class::<PyOpponentInfo>()?;

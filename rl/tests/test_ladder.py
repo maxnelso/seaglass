@@ -125,3 +125,13 @@ def test_checkpoints_are_rated_under_their_training_rules(tmp_path) -> None:
     opts = ladder.checkpoint_options(str(path))
     assert not opts.allow_reposition and opts.max_steps_per_turn == 25 and opts.positioning_phase
     assert ladder.checkpoint_options("heuristic") == PlayOptions()
+
+
+def test_checkpoint_step_caps_may_be_none_or_missing(tmp_path) -> None:
+    from seaglass_rl import checkpoint
+
+    m = BattlegroundsMLP(seed=0, kind_prior=True)
+    for args, want in (({"max_steps_per_turn": None}, None), ({}, 30)):
+        path = tmp_path / f"m{want}.pt"
+        checkpoint.save(path, m, iteration=1, args=args)
+        assert ladder.checkpoint_options(str(path)).max_steps_per_turn == want
