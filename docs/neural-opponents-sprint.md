@@ -126,7 +126,7 @@ The changes are in. Each one is a flag, and `rl/README.md` lists the flags that 
 | Positioning out of the policy | `--no-reposition` plus `--auto-position`, a budgeted search with the combat simulator that names no cards. It measured no gain, so it is off by default (below). |
 | Stronger warm start | Done: `pretrain --teacher 9kgamerbot` is the default, with the trainer's move-rule flags. |
 | Wider league | Done: both 9kgamerbots stay in the field (`--bots`, `--p-bot 0.3`), and snapshots come from the whole history (`--pool-recent 4 --pool-history 4`). |
-| Auxiliary head for future board strength | Not started. |
+| Auxiliary head for future board strength | Built: `--aux-coef` predicts the probe score 0, 2 and 4 turns ahead. Off by default until an A/B run. |
 | Model chosen by a matched run | Done on a short run: the entity transformer wins by 1.7 places (below). |
 
 The result files are in [`results/stage2/`](results/stage2/). All runs are on the Mac mini's CPU with 3 workers. The ± figures are one standard error.
@@ -170,7 +170,28 @@ Its play differs from the MLP's. It often skips the turn-2 level, buying a secon
 
 It costs more to train. On 3 CPU threads its update took 20 to 32 seconds an iteration against 4 to 7 for the MLP, and the 150 iterations took 79 minutes. At that rate 100,000 games take about 14 hours on the CPU. The GPU gave the 64-wide transformer no speed-up in an earlier test, so that needs measuring before the long run.
 
-Still to do in this stage: the 100,000-game run with the transformer, the `--pure` repeat and the auxiliary head.
+**The long run.** On 2026-11-22 the transformer run continued from iteration 150 on 6 CPU cores. With the learning rate at 1e-4 it peaked at iteration 300, at 1.91 on the trainer's check, then slipped to 2.12 at 350 and 2.17 at 400. Head to head, iteration 400 lost to iteration 300, 4.63 against 4.37. So the run restarted from the iteration-300 snapshot at 5e-5, annealed linearly to 0 over 300 more iterations. That part used the Rust encoder and packed trajectories: about 32 seconds an iteration, 4 of them playing. It took 2 hours 51 minutes.
+
+| Iteration | 150 | 300 | 375 | 450 | 525 | 600 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Fast ladder, trainer's check | 2.04 | 1.91 | 1.85 | 1.85 | 1.80 | 1.79 |
+
+The final network has seen 38,400 games along its line (600 iterations of 64), not the 100,000 planned: the transformer's update is the bottleneck on the CPU.
+
+| Iteration-600 network | Result |
+| :--- | :--- |
+| Fast ladder, fresh seed | 1.79 ± 0.03, 98% top 4, 46% firsts (iteration 150: 2.08) |
+| Slow ladder | 2.11 ± 0.06, with SovereignBot at 2.29 ± 0.14 (iteration 150: 2.88, SovereignBot 1.55) |
+| Head to head with iteration 300 | 4.05 ± 0.06 against 4.95 |
+| Head to head with iteration 150 | 3.72 ± 0.06 against 5.28 |
+
+The network is now level with SovereignBot on the slow ladder, within the interval and slightly ahead, with no search and no hand-written knowledge. SovereignBot costs about 20 seconds of CPU a game; the network takes milliseconds a decision.
+
+Its style moved again. It levels slowly, with a mean tier of 3.0 at turn 8 and 4.1 at turn 12, and from turn 7 it rolls 2 to 4 times a turn at low tiers. Its probe is 0.87 to 0.94 from turn 8 on. The anchors reach tier 5.5 by turn 10.
+
+Lesson for later runs: anneal the learning rate. At a constant 1e-4 the policy drifted after about 300 iterations.
+
+Still to do in this stage: the `--pure` repeat, the A/B test of the auxiliary head (built, off by default: `--aux-coef`), and more games.
 
 ### Stage 3: Raise Throughput (in Parallel)
 
@@ -225,6 +246,28 @@ The ladder shows what search inside the turn is worth. SovereignBot's search wit
 This is the AlphaZero loop the repo is already reaching for. The difference is that the value function is learned from enough games first, and every step is judged on the ladder. Search comes after Stages 1 to 3 because it needs their critic and their speed.
 
 **Gate.** Search plus net beats the net alone, outside the interval. Then the net distilled from that search beats the previous net.
+
+#### Stage 4 Progress (2026-11-22): the first half of the gate passes
+
+`rl/seaglass_rl/search.py` searches a shopping decision with Gumbel sequential halving at the root:
+- **Candidates.** The top 8 actions by the policy's logits (Gumbel noise off for play) are the candidates.
+- **Lines.** Each candidate is continued by the policy in belief Taverns (`LobbyGame.belief_tavern`: the player's own state with a belief pool, so the search never sees the true hidden pool) until the policy ends its turn. That is 16 lines a decision in all, with the same seeds across candidates.
+- **Scoring.** A line is scored by the placement critic on its end-of-turn observation. There is no combat, no future turn and no card knowledge.
+- **Targets.** It also returns the completed-Q policy target, for distillation later.
+
+`ladder.versus` seats two agents in 4 seats each and measures them against each other.
+
+| Head to head, 200 lobbies | Average place |
+| :--- | :--- |
+| Iteration-600 network with search | 4.12 ± 0.06 |
+| The same network without search | 4.88 ± 0.06 |
+
+Search adds 0.76 places against the same network, well outside the interval. It costs about 7 seconds of CPU per searching seat per game, against well under a second without it, so it is a teacher and an evaluator, not a default.
+
+Not done yet:
+- **Ratings with search.** The search has not been rated on the slow ladder or the fast ladder.
+- **Its knobs.** The candidates, lines, temperature and the σ scale (`c_visit` 50) are untuned.
+- **Distillation.** The second half of the gate (distil the search into the network, then beat the previous network) waits, as planned, until the critic has seen 100,000 games. It has seen 38,400.
 
 ### Stage 5: Freeze `bots/`
 
