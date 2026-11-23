@@ -161,11 +161,34 @@ def test_notes_round_trip(tmp_path) -> None:
     refresh = seaglass.TavernAction.refresh()
     note = {"value": 0.25, "logp": -0.5, "candidates": [(buy, 0.75), (refresh, 0.25)], "entropy": 1.25}
     p.step(buy, note=note)
+    freeze = seaglass.TavernAction.toggle_freeze()
+    end = seaglass.TavernAction.end_turn()
+    search_note = {
+        "value": 3.5,
+        "candidates": [
+            {"action": freeze, "score": 245.5, "plan": [refresh, buy, end], "label": "plan"},
+            {"action": end, "score": 240.25},
+            {"action": refresh, "prob": 0.5, "score": 1.0, "label": "roll"},
+        ],
+        "combat": 1.5,
+    }
+    p.step(freeze, note=search_note)
     p.end_turn(note={"forced": True})
 
     records = match.num_records
     with pytest.raises(TypeError, match='note entry "value" must be a number'):
         p.step(buy, note={"value": "high"})
+    for bad, message in [
+        ({"action": buy, "scor": 1.0}, 'unknown candidate key "scor"'),
+        ({"action": buy, "score": "high"}, 'candidate entry "score" must be a number'),
+        ({"action": buy, "plan": [1]}, 'candidate entry "plan" must be a list of TavernAction'),
+        ({"action": buy, "label": 3}, 'candidate entry "label" must be a str'),
+        ({"action": "buy"}, 'candidate entry "action" must be a TavernAction'),
+        ({"score": 1.0}, 'candidate entry "action" is required'),
+        ("buy", "a candidate must be a"),
+    ]:
+        with pytest.raises(TypeError, match=message):
+            p.step(buy, note={"candidates": [bad]})
     with pytest.raises(ValueError):
         p.step(buy)  # The turn is over.
     assert match.num_records == records
@@ -173,8 +196,8 @@ def test_notes_round_trip(tmp_path) -> None:
     path = tmp_path / "nested" / "notes.replay.pb"
     match.save(path)
     timeline = replays.load(path)
-    (_, p1, a1, n1), (_, p2, a2, n2) = timeline.decisions()
-    assert (p1, repr(a1), p2, a2.kind) == (0, repr(buy), 0, "end_turn")
+    (_, p1, a1, n1), (_, p3, a3, n3), (_, p2, a2, n2) = timeline.decisions()
+    assert (p1, repr(a1), p3, a3.kind, p2, a2.kind) == (0, repr(buy), 0, "toggle_freeze", 0, "end_turn")
     assert {k: v for k, v in n1.items() if k != "candidates"} == {
         "value": 0.25,
         "logp": -0.5,
@@ -183,6 +206,19 @@ def test_notes_round_trip(tmp_path) -> None:
     }
     assert [(repr(a), prob) for a, prob in n1["candidates"]] == [(repr(buy), 0.75), (repr(refresh), 0.25)]
     assert n2 == {"forced": True}
+    # A search's candidates come back as dicts with only the keys that were set; a candidate with
+    # only a probability stays a pair.
+    assert {k: v for k, v in n3.items() if k != "candidates"} == {"value": 3.5, "forced": False, "combat": 1.5}
+    c_plan, c_score, c_both = n3["candidates"]
+    assert set(c_plan) == {"action", "score", "plan", "label"}
+    assert (repr(c_plan["action"]), c_plan["score"], c_plan["label"]) == (repr(freeze), 245.5, "plan")
+    assert [repr(a) for a in c_plan["plan"]] == [repr(refresh), repr(buy), repr(end)]
+    assert set(c_score) == {"action", "score"} and c_score["score"] == 240.25
+    assert set(c_both) == {"action", "prob", "score", "label"}
+    assert (c_both["prob"], c_both["score"], c_both["label"]) == (0.5, 1.0, "roll")
+    # The same round trip through the frames.
+    frame_note = next(f.note for f in timeline if f.kind == "act" and f.note and "combat" in f.note)
+    assert frame_note["candidates"][1]["score"] == 240.25
 
 
 def test_timeline_navigation() -> None:

@@ -58,7 +58,8 @@ fn record_match(path: &Path, seed: u64) {
                         .iter()
                         .map(|a| pb::Candidate {
                             action: Some(replay::action_to_pb(a)),
-                            prob,
+                            prob: Some(prob),
+                            ..Default::default()
                         })
                         .collect(),
                     ..Default::default()

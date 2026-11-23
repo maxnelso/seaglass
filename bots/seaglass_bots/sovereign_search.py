@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import os
 import random
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -13,6 +14,7 @@ from .sovereign_belief import SovereignBeliefTracker, SovereignOpponentParticles
 from .sovereign_evaluator import SovereignEvaluator
 from .sovereign_knowledge import SovereignKnowledge, get_sovereign_knowledge
 from .sovereign_positioning import SovereignPositioner
+from .sovereign_trace import DecisionTrace, GateTrace, PlanTrace, note_from_trace
 
 ActionKey = Tuple[str, Optional[int], Optional[int]]
 QueuedStep = Tuple[ActionKey, Tuple, bool]
@@ -670,6 +672,25 @@ class SovereignBot:
         self._queued_actions: Dict[int, List[QueuedStep]] = {}
         self._positioned_turn: Dict[int, Tuple[int, int]] = {}
         self.last_note: Optional[Dict[str, float]] = None
+        # Decision tracing (records only; never draws from `self.rng` / `self.belief.rng`).
+        self.last_trace: Optional[DecisionTrace] = None
+        self._trace: Optional[DecisionTrace] = None
+        self._queue_meta: Dict[int, Tuple[Optional[float], str]] = {}
+
+    def _tracing(self) -> Optional[DecisionTrace]:
+        """The live trace, if the evaluator supports score breakdowns (subclasses may not)."""
+        tr = self._trace
+        if tr is None:
+            return None
+        try:
+            ok = "parts" in inspect.signature(self.evaluator.evaluate_turn_end).parameters
+        except (TypeError, ValueError):
+            ok = False
+        return tr if ok else None
+
+    @staticmethod
+    def _step_keys(path: Sequence[QueuedStep]) -> List[ActionKey]:
+        return [st[0] for st in path]
 
     @staticmethod
     def _find_matching_legal(
@@ -1500,6 +1521,8 @@ class SovereignBot:
         particles: SovereignOpponentParticles,
         ctx: Optional[seaglass.LobbyContext],
     ) -> Tuple[float, List[QueuedStep], List[Tuple[float, seaglass.TavernGame, seaglass.TavernObservation, List[QueuedStep]]]]:
+        trace = self._tracing()
+        n_layers = 0
         root_obs = root_game.observe()
         root_fast = self.evaluator.evaluate_fast(
             root_obs, ctx=ctx, end_of_turn=False, particles=particles
@@ -1518,6 +1541,7 @@ class SovereignBot:
         )
         eff_depth = min(16, self.max_epoch_depth + zero_cost_spells)
         for _depth in range(eff_depth):
+            n_layers += 1
             raw_children: List[Tuple[seaglass.TavernGame, seaglass.TavernObservation, List[QueuedStep]]] = []
 
             for b_fast, g, obs, path in beam:
@@ -1640,36 +1664,47 @@ class SovereignBot:
         eot_indices = [i for i, item in enumerate(raw_terminals) if item[2]]
         open_indices = [i for i, item in enumerate(raw_terminals) if not item[2]]
         term_scores = [0.0] * len(raw_terminals)
+        term_parts: List[Dict[str, float]] = [{} for _ in raw_terminals]
 
         if eot_indices:
+            eot_parts: Optional[List[Dict[str, float]]] = [] if trace is not None else None
             vals = self.evaluator.evaluate_fast_batch(
                 [raw_terminals[i][1] for i in eot_indices],
                 ctx=ctx,
                 end_of_turn=True,
                 particles=particles,
+                **({"parts": eot_parts} if trace is not None else {}),
             )
-            for idx, v in zip(eot_indices, vals):
+            for k, (idx, v) in enumerate(zip(eot_indices, vals)):
                 term_scores[idx] = v
+                if eot_parts:
+                    term_parts[idx] = eot_parts[k]
         if open_indices:
+            open_parts: Optional[List[Dict[str, float]]] = [] if trace is not None else None
             vals = self.evaluator.evaluate_fast_batch(
                 [raw_terminals[i][1] for i in open_indices],
                 ctx=ctx,
                 end_of_turn=False,
                 particles=particles,
+                **({"parts": open_parts} if trace is not None else {}),
             )
-            for idx, v in zip(open_indices, vals):
+            for k, (idx, v) in enumerate(zip(open_indices, vals)):
                 term_scores[idx] = v
+                if open_parts:
+                    term_parts[idx] = open_parts[k]
 
-        ranked_terms: List[Tuple[float, seaglass.TavernGame, List[QueuedStep]]] = []
+        ranked_terms: List[
+            Tuple[float, seaglass.TavernGame, List[QueuedStep], Dict[str, float], seaglass.TavernObservation]
+        ] = []
         seen_term_keys: set[Tuple] = set()
-        for t_score, (t_game, t_obs, t_eot, t_path) in sorted(
-            zip(term_scores, raw_terminals), key=lambda x: x[0], reverse=True
+        for t_score, t_parts, (t_game, t_obs, t_eot, t_path) in sorted(
+            zip(term_scores, term_parts, raw_terminals), key=lambda x: x[0], reverse=True
         ):
             t_sig = (_canonical_state_key(t_obs), t_eot)
             if t_sig in seen_term_keys:
                 continue
             seen_term_keys.add(t_sig)
-            ranked_terms.append((t_score, t_game, t_path))
+            ranked_terms.append((t_score, t_game, t_path, t_parts, t_obs))
             if len(ranked_terms) >= self.top_k_combat_evals:
                 break
 
@@ -1681,7 +1716,7 @@ class SovereignBot:
         )
         best_path: List[QueuedStep] = [default_end]
 
-        for _, cand_game, cand_path in ranked_terms:
+        for cand_fast, cand_game, cand_path, cand_fast_parts, cand_term_obs in ranked_terms:
             eval_game = cand_game
             cand_obs = cand_game.observe()
             if cand_obs.discover_pending is not None:
@@ -1698,12 +1733,26 @@ class SovereignBot:
             elif cand_path and cand_path[-1][2]:
                 eval_game = self._rollout_shop_consumer(cand_game, ctx, particles=particles, max_steps=3)
 
+            line_parts: Optional[Dict[str, float]] = {} if trace is not None else None
             full_score = self.evaluator.evaluate_turn_end(
                 eval_game,
                 particles,
                 ctx=ctx,
                 combats_per_particle=14,
+                **({"parts": line_parts} if trace is not None else {}),
             )
+            if trace is not None:
+                trace.plans.append(
+                    PlanTrace(
+                        label="plan",
+                        actions=self._step_keys(cand_path),
+                        score=float(full_score),
+                        fast=float(cand_fast),
+                        fast_parts=dict(cand_fast_parts),
+                        parts=dict(line_parts or {}),
+                        terminal_obs=cand_term_obs,
+                    )
+                )
             if full_score > best_score:
                 best_score = full_score
                 best_path = cand_path
@@ -1711,6 +1760,14 @@ class SovereignBot:
         top_prefixes = self._select_stratified_roll_prefixes(
             roll_prefixes, root_fast=root_fast, root_obs=root_obs, max_prefixes=4
         )
+        if trace is not None:
+            trace.counts.update(
+                terminals=len(raw_terminals),
+                beam_layers=n_layers,
+                lines_scored=len(ranked_terms),
+                roll_prefixes=len(roll_prefixes),
+                roll_prefixes_selected=len(top_prefixes),
+            )
         return best_score, best_path, top_prefixes
 
     def _rollout_shop_consumer(
@@ -1826,7 +1883,9 @@ class SovereignBot:
         ctx: Optional[seaglass.LobbyContext],
         crn_seeds: Optional[Sequence[int]] = None,
         n_samples: Optional[int] = None,
+        parts: Optional[Dict[str, float]] = None,
     ) -> float:
+        """Mean `evaluate_turn_end` over CRN samples; `parts` (optional out-dict) gets the mean breakdown."""
         samples = n_samples if n_samples is not None else self.refresh_samples
         if crn_seeds is not None and len(crn_seeds) >= samples:
             seeds = crn_seeds[:samples]
@@ -1834,6 +1893,7 @@ class SovereignBot:
             seeds = [self.rng.getrandbits(63) | 1 for _ in range(samples)]
 
         total = 0.0
+        parts_sum: Dict[str, float] = {}
         for s_val in seeds:
             sim = base_game.copy()
             sim.reseed(s_val)
@@ -1853,10 +1913,45 @@ class SovereignBot:
                 max_steps=4,
                 crn_seed=(s_val ^ 0x9E3779B97F4A7C15) | 1,
             )
-            total += self.evaluator.evaluate_turn_end(
-                sim, particles, ctx=ctx, combats_per_particle=8
-            )
+            if parts is not None:
+                one: Dict[str, float] = {}
+                total += self.evaluator.evaluate_turn_end(
+                    sim, particles, ctx=ctx, combats_per_particle=8, parts=one
+                )
+                for k, v in one.items():
+                    parts_sum[k] = parts_sum.get(k, 0.0) + v
+            else:
+                total += self.evaluator.evaluate_turn_end(
+                    sim, particles, ctx=ctx, combats_per_particle=8
+                )
+        if parts is not None:
+            parts.update({k: v / max(1, len(seeds)) for k, v in parts_sum.items()})
         return total / max(1, len(seeds))
+
+    def _begin_trace(self, player: int, turn: int) -> DecisionTrace:
+        self.last_note = None
+        trace = DecisionTrace(player=int(player), turn=int(turn))
+        self.last_trace = trace
+        self._trace = trace
+        return trace
+
+    def _end_trace(self, trace: DecisionTrace, act: seaglass.TavernAction) -> None:
+        trace.chosen = _action_key(act)
+        self.last_note = note_from_trace(trace, self.last_note)
+        self._trace = None
+
+    def _set_queue(
+        self, player: int, steps: List[QueuedStep], plan_value: Optional[float], label: str
+    ) -> None:
+        self._queued_actions[player] = steps
+        self._queue_meta[player] = (plan_value, label)
+
+    def _mark_queued(self, trace: Optional[DecisionTrace], player: int, steps_left: int) -> None:
+        if trace is None:
+            return
+        trace.kind = "queued"
+        pv, label = self._queue_meta.get(player, (None, "plan"))
+        trace.queued = {"plan_value": pv, "steps_left": int(steps_left), "label": label}
 
     def choose_action_for_tavern(
         self,
@@ -1866,28 +1961,66 @@ class SovereignBot:
         ctx: Optional[seaglass.LobbyContext] = None,
         lobby_id: int = 0,
     ) -> seaglass.TavernAction:
+        own_trace = self._trace is None
+        if own_trace:
+            self._begin_trace(player, belief_game.observe().turn)
+        try:
+            act = self._choose_action_impl(belief_game, legal, player, ctx, lobby_id)
+        except BaseException:
+            if own_trace:
+                self._trace = None
+            raise
+        if own_trace and self._trace is not None:
+            self._end_trace(self._trace, act)
+        return act
+
+    def _choose_action_impl(
+        self,
+        belief_game: seaglass.TavernGame,
+        legal: Sequence[seaglass.TavernAction],
+        player: int,
+        ctx: Optional[seaglass.LobbyContext],
+        lobby_id: int,
+    ) -> seaglass.TavernAction:
+        trace = self._trace
+        heavy = self._tracing() is not None  # plan scores / breakdowns need an evaluator that supports `parts`
         obs = belief_game.observe()
         self.last_note = None
         if not legal:
+            if trace is not None:
+                trace.kind = "only_legal"
             return seaglass.TavernAction.end_turn()
         if len(legal) == 1:
+            if trace is not None:
+                trace.kind = "only_legal"
             return legal[0]
 
         if legal[0].kind == "choose_hero":
+            if trace is not None:
+                trace.kind = "hero"
             return self.evaluator.choose_best_hero(obs, legal, ctx=ctx, base_game=belief_game)
 
         particles = self.belief.next_opponent_particles(
             obs.turn, player, ctx, lobby_id=lobby_id
         )
+        if trace is not None:
+            trace.game = belief_game
+            trace.particles = particles
+            trace.ctx = ctx
+            trace.legal = list(legal)
 
         if legal[0].kind == "choose_trinket":
             self._queued_actions.pop(player, None)
+            if trace is not None:
+                trace.kind = "trinket"
             best_t = self._choose_best_trinket(belief_game, legal, particles, ctx)
             self.last_note = {"trinket_crn_rollout": 2.0}
             return best_t
 
         if legal[0].kind == "choose_discover":
             self._queued_actions.pop(player, None)
+            if trace is not None:
+                trace.kind = "discover"
             best_d = self._evaluate_discover_options(belief_game, legal, particles, ctx)
             self.last_note = {"discover_continuation": 1.0}
             return best_d
@@ -1898,11 +2031,13 @@ class SovereignBot:
             if _plan_validation_key(obs) == exp_sig:
                 if next_key[0] == "end_turn":
                     self._queued_actions.pop(player, None)
+                    self._mark_queued(trace, player, 0)
                     return self._finalize_positioning_or_end(
                         belief_game, legal, player, obs.turn, particles, ctx, lobby_id=lobby_id
                     )
                 matched = self._find_matching_legal(legal, next_key)
                 if matched is not None:
+                    self._mark_queued(trace, player, len(queued))
                     if stop_after or not queued:
                         self._queued_actions.pop(player, None)
                     self.last_note = {"queued_plan": float(len(queued) + 1)}
@@ -1916,7 +2051,35 @@ class SovereignBot:
 
         best_plan_score = epoch_score
         best_plan_path: List[QueuedStep] = epoch_path
+        best_plan_label = "plan"
         best_immediate_act: Optional[seaglass.TavernAction] = None
+        best_pt: Optional[PlanTrace] = None
+        if heavy:
+            epoch_keys = self._step_keys(epoch_path)
+            for pt in trace.plans:
+                if pt.label == "plan" and pt.actions == epoch_keys:
+                    best_pt = pt
+                    break
+        margin = 0.22
+
+        def _scored(
+            label: str, keys: List[ActionKey], score: float, parts: Dict[str, float], samples: int
+        ) -> Optional[PlanTrace]:
+            if trace is None or not heavy:
+                return None
+            pt = PlanTrace(
+                label=label, actions=keys, score=float(score), parts=dict(parts), samples=int(samples)
+            )
+            trace.plans.append(pt)
+            return pt
+
+        def _stoch(act: seaglass.TavernAction, g: seaglass.TavernGame, n: Optional[int] = None):
+            parts: Optional[Dict[str, float]] = {} if heavy else None
+            sc = self._evaluate_stochastic_action(
+                g, act, particles, ctx, crn_seeds=crn_seeds, n_samples=n,
+                **({"parts": parts} if heavy else {}),
+            )
+            return sc, (parts or {}), (n if n is not None else self.refresh_samples)
 
         # Shared Common Random Numbers stream across all competing stochastic actions this turn!
         crn_seeds = tuple(self.rng.getrandbits(63) | 1 for _ in range(self.refresh_samples))
@@ -1933,50 +2096,108 @@ class SovereignBot:
             or dmg_cap is None
             or ehp_now <= 20.0
         )
-        if allow_dd and belief_game.is_legal(dd_act):
-            dd_score = self._evaluate_stochastic_action(
-                belief_game, dd_act, particles, ctx, crn_seeds=crn_seeds
+        dd_legal = belief_game.is_legal(dd_act)
+        if trace is not None and dd_legal:
+            if allow_dd:
+                dd_detail = "Dark Discovery allowed (tier %d, turn %d, effective HP %.0f)" % (
+                    obs.tavern_tier, obs.turn, ehp_now)
+            else:
+                dd_detail = (
+                    "Dark Discovery not scored: needs tier >= 3, or tier 2 from turn 4, or <= 2 players alive "
+                    "from turn 3, or no damage cap, or effective HP <= 20 (tier %d, turn %d, effective HP %.0f, "
+                    "damage cap %s)" % (obs.tavern_tier, obs.turn, ehp_now, dmg_cap)
+                )
+            trace.gates.append(
+                GateTrace(
+                    "dark_discovery",
+                    bool(allow_dd),
+                    dd_detail,
+                    {
+                        "tavern_tier": obs.tavern_tier,
+                        "turn": obs.turn,
+                        "ehp": float(ehp_now),
+                        "alive_units": alive_units,
+                        "damage_cap": dmg_cap,
+                    },
+                )
             )
-            if dd_score > best_plan_score + 0.22:
+        if allow_dd and dd_legal:
+            dd_score, dd_parts, dd_n = _stoch(dd_act, belief_game)
+            dd_pt = _scored("dark discovery", [_action_key(dd_act)], dd_score, dd_parts, dd_n)
+            if dd_score > best_plan_score + margin:
                 best_plan_score = dd_score
                 best_immediate_act = dd_act
+                best_pt = dd_pt
 
         # 3. Evaluate stochastic / shop-mutating `HeroPower` & `HeroPower2`
         for act in legal:
             if act.kind in ("hero_power", "hero_power_2") and self._is_stochastic_hero_power(
                 belief_game, obs, act
             ):
-                hp_score = self._evaluate_stochastic_action(
-                    belief_game, act, particles, ctx, crn_seeds=crn_seeds
-                )
-                if hp_score > best_plan_score + 0.22:
+                hp_score, hp_parts, hp_n = _stoch(act, belief_game)
+                hp_pt = _scored("hero power", [_action_key(act)], hp_score, hp_parts, hp_n)
+                if hp_score > best_plan_score + margin:
                     best_plan_score = hp_score
                     best_immediate_act = act
+                    best_pt = hp_pt
 
         # 4. Evaluate root `Refresh`
         ref_act = seaglass.TavernAction.refresh()
-        if belief_game.is_legal(ref_act) and self._can_productive_refresh(obs):
-            ref_score = self._evaluate_stochastic_action(
-                belief_game, ref_act, particles, ctx, crn_seeds=crn_seeds
+        ref_legal = belief_game.is_legal(ref_act)
+        can_prod = self._can_productive_refresh(obs)
+        if trace is not None:
+            if obs.free_refreshes > 0:
+                need = 1 if obs.minion_cost != 0 else 0
+                need_txt = "a free refresh needs gold >= 1 (or a free minion)"
+            else:
+                need = obs.refresh_cost + min(2, max(1, obs.minion_cost))
+                need_txt = "roll %d + %d to buy afterwards" % (obs.refresh_cost, min(2, max(1, obs.minion_cost)))
+            if not ref_legal:
+                rr_detail = "Refresh is not legal (gold %d, cost %d)" % (obs.gold, obs.refresh_cost)
+            elif can_prod:
+                rr_detail = "gold %d >= %d needed (%s): scored" % (obs.gold, need, need_txt)
+            else:
+                rr_detail = "gold %d < %d needed (%s): roll not scored" % (obs.gold, need, need_txt)
+            trace.gates.append(
+                GateTrace(
+                    "root_refresh",
+                    bool(ref_legal and can_prod),
+                    rr_detail,
+                    {
+                        "legal": bool(ref_legal),
+                        "productive": bool(can_prod),
+                        "gold": obs.gold,
+                        "refresh_cost": obs.refresh_cost,
+                        "minion_cost": obs.minion_cost,
+                        "free_refreshes": obs.free_refreshes,
+                        "gold_needed": need,
+                    },
+                )
             )
-            if ref_score > best_plan_score + 0.22:
+        if ref_legal and can_prod:
+            ref_score, ref_parts, ref_n = _stoch(ref_act, belief_game)
+            ref_pt = _scored("roll", [_action_key(ref_act)], ref_score, ref_parts, ref_n)
+            if ref_score > best_plan_score + margin:
                 best_plan_score = ref_score
                 best_immediate_act = ref_act
+                best_pt = ref_pt
 
         # 5. Evaluate stratified `Buy/Play/Upgrade -> Refresh` continuation prefixes (CRN-paired)!
         pref_samples = max(4, self.refresh_samples - 1)
+        n_pref_scored = 0
         for _p_fast, pref_game, pref_obs, pref_path in top_roll_prefixes:
             pref_ref = seaglass.TavernAction.refresh()
             if pref_game.is_legal(pref_ref):
-                pref_roll_score = self._evaluate_stochastic_action(
-                    pref_game,
-                    pref_ref,
-                    particles,
-                    ctx,
-                    crn_seeds=crn_seeds,
-                    n_samples=pref_samples,
+                pref_roll_score, pref_parts, pref_n = _stoch(pref_ref, pref_game, pref_samples)
+                n_pref_scored += 1
+                pref_pt = _scored(
+                    "then roll",
+                    self._step_keys(pref_path) + [_action_key(pref_ref)],
+                    pref_roll_score,
+                    pref_parts,
+                    pref_n,
                 )
-                if pref_roll_score > best_plan_score + 0.22:
+                if pref_roll_score > best_plan_score + margin:
                     best_plan_score = pref_roll_score
                     best_immediate_act = None
                     ref_step: QueuedStep = (
@@ -1985,6 +2206,28 @@ class SovereignBot:
                         True,
                     )
                     best_plan_path = pref_path + [ref_step]
+                    best_plan_label = "then roll"
+                    best_pt = pref_pt
+        if trace is not None:
+            trace.counts["roll_prefixes_scored"] = n_pref_scored
+            trace.gates.append(
+                GateTrace(
+                    "roll_prefixes",
+                    n_pref_scored > 0,
+                    "%d of %d collected lines that end in a roll kept and scored (stratified, each needs gold for a roll "
+                    "plus a purchase)" % (n_pref_scored, trace.counts.get("roll_prefixes", 0)),
+                    {
+                        "collected": trace.counts.get("roll_prefixes", 0),
+                        "kept": len(top_roll_prefixes),
+                        "scored": n_pref_scored,
+                    },
+                )
+            )
+            trace.value = float(best_plan_score)
+            trace.epoch_ev = float(epoch_score)
+            trace.margin = margin
+            if best_pt is not None:
+                best_pt.chosen = True
 
         self.last_note = {
             "value": round(float(best_plan_score), 3),
@@ -2009,7 +2252,7 @@ class SovereignBot:
                 trimmed.append(st)
                 if st[2]:
                     break
-            self._queued_actions[player] = trimmed
+            self._set_queue(player, trimmed, float(best_plan_score), best_plan_label)
         else:
             self._queued_actions.pop(player, None)
 
@@ -2032,6 +2275,7 @@ class SovereignBot:
         ctx: Optional[seaglass.LobbyContext],
         lobby_id: int = 0,
     ) -> seaglass.TavernAction:
+        trace = self._trace
         obs = belief_game.observe()
 
         # 1. Never end turn with < 7 minions on board while a beneficial playable minion is in hand!
@@ -2045,6 +2289,7 @@ class SovereignBot:
                 )
                 best_play: Optional[seaglass.TavernAction] = None
                 best_pval = stop_val + 0.5
+                top_pval: Optional[float] = None
                 for la in legal:
                     if la.kind != "play":
                         continue
@@ -2058,35 +2303,122 @@ class SovereignBot:
                         pv = self.evaluator.evaluate_fast(
                             probe.observe(), ctx=ctx, end_of_turn=True, particles=particles
                         )
+                        if top_pval is None or pv > top_pval:
+                            top_pval = pv
                         if pv > best_pval:
                             best_pval = pv
                             best_play = la
+                if trace is not None:
+                    if top_pval is None:
+                        rs_detail = "playable minion in hand but no legal play to score"
+                    else:
+                        rs_detail = "stop value %.2f, best play %.2f (needs > stop + 0.5): %s" % (
+                            stop_val, top_pval, "plays it" if best_play is not None else "not enough better")
+                    trace.gates.append(
+                        GateTrace(
+                            "rescue_open_play",
+                            best_play is not None,
+                            rs_detail,
+                            {"stop_value": float(stop_val), "best_play_value": top_pval, "needs": 0.5},
+                        )
+                    )
                 if best_play is not None:
                     self._queued_actions.pop(player, None)
                     self.last_note = {"rescue_open_play": 1.0}
+                    if trace is not None:
+                        trace.finalize_rule = "rescue_open_play"
                     return best_play
 
         # 2. Freeze-Aware Zero-Waste Invariant (fixes ApexBot Bug #10!):
         #    First check if current shop has a high-EV freeze target (`should_freeze_current_shop`);
         #    if so, Freeze instead of rolling over it! Otherwise spend dead gold on `Refresh`.
         if not obs.is_frozen:
-            if obs.gold <= 3 and obs.shop and self.evaluator.should_freeze_current_shop(obs, ctx=ctx):
+            fz_checked = obs.gold <= 3 and bool(obs.shop)
+            fz_value: Optional[float] = None
+            fz_fire = False
+            if fz_checked:
+                fz_value = self.evaluator.freeze_shop_value(obs, ctx=ctx)
+                fz_fire = fz_value >= self.evaluator.FREEZE_THRESHOLD
+            if trace is not None:
+                if fz_checked:
+                    fz_detail = "gold %d <= 3 with a shop: freeze value %.2f %s %.2f" % (
+                        obs.gold, fz_value, ">=" if fz_fire else "<", self.evaluator.FREEZE_THRESHOLD)
+                elif obs.gold > 3:
+                    fz_detail = "not checked: gold %d > 3" % obs.gold
+                else:
+                    fz_detail = "not checked: empty shop"
+                trace.gates.append(
+                    GateTrace(
+                        "smart_freeze",
+                        fz_fire,
+                        fz_detail,
+                        {
+                            "frozen": False,
+                            "gold": obs.gold,
+                            "shop": len(obs.shop),
+                            **({"freeze_value": float(fz_value)} if fz_value is not None else {}),
+                            "threshold": self.evaluator.FREEZE_THRESHOLD,
+                        },
+                    )
+                )
+            if fz_fire:
                 matched_fz = self._find_matching_legal(legal, ("toggle_freeze", None, None))
                 if matched_fz is not None:
                     self._queued_actions.pop(player, None)
                     self.last_note = {"smart_freeze": float(obs.gold)}
+                    if trace is not None:
+                        trace.finalize_rule = "smart_freeze"
                     return matched_fz
 
             ref_act = seaglass.TavernAction.refresh()
-            if belief_game.is_legal(ref_act) and (
-                (obs.free_refreshes > 0 and obs.gold >= 1)
-                or (obs.turn >= 3 and obs.gold >= obs.refresh_cost + 2)
-            ):
+            zw_legal = belief_game.is_legal(ref_act)
+            zw_free = obs.free_refreshes > 0 and obs.gold >= 1
+            zw_gold = obs.turn >= 3 and obs.gold >= obs.refresh_cost + 2
+            if trace is not None:
+                if not zw_legal:
+                    zw_detail = "Refresh is not legal (gold %d, cost %d)" % (obs.gold, obs.refresh_cost)
+                elif zw_free:
+                    zw_detail = "free refresh available (%d) and gold %d >= 1: rolls" % (obs.free_refreshes, obs.gold)
+                elif zw_gold:
+                    zw_detail = "turn %d >= 3 and gold %d >= %d (roll %d + 2): rolls" % (
+                        obs.turn, obs.gold, obs.refresh_cost + 2, obs.refresh_cost)
+                else:
+                    zw_detail = (
+                        "no free refresh and not (turn >= 3 and gold >= %d (roll %d + 2)): turn %d, gold %d"
+                        % (obs.refresh_cost + 2, obs.refresh_cost, obs.turn, obs.gold)
+                    )
+                trace.gates.append(
+                    GateTrace(
+                        "zero_waste_refresh",
+                        bool(zw_legal and (zw_free or zw_gold)),
+                        zw_detail,
+                        {
+                            "legal": bool(zw_legal),
+                            "free_refreshes": obs.free_refreshes,
+                            "gold": obs.gold,
+                            "turn": obs.turn,
+                            "refresh_cost": obs.refresh_cost,
+                            "free_condition": bool(zw_free),
+                            "gold_condition": bool(zw_gold),
+                            "gold_needed": obs.refresh_cost + 2,
+                        },
+                    )
+                )
+            if zw_legal and (zw_free or zw_gold):
                 matched_ref = self._find_matching_legal(legal, _action_key(ref_act))
                 if matched_ref is not None:
                     self._queued_actions.pop(player, None)
                     self.last_note = {"zero_waste_refresh": float(obs.gold)}
+                    if trace is not None:
+                        trace.finalize_rule = "zero_waste_refresh"
                     return matched_ref
+        elif trace is not None:
+            trace.gates.append(
+                GateTrace(
+                    "smart_freeze", False, "shop already frozen",
+                    {"frozen": True, "gold": obs.gold, "shop": len(obs.shop)},
+                )
+            )
 
         pos_tag = (lobby_id, turn)
         if self._positioned_turn.get(player) != pos_tag and len(obs.board) >= 2:
@@ -2103,11 +2435,17 @@ class SovereignBot:
                 steps.append((("end_turn", None, None), _plan_validation_key(sim_pos.observe()), False))
                 first = self._find_matching_legal(legal, steps[0][0])
                 if first is not None:
-                    self._queued_actions[player] = steps[1:]
+                    prev_pv = self._queue_meta.get(player, (None, ""))[0]
+                    pv = trace.value if trace is not None and trace.value is not None else prev_pv
+                    self._set_queue(player, steps[1:], pv, "positioning")
                     self.last_note = {"pos_swaps": float(len(repo_acts))}
+                    if trace is not None:
+                        trace.finalize_rule = "positioning"
                     return first
 
         end_act = self._find_matching_legal(legal, ("end_turn", None, None))
+        if trace is not None:
+            trace.finalize_rule = "end_turn"
         return end_act if end_act is not None else legal[0]
 
     @staticmethod
@@ -2225,10 +2563,25 @@ class SovereignBot:
     def act_in_lobby(
         self, lobby: seaglass.LobbyGame, player: int
     ) -> seaglass.TavernAction:
+        """Pick the next action; fills `self.last_trace` and `self.last_note` for this decision only."""
+        trace = self._begin_trace(player, lobby.turn)
+        try:
+            act = self._act_in_lobby_impl(lobby, player, trace)
+        except BaseException:
+            self._trace = None
+            raise
+        self._end_trace(trace, act)
+        return act
+
+    def _act_in_lobby_impl(
+        self, lobby: seaglass.LobbyGame, player: int, trace: DecisionTrace
+    ) -> seaglass.TavernAction:
         legal = lobby.legal_actions(player)
         if not legal:
+            trace.kind = "only_legal"
             return seaglass.TavernAction.end_turn()
         if len(legal) == 1:
+            trace.kind = "only_legal"
             return legal[0]
 
         obs = lobby.observe(player)
@@ -2254,6 +2607,7 @@ class SovereignBot:
 
         if lobby.phase == "hero" or legal[0].kind == "choose_hero":
             self._queued_actions.pop(player, None)
+            trace.kind = "hero"
             ctx_hero = lobby.context(player)
             bg = lobby.belief_tavern(player, seed=self.rng.getrandbits(63) | 1, extra_units=[])
             return self.evaluator.choose_best_hero(obs, legal, ctx=ctx_hero, base_game=bg)
@@ -2261,6 +2615,7 @@ class SovereignBot:
         if lobby.duos:
             pass_act = self._check_duos_pass_action(obs, legal, player)
             if pass_act is not None:
+                trace.kind = "duos_pass"
                 return pass_act
 
         queued = self._queued_actions.get(player)
@@ -2271,6 +2626,7 @@ class SovereignBot:
                     matched = self._find_matching_legal(legal, next_key)
                     if matched is not None:
                         queued.pop(0)
+                        self._mark_queued(trace, player, len(queued))
                         if stop_after or not queued:
                             self._queued_actions.pop(player, None)
                         self.last_note = {"queued_plan": float(len(queued) + 1)}
@@ -2293,6 +2649,8 @@ class SovereignBot:
                     self._queued_actions.pop(player, None)
                     end_act = self._find_matching_legal(legal, ("end_turn", None, None))
                     if end_act is not None:
+                        self._mark_queued(trace, player, 0)
+                        trace.finalize_rule = "end_turn"
                         return end_act
             else:
                 self._queued_actions.pop(player, None)

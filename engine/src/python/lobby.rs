@@ -308,8 +308,8 @@ impl PyLobbyGame {
         Ok(self.inner.is_legal(p, &action.inner))
     }
 
-    /// Player `p` takes `action`, recording `note` (a dict: `value`, `logp`, `forced`, ...) with
-    /// it. Returns `True` once they are done with this phase.
+    /// Player `p` takes `action`, recording `note` (a dict: `value`, `logp`, `forced`,
+    /// `candidates`, ...; see `Match`) with it. Returns `True` once they are done with this phase.
     #[pyo3(signature = (p, action, note=None))]
     fn step(
         &mut self,
