@@ -50,7 +50,11 @@ from typing import Any
 import seaglass
 
 from seaglass_rl.actions import END_TURN_INDEX, action_from_index
-from seaglass_rl.play import BOT_MAX_STEPS_PER_TURN, LobbyConfig, Seat, _bot
+from seaglass_rl.play import LobbyConfig, Seat, _bot
+
+# A backstop on a bot's actions per phase (`play.py` dropped its own cap for the engine's turn
+# timer, which also ends a phase).
+BOT_MAX_STEPS_PER_TURN = 100
 
 UNIFORM_PLACE_VARIANCE = 5.25  # of a place drawn uniformly from 1..8
 FIGHT_SIMS = 100
