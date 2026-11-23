@@ -20,12 +20,16 @@ The last one standing is played. The search also returns the improved policy
 `softmax(logit + sigma(completed Q))` (the target for distillation) and the root value.
 
 All the lines of a phase run in lockstep: one batched forward per step over the lines still going.
+A search is a coroutine (`search_coroutine`) that yields its forward requests instead of calling the
+model; `run_searches` drives many of them together, one forward per model per round over the rows of
+all the searches, so the searching seats of many lobbies share their batches.
 No hand-written play rules and no card knowledge: the policy proposes, the critic judges.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Generator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -130,14 +134,87 @@ def decision_seed(*xs: int) -> int:
     return _mix(*xs)
 
 
+@dataclass
+class ForwardRequest:
+    """Rows a search needs the network on: stacked `(player_vec, card_ids, slot_num_feats, mask)` of
+    the model named `controller`."""
+
+    controller: str
+    pv: np.ndarray
+    ci: np.ndarray
+    nf: np.ndarray
+    mask: np.ndarray
+
+    def __len__(self) -> int:
+        return len(self.pv)
+
+
+# What a search is sent back: `(logits, values)` for exactly the rows it asked for.
+ForwardResult = tuple[torch.Tensor, torch.Tensor]
+SearchCoroutine = Generator[ForwardRequest, ForwardResult, "SearchResult"]
+
+
+def _request(controller: str, encs: list[tuple], masks: list[np.ndarray]) -> ForwardRequest:
+    return ForwardRequest(
+        controller,
+        np.stack([e[0] for e in encs]),
+        np.stack([e[1] for e in encs]),
+        np.stack([e[2] for e in encs]),
+        np.stack(masks),
+    )
+
+
 def _forward(model: Any, encs: list[tuple], masks: list[np.ndarray]) -> tuple[torch.Tensor, torch.Tensor]:
-    pv = torch.from_numpy(np.stack([e[0] for e in encs]))
-    ci = torch.from_numpy(np.stack([e[1] for e in encs]))
-    nf = torch.from_numpy(np.stack([e[2] for e in encs]))
-    mk = torch.from_numpy(np.stack(masks))
+    r = _request("", encs, masks)
+    return _run_request(model, r.pv, r.ci, r.nf, r.mask)
+
+
+def _run_request(model: Any, pv: np.ndarray, ci: np.ndarray, nf: np.ndarray, mask: np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
     with torch.inference_mode():
-        logits, values = model(pv, ci, nf, mk)
-    return logits, values
+        return model(torch.from_numpy(pv), torch.from_numpy(ci), torch.from_numpy(nf), torch.from_numpy(mask))
+
+
+def run_searches(models: dict[str, Any], coros: list[SearchCoroutine]) -> list["SearchResult"]:
+    """Drive search coroutines together. Each round collects the pending request of every unfinished
+    coroutine, runs ONE forward per model over the concatenated rows, and sends each coroutine its own
+    rows of the output. Returns the results in the order of `coros`."""
+    results: list[SearchResult | None] = [None] * len(coros)
+    pending: dict[int, ForwardRequest] = {}
+
+    def advance(i: int, sent: ForwardResult | None) -> None:
+        try:
+            pending[i] = coros[i].send(sent)  # type: ignore[arg-type]
+        except StopIteration as stop:
+            results[i] = stop.value
+            pending.pop(i, None)
+
+    for i in range(len(coros)):
+        advance(i, None)
+    while pending:
+        by_ctrl: dict[str, list[int]] = {}
+        for i, req in pending.items():
+            by_ctrl.setdefault(req.controller, []).append(i)
+        outs: dict[int, ForwardResult] = {}
+        for ctrl, idxs in by_ctrl.items():
+            reqs = [pending[i] for i in idxs]
+            if len(reqs) == 1:
+                r = reqs[0]
+                logits, values = _run_request(models[ctrl], r.pv, r.ci, r.nf, r.mask)
+            else:
+                logits, values = _run_request(
+                    models[ctrl],
+                    np.concatenate([r.pv for r in reqs]),
+                    np.concatenate([r.ci for r in reqs]),
+                    np.concatenate([r.nf for r in reqs]),
+                    np.concatenate([r.mask for r in reqs]),
+                )
+            at = 0
+            for i, r in zip(idxs, reqs):
+                outs[i] = (logits[at : at + len(r)], values[at : at + len(r)])
+                at += len(r)
+        for i, out in outs.items():
+            advance(i, out)
+    return results  # type: ignore[return-value]
 
 
 def _sample(logits: torch.Tensor, temperature: float, rng: np.random.Generator) -> np.ndarray:
@@ -166,8 +243,8 @@ def _sigma(q: np.ndarray | float, max_n: int, spec: SearchSpec) -> np.ndarray | 
     return (spec.c_visit + max_n) * spec.c_scale * (q + 1.0) / 2.0
 
 
-def search_decision(
-    model: Any,
+def search_coroutine(
+    model_name: str,
     game: seaglass.LobbyGame,
     p: int,
     opts: "PlayOptions",
@@ -175,8 +252,12 @@ def search_decision(
     rng: np.random.Generator,
     seed: int,
     root: tuple[tuple, np.ndarray] | None = None,
-) -> SearchResult:
-    """Choose player `p`'s next action in the shopping step by search. `seed` identifies the decision
+) -> SearchCoroutine:
+    """A generator for `search_decision`: it yields `ForwardRequest`s (for the model `model_name`)
+    and is sent `(logits, values)` for those rows; its return value is the `SearchResult`. Drive it
+    with `run_searches`.
+
+    Choose player `p`'s next action in the shopping step by search. `seed` identifies the decision
     (the game's seed, the player, the turn and the decision index mixed); the belief seeds derive from
     it and `spec.seed`. `rng` draws the Gumbel noise and the policy's samples inside lines. `root` is
     the root's `(encoding, mask)` if the caller has them (`play_games` does).
@@ -206,7 +287,7 @@ def search_decision(
         enc, mask = root
     legal = np.flatnonzero(mask)
     forwards = 1
-    logits_t, value_t = _forward(model, [enc], [mask])
+    logits_t, value_t = yield _request(model_name, [enc], [mask])
     logits = logits_t[0].double().numpy()
     v0 = float(value_t[0])
     lse = float(logits[legal].max() + np.log(np.exp(logits[legal] - logits[legal].max()).sum())) if len(legal) else 0.0
@@ -262,12 +343,12 @@ def search_decision(
                         tavern.step(act)
                     line.steps = 1
                 lines.append(line)
-        forwards += _run_lines(model, lines, ctx, rust, opts, spec, rng)
+        forwards += yield from _run_lines(model_name, lines, ctx, rust, opts, spec, rng)
         # Score the finished lines with one forward.
         enc_end = [ln.end_enc for ln in lines]
         only_end = np.zeros(ACTION_SPACE_SIZE, dtype=np.bool_)
         only_end[END_TURN_INDEX] = True
-        _, vals = _forward(model, enc_end, [only_end] * len(lines))
+        _, vals = yield _request(model_name, enc_end, [only_end] * len(lines))
         forwards += 1
         for ln, v in zip(lines, vals.numpy()):
             q_sum[ln.cand] += float(v)
@@ -285,22 +366,37 @@ def search_decision(
     return result(action, target, q, n, lines_run, vmix)
 
 
+def search_decision(
+    model: Any,
+    game: seaglass.LobbyGame,
+    p: int,
+    opts: "PlayOptions",
+    spec: SearchSpec,
+    rng: np.random.Generator,
+    seed: int,
+    root: tuple[tuple, np.ndarray] | None = None,
+) -> SearchResult:
+    """`search_coroutine` driven alone with `model` (see there for the arguments)."""
+    (res,) = run_searches({"": model}, [search_coroutine("", game, p, opts, spec, rng, seed, root)])
+    return res
+
+
 def _end_enc(rust: Any, tavern: Any, ctx: Any) -> tuple:
     """The critic's view of a line's end: the end-of-turn observation (`arranging=True`)."""
     return features.fast_encode_tavern(rust, tavern, ctx, True)
 
 
 def _run_lines(
-    model: Any,
+    model_name: str,
     lines: list[_Line],
     ctx: Any,
     rust: Any,
     opts: "PlayOptions",
     spec: SearchSpec,
     rng: np.random.Generator,
-) -> int:
-    """Play the lines to their ends in lockstep (one batched forward per step); each line's
-    `end_enc` is set when it ends. Returns the forwards made."""
+) -> Generator[ForwardRequest, ForwardResult, int]:
+    """Play the lines to their ends in lockstep (one batched forward per step, yielded as a request);
+    each line's `end_enc` is set when it ends. Returns the forwards made."""
     reposition, freeze = shopping_flags(opts)
     forwards = 0
     running = [ln for ln in lines if ln.end_enc is None]
@@ -316,7 +412,7 @@ def _run_lines(
             masks.append(mask)
         if not batch:
             break
-        logits, _ = _forward(model, encs, masks)
+        logits, _ = yield _request(model_name, encs, masks)
         forwards += 1
         acts = _sample(logits, spec.temperature, rng)
         running = []
