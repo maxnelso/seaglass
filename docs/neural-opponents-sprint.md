@@ -269,6 +269,27 @@ Not done yet:
 - **Its knobs.** The candidates, lines, temperature and the σ scale (`c_visit` 50) are untuned.
 - **Distillation.** The second half of the gate (distil the search into the network, then beat the previous network) waits, as planned, until the critic has seen 100,000 games. It has seen 38,400.
 
+### Later: Search Beyond the Turn (to Evaluate)
+
+These came out of a design discussion with James on 2026-11-23. Each one is to be built behind a flag and judged head to head (`ladder.versus`) and on the slow ladder, like everything else.
+
+**How the AI picks an action today.** At each decision of its turn (a buy, a roll, a level, a Discover pick, and so on):
+1. The network reads the observation. That is its own Tavern, the leaderboard (each opponent's Health, Tier, streak and hero), the damage cap, and the board its next opponent had when it last fought them.
+2. Without search, it samples the policy, or takes its top action.
+3. With search, it takes the 8 likeliest actions and plays each one forward to the end of the turn in belief Taverns. A belief Tavern is a copy of its own state whose card pool leaves out the cards it can see, so refreshes and Discovers draw what they plausibly could, never the hidden truth.
+4. The policy plays the rest of each line, and the critic scores the line's end-of-turn state, before combat. Sixteen lines are spread over the candidates by Gumbel sequential halving, with the same random seeds for every candidate.
+5. The best candidate is played on the real game, the real randomness is revealed, and the next decision searches again from scratch.
+
+There is no tree below the root, no combat in the search and no model of opponents' coming boards. All of that is left to the critic, which learned it from outcomes.
+
+| Idea | What it would add | Cost and risk |
+| :--- | :--- | :--- |
+| More lines per decision (for example 100 seeds instead of 16) | Less noise in each candidate's score. | Cost grows with the lines, about 7 s of CPU per seat-game now. The follow-up actions must stay the policy's, or another planner that sees only revealed information. A line that picks its later actions knowing the seed would roll because it knows the roll pays (clairvoyance). |
+| Score at the start of the next turn, not before combat | The damage this turn's board takes or deals, made explicit. The roadmap's Stage 4 text asked for this; the current search stops before combat. | Needs a sample of the next opponent's board (below). Adds combat fights, which are cheap at about 10 µs each. |
+| Look ahead to the end of the next turn (turn + 1, maybe + 2) | Curve and gold math made explicit. An example is James's turn-2 case: level, or buy Prisonguard and pump Scarlet Survivor, then see what turn 3's shop and 5 Gold allow. | Each extra turn multiplies the cost and compounds three guesses: our policy's later play, the shop draws, and the opponents' boards. The Stage 4 caution applies: past the turn the search "mostly measures its own guesses". Test whether it beats the critic's own estimate, early game first, where curves matter most. |
+| A prior over the coming opponents' boards | The board to fight in the two ideas above. It could start as an empirical library: end-of-turn boards from recent self-play, keyed by turn and Tavern tier, like the probe's library but from the network's own lobbies. Later it could be a learned generative model. | The library is cheap and honest, since it holds only boards the lobby could produce. A learned model is a project of its own. |
+| Every opponent's last-seen board in the observation, not only the next opponent's | More of what a person tracks about the lobby, for the policy and the critic. | A feature change: more slots, a retrained model, a new feature-spec version. |
+
 ### Stage 5: Freeze `bots/`
 
 `bots/` should become a pinned reference, not the place where new work lands. Its evaluators hard-code card names and trinket priors from samples as small as 12 games, so part of it expires with every patch.
