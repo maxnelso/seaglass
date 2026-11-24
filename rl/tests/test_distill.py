@@ -187,3 +187,20 @@ def test_a_bigger_student_trains_from_the_teacher(generated, tmp_path) -> None:
     assert model.config["value_places"] == 8
     assert saved["extra"]["distill"]["student"] == "48,2,2,96"
     assert np.isfinite(hist[-1]["policy_ce"]) and hist[-1]["kl_to_init"] > 0
+
+
+def test_value_target_teacher_matches_the_teachers_distribution() -> None:
+    teacher = _model(seed=1)
+    student = _model(seed=2)
+    b, _ = _batch(teacher)
+    with torch.no_grad():
+        init_logits, init_vl = distill._forward(teacher, b)
+    before = float(distill.loss_terms(student, init_logits, b, init_vl)["value"])
+    opt = torch.optim.Adam(student.parameters(), lr=3e-3)
+    for _ in range(30):
+        t = distill.loss_terms(student, init_logits, b, init_vl)
+        opt.zero_grad()
+        t["value"].backward()
+        opt.step()
+    after = float(distill.loss_terms(student, init_logits, b, init_vl)["value"])
+    assert after < before

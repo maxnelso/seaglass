@@ -211,12 +211,17 @@ def _forward(model: torch.nn.Module, b: dict[str, torch.Tensor]) -> tuple[torch.
 
 
 def loss_terms(
-    model: torch.nn.Module, init_logits: torch.Tensor, b: dict[str, torch.Tensor]
+    model: torch.nn.Module,
+    init_logits: torch.Tensor,
+    b: dict[str, torch.Tensor],
+    init_value_logits: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """The three loss terms and the diagnostics on a batch `b` (`batch_tensors`), given the frozen
     starting network's logits on it: `policy` (cross-entropy against the search's policy, searched rows
     only; 0 with none), `value` (place cross-entropy, all rows), `kl` (KL(pi_init || pi_theta), all
-    rows), and `agree` (the searched rows where the argmax matches; as a count in `agree_n`)."""
+    rows), and `agree` (the searched rows where the argmax matches; as a count in `agree_n`). With
+    `init_value_logits`, `value` is instead the cross-entropy against the frozen network's own place
+    distribution: a dense target that a fresh critic can't memorise game by game."""
     logits, value_logits = _forward(model, b)
     logp = F.log_softmax(logits, dim=-1)
     s = b["searched"]
@@ -228,7 +233,10 @@ def loss_terms(
     else:
         policy = logits.sum() * 0.0
         agree = torch.zeros((), dtype=torch.long, device=logits.device)
-    value = F.cross_entropy(value_logits, b["places"], ignore_index=-1)
+    if init_value_logits is None:
+        value = F.cross_entropy(value_logits, b["places"], ignore_index=-1)
+    else:
+        value = -(F.softmax(init_value_logits, dim=-1) * F.log_softmax(value_logits, dim=-1)).sum(-1).mean()
     p_init = F.softmax(init_logits, dim=-1)
     logp_init = F.log_softmax(init_logits, dim=-1)
     kl = torch.where(p_init > 0, p_init * (logp_init - logp), torch.zeros_like(logp)).sum(-1).mean()
@@ -302,6 +310,7 @@ def train(
     policy_coef: float = 1.0,
     seed: int = 0,
     init: torch.nn.Module | None = None,
+    value_target: str = "places",
 ) -> list[dict[str, float]]:
     """Fit `model` to the search's policy and the final places, anchored to `init` (default: a frozen
     copy of `model` as it comes). Returns the held-out metrics: one entry before training (epoch 0)
@@ -337,8 +346,8 @@ def train(
         for start in range(0, len(order), minibatch):
             b = batch_tensors(data, order[start : start + minibatch], device)
             with torch.no_grad():
-                init_logits, _ = _forward(init, b)
-            t = loss_terms(model, init_logits, b)
+                init_logits, init_vl = _forward(init, b)
+            t = loss_terms(model, init_logits, b, init_vl if value_target == "teacher" else None)
             loss = policy_coef * t["policy"] + vf_coef * t["value"] + anchor_coef * t["kl"]
             opt.zero_grad(set_to_none=True)
             loss.backward()
@@ -374,6 +383,7 @@ def run_train(
     seed: int = 0,
     student: str | None = None,
     policy_coef: float = 1.0,
+    value_target: str = "places",
 ) -> list[dict[str, float]]:
     """Fine-tune `init_path` on the search's targets; or, with `student` (`d_model,layers,heads,ff`),
     train a fresh, differently sized network, with `init_path` as the frozen teacher of the anchor
@@ -397,7 +407,8 @@ def run_train(
         flush=True,
     )
     history = train(
-        model, data, epochs, lr, minibatch, vf_coef, anchor_coef, holdout, policy_coef=policy_coef, seed=seed, init=anchor
+        model, data, epochs, lr, minibatch, vf_coef, anchor_coef, holdout, policy_coef=policy_coef, seed=seed, init=anchor,
+        value_target=value_target,
     )
     meta_path = Path(data_dir) / "meta.json"
     distill = {
@@ -411,6 +422,7 @@ def run_train(
         "anchor_coef": anchor_coef,
         "policy_coef": policy_coef,
         "student": student,
+        "value_target": value_target,
         "holdout": holdout,
         "history": history,
         "metrics": history[-1] if history else {},
@@ -446,6 +458,12 @@ def main(argv: list[str] | None = None) -> None:
         help="train a fresh entity transformer of these sizes (d_model, layers, heads, ff) instead of fine-tuning",
     )
     t.add_argument("--policy-coef", type=float, default=1.0, help="weight of the search-policy term")
+    t.add_argument(
+        "--value-target",
+        choices=("places", "teacher"),
+        default="places",
+        help="the critic's target: the final places, or the frozen network's place distribution (for a student)",
+    )
     t.add_argument("--out", required=True)
     t.add_argument("--epochs", type=int, default=2)
     t.add_argument("--lr", type=float, default=1e-5)
@@ -466,7 +484,7 @@ def main(argv: list[str] | None = None) -> None:
         torch.set_num_threads(args.threads)
         run_train(
             args.init, args.data, args.out, args.epochs, args.lr, args.minibatch, args.vf_coef,
-            args.anchor_coef, args.holdout, args.device, args.seed, args.student, args.policy_coef,
+            args.anchor_coef, args.holdout, args.device, args.seed, args.student, args.policy_coef, args.value_target,
         )
 
 
