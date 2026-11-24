@@ -1,0 +1,30 @@
+{
+ "model": "/Users/jamespfeiffer/seaglass/runs/distill-1370/teacher.pt",
+ "search": {
+  "top_m": 8,
+  "sims": 64,
+  "temperature": 1.0,
+  "gumbel_noise": true,
+  "c_visit": 50.0,
+  "c_scale": 1.0,
+  "max_line": 40,
+  "seed": 0
+ },
+ "search_seats": 2,
+ "lobbies": 500,
+ "seed": 9100000,
+ "chunk": 125,
+ "shards": [
+  "shard_00000.npz",
+  "shard_00001.npz",
+  "shard_00002.npz",
+  "shard_00003.npz"
+ ],
+ "decisions": 202621,
+ "searched": 187833,
+ "commit": "eb7d3625ef6173d54325881b4575b53e1c18c38f",
+ "dirty": false,
+ "engine": "158cc5d3b603",
+ "created": "2026-11-24T07:11:53+00:00",
+ "seconds": 2704.0
+}

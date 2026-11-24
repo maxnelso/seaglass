@@ -309,10 +309,23 @@ What this says:
 - **The network and the search mostly agree.** Its top action is the search's top action on 90% of searched decisions, so the targets carry about 10% of new information.
 - **The disagreements didn't transfer.** On held-out games the students never matched the search's choice more often than the teacher did. A likely reason: with 16 lines a decision, the search's verdict on close calls is noisy. Its 0.76-place edge in play may come from many small improvements that are hard to learn one decision at a time from 750,000 examples. That is a guess, and the next tries test it.
 
-Next tries, cheapest first:
-- **Cleaner targets.** Use more lines (64) on fewer decisions, and keep only the decisions where the search's top action differs from the network's and wins by a clear Q margin.
-- **Train harder.** Use more epochs, a higher learning rate and a weaker anchor, to find where the student starts to move at all.
+Two follow-ups ran the same night. Neither moved the result.
+
+| Student | Held-out agreement with search (teacher's) | Head to head with teacher, 400 lobbies |
+| :--- | :--- | :--- |
+| Harder training: lr 3e-4, 4 epochs, no anchor | 88.1% (89.7%) | 4.45 ± 0.05 |
+| Harder training: lr 1e-3, 4 epochs, no anchor | 86.4% (89.7%) | 4.52 ± 0.04 |
+| Cleaner targets: 64 lines a decision, 500 lobbies, lr 3e-5 | 89.7% (89.9%) | 4.51 ± 0.05 |
+| Cleaner targets: 64 lines a decision, 500 lobbies, lr 1e-4 | 88.9% (89.9%) | 4.46 ± 0.05 |
+
+- **Harder training overfits.** It moves the students further, with a KL to the teacher of up to 0.06. Their agreement with search on unseen games falls instead of rising, and the critic's held-out loss grows.
+- **More lines change little.** With 64 lines, the network still agrees with the search on 90% of decisions, and the students learn no more from the rest.
+- **So noise in the targets is probably not the main problem.** The more likely limit is the student. The search computes each turn's consequences exactly in a simulator. The network is a 0.18M-parameter transformer that has to guess them in one forward pass, and it may not have the capacity to represent what the search adds.
+
+Next tries:
+- **A bigger student.** For example 128 wide and 4 layers (about 1M parameters), cloned from the current network, then trained on the search's targets and PPO. This is where the GPU earns its keep: an earlier test found MPS 2x faster than the CPU for a 224-wide, 6-layer transformer.
 - **Distil inside PPO.** Act with search in a fraction of the training seats, so PPO learns from the better games, and add the search policy as an extra loss on those decisions.
+- **Keep the search at play time.** At about 7 seconds of CPU per seat per game (50 to 100 ms a decision), the network plus search is already affordable as an opponent. That is the AlphaZero design anyway: the network guides the search, and the search plays.
 
 ### Later: Search Beyond the Turn (to Evaluate)
 
