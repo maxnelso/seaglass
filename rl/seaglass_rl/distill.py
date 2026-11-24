@@ -165,14 +165,23 @@ def generate(
 
 
 def load_data(data_dir: str | Path) -> dict[str, np.ndarray]:
-    """All the shards of `data_dir`, concatenated and still packed."""
-    files = sorted(Path(data_dir).glob("shard_*.npz"))
-    if not files:
-        raise FileNotFoundError(f"no shards in {data_dir}")
+    """All the shards of `data_dir` (or of several directories, comma-separated), concatenated and still
+    packed. With several directories, each one's game indices are offset so they stay distinct."""
+    dirs = [d for d in str(data_dir).split(",") if d]
     parts = []
-    for f in files:
-        with np.load(f) as z:
-            parts.append({k: z[k] for k in z.files})
+    offset = 0
+    for d in dirs:
+        files = sorted(Path(d).glob("shard_*.npz"))
+        if not files:
+            raise FileNotFoundError(f"no shards in {d}")
+        top = offset
+        for f in files:
+            with np.load(f) as z:
+                part = {k: z[k] for k in z.files}
+            part["game"] = part["game"].astype(np.int64) + offset
+            top = max(top, int(part["game"].max()) + 1) if len(part["game"]) else top
+            parts.append(part)
+        offset = top
     data = {k: np.concatenate([p[k] for p in parts]) for k in parts[0] if not k.startswith("num_")}
     data["num_ptr"], data["num_idx"], data["num_val"] = packing.concat_packed(
         [(p["num_ptr"], p["num_idx"], p["num_val"]) for p in parts]
@@ -340,6 +349,17 @@ def train(
     return history
 
 
+def student_from(teacher: torch.nn.Module, sizes: str, seed: int = 0) -> torch.nn.Module:
+    """A fresh model with the teacher's configuration (architecture, features, critic) but new sizes:
+    `sizes` is `d_model,layers,heads,ff` for an entity transformer."""
+    cfg = dict(teacher.config)
+    if cfg.get("arch") != "transformer":
+        raise ValueError("a bigger student is built for an entity-transformer teacher")
+    d_model, layers, heads, ff = (int(x) for x in sizes.split(","))
+    cfg.update(d_model=d_model, layers=layers, heads=heads, ff=ff, head_dim=d_model, seed=seed)
+    return checkpoint.model_from_config(cfg)
+
+
 def run_train(
     init_path: str,
     data_dir: str,
@@ -352,16 +372,33 @@ def run_train(
     holdout: float = 0.05,
     device: str | None = None,
     seed: int = 0,
+    student: str | None = None,
+    policy_coef: float = 1.0,
 ) -> list[dict[str, float]]:
-    model, ckpt = checkpoint.load(init_path)
-    _check_critic(model)
+    """Fine-tune `init_path` on the search's targets; or, with `student` (`d_model,layers,heads,ff`),
+    train a fresh, differently sized network, with `init_path` as the frozen teacher of the anchor
+    term (so `anchor_coef` is then the weight of distilling the teacher's policy)."""
+    teacher, ckpt = checkpoint.load(init_path)
+    _check_critic(teacher)
     dev = pick_device(device)
+    torch.manual_seed(seed)
+    if student:
+        model = student_from(teacher, student, seed)
+        anchor = teacher.to(dev)
+    else:
+        model, anchor = teacher, None
     model.to(dev)
     data = load_data(data_dir)
     n_s = int(data["searched"].sum())
-    print(f"{len(data['actions'])} decisions ({n_s} searched), {len(np.unique(data['game']))} games", flush=True)
-    torch.manual_seed(seed)
-    history = train(model, data, epochs, lr, minibatch, vf_coef, anchor_coef, holdout, seed=seed)
+    n_params = sum(p.numel() for p in model.parameters())
+    print(
+        f"{len(data['actions'])} decisions ({n_s} searched), {len(np.unique(data['game']))} games | "
+        f"{'student' if student else 'fine-tuning'} with {n_params / 1e6:.2f}M parameters",
+        flush=True,
+    )
+    history = train(
+        model, data, epochs, lr, minibatch, vf_coef, anchor_coef, holdout, policy_coef=policy_coef, seed=seed, init=anchor
+    )
     meta_path = Path(data_dir) / "meta.json"
     distill = {
         "init": str(init_path),
@@ -372,6 +409,8 @@ def run_train(
         "minibatch": minibatch,
         "vf_coef": vf_coef,
         "anchor_coef": anchor_coef,
+        "policy_coef": policy_coef,
+        "student": student,
         "holdout": holdout,
         "history": history,
         "metrics": history[-1] if history else {},
@@ -398,8 +437,15 @@ def main(argv: list[str] | None = None) -> None:
     g.add_argument("--search-m", type=int, default=defaults.top_m)
     g.add_argument("--search-sims", type=int, default=defaults.sims)
     t = sub.add_parser("train", help="fit the network to the search's targets")
-    t.add_argument("--init", required=True)
-    t.add_argument("--data", required=True)
+    t.add_argument("--init", required=True, help="the network to fine-tune, or with --student the teacher")
+    t.add_argument("--data", required=True, help="a data directory, or several, comma-separated")
+    t.add_argument(
+        "--student",
+        default=None,
+        metavar="D,L,H,FF",
+        help="train a fresh entity transformer of these sizes (d_model, layers, heads, ff) instead of fine-tuning",
+    )
+    t.add_argument("--policy-coef", type=float, default=1.0, help="weight of the search-policy term")
     t.add_argument("--out", required=True)
     t.add_argument("--epochs", type=int, default=2)
     t.add_argument("--lr", type=float, default=1e-5)
@@ -420,7 +466,7 @@ def main(argv: list[str] | None = None) -> None:
         torch.set_num_threads(args.threads)
         run_train(
             args.init, args.data, args.out, args.epochs, args.lr, args.minibatch, args.vf_coef,
-            args.anchor_coef, args.holdout, args.device, args.seed,
+            args.anchor_coef, args.holdout, args.device, args.seed, args.student, args.policy_coef,
         )
 
 

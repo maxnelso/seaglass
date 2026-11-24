@@ -167,3 +167,23 @@ def test_scalar_critic_is_refused(generated, tmp_path) -> None:
     checkpoint.save(ckpt, _model(places=0))
     with pytest.raises(ValueError, match="scalar critic"):
         distill.run_train(str(ckpt), str(data_dir), str(tmp_path / "o.pt"), epochs=1)
+
+
+def test_a_bigger_student_trains_from_the_teacher(generated, tmp_path) -> None:
+    ckpt, data_dir, _ = generated
+    out = tmp_path / "student.pt"
+    # Two data directories (the same one twice) are concatenated with distinct games.
+    both = f"{data_dir},{data_dir}"
+    one = distill.load_data(str(data_dir))
+    two = distill.load_data(both)
+    assert len(two["actions"]) == 2 * len(one["actions"])
+    assert len(np.unique(two["game"])) == 2 * len(np.unique(one["game"]))
+    hist = distill.run_train(
+        str(ckpt), both, str(out), epochs=1, lr=1e-3, minibatch=64, holdout=0.5, device="cpu",
+        student="48,2,2,96", anchor_coef=1.0,
+    )
+    model, saved = checkpoint.load(out)
+    assert model.config["d_model"] == 48 and model.config["layers"] == 2
+    assert model.config["value_places"] == 8
+    assert saved["extra"]["distill"]["student"] == "48,2,2,96"
+    assert np.isfinite(hist[-1]["policy_ce"]) and hist[-1]["kl_to_init"] > 0
