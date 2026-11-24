@@ -188,14 +188,21 @@ message Note {
   optional float logp = 2;
   // The action was forced on the actor (e.g. by an environment's per-turn step cap).
   bool forced = 3;
-  // Other actions the actor considered, with their probabilities.
+  // Other actions the actor considered, with their probabilities or scores.
   repeated Candidate candidates = 4;
   map<string, double> extra = 5;
 }
 
 message Candidate {
   Action action = 1;
-  float prob = 2;
+  // The probability the actor gave the action (a policy). Absent for a search's candidates.
+  optional float prob = 2;
+  // The actor's score for the candidate: a search's value for its best line starting with `action`.
+  optional float score = 3;
+  // The rest of that line: the actions the actor planned after `action`, in order.
+  repeated Action plan = 4;
+  // A short label for the kind of line, e.g. "roll" or "dark discovery". Empty: none.
+  string label = 5;
 }
 
 // `TavernState::resolve_combat_pair` between players `a` and `b` (Duos:

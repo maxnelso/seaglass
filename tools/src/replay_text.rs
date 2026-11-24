@@ -91,7 +91,15 @@ pub fn note_text(note: Option<&pb::Note>) -> String {
         parts.push(format!("{key} {value:.3}"));
     }
     if !note.candidates.is_empty() {
-        parts.push(format!("{} candidates", note.candidates.len()));
+        let best = note
+            .candidates
+            .iter()
+            .filter_map(|c| c.score)
+            .max_by(f32::total_cmp);
+        parts.push(match best {
+            Some(best) => format!("{} candidates, best {best:.2}", note.candidates.len()),
+            None => format!("{} candidates", note.candidates.len()),
+        });
     }
     if parts.is_empty() {
         String::new()

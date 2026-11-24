@@ -15,8 +15,8 @@ use serde::Serialize;
 use seaglass::cards::{self, spells};
 use seaglass::replay::{self, pb, FrameKind};
 use seaglass::{
-    base_copies_for_tier, ActivateTargetKind, BattleOutcome, BattleResult, CardId, Event, HeroId,
-    HeroPowerState, Side, TavernAction, TavernState, Timeline, Tribe, Unit,
+    base_copies_for_tier, ActivateTargetKind, BattleOutcome, BattleResult, CardId, CardPool, Event,
+    HeroId, HeroPowerState, Rng, Side, TavernAction, TavernState, Timeline, Tribe, Unit,
 };
 use seaglass::{dark_gifts, heroes, trinkets};
 use seaglass_tools::fmt::{diff_auras, format_deity_kind, format_tribe, CombatNames, PoolCounts};
@@ -455,7 +455,7 @@ struct NoteView {
     logp: Option<f32>,
     #[serde(skip_serializing_if = "is_false")]
     forced: bool,
-    /// The candidate actions, most probable first.
+    /// The candidate actions: best score first when they have scores, else most probable first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     candidates: Vec<CandidateView>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
@@ -465,7 +465,18 @@ struct NoteView {
 #[derive(Serialize)]
 struct CandidateView {
     action: String,
-    prob: f32,
+    /// The probability the actor gave the action (a policy).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prob: Option<f32>,
+    /// The actor's score for its best line starting with `action` (a search).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    score: Option<f32>,
+    /// What kind of line it is (`roll`, `dark discovery`, ...).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label: Option<String>,
+    /// The rest of the line after `action`, one short description per step.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    plan: Vec<String>,
     /// The action taken.
     #[serde(skip_serializing_if = "is_false")]
     chosen: bool,
@@ -1085,6 +1096,8 @@ impl UnitView {
 impl NoteView {
     /// The note of `action`, taken in `state`.
     fn new(note: &pb::Note, state: &TavernState, action: &TavernAction) -> Self {
+        // The throwaway pool and RNG for `PlanSteps`, built only when a plan needs them.
+        let mut scratch = None;
         let mut candidates: Vec<CandidateView> = note
             .candidates
             .iter()
@@ -1093,15 +1106,39 @@ impl NoteView {
                     .action
                     .as_ref()
                     .and_then(|a| replay::action_from_pb(a).ok());
+                let plan: Vec<TavernAction> = candidate
+                    .plan
+                    .iter()
+                    .filter_map(|a| replay::action_from_pb(a).ok())
+                    .collect();
+                let plan = match decoded {
+                    Some(first) if !plan.is_empty() => {
+                        let (pool, rng) = scratch.get_or_insert_with(|| {
+                            (CardPool::new(cards::full_catalog()), Rng::new(0))
+                        });
+                        plan_labels(state, first, &plan, pool, rng)
+                    }
+                    _ => Vec::new(),
+                };
                 CandidateView {
                     action: decoded.map_or_else(|| "?".to_string(), |a| short_action(state, &a)),
                     // Four decimals are plenty for a bar and a percentage.
-                    prob: (candidate.prob * 1e4).round() / 1e4,
+                    prob: candidate.prob.map(|p| (p * 1e4).round() / 1e4),
+                    score: candidate.score.map(|s| (s * 1e3).round() / 1e3),
+                    label: (!candidate.label.is_empty()).then(|| candidate.label.clone()),
+                    plan,
                     chosen: decoded.as_ref() == Some(action),
                 }
             })
             .collect();
-        candidates.sort_by(|x, y| y.prob.total_cmp(&x.prob));
+        if candidates.iter().any(|c| c.score.is_some()) {
+            // Unscored candidates (if any) go last.
+            let key = |c: &CandidateView| c.score.unwrap_or(f32::NEG_INFINITY);
+            candidates.sort_by(|x, y| key(y).total_cmp(&key(x)));
+        } else {
+            let key = |c: &CandidateView| c.prob.unwrap_or(f32::NEG_INFINITY);
+            candidates.sort_by(|x, y| key(y).total_cmp(&key(x)));
+        }
         Self {
             value: note.value,
             p: note.logp.map(f32::exp),
@@ -1110,6 +1147,125 @@ impl NoteView {
             candidates,
             extra: note.extra.clone(),
         }
+    }
+}
+
+/// A description of each step of `plan`, the line `first` starts, as the actor planned it from
+/// `state`. Steps are named on the state they are taken in, found by stepping a clone. A step
+/// that changes what the actor saw (a Refresh, Dark Discovery or a Hero Power may draw new cards;
+/// a Discover waiting for a choice; any step whose outcome depends on the random draw, such as a
+/// spell that adds a random minion to the hand) ends that: the actor planned the rest on its own
+/// sampled outcome, so the later cards would be named wrongly. The rest of the steps, and any
+/// step that is illegal here, are named by index only ([`index_action`]).
+fn plan_labels(
+    state: &TavernState,
+    first: TavernAction,
+    plan: &[TavernAction],
+    pool: &mut CardPool,
+    rng: &mut Rng,
+) -> Vec<String> {
+    let mut sim = Some(state.clone());
+    let mut label = |action: TavernAction| -> String {
+        let Some(current) = sim.as_mut() else {
+            return index_action(&action);
+        };
+        if !current.is_legal(&action) {
+            sim = None;
+            return index_action(&action);
+        }
+        let text = short_action(current, &action);
+        let reshuffles = matches!(
+            action,
+            TavernAction::Refresh
+                | TavernAction::DarkDiscovery
+                | TavernAction::HeroPower { .. }
+                | TavernAction::HeroPower2 { .. }
+        );
+        if reshuffles {
+            sim = None;
+            return text;
+        }
+        // Step clones with other draws too: if any differs, the outcome was random. (A random pick
+        // from a few options can coincide, hence several seeds.)
+        let alts: Vec<Option<Vec<(u32, i32, i32)>>> = [
+            0x5DEE_CE66D_u64,
+            0x2545_F491_4F6C_DD1D,
+            0x9E37_79B9_7F4A_7C15,
+            0xD1B5_4A32_D192_ED03,
+        ]
+        .iter()
+        .map(|&seed| {
+            let mut alt = current.clone();
+            let mut alt_pool = pool.clone();
+            let mut alt_rng = Rng::new(seed);
+            alt.step(action, &mut alt_pool, &mut alt_rng)
+                .ok()
+                .map(|_| visible_cards(&alt))
+        })
+        .collect();
+        if current.step(action, pool, rng).is_err()
+            || current.discover_pending.is_some()
+            || alts
+                .iter()
+                .any(|v| v.as_ref() != Some(&visible_cards(current)))
+        {
+            sim = None;
+        }
+        text
+    };
+    label(first);
+    plan.iter().map(|&a| label(a)).collect()
+}
+
+/// The cards a step can change, to tell a random outcome from a fixed one ([`plan_labels`]).
+fn visible_cards(state: &TavernState) -> Vec<(u32, i32, i32)> {
+    let cards = |units: &[Unit]| {
+        units
+            .iter()
+            .map(|u| (u.card_id, u.attack, u.health))
+            .collect::<Vec<_>>()
+    };
+    let mut out = cards(&state.board);
+    out.push((u32::MAX, 0, 0));
+    out.extend(cards(&state.hand));
+    out.push((u32::MAX, 0, 0));
+    out.extend(cards(&state.shop));
+    out
+}
+
+/// A description of `action` that names no card, only positions (`Buy shop[2]`).
+fn index_action(action: &TavernAction) -> String {
+    let on_board = |t: &Option<usize>| t.map_or(String::new(), |t| format!(" on board[{t}]"));
+    match *action {
+        TavernAction::Buy { shop_index } => format!("Buy shop[{shop_index}]"),
+        TavernAction::Play {
+            hand_index,
+            board_pos,
+        } => format!("Play hand[{hand_index}] at {board_pos}"),
+        TavernAction::PlayOnShop {
+            hand_index,
+            shop_index,
+        } => format!("Cast hand[{hand_index}] on shop[{shop_index}]"),
+        TavernAction::Sell { board_pos } => format!("Sell board[{board_pos}]"),
+        TavernAction::Reposition { from_pos, to_pos } => {
+            format!("Move board[{from_pos}] to {to_pos}")
+        }
+        TavernAction::Activate {
+            board_pos,
+            target_pos,
+        } => format!("Activate board[{board_pos}]{}", on_board(&target_pos)),
+        TavernAction::Refresh => "Refresh".to_string(),
+        TavernAction::UpgradeTavern => "Upgrade tavern".to_string(),
+        TavernAction::ToggleFreeze => "Toggle freeze".to_string(),
+        TavernAction::ChooseDiscover { option_index } => format!("Choose option {option_index}"),
+        TavernAction::EndTurn => "End turn".to_string(),
+        TavernAction::Pass { hand_index } => format!("Pass hand[{hand_index}]"),
+        TavernAction::HeroPower { target } | TavernAction::HeroPower2 { target } => {
+            format!("Hero power{}", on_board(&target))
+        }
+        TavernAction::ChooseHero { option_index } => format!("Choose hero {option_index}"),
+        TavernAction::ChooseTrinket { option_index } => format!("Choose trinket {option_index}"),
+        TavernAction::DarkDiscovery => "Dark Discovery".to_string(),
     }
 }
 
@@ -1322,7 +1478,8 @@ mod tests {
                             .iter()
                             .map(|a| pb::Candidate {
                                 action: Some(replay::action_to_pb(a)),
-                                prob,
+                                prob: Some(prob),
+                                ..Default::default()
                             })
                             .collect(),
                         extra: [("step".to_string(), step as f64)].into(),
@@ -1465,6 +1622,73 @@ mod tests {
             assert_eq!(json["kind"], kind, "frame {i}");
         }
         assert!(combats > 0 && notes > 0);
+    }
+
+    /// A search's note: scored candidates with the lines they planned.
+    #[test]
+    fn scored_candidates_carry_their_plans() {
+        let player = |name: &str| PlayerSetup {
+            name: name.to_string(),
+            ..Default::default()
+        };
+        let mut game = Match::new(&MatchSetup {
+            pool: PoolMode::Shared,
+            shared_seed: 11,
+            players: vec![player("P1"), player("P2")],
+            ..Default::default()
+        })
+        .unwrap();
+        game.start_turn(0);
+        let candidate = |action, score, plan: &[TavernAction], label: &str| pb::Candidate {
+            action: Some(replay::action_to_pb(&action)),
+            score,
+            plan: plan.iter().map(replay::action_to_pb).collect(),
+            label: label.to_string(),
+            ..Default::default()
+        };
+        let buy = TavernAction::Buy { shop_index: 0 };
+        let shop_name = game.player(0).shop[0].name.clone();
+        let note = pb::Note {
+            value: Some(1.5),
+            candidates: vec![
+                candidate(TavernAction::EndTurn, Some(2.0), &[], ""),
+                candidate(
+                    buy,
+                    Some(245.5678),
+                    &[
+                        TavernAction::ToggleFreeze,
+                        TavernAction::Refresh,
+                        TavernAction::Buy { shop_index: 2 },
+                    ],
+                    "plan",
+                ),
+            ],
+            ..Default::default()
+        };
+        game.step_with_note(0, buy, Some(note)).unwrap();
+        let timeline = Timeline::new(&game.replay()).unwrap();
+        let data = embedded_data(&render(&timeline, "test.replay.pb"));
+        let note = data["frames"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find_map(|f| f["note"].is_object().then(|| f["note"].clone()))
+            .expect("the action has a note");
+        let candidates = note["candidates"].as_array().unwrap();
+        // Best score first; the line's steps are named on the state they are taken in until the
+        // Refresh, then by position.
+        assert_eq!(candidates[0]["action"], format!("Buy {shop_name}"));
+        assert_eq!(candidates[0]["score"], 245.568);
+        assert_eq!(candidates[0]["label"], "plan");
+        assert_eq!(candidates[0]["chosen"], true);
+        assert!(candidates[0].get("prob").is_none());
+        assert_eq!(
+            candidates[0]["plan"],
+            serde_json::json!(["Freeze", "Refresh", "Buy shop[2]"])
+        );
+        assert_eq!(candidates[1]["action"], "End turn");
+        assert!(candidates[1].get("plan").is_none());
+        assert!(candidates[1].get("label").is_none());
     }
 
     #[test]

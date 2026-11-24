@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict};
+use pyo3::types::{PyBytes, PyDict, PyList};
 
 use crate::combat::BattleResult;
 use crate::game::{Match, MatchSetup, PlayerSetup, PoolMode};
@@ -74,8 +74,10 @@ fn player_setup(settings: &Bound<'_, PyDict>) -> PyResult<PlayerSetup> {
     Ok(setup)
 }
 
-/// A note from a dict: `value`, `logp`, `forced`, `candidates` (a list of `(TavernAction,
-/// probability)` pairs); any other key must be a number and goes into `extra`.
+/// A note from a dict: `value`, `logp`, `forced`, `candidates` (a list whose items are
+/// `(TavernAction, probability)` pairs or dicts with `action` (required), `prob`, `score`,
+/// `plan` (a list of `TavernAction`) and `label`); any other key must be a number and goes into
+/// `extra`.
 fn parse_note(note: &Bound<'_, PyAny>) -> PyResult<pb::Note> {
     let note = note
         .downcast::<PyDict>()
@@ -88,15 +90,15 @@ fn parse_note(note: &Bound<'_, PyAny>) -> PyResult<pb::Note> {
             "logp" => parsed.logp = note_entry(&key, &value, "a number or None")?,
             "forced" => parsed.forced = note_entry(&key, &value, "a bool")?,
             "candidates" => {
-                let candidates: Vec<(PyTavernAction, f32)> =
-                    note_entry(&key, &value, "a list of (TavernAction, probability) pairs")?;
-                parsed.candidates = candidates
-                    .into_iter()
-                    .map(|(action, prob)| pb::Candidate {
-                        action: Some(replay::action_to_pb(&action.inner)),
-                        prob,
-                    })
-                    .collect();
+                let items: Vec<Bound<'_, PyAny>> = note_entry(
+                    &key,
+                    &value,
+                    "a list of (TavernAction, probability) pairs or candidate dicts",
+                )?;
+                parsed.candidates = items
+                    .iter()
+                    .map(parse_candidate)
+                    .collect::<PyResult<Vec<_>>>()?;
             }
             _ => {
                 let number: f64 = note_entry(&key, &value, "a number")?;
@@ -105,6 +107,66 @@ fn parse_note(note: &Bound<'_, PyAny>) -> PyResult<pb::Note> {
         }
     }
     Ok(parsed)
+}
+
+/// A candidate: a `(TavernAction, probability)` pair or a dict (see `parse_note`).
+fn parse_candidate(item: &Bound<'_, PyAny>) -> PyResult<pb::Candidate> {
+    let action_pb = |a: &PyTavernAction| Some(replay::action_to_pb(&a.inner));
+    if let Ok(dict) = item.downcast::<PyDict>() {
+        let mut c = pb::Candidate::default();
+        let mut has_action = false;
+        for (key, value) in dict.iter() {
+            let key: String = key
+                .extract()
+                .map_err(|_| PyTypeError::new_err("candidate keys must be strings"))?;
+            match key.as_str() {
+                "action" => {
+                    let a: PyTavernAction = candidate_entry(&key, &value, "a TavernAction")?;
+                    c.action = action_pb(&a);
+                    has_action = true;
+                }
+                "prob" => c.prob = Some(candidate_entry(&key, &value, "a number")?),
+                "score" => c.score = Some(candidate_entry(&key, &value, "a number")?),
+                "plan" => {
+                    let plan: Vec<PyTavernAction> =
+                        candidate_entry(&key, &value, "a list of TavernAction")?;
+                    c.plan = plan.iter().filter_map(action_pb).collect();
+                }
+                "label" => c.label = candidate_entry(&key, &value, "a str")?,
+                other => {
+                    return Err(PyTypeError::new_err(format!(
+                        "unknown candidate key {other:?} (expected action, prob, score, plan \
+                         or label)"
+                    )))
+                }
+            }
+        }
+        if !has_action {
+            return Err(PyTypeError::new_err(
+                "candidate entry \"action\" is required",
+            ));
+        }
+        Ok(c)
+    } else {
+        let (action, prob): (PyTavernAction, f32) = item.extract().map_err(|_| {
+            PyTypeError::new_err("a candidate must be a (TavernAction, probability) pair or a dict")
+        })?;
+        Ok(pb::Candidate {
+            action: action_pb(&action),
+            prob: Some(prob),
+            ..Default::default()
+        })
+    }
+}
+
+fn candidate_entry<'py, T: FromPyObject<'py>>(
+    key: &str,
+    value: &Bound<'py, PyAny>,
+    expected: &str,
+) -> PyResult<T> {
+    value
+        .extract()
+        .map_err(|_| PyTypeError::new_err(format!("candidate entry {key:?} must be {expected}")))
 }
 
 fn note_entry<'py, T: FromPyObject<'py>>(
@@ -128,17 +190,44 @@ fn note_to_py(py: Python<'_>, note: &pb::Note) -> PyResult<PyObject> {
     }
     dict.set_item("forced", note.forced)?;
     if !note.candidates.is_empty() {
-        let candidates = note
-            .candidates
-            .iter()
-            .map(|c| {
-                let action = c.action.as_ref().ok_or("a candidate has no action")?;
-                let inner = replay::action_from_pb(action)?;
-                Ok((PyTavernAction { inner }, c.prob))
-            })
-            .collect::<Result<Vec<_>, String>>()
-            .map_err(PyValueError::new_err)?;
-        dict.set_item("candidates", candidates.into_py(py))?;
+        let candidates = PyList::empty_bound(py);
+        for c in &note.candidates {
+            let action = c
+                .action
+                .as_ref()
+                .ok_or_else(|| "a candidate has no action".to_string())
+                .and_then(replay::action_from_pb)
+                .map_err(PyValueError::new_err)?;
+            let action = PyTavernAction { inner: action };
+            if c.score.is_none() && c.plan.is_empty() && c.label.is_empty() {
+                if let Some(prob) = c.prob {
+                    candidates.append((action.into_py(py), prob))?;
+                    continue;
+                }
+            }
+            let d = PyDict::new_bound(py);
+            d.set_item("action", action.into_py(py))?;
+            if let Some(prob) = c.prob {
+                d.set_item("prob", prob)?;
+            }
+            if let Some(score) = c.score {
+                d.set_item("score", score)?;
+            }
+            if !c.plan.is_empty() {
+                let plan = c
+                    .plan
+                    .iter()
+                    .map(|a| replay::action_from_pb(a).map(|inner| PyTavernAction { inner }))
+                    .collect::<Result<Vec<_>, String>>()
+                    .map_err(PyValueError::new_err)?;
+                d.set_item("plan", plan.into_py(py))?;
+            }
+            if !c.label.is_empty() {
+                d.set_item("label", &c.label)?;
+            }
+            candidates.append(d)?;
+        }
+        dict.set_item("candidates", candidates)?;
     }
     for (key, value) in &note.extra {
         dict.set_item(key, value)?;
