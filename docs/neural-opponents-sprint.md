@@ -340,8 +340,9 @@ Next tries:
 - **Its critic memorised the games.** Held-out value cross-entropy was best at epoch 2 (1.62) and reached 2.79 by epoch 8. With only 2,500 lobbies' outcomes, a fresh critic learns which game it is in, as the cloned critics did in Stage 2. It doesn't matter for play without search, but it would mislead search and PPO.
 - **So this doesn't settle the capacity question.** A fresh student is limited by data before capacity.
 
+**With the critic distilled too** (`--value-target teacher`, 6 epochs), the student's critic now learns the teacher's place distribution instead of the outcomes. Its held-out loss fell every epoch, to 1.58. The student ends level with the teacher head to head, 4.50 against 4.50 over 400 lobbies, at 85.0% agreement with search and a KL to the teacher of 0.053. On the fast ladder it places 1.72, against the teacher's 1.75. That makes it a sound starting point: a network 4 times larger, as strong as the old one, with a healthy critic, after 30 minutes on the CPU.
+
 Next:
-- **Distil the critic too.** Train the student's critic on the teacher's place distribution, a dense target it cannot memorise, instead of on 2,500 outcomes.
 - **The real test of capacity.** Continue the bigger student with PPO, matched against the small network's own continuation. That is a long run, and it is where the GPU would help.
 
 ### Later: Search Beyond the Turn (to Evaluate)
