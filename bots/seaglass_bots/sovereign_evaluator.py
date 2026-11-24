@@ -1183,12 +1183,12 @@ class SovereignEvaluator:
             best_fz += 0.45 * target_vals[1]
         return best_fz
 
-    def should_freeze_current_shop(
+    def freeze_shop_value(
         self,
         obs: seaglass.TavernObservation,
         ctx: Optional[seaglass.LobbyContext] = None,
-    ) -> bool:
-        """Fast helper for Search/Zero-Waste guard: True if current shop has a high-EV freeze target."""
+    ) -> float:
+        """The number `should_freeze_current_shop` compares to `FREEZE_THRESHOLD`."""
         all_copies: Dict[int, int] = {}
         tribe_counts: Dict[str, int] = {}
         for u in obs.board:
@@ -1200,7 +1200,17 @@ class SovereignEvaluator:
             if not c.is_golden and not c.is_spell:
                 all_copies[c.card_id] = all_copies.get(c.card_id, 0) + 1
         lobby_tribes = ctx.tribes if ctx is not None else None
-        return self._freeze_shop_value(obs, all_copies, tribe_counts, lobby_tribes=lobby_tribes) >= 1.5
+        return self._freeze_shop_value(obs, all_copies, tribe_counts, lobby_tribes=lobby_tribes)
+
+    FREEZE_THRESHOLD = 1.5
+
+    def should_freeze_current_shop(
+        self,
+        obs: seaglass.TavernObservation,
+        ctx: Optional[seaglass.LobbyContext] = None,
+    ) -> bool:
+        """Fast helper for Search/Zero-Waste guard: True if current shop has a high-EV freeze target."""
+        return self.freeze_shop_value(obs, ctx=ctx) >= self.FREEZE_THRESHOLD
 
     def evaluate_fast_batch(
         self,
@@ -1210,7 +1220,9 @@ class SovereignEvaluator:
         particles: Optional[SovereignOpponentParticles] = None,
         in_dist_sot: bool = False,
         sot_shop_is_real: bool = False,
+        parts: Optional[List[Dict[str, float]]] = None,
     ) -> List[float]:
+        """`parts`: optional out-list; one dict per obs with `prior`, `net` (and `net_raw` when used)."""
         if not obs_list:
             return []
         prior_scores = [
@@ -1231,10 +1243,17 @@ class SovereignEvaluator:
             or self.predictor is None
             or (ctx is not None and getattr(ctx, "duos", False))
         ):
+            if parts is not None:
+                parts.extend({"prior": float(p), "net": 0.0} for p in prior_scores)
             return prior_scores
 
         net_scores = self.predictor.predict_batch(obs_list, ctx=ctx, end_of_turn=end_of_turn)
         w = self.neural_weight
+        if parts is not None:
+            parts.extend(
+                {"prior": float(p), "net": float(w * n), "net_raw": float(n)}
+                for p, n in zip(prior_scores, net_scores)
+            )
         return [p_val + w * n_val for p_val, n_val in zip(prior_scores, net_scores)]
 
     def evaluate_fast(
@@ -1320,8 +1339,11 @@ class SovereignEvaluator:
         combats_per_particle: int = 14,
         board_override: Optional[List[seaglass.Unit]] = None,
         pre_positioned: bool = False,
+        parts: Optional[Dict[str, float]] = None,
     ) -> float:
         """
+        `parts`: optional out-dict filled with the score breakdown (see sovereign_trace.PARTS_KEYS).
+
         Positioned 1-Turn Physics + CVaR Survival + Pure-8p-FFA Macro Evaluation:
           1. Reposition `combat_game` in `<0.05ms` via `fast_reposition_game` BEFORE `end_turn()`
              so `Young Murk-Eye`, `Persistent Poet`, `Stitched Salvager`, Cleaves & `Titus` fire properly!
@@ -1428,6 +1450,7 @@ class SovereignEvaluator:
                     cvar_penalty = 38.0 * hr_dist.b_win_rate
 
         combat_icm_score = (icm_sum + offense_bonus_sum) / n_boards - cvar_penalty
+        boss_bonus_term = 0.0
 
         if (
             obs_pre.turn >= 10
@@ -1448,7 +1471,8 @@ class SovereignEvaluator:
             boss_bonus = 22.0 * (boss_dist.a_win_rate + 0.5 * boss_dist.draw_rate) + 0.20 * max(
                 0.0, boss_dist.damage_mean
             )
-            combat_icm_score += 0.30 * boss_bonus
+            boss_bonus_term = 0.30 * boss_bonus
+            combat_icm_score += boss_bonus_term
 
         survival_prob = max(0.0, min(1.0, 1.0 - (lethal_prob_sum / n_boards)))
 
@@ -1469,6 +1493,7 @@ class SovereignEvaluator:
                 g_next.start_turn()
                 next_obs_samples.append(g_next.observe())
 
+            next_parts: Optional[List[Dict[str, float]]] = [] if parts is not None else None
             next_scores = self.evaluate_fast_batch(
                 next_obs_samples,
                 ctx=ctx,
@@ -1476,17 +1501,41 @@ class SovereignEvaluator:
                 particles=particles,
                 in_dist_sot=True,
                 sot_shop_is_real=obs_pre.is_frozen,
+                parts=next_parts,
             )
             avg_next_macro = sum(next_scores) / len(next_scores)
             pre_discipline = self._pre_end_turn_discipline(obs_pre, ctx=ctx)
             continuation_weight = 0.30 + 0.70 * survival_prob
             macro_score = continuation_weight * avg_next_macro + pre_discipline
+            if parts is not None and next_parts:
+                parts["continuation_weight"] = float(continuation_weight)
+                parts["next_prior"] = sum(x["prior"] for x in next_parts) / len(next_parts)
+                parts["next_net"] = sum(x["net"] for x in next_parts) / len(next_parts)
+                parts["discipline"] = float(pre_discipline)
         else:
-            macro_score = self.evaluate_fast(
-                obs_pre, ctx=ctx, end_of_turn=True, particles=particles
-            )
+            fast_parts: Optional[List[Dict[str, float]]] = [] if parts is not None else None
+            macro_score = self.evaluate_fast_batch(
+                [obs_pre], ctx=ctx, end_of_turn=True, particles=particles, parts=fast_parts
+            )[0]
+            if parts is not None and fast_parts:
+                parts["continuation_weight"] = 0.0
+                parts["next_prior"] = float(fast_parts[0]["prior"])
+                parts["next_net"] = float(fast_parts[0]["net"])
+                parts["discipline"] = 0.0
 
-        return combat_icm_score + macro_score
+        total = combat_icm_score + macro_score
+        if parts is not None:
+            parts.update(
+                combat_icm=float(icm_sum / n_boards),
+                offense=float(offense_bonus_sum / n_boards),
+                cvar_penalty=float(cvar_penalty),
+                boss_bonus=float(boss_bonus_term),
+                combat=float(combat_icm_score),
+                survival_prob=float(survival_prob),
+                macro=float(macro_score),
+                total=float(total),
+            )
+        return total
 
     def choose_best_hero(
         self,

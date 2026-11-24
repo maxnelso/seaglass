@@ -74,6 +74,19 @@ footer button:disabled { opacity: .35; cursor: default; }
 #cap-main .auto, #cap-sub .note { color: var(--muted); font-weight: 400; font-size: 13px; }
 #cap-sub { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 #cap-sub b { color: var(--text); }
+#cap-main .why { min-width: 0; height: 20px; margin-left: 6px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; vertical-align: 1px; }
+#cap-main .why:hover:not(:disabled), #cap-main .why.on { border-color: var(--cyan); color: var(--cyan); }
+/* The "why" panel floats over the bottom of the stage area, so the fixed layout does not move. */
+#why { position: absolute; left: 50%; bottom: 8px; z-index: 50; width: min(760px, calc(100% - 24px)); max-height: calc(100% - 16px); overflow-y: auto; transform: translateX(-50%); padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 8px 24px rgba(0, 0, 0, .65); font-size: 13px; }
+#why[hidden] { display: none; }
+#why .chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
+#why .chip2 { padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+#why .chip2 b { color: var(--text); font-weight: 650; }
+#why .wc { display: grid; grid-template-columns: 62px minmax(0, 1fr); column-gap: 8px; padding: 1px 5px; border-radius: 4px; }
+#why .wc.chosen { background: rgba(55, 224, 255, .14); font-weight: 650; }
+#why .wc .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--gold); }
+#why .wc .lab { color: var(--muted); font-weight: 400; }
+#why .wc .plan { grid-column: 2; color: var(--muted); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
 kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--panel-2); font: 11px var(--mono); }
 
 /* The stage: a fixed 1600x900 canvas that is scaled to fit the window. */
@@ -259,6 +272,7 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 </header>
 <div id="wrap">
   <div id="stage"></div>
+  <div id="why" hidden></div>
 </div>
 <div id="tip" hidden></div>
 <footer>
@@ -920,6 +934,34 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
 
   // ---- Page ----------------------------------------------------------------------------------------
 
+  let whyOpen = false;
+
+  /** Whether a note has anything to explain: candidates or extra numbers. */
+  function hasWhy(note) {
+    return !!note && ((note.candidates && note.candidates.length > 0) || Object.keys(note.extra || {}).length > 0);
+  }
+
+  const whyNum = (v) => (v === null || v === undefined ? "–" : Number.isInteger(v) ? String(v) : v.toFixed(3));
+
+  /** Fills the "why" panel for `note` (null: nothing to show) and shows it if it is open. */
+  function renderWhy(note) {
+    const box = $("why");
+    box.hidden = !(whyOpen && note);
+    if (box.hidden) return;
+    const chips = [];
+    if (note.value !== undefined) chips.push(`<span class="chip2">value <b>${whyNum(note.value)}</b></span>`);
+    if (note.p !== undefined) chips.push(`<span class="chip2">p <b>${(100 * note.p).toFixed(note.p >= 0.995 ? 0 : 1)}%</b></span>`);
+    Object.entries(note.extra || {}).forEach(([k, v]) => chips.push(`<span class="chip2">${esc(k)} <b>${whyNum(v)}</b></span>`));
+    const rows = (note.candidates || []).map((c) => {
+      const v = c.score !== undefined ? whyNum(c.score) : c.prob !== undefined ? (100 * c.prob).toFixed(c.prob >= 0.995 ? 0 : 1) + "%" : "";
+      const label = c.label ? `<span class="lab">${esc(c.label)}</span> ` : "";
+      const plan = c.plan && c.plan.length ? `<span class="plan">${c.plan.map(esc).join(" → ")}</span>` : "";
+      return `<div class="wc${c.chosen ? " chosen" : ""}"><span class="v">${v}</span>` +
+        `<span>${label}${esc(c.action)}${c.chosen ? " ← taken" : ""}</span>${plan}</div>`;
+    });
+    box.innerHTML = `<div class="chips">${chips.join("")}</div>${rows.join("")}`;
+  }
+
   /** The caption for step `st`: what happens, and the small print under it. */
   function renderCaption(st) {
     const f = FRAMES[st.frame];
@@ -936,7 +978,11 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
       if (f.note.p !== undefined) bits.push(`p ${(100 * f.note.p).toFixed(f.note.p >= 0.995 ? 0 : 1)}%`);
       if (bits.length) extra += ` <span class="auto">${bits.join(" · ")}</span>`;
     }
+    const why = hasWhy(f.note);
+    if (why) extra += ` <button type="button" class="why${whyOpen ? " on" : ""}" id="btn-why" title="Why: the candidates, plans and numbers behind this decision (Esc closes)">why${whyOpen ? " ✕" : ""}</button>`;
     $("cap-main").innerHTML = esc(main) + extra;
+    if (!why) whyOpen = false;
+    renderWhy(why ? f.note : null);
     const inTurn = STEPS.filter((x) => x.turn === st.turn);
     $("cap-sub").innerHTML = `Turn <b>${st.turn}</b> · step <b>${inTurn.indexOf(st) + 1}</b> of ${inTurn.length} · ` +
       `overall <b>${st.n + 1}</b> of ${STEPS.length}`;
@@ -1106,8 +1152,18 @@ kbd { padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; b
       ArrowDown: () => nextTurnStep(cur), PageDown: () => nextTurnStep(cur),
       Home: () => 0, End: () => STEPS.length - 1,
     };
+    $("caption").addEventListener("click", (e) => {
+      if (!e.target.closest("#btn-why")) return;
+      whyOpen = !whyOpen;
+      renderCaption(STEPS[cur]);
+    });
     document.addEventListener("keydown", (e) => {
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "Escape" && whyOpen) {
+        whyOpen = false;
+        renderCaption(STEPS[cur]);
+        return;
+      }
       const t = e.target;
       if (t instanceof HTMLElement && (t.tagName === "SELECT" || t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && e.key === " "))) return;
       const move = moves[e.key];
