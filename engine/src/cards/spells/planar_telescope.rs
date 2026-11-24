@@ -5,7 +5,7 @@
 //! Naga counts (`docs/tavern.md` §7.8): with a `Firescale Hoarder` and an `Ominous Seer`, it
 //! Discovers Nagas (and All minions).
 
-use super::{most_common_tribe, spell};
+use super::{most_common_tribe_in_pool, spell};
 use crate::cards::CardHooks;
 use crate::model::Unit;
 use crate::rng::Rng;
@@ -18,7 +18,7 @@ pub fn hooks() -> CardHooks {
 
 /// `Planar Telescope`: Discover a minion of your most common type.
 pub fn cast(state: &mut TavernState, _: &Unit, _: usize, pool: &mut CardPool, rng: &mut Rng) {
-    let tribe = most_common_tribe(&state.board, rng);
+    let tribe = most_common_tribe_in_pool(&state.board, Some(pool), rng);
     let mut opts = pool.draw_discover_by_tribe(tribe, state.tavern_tier, 3, rng);
     for opt in &mut opts {
         state.apply_global_unit_auras(opt);

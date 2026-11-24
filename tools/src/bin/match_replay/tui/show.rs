@@ -8,8 +8,8 @@
 use seaglass::combat::MAX_BOARD_SIZE;
 use seaglass::replay::{Frame, FrameKind};
 use seaglass::{
-    heroes, trinkets, with_combat_trace, CombatResult, DuosTavern, DuosTeam, PlayerAuras,
-    TavernState, Timeline, Unit, Warband,
+    cards, heroes, trinkets, with_combat_trace, CombatResult, DuosTavern, DuosTeam, PlayerAuras,
+    TavernAction, TavernState, Timeline, Unit, Warband,
 };
 use seaglass_tools::replay_text::{frame_title, player_name, unit_players};
 
@@ -249,20 +249,47 @@ impl Source for ReplaySource {
                 )
             })
             .collect();
+        let shop_refreshed = matches!(
+            &f.kind,
+            FrameKind::Act {
+                player,
+                action: TavernAction::Refresh,
+                ..
+            } if *player == p
+        );
         let shop = match &state.discover_pending {
-            Some(options) => Row {
-                label: "Discover".to_string(),
-                units: options.clone(),
-                fresh: vec![false; options.len()],
-                slots: 0,
-            },
+            Some(options) => {
+                let is_choose_one = !options.is_empty()
+                    && options
+                        .iter()
+                        .all(|u| cards::is_choose_one_option(u.card_id));
+                Row {
+                    label: if is_choose_one {
+                        "Choose One".to_string()
+                    } else {
+                        "Discover".to_string()
+                    },
+                    units: options.clone(),
+                    fresh: vec![false; options.len()],
+                    slots: 0,
+                }
+            }
             None => Row {
                 label: if state.is_frozen {
                     "Shop ❄ frozen".to_string()
+                } else if shop_refreshed {
+                    "Shop ↻ refreshed".to_string()
                 } else {
                     "Shop".to_string()
                 },
-                fresh: fresh(&state.shop, before.map(|b| b.shop.as_slice())),
+                // Every card in a refreshed shop is freshly drawn from the pool, even if the pool
+                // happens to redraw another copy of a card that was in the old shop (shop cards
+                // share id=0, so `fresh()` would otherwise leave redrawn copies unhighlighted).
+                fresh: if shop_refreshed {
+                    vec![true; state.shop.len()]
+                } else {
+                    fresh(&state.shop, before.map(|b| b.shop.as_slice()))
+                },
                 units: state.shop.clone(),
                 slots: 0,
             },

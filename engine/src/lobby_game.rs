@@ -217,12 +217,14 @@ impl LobbyGame {
     pub fn new(config: LobbyConfig) -> Result<Self, String> {
         config.check()?;
         let n = config.players;
+        let lobby_tribes = draw_tribes(config.tribes, &mut Rng::new(config.seed ^ TRIBE_SALT));
         let offers = if config.heroes {
-            heroes::draw_offers(
+            heroes::draw_offers_for_tribes(
                 n,
                 config.hero_offers,
                 config.duos,
                 config.dark_gifts,
+                &lobby_tribes,
                 &mut Rng::new(config.seed ^ HERO_SALT),
             )
         } else {
@@ -243,7 +245,6 @@ impl LobbyGame {
                 ..Default::default()
             })
             .collect();
-        let lobby_tribes = draw_tribes(config.tribes, &mut Rng::new(config.seed ^ TRIBE_SALT));
         let mut meta = config.meta.clone();
         meta.entry("source".to_string())
             .or_insert_with(|| "LobbyGame".to_string());

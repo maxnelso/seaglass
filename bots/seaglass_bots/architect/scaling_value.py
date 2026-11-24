@@ -36,8 +36,39 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from seaglass_rl.card_features import STATIC_DIM, static_card_table
-from seaglass_rl.features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, VOCAB_SIZE
+from seaglass_rl.features import (
+    MAX_BOARD,
+    MAX_HAND,
+    MAX_SHOP,
+    NUM_SLOTS,
+    PLAYER_DIM,
+    SLOT_NUM_DIM,
+    TAVERN_PLAYER_DIM,
+    VOCAB_SIZE,
+)
 from seaglass_rl.transformer import MAX_ZONE_POSITIONS, ZONE_NAMES, _slot_layout
+
+SHOP_SLOT_START = MAX_BOARD + MAX_HAND
+SHOP_SLOT_END = SHOP_SLOT_START + MAX_SHOP
+
+
+def mask_dead_unfrozen_shop(
+    pv: np.ndarray, ci: np.ndarray, nf: np.ndarray, gold_thresh: float = 0.25
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Zero out dead unfrozen shop tokens on End-of-Turn states (unfrozen shop is discarded at EOT).
+
+    Eliminates both spurious EOT shop variance and shortcut learning of Tavern Tier from shop cards!
+    """
+    is_eot = pv[:, 4] <= gold_thresh
+    unfrozen = pv[:, 15] < 0.5
+    dead = is_eot & unfrozen
+    if not np.any(dead):
+        return ci, nf
+    ci_out = ci.copy()
+    nf_out = nf.copy()
+    ci_out[dead, SHOP_SLOT_START:SHOP_SLOT_END] = 0
+    nf_out[dead, SHOP_SLOT_START:SHOP_SLOT_END] = 0.0
+    return ci_out, nf_out
 
 SCALING_PLACE_ATOMS = np.array(
     [2.40, 0.70, 0.15, -0.20, -0.45, -0.65, -0.82, -1.00], dtype=np.float32
@@ -56,6 +87,8 @@ class ScalingValueTransformer(nn.Module):
         heads: int = 4,
         ff: int = 384,
         dropout: float = 0.25,
+        use_pv_skip: bool = False,
+        mask_unfrozen_shop_eot: bool = False,
     ) -> None:
         super().__init__()
         self.config = {
@@ -66,6 +99,8 @@ class ScalingValueTransformer(nn.Module):
             "heads": heads,
             "ff": ff,
             "dropout": dropout,
+            "use_pv_skip": bool(use_pv_skip),
+            "mask_unfrozen_shop_eot": bool(mask_unfrozen_shop_eot),
         }
         static = static_card_table()[:vocab_size]
         self.register_buffer("static_table", torch.from_numpy(np.ascontiguousarray(static)), persistent=False)
@@ -93,6 +128,16 @@ class ScalingValueTransformer(nn.Module):
         )
         self.encoder = nn.TransformerEncoder(enc_layer, num_layers=layers, enable_nested_tensor=False)
         self.final_norm = nn.LayerNorm(d_model)
+        self.pv_skip = (
+            nn.Sequential(
+                nn.Linear(TAVERN_PLAYER_DIM, d_model),
+                nn.GELU(),
+                nn.Dropout(dropout * 0.5),
+                nn.Linear(d_model, d_model),
+            )
+            if use_pv_skip
+            else None
+        )
 
         self.place_head = nn.Sequential(
             nn.Dropout(dropout),
@@ -119,7 +164,8 @@ class ScalingValueTransformer(nn.Module):
         if self.training:
             self._card_cache = None
             return self.card_in(torch.cat([self.card_embed.weight, self.static_table], dim=-1))
-        w = (self.card_embed.weight.data_ptr(), self.card_embed.weight._version, self.card_in.weight._version)
+        ac = (torch.is_autocast_enabled(), torch.get_autocast_gpu_dtype() if torch.cuda.is_available() else None)
+        w = (self.card_embed.weight.data_ptr(), self.card_embed.weight._version, self.card_in.weight._version, ac)
         if self._card_cache is None or self._card_cache[0] != w:
             self._card_cache = (w, self.card_in(torch.cat([self.card_embed.weight, self.static_table], dim=-1)))
         return self._card_cache[1]
@@ -150,6 +196,8 @@ class ScalingValueTransformer(nn.Module):
         active_mask = (~pad).float().unsqueeze(-1)
         h_mean = (h * active_mask).sum(dim=1) / active_mask.sum(dim=1).clamp(min=1.0)
         h_rep = 0.5 * (h[:, 0] + h_mean)
+        if self.pv_skip is not None:
+            h_rep = h_rep + self.pv_skip(player_vec[:, :TAVERN_PLAYER_DIM].to(h_rep.dtype))
 
         place_logits = self.place_head(h_rep).float()
         fut_stats = self.stats_head(h_rep).squeeze(-1).float()

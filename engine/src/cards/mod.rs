@@ -990,6 +990,12 @@ pub fn is_choose_one_minion(card_id: CardId) -> bool {
     hooks(card_id).choose_one.is_some()
 }
 
+/// Returns `true` if `card_id` is a Choose One option presented in `discover_pending`
+/// (distinct from Discover options — triggers `Turbo Hogrider` and similar Choose One observers).
+pub fn is_choose_one_option(card_id: CardId) -> bool {
+    hooks(card_id).has(CardFlags::CHOOSE_ONE_OPTION)
+}
+
 /// Returns `true` if `card_id` has a Rally.
 pub fn is_rally_minion(card_id: CardId) -> bool {
     hooks(card_id).rally.is_some()
