@@ -327,6 +327,23 @@ Next tries:
 - **Distil inside PPO.** Act with search in a fraction of the training seats, so PPO learns from the better games, and add the search policy as an extra loss on those decisions.
 - **Keep the search at play time.** At about 7 seconds of CPU per seat per game (50 to 100 ms a decision), the network plus search is already affordable as an opponent. That is the AlphaZero design anyway: the network guides the search, and the search plays.
 
+#### Stage 4, a Bigger Student (2026-11-24)
+
+`distill train --student 128,4,4,256` trains a fresh entity transformer, 128 wide and 4 layers, with 0.70M parameters, 4 times the teacher's. It is trained on both overnight data sets: about 1M decisions from 2,500 lobbies. There are three terms: the search's targets, the teacher's own policy (the anchor at weight 1.0, here acting as distillation), and the final places. It ran 8 epochs of about 5 minutes each on 6 CPU threads.
+
+| | Held-out agreement with search | KL to teacher | Head to head with teacher, 400 lobbies | Fast ladder |
+| :--- | :--- | :--- | :--- | :--- |
+| Teacher (0.18M) | 89.3% | 0 | 4.50 by definition | 1.75 |
+| Student (0.70M), epoch 8 | 84.1% | 0.063 | 4.54 ± 0.05 | 1.75 |
+
+- **Almost the teacher, from scratch.** The student plays almost as well as the teacher, inside the interval, after one pass of supervised training. But it learned neither the teacher's policy exactly nor the search's refinements: its agreement with search is lower than the teacher's.
+- **Its critic memorised the games.** Held-out value cross-entropy was best at epoch 2 (1.62) and reached 2.79 by epoch 8. With only 2,500 lobbies' outcomes, a fresh critic learns which game it is in, as the cloned critics did in Stage 2. It doesn't matter for play without search, but it would mislead search and PPO.
+- **So this doesn't settle the capacity question.** A fresh student is limited by data before capacity.
+
+Next:
+- **Distil the critic too.** Train the student's critic on the teacher's place distribution, a dense target it cannot memorise, instead of on 2,500 outcomes.
+- **The real test of capacity.** Continue the bigger student with PPO, matched against the small network's own continuation. That is a long run, and it is where the GPU would help.
+
 ### Later: Search Beyond the Turn (to Evaluate)
 
 These came out of a design discussion with James on 2026-11-23. Each one is to be built behind a flag and judged head to head (`ladder.versus`) and on the slow ladder, like everything else.
