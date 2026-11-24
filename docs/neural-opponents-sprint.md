@@ -191,7 +191,28 @@ Its style moved again. It levels slowly, with a mean tier of 3.0 at turn 8 and 4
 
 Lesson for later runs: anneal the learning rate. At a constant 1e-4 the policy drifted after about 300 iterations.
 
-Still to do in this stage: the `--pure` repeat, the A/B test of the auxiliary head (built, off by default: `--aux-coef`), and more games.
+**More games (2026-11-23).** The run continued from iteration 600 on 6 CPU cores.
+
+- **The first try drifted.** The learning rate restarted at 5e-5, annealed again. Head to head against iteration 600, iteration 700 lost 4.61 to 4.39 and iteration 800 lost 4.63 to 4.37. The trainer's check slipped from 1.79 to about 1.9. So it was stopped after 200 iterations.
+- **The second try held.** It restarted from iteration 600 at 2e-5, annealed to 0 over 770 iterations, with rule bots in 15% of opponent seats instead of 30%. The bots now place about 5.5, so many bot seats mostly teach the network to exploit weak play. Iteration 700 was level with 600 head to head (4.47 against 4.53), and the run took 5 hours 16 minutes.
+
+| Iteration | 600 | 700 | 900 | 1100 | 1300 | 1370 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Fast ladder, trainer's check | 1.79 | 1.79 | 1.76 | 1.75 | 1.72 | 1.71 |
+
+The iteration-1370 network has seen 87,680 games along its line.
+
+| Iteration-1370 network | Result |
+| :--- | :--- |
+| Fast ladder, fresh seed | 1.75 ± 0.03, 98% top 4, 47% firsts (iteration 600: 1.79) |
+| Slow ladder | 2.21 ± 0.08, with SovereignBot at 2.21 ± 0.12 (iteration 600: 2.11 against 2.29) |
+| Head to head with iteration 600 | 4.20 ± 0.06 against 4.80 |
+
+Head to head it is clearly stronger. The two slow-ladder runs (100 lobbies each) agree within their intervals: the network and SovereignBot are level.
+
+Lesson: once a run has annealed, continue it at a much lower learning rate, and check snapshots head to head every 100 iterations or so. The fast ladder is too close to its floor to show drift.
+
+Still to do in this stage: the `--pure` repeat and the A/B test of the auxiliary head (built, off by default: `--aux-coef`).
 
 ### Stage 3: Raise Throughput (in Parallel)
 
@@ -267,7 +288,7 @@ Search adds 0.76 places against the same network, well outside the interval. It 
 Not done yet:
 - **Ratings with search.** The search has not been rated on the slow ladder or the fast ladder.
 - **Its knobs.** The candidates, lines, temperature and the σ scale (`c_visit` 50) are untuned.
-- **Distillation.** The second half of the gate (distil the search into the network, then beat the previous network) waits, as planned, until the critic has seen 100,000 games. It has seen 38,400.
+- **Distillation.** The second half of the gate (distil the search into the network, then beat the previous network) was planned for once the critic has seen 100,000 games. The iteration-1370 network's critic has seen 87,680, close enough to start (`distill.py`, below in `rl/README.md`).
 
 ### Later: Search Beyond the Turn (to Evaluate)
 
