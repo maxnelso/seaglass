@@ -288,7 +288,31 @@ Search adds 0.76 places against the same network, well outside the interval. It 
 Not done yet:
 - **Ratings with search.** The search has not been rated on the slow ladder or the fast ladder.
 - **Its knobs.** The candidates, lines, temperature and the σ scale (`c_visit` 50) are untuned.
-- **Distillation.** The second half of the gate (distil the search into the network, then beat the previous network) was planned for once the critic has seen 100,000 games. The iteration-1370 network's critic has seen 87,680, close enough to start (`distill.py`, below in `rl/README.md`).
+- **Distillation works, but does not pass yet.** See the first try below.
+
+#### Stage 4, First Distillation (2026-11-23): no gain yet
+
+`distill.py` is expert iteration done offline. It plays lobbies where some seats search, records what the search preferred, and fine-tunes the network toward it.
+
+- **The run.** The teacher was the iteration-1370 network (87,680 games). It searched in 2 seats of each of 2,000 lobbies, with Gumbel noise at the root, against copies of itself without search. That gave 806,481 recorded decisions, 747,341 of them searched, and took 53 minutes on 8 CPU workers. Each student fine-tuned for 2 epochs, about 4 minutes, on three terms: cross-entropy to the search's improved policy, the placement critic, and a KL anchor (0.1) to the teacher.
+- **The students barely moved.**
+
+| Student | Held-out policy cross-entropy | Top action agrees with search | KL to teacher | Head to head with teacher, 400 lobbies | Fast ladder |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Teacher, for reference | 0.561 | 89.7% | 0 | 4.50 by definition | 1.75 |
+| lr 3e-5 | 0.558 | 89.6% | 0.004 | 4.45 ± 0.05 | 1.73 |
+| lr 1e-4 | 0.560 | 89.2% | 0.008 | 4.46 ± 0.04 | 1.74 |
+
+Both students edge the teacher by about 0.05 places, inside the interval. So the second half of the gate has not passed.
+
+What this says:
+- **The network and the search mostly agree.** Its top action is the search's top action on 90% of searched decisions, so the targets carry about 10% of new information.
+- **The disagreements didn't transfer.** On held-out games the students never matched the search's choice more often than the teacher did. A likely reason: with 16 lines a decision, the search's verdict on close calls is noisy. Its 0.76-place edge in play may come from many small improvements that are hard to learn one decision at a time from 750,000 examples. That is a guess, and the next tries test it.
+
+Next tries, cheapest first:
+- **Cleaner targets.** Use more lines (64) on fewer decisions, and keep only the decisions where the search's top action differs from the network's and wins by a clear Q margin.
+- **Train harder.** Use more epochs, a higher learning rate and a weaker anchor, to find where the student starts to move at all.
+- **Distil inside PPO.** Act with search in a fraction of the training seats, so PPO learns from the better games, and add the search policy as an extra loss on those decisions.
 
 ### Later: Search Beyond the Turn (to Evaluate)
 
