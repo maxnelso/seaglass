@@ -2315,7 +2315,7 @@ impl DuosGame {
         ];
         for s in &team.players {
             checks.push(check_synced(s));
-            checks.push(check_tavern(s));
+            checks.push(check_tavern_after_combat(s));
         }
         self.tolerate(checks)
     }

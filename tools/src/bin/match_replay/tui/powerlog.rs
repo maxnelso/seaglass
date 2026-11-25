@@ -244,7 +244,8 @@ impl PowerLogSource {
             let setup = g.combats.iter().find(|c| c.turn == turn.turn);
             let view = |snap: &TavernSnapshot,
                         before: Option<&TavernSnapshot>,
-                        mate: &Option<TeammateBoard>| {
+                        mate: &Option<TeammateBoard>,
+                        shop_refreshed: bool| {
                 tavern_view(
                     &cards,
                     &g.card_names,
@@ -254,6 +255,7 @@ impl PowerLogSource {
                     snap,
                     before,
                     mate,
+                    shop_refreshed,
                 )
             };
             let start = TavernSnapshot {
@@ -275,7 +277,7 @@ impl PowerLogSource {
                     actor: Some(0),
                 },
                 title: format!("{player} starts turn {} · {}g", turn.turn, t.starting_gold),
-                tavern: view(&start, None, &teammate),
+                tavern: view(&start, None, &teammate, false),
                 combat: None,
             });
             let mut previous = start;
@@ -285,6 +287,7 @@ impl PowerLogSource {
                     .get(i)
                     .cloned()
                     .unwrap_or_else(|| previous.clone());
+                let shop_refreshed = matches!(action, TavernActionRecord::Refresh { .. });
                 frames.push(LogFrame {
                     info: FrameInfo {
                         turn: turn.turn,
@@ -292,7 +295,7 @@ impl PowerLogSource {
                         actor: Some(0),
                     },
                     title: format!("{player}: {}", describe_action(action)),
-                    tavern: view(&snap, Some(&previous), &teammate),
+                    tavern: view(&snap, Some(&previous), &teammate, shop_refreshed),
                     combat: None,
                 });
                 previous = snap;
@@ -321,7 +324,7 @@ impl PowerLogSource {
                     actor: None,
                 },
                 title: format!("combat vs {}: {}", opponents(setup), combat.result),
-                tavern: view(&previous, None, &teammate),
+                tavern: view(&previous, None, &teammate, false),
                 combat: Some(combat),
             });
         }
@@ -401,6 +404,7 @@ fn tavern_view(
     snap: &TavernSnapshot,
     before: Option<&TavernSnapshot>,
     teammate: &Option<TeammateBoard>,
+    shop_refreshed: bool,
 ) -> TavernView {
     let armor = if snap.hero_armor > 0 {
         format!("+{}", snap.hero_armor)
@@ -429,11 +433,17 @@ fn tavern_view(
         Row {
             label: if snap.is_frozen {
                 "Shop ❄ frozen"
+            } else if shop_refreshed {
+                "Shop ↻ refreshed"
             } else {
                 "Shop"
             }
             .to_string(),
-            fresh: fresh(&shop, shop_before.as_deref()),
+            fresh: if shop_refreshed {
+                vec![true; shop.len()]
+            } else {
+                fresh(&shop, shop_before.as_deref())
+            },
             units: shop,
             slots: 0,
         },

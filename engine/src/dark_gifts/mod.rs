@@ -837,7 +837,7 @@ pub fn draw_offer(
     let mut ctx = offer_ctx(state, pool, rules.turn);
     let tribe = match rules.most_common {
         TypeRule::None => None,
-        _ => Some(spells::most_common_tribe(&state.board, rng)),
+        _ => Some(spells::most_common_tribe_in_pool(&state.board, Some(pool), rng)),
     };
     let typed_for = |k: usize| match rules.most_common {
         TypeRule::None => None,
