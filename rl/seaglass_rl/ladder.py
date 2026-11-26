@@ -163,6 +163,33 @@ def _commit_info() -> tuple[str | None, bool | None]:
     return (head.strip() if head else None), (bool(status.strip()) if status is not None else None)
 
 
+# The source files of the ladder's anchor bots. They are pinned (Stage 5: `bots/` is frozen as a
+# reference), so a change to any of them shows up as a different `anchors` fingerprint.
+_ANCHOR_SOURCES = (
+    "rl/seaglass_rl/bots.py",
+    "rl/seaglass_rl/gamerbot.py",
+    "bots/seaglass_bots/sovereign_search.py",
+    "bots/seaglass_bots/sovereign_evaluator.py",
+    "bots/seaglass_bots/sovereign_knowledge.py",
+    "bots/seaglass_bots/sovereign_belief.py",
+    "bots/seaglass_bots/sovereign_model.py",
+    "bots/seaglass_bots/sovereign_positioning.py",
+)
+
+
+def _anchors_fingerprint() -> str | None:
+    """The first 12 hex characters of the sha256 of the anchor bots' sources (`_ANCHOR_SOURCES`)."""
+    root = Path(__file__).resolve().parents[2]
+    h = hashlib.sha256()
+    try:
+        for rel in _ANCHOR_SOURCES:
+            h.update(rel.encode())
+            h.update((root / rel).read_bytes())
+    except OSError:
+        return None
+    return h.hexdigest()[:12]
+
+
 def _engine_fingerprint() -> str | None:
     """The first 12 hex characters of the sha256 of the compiled engine extension."""
     try:
@@ -336,6 +363,7 @@ def rate(
             "commit": commit,
             "dirty": dirty,
             "engine": _engine_fingerprint(),
+            "anchors_fingerprint": _anchors_fingerprint(),
             "config": dataclasses.asdict(config),
             "search": dataclasses.asdict(search) if search is not None else None,
             "probe": dataclasses.asdict(probe) if probe is not None else None,
@@ -526,6 +554,7 @@ def versus(
             "commit": commit,
             "dirty": dirty,
             "engine": _engine_fingerprint(),
+            "anchors_fingerprint": _anchors_fingerprint(),
             "config": dataclasses.asdict(config),
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "seconds": round(time.time() - t0, 1),
@@ -597,7 +626,7 @@ def compare(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
             "z": float(d.mean() / pse) if pse > 0 else None,
         }
     warnings = []
-    for key in ("commit", "dirty", "engine"):
+    for key in ("commit", "dirty", "engine", "anchors_fingerprint"):
         if ma.get(key) != mb.get(key):
             warnings.append(f"{key} differs: {ma.get(key)} vs {mb.get(key)}")
     if ma.get("config") != mb.get("config"):

@@ -603,6 +603,10 @@ def play_games(
             step += 1
             # The bots act one by one; the models in one batch each.
             by_model: dict[str, list[tuple[int, int, tuple, np.ndarray, float, int]]] = {}
+            # The searching seats of all the games (Solo: their searches are independent), run
+            # together after the loop: one forward per model per round over all their lines.
+            searches: list[tuple[int, int, tuple, np.ndarray, float, int]] = []
+            coros: list[Any] = []
             for g, p in todo:
                 game, st, seat = games[g], seats[g][p], views[g][p]
                 if st.bot is not None and st.traj is None:
@@ -662,23 +666,29 @@ def play_games(
                     and int(mask.sum()) >= 2
                 ):
                     dseed = search.decision_seed(specs[g].seed, p, game.turn, st.steps)
-                    res = search.search_decision(
-                        models[st.controller],
-                        game,
-                        p,
-                        opts,
-                        opts.search,
-                        np.random.default_rng(search.decision_seed(opts.search.seed, dseed, 1)),
-                        dseed,
-                        root=(enc, mask),
+                    searches.append((g, p, enc, mask, phi, nboard))
+                    coros.append(
+                        search.search_coroutine(
+                            st.controller,
+                            game,
+                            p,
+                            opts,
+                            opts.search,
+                            np.random.default_rng(search.decision_seed(opts.search.seed, dseed, 1)),
+                            dseed,
+                            root=(enc, mask),
+                        )
                     )
+                    continue
+                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, nboard))
+            if coros:
+                for (g, p, enc, mask, phi, nboard), res in zip(searches, search.run_searches(models, coros)):
+                    st = seats[g][p]
                     if st.traj is not None:
                         _record(st.traj, enc, mask, res.action, res.log_prob, res.root_value, phi, opts.gamma)
                         st.traj.search_policy[-1] = res.policy_target
                     note = {"value": res.root_value, "logp": res.log_prob} if opts.keep_replays else None
                     model_step(g, p, res.action, note, nboard)
-                    continue
-                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, nboard))
             for ctrl, rows in by_model.items():
                 model = models[ctrl]
                 pv = np.stack([r[2][0] for r in rows])

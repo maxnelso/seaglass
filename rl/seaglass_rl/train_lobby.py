@@ -342,6 +342,9 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(f"--bots: unknown bots {unknown} (choose from {', '.join(BOTS)})")
     if args.pure and (args.init or args.p_bot > 0):
         raise SystemExit("--pure learns from scratch: no --init and no rule bots in training")
+    if args.pure and (args.auto_position or args.aux_coef > 0):
+        # Both score boards against a probe library of the rule bots' boards: hand-written play.
+        raise SystemExit("--pure trains on no rule bots' play: no --auto-position and no --aux-coef")
 
     start = 0
     if args.resume:

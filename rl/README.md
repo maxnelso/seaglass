@@ -106,7 +106,7 @@ Inside a turn the simulator is exact, except for hidden randomness (refreshes, D
 - **Choosing the root action.** Gumbel MuZero's sequential halving. The candidates are the top `top_m` legal actions by Gumbel noise plus logit (`gumbel_noise=False`, for play, means no noise). There are `ceil(log2(top_m))` phases. Each gives every remaining candidate `max(1, sims // (phases * remaining))` lines. Then the better half by `g + logit + sigma(Q)` goes on, where `Q` is the mean line score and `sigma(q) = (c_visit + max visits) * c_scale * (q + 1) / 2`. The last candidate is played. The lines run in all are at most `max(sims, sum of the candidates left over the phases)`. For `top_m=8, sims=16` that is 16 (`line_budget` gives the exact plan).
 - **Skipped.** With fewer than 2 legal actions, in the end-of-turn step, and in the hero phase, the plain policy plays.
 - **The targets.** `search_decision` also returns the improved policy `softmax(logit + sigma(completed Q))` over the legal actions (the candidates' `Q`, and `v_mix` for the rest) and the root value. With `PlayOptions.search` set and a searching seat recorded, `Trajectory.search_policy` keeps the target of every decision (float16 in `arrays()`; zeros where the decision was not searched). The recorded action, log-probability and value are the played action's under the plain policy and the critic's root value, so PPO data stays valid. Nothing trains on the targets yet.
-- **Cost.** About 100 ms per searched decision for the default `SearchSpec()` (8 candidates, 16 lines) with the 64-wide transformer on 2 CPU threads, and a few dozen batched forwards. Cost is about linear in `sims` (lines) and in the length of a line. `top_m` mostly changes how the lines are spread. Solo only.
+- **Cost.** About 100 ms per searched decision for the default `SearchSpec()` (8 candidates, 16 lines) with the 64-wide transformer on 2 CPU threads, and a few dozen batched forwards. Cost is about linear in `sims` (lines) and in the length of a line. `top_m` mostly changes how the lines are spread. Solo only. Searches are coroutines (`search_coroutine`) driven together by `run_searches`: in `play_games`, every searching seat of every lobby in a lockstep step runs at once, and each round makes one forward per model over all their rows (root, line steps and end-of-turn scoring). A seat-game therefore costs far fewer, much larger forwards (about 20 rows each instead of 4 in the 8-lobby, 2-seat measurement) and about a quarter less wall time on one core; the more lobbies and searching seats a worker plays at once, the bigger the batches. Batch composition can change float results in the last bits, so a search is reproducible for a given set of lobbies but not bit-identical to the same seat searched alone.
 - **Using it.** `PlayOptions(search=SearchSpec(), search_controllers=("agent",))`, or on the command line:
 
 ```bash
@@ -115,6 +115,19 @@ python -m seaglass_rl.ladder versus runs/solo/latest.pt runs/solo/latest.pt --se
 ```
 
 `versus` is the most sensitive check: agents `a` and `b` take 4 seats each in every Solo lobby (seats shuffled by the seed alone) and it reports `a`'s average place (4.5 is level) with its standard error clustered by lobby, top-4 and first-place rates for both, and the places by lobby. The two may be the same checkpoint, with only one searching. Both must play under the same move rules, and if both search they must use the same `SearchSpec`. `rate --search` rates the agent with search on the ladder; a bot cannot search.
+
+### Distilling search (`distill.py`)
+
+Expert iteration, offline: the network learns to play the way its own in-turn search does, then is checked against the network it started from. PPO can continue from the distilled network afterwards.
+
+```bash
+python -m seaglass_rl.distill generate --model runs/solo/latest.pt --lobbies 2000 --search-seats 2 --out runs/distill/data --workers 6
+python -m seaglass_rl.distill train --init runs/solo/latest.pt --data runs/distill/data --out runs/distill/student.pt
+```
+
+- **`generate`** plays Solo lobbies in which `--search-seats` seats (shuffled per lobby) are the model with search and Gumbel noise at the root (`searcher`) and the others the same checkpoint without search (`rival`), under the checkpoint's move rules. Only the searchers are recorded: one compressed `.npz` shard per `--chunk` lobbies with the packed observations, `actions`, `search_policy` (float16; zero rows where a decision was not searched, flagged by `searched`), `places` (0-based final place of each decision's seat) and `game` (the lobby index), plus `meta.json` (checkpoint, search spec, seeds, commit, engine fingerprint).
+- **`train`** starts from the checkpoint's weights and minimizes `policy + vf_coef * value + anchor_coef * anchor`: the cross-entropy of the masked log-softmax against `search_policy` on searched rows; the placement critic's cross-entropy against `places` on all rows (a scalar critic is refused); and KL(pi_init || pi_theta) on all rows against a frozen copy of the start, which keeps the network near a policy known to be strong. Whole games are held out; each epoch prints the held-out policy cross-entropy, `agree` (the searched rows where the network's argmax is the search's, next to the start's), value cross-entropy and the KL to the start. The saved checkpoint keeps the original `args` (so the ladder rates it under the same move rules) and adds `extra["distill"]`.
+- **The gate.** The distilled network, both without search, against the one it started from: `python -m seaglass_rl.ladder versus runs/distill/student.pt runs/solo/latest.pt --games 200`. It passes when `a`'s average place is below 4.5 by more than the standard error.
 
 ### Packed trajectories
 

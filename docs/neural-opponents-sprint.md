@@ -191,7 +191,28 @@ Its style moved again. It levels slowly, with a mean tier of 3.0 at turn 8 and 4
 
 Lesson for later runs: anneal the learning rate. At a constant 1e-4 the policy drifted after about 300 iterations.
 
-Still to do in this stage: the `--pure` repeat, the A/B test of the auxiliary head (built, off by default: `--aux-coef`), and more games.
+**More games (2026-11-23).** The run continued from iteration 600 on 6 CPU cores.
+
+- **The first try drifted.** The learning rate restarted at 5e-5, annealed again. Head to head against iteration 600, iteration 700 lost 4.61 to 4.39 and iteration 800 lost 4.63 to 4.37. The trainer's check slipped from 1.79 to about 1.9. So it was stopped after 200 iterations.
+- **The second try held.** It restarted from iteration 600 at 2e-5, annealed to 0 over 770 iterations, with rule bots in 15% of opponent seats instead of 30%. The bots now place about 5.5, so many bot seats mostly teach the network to exploit weak play. Iteration 700 was level with 600 head to head (4.47 against 4.53), and the run took 5 hours 16 minutes.
+
+| Iteration | 600 | 700 | 900 | 1100 | 1300 | 1370 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Fast ladder, trainer's check | 1.79 | 1.79 | 1.76 | 1.75 | 1.72 | 1.71 |
+
+The iteration-1370 network has seen 87,680 games along its line.
+
+| Iteration-1370 network | Result |
+| :--- | :--- |
+| Fast ladder, fresh seed | 1.75 ± 0.03, 98% top 4, 47% firsts (iteration 600: 1.79) |
+| Slow ladder | 2.21 ± 0.08, with SovereignBot at 2.21 ± 0.12 (iteration 600: 2.11 against 2.29) |
+| Head to head with iteration 600 | 4.20 ± 0.06 against 4.80 |
+
+Head to head it is clearly stronger. The two slow-ladder runs (100 lobbies each) agree within their intervals: the network and SovereignBot are level.
+
+Lesson: once a run has annealed, continue it at a much lower learning rate, and check snapshots head to head every 100 iterations or so. The fast ladder is too close to its floor to show drift.
+
+Still to do in this stage: the `--pure` repeat and the A/B test of the auxiliary head (built, off by default: `--aux-coef`).
 
 ### Stage 3: Raise Throughput (in Parallel)
 
@@ -267,7 +288,81 @@ Search adds 0.76 places against the same network, well outside the interval. It 
 Not done yet:
 - **Ratings with search.** The search has not been rated on the slow ladder or the fast ladder.
 - **Its knobs.** The candidates, lines, temperature and the σ scale (`c_visit` 50) are untuned.
-- **Distillation.** The second half of the gate (distil the search into the network, then beat the previous network) waits, as planned, until the critic has seen 100,000 games. It has seen 38,400.
+- **Distillation works, but does not pass yet.** See the first try below.
+
+#### Stage 4, First Distillation (2026-11-23): no gain yet
+
+`distill.py` is expert iteration done offline. It plays lobbies where some seats search, records what the search preferred, and fine-tunes the network toward it.
+
+- **The run.** The teacher was the iteration-1370 network (87,680 games). It searched in 2 seats of each of 2,000 lobbies, with Gumbel noise at the root, against copies of itself without search. That gave 806,481 recorded decisions, 747,341 of them searched, and took 53 minutes on 8 CPU workers. Each student fine-tuned for 2 epochs, about 4 minutes, on three terms: cross-entropy to the search's improved policy, the placement critic, and a KL anchor (0.1) to the teacher.
+- **The students barely moved.**
+
+| Student | Held-out policy cross-entropy | Top action agrees with search | KL to teacher | Head to head with teacher, 400 lobbies | Fast ladder |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Teacher, for reference | 0.561 | 89.7% | 0 | 4.50 by definition | 1.75 |
+| lr 3e-5 | 0.558 | 89.6% | 0.004 | 4.45 ± 0.05 | 1.73 |
+| lr 1e-4 | 0.560 | 89.2% | 0.008 | 4.46 ± 0.04 | 1.74 |
+
+Both students edge the teacher by about 0.05 places, inside the interval. So the second half of the gate has not passed.
+
+What this says:
+- **The network and the search mostly agree.** Its top action is the search's top action on 90% of searched decisions, so the targets carry about 10% of new information.
+- **The disagreements didn't transfer.** On held-out games the students never matched the search's choice more often than the teacher did. A likely reason: with 16 lines a decision, the search's verdict on close calls is noisy. Its 0.76-place edge in play may come from many small improvements that are hard to learn one decision at a time from 750,000 examples. That is a guess, and the next tries test it.
+
+Two follow-ups ran the same night. Neither moved the result.
+
+| Student | Held-out agreement with search (teacher's) | Head to head with teacher, 400 lobbies |
+| :--- | :--- | :--- |
+| Harder training: lr 3e-4, 4 epochs, no anchor | 88.1% (89.7%) | 4.45 ± 0.05 |
+| Harder training: lr 1e-3, 4 epochs, no anchor | 86.4% (89.7%) | 4.52 ± 0.04 |
+| Cleaner targets: 64 lines a decision, 500 lobbies, lr 3e-5 | 89.7% (89.9%) | 4.51 ± 0.05 |
+| Cleaner targets: 64 lines a decision, 500 lobbies, lr 1e-4 | 88.9% (89.9%) | 4.46 ± 0.05 |
+
+- **Harder training overfits.** It moves the students further, with a KL to the teacher of up to 0.06. Their agreement with search on unseen games falls instead of rising, and the critic's held-out loss grows.
+- **More lines change little.** With 64 lines, the network still agrees with the search on 90% of decisions, and the students learn no more from the rest.
+- **So noise in the targets is probably not the main problem.** The more likely limit is the student. The search computes each turn's consequences exactly in a simulator. The network is a 0.18M-parameter transformer that has to guess them in one forward pass, and it may not have the capacity to represent what the search adds.
+
+Next tries:
+- **A bigger student.** For example 128 wide and 4 layers (about 1M parameters), cloned from the current network, then trained on the search's targets and PPO. This is where the GPU earns its keep: an earlier test found MPS 2x faster than the CPU for a 224-wide, 6-layer transformer.
+- **Distil inside PPO.** Act with search in a fraction of the training seats, so PPO learns from the better games, and add the search policy as an extra loss on those decisions.
+- **Keep the search at play time.** At about 7 seconds of CPU per seat per game (50 to 100 ms a decision), the network plus search is already affordable as an opponent. That is the AlphaZero design anyway: the network guides the search, and the search plays.
+
+#### Stage 4, a Bigger Student (2026-11-24)
+
+`distill train --student 128,4,4,256` trains a fresh entity transformer, 128 wide and 4 layers, with 0.70M parameters, 4 times the teacher's. It is trained on both overnight data sets: about 1M decisions from 2,500 lobbies. There are three terms: the search's targets, the teacher's own policy (the anchor at weight 1.0, here acting as distillation), and the final places. It ran 8 epochs of about 5 minutes each on 6 CPU threads.
+
+| | Held-out agreement with search | KL to teacher | Head to head with teacher, 400 lobbies | Fast ladder |
+| :--- | :--- | :--- | :--- | :--- |
+| Teacher (0.18M) | 89.3% | 0 | 4.50 by definition | 1.75 |
+| Student (0.70M), epoch 8 | 84.1% | 0.063 | 4.54 ± 0.05 | 1.75 |
+
+- **Almost the teacher, from scratch.** The student plays almost as well as the teacher, inside the interval, after one pass of supervised training. But it learned neither the teacher's policy exactly nor the search's refinements: its agreement with search is lower than the teacher's.
+- **Its critic memorised the games.** Held-out value cross-entropy was best at epoch 2 (1.62) and reached 2.79 by epoch 8. With only 2,500 lobbies' outcomes, a fresh critic learns which game it is in, as the cloned critics did in Stage 2. It doesn't matter for play without search, but it would mislead search and PPO.
+- **So this doesn't settle the capacity question.** A fresh student is limited by data before capacity.
+
+**With the critic distilled too** (`--value-target teacher`, 6 epochs), the student's critic now learns the teacher's place distribution instead of the outcomes. Its held-out loss fell every epoch, to 1.58. The student ends level with the teacher head to head, 4.50 against 4.50 over 400 lobbies, at 85.0% agreement with search and a KL to the teacher of 0.053. On the fast ladder it places 1.72, against the teacher's 1.75. That makes it a sound starting point: a network 4 times larger, as strong as the old one, with a healthy critic, after 30 minutes on the CPU.
+
+Next:
+- **The real test of capacity.** Continue the bigger student with PPO, matched against the small network's own continuation. That is a long run, and it is where the GPU would help.
+
+#### Stage 4, the Capacity Test (2026-11-24)
+
+The test was two matched PPO continuations from iteration 1370, run side by side with both updates on the GPU:
+- **Big:** the distilled 0.70M student.
+- **Small:** the 0.18M network it was distilled from.
+- **Same for both:** 500 iterations (32,000 games each), lr 2e-5 annealed to 0, 15% rule-bot seats, the same league history and fresh optimizer state. Sharing the GPU, the big run took about 60 seconds an iteration and the small one about 40. Both finished in about 7 hours.
+
+| | Big (0.70M) | Small (0.18M) |
+| :--- | :--- | :--- |
+| Head to head, the two finals, 800 lobbies | 4.55 ± 0.03 | 4.45 ± 0.03 |
+| Final against its own start, 400 lobbies | 4.43 against 4.57 | 4.46 against 4.54 |
+| Slow ladder (SovereignBot in the same lobbies) | 2.16 ± 0.06 (2.12) | 2.21 ± 0.08 (2.22) |
+| Fast ladder, trainer's check at the end | 1.73 | 1.71 |
+
+**The bigger network did not pull ahead.** The finals are level head to head, with the small one marginally ahead. Each improved a little on its own start, inside the interval. At this training budget, the network's size is not what limits strength, so a bigger student isn't the route to distilling the search either. The search's measured gain (0.76 places at play time) remains the clearest one.
+
+Next:
+- **Improve the search itself.** First tune its knobs with short head-to-head runs. Then score lines at the start of the next turn, with this turn's combat simulated against sampled opponent boards (see "Later: Search Beyond the Turn").
 
 ### Later: Search Beyond the Turn (to Evaluate)
 

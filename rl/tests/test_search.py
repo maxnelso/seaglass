@@ -189,3 +189,159 @@ def test_ladder_rate_and_versus_with_search() -> None:
     # Both sides at once also runs.
     out = ladder.versus(_agent(), _agent(), games=1, workers=0, config=cfg, search_a=spec, search_b=spec)
     assert len(out["lobbies"]) == 1
+
+
+# ---- batching: the coroutine, the driver and `play_games` ----
+
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).parent))
+import _frozen_search  # noqa: E402  (the pre-batching search_decision, kept as the reference)
+
+from seaglass_rl.search import run_searches, search_coroutine  # noqa: E402
+
+SPECS = (SearchSpec(top_m=4, sims=8), SearchSpec(top_m=8, sims=16, gumbel_noise=True, max_line=6))
+
+
+def _same(a: search.SearchResult, b: search.SearchResult, exact: bool = True) -> None:
+    assert a.action == b.action and a.visits == b.visits and a.lines == b.lines and a.forwards == b.forwards
+    assert list(a.q) == list(b.q)
+    for k in a.q:
+        assert (a.q[k] == b.q[k]) if exact else abs(a.q[k] - b.q[k]) < 1e-5
+    if exact:
+        assert np.array_equal(a.policy_target, b.policy_target) and a.root_value == b.root_value
+        assert a.log_prob == b.log_prob and a.v_mix == b.v_mix
+    else:
+        assert np.allclose(a.policy_target, b.policy_target, atol=1e-5)
+
+
+def test_wrapper_matches_the_frozen_pre_batching_search() -> None:
+    model = _model(1)
+    for gseed, turn in ((3, 3), (5, 4)):
+        game = _shopping_game(gseed, turn)
+        for p in game.active_players()[:3]:
+            for spec in SPECS:
+                for seed in (17, 23):
+                    new = search_decision(model, game, p, PlayOptions(), spec, np.random.default_rng(9), seed)
+                    old = _frozen_search.search_decision(model, game, p, PlayOptions(), spec, np.random.default_rng(9), seed)
+                    _same(new, old)
+
+
+def test_run_searches_one_coroutine_is_search_decision() -> None:
+    model, game = _model(2), _shopping_game()
+    p = game.active_players()[1]
+    spec = SPECS[1]
+    (res,) = run_searches({"m": model}, [search_coroutine("m", game, p, PlayOptions(), spec, np.random.default_rng(4), 11)])
+    _same(res, search_decision(model, game, p, PlayOptions(), spec, np.random.default_rng(4), 11))
+
+
+def test_run_searches_many_coroutines_never_mix_rows() -> None:
+    models = {"a": _model(1), "b": _model(2)}
+    games = [_shopping_game(3, 3), _shopping_game(5, 4)]
+    jobs = []
+    for gi, game in enumerate(games):
+        for p in game.active_players()[:3]:
+            for ctrl in ("a", "b"):
+                jobs.append((gi, p, ctrl, SPECS[(p + gi) % 2], 100 + p + 10 * gi))
+
+    def coro(job):
+        gi, p, ctrl, spec, seed = job
+        return search_coroutine(ctrl, games[gi], p, PlayOptions(), spec, np.random.default_rng(seed), seed)
+
+    together = run_searches(models, [coro(j) for j in jobs])
+    assert len(together) == len(jobs)
+    flips = 0
+    for job, res in zip(jobs, together):
+        gi, p, ctrl, spec, seed = job
+        legal = {int(i) for i in np.flatnonzero(action_mask(Seat(games[gi], p)))}
+        assert res.action in legal
+        (alone,) = run_searches(models, [coro(job)])
+        # Batch composition can change a model's float results in the last bits, which can (rarely)
+        # flip a sampled line action or a halving tie; then lines diverge. Visits and lines come from
+        # the budget alone, so they always agree; q agrees to 1e-5 unless a flip happened.
+        assert res.visits == alone.visits and res.lines == alone.lines
+        if res.action != alone.action:
+            flips += 1
+            continue
+        _same(res, alone, exact=False)
+    assert flips <= 1
+
+
+def test_run_searches_batches_across_coroutines() -> None:
+    model, game = _model(3), _shopping_game()
+    calls = []
+    real = model.forward
+    model.forward = lambda *a, **k: (calls.append(len(a[0])), real(*a, **k))[1]
+    spec = SearchSpec(top_m=4, sims=8, max_line=6)
+    ps = game.active_players()[:4]
+
+    def coros():
+        return [search_coroutine("m", game, p, PlayOptions(), spec, np.random.default_rng(p), p) for p in ps]
+
+    run_searches({"m": model}, coros())
+    batched = len(calls)
+    calls.clear()
+    for c in coros():
+        run_searches({"m": model}, [c])
+    assert batched * 2 <= len(calls)
+
+
+def test_play_games_batches_the_searching_seats() -> None:
+    config = LobbyConfig(players=4, max_turns=4)
+    specs = [GameSpec(seed=s, controllers=["learner", "heuristic", "learner", "random"]) for s in (1, 2, 3)]
+    opts = PlayOptions(search=SearchSpec(top_m=3, sims=4, max_line=6), search_controllers=("learner",))
+    counts = {}
+    for name, size in (("all", 3), ("one at a time", 1)):
+        model = _model(5)
+        n = [0]
+        real = model.forward
+        model.forward = lambda *a, _real=real, _n=n, **k: (_n.__setitem__(0, _n[0] + 1), _real(*a, **k))[1]
+        results = []
+        for i in range(0, 3, size):
+            results += play_games(config, specs[i : i + size], {"learner": model}, opts, record=("learner",))
+        assert len(results) == 3
+        for r in results:
+            assert sorted(r.placements) == [1, 2, 3, 4] and r.trajectories
+        counts[name] = n[0]
+    assert counts["all"] * 1.3 <= counts["one at a time"]  # up to 3x: 3 lobbies share their batches
+
+
+@pytest.mark.parametrize("horizon", ["next_start", "next_end"])
+def test_search_past_the_turn_runs_and_is_deterministic(horizon: str) -> None:
+    from seaglass_rl.probe import ProbeSpec
+
+    spec = SearchSpec(top_m=3, sims=4, horizon=horizon, opponents=ProbeSpec(lobbies=4, per_turn=8, min_boards=4))
+    config = LobbyConfig()
+    specs = [GameSpec(seed=5, controllers=["a", "heuristic", "heuristic", "heuristic", "heuristic", "heuristic", "heuristic", "heuristic"])]
+    opts = PlayOptions(search=spec, search_controllers=("a",), allow_reposition=False)
+
+    def play():
+        # A fresh model each time: a model's sampling rng is consumed as it plays.
+        torch.manual_seed(0)
+        model = EntityTransformer(seed=0, kind_prior=True, value_places=8, **SMALL).eval()
+        return play_games(config, specs, {"a": model}, opts, record=())
+
+    (r1,) = play()
+    (r2,) = play()
+    assert r1.placements == r2.placements and sorted(r1.placements) == list(range(1, 9))
+
+
+def test_a_knocked_out_line_is_worth_the_last_place_left() -> None:
+    from types import SimpleNamespace
+
+    from seaglass_rl.search import _death_value
+
+    assert _death_value(SimpleNamespace(units=8, alive_units=8)) == -1.0
+    assert abs(_death_value(SimpleNamespace(units=8, alive_units=3)) - (1 - 2 * 2 / 7)) < 1e-12
+
+
+def test_a_probe_library_from_a_network(tmp_path) -> None:
+    from seaglass_rl import checkpoint
+    from seaglass_rl.probe import ProbeSpec, build_library
+
+    model = EntityTransformer(seed=0, kind_prior=True, value_places=8, **SMALL)
+    path = tmp_path / "m.pt"
+    checkpoint.save(path, model, iteration=0, args={"no_reposition": True})
+    lib = build_library(ProbeSpec(lobbies=2, per_turn=4, min_boards=2, model=str(path)), LobbyConfig())
+    assert lib and all(2 <= len(v) <= 4 for v in lib.values())

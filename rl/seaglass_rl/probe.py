@@ -36,6 +36,9 @@ class ProbeSpec:
     per_turn: int = 32  # reference boards kept per turn
     min_boards: int = 16  # turns with fewer reference boards are not probed
     sims: int = 2  # fights per (board, reference) pair
+    # A checkpoint to play every seat instead of the bots (its own end-of-turn boards, under its move
+    # rules): a library of the boards a network's peers build. None: the rule bots.
+    model: str | None = None
 
 
 # turn -> [(board units, Tavern Tier)]
@@ -46,10 +49,20 @@ def build_library(spec: ProbeSpec, config: LobbyConfig) -> Library:
     """Play `spec.lobbies` bot lobbies and keep up to `spec.per_turn` end-of-turn boards per turn."""
     if config.duos:
         raise ValueError("the probe is Solo-only")
+    models: dict[str, Any] = {}
+    options = PlayOptions()
+    if spec.model is not None:
+        from . import checkpoint
+        from .ladder import checkpoint_options
+
+        models["m"], _ = checkpoint.load(spec.model)
+        options = checkpoint_options(spec.model)
     specs = [
         GameSpec(
             seed=spec.seed + i,
-            controllers=[spec.bots[(i + u) % len(spec.bots)] for u in range(config.units)],
+            controllers=["m"] * config.units
+            if spec.model is not None
+            else [spec.bots[(i + u) % len(spec.bots)] for u in range(config.units)],
         )
         for i in range(spec.lobbies)
     ]
@@ -58,7 +71,7 @@ def build_library(spec: ProbeSpec, config: LobbyConfig) -> Library:
     def collect(g: int, p: int, game: seaglass.LobbyGame, obs: Any) -> None:
         boards.setdefault(game.turn, []).append((list(obs.board), obs.tavern_tier))
 
-    play.play_games(config, specs, {}, PlayOptions(), record=(), on_turn_end=collect)
+    play.play_games(config, specs, models, options, record=(), on_turn_end=collect)
     library: Library = {}
     for turn in sorted(boards):
         refs = boards[turn]

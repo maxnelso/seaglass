@@ -20,12 +20,16 @@ The last one standing is played. The search also returns the improved policy
 `softmax(logit + sigma(completed Q))` (the target for distillation) and the root value.
 
 All the lines of a phase run in lockstep: one batched forward per step over the lines still going.
+A search is a coroutine (`search_coroutine`) that yields its forward requests instead of calling the
+model; `run_searches` drives many of them together, one forward per model per round over the rows of
+all the searches, so the searching seats of many lobbies share their batches.
 No hand-written play rules and no card knowledge: the policy proposes, the critic judges.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Generator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -62,12 +66,23 @@ class SearchSpec:
     # Actions in a line before it is scored anyway.
     max_line: int = 40
     seed: int = 0
+    # Where a line is scored. "end": the end-of-turn state, before combat (the critic sees it as the
+    # turn's last decision). "next_start": the line ends its turn, fights a sampled opponent board
+    # (`opponents`), starts the next turn (Gold, a new shop from the belief pool) and is scored there.
+    # "next_end": as "next_start", then the policy plays the next turn too and the line is scored at its
+    # end. A line whose combat knocks the player out is worth the place it would take.
+    horizon: str = "end"
+    # The opponent boards for the combats of the "next_*" horizons, by turn: a probe library
+    # (`probe.ProbeSpec`; with `model`, boards from that network's own games). None: the rule bots'.
+    opponents: Any = None
 
     def __post_init__(self) -> None:
         if self.top_m < 1 or self.sims < 1 or self.max_line < 1:
             raise ValueError("top_m, sims and max_line must be at least 1")
         if self.temperature < 0:
             raise ValueError("temperature must be >= 0")
+        if self.horizon not in ("end", "next_start", "next_end"):
+            raise ValueError(f"horizon must be end, next_start or next_end, not {self.horizon!r}")
 
 
 @dataclass
@@ -130,14 +145,87 @@ def decision_seed(*xs: int) -> int:
     return _mix(*xs)
 
 
+@dataclass
+class ForwardRequest:
+    """Rows a search needs the network on: stacked `(player_vec, card_ids, slot_num_feats, mask)` of
+    the model named `controller`."""
+
+    controller: str
+    pv: np.ndarray
+    ci: np.ndarray
+    nf: np.ndarray
+    mask: np.ndarray
+
+    def __len__(self) -> int:
+        return len(self.pv)
+
+
+# What a search is sent back: `(logits, values)` for exactly the rows it asked for.
+ForwardResult = tuple[torch.Tensor, torch.Tensor]
+SearchCoroutine = Generator[ForwardRequest, ForwardResult, "SearchResult"]
+
+
+def _request(controller: str, encs: list[tuple], masks: list[np.ndarray]) -> ForwardRequest:
+    return ForwardRequest(
+        controller,
+        np.stack([e[0] for e in encs]),
+        np.stack([e[1] for e in encs]),
+        np.stack([e[2] for e in encs]),
+        np.stack(masks),
+    )
+
+
 def _forward(model: Any, encs: list[tuple], masks: list[np.ndarray]) -> tuple[torch.Tensor, torch.Tensor]:
-    pv = torch.from_numpy(np.stack([e[0] for e in encs]))
-    ci = torch.from_numpy(np.stack([e[1] for e in encs]))
-    nf = torch.from_numpy(np.stack([e[2] for e in encs]))
-    mk = torch.from_numpy(np.stack(masks))
+    r = _request("", encs, masks)
+    return _run_request(model, r.pv, r.ci, r.nf, r.mask)
+
+
+def _run_request(model: Any, pv: np.ndarray, ci: np.ndarray, nf: np.ndarray, mask: np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
     with torch.inference_mode():
-        logits, values = model(pv, ci, nf, mk)
-    return logits, values
+        return model(torch.from_numpy(pv), torch.from_numpy(ci), torch.from_numpy(nf), torch.from_numpy(mask))
+
+
+def run_searches(models: dict[str, Any], coros: list[SearchCoroutine]) -> list["SearchResult"]:
+    """Drive search coroutines together. Each round collects the pending request of every unfinished
+    coroutine, runs ONE forward per model over the concatenated rows, and sends each coroutine its own
+    rows of the output. Returns the results in the order of `coros`."""
+    results: list[SearchResult | None] = [None] * len(coros)
+    pending: dict[int, ForwardRequest] = {}
+
+    def advance(i: int, sent: ForwardResult | None) -> None:
+        try:
+            pending[i] = coros[i].send(sent)  # type: ignore[arg-type]
+        except StopIteration as stop:
+            results[i] = stop.value
+            pending.pop(i, None)
+
+    for i in range(len(coros)):
+        advance(i, None)
+    while pending:
+        by_ctrl: dict[str, list[int]] = {}
+        for i, req in pending.items():
+            by_ctrl.setdefault(req.controller, []).append(i)
+        outs: dict[int, ForwardResult] = {}
+        for ctrl, idxs in by_ctrl.items():
+            reqs = [pending[i] for i in idxs]
+            if len(reqs) == 1:
+                r = reqs[0]
+                logits, values = _run_request(models[ctrl], r.pv, r.ci, r.nf, r.mask)
+            else:
+                logits, values = _run_request(
+                    models[ctrl],
+                    np.concatenate([r.pv for r in reqs]),
+                    np.concatenate([r.ci for r in reqs]),
+                    np.concatenate([r.nf for r in reqs]),
+                    np.concatenate([r.mask for r in reqs]),
+                )
+            at = 0
+            for i, r in zip(idxs, reqs):
+                outs[i] = (logits[at : at + len(r)], values[at : at + len(r)])
+                at += len(r)
+        for i, out in outs.items():
+            advance(i, out)
+    return results  # type: ignore[return-value]
 
 
 def _sample(logits: torch.Tensor, temperature: float, rng: np.random.Generator) -> np.ndarray:
@@ -151,14 +239,67 @@ def _sample(logits: torch.Tensor, temperature: float, rng: np.random.Generator) 
 
 
 class _Line:
-    __slots__ = ("cand", "tavern", "steps", "end_enc", "score")
+    __slots__ = ("cand", "tavern", "steps", "end_enc", "score", "j", "phase", "dead")
 
-    def __init__(self, cand: int, tavern: Any) -> None:
+    def __init__(self, cand: int, tavern: Any, j: int = 0) -> None:
         self.cand = cand
         self.tavern = tavern
         self.steps = 0
         self.end_enc: tuple | None = None
         self.score = 0.0
+        # The line's index among its candidate's lines (its belief seed and its opponent board).
+        self.j = j
+        # 1 in the turn being searched; 2 in the next turn ("next_end").
+        self.phase = 1
+        # Knocked out in the line's combat: scored as the place it would take, not by the critic.
+        self.dead = False
+
+
+def _opponent_library(spec: SearchSpec) -> dict:
+    from .play import LobbyConfig
+    from .probe import ProbeSpec, library_for
+
+    return library_for(spec.opponents or ProbeSpec(), LobbyConfig())
+
+
+def _turn_over(ln: _Line, rust: Any, ctx: Any, spec: SearchSpec, seed: int, ended: bool = False) -> None:
+    """The line's policy ended its turn while shopping (`ended`: the engine already ended it). Score it
+    where `spec.horizon` says: set `ln.end_enc`, or mark it dead, or move it on to the next turn."""
+    if spec.horizon == "end" or ln.phase == 2:
+        ln.end_enc = _end_enc(rust, ln.tavern, ctx) if not ended else features.fast_encode_tavern(rust, ln.tavern, ctx, True)
+        return
+    if not ended:
+        try:
+            ln.tavern.end_turn()
+        except ValueError:
+            pass
+    library = _opponent_library(spec)
+    turn = ln.tavern.observe().turn
+    refs = library.get(turn)
+    if not refs and library:
+        refs = library[min(library, key=lambda t: abs(t - turn))]
+    if refs:
+        board, tier = refs[_mix(seed, ln.j, 101) % len(refs)]
+        ln.tavern.resolve_combat_against(list(board), tier, seed=_mix(seed, ln.j, 103) & (2**63 - 1))
+    obs = ln.tavern.observe()
+    if obs.health + obs.armor <= 0:
+        ln.dead = True
+        return
+    ln.tavern.start_turn()
+    if spec.horizon == "next_start":
+        ln.end_enc = features.fast_encode_tavern(rust, ln.tavern, ctx, False)
+    else:
+        ln.phase = 2
+        ln.steps = 0
+
+
+def _death_value(ctx: Any) -> float:
+    """The reward of being knocked out now: the last place among the units still in."""
+    if ctx is None:
+        return -1.0
+    units = max(2, int(ctx.units))
+    place = max(1, int(ctx.alive_units))
+    return 1.0 - 2.0 * (place - 1) / (units - 1)
 
 
 def _sigma(q: np.ndarray | float, max_n: int, spec: SearchSpec) -> np.ndarray | float:
@@ -166,8 +307,8 @@ def _sigma(q: np.ndarray | float, max_n: int, spec: SearchSpec) -> np.ndarray | 
     return (spec.c_visit + max_n) * spec.c_scale * (q + 1.0) / 2.0
 
 
-def search_decision(
-    model: Any,
+def search_coroutine(
+    model_name: str,
     game: seaglass.LobbyGame,
     p: int,
     opts: "PlayOptions",
@@ -175,8 +316,12 @@ def search_decision(
     rng: np.random.Generator,
     seed: int,
     root: tuple[tuple, np.ndarray] | None = None,
-) -> SearchResult:
-    """Choose player `p`'s next action in the shopping step by search. `seed` identifies the decision
+) -> SearchCoroutine:
+    """A generator for `search_decision`: it yields `ForwardRequest`s (for the model `model_name`)
+    and is sent `(logits, values)` for those rows; its return value is the `SearchResult`. Drive it
+    with `run_searches`.
+
+    Choose player `p`'s next action in the shopping step by search. `seed` identifies the decision
     (the game's seed, the player, the turn and the decision index mixed); the belief seeds derive from
     it and `spec.seed`. `rng` draws the Gumbel noise and the policy's samples inside lines. `root` is
     the root's `(encoding, mask)` if the caller has them (`play_games` does).
@@ -206,7 +351,7 @@ def search_decision(
         enc, mask = root
     legal = np.flatnonzero(mask)
     forwards = 1
-    logits_t, value_t = _forward(model, [enc], [mask])
+    logits_t, value_t = yield _request(model_name, [enc], [mask])
     logits = logits_t[0].double().numpy()
     v0 = float(value_t[0])
     lse = float(logits[legal].max() + np.log(np.exp(logits[legal] - logits[legal].max()).sum())) if len(legal) else 0.0
@@ -253,24 +398,30 @@ def search_decision(
             for i in range(per):
                 j = visits[a] + i  # the same belief seed for every candidate's j-th line
                 tavern = game.belief_tavern(p, seed=_mix(spec.seed, seed, j) & (2**63 - 1))
-                line = _Line(a, tavern)
+                line = _Line(a, tavern, j)
                 if a == END_TURN_INDEX:
-                    line.end_enc = _end_enc(rust, tavern, ctx)
+                    _turn_over(line, rust, ctx, spec, seed)
                 else:
                     act = action_from_index(a)
                     if tavern.is_legal(act):
                         tavern.step(act)
                     line.steps = 1
                 lines.append(line)
-        forwards += _run_lines(model, lines, ctx, rust, opts, spec, rng)
-        # Score the finished lines with one forward.
-        enc_end = [ln.end_enc for ln in lines]
-        only_end = np.zeros(ACTION_SPACE_SIZE, dtype=np.bool_)
-        only_end[END_TURN_INDEX] = True
-        _, vals = _forward(model, enc_end, [only_end] * len(lines))
-        forwards += 1
-        for ln, v in zip(lines, vals.numpy()):
-            q_sum[ln.cand] += float(v)
+        forwards += yield from _run_lines(model_name, lines, ctx, rust, opts, spec, rng, seed)
+        # Score the finished lines with one forward (a knocked-out line is worth the place it takes).
+        scored = [ln for ln in lines if not ln.dead]
+        if scored:
+            only_end = np.zeros(ACTION_SPACE_SIZE, dtype=np.bool_)
+            only_end[END_TURN_INDEX] = True
+            _, vals = yield _request(model_name, [ln.end_enc for ln in scored], [only_end] * len(scored))
+            forwards += 1
+            for ln, v in zip(scored, vals.numpy()):
+                ln.score = float(v)
+        dead_v = _death_value(ctx)
+        for ln in lines:
+            if ln.dead:
+                ln.score = dead_v
+            q_sum[ln.cand] += ln.score
             visits[ln.cand] += 1
         lines_run += len(lines)
         max_n = max(visits.values())
@@ -285,25 +436,42 @@ def search_decision(
     return result(action, target, q, n, lines_run, vmix)
 
 
+def search_decision(
+    model: Any,
+    game: seaglass.LobbyGame,
+    p: int,
+    opts: "PlayOptions",
+    spec: SearchSpec,
+    rng: np.random.Generator,
+    seed: int,
+    root: tuple[tuple, np.ndarray] | None = None,
+) -> SearchResult:
+    """`search_coroutine` driven alone with `model` (see there for the arguments)."""
+    (res,) = run_searches({"": model}, [search_coroutine("", game, p, opts, spec, rng, seed, root)])
+    return res
+
+
 def _end_enc(rust: Any, tavern: Any, ctx: Any) -> tuple:
     """The critic's view of a line's end: the end-of-turn observation (`arranging=True`)."""
     return features.fast_encode_tavern(rust, tavern, ctx, True)
 
 
 def _run_lines(
-    model: Any,
+    model_name: str,
     lines: list[_Line],
     ctx: Any,
     rust: Any,
     opts: "PlayOptions",
     spec: SearchSpec,
     rng: np.random.Generator,
-) -> int:
-    """Play the lines to their ends in lockstep (one batched forward per step); each line's
-    `end_enc` is set when it ends. Returns the forwards made."""
+    seed: int = 0,
+) -> Generator[ForwardRequest, ForwardResult, int]:
+    """Play the lines to their ends in lockstep (one batched forward per step, yielded as a request);
+    each line's `end_enc` is set when it ends (or it is marked dead, `spec.horizon`). Returns the
+    forwards made."""
     reposition, freeze = shopping_flags(opts)
     forwards = 0
-    running = [ln for ln in lines if ln.end_enc is None]
+    running = [ln for ln in lines if ln.end_enc is None and not ln.dead]
     while running:
         batch, encs, masks = [], [], []
         for ln in running:
@@ -316,23 +484,25 @@ def _run_lines(
             masks.append(mask)
         if not batch:
             break
-        logits, _ = _forward(model, encs, masks)
+        logits, _ = yield _request(model_name, encs, masks)
         forwards += 1
         acts = _sample(logits, spec.temperature, rng)
         running = []
         for ln, a in zip(batch, acts):
             a = int(a)
             if a == END_TURN_INDEX:
-                ln.end_enc = _end_enc(rust, ln.tavern, ctx)
-                continue
-            try:
-                done = ln.tavern.step(action_from_index(a))
-            except ValueError:
-                done = True
-            ln.steps += 1
-            if done:
-                ln.end_enc = _end_enc(rust, ln.tavern, ctx)
+                _turn_over(ln, rust, ctx, spec, seed)
             else:
+                try:
+                    done = ln.tavern.step(action_from_index(a))
+                except ValueError:
+                    # An action the belief Tavern refuses: score the line where it stands.
+                    ln.end_enc = _end_enc(rust, ln.tavern, ctx)
+                    continue
+                ln.steps += 1
+                if done:
+                    _turn_over(ln, rust, ctx, spec, seed, ended=True)
+            if ln.end_enc is None and not ln.dead:
                 running.append(ln)
     return forwards
 
