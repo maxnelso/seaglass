@@ -345,6 +345,25 @@ Next tries:
 Next:
 - **The real test of capacity.** Continue the bigger student with PPO, matched against the small network's own continuation. That is a long run, and it is where the GPU would help.
 
+#### Stage 4, the Capacity Test (2026-11-24)
+
+The test was two matched PPO continuations from iteration 1370, run side by side with both updates on the GPU:
+- **Big:** the distilled 0.70M student.
+- **Small:** the 0.18M network it was distilled from.
+- **Same for both:** 500 iterations (32,000 games each), lr 2e-5 annealed to 0, 15% rule-bot seats, the same league history and fresh optimizer state. Sharing the GPU, the big run took about 60 seconds an iteration and the small one about 40. Both finished in about 7 hours.
+
+| | Big (0.70M) | Small (0.18M) |
+| :--- | :--- | :--- |
+| Head to head, the two finals, 800 lobbies | 4.55 ± 0.03 | 4.45 ± 0.03 |
+| Final against its own start, 400 lobbies | 4.43 against 4.57 | 4.46 against 4.54 |
+| Slow ladder (SovereignBot in the same lobbies) | 2.16 ± 0.06 (2.12) | 2.21 ± 0.08 (2.22) |
+| Fast ladder, trainer's check at the end | 1.73 | 1.71 |
+
+**The bigger network did not pull ahead.** The finals are level head to head, with the small one marginally ahead. Each improved a little on its own start, inside the interval. At this training budget, the network's size is not what limits strength, so a bigger student isn't the route to distilling the search either. The search's measured gain (0.76 places at play time) remains the clearest one.
+
+Next:
+- **Improve the search itself.** First tune its knobs with short head-to-head runs. Then score lines at the start of the next turn, with this turn's combat simulated against sampled opponent boards (see "Later: Search Beyond the Turn").
+
 ### Later: Search Beyond the Turn (to Evaluate)
 
 These came out of a design discussion with James on 2026-11-23. Each one is to be built behind a flag and judged head to head (`ladder.versus`) and on the slow ladder, like everything else.
