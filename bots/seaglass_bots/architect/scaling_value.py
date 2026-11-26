@@ -175,6 +175,7 @@ class ScalingValueTransformer(nn.Module):
         player_vec: torch.Tensor,
         slot_card_ids: torch.Tensor,
         slot_num_feats: torch.Tensor,
+        detach_trunk: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Returns `(expected_place_val, place_logits_8, pred_fut_log_stats, p1_logit)`."""
         present = (slot_card_ids != 0) | (slot_num_feats[..., 0] != 0)
@@ -196,6 +197,8 @@ class ScalingValueTransformer(nn.Module):
         active_mask = (~pad).float().unsqueeze(-1)
         h_mean = (h * active_mask).sum(dim=1) / active_mask.sum(dim=1).clamp(min=1.0)
         h_rep = 0.5 * (h[:, 0] + h_mean)
+        if detach_trunk:
+            h_rep = h_rep.detach()
         if self.pv_skip is not None:
             h_rep = h_rep + self.pv_skip(player_vec[:, :TAVERN_PLAYER_DIM].to(h_rep.dtype))
 

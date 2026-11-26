@@ -82,6 +82,7 @@ class ScalingEvaluator(SovereignEvaluator):
         self._rollout_fn = None
         self._rollout_batch_fn = None
         self._in_t1_rollout = False
+        self._turn_win_macro_cap = 350.0
 
     def _evaluate_exact_bellman_turn_end(
         self,
@@ -189,12 +190,19 @@ class ScalingEvaluator(SovereignEvaluator):
                     cvar_penalty = 38.0 * hr_dist.b_win_rate
         combat_icm_term -= cvar_penalty
 
-        # Exact terminal utilities on the same scale as `neural_weight * V(s_{t+1})`.
+        # Exact terminal utilities on the same `prior_weight * macro + neural_weight * V` scale
+        # as surviving next-turn continuations (so guaranteed 1v1 victory ALWAYS strictly dominates
+        # any uncertain continuation turn and never incentivizes throwing/stalling a lethal fight!).
         death_place_idx = min(7, max(0, int(alive_units) - 1))
         death_util = float(self.neural_weight * SCALING_FIRST_PLACE_WEIGHTS[death_place_idx])
         p1_bonus = float(getattr(self.predictor, "p1_bonus", 20.0)) if self.predictor is not None else 20.0
         growth_w = float(getattr(self.predictor, "growth_weight", 6.0)) if self.predictor is not None else 6.0
-        win_1v1_util = float(self.neural_weight * (82.0 + p1_bonus + growth_w * 11.0))
+        prior_win_offset = float(self.prior_weight * self._turn_win_macro_cap)
+        win_1v1_util = (
+            prior_win_offset
+            + float(self.neural_weight * (82.0 + p1_bonus + growth_w * 11.5))
+            + 45.0
+        )
 
         opp_ehp_1v1: Optional[int] = None
         if alive_units == 2 and not is_ghost and ctx is not None:
@@ -207,7 +215,7 @@ class ScalingEvaluator(SovereignEvaluator):
         t1_games: List[Tuple[int, seaglass.TavernGame, int, float]] = []
         terminal_sum = 0.0
         total_rollouts = 0
-        n_rolls = self.phys_rolls_per_particle
+        n_rolls = max(4, self.phys_rolls_per_particle) if opp_ehp_1v1 is not None else self.phys_rolls_per_particle
         n_t1_target = (
             min(self.two_turn_samples, int(t1_sample_cap))
             if t1_sample_cap is not None
@@ -419,7 +427,12 @@ class ScalingEvaluator(SovereignEvaluator):
         death_util = float(self.neural_weight * SCALING_FIRST_PLACE_WEIGHTS[death_place_idx])
         p1_bonus = float(getattr(self.predictor, "p1_bonus", 20.0)) if self.predictor is not None else 20.0
         growth_w = float(getattr(self.predictor, "growth_weight", 6.0)) if self.predictor is not None else 6.0
-        win_1v1_util = float(self.neural_weight * (82.0 + p1_bonus + growth_w * 11.0))
+        prior_win_offset = float(self.prior_weight * self._turn_win_macro_cap)
+        win_1v1_util = (
+            prior_win_offset
+            + float(self.neural_weight * (82.0 + p1_bonus + growth_w * 11.5))
+            + 45.0
+        )
 
         opp_ehp_1v1: Optional[int] = None
         if alive_units == 2 and not is_ghost and ctx is not None:
@@ -427,7 +440,7 @@ class ScalingEvaluator(SovereignEvaluator):
             if len(alive_opps) == 1:
                 opp_ehp_1v1 = int(alive_opps[0].health + alive_opps[0].armor)
 
-        n_rolls = self.phys_rolls_per_particle
+        n_rolls = max(4, self.phys_rolls_per_particle) if opp_ehp_1v1 is not None else self.phys_rolls_per_particle
         all_alive_obs: List[seaglass.TavernObservation] = []
         all_alive_frozen: List[bool] = []
         all_alive_weights: List[float] = []
@@ -659,7 +672,7 @@ class ScalingEvaluator(SovereignEvaluator):
                     batch_seeds.append((t1_seed ^ 0x2468ACE1) | 1)
                     eot_meta.append((cand_i, all_next_scores[alive_idx], t1_w))
                 rolled = self._rollout_batch_fn(
-                    batch_games, batch_seeds, max_steps=self.two_turn_rollout_steps
+                    batch_games, batch_seeds, max_steps=self.two_turn_rollout_steps, ctx=ctx, particles=particles
                 )
                 eot_obs_list = [g_r.observe() for g_r in rolled]
             else:
@@ -838,6 +851,30 @@ class ScalingEvaluator(SovereignEvaluator):
         else:
             delta_sum = sum(max(0.0, ve - vs) for ve, vs in zip(v_eots, v_sots))
         return base_score + self.two_turn_weight * (delta_sum / n_t1)
+
+    def macro_and_economy_value(
+        self,
+        obs: seaglass.TavernObservation,
+        *args,
+        end_of_turn: bool = False,
+        **kwargs,
+    ) -> float:
+        val = super().macro_and_economy_value(obs, *args, end_of_turn=end_of_turn, **kwargs)
+        if end_of_turn and obs.hand:
+            # Neutralize SovereignEvaluator's inherited artificial EOT hand penalties:
+            # (1) -0.35 on persistent spells in hand (so multi-turn spell banking is judged by rollout + V),
+            # (2) -10.5 on playable minions held in hand when board < 7 (normal heroes still play minions
+            #     via board unit_value + combat sim, while hand-summon heroes like Sneed aren't drowned out!).
+            profiles = self.meta.profiles
+            n_board = len(obs.board)
+            for c in obs.hand:
+                if c.is_spell:
+                    prof = profiles.get(c.card_id)
+                    if prof is None or not prof.is_temporary:
+                        val += 0.35
+                elif (not c.unplayable) and n_board < 7:
+                    val += 10.5
+        return val
 
     def evaluate_fast_batch(
         self,
@@ -1071,6 +1108,12 @@ class ScalingValuePredictor:
         if self.growth_mode == "delta":
             cur_np = np.asarray(cur_log_s, dtype=np.float32)
             growth_term = np.clip(fs_np - cur_np, -1.5, 5.0)
+        elif self.growth_mode == "convex":
+            # Risk-seeking convex utility over predicted 3-turn future board power (fs^2 / 14):
+            # naturally halves early-game log1p(3/3) anti-leveling drag while amplifying late-game
+            # Tier-5/6 exponential scaling engines (ZERO turn/tier/card hardcoding!).
+            g_clip = np.clip(fs_np, 0.0, 11.0)
+            growth_term = (g_clip * g_clip) / 14.0
         else:
             # Strictly non-negative monotone 3-turn future board power E[log1p(stats_{t+3})] (no -cur_np penalty!)
             growth_term = np.clip(fs_np, 0.0, 11.0)
@@ -1152,6 +1195,8 @@ class PolicyPriorPredictor:
         crn_seeds: Sequence[int],
         max_steps: int = 4,
         max_refreshes: int = 2,
+        ctx: Optional[seaglass.LobbyContext] = None,
+        particles=None,
     ) -> List[seaglass.TavernGame]:
         if not games:
             return []
@@ -1248,6 +1293,7 @@ class ScalingSearchBot(SovereignBot):
         plan_explore_temp: float = 0.0,
         plan_explore_max_turn: int = 10,
         plan_explore_margin: float = 22.0,
+        block_upgrade_turn: int = -1,
         beam_width: int = 16,
         max_epoch_depth: int = 5,
         top_k_combat_evals: int = 5,
@@ -1297,6 +1343,7 @@ class ScalingSearchBot(SovereignBot):
         )
         self.positioner = self.evaluator.positioner
         self._base_neural_weight = float(neural_weight)
+        self._base_prior_weight = float(prior_weight)
         self._base_growth_weight = float(growth_weight)
         self._base_two_turn_steps = int(two_turn_rollout_steps)
         self._base_combat_icm_weight = float(combat_icm_weight)
@@ -1316,11 +1363,14 @@ class ScalingSearchBot(SovereignBot):
         )
         if self.policy_rollout and self.policy_predictor is not None:
             self.evaluator._rollout_batch_fn = self.policy_predictor.rollout_batch
+        elif self.fast_neural_rollout and self.evaluator.has_neural_model:
+            self.evaluator._rollout_batch_fn = self._rollout_shop_consumer_batch
         self.search_noise_std = float(search_noise_std)
         self.stratified_stage2 = bool(stratified_stage2)
         self.plan_explore_temp = float(plan_explore_temp)
         self.plan_explore_max_turn = int(plan_explore_max_turn)
         self.plan_explore_margin = float(plan_explore_margin)
+        self.block_upgrade_turn = int(block_upgrade_turn)
         self.upgrade_res_weight = float(upgrade_res_weight)
         self.upgrade_res_predictor = (
             UpgradeResidualPredictor(upgrade_res_ckpts, use_cuda=use_cuda)
@@ -1408,6 +1458,8 @@ class ScalingSearchBot(SovereignBot):
                         pruned.append(a)
                         existing_keys.add(ak)
                         added += 1
+            if self.block_upgrade_turn > 0 and int(obs.turn) == self.block_upgrade_turn:
+                pruned = [a for a in pruned if a.kind != "upgrade_tavern"]
             return pruned
 
         seen_hand_sym: Dict[Tuple, int] = {}
@@ -1652,6 +1704,16 @@ class ScalingSearchBot(SovereignBot):
         has_open_term = False
         has_hold_unfz = False
         has_hold_fz = False
+        has_spell_hold = False
+        _kb_profiles = self.kb.meta.profiles
+
+        def _has_persistent_spell(o: seaglass.TavernObservation) -> bool:
+            for c in o.hand:
+                if c.is_spell:
+                    p = _kb_profiles.get(c.card_id)
+                    if p is None or not p.is_temporary:
+                        return True
+            return False
 
         for t_score, (t_game, t_obs, t_eot, t_path) in sorted_terms:
             t_sig = (_canonical_state_key(t_obs), t_eot)
@@ -1668,15 +1730,17 @@ class ScalingSearchBot(SovereignBot):
                     has_hold_fz = True
                 else:
                     has_hold_unfz = True
+            if t_eot and _has_persistent_spell(t_obs):
+                has_spell_hold = True
             if len(ranked_terms) >= self.top_k_combat_evals:
                 break
 
         # General 2-stage search stratification (zero card/hero/turn rules): guarantee Stage-2 evaluates
-        # top-2 upgraded-tier, open/Discover, and both unfrozen/frozen minion-in-hand hold branches
-        # (so combat-summon mechanics like Sneed/Bassgill/hand-buffs aren't crowded out in Stage-1!).
+        # top-2 upgraded-tier, open/Discover, unfrozen/frozen minion-in-hand hold, and persistent-spell hold
+        # branches (so combat-summon holds & multi-turn spell banking aren't crowded out in Stage-1!).
         if self.stratified_stage2:
             for t_score, (t_game, t_obs, t_eot, t_path) in sorted_terms:
-                if n_upgrade_terms >= 2 and has_open_term and has_hold_unfz and has_hold_fz:
+                if n_upgrade_terms >= 2 and has_open_term and has_hold_unfz and has_hold_fz and has_spell_hold:
                     break
                 t_sig = (_canonical_state_key(t_obs), t_eot)
                 if t_sig in seen_term_keys:
@@ -1686,7 +1750,8 @@ class ScalingSearchBot(SovereignBot):
                 has_hand_minion = t_eot and any(not c.is_spell for c in t_obs.hand)
                 is_hd_u = has_hand_minion and (not t_obs.is_frozen) and (not has_hold_unfz)
                 is_hd_f = has_hand_minion and bool(t_obs.is_frozen) and (not has_hold_fz)
-                if is_up or is_op or is_hd_u or is_hd_f:
+                is_sp_h = t_eot and (not has_spell_hold) and _has_persistent_spell(t_obs)
+                if is_up or is_op or is_hd_u or is_hd_f or is_sp_h:
                     seen_term_keys.add(t_sig)
                     ranked_terms.append((t_score, t_game, t_path))
                     if is_up:
@@ -1697,6 +1762,8 @@ class ScalingSearchBot(SovereignBot):
                         has_hold_unfz = True
                     if is_hd_f:
                         has_hold_fz = True
+                    if is_sp_h:
+                        has_spell_hold = True
 
         best_score = -1e18
         default_end: QueuedStep = (("end_turn", None, None), _plan_validation_key(root_obs), False)
@@ -1713,6 +1780,8 @@ class ScalingSearchBot(SovereignBot):
                 b_tag = "open"
             elif is_t1 and any(not c.is_spell for c in cand_obs.hand):
                 b_tag = "t1_hold"
+            elif _has_persistent_spell(cand_obs):
+                b_tag = "spell_hold"
             else:
                 b_tag = "stay"
             s0 = len(batch_games)
@@ -2095,6 +2164,133 @@ class ScalingSearchBot(SovereignBot):
                 break
         return sim
 
+    def _rollout_shop_consumer_batch(
+        self,
+        games: Sequence[seaglass.TavernGame],
+        crn_seeds: Sequence[int],
+        max_steps: int = 4,
+        max_refreshes: int = 2,
+        ctx: Optional[seaglass.LobbyContext] = None,
+        particles=None,
+    ) -> List[seaglass.TavernGame]:
+        """Batched GPU single-model neural rollout across all 2-turn / refresh rollout games simultaneously!
+        Replaces N separate tiny GPU forward passes per step with ONE batched GPU forward pass per step."""
+        n = len(games)
+        if n == 0:
+            return []
+        sims: List[seaglass.TavernGame] = []
+        base_seeds: List[int] = []
+        for g, s in zip(games, crn_seeds):
+            sim = g.copy()
+            bs = int(s) | 1
+            sim.reseed(bs)
+            sims.append(sim)
+            base_seeds.append(bs)
+
+        active = list(range(n))
+        rolls_used = [0] * n
+        actions_taken = [0] * n
+        improve_tol = 0.50
+
+        for _iter in range(max_steps + 3):
+            active = [i for i in active if actions_taken[i] < max_steps]
+            if not active:
+                break
+
+            eval_records: List[Tuple[int, int, int, List[seaglass.TavernGame], bool]] = []
+            flat_obs: List[seaglass.TavernObservation] = []
+            next_active: List[int] = []
+
+            for i in active:
+                sim = sims[i]
+                obs = sim.observe()
+                if obs.discover_pending is not None:
+                    self._fast_resolve_chained_discover(sim, particles=particles, ctx=ctx)
+                    self._play_newly_gained_card_in_sim(sim, particles=particles, ctx=ctx)
+                    next_active.append(i)
+                    continue
+
+                cand_sims: List[seaglass.TavernGame] = []
+                cand_obs: List[seaglass.TavernObservation] = []
+                pruned = self._select_epoch_actions(obs, sim.legal_actions(), particles=particles, ctx=ctx)
+                for act in pruned:
+                    if act.kind in ("end_turn", "refresh", "toggle_freeze", "pass", "dark_discovery"):
+                        continue
+                    if act.kind in ("hero_power", "hero_power_2") and self._is_stochastic_hero_power(sim, obs, act):
+                        continue
+                    c = sim.copy()
+                    c.reseed((base_seeds[i] + _iter * 1009 + 17) | 1)
+                    c.step(act)
+                    if act.kind == "buy":
+                        c_play = c.copy()
+                        self._play_newly_gained_card_in_sim(c_play, particles=particles, ctx=ctx)
+                        cp_obs = c_play.observe()
+                        cand_sims.append(c_play)
+                        cand_obs.append(cp_obs)
+                        if len(obs.board) >= 7:
+                            c_obs = c.observe()
+                            if len(cp_obs.hand) != len(c_obs.hand):
+                                cand_sims.append(c)
+                                cand_obs.append(c_obs)
+                    else:
+                        cand_sims.append(c)
+                        cand_obs.append(c.observe())
+
+                for c_game, c_o, _ in self._expand_cycle_macros(sim, obs, [], particles=particles, ctx=ctx):
+                    cand_sims.append(c_game)
+                    cand_obs.append(c_o)
+
+                can_roll_more = (
+                    rolls_used[i] < max_refreshes
+                    and self._can_productive_refresh(obs)
+                    and (obs.gold >= 4 or (obs.free_refreshes > 0 and obs.gold >= 2))
+                )
+                if not cand_sims:
+                    if can_roll_more:
+                        ref = seaglass.TavernAction.refresh()
+                        if sim.is_legal(ref):
+                            sim.step(ref)
+                            rolls_used[i] += 1
+                            next_active.append(i)
+                    continue
+
+                s0 = len(flat_obs)
+                flat_obs.append(obs)
+                flat_obs.extend(cand_obs)
+                eval_records.append((i, s0, len(cand_sims), cand_sims, can_roll_more))
+
+            if eval_records:
+                all_scores = self.evaluator.evaluate_fast_batch(
+                    flat_obs,
+                    ctx=ctx,
+                    end_of_turn=False,
+                    particles=particles,
+                    single_model=True,
+                )
+                for i, s0, nc, cand_sims, can_roll_more in eval_records:
+                    cur_total = all_scores[s0]
+                    best_k = 0
+                    best_sc = all_scores[s0 + 1]
+                    for k in range(1, nc):
+                        sc_k = all_scores[s0 + 1 + k]
+                        if sc_k > best_sc:
+                            best_sc = sc_k
+                            best_k = k
+                    if best_sc > cur_total - improve_tol:
+                        sims[i] = cand_sims[best_k]
+                        actions_taken[i] += 1
+                        next_active.append(i)
+                    elif can_roll_more:
+                        ref = seaglass.TavernAction.refresh()
+                        if sims[i].is_legal(ref):
+                            sims[i].step(ref)
+                            rolls_used[i] += 1
+                            next_active.append(i)
+
+            active = next_active
+
+        return sims
+
     def _evaluate_stochastic_action(
         self,
         base_game: seaglass.TavernGame,
@@ -2126,7 +2322,9 @@ class ScalingSearchBot(SovereignBot):
                 sim.step(pick)
                 self._play_newly_gained_card_in_sim(sim, particles=particles, ctx=ctx)
             r_seed = (s_val ^ 0x9E3779B97F4A7C15) | 1
-            if self.policy_rollout and self.policy_predictor is not None:
+            if (self.policy_rollout and self.policy_predictor is not None) or (
+                self.fast_neural_rollout and self.evaluator.has_neural_model
+            ):
                 sims.append(sim)
                 r_seeds.append(r_seed)
             else:
@@ -2140,6 +2338,10 @@ class ScalingSearchBot(SovereignBot):
                 sims.append(sim)
         if self.policy_rollout and self.policy_predictor is not None and sims:
             sims = self.policy_predictor.rollout_batch(sims, r_seeds, max_steps=4)
+        elif self.fast_neural_rollout and self.evaluator.has_neural_model and sims:
+            sims = self._rollout_shop_consumer_batch(
+                sims, r_seeds, max_steps=4, ctx=ctx, particles=particles
+            )
 
         scores = self.evaluator.evaluate_turn_end_batch(
             sims, particles, ctx=ctx, combats_per_particle=14
@@ -2155,7 +2357,7 @@ class ScalingSearchBot(SovereignBot):
     ) -> seaglass.TavernAction:
         """Pure CRN-paired 2-Turn Exact Rust Physics Rollout for Trinkets (ZERO hardcoded trinket bonus table!)."""
         obs0 = base_game.observe()
-        crn_pair = [self.rng.getrandbits(63) | 1, self.rng.getrandbits(63) | 1]
+        crn_seeds = [self.rng.getrandbits(63) | 1 for _ in range(4)]
         best_act = legal[0]
         best_val = -1e18
 
@@ -2163,7 +2365,7 @@ class ScalingSearchBot(SovereignBot):
             if act.kind != "choose_trinket":
                 continue
             rollout_sum = 0.0
-            for m_idx, r_seed in enumerate(crn_pair):
+            for m_idx, r_seed in enumerate(crn_seeds):
                 sim = base_game.copy()
                 sim.reseed(r_seed)
                 sim.step(act)
@@ -2188,9 +2390,9 @@ class ScalingSearchBot(SovereignBot):
                     sim, ctx, particles=particles, max_steps=4, crn_seed=(r_seed ^ 0x13579BDF) | 1
                 )
                 v_turn0 = self.evaluator.evaluate_turn_end(
-                    sim_t0, particles, ctx=ctx, combats_per_particle=8
+                    sim_t0, particles, ctx=ctx, combats_per_particle=14
                 )
-                v_turn1_macro = 0.0
+                v_turn1_macro = v_turn0
                 if particles.boards:
                     sim_t1 = sim_t0.copy()
                     self.positioner.fast_reposition_game(sim_t1, sim_t1.observe(), particles)
@@ -2200,27 +2402,33 @@ class ScalingSearchBot(SovereignBot):
                         sim_t1.end_turn()
                     opp_b = particles.boards[m_idx % len(particles.boards)]
                     sim_t1.resolve_combat_against(opp_b, opponent_tier=particles.tier, seed=c_seed)
-                    sim_t1.start_turn()
-                    for _ in range(2):
-                        if sim_t1.observe().discover_pending is not None:
-                            self._fast_resolve_chained_discover(sim_t1, particles=particles, ctx=ctx)
-                            self._play_newly_gained_card_in_sim(sim_t1, particles=particles, ctx=ctx)
+                    if int(sim_t1.observe().health) <= 0:
+                        v_turn1_macro = -50.0
+                    else:
+                        sim_t1.start_turn()
+                        for _ in range(2):
+                            if sim_t1.observe().discover_pending is not None:
+                                self._fast_resolve_chained_discover(sim_t1, particles=particles, ctx=ctx)
+                                self._play_newly_gained_card_in_sim(sim_t1, particles=particles, ctx=ctx)
+                            else:
+                                break
+                        sim_t1 = self._rollout_shop_consumer(
+                            sim_t1, ctx, particles=particles, max_steps=4, crn_seed=(c_seed ^ 0x2468ACE1) | 1
+                        )
+                        self.positioner.fast_reposition_game(sim_t1, sim_t1.observe(), particles)
+                        if sim_t1.is_legal(seaglass.TavernAction.end_turn()):
+                            sim_t1.end_turn()
+                        sim_t1.resolve_combat_against(opp_b, opponent_tier=particles.tier, seed=c_seed + 2)
+                        if int(sim_t1.observe().health) <= 0:
+                            v_turn1_macro = -25.0
                         else:
-                            break
-                    sim_t1 = self._rollout_shop_consumer(
-                        sim_t1, ctx, particles=particles, max_steps=4, crn_seed=(c_seed ^ 0x2468ACE1) | 1
-                    )
-                    self.positioner.fast_reposition_game(sim_t1, sim_t1.observe(), particles)
-                    if sim_t1.is_legal(seaglass.TavernAction.end_turn()):
-                        sim_t1.end_turn()
-                    sim_t1.resolve_combat_against(opp_b, opponent_tier=particles.tier, seed=c_seed + 2)
-                    sim_t1.start_turn()
-                    v_turn1_macro = self.evaluator.evaluate_fast(
-                        sim_t1.observe(), ctx=ctx, end_of_turn=False, particles=particles, in_dist_sot=True
-                    )
-                rollout_sum += 0.68 * v_turn0 + 0.32 * v_turn1_macro
+                            sim_t1.start_turn()
+                            v_turn1_macro = self.evaluator.evaluate_fast(
+                                sim_t1.observe(), ctx=ctx, end_of_turn=False, particles=particles, in_dist_sot=True
+                            )
+                rollout_sum += 0.45 * v_turn0 + 0.55 * v_turn1_macro
 
-            total_val = rollout_sum / len(crn_pair)
+            total_val = rollout_sum / len(crn_seeds)
             if total_val > best_val:
                 best_val = total_val
                 best_act = act
@@ -2239,20 +2447,22 @@ class ScalingSearchBot(SovereignBot):
         """Clean decoupled turn finalizer (ZERO `rescue_open_play` or `smart_freeze` heuristic overrides!):
         only spends strictly dead gold on Refresh (if unfrozen), runs exact Rust combat positioning, then EndTurn."""
         obs = belief_game.observe()
-        # Only spend strictly expiring dead gold on Refresh (never burn persistent `free_refreshes`
-        # or HP-costing refreshes at end of turn — save free refreshes for turns with gold/higher tiers!).
-        if (
-            not obs.is_frozen
-            and obs.free_refreshes == 0
-            and obs.refresh_cost > 0
-            and obs.gold >= obs.refresh_cost
+        # Only spend strictly expiring dead gold on Refresh: never burn persistent `free_refreshes`
+        # when we lack gold to buy a minion (save them for turns with gold/higher tiers!),
+        # DO spend a free refresh if we still have >= minion_cost expiring gold unspent!
+        if not obs.is_frozen and (
+            (obs.free_refreshes == 0 and obs.refresh_cost > 0 and obs.gold >= obs.refresh_cost)
+            or (obs.free_refreshes > 0 and obs.gold >= obs.minion_cost)
         ):
             ref_act = seaglass.TavernAction.refresh()
             if belief_game.is_legal(ref_act):
                 probe = belief_game.copy()
                 probe.step(ref_act)
                 p_obs = probe.observe()
-                if p_obs.gold < obs.gold and p_obs.health >= obs.health:
+                if (
+                    p_obs.gold < obs.gold
+                    or (obs.gold >= obs.minion_cost and p_obs.free_refreshes < obs.free_refreshes)
+                ) and p_obs.health >= obs.health:
                     matched_ref = self._find_matching_legal(legal, _action_key(ref_act))
                     if matched_ref is not None:
                         self._queued_actions.pop(player, None)
@@ -2294,14 +2504,31 @@ class ScalingSearchBot(SovereignBot):
             alive_u = ctx.alive_units if ctx is not None else 8
             if live_opp and alive_u <= 2:
                 # Top-2 1v1 Finals ONLY: restore full exact combat winrate (`combat_icm_weight = 1.0`)
-                # against the exact known 1v1 opponent board so tech & combat stats dominate blind scaling!
+                # against the exact known 1v1 opponent board, scale `prior_weight` proportionally
+                # with `neural_weight`, and set a candidate-independent upper bound on `macro` so
+                # guaranteed 1v1 victory (`win_1v1_util`) ALWAYS strictly dominates any continuation!
                 self.evaluator.combat_icm_weight = 1.0
-                if ehp <= 18:
+                init_macro = max(
+                    0.0,
+                    float(self.evaluator.macro_and_economy_value(obs, ctx=ctx, end_of_turn=True)),
+                )
+                self.evaluator._turn_win_macro_cap = max(
+                    init_macro + 180.0, 1.35 * init_macro + 120.0
+                )
+                opp_ehp_now: Optional[int] = None
+                if ctx is not None:
+                    alive_opps = [o for o in ctx.opponents if o.alive]
+                    if len(alive_opps) == 1:
+                        opp_ehp_now = int(alive_opps[0].health + alive_opps[0].armor)
+                if ehp <= 18 or (opp_ehp_now is not None and opp_ehp_now <= 15):
                     self.evaluator.neural_weight = self.finals_min_nw
+                    nw_ratio = self.finals_min_nw / max(1e-6, self._base_neural_weight)
+                    self.evaluator.prior_weight = self._base_prior_weight * nw_ratio
                     self.evaluator.predictor.growth_weight = 0.0
                     self.evaluator.two_turn_rollout_steps = 0
                 else:
                     self.evaluator.neural_weight = 0.55 * self._base_neural_weight
+                    self.evaluator.prior_weight = 0.55 * self._base_prior_weight
                     self.evaluator.predictor.growth_weight = 0.30 * self._base_growth_weight
                     self.evaluator.two_turn_rollout_steps = min(2, self._base_two_turn_steps)
                 self.positioner.max_candidates = self._finals_pos_cands
@@ -2311,6 +2538,7 @@ class ScalingSearchBot(SovereignBot):
                 # only expand combat positioning search to 96 candidates in Top-3 / lethal danger!
                 self.evaluator.combat_icm_weight = self._base_combat_icm_weight
                 self.evaluator.neural_weight = self._base_neural_weight
+                self.evaluator.prior_weight = self._base_prior_weight
                 self.evaluator.predictor.growth_weight = self._base_growth_weight
                 self.evaluator.two_turn_rollout_steps = self._base_two_turn_steps
                 pos_c = (
@@ -2321,15 +2549,13 @@ class ScalingSearchBot(SovereignBot):
                 self.positioner.max_candidates = pos_c
                 self.evaluator.positioner.max_candidates = pos_c
         act = super().act_in_lobby(lobby, player)
-        # Never throw away dead 1-2g on an unfrozen shop right before EndTurn, while NEVER burning
-        # persistent `free_refreshes` (which carry over to future turns with gold!) or Health refreshes.
+        # Never throw away dead expiring gold on an unfrozen shop right before EndTurn, while NEVER
+        # burning persistent `free_refreshes` when we lack gold to buy a minion (or Health refreshes).
         if lobby.phase == "turn" and act.kind == "end_turn":
             obs = lobby.observe(player)
-            if (
-                not obs.is_frozen
-                and obs.free_refreshes == 0
-                and obs.refresh_cost > 0
-                and obs.gold >= obs.refresh_cost
+            if not obs.is_frozen and (
+                (obs.free_refreshes == 0 and obs.refresh_cost > 0 and obs.gold >= obs.refresh_cost)
+                or (obs.free_refreshes > 0 and obs.gold >= obs.minion_cost)
             ):
                 ref = seaglass.TavernAction.refresh()
                 if lobby.is_legal(player, ref):
@@ -2337,7 +2563,10 @@ class ScalingSearchBot(SovereignBot):
                     if bg_p.is_legal(ref):
                         bg_p.step(ref)
                         p_obs = bg_p.observe()
-                        if p_obs.gold < obs.gold and p_obs.health >= obs.health:
+                        if (
+                            p_obs.gold < obs.gold
+                            or (obs.gold >= obs.minion_cost and p_obs.free_refreshes < obs.free_refreshes)
+                        ) and p_obs.health >= obs.health:
                             self._queued_actions.pop(player, None)
                             self.last_note = {"dead_gold_refresh": float(obs.gold)}
                             return ref
