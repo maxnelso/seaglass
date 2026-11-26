@@ -358,15 +358,69 @@ pub fn is_implemented(id: HeroId) -> bool {
     IMPLEMENTED.iter().any(|&(hero, _)| hero == id)
 }
 
+/// The minion type a tribe-locked hero requires in the lobby to be offered (or for its Hero Power
+/// to be offered by Finley/Nguyen/Genn/Training Session).
+pub fn required_tribe(id: HeroId) -> Option<crate::model::Tribe> {
+    use crate::model::Tribe;
+    match id {
+        drestagath::ID => Some(Tribe::Aberration),
+        lord_jaraxxus::ID => Some(Tribe::Demon),
+        alexstrasza::ID | ysera::ID => Some(Tribe::Dragon),
+        chenvaala::ID => Some(Tribe::Elemental),
+        ini_stormcoil::ID | millificent_manastorm::ID => Some(Tribe::Mech),
+        fungalmancer_flurgl::ID => Some(Tribe::Murloc),
+        capn_hoggarr::ID | patches_the_pirate::ID => Some(Tribe::Pirate),
+        death_speaker_blackthorn::ID => Some(Tribe::Quilboar),
+        the_jailer::ID => Some(Tribe::Undead),
+        _ => None,
+    }
+}
+
 /// The heroes a game can offer (`docs/heroes.md` §6): the implemented ones, Duos-only heroes only
 /// in Duos, the Dark Gift ones (`CardFlags::DARK_GIFTS`) only in a game with Dark Gifts
-/// (`docs/dark_gifts.md` §12), in table order.
-pub fn offerable(duos: bool, dark_gifts: bool) -> Vec<HeroId> {
+/// (`docs/dark_gifts.md` §12), and tribe-locked heroes only when their tribe is in `lobby_tribes`
+/// (empty `lobby_tribes` allows all tribes), in table order.
+pub fn offerable_for_tribes(
+    duos: bool,
+    dark_gifts: bool,
+    lobby_tribes: &[crate::model::Tribe],
+) -> Vec<HeroId> {
     HEROES
         .iter()
         .filter(|h| is_implemented(h.id) && (duos || !h.duos_only))
         .filter(|h| dark_gifts || !hooks(h.power.id).has(CardFlags::DARK_GIFTS))
+        .filter(|h| {
+            lobby_tribes.is_empty()
+                || required_tribe(h.id).is_none_or(|t| lobby_tribes.contains(&t))
+        })
         .map(|h| h.id)
+        .collect()
+}
+
+/// The heroes a game can offer without lobby-tribe restriction (all tribes allowed).
+pub fn offerable(duos: bool, dark_gifts: bool) -> Vec<HeroId> {
+    offerable_for_tribes(duos, dark_gifts, &[])
+}
+
+/// Draw `per_player` distinct heroes for each of `players` players, excluding tribe-locked heroes
+/// whose required tribe is missing from `lobby_tribes` (empty `lobby_tribes` allows all tribes).
+pub fn draw_offers_for_tribes(
+    players: usize,
+    per_player: usize,
+    duos: bool,
+    dark_gifts: bool,
+    lobby_tribes: &[crate::model::Tribe],
+    rng: &mut Rng,
+) -> Vec<Vec<HeroId>> {
+    let mut left = offerable_for_tribes(duos, dark_gifts, lobby_tribes);
+    (0..players)
+        .map(|_| {
+            let mut offered = Vec::with_capacity(per_player);
+            while offered.len() < per_player && !left.is_empty() {
+                offered.push(left.remove(rng.below(left.len())));
+            }
+            offered
+        })
         .collect()
 }
 
@@ -381,16 +435,7 @@ pub fn draw_offers(
     dark_gifts: bool,
     rng: &mut Rng,
 ) -> Vec<Vec<HeroId>> {
-    let mut left = offerable(duos, dark_gifts);
-    (0..players)
-        .map(|_| {
-            let mut offered = Vec::with_capacity(per_player);
-            while offered.len() < per_player && !left.is_empty() {
-                offered.push(left.remove(rng.below(left.len())));
-            }
-            offered
-        })
-        .collect()
+    draw_offers_for_tribes(players, per_player, duos, dark_gifts, &[], rng)
 }
 
 /// A fresh state for the Hero Power `p` (`docs/heroes.md` §3.2): at its starting cost, with a use
@@ -1259,6 +1304,10 @@ pub fn offerable_powers(
     HEROES
         .iter()
         .filter(|h| is_implemented(h.id) && (duos || !h.duos_only))
+        .filter(|h| {
+            state.lobby.tribes.is_empty()
+                || required_tribe(h.id).is_none_or(|t| state.lobby.tribes.contains(&t))
+        })
         .filter(|h| exclude != Some(h.power.id) && !current.contains(&h.power.id))
         .filter(|h| {
             let card = hooks(h.power.id);
@@ -1604,5 +1653,90 @@ mod tests {
         assert_eq!(all.len(), unique.len());
         assert!(offers.iter().all(|o| o.len() == OFFER_COUNT));
         assert!(all.iter().all(|&id| !data(id).unwrap().duos_only));
+    }
+
+    #[test]
+    fn tribe_locked_heroes_require_their_tribe_in_lobby() {
+        use crate::model::Tribe;
+        let tribes = [
+            Tribe::Beast,
+            Tribe::Elemental,
+            Tribe::Mech,
+            Tribe::Pirate,
+            Tribe::Undead,
+        ];
+        let allowed = offerable_for_tribes(false, false, &tribes);
+        // Tribes in lobby -> allowed
+        assert!(allowed.contains(&patches_the_pirate::ID));
+        assert!(allowed.contains(&chenvaala::ID));
+        assert!(allowed.contains(&ini_stormcoil::ID));
+        assert!(allowed.contains(&the_jailer::ID));
+        // Tribes NOT in lobby -> excluded
+        assert!(!allowed.contains(&alexstrasza::ID));
+        assert!(!allowed.contains(&ysera::ID));
+        assert!(!allowed.contains(&drestagath::ID));
+        assert!(!allowed.contains(&fungalmancer_flurgl::ID));
+        assert!(!allowed.contains(&lord_jaraxxus::ID));
+        assert!(!allowed.contains(&death_speaker_blackthorn::ID));
+
+        let mut finley = tavern_with("Sir Finley Mrrgglton", 1);
+        finley.lobby.tribes = tribes.to_vec();
+        let offered_p = offered(&finley, false);
+        assert!(offered_p.contains(&"Patches the Pirate"));
+        assert!(!offered_p.contains(&"Alexstrasza"));
+        assert!(!offered_p.contains(&"Ysera"));
+        assert!(!offered_p.contains(&"Lord Jaraxxus"));
+    }
+
+    #[test]
+    fn rat_king_only_rotates_through_active_lobby_tribes() {
+        use crate::cards::full_catalog;
+        use crate::model::{Tribe, LOBBY_TRIBES};
+        use crate::tavern::{CardPool, TavernAction};
+
+        let tribes = [
+            Tribe::Beast,
+            Tribe::Elemental,
+            Tribe::Mech,
+            Tribe::Pirate,
+            Tribe::Undead,
+        ];
+        let mut templates = full_catalog();
+        templates.retain(|t| {
+            t.tribe == Tribe::None
+                || t.tribe == Tribe::All
+                || tribes.iter().any(|&lt| t.tribe.matches(lt))
+        });
+        let mut pool = CardPool::new(templates);
+        let mut rng = Rng::new(42);
+        let mut state = TavernState::new();
+        state.lobby.tribes = tribes.to_vec();
+        state.set_hero(the_rat_king::ID).unwrap();
+        state.tavern_tier = 3;
+
+        let mut seen = Vec::new();
+        for _ in 0..6 {
+            state.start_turn(&mut pool, &mut rng);
+            state.gold = 10;
+            let idx = state.hero().unwrap().power.counter as usize;
+            let t = LOBBY_TRIBES[idx];
+            assert!(tribes.contains(&t), "Rat King offered banned tribe {t:?}");
+            seen.push(t);
+            state
+                .step(TavernAction::HeroPower { target: None }, &mut pool, &mut rng)
+                .expect("hero power legal");
+            let opts = state.discover_pending.as_ref().expect("should offer discover");
+            assert_eq!(opts.len(), 3, "should offer 3 minions for {t:?}");
+            assert!(opts.iter().all(|u| u.tribe.matches(t)));
+            state
+                .step(TavernAction::ChooseDiscover { option_index: 0 }, &mut pool, &mut rng)
+                .unwrap();
+            state.hand.clear();
+            state
+                .step(TavernAction::EndTurn, &mut pool, &mut rng)
+                .unwrap();
+        }
+        assert_eq!(seen[0], Tribe::Beast);
+        assert_eq!(seen[5], Tribe::Beast);
     }
 }

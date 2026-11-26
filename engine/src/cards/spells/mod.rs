@@ -674,8 +674,9 @@ pub fn draw_discover_tavern_spells_exact_tier(tier: u32, count: usize, rng: &mut
 
 /// Determine the player's most common minion tribe on `board` (`Friendly Bounty`, `Planar Telescope`, `Dark Paradox`):
 /// the type the most minions have, Naga included (`docs/tavern.md` §7.8). Ties are broken
-/// uniformly at random using `rng`; if no minion has a type, it is a random lobby type.
-pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
+/// uniformly at random using `rng`; if no minion has a type, falls back to active lobby types
+/// in `pool` when provided, otherwise `LOBBY_TRIBES`.
+pub fn most_common_tribe_in_pool(board: &[Unit], pool: Option<&CardPool>, rng: &mut Rng) -> Tribe {
     let mut best_count = 0usize;
     let mut candidates = Vec::new();
     for &tribe in &SINGLE_TRIBES {
@@ -689,13 +690,26 @@ pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
         }
     }
     if candidates.is_empty() {
-        candidates = LOBBY_TRIBES.to_vec();
+        if let Some(p) = pool {
+            candidates = LOBBY_TRIBES
+                .iter()
+                .copied()
+                .filter(|&t| p.lobby_has(t))
+                .collect();
+        }
+        if candidates.is_empty() {
+            candidates = LOBBY_TRIBES.to_vec();
+        }
     }
     if candidates.len() == 1 {
         candidates[0]
     } else {
         candidates[rng.below(candidates.len())]
     }
+}
+
+pub fn most_common_tribe(board: &[Unit], rng: &mut Rng) -> Tribe {
+    most_common_tribe_in_pool(board, None, rng)
 }
 
 /// Returns `true` if casting `card_id` from hand requires a target: a friendly minion on `board`

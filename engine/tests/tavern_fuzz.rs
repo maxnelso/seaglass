@@ -547,6 +547,14 @@ fn units_desc(units: &[Unit]) -> String {
 
 /// The checks of one Tavern state, between engine calls (`docs/tavern.md` §2, §3, §5, §6).
 fn check_tavern(s: &TavernState) -> Result<(), Violation> {
+    check_tavern_with(s, true)
+}
+
+fn check_tavern_after_combat(s: &TavernState) -> Result<(), Violation> {
+    check_tavern_with(s, false)
+}
+
+fn check_tavern_with(s: &TavernState, check_triples: bool) -> Result<(), Violation> {
     if !(1..=6).contains(&s.tavern_tier) {
         return Err(broken(
             "Tavern Tier out of 1..=6",
@@ -666,12 +674,18 @@ fn check_tavern(s: &TavernState) -> Result<(), Violation> {
         }
     }
     // (A Hero Power can change the copies a Triple takes: Mister Clocksworth's 2.)
-    let untripled = copies.iter().find(|(&cid, &(on_board, held))| {
-        // (A trinket can change it for some minions: Designer Eyepatch's Pirates.)
-        let n = s.triple_copies_for(cid);
-        let from_hand = held.min(n - on_board.min(n));
-        on_board + held >= n && s.hand.len() - from_hand < 10
-    });
+    // Post-combat triples resolve on `start_turn`, so between combat and `start_turn`
+    // combat-generated cards may sit in hand untripled.
+    let untripled = if check_triples {
+        copies.iter().find(|(&cid, &(on_board, held))| {
+            // (A trinket can change it for some minions: Designer Eyepatch's Pirates.)
+            let n = s.triple_copies_for(cid);
+            let from_hand = held.min(n - on_board.min(n));
+            on_board + held >= n && s.hand.len() - from_hand < 10
+        })
+    } else {
+        None
+    };
     if let Some((&cid, &(on_board, held))) = untripled {
         let n = on_board + held;
         let name = s
@@ -3012,7 +3026,7 @@ impl Game {
                 )
                 .into());
             }
-            let checks = [check_tavern(&self.players[p])];
+            let checks = [check_tavern_after_combat(&self.players[p])];
             self.tolerate(checks)?;
         }
         Ok(())
@@ -3082,7 +3096,7 @@ impl Game {
             )
             .into());
         }
-        let checks = [check_tavern(&self.players[p])];
+        let checks = [check_tavern_after_combat(&self.players[p])];
         self.tolerate(checks)?;
         Ok(())
     }
