@@ -2,10 +2,10 @@
 //!
 //! Hero Power: `A Tale of Kings` (`TB_BaconShop_HP_041`), 2 Gold: Discover a minion of a specific minion type. Swaps type each turn.
 //!
-//! Active, untargeted, once per turn. The type of turn `t` is the `(t - 1) mod 10`-th lobby type
-//! (`LOBBY_TRIBES`: Aberration on turn 1, then Beast, Demon, ..., Undead, and again), set at each
-//! turn start (`counter` = its index; engine decision). Using it Discovers among 3 minions of that
-//! type of the player's Tier or lower from the pool, as Alexstrasza's; it needs room in the hand.
+//! Active, untargeted, once per turn. Rotates each turn through the minion types actually present
+//! in the lobby (`LOBBY_TRIBES` filtered to active lobby types), storing the chosen type's index
+//! in `LOBBY_TRIBES` in `power.counter`. Using it Discovers among 3 minions of that type of the
+//! player's Tier or lower from the pool, as Alexstrasza's; it needs room in the hand.
 
 use crate::cards::CardHooks;
 use crate::heroes::power_mut;
@@ -30,18 +30,51 @@ pub fn behaviors() -> Vec<(CardId, CardHooks)> {
     )]
 }
 
-/// Start of turn: the turn's type.
-fn turn_start(state: &mut TavernState, _: &mut CardPool, _: &mut Rng) {
-    let index = (state.turn.max(1) - 1) as usize % LOBBY_TRIBES.len();
+/// Active lobby tribe indices (in `LOBBY_TRIBES` order) available in this lobby/pool.
+fn active_tribe_indices(state: &TavernState, pool: &CardPool) -> Vec<usize> {
+    let in_lobby = |t| state.lobby.tribes.is_empty() || state.lobby.tribes.contains(&t);
+    let active: Vec<usize> = LOBBY_TRIBES
+        .iter()
+        .enumerate()
+        .filter(|(_, &t)| in_lobby(t) && pool.lobby_has(t))
+        .map(|(i, _)| i)
+        .collect();
+    if !active.is_empty() {
+        return active;
+    }
+    let fallback: Vec<usize> = LOBBY_TRIBES
+        .iter()
+        .enumerate()
+        .filter(|(_, &t)| in_lobby(t))
+        .map(|(i, _)| i)
+        .collect();
+    if !fallback.is_empty() {
+        return fallback;
+    }
+    (0..LOBBY_TRIBES.len()).collect()
+}
+
+/// Start of turn: rotate among the lobby's active types.
+fn turn_start(state: &mut TavernState, pool: &mut CardPool, _: &mut Rng) {
+    let active = active_tribe_indices(state, pool);
+    let pick = active[(state.turn.max(1) - 1) as usize % active.len()];
     if let Some(power) = power_mut(&mut state.auras) {
-        power.counter = index as i32;
+        power.counter = pick as i32;
     }
 }
 
 /// Using it: Discover a minion of the turn's type.
 fn a_tale_of_kings(state: &mut TavernState, _: Option<usize>, pool: &mut CardPool, rng: &mut Rng) {
-    let index = state.auras.hero.as_ref().map_or(0, |h| h.power.counter) as usize;
-    let tribe = LOBBY_TRIBES[index % LOBBY_TRIBES.len()];
+    let raw_idx = state.auras.hero.as_ref().map_or(0, |h| h.power.counter).max(0) as usize;
+    let mut tribe = LOBBY_TRIBES[raw_idx % LOBBY_TRIBES.len()];
+    if !pool.lobby_has(tribe) {
+        let active = active_tribe_indices(state, pool);
+        let pick = active[(state.turn.max(1) - 1) as usize % active.len()];
+        tribe = LOBBY_TRIBES[pick];
+        if let Some(power) = power_mut(&mut state.auras) {
+            power.counter = pick as i32;
+        }
+    }
     let options = pool.draw_discover_by_tribe(tribe, state.tavern_tier, OPTIONS, rng);
     state.push_discover(options);
 }

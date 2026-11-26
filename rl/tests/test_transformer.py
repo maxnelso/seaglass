@@ -119,9 +119,16 @@ def test_checkpoints_round_trip(observations, tmp_path) -> None:
 
 def test_swapping_two_hand_cards_swaps_their_play_and_pass_logits(observations) -> None:
     model = _random_model(3)
-    hand = observations["slot_card_ids"][:, HAND_OFFSET : HAND_OFFSET + 10] != 0
-    row = int(np.flatnonzero(hand.sum(1) >= 2)[0])
-    a, b = np.flatnonzero(hand[row])[:2]
+    hand_ids = observations["slot_card_ids"][:, HAND_OFFSET : HAND_OFFSET + 10]
+    hand = hand_ids != 0
+    # The first decision whose first two hand cards are different cards: two copies of one card
+    # would make the swap a no-op (seed 11 deals a pair of copies first since tribe-locked heroes).
+    row, a, b = next(
+        (int(r), int(x), int(y))
+        for r in np.flatnonzero(hand.sum(1) >= 2)
+        for x, y in [np.flatnonzero(hand[r])[:2]]
+        if hand_ids[r, x] != hand_ids[r, y]
+    )
     pv, ci, nf, _ = _tensors(observations, [row])
     ci2, nf2 = ci.clone(), nf.clone()
     sa, sb = HAND_OFFSET + a, HAND_OFFSET + b

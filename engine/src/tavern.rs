@@ -1650,6 +1650,9 @@ impl TavernState {
     /// Execute the start-of-turn sequence (`docs/tavern.md` §4).
     pub fn start_turn(&mut self, pool: &mut CardPool, rng: &mut Rng) {
         self.discard_temporary_cards();
+        // Resolve any Triples completed by cards generated during the previous combat now that
+        // the player is actually returning to the Tavern (not after a knockout or game over).
+        self.resolve_triples();
         let won_last = self.last_combat_won;
         self.last_combat_won = false;
         self.gold_spent_this_turn = 0;
@@ -1878,7 +1881,8 @@ impl TavernState {
             cards::on_post_combat_unit(pre_combat_snapshot, idx, &post_units, tavern_unit);
         }
 
-        self.resolve_triples();
+        // Triples from combat-generated hand cards resolve at `start_turn`, so knockouts and the
+        // final game-over combat leave the board intact as it fought.
         heroes::after_combat(self, dead_units);
 
         self.last_combat_won = result == CombatResult::Won;
@@ -2900,5 +2904,45 @@ impl TavernState {
         self.hand.push(golden);
         cards::on_card_added_to_hand(&self.board, &mut self.auras);
         self.sync_all_auras();
+    }
+}
+
+#[cfg(test)]
+mod post_combat_triple_tests {
+    use super::*;
+    use crate::cards::minions::eternal_knight;
+
+    #[test]
+    fn combat_generated_triple_waits_for_start_turn() {
+        let tmpl = eternal_knight::template();
+        let mut pool = CardPool::new(vec![tmpl.clone()]);
+        let mut rng = Rng::new(42);
+        let mut state = TavernState::new();
+        let ek1 = tmpl.instantiate();
+        let ek2 = tmpl.instantiate();
+        let ek3 = tmpl.instantiate();
+        state.board.push(ek1);
+        state.board.push(ek2);
+
+        let snap = state.board.clone();
+        let mut ready_rng = Rng::new(99);
+        state.apply_combat_return(
+            &snap,
+            state.auras.clone(),
+            vec![ek3],
+            &[],
+            &[],
+            CombatResult::Won,
+            &mut ready_rng,
+        );
+        // Right after combat (e.g. final game-over frame or knockout), board stays intact!
+        assert_eq!(state.board.len(), 2);
+        assert_eq!(state.hand.len(), 1);
+        assert!(!state.hand[0].is_golden);
+
+        // Once the next turn actually starts, the triple resolves cleanly into hand.
+        state.start_turn(&mut pool, &mut rng);
+        assert_eq!(state.board.len(), 0);
+        assert!(state.hand.iter().any(|u| u.card_id == eternal_knight::ID && u.is_golden));
     }
 }

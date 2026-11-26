@@ -224,7 +224,16 @@ pub fn print_player_snapshot(label: &str, state: &TavernState, pool: &dyn PoolCo
     println!("  │   Shop ({}):", state.shop.len());
     print!("{}", format_unit_list(&state.shop, "  │     ", Some(pool)));
     if let Some(ref opts) = state.discover_pending {
-        println!("  │   Discover Pending ({} options):", opts.len());
+        let kind = if !opts.is_empty()
+            && opts
+                .iter()
+                .all(|o| seaglass::cards::is_choose_one_option(o.card_id))
+        {
+            "Choose One"
+        } else {
+            "Discover"
+        };
+        println!("  │   {kind} Pending ({} options):", opts.len());
         print!("{}", format_unit_list(opts, "  │     ", Some(pool)));
     }
     println!("  └──────────────────────────────────────────────────────────────────────────");
@@ -411,6 +420,15 @@ pub fn describe_action(state: &TavernState, action: &TavernAction) -> String {
         }
         TavernAction::ChooseDiscover { option_index } => {
             if let Some(ref opts) = state.discover_pending {
+                let is_choose_one = !opts.is_empty()
+                    && opts
+                        .iter()
+                        .all(|o| seaglass::cards::is_choose_one_option(o.card_id));
+                let verb = if is_choose_one {
+                    "ChooseOne"
+                } else {
+                    "ChooseDiscover"
+                };
                 let chosen = opts
                     .get(option_index)
                     .map(format_unit_inline)
@@ -418,7 +436,7 @@ pub fn describe_action(state: &TavernState, action: &TavernAction) -> String {
                 let all_names: Vec<String> =
                     opts.iter().map(|o| format!("\"{}\"", o.name)).collect();
                 format!(
-                    "ChooseDiscover[{option_index}]: {chosen} (from [{}])",
+                    "{verb}[{option_index}]: {chosen} (from [{}])",
                     all_names.join(", ")
                 )
             } else {
@@ -699,7 +717,16 @@ pub fn print_step_diff(before: &TavernState, after: &TavernState, pool: &dyn Poo
     }
     if after.discover_pending.is_some() && before.discover_pending != after.discover_pending {
         if let Some(ref opts) = after.discover_pending {
-            println!("      Discover Prompt ({} options):", opts.len());
+            let kind = if !opts.is_empty()
+                && opts
+                    .iter()
+                    .all(|o| seaglass::cards::is_choose_one_option(o.card_id))
+            {
+                "Choose One"
+            } else {
+                "Discover"
+            };
+            println!("      {kind} Prompt ({} options):", opts.len());
             print!("{}", format_unit_list(opts, "        ", Some(pool)));
         }
     }
