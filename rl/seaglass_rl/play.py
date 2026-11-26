@@ -23,6 +23,14 @@ Rewards (for the recorded seats):
   potential-based, it changes no optimal policy and only moves credit earlier: the board's strength
   while building it, the damage when it is taken.
 - **Discounting per turn**: `gamma` applies when a turn ends (`turn_end`), not at every action.
+
+The model and recorded-bot seats' observations and masks come from the Rust `seaglass.Encoder` when
+the extension has one (`PlayOptions.rust_encoder`, on by default); `features.py` and `actions.py` are
+the reference it matches bit for bit.
+
+Turn stats (`PlayOptions.turn_stats`, Solo only) record every living player's board, Tier, Gold and
+actions as each turn's shopping ends. With `PlayOptions.probe`, the boards of `GameSpec.probe_units`
+are also scored against a library of reference boards (`probe.py`).
 """
 
 from __future__ import annotations
@@ -31,8 +39,9 @@ import math
 import multiprocessing as mp
 import os
 import random
+from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import seaglass
@@ -41,6 +50,7 @@ from .actions import (
     ACTION_KIND_IDS,
     ACTION_KINDS,
     ACTION_SPACE_SIZE,
+    ACTION_TO_INDEX,
     END_TURN_INDEX,
     action_from_index,
     action_mask,
@@ -48,14 +58,17 @@ from .actions import (
 from .bots import HeuristicBot, RandomBot
 from .gamerbot import NineKGamerBot
 from .env import compute_board_power
-from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation
+from . import features, packing
+from .features import NUM_SLOTS, PLAYER_DIM, SLOT_NUM_DIM, encode_observation, fast_encode, fast_mask
 from .model import BattlegroundsMLP
+
+if TYPE_CHECKING:
+    from .positioning import PositionSpec
+    from .search import SearchSpec
+    from .probe import ProbeSpec
 
 LEARNER = "learner"
 BOTS = ("heuristic", "random", "9kgamerbot", "9kgamerbot-tempo", "apex", "sovereign")
-# A bot's turn may take more steps than a model's (`PlayOptions.max_steps_per_turn`): 9kgamerbot
-# rolls, buys and sells many times a turn.
-BOT_MAX_STEPS_PER_TURN = 100
 # The Reposition actions: allowed only in the positioning step (`PlayOptions.positioning_phase`).
 REPOSITION = ACTION_KIND_IDS == ACTION_KINDS.index("reposition")
 # The Toggle Freeze action: with the positioning step, allowed only there, once a turn.
@@ -98,6 +111,10 @@ class LobbyConfig:
     avoid_recent: int = 3
     # The game's damage caps (`engine/docs/lobby_game.md` §5).
     damage_caps: bool = True
+    # The simulated turn clock (`engine/docs/lobby_game.md` §2): each action costs `action_ms`, and a
+    # player whose clock runs out has their turn ended for them.
+    turn_timer: bool = True
+    action_ms: int = 250
     # The minion types in each lobby, drawn at random (0: every type).
     tribes: int = 5
 
@@ -127,6 +144,8 @@ class LobbyConfig:
             first_fighter_switch_chance=self.first_fighter_switch_chance,
             avoid_recent=self.avoid_recent,
             damage_caps=self.damage_caps,
+            turn_timer=self.turn_timer,
+            action_ms=self.action_ms,
             tribes=self.tribes,
             meta=meta,
         )
@@ -160,7 +179,10 @@ class Seat:
 class PlayOptions:
     """How the controllers play."""
 
-    max_steps_per_turn: int = 30
+    # A cap on a model's decisions per phase, on top of the engine's turn timer. None: the timer only.
+    # Set it when free actions can loop (e.g. without the positioning step, a model can Reposition back
+    # and forth until its clock runs out).
+    max_steps_per_turn: int | None = None
     # A model's turn has two parts: shopping (everything but Reposition and Toggle Freeze), then,
     # once it picks End Turn, an end-of-turn step ("prepping the board for battle"): only
     # Repositions (at most board size - 1 of them), one Toggle Freeze, and End Turn. Without it, a
@@ -177,6 +199,31 @@ class PlayOptions:
     # Record the models' value and log-probability with their actions, and keep every game's
     # replay (`GameResult.replay`, for `match_replay`).
     keep_replays: bool = False
+    # Collect `GameResult.turn_stats` for every player (Solo only).
+    turn_stats: bool = False
+    # With `turn_stats`: also score the end-of-turn board of each unit in `GameSpec.probe_units`
+    # against the reference library (`probe.py`).
+    probe: "ProbeSpec | None" = None
+    # Order every model seat's board by search with the combat simulator just before its turn ends
+    # (`positioning.py`; Solo only). The moves are counted as "auto_position", never recorded.
+    auto_position: "PositionSpec | None" = None
+    # Encode the observations and build the masks of the model and recorded-bot seats with the Rust
+    # encoder (`features.rust_encoder`; bit-identical to the Python reference, about 10x faster), when
+    # the installed extension has one. False: the Python `encode_observation` and `action_mask`.
+    rust_encoder: bool = True
+    # Return the trajectories packed (`Trajectory.arrays(pack=True)`, `packing.py`): far smaller to
+    # send between processes and to keep. The trainer and pretrain always pack.
+    pack: bool = False
+    # Policy-guided search inside the turn (`search.py`; Solo only): a model seat whose controller is
+    # in `search_controllers` takes the search's action at its shopping decisions (the end-of-turn
+    # step and the hero phase are played by the policy). With `search=None` nothing changes.
+    search: "SearchSpec | None" = None
+    search_controllers: tuple[str, ...] = ()
+    # Auxiliary targets (Solo only): every recorded seat's end-of-turn board is scored with the probe
+    # (`probe.py`), and each recorded decision on turn t gets the probe scores of turns t + k for k in
+    # `aux_horizons` as `aux_target` / `aux_mask` (`Trajectory.arrays`). The fights are the added cost.
+    aux_probe: "ProbeSpec | None" = None
+    aux_horizons: tuple[int, ...] = (0, 2, 4)
 
 
 @dataclass
@@ -185,6 +232,21 @@ class GameSpec:
 
     seed: int
     controllers: list[str]
+    # The units whose boards are probed (`PlayOptions.probe`).
+    probe_units: tuple[int, ...] = ()
+
+
+@dataclass
+class TurnStat:
+    """One player's turn, as it stood when the shopping ended (before the combats)."""
+
+    turn: int
+    tier: int  # Tavern Tier
+    gold_left: int  # Gold unspent
+    health: int  # Health + Armor
+    board: int  # minions on the board
+    actions: dict[str, int]  # actions taken this turn, by kind
+    probe: float | None = None  # `probe.score_board` of the board, for probed units
 
 
 @dataclass
@@ -196,6 +258,10 @@ class Trajectory:
     player_vec: list[np.ndarray] = field(default_factory=list)
     slot_card_ids: list[np.ndarray] = field(default_factory=list)
     slot_num_feats: list[np.ndarray] = field(default_factory=list)
+    # With the Rust encoder and `pack`, the nonzeros of each decision's features (uint16 columns,
+    # float16 values, zeros after the cast dropped) stand in for `slot_num_feats`.
+    num_idx: list[np.ndarray] = field(default_factory=list)
+    num_val: list[np.ndarray] = field(default_factory=list)
     action_mask: list[np.ndarray] = field(default_factory=list)
     actions: list[int] = field(default_factory=list)
     log_probs: list[float] = field(default_factory=list)
@@ -203,28 +269,84 @@ class Trajectory:
     rewards: list[float] = field(default_factory=list)
     turn_end: list[bool] = field(default_factory=list)
     done: bool = False
+    # The unit's final place (1 is first); 0 while unknown.
+    place: int = 0
     # The shaping potential of each decision's state.
     potentials: list[float] = field(default_factory=list)
+    # With search: each decision's improved policy (`SearchResult.policy_target`), zeros where the
+    # decision was not searched. None without search.
+    search_policy: list[np.ndarray] | None = None
+    # With `PlayOptions.aux_probe`: each decision's turn (0 in the hero phase), the seat's probe score
+    # by turn (a turn it was alive at the end of and the library covers), and the horizons.
+    decision_turn: list[int] | None = None
+    probe_by_turn: dict[int, float] = field(default_factory=dict)
+    aux_horizons: tuple[int, ...] = ()
+
+    def aux_arrays(self) -> tuple[np.ndarray, np.ndarray]:
+        """`(target float32 [T, H], mask bool [T, H])`: decision `i` on turn `t` has target
+        `probe(t + k)` for horizon `k`, masked out where that probe doesn't exist (the seat was
+        knocked out, the game ended, or the library has no boards then) and for the hero phase."""
+        turns = self.decision_turn or []
+        assert len(turns) == len(self.actions)
+        target = np.zeros((len(turns), len(self.aux_horizons)), dtype=np.float32)
+        mask = np.zeros(target.shape, dtype=np.bool_)
+        for i, t in enumerate(turns):
+            if t <= 0:
+                continue
+            for j, k in enumerate(self.aux_horizons):
+                v = self.probe_by_turn.get(t + k)
+                if v is not None:
+                    target[i, j] = v
+                    mask[i, j] = True
+        return target, mask
 
     def __len__(self) -> int:
         return len(self.actions)
 
-    def arrays(self) -> dict[str, np.ndarray]:
-        """The trajectory as arrays (compact dtypes, for sending between processes)."""
-        return {
+    def arrays(self, pack: bool = False) -> dict[str, np.ndarray]:
+        """The trajectory as arrays (compact dtypes, for sending between processes).
+
+        With `pack`, `slot_num_feats` becomes CSR rows (`num_ptr`, `num_idx`, `num_val`), `action_mask`
+        becomes `mask_bits` (`np.packbits`), `slot_card_ids` is uint16, and `packed` is True
+        (`packing.py`)."""
+        out = {
             "player_vec": np.asarray(self.player_vec, dtype=np.float32).reshape(-1, PLAYER_DIM),
-            "slot_card_ids": np.asarray(self.slot_card_ids, dtype=np.int32).reshape(-1, NUM_SLOTS),
-            "slot_num_feats": np.asarray(self.slot_num_feats, dtype=np.float16).reshape(
-                -1, NUM_SLOTS, SLOT_NUM_DIM
-            ),
-            "action_mask": np.asarray(self.action_mask, dtype=np.bool_).reshape(-1, ACTION_SPACE_SIZE),
             "actions": np.asarray(self.actions, dtype=np.int64),
             "log_probs": np.asarray(self.log_probs, dtype=np.float32),
             "values": np.asarray(self.values, dtype=np.float32),
             "rewards": np.asarray(self.rewards, dtype=np.float32),
             "turn_end": np.asarray(self.turn_end, dtype=np.bool_),
             "done": np.asarray(self.done),
+            "place": np.asarray(self.place, dtype=np.int64),
         }
+        if self.decision_turn is not None:
+            out["aux_target"], out["aux_mask"] = self.aux_arrays()
+        if self.search_policy is not None:
+            out["search_policy"] = np.asarray(self.search_policy, dtype=np.float16).reshape(-1, ACTION_SPACE_SIZE)
+        sparse = bool(self.num_idx)
+        feats = None
+        if not sparse:
+            feats = np.asarray(self.slot_num_feats, dtype=np.float16).reshape(-1, NUM_SLOTS, SLOT_NUM_DIM)
+        mask = np.asarray(self.action_mask, dtype=np.bool_).reshape(-1, ACTION_SPACE_SIZE)
+        if pack:
+            assert features.VOCAB_SIZE < 65536
+            out["slot_card_ids"] = np.asarray(self.slot_card_ids, dtype=np.uint16).reshape(-1, NUM_SLOTS)
+            if sparse:
+                ptr = np.zeros(len(self.num_idx) + 1, dtype=np.int64)
+                np.cumsum([len(i) for i in self.num_idx], out=ptr[1:])
+                out["num_ptr"] = ptr
+                out["num_idx"] = np.concatenate(self.num_idx)
+                out["num_val"] = np.concatenate(self.num_val)
+            else:
+                out["num_ptr"], out["num_idx"], out["num_val"] = packing.pack_rows(feats)
+            out["mask_bits"] = packing.pack_mask(mask)
+            out["packed"] = np.asarray(True)
+        else:
+            assert not sparse, "sparse trajectories can only be packed"
+            out["slot_card_ids"] = np.asarray(self.slot_card_ids, dtype=np.int32).reshape(-1, NUM_SLOTS)
+            out["slot_num_feats"] = feats
+            out["action_mask"] = mask
+        return out
 
 
 @dataclass
@@ -239,6 +361,9 @@ class GameResult:
     trajectories: list[dict[str, np.ndarray]]
     # The game's replay (protobuf bytes), with `PlayOptions.keep_replays`.
     replay: bytes | None = None
+    # Each player's turns (`PlayOptions.turn_stats`; empty without it): one entry per turn in which
+    # the player's unit was alive when the shopping ended.
+    turn_stats: list[list[TurnStat]] = field(default_factory=list)
 
     def save_replay(self, path: str | os.PathLike[str]) -> None:
         if self.replay is None:
@@ -262,6 +387,8 @@ class _Seat:
         self.arranging = False
         self.moves_left = 0
         self.froze = False
+        # The actions taken this phase, by kind.
+        self.kinds: dict[str, int] = {}
 
 
 def _bot(controller: str, seed: int) -> Any | None:
@@ -290,10 +417,38 @@ def play_games(
     models: dict[str, BattlegroundsMLP],
     options: PlayOptions | None = None,
     record: tuple[str, ...] = (LEARNER,),
+    *,
+    on_turn_end: Callable[[int, int, seaglass.LobbyGame, Any], None] | None = None,
 ) -> list[GameResult]:
     """Play `specs` to the end, in lockstep. `models` maps every model controller's name to its
-    model. The seats of the `record` controllers are returned as trajectories."""
+    model. The seats of the `record` controllers are returned as trajectories.
+
+    `on_turn_end(g, p, game, obs)` is called for every living player of game `g` when a turn's
+    shopping ends, before the combats. It is for in-process use (the probe library builder).
+    """
     opts = options or PlayOptions()
+    if (opts.turn_stats or opts.probe is not None or opts.aux_probe is not None) and config.duos:
+        raise ValueError("turn stats, the probe and the auxiliary probe targets are Solo-only")
+    searching = opts.search is not None and bool(opts.search_controllers)
+    if searching and config.duos:
+        raise ValueError("search is Solo-only")
+    if searching:
+        from . import search
+    if opts.auto_position is not None and config.duos:
+        raise ValueError("auto positioning is Solo-only")
+    if opts.auto_position is not None:
+        from . import positioning
+    library = None
+    if opts.probe is not None:
+        from . import probe
+
+        library = probe.library_for(opts.probe, config)
+    aux_library = None
+    if opts.aux_probe is not None:
+        from . import probe
+
+        aux_library = probe.library_for(opts.aux_probe, config)
+    stats: list[list[list[TurnStat]]] = [[[] for _ in range(config.players)] for _ in specs]
     games = [
         config.make(spec.seed, meta={"source": "seaglass_rl.play", "controllers": ",".join(spec.controllers)})
         for spec in specs
@@ -309,32 +464,62 @@ def play_games(
             if ctrl not in BOTS and ctrl not in models:
                 raise ValueError(f"no model for controller {ctrl!r}")
             traj = Trajectory(game=g, player=p) if ctrl in record else None
+            if traj is not None and opts.aux_probe is not None:
+                traj.decision_turn = []
+                traj.aux_horizons = tuple(opts.aux_horizons)
+            if traj is not None and searching and ctrl in opts.search_controllers:
+                traj.search_policy = []
             row.append(_Seat(ctrl, _bot(ctrl, spec.seed * 16 + p), traj))
         seats.append(row)
         views.append([Seat(game, p) for p in range(config.players)])
 
-    def mask_for(seat: Seat, obs: Any, st: _Seat) -> np.ndarray:
-        if not opts.positioning_phase:
-            return action_mask(
-                seat,
-                allow_reposition=opts.allow_reposition,
-                allow_freeze=opts.allow_freeze,
-                prune_dominated=opts.prune_dominated,
-                obs=obs,
-            )
-        mask = action_mask(
+    rust = features.rust_encoder() if opts.rust_encoder else None
+    sparse = rust is not None and opts.pack
+    # The shaping potential is the only thing left that reads a Python observation of a model seat.
+    needs_obs = bool(opts.shaping or opts.health_shaping)
+
+    def base_mask(seat: Seat, obs: Any, reposition: bool, freeze: bool) -> np.ndarray:
+        if rust is not None:
+            return fast_mask(rust, seat.game, seat.player, reposition, freeze, opts.prune_dominated)
+        return action_mask(
             seat,
-            allow_reposition=st.arranging,
-            allow_freeze=opts.allow_freeze and st.arranging and not st.froze,
+            allow_reposition=reposition,
+            allow_freeze=freeze,
             prune_dominated=opts.prune_dominated,
             obs=obs,
         )
+
+    def mask_for(seat: Seat, obs: Any, st: _Seat) -> np.ndarray:
+        if not opts.positioning_phase:
+            return base_mask(seat, obs, opts.allow_reposition, opts.allow_freeze)
+        mask = base_mask(seat, obs, st.arranging, opts.allow_freeze and st.arranging and not st.froze)
         if st.arranging:
             # The end-of-turn step: Repositions (while any are left), one Toggle Freeze, End Turn.
             if st.moves_left <= 0:
                 mask &= ~REPOSITION
             mask &= REPOSITION | FREEZE | (np.arange(ACTION_SPACE_SIZE) == END_TURN_INDEX)
         return mask
+
+    def position(g: int, p: int) -> None:
+        """Order the model seat's board by search, just before its turn ends."""
+        pos = opts.auto_position
+        game, st = games[g], seats[g][p]
+        if pos is None or st.bot is not None or game.is_done(p):
+            return
+        obs = views[g][p].observe()
+        board = list(obs.board)
+        if len(board) < 2:
+            return
+        opponents = positioning.opponent_boards(game, p, config, pos)
+        if not opponents:
+            return
+        seed = specs[g].seed * 7_919 + p * 101 + game.turn
+        perm, _ = positioning.best_order(board, opponents, obs.tavern_tier, seed, pos)
+        for f, t in positioning.moves_to(perm):
+            idx = ACTION_TO_INDEX[("reposition", f, t)]
+            if not game.is_legal(p, action_from_index(idx)):
+                break
+            _apply(game, p, st, idx, {"auto": "position"} if opts.keep_replays else None, kind="auto_position")
 
     def model_step(g: int, p: int, idx: int, note: dict[str, Any] | None, board: int) -> None:
         """Take a model's action, with the end-of-turn step ("prepping the board for battle"): its
@@ -349,6 +534,8 @@ def play_games(
             st.moves_left = board - 1 if opts.allow_reposition else 0
             st.steps += 1
             return
+        if idx == END_TURN_INDEX:
+            position(g, p)
         _apply(games[g], p, st, idx, note)
         if st.arranging and idx != END_TURN_INDEX:
             if FREEZE[idx]:
@@ -356,10 +543,12 @@ def play_games(
             else:
                 st.moves_left -= 1
             if st.moves_left <= 0 and (st.froze or not opts.allow_freeze) and not games[g].is_done(p):
+                position(g, p)
                 _apply(games[g], p, st, END_TURN_INDEX, None)
 
-    def close(traj: Trajectory, reward: float) -> None:
+    def close(traj: Trajectory, reward: float, place: int) -> None:
         """The seat's unit was placed: the terminal reward (and potential 0) end it."""
+        traj.place = place
         if traj.done or not traj.actions:
             traj.done = True
             return
@@ -385,6 +574,7 @@ def play_games(
                 st.arranging = False
                 st.moves_left = 0
                 st.froze = False
+                st.kinds = {}
         step = 0
         while True:
             # Who acts now: every player still to act, unless they are over the step cap. In Duos,
@@ -399,8 +589,8 @@ def play_games(
                 units: set[int] = set()
                 for p in active:
                     st = seats[g][p]
-                    cap = opts.max_steps_per_turn if st.bot is None else BOT_MAX_STEPS_PER_TURN
-                    if st.steps >= cap:
+                    cap = opts.max_steps_per_turn if st.bot is None else None
+                    if cap is not None and st.steps >= cap:
                         force_end(g, p)
                         continue
                     unit = game.unit_of(p)
@@ -413,6 +603,10 @@ def play_games(
             step += 1
             # The bots act one by one; the models in one batch each.
             by_model: dict[str, list[tuple[int, int, tuple, np.ndarray, float, int]]] = {}
+            # The searching seats of all the games (Solo: their searches are independent), run
+            # together after the loop: one forward per model per round over all their lines.
+            searches: list[tuple[int, int, tuple, np.ndarray, float, int]] = []
+            coros: list[Any] = []
             for g, p in todo:
                 game, st, seat = games[g], seats[g][p], views[g][p]
                 if st.bot is not None and st.traj is None:
@@ -421,10 +615,16 @@ def play_games(
                         idx = END_TURN_INDEX
                     _apply(game, p, st, idx, None)
                     continue
-                obs = seat.observe()
-                if st.context is None and game.phase == "turn":
-                    st.context = game.context(p)
-                enc = encode_observation(obs, st.context, arranging=st.arranging)
+                if rust is not None:
+                    obs = seat.observe() if needs_obs else None
+                    nboard = rust.board_len(game, p)
+                    enc = fast_encode(rust, game, p, st.arranging, game.phase == "turn", sparse=sparse and st.traj is not None)
+                else:
+                    obs = seat.observe()
+                    if st.context is None and game.phase == "turn":
+                        st.context = game.context(p)
+                    nboard = len(obs.board)
+                    enc = encode_observation(obs, st.context, arranging=st.arranging)
                 mask = mask_for(seat, obs, st)
                 if not mask.any():
                     force_end(g, p)
@@ -437,9 +637,58 @@ def play_games(
                         idx = END_TURN_INDEX
                     mask[idx] = True
                     _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
+                    board = nboard
+                    if (
+                        idx == END_TURN_INDEX
+                        and opts.positioning_phase
+                        and game.phase == "turn"
+                        and (board >= 2 or (opts.allow_freeze and not st.froze))
+                    ):
+                        # A model's End Turn would open the end-of-turn step here. Record the bot as
+                        # ending the step too, so a clone has seen that state and leaves it (bots
+                        # reposition and freeze while shopping instead).
+                        st.arranging = True
+                        st.moves_left = board - 1 if opts.allow_reposition else 0
+                        if rust is not None:
+                            enc = fast_encode(rust, game, p, True, game.phase == "turn", sparse=sparse and st.traj is not None)
+                        else:
+                            enc = encode_observation(obs, st.context, arranging=True)
+                        mask = mask_for(seat, obs, st)
+                        mask[idx] = True
+                        _record(st.traj, enc, mask, idx, 0.0, 0.0, phi, opts.gamma)
                     _apply(game, p, st, idx, None)
                     continue
-                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, len(obs.board)))
+                if (
+                    searching
+                    and st.controller in opts.search_controllers
+                    and game.phase == "turn"
+                    and not st.arranging
+                    and int(mask.sum()) >= 2
+                ):
+                    dseed = search.decision_seed(specs[g].seed, p, game.turn, st.steps)
+                    searches.append((g, p, enc, mask, phi, nboard))
+                    coros.append(
+                        search.search_coroutine(
+                            st.controller,
+                            game,
+                            p,
+                            opts,
+                            opts.search,
+                            np.random.default_rng(search.decision_seed(opts.search.seed, dseed, 1)),
+                            dseed,
+                            root=(enc, mask),
+                        )
+                    )
+                    continue
+                by_model.setdefault(st.controller, []).append((g, p, enc, mask, phi, nboard))
+            if coros:
+                for (g, p, enc, mask, phi, nboard), res in zip(searches, search.run_searches(models, coros)):
+                    st = seats[g][p]
+                    if st.traj is not None:
+                        _record(st.traj, enc, mask, res.action, res.log_prob, res.root_value, phi, opts.gamma)
+                        st.traj.search_policy[-1] = res.policy_target
+                    note = {"value": res.root_value, "logp": res.log_prob} if opts.keep_replays else None
+                    model_step(g, p, res.action, note, nboard)
             for ctrl, rows in by_model.items():
                 model = models[ctrl]
                 pv = np.stack([r[2][0] for r in rows])
@@ -455,17 +704,65 @@ def play_games(
                     model_step(g, p, int(acts[i]), note, board)
         for g in live:
             game = games[g]
+            if opts.aux_probe is not None:
+                # Stamp this phase's decisions with their turn (0 in the hero phase).
+                for st in seats[g]:
+                    if st.traj is not None:
+                        st.traj.decision_turn.extend(
+                            [game.turn if game.phase == "turn" else 0] * (len(st.traj.actions) - len(st.traj.decision_turn))
+                        )
+            if (opts.turn_stats or opts.aux_probe is not None or on_turn_end is not None) and game.phase == "turn":
+                alive = game.alive
+                for p in range(config.players):
+                    unit = game.unit_of(p)
+                    if not alive[unit]:
+                        continue
+                    obs = game.observe(p)
+                    if on_turn_end is not None:
+                        on_turn_end(g, p, game, obs)
+                    # One fight set per (seat, turn): the turn stat and the aux target share it.
+                    scores: dict[ProbeSpec, float | None] = {}
+
+                    def probe_of(spec: "ProbeSpec", lib: Any) -> float | None:
+                        if spec not in scores:
+                            scores[spec] = probe.score_board(
+                                lib,
+                                obs.board,
+                                obs.tavern_tier,
+                                game.turn,
+                                seed=specs[g].seed * 1_000_003 + p * 1_009 + game.turn,
+                                sims=spec.sims,
+                            )
+                        return scores[spec]
+
+                    if opts.turn_stats:
+                        stat = TurnStat(
+                            turn=game.turn,
+                            tier=obs.tavern_tier,
+                            gold_left=obs.gold,
+                            health=obs.health + obs.armor,
+                            board=len(obs.board),
+                            actions=dict(seats[g][p].kinds),
+                        )
+                        if opts.probe is not None and unit in specs[g].probe_units:
+                            stat.probe = probe_of(opts.probe, library)
+                        stats[g][p].append(stat)
+                    traj = seats[g][p].traj
+                    if opts.aux_probe is not None and traj is not None:
+                        score = probe_of(opts.aux_probe, aux_library)
+                        if score is not None:
+                            traj.probe_by_turn[game.turn] = score
             for unit in game.end_phase():
                 place = game.placements[unit]
                 assert place is not None
                 for p in game.unit_players(unit):
                     traj = seats[g][p].traj
                     if traj is not None:
-                        close(traj, placement_reward(place, config.units))
+                        close(traj, placement_reward(place, config.units), place)
 
     results = []
     for g, (game, spec) in enumerate(zip(games, specs)):
-        trajs = [s.traj.arrays() for s in seats[g] if s.traj is not None and s.traj.actions]
+        trajs = [s.traj.arrays(pack=opts.pack) for s in seats[g] if s.traj is not None and s.traj.actions]
         results.append(
             GameResult(
                 seed=spec.seed,
@@ -474,9 +771,13 @@ def play_games(
                 turns=game.turn,
                 trajectories=trajs,
                 replay=bytes(game.replay_bytes()) if opts.keep_replays else None,
+                turn_stats=stats[g] if opts.turn_stats else [],
             )
         )
     return results
+
+
+_NO_TARGET = np.zeros(ACTION_SPACE_SIZE, dtype=np.float32)
 
 
 def _record(
@@ -496,7 +797,19 @@ def _record(
         traj.rewards[-1] += disc * phi - traj.potentials[-1]
     traj.player_vec.append(enc[0])
     traj.slot_card_ids.append(enc[1])
-    traj.slot_num_feats.append(enc[2])
+    if len(enc) == 5:
+        # Sparse: keep only the nonzeros, as `packing.pack_rows` would (it drops entries whose
+        # float16 is zero, -0.0 included).
+        val = enc[4].astype(np.float16)
+        keep = (val.view(np.uint16) << np.uint16(1)) != 0
+        if keep.all():
+            traj.num_idx.append(enc[3])
+            traj.num_val.append(val)
+        else:
+            traj.num_idx.append(enc[3][keep])
+            traj.num_val.append(val[keep])
+    else:
+        traj.slot_num_feats.append(enc[2])
     traj.action_mask.append(mask)
     traj.actions.append(action)
     traj.log_probs.append(log_prob)
@@ -504,19 +817,34 @@ def _record(
     traj.rewards.append(0.0)
     traj.turn_end.append(False)
     traj.potentials.append(phi)
+    if traj.search_policy is not None:
+        traj.search_policy.append(_NO_TARGET)
 
 
-def _apply(game: seaglass.LobbyGame, p: int, st: _Seat, idx: int, note: dict[str, Any] | None) -> None:
-    """Take action `idx` for player `p`; mark the end of their turn on their trajectory."""
+def _apply(
+    game: seaglass.LobbyGame,
+    p: int,
+    st: _Seat,
+    idx: int,
+    note: dict[str, Any] | None,
+    kind: str | None = None,
+) -> None:
+    """Take action `idx` for player `p`; mark the end of their turn on their trajectory. `kind`
+    overrides the action's kind in `st.kinds`."""
     done = game.step(p, action_from_index(idx), note)
     st.steps += 1
+    kind = kind or ACTION_KINDS[ACTION_KIND_IDS[idx]]
+    st.kinds[kind] = st.kinds.get(kind, 0) + 1
     if done and st.traj is not None and st.traj.actions:
         st.traj.turn_end[-1] = True
 
 
 # -- Worker processes ---------------------------------------------------------------------------
 
-_MODEL_CACHE: dict[str, BattlegroundsMLP] = {}
+# Checkpoint models loaded in this worker, least recently used first; capped so a long run with
+# hundreds of snapshots doesn't grow a worker's memory without bound.
+_MODEL_CACHE: OrderedDict[str, BattlegroundsMLP] = OrderedDict()
+_MODEL_CACHE_SIZE = 32
 _THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
 
 
@@ -535,6 +863,10 @@ def _model_from(name: str, source: Any, seed: int) -> BattlegroundsMLP:
         if model is None:
             model, _ = checkpoint.load(source)
             _MODEL_CACHE[source] = model
+            while len(_MODEL_CACHE) > _MODEL_CACHE_SIZE:
+                _MODEL_CACHE.popitem(last=False)
+        else:
+            _MODEL_CACHE.move_to_end(source)
     else:
         config, state = source
         model = checkpoint.model_from_config(config)
@@ -585,11 +917,18 @@ class Player:
         seed: int = 0,
     ) -> list[GameResult]:
         options = options or PlayOptions()
+        def used_by(chunk: list[GameSpec]) -> dict[str, Any]:
+            # Only the models this chunk's games use (a worker loads them per chunk).
+            names = {name for spec in chunk for name in spec.controllers}
+            return {k: v for k, v in sources.items() if k in names}
+
         if self.pool is None:
-            return _play_chunk((config, specs, sources, options, record, seed))
+            return _play_chunk((config, specs, used_by(specs), options, record, seed))
         n = max(1, min(self.workers, len(specs)))
         chunks = [specs[i::n] for i in range(n)]
-        jobs = [(config, c, sources, options, record, seed + 7919 * i) for i, c in enumerate(chunks)]
+        jobs = []
+        for i, c in enumerate(chunks):
+            jobs.append((config, c, used_by(c), options, record, seed + 7919 * i))
         results: list[GameResult] = []
         for part in self.pool.map(_play_chunk, jobs):
             results.extend(part)

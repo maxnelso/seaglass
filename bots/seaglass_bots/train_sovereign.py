@@ -18,6 +18,7 @@ import numpy as np
 import seaglass
 import torch
 import torch.nn.functional as F
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, pick_device
 
 from .apex_search import ApexBot
 from .sovereign_model import (
@@ -41,7 +42,6 @@ def _trim_memory() -> None:
 def _play_mixed_ffa_game(args_tuple: Tuple[int, str | None]) -> Dict[str, Any]:
     """Play 1 pure 8-player FFA game mixing SovereignBot and ApexBot seats and record all 8 trajectories."""
     from seaglass_rl.env import compute_board_power
-    from seaglass_rl.play import BOT_MAX_STEPS_PER_TURN
 
     seed, weights_path = args_tuple
     featurizer = SovereignStateFeaturizer("full")
@@ -103,14 +103,12 @@ def _play_mixed_ffa_game(args_tuple: Tuple[int, str | None]) -> Dict[str, Any]:
                 )
 
         for p in list(lobby.active_players()):
-            steps = 0
-            while not lobby.is_done(p) and steps < BOT_MAX_STEPS_PER_TURN:
+            while not lobby.is_done(p):
                 act = bots[p].act_in_lobby(lobby, p)
                 if not lobby.is_legal(p, act):
                     lobby.force_end(p)
                     break
                 lobby.step(p, act)
-                steps += 1
             if not lobby.is_done(p):
                 lobby.force_end(p)
 
@@ -348,6 +346,7 @@ def train_model(
     batch_size: int = 256,
     lr: float = 4.5e-4,
     seed: int = 2029,
+    device: str | None = None,
 ) -> Dict[str, float]:
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -396,7 +395,7 @@ def train_model(
 
     featurizer = SovereignStateFeaturizer("full")
     tag_mat = np.asarray(featurizer.meta.tag_matrix, dtype=np.float32)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = pick_device(device)
     print(f"[TrainSovereign] Training on device={device}", flush=True)
 
     net = SovereignValueNet(
@@ -414,9 +413,9 @@ def train_model(
     num_t = torch.from_numpy(num).to(device)
     mask_t = torch.from_numpy(mask).to(device)
     glob_t = torch.from_numpy(glob).to(device)
-    soft_targets_t = torch.from_numpy(_build_ordinal_soft_targets(place)).to(device)
+    soft_targets_t = torch.from_numpy(_build_ordinal_soft_targets(place).astype(np.float32)).to(device)
     growth_t = torch.from_numpy(growth).to(device)
-    turn_weights_np = np.clip(0.25 + 0.15 * turn.astype(np.float32), 0.40, 1.15)
+    turn_weights_np = np.clip(0.25 + 0.15 * turn.astype(np.float32), 0.40, 1.15).astype(np.float32)
     turn_w_t = torch.from_numpy(turn_weights_np).to(device)
 
     decay_params = [p for n, p in net.named_parameters() if p.ndim >= 2 and "norm" not in n]
@@ -600,11 +599,18 @@ def main() -> None:
     parser.add_argument("--data-npz", nargs="*", default=[], help="Existing .npz datasets")
     parser.add_argument("--collect-games", type=int, default=0)
     parser.add_argument("--collect-out", type=str, default=None)
-    parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=8),
+        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 8)",
+    )
     parser.add_argument("--seed", type=int, default=1_400_000)
     parser.add_argument("--epochs", type=int, default=28)
     parser.add_argument("--out-weights", type=str, default=str(DEFAULT_SOVEREIGN_NPZ_PATH))
+    add_device_arg(parser)
     args = parser.parse_args()
+    torch.set_num_threads(default_threads())
 
     all_npz = list(args.data_npz)
     if args.collect_games > 0:
@@ -627,6 +633,7 @@ def main() -> None:
         out_weights=args.out_weights,
         epochs=args.epochs,
         seed=args.seed,
+        device=args.device,
     )
 
 

@@ -5,6 +5,7 @@
 
 #![allow(clippy::useless_conversion)]
 
+mod encode;
 mod lobby;
 mod replay;
 
@@ -2359,5 +2360,6 @@ pub fn seaglass(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_unit, m)?)?;
     replay::register(m)?;
     lobby::register(m)?;
+    m.add_class::<encode::PyEncoder>()?;
     Ok(())
 }

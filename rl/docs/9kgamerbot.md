@@ -51,4 +51,4 @@ python -m seaglass_rl.evaluate 9kgamerbot --opponents heuristic --games 96
 python -m seaglass_rl.evaluate runs/NAME/latest.pt --opponents 9kgamerbot --duos --games 96
 ```
 
-A bot's turn may take up to `play.BOT_MAX_STEPS_PER_TURN` (100) steps, more than a model's `max_steps_per_turn`, because it rolls, buys and sells many times a turn.
+A bot's turn lasts until it ends it or the engine's turn timer runs out (`engine/docs/lobby_game.md` §2).

@@ -58,7 +58,8 @@ fn record_match(path: &Path, seed: u64) {
                         .iter()
                         .map(|a| pb::Candidate {
                             action: Some(replay::action_to_pb(a)),
-                            prob,
+                            prob: Some(prob),
+                            ..Default::default()
                         })
                         .collect(),
                     ..Default::default()
@@ -151,4 +152,47 @@ fn html_writes_the_page_where_asked() {
 
     let out = match_replay_html(&replay, &["-o"]);
     assert!(!out.status.success(), "-o without a file is an error");
+}
+
+#[test]
+fn html_player_writes_the_player_page() {
+    let dir = scratch_dir("player_page");
+    let replay = dir.join("game.replay.pb");
+    record_match(&replay, 5);
+
+    let out = match_replay_html(&replay, &["--player", "1"]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let page = dir.join("game.p1.html");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains(&page.display().to_string()), "{stdout}");
+    assert!(!dir.join("game.html").exists());
+
+    let data = embedded_data(&page);
+    let timeline = Timeline::load(&replay).unwrap();
+    assert_eq!(data["focus"], 1);
+    assert_eq!(data["frames"].as_array().unwrap().len(), timeline.len());
+    let actions = data["frames"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|frame| frame["action"].is_object())
+        .count();
+    assert_eq!(actions, data["actions"].as_u64().unwrap() as usize);
+
+    // A name works too (case-insensitive); an unknown player is an error.
+    let named = dir.join("named.html");
+    let out = match_replay_html(&replay, &["--player", "p2", "-o", named.to_str().unwrap()]);
+    assert!(out.status.success());
+    assert_eq!(embedded_data(&named)["focus"], 1);
+    let out = match_replay_html(&replay, &["--player", "nobody"]);
+    assert!(!out.status.success());
+    let out = match_replay_html(&replay, &["--player"]);
+    assert!(
+        !out.status.success(),
+        "--player without a player is an error"
+    );
 }

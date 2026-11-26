@@ -178,6 +178,10 @@ kbd { padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px;
 .bar { height: 8px; overflow: hidden; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); }
 .bar span { display: block; height: 100%; background: var(--accent); }
 .cand .act { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand.scored { grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; row-gap: 0; }
+.cand .score { text-align: right; font-variant-numeric: tabular-nums; }
+.cand .lab { color: var(--muted); font-weight: 400; }
+.cand .plan { grid-column: 2; color: var(--muted); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
 
 /* Combat. */
 .outcome { font-size: 15px; font-weight: 650; }
@@ -389,6 +393,7 @@ kbd { padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px;
     if (u.deity) classes.push("deity");
     if (opt.mark) classes.push(opt.mark);
     const tip = [unitText(u)];
+    if (DATA.card_text && DATA.card_text[u.card]) tip.push(DATA.card_text[u.card]);
     if (opt.was !== undefined) tip.push("was " + unitText(UNITS[opt.was]));
     if (opt.pool) tip.push(`${opt.pool[0]} of ${opt.pool[1]} copies left in the pool`);
     let corner = "";
@@ -467,10 +472,19 @@ kbd { padding: 0 4px; border: 1px solid var(--border); border-bottom-width: 2px;
     Object.entries(note.extra || {}).forEach(([k, v]) => chips.push(`<span class="stat">${esc(k)} <b>${num(v)}</b></span>`));
     let candidates = "";
     if (note.candidates) {
-      candidates = `<div class="cands">` + note.candidates.map((c) =>
-        `<div class="cand${c.chosen ? " chosen" : ""}"><span class="pct">${pct(c.prob)}</span>` +
-        `<span class="bar"><span style="width:${(100 * Math.min(1, Math.max(0, c.prob))).toFixed(1)}%"></span></span>` +
-        `<span class="act" title="${esc(c.action)}">${esc(c.action)}${c.chosen ? " ← taken" : ""}</span></div>`).join("") + `</div>`;
+      const cand = (c) => {
+        const mark = c.chosen ? " ← taken" : "";
+        if (c.score === undefined) {
+          return `<div class="cand${c.chosen ? " chosen" : ""}"><span class="pct">${c.prob === undefined ? "" : pct(c.prob)}</span>` +
+            `<span class="bar"><span style="width:${(100 * Math.min(1, Math.max(0, c.prob || 0))).toFixed(1)}%"></span></span>` +
+            `<span class="act" title="${esc(c.action)}">${esc(c.action)}${mark}</span></div>`;
+        }
+        const label = c.label ? `<span class="lab">${esc(c.label)}</span> ` : "";
+        const plan = c.plan ? `<span class="plan">${c.plan.map(esc).join(" → ")}</span>` : "";
+        return `<div class="cand scored${c.chosen ? " chosen" : ""}"><span class="score">${num(c.score)}</span>` +
+          `<span class="act" title="${esc(c.action)}">${label}${esc(c.action)}${mark}</span>${plan}</div>`;
+      };
+      candidates = `<div class="cands">` + note.candidates.map(cand).join("") + `</div>`;
     }
     const title = note.candidates ? `Note · ${plural(note.candidates.length, "candidate")}` : "Note";
     return `<section class="panel note"><h2>${title}</h2><div class="stats">${chips.join("")}</div>${candidates}</section>`;

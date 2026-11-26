@@ -546,9 +546,7 @@ pub fn trinkets_clause(s: &TavernState) -> Option<String> {
         .auras
         .trinkets
         .iter()
-        .filter_map(|t| {
-            seaglass::trinkets::data(t.card_id).map(seaglass::trinkets::display_name)
-        })
+        .filter_map(|t| seaglass::trinkets::data(t.card_id).map(seaglass::trinkets::display_name))
         .collect();
     (!names.is_empty()).then(|| format!("Trinkets: {}", names.join(", ")))
 }
@@ -694,9 +692,8 @@ impl CombatPlayback {
         let [name_a, name_b] = names.map(str::to_string);
         let sim = SimBuilder::new(move |s| {
             let (mut sim_a, mut sim_b) = (cap_a.clone(), cap_b.clone());
-            let (result, snapshots) = with_combat_trace(|| {
-                TavernState::resolve_combat_pair(&mut sim_a, &mut sim_b, s)
-            });
+            let (result, snapshots) =
+                with_combat_trace(|| TavernState::resolve_combat_pair(&mut sim_a, &mut sim_b, s));
             Self::build_solo(
                 result,
                 snapshots,

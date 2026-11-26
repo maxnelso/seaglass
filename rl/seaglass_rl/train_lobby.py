@@ -3,21 +3,29 @@
     python -m seaglass_rl.train_lobby --run-dir runs/solo --iterations 500
     python -m seaglass_rl.train_lobby --run-dir runs/duos --duos --iterations 500
     python -m seaglass_rl.train_lobby --run-dir runs/solo --resume runs/solo/latest.pt
+    python -m seaglass_rl.train_lobby --run-dir runs/solo --device mps  # updates on the GPU (auto: CUDA, MPS, CPU)
     python -m seaglass_rl.train_lobby --run-dir runs/solo-tf --model transformer  # `transformer.py`
 
 Each iteration:
 1. **Play** `--games` lobbies across `--workers` processes. In each one, the learner controls
    `--learner-units` units (Solo players, or whole Duos teams: both teammates share the policy).
-   The opponent pool fills the rest: HeuristicBots and frozen snapshots of the learner, taken
-   every `--snapshot-every` iterations, with the latest `--pool-size` kept.
+   The league fills the rest: rule bots (`--bots`, each opponent seat with chance `--p-bot`) and
+   frozen snapshots of the learner, taken every `--snapshot-every` iterations. Every snapshot is
+   kept on disk; each iteration's opponents are the latest `--pool-recent` plus `--pool-history`
+   drawn at random from the older ones.
 2. **Update**: PPO on the learner's decisions (`ppo.py`). The reward is the unit's placement
-   (`play.placement_reward`), plus optional potential-based shaping (`--shaping`). Discounting
-   happens per turn.
-3. **Every `--eval-every` iterations**: evaluate the learner's average place, alone against
-   HeuristicBots (`evaluate.py`), and save `latest.pt`.
+   (`play.placement_reward`), plus optional potential-based shaping (`--shaping`, off by default).
+   Discounting and GAE's lambda both apply per turn (`--gamma` 1, `--lam-per turn`). The critic is
+   a distribution over the final place (`--value-head placement`), trained with cross-entropy;
+   its expectation is the value. That equals the return only with gamma 1 and no shaping, so
+   the trainer refuses a placement critic with either.
+3. **Every `--eval-every` iterations**: rate the learner on a ladder of rule bots (`--eval-ladder`,
+   default `fast`: `ladder.py`, 500 lobbies, with the per-turn probe), and save `latest.pt`.
+   `--eval-ladder heuristic` keeps the older, weaker check: alone against HeuristicBots
+   (`evaluate.py`).
 
-The run directory holds `args.json`, `log.jsonl` (one line per iteration), `latest.pt` and
-`snapshots/iter_XXXXX.pt`.
+The run directory holds `args.json`, `log.jsonl` (one line per iteration), `latest.pt`,
+`snapshots/iter_XXXXX.pt` and `evals/iter_XXXXX.json` (the full ladder results).
 """
 
 from __future__ import annotations
@@ -34,9 +42,13 @@ import torch
 
 from . import checkpoint
 from .behavior import behavior_stats, format_behavior
+from .device import add_device_arg, cpu_state_dict, default_threads, default_workers, empty_cache, pick_device
+from . import ladder
 from .evaluate import evaluate, format_result
 from .model import BattlegroundsMLP
-from .play import LobbyConfig, LEARNER, GameSpec, Player, PlayOptions
+from .play import BOTS, LobbyConfig, LEARNER, GameSpec, Player, PlayOptions
+from .positioning import PositionSpec
+from .probe import ProbeSpec
 from .ppo import build_batch, ppo_update
 from .transformer import EntityTransformer
 
@@ -51,8 +63,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--players", type=int, default=8)
     p.add_argument("--max-turns", type=int, default=30)
     p.add_argument("--no-heroes", action="store_true")
-    p.add_argument("--max-steps-per-turn", type=int, default=30)
+    p.add_argument(
+        "--max-steps-per-turn",
+        type=int,
+        default=None,
+        help="cap a model's decisions per phase, on top of the engine's turn timer (default: none, the timer "
+        "only). Set one with --no-positioning-phase, where a model can Reposition back and forth",
+    )
     p.add_argument("--no-reposition", action="store_true")
+    p.add_argument(
+        "--auto-position",
+        action="store_true",
+        help="order the board at the end of each turn by search with the combat simulator (positioning.py); "
+        "meant for --no-reposition",
+    )
     p.add_argument(
         "--no-positioning-phase",
         action="store_true",
@@ -64,38 +88,96 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--prune", action="store_true", help="mask the sells and refreshes `prune_dominated` rules out")
     # Collection
     p.add_argument("--iterations", type=int, default=500)
+    p.add_argument(
+        "--time-limit",
+        type=float,
+        default=None,
+        metavar="HOURS",
+        help="stop after the first iteration that ends past this many hours, with a final save and evaluation",
+    )
     p.add_argument("--games", type=int, default=64, help="lobbies per iteration")
-    p.add_argument("--workers", type=int, default=12)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(),
+        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores)",
+    )
     p.add_argument("--learner-units", type=int, default=None, help="default: half the units")
-    p.add_argument("--p-heuristic", type=float, default=None, help="chance an opponent is a HeuristicBot (default 0.3; 0 with --pure)")
+    p.add_argument(
+        "--bots",
+        default="9kgamerbot,9kgamerbot-tempo",
+        help="comma-separated rule bots (from `play.BOTS`) that fill the league's bot seats",
+    )
+    p.add_argument(
+        "--p-bot", type=float, default=None, help="chance an opponent seat is a rule bot from --bots (default 0.3; 0 with --pure)"
+    )
+    p.add_argument("--p-heuristic", type=float, default=None, help="deprecated: --p-bot with --bots heuristic")
     p.add_argument(
         "--pure",
         action="store_true",
-        help="pure self-play: no HeuristicBots in training; the learner fills every seat until the first "
-        "snapshot, then plays against its snapshots (evaluation still uses HeuristicBots)",
+        help="pure self-play: no rule bots in training; the learner fills every seat until the first "
+        "snapshot, then plays against its snapshots (evaluation still uses the rule bots)",
     )
     p.add_argument("--snapshot-every", type=int, default=10)
-    p.add_argument("--pool-size", type=int, default=10)
+    p.add_argument("--pool-recent", type=int, default=4, help="the latest snapshots that are opponents every iteration")
+    p.add_argument(
+        "--pool-history", type=int, default=4, help="older snapshots drawn at random each iteration (without replacement)"
+    )
+    p.add_argument("--pool-size", type=int, default=None, help="deprecated: --pool-recent N --pool-history 0")
     # PPO
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--anneal-lr", action="store_true")
     p.add_argument("--epochs", type=int, default=4)
     p.add_argument("--minibatch", type=int, default=4096)
-    p.add_argument("--gamma", type=float, default=0.97, help="discount per turn")
-    p.add_argument("--lam", type=float, default=0.95)
+    p.add_argument("--gamma", type=float, default=1.0, help="discount per turn")
+    p.add_argument("--lam", type=float, default=0.95, help="GAE lambda (per turn, or per action with --lam-per action)")
+    p.add_argument(
+        "--lam-per", choices=("turn", "action"), default="turn", help="apply lambda once per turn, or at every action"
+    )
     p.add_argument("--clip", type=float, default=0.2)
     p.add_argument("--ent-coef", type=float, default=0.003)
     p.add_argument("--vf-coef", type=float, default=0.5)
     p.add_argument("--target-kl", type=float, default=0.03)
-    p.add_argument("--shaping", type=float, default=0.3, help="coefficient of the board-power potential (0: off)")
+    p.add_argument("--shaping", type=float, default=0.0, help="coefficient of the board-power potential (0: off)")
     p.add_argument("--health-shaping", type=float, default=0.0, help="coefficient of the Health potential (0: off)")
     # Model
     add_model_args(p)
     p.add_argument("--no-kind-prior", action="store_true", help="spread the untrained policy over actions, not kinds")
-    p.add_argument("--threads", type=int, default=8, help="torch threads for the update")
+    p.add_argument(
+        "--threads",
+        type=int,
+        default=default_threads(),
+        help="torch threads for the update (default: $SEAGLASS_THREADS, else half the cores, at most 8)",
+    )
+    add_device_arg(p)
     # Evaluation
     p.add_argument("--eval-every", type=int, default=20)
-    p.add_argument("--eval-games", type=int, default=96)
+    p.add_argument(
+        "--eval-ladder",
+        choices=("fast", "slow", "heuristic"),
+        default=None,
+        help="what the evaluation plays: a ladder of rule bots (`ladder.py`), or `heuristic`: alone against "
+        "HeuristicBots (default: fast in 8-player Solo, heuristic otherwise)",
+    )
+    p.add_argument(
+        "--eval-games",
+        type=int,
+        default=None,
+        help="lobbies per evaluation (default: the ladder's own size, 500 fast / 100 slow; 96 for heuristic)",
+    )
+    p.add_argument(
+        "--aux-coef",
+        type=float,
+        default=0.0,
+        help="weight of the auxiliary loss: predict the board's probe score (`probe.py`) at the turn horizons "
+        "of --aux-horizons ahead, from the trunk. 0: off. A fresh model gets one aux head per horizon",
+    )
+    p.add_argument(
+        "--aux-horizons",
+        default="0,2,4",
+        help="turns ahead the auxiliary head predicts the board probe at (comma-separated; 0 is this turn's board)",
+    )
+    p.add_argument("--no-eval-probe", action="store_true", help="skip the per-turn board probe in ladder evaluations")
     p.add_argument("--replays", action="store_true", help="save a few eval games as replays in RUN_DIR/replays/iter_XXXXX")
     p.add_argument("--seed", type=int, default=0)
     return p.parse_args(argv)
@@ -113,10 +195,30 @@ def add_model_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--layers", type=int, default=3, help="transformer: encoder layers")
     p.add_argument("--heads", type=int, default=4, help="transformer: attention heads")
     p.add_argument("--ff", type=int, default=128, help="transformer: feed-forward width")
+    p.add_argument(
+        "--value-head",
+        choices=("placement", "scalar"),
+        default="placement",
+        help="the critic: a distribution over the final place (default), or a scalar return",
+    )
 
 
-def build_model(args: argparse.Namespace, kind_prior: bool) -> torch.nn.Module:
-    """A fresh model of the architecture `args` name (`add_model_args`)."""
+def aux_horizons(args: argparse.Namespace) -> tuple[int, ...]:
+    """`--aux-horizons` as a tuple when the auxiliary loss is on (`--aux-coef > 0`), else ()."""
+    if getattr(args, "aux_coef", 0.0) <= 0:
+        return ()
+    try:
+        hs = tuple(int(x) for x in args.aux_horizons.split(",") if x.strip())
+    except ValueError:
+        raise SystemExit(f"--aux-horizons: not a comma-separated list of integers: {args.aux_horizons!r}")
+    if not hs or any(h < 0 for h in hs):
+        raise SystemExit("--aux-horizons needs at least one non-negative integer")
+    return hs
+
+
+def build_model(args: argparse.Namespace, kind_prior: bool, units: int) -> torch.nn.Module:
+    """A fresh model of the architecture `args` name (`add_model_args`), for a lobby of `units` units."""
+    value_places = units if args.value_head == "placement" else 0
     if args.model == "transformer":
         return EntityTransformer(
             card_embed_dim=args.embed,
@@ -128,6 +230,8 @@ def build_model(args: argparse.Namespace, kind_prior: bool) -> torch.nn.Module:
             seed=args.seed,
             kind_prior=kind_prior,
             static_features=not args.no_static_features,
+            value_places=value_places,
+            aux_heads=len(aux_horizons(args)),
         )
     return BattlegroundsMLP(
         hidden_dim=args.hidden,
@@ -135,6 +239,8 @@ def build_model(args: argparse.Namespace, kind_prior: bool) -> torch.nn.Module:
         seed=args.seed,
         kind_prior=kind_prior,
         static_features=not args.no_static_features,
+        value_places=value_places,
+        aux_heads=len(aux_horizons(args)),
     )
 
 
@@ -149,37 +255,62 @@ def lobby_config(args: argparse.Namespace) -> LobbyConfig:
     )
 
 
-def play_options(args: argparse.Namespace, deterministic: bool = False) -> PlayOptions:
+def play_options(args: argparse.Namespace, deterministic: bool = False, aux: bool = False) -> PlayOptions:
+    """The rollout rules of `args`. With `aux` (training rollouts only) and `--aux-coef > 0`, the
+    recorded seats also get the probe targets."""
+    horizons = aux_horizons(args) if aux else ()
     return PlayOptions(
+        # Its own reference boards (another seed), so the ladder's probe stays an independent check.
+        aux_probe=ProbeSpec(seed=32_000_000) if horizons else None,
+        aux_horizons=horizons or (0, 2, 4),
         max_steps_per_turn=args.max_steps_per_turn,
         positioning_phase=not args.no_positioning_phase,
         allow_reposition=not args.no_reposition,
         allow_freeze=not args.no_freeze,
         prune_dominated=args.prune,
+        auto_position=PositionSpec() if args.auto_position else None,
         deterministic=deterministic,
         gamma=args.gamma,
         shaping=args.shaping,
         health_shaping=args.health_shaping,
+        pack=True,
     )
 
 
+def opponent_set(pool: list[str], recent: int, history: int, rng: random.Random) -> list[str]:
+    """This iteration's snapshot opponents: the latest `recent` of `pool` (oldest first), plus
+    `history` drawn uniformly without replacement from the older ones."""
+    latest = pool[len(pool) - recent :] if recent > 0 else []
+    older = pool[: len(pool) - len(latest)]
+    return rng.sample(older, min(history, len(older))) + latest
+
+
 def make_specs(
-    config: LobbyConfig, games: int, learner_units: int, pool: list[str], p_heuristic: float, rng: random.Random, seed: int
+    config: LobbyConfig,
+    games: int,
+    learner_units: int,
+    opponents: list[str],
+    bots: list[str],
+    p_bot: float,
+    rng: random.Random,
+    seed: int,
 ) -> list[GameSpec]:
-    """The iteration's games: the learner in `learner_units` random units, the pool in the rest. With
-    no snapshot yet and no HeuristicBots (`p_heuristic` 0), the learner fills every unit."""
+    """The iteration's games: the learner in `learner_units` random units, the league in the rest.
+    Each opponent seat is a rule bot from `bots` (uniformly) with chance `p_bot`, or a snapshot from
+    `opponents`; with no snapshot yet it is always a bot. With no snapshot and no bots (`p_bot` 0
+    or `bots` empty), the learner fills every unit."""
     specs = []
     for g in range(games):
         controllers = []
-        everyone = not pool and p_heuristic <= 0
+        everyone = not opponents and (p_bot <= 0 or not bots)
         mine = set(range(config.units)) if everyone else set(rng.sample(range(config.units), learner_units))
         for u in range(config.units):
             if u in mine:
                 controllers.append(LEARNER)
-            elif not pool or rng.random() < p_heuristic:
-                controllers.append("heuristic")
+            elif bots and (not opponents or rng.random() < p_bot):
+                controllers.append(rng.choice(bots))
             else:
-                controllers.append(rng.choice(pool))
+                controllers.append(rng.choice(opponents))
         specs.append(GameSpec(seed=seed + g, controllers=controllers))
     return specs
 
@@ -188,15 +319,32 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     run = Path(args.run_dir)
     (run / "snapshots").mkdir(parents=True, exist_ok=True)
+    device = pick_device(args.device)
+    args.device = str(device)
     torch.manual_seed(args.seed)
     torch.set_num_threads(args.threads)
     rng = random.Random(args.seed)
     config = lobby_config(args)
+    if args.eval_ladder is None:
+        args.eval_ladder = "heuristic" if config.duos or config.players != 8 else "fast"
+    if args.eval_ladder != "heuristic" and (config.duos or config.players != 8):
+        raise SystemExit("the ladders are 8-player Solo lobbies: use --eval-ladder heuristic here")
     learner_units = args.learner_units or max(1, config.units // 2)
-    if args.p_heuristic is None:
-        args.p_heuristic = 0.0 if args.pure else 0.3
-    if args.pure and (args.init or args.p_heuristic > 0):
-        raise SystemExit("--pure learns from scratch: no --init and no HeuristicBots in training")
+    if args.p_heuristic is not None:  # deprecated alias
+        args.p_bot, args.bots = args.p_heuristic, "heuristic"
+    if args.p_bot is None:
+        args.p_bot = 0.0 if args.pure else 0.3
+    if args.pool_size is not None:  # deprecated alias
+        args.pool_recent, args.pool_history = args.pool_size, 0
+    bots = [b for b in args.bots.split(",") if b]
+    unknown = [b for b in bots if b not in BOTS]
+    if unknown:
+        raise SystemExit(f"--bots: unknown bots {unknown} (choose from {', '.join(BOTS)})")
+    if args.pure and (args.init or args.p_bot > 0):
+        raise SystemExit("--pure learns from scratch: no --init and no rule bots in training")
+    if args.pure and (args.auto_position or args.aux_coef > 0):
+        # Both score boards against a probe library of the rule bots' boards: hand-written play.
+        raise SystemExit("--pure trains on no rule bots' play: no --auto-position and no --aux-coef")
 
     start = 0
     if args.resume:
@@ -205,19 +353,31 @@ def main(argv: list[str] | None = None) -> None:
     elif args.init:
         model, _ = checkpoint.load(args.init)
     else:
-        model = build_model(args, kind_prior=not args.no_kind_prior)
-    model.eval()
+        model = build_model(args, kind_prior=not args.no_kind_prior, units=config.units)
+    if args.aux_coef > 0 and model.config.get("aux_heads", 0) != len(aux_horizons(args)):
+        raise SystemExit(
+            f"--aux-coef with --aux-horizons {args.aux_horizons} needs {len(aux_horizons(args))} aux heads, but "
+            f"the {'--resume' if args.resume else '--init'} checkpoint has {model.config.get('aux_heads', 0)}. "
+            "A model can't grow a head in place: start fresh with the same horizons."
+        )
+    if model.config.get("value_places", 0) > 0 and (args.gamma != 1.0 or args.shaping != 0.0 or args.health_shaping != 0.0):
+        raise SystemExit(
+            "a placement critic needs --gamma 1 and no shaping (--shaping 0 --health-shaping 0): the "
+            "expectation of the placement reward is the return only then. Use --value-head scalar "
+            "otherwise."
+        )
+    model.to(device).eval()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, eps=1e-5)
     if args.resume and "optimizer_state" in ckpt:
         optimizer.load_state_dict(ckpt["optimizer_state"])
     (run / "args.json").write_text(json.dumps(vars(args), indent=2))
-    pool = sorted(str(p) for p in (run / "snapshots").glob("iter_*.pt"))[-args.pool_size :]
+    pool = sorted(str(p) for p in (run / "snapshots").glob("iter_*.pt"))
 
     n_params = sum(p.numel() for p in model.parameters())
     print(
         f"[{'Duos' if config.duos else 'Solo'}] {config.players} players, learner in {learner_units}/"
         f"{config.units} units{' (pure self-play: every unit until the first snapshot)' if args.pure else ''}, "
-        f"{args.games} games/iter, {n_params / 1e6:.2f}M params",
+        f"{args.games} games/iter, {n_params / 1e6:.2f}M params, device {device}",
         flush=True,
     )
     player = Player(args.workers)
@@ -240,16 +400,18 @@ def main(argv: list[str] | None = None) -> None:
                 frac = 1.0 - (it - start - 1) / args.iterations
                 for g in optimizer.param_groups:
                     g["lr"] = args.lr * frac
+            opponents = opponent_set(pool, args.pool_recent, args.pool_history, rng)
             specs = make_specs(
-                config, args.games, learner_units, pool, args.p_heuristic, rng, seed=args.seed * 10_000_019 + it * 1000
+                config, args.games, learner_units, opponents, bots, args.p_bot, rng, seed=args.seed * 10_000_019 + it * 1000
             )
-            source = (dict(model.config), {k: v.detach().clone() for k, v in model.state_dict().items()})
+            source = (dict(model.config), cpu_state_dict(model))
             sources: dict[str, Any] = {LEARNER: source}
-            sources.update({p: p for p in pool})
-            results = player.play(config, specs, sources, play_options(args), seed=it)
+            used = {c for spec in specs for c in spec.controllers}
+            sources.update({p: p for p in opponents if p in used})
+            results = player.play(config, specs, sources, play_options(args, aux=True), seed=it)
             t_play = time.time() - t0
             trajs = [t for r in results for t in r.trajectories]
-            batch = build_batch(trajs, args.gamma, args.lam)
+            batch = build_batch(trajs, args.gamma, args.lam, args.lam_per)
             metrics = ppo_update(
                 model,
                 optimizer,
@@ -260,7 +422,9 @@ def main(argv: list[str] | None = None) -> None:
                 vf_coef=args.vf_coef,
                 ent_coef=args.ent_coef,
                 target_kl=args.target_kl,
+                aux_coef=args.aux_coef,
             )
+            empty_cache(device)
             places = [r.placements[u] for r in results for u in range(config.units) if r.controllers[u] == LEARNER]
             row: dict[str, Any] = {
                 "iter": it,
@@ -274,33 +438,62 @@ def main(argv: list[str] | None = None) -> None:
             if it % args.snapshot_every == 0:
                 snap = run / "snapshots" / f"iter_{it:05d}.pt"
                 checkpoint.save(snap, model, iteration=it, args=vars(args))
-                pool = (pool + [str(snap)])[-args.pool_size :]
-            if it % args.eval_every == 0 or it == start + args.iterations:
+                pool = pool + [str(snap)]
+            out_of_time = args.time_limit is not None and time.time() - t_start >= args.time_limit * 3600
+            last = it == start + args.iterations or out_of_time
+            if it % args.eval_every == 0 or last:
                 checkpoint.save(run / "latest.pt", model, optimizer, iteration=it, args=vars(args))
-                res = evaluate(
-                    (dict(model.config), model.state_dict()),
-                    ["heuristic"],
-                    config,
-                    games=args.eval_games,
-                    agent_units=1,
-                    seed=999_000,
-                    player=player,
-                    options=play_options(args),
-                    replay_dir=str(run / "replays" / f"iter_{it:05d}") if args.replays else None,
-                )
-                row["eval_vs_heuristic"] = res
+                replays = str(run / "replays" / f"iter_{it:05d}") if args.replays else None
+                if args.eval_ladder == "heuristic":
+                    res = evaluate(
+                        (dict(model.config), cpu_state_dict(model)),
+                        ["heuristic"],
+                        config,
+                        games=args.eval_games or 96,
+                        agent_units=1,
+                        seed=999_000,
+                        player=player,
+                        options=play_options(args),
+                        replay_dir=replays,
+                    )
+                    row["eval_vs_heuristic"] = res
+                    print("  " + format_result(f"eval iter {it}", res), flush=True)
+                else:
+                    res = ladder.rate(
+                        (dict(model.config), cpu_state_dict(model)),
+                        ladder=args.eval_ladder,
+                        games=args.eval_games,
+                        config=config,
+                        player=player,
+                        options=play_options(args),
+                        probe=None if args.no_eval_probe else ProbeSpec(),
+                        replay_dir=replays,
+                    )
+                    (run / "evals").mkdir(exist_ok=True)
+                    (run / "evals" / f"iter_{it:05d}.json").write_text(json.dumps(res))
+                    row["eval"] = {
+                        "ladder": res["meta"]["ladder"],
+                        "games": res["meta"]["games"],
+                        "agent": res["agent"],
+                        "tier": {t: e["tier"] for t, e in res["by_turn"]["agent"].items()},
+                        "probe": {t: e["probe"] for t, e in res["by_turn"]["agent"].items() if "probe" in e},
+                    }
+                    print("  " + ladder.format_summary(res), flush=True)
                 row["behavior"] = behavior_stats(trajs)
-                print("  " + format_result(f"eval iter {it}", res), flush=True)
                 print(format_behavior(row["behavior"]), flush=True)
             print(
                 f"iter {it:5d} | place {row['learner_place']:.2f} | steps {row['steps']:6d} | "
                 f"turns {row['turns']:.1f} | pi {row['policy_loss']:+.3f} v {row['value_loss']:.3f} "
                 f"ent {row['entropy']:.2f} kl {row['kl']:.3f} ev {row['explained_var']:.2f} | "
-                f"play {row['play_s']}s upd {row['update_s']}s | {time.time() - t_start:.0f}s",
+                + (f"aux {row['aux_loss']:.3f} | " if args.aux_coef > 0 else "")
+                + f"play {row['play_s']}s upd {row['update_s']}s | {time.time() - t_start:.0f}s",
                 flush=True,
             )
             log.write(json.dumps(row) + "\n")
             log.flush()
+            if out_of_time:
+                print(f"time limit of {args.time_limit} hours reached after iteration {it}", flush=True)
+                break
     finally:
         log.close()
         player.close()

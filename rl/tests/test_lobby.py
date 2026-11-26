@@ -244,7 +244,9 @@ def test_behavior_cloning_learns_from_recorded_bots() -> None:
     data = collect(config, games=2, workers=0, options=PlayOptions(shaping=0.3), seed=5)
     n = len(data["actions"])
     assert n > 50 and data["returns"].shape == (n,)
-    assert data["action_mask"][np.arange(n), data["actions"]].all()
+    from seaglass_rl.packing import unpack_mask  # the dataset is packed
+
+    assert unpack_mask(data["mask_bits"], np.arange(n))[np.arange(n), data["actions"]].all()
     model = BattlegroundsMLP(hidden_dim=32, card_embed_dim=4, kind_prior=True)
     stats = train(model, data, epochs=2, lr=3e-3, minibatch=256, holdout=0.2)
     assert 0.0 <= stats["accuracy"] <= 1.0 and np.isfinite(stats["value_mse"])
@@ -268,9 +270,9 @@ def test_pure_self_play_fills_every_unit_until_the_first_snapshot() -> None:
     from seaglass_rl.train_lobby import make_specs
 
     config = LobbyConfig()
-    (spec,) = make_specs(config, 1, 4, [], 0.0, random.Random(0), seed=0)
+    (spec,) = make_specs(config, 1, 4, [], [], 0.0, random.Random(0), seed=0)
     assert spec.controllers == ["learner"] * 8
-    (spec,) = make_specs(config, 1, 4, ["snap.pt"], 0.0, random.Random(0), seed=0)
+    (spec,) = make_specs(config, 1, 4, ["snap.pt"], [], 0.0, random.Random(0), seed=0)
     assert sorted(spec.controllers) == ["learner"] * 4 + ["snap.pt"] * 4
 
 

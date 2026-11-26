@@ -8,6 +8,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from . import packing
+
 
 def gae(
     rewards: np.ndarray,
@@ -16,13 +18,20 @@ def gae(
     done: bool,
     gamma: float,
     lam: float,
+    lam_per: str = "turn",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generalized advantage estimation for one trajectory. Returns `(advantages, returns)`.
 
-    Discounting happens only between turns: step `t` discounts the next value by `gamma` (and the
-    next advantage by `gamma * lam`) if its action ended a turn, and by 1 (and `lam`) otherwise.
+    Discounting happens only between turns: step `t` discounts the next value by `gamma` if its
+    action ended a turn, and by 1 otherwise.
+    - `lam_per="turn"` (default): `lam` also applies only at a turn end, so a turn's actions are one
+      step of the estimator (the next advantage is scaled by `gamma * lam` at a turn end and by 1
+      within a turn). Credit then decays per turn, not per action.
+    - `lam_per="action"`: `lam` applies at every step (the next advantage is scaled by `g * lam`).
     A trajectory that is not `done` was cut short and bootstraps from its last value.
     """
+    if lam_per not in ("turn", "action"):
+        raise ValueError(f"lam_per must be 'turn' or 'action', not {lam_per!r}")
     T = len(rewards)
     adv = np.zeros(T, dtype=np.float32)
     last = 0.0
@@ -33,35 +42,70 @@ def gae(
         else:
             next_value = values[t + 1]
         delta = rewards[t] + g * next_value - values[t]
-        last = delta + g * lam * last
+        l = (lam if turn_end[t] else 1.0) if lam_per == "turn" else lam
+        last = delta + g * l * last
         adv[t] = last
     return adv, adv + values
 
 
-def build_batch(trajectories: list[dict[str, np.ndarray]], gamma: float, lam: float) -> dict[str, Any]:
+def build_batch(
+    trajectories: list[dict[str, np.ndarray]], gamma: float, lam: float, lam_per: str = "turn"
+) -> dict[str, Any]:
     """Concatenate trajectories (`Trajectory.arrays`) into one training batch, with advantages and
-    returns."""
-    cols: dict[str, list[np.ndarray]] = {
-        k: [] for k in ("player_vec", "slot_card_ids", "slot_num_feats", "action_mask", "actions", "log_probs")
-    }
-    advs, rets, values = [], [], []
+    returns. `slot_num_feats` stays float16 (`ppo_update` casts each minibatch). Packed trajectories
+    (`PlayOptions.pack`) stay packed (`num_ptr`, `num_idx`, `num_val`, `mask_bits`, as numpy arrays;
+    `ppo_update` densifies each minibatch); packed and dense ones cannot be mixed. `places` is each
+    decision's trajectory's final place, 0-based (-1 if unknown): the placement critic's target.
+    When every trajectory has `aux_target` and `aux_mask` (`PlayOptions.aux_probe`), they are carried
+    too (float32 `[N, H]` and bool `[N, H]`)."""
+    packed = [bool(tr["packed"]) if "packed" in tr else False for tr in trajectories]
+    if any(packed) and not all(packed):
+        raise ValueError("cannot batch packed and dense trajectories together")
+    packed = bool(packed) and packed[0]
+    keys = ["player_vec", "slot_card_ids", "actions", "log_probs"]
+    keys += ["mask_bits"] if packed else ["slot_num_feats", "action_mask"]
+    cols: dict[str, list[np.ndarray]] = {k: [] for k in keys}
+    if packed:
+        csr = []
+    advs, rets, values, places = [], [], [], []
     for tr in trajectories:
-        a, r = gae(tr["rewards"], tr["values"], tr["turn_end"], bool(tr["done"]), gamma, lam)
+        a, r = gae(tr["rewards"], tr["values"], tr["turn_end"], bool(tr["done"]), gamma, lam, lam_per)
         advs.append(a)
         rets.append(r)
         values.append(tr["values"])
+        place = int(tr["place"]) - 1 if "place" in tr and int(tr["place"]) > 0 else -1
+        places.append(np.full(len(tr["actions"]), place, dtype=np.int64))
         for k in cols:
             cols[k].append(tr[k])
+        if packed:
+            csr.append((tr["num_ptr"], tr["num_idx"], tr["num_val"]))
+    if packed:
+        num_ptr, num_idx, num_val = packing.concat_packed(csr)
+        feats: dict[str, Any] = {
+            "packed": True,
+            "num_ptr": num_ptr,
+            "num_idx": num_idx,
+            "num_val": num_val,
+            "mask_bits": np.concatenate(cols["mask_bits"]),
+        }
+    else:
+        feats = {
+            "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"])),
+            "action_mask": torch.from_numpy(np.concatenate(cols["action_mask"])),
+        }
+    if all("aux_target" in tr for tr in trajectories) and trajectories:
+        feats["aux_target"] = torch.from_numpy(np.concatenate([tr["aux_target"] for tr in trajectories]))
+        feats["aux_mask"] = torch.from_numpy(np.concatenate([tr["aux_mask"] for tr in trajectories]))
     return {
+        **feats,
         "player_vec": torch.from_numpy(np.concatenate(cols["player_vec"])),
         "slot_card_ids": torch.from_numpy(np.concatenate(cols["slot_card_ids"]).astype(np.int64)),
-        "slot_num_feats": torch.from_numpy(np.concatenate(cols["slot_num_feats"]).astype(np.float32)),
-        "action_mask": torch.from_numpy(np.concatenate(cols["action_mask"])),
         "actions": torch.from_numpy(np.concatenate(cols["actions"])),
         "old_log_probs": torch.from_numpy(np.concatenate(cols["log_probs"])),
         "old_values": torch.from_numpy(np.concatenate(values)),
         "advantages": torch.from_numpy(np.concatenate(advs)),
         "returns": torch.from_numpy(np.concatenate(rets)),
+        "places": torch.from_numpy(np.concatenate(places)),
     }
 
 
@@ -76,15 +120,24 @@ def ppo_update(
     ent_coef: float = 0.01,
     max_grad_norm: float = 0.5,
     target_kl: float | None = 0.03,
+    aux_coef: float = 0.0,
 ) -> dict[str, float]:
     """Clipped PPO over shuffled minibatches, with the advantages normalized over the batch.
 
-    Stops early once the approximate KL to the rollout policy passes `target_kl`.
+    Stops early once the approximate KL to the rollout policy passes `target_kl`. The batch stays
+    on the CPU; each minibatch moves to the model's device.
+
+    With `aux_coef > 0`, a model with aux heads and a batch with `aux_target`/`aux_mask`, the loss
+    adds `aux_coef` times the binary cross-entropy of the aux logits against the probe targets,
+    averaged over the unmasked entries (0 if there are none). Reported as `aux_loss`.
     """
+    device = next(model.parameters()).device
     n = batch["actions"].shape[0]
     adv = batch["advantages"]
     adv = (adv - adv.mean()) / (adv.std() + 1e-8) if n > 1 else adv
-    stats: dict[str, list[float]] = {"policy_loss": [], "value_loss": [], "entropy": [], "kl": [], "clip_frac": []}
+    stats: dict[str, list[float]] = {"policy_loss": [], "value_loss": [], "entropy": [], "kl": [], "clip_frac": [], "aux_loss": []}
+    aux_on = aux_coef > 0 and model.config.get("aux_heads", 0) > 0 and "aux_target" in batch
+    placement = model.config.get("value_places", 0) > 0
     model.train()
     stop = False
     epochs_run = 0
@@ -92,22 +145,48 @@ def ppo_update(
         perm = torch.randperm(n)
         for start in range(0, n, minibatch_size):
             idx = perm[start : start + minibatch_size]
-            logits, values = model(
-                batch["player_vec"][idx],
-                batch["slot_card_ids"][idx],
-                batch["slot_num_feats"][idx],
-                batch["action_mask"][idx],
+            if batch.get("packed"):
+                rows = idx.numpy()
+                feats = torch.from_numpy(packing.unpack_rows(batch["num_ptr"], batch["num_idx"], batch["num_val"], rows))
+                mask = torch.from_numpy(packing.unpack_mask(batch["mask_bits"], rows))
+            else:
+                feats, mask = batch["slot_num_feats"][idx].float(), batch["action_mask"][idx]
+            args = (
+                batch["player_vec"][idx].to(device),
+                batch["slot_card_ids"][idx].to(device),
+                feats.to(device),
+                mask.to(device),
             )
+            aux_logits = None
+            if aux_on:
+                logits, values, value_logits, aux_logits = model(*args, return_aux=True)
+            elif placement:
+                logits, values, value_logits = model(*args, return_value_logits=True)
+            else:
+                logits, values = model(*args)
             log_probs = torch.log_softmax(logits, dim=-1)
-            new_lp = log_probs.gather(1, batch["actions"][idx].unsqueeze(-1)).squeeze(-1)
+            new_lp = log_probs.gather(1, batch["actions"][idx].to(device).unsqueeze(-1)).squeeze(-1)
             probs = log_probs.exp()
             entropy = -(probs * log_probs.clamp(min=-20.0)).sum(-1).mean()
-            log_ratio = new_lp - batch["old_log_probs"][idx]
+            log_ratio = new_lp - batch["old_log_probs"][idx].to(device)
             ratio = log_ratio.exp()
-            a = adv[idx]
+            a = adv[idx].to(device)
             policy_loss = -torch.min(ratio * a, ratio.clamp(1 - clip_eps, 1 + clip_eps) * a).mean()
-            value_loss = 0.5 * (values - batch["returns"][idx]).pow(2).mean()
+            if placement:
+                value_loss = nn.functional.cross_entropy(
+                    value_logits, batch["places"][idx].to(device), ignore_index=-1
+                )
+            else:
+                value_loss = 0.5 * (values - batch["returns"][idx].to(device)).pow(2).mean()
             loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
+            aux_loss = torch.zeros(())
+            if aux_on:
+                w = batch["aux_mask"][idx].to(device).float()
+                bce = nn.functional.binary_cross_entropy_with_logits(
+                    aux_logits, batch["aux_target"][idx].to(device), weight=w, reduction="sum"
+                )
+                aux_loss = bce / w.sum() if w.sum() > 0 else bce * 0.0
+                loss = loss + aux_coef * aux_loss
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -119,6 +198,7 @@ def ppo_update(
             stats["policy_loss"].append(policy_loss.item())
             stats["value_loss"].append(value_loss.item())
             stats["entropy"].append(entropy.item())
+            stats["aux_loss"].append(aux_loss.item())
             if target_kl is not None and kl > 1.5 * target_kl:
                 stop = True
                 break

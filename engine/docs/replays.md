@@ -208,6 +208,7 @@ match_replay tui game.replay.pb                     # play it back in a terminal
 match_replay cast game.replay.pb                    # record that play-back for asciinema (game.cast)
 match_replay verify replays/*.replay.pb             # exit 1 unless every replay re-simulates faithfully
 match_replay html game.replay.pb                    # write game.html, a viewer page (-o picks the file)
+match_replay html game.replay.pb --player p0        # write game.p0.html, a page that follows one player
 match_replay scenario game.replay.pb --frame 54     # a scenario that rebuilds frame 54, replays the next action
 ```
 
@@ -231,6 +232,19 @@ the full event log). ←/→ step a frame, ↑/↓ (or PgUp/PgDn) a turn, Home/E
 slider, the turn and frame lists and the health chart jump anywhere, and `game.html#frame=N` links
 to a frame. A banner warns if the replay was recorded by another build or does not re-simulate
 faithfully.
+
+`html --player P` writes a second page instead, `game.p0.html`, that follows one player and shows
+each thing they did as a step. P is a name or a 0-based index (`3` or `p3`). The page draws the
+player's Tavern roughly as the game does: the Tier, Bob, Reroll and Freeze at the top, the shop,
+the board, the hero with its Hero Power and trinkets, the hand and Gold at the bottom, and the
+leaderboard on the left. Each step shows the Tavern before an action, with the action drawn on
+top: a halo on the button or card used and an arrow to where the card goes (bought into the hand,
+played or moved to a board slot, sold up to Bob, cast on a target). Cards the previous action
+changed glow. The player's combats (the opponent's warband in the shop row, and the result) and
+their end are steps too, and "Show results" adds a step after each action showing its result.
+Next/Prev (→/←, Space, `n`/`p`) walk the steps, ↓/↑ (or PgDn/PgUp) jump a turn, Home/End go to
+either end, and the turn chips and the leaderboard jump anywhere. A menu switches to another
+player on the same turn. `game.p0.html#player=0&step=12` links to a step.
 
 `scenario` writes a scenario (`scenarios.md`) that reproduces a frame. `tavern:` patches
 `TavernState::new()` into player P's exact Tavern at frame N (units as unit specs, plus whatever

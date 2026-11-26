@@ -651,7 +651,10 @@ class SovereignNumpyPredictor:
         num: np.ndarray,
         mask: np.ndarray,
         glob: np.ndarray,
+        capture: Optional[Dict[str, np.ndarray]] = None,
     ) -> np.ndarray:
+        """Utility per batch row. `capture`: optional out-dict of numpy copies (inputs, per-block token
+        states and attention weights, readout, trunk, placement probabilities, growth, utility)."""
         w = self._weights
         bsz, seqlen = vocab.shape
         d = self.d_model
@@ -670,8 +673,14 @@ class SovereignNumpyPredictor:
         mask_f = mask[:, :, None].astype(np.float32)
         tok = _np_layer_norm(tok, w["in_norm_w"], w["in_norm_b"]) * mask_f
         key_mask = mask[:, None, None, :]
+        if capture is not None:
+            capture["vocab"] = vocab.copy()
+            capture["slot"] = slot.copy()
+            capture["pos"] = pos.copy()
+            capture["mask"] = mask.copy()
+            capture["tokens_in"] = tok.copy()
 
-        for blk in self._blocks:
+        for bi, blk in enumerate(self._blocks):
             h = _np_layer_norm(tok, blk["n1_w"], blk["n1_b"])
             qkv = (h @ blk["qkv_wT"] + blk["qkv_b"]).reshape(bsz, seqlen, 3, h_cnt, dh)
             q = qkv[:, :, 0].transpose(0, 2, 1, 3)
@@ -690,6 +699,9 @@ class SovereignNumpyPredictor:
             h2 = _np_layer_norm(tok, blk["n2_w"], blk["n2_b"])
             ff = _np_gelu_tanh(h2 @ blk["ff0_wT"] + blk["ff0_b"]) @ blk["ff2_wT"] + blk["ff2_b"]
             tok = (tok + ff) * mask_f
+            if capture is not None:
+                capture[f"attn_{bi}"] = attn.copy()
+                capture[f"tokens_{bi}"] = tok.copy()
 
         g_out = tok[:, 0, :]
         denom = np.maximum(1.0, mask_f.sum(axis=1))
@@ -709,7 +721,14 @@ class SovereignNumpyPredictor:
         e_l = np.exp(logits - l_max)
         probs = e_l / np.sum(e_l, axis=-1, keepdims=True)
         place_u = probs @ SOV_PLACEMENT_WEIGHTS
-        return place_u + 2.0 * growth
+        util = place_u + 2.0 * growth
+        if capture is not None:
+            capture["readout"] = readout.copy()
+            capture["trunk"] = tr.copy()
+            capture["placement_probs"] = probs.copy()
+            capture["growth"] = growth.copy()
+            capture["utility"] = np.asarray(util).copy()
+        return util
 
     def predict_batch(
         self,
@@ -723,6 +742,82 @@ class SovereignNumpyPredictor:
             obs_list, ctx, end_of_turn
         )
         return self.forward_arrays(vocab, slot, pos, num, mask, glob).tolist()
+
+
+    SLOT_NAMES = {1: "global", 2: "board", 3: "hand", 4: "trinket", 5: "hero power", 6: "frozen shop"}
+
+    def token_label(self, vocab_idx: int, slot_id: int) -> str:
+        """Card / hero / trinket / power name for one input token."""
+        vi = int(vocab_idx)
+        if vi <= 0 or vi >= len(self.meta.vocab_ids):
+            return "(none)"
+        cid = self.meta.vocab_ids[vi]
+        kb = self.featurizer.kb
+        if slot_id == 1:
+            name = kb.hero_names.get(cid)
+            if name:
+                return name
+        if slot_id == 4:
+            info = kb.trinket_info.get(cid)
+            if info is not None:
+                return info[0]
+        return self.meta.card_name(cid)
+
+    def explain(
+        self,
+        obs: seaglass.TavernObservation,
+        ctx: Optional[seaglass.LobbyContext] = None,
+        end_of_turn: bool = True,
+    ) -> Dict[str, object]:
+        """Why the net scores `obs` as it does.
+
+        Returns utility, the 8 placement probabilities, growth, per-token labels and
+        `contribution[i] = utility(all tokens) - utility(token i masked out)` for every non-global token
+        (0.0 for the global token and padding), plus the raw `capture` of the unmasked forward pass.
+        """
+        if not self._ready:
+            return {"ready": False}
+        vocab, slot, pos, num, mask, glob = self.featurizer.featurize_batch([obs], ctx, end_of_turn)
+        cap: Dict[str, np.ndarray] = {}
+        util = self.forward_arrays(vocab, slot, pos, num, mask, glob, capture=cap)
+        active = [i for i in range(vocab.shape[1]) if mask[0, i] and i != 0]
+        n = len(active)
+        contrib = np.zeros(vocab.shape[1], dtype=np.float64)
+        if n:
+            rep = lambda a: np.repeat(a, n + 1, axis=0)
+            v2, s2, p2, n2, m2, g2 = rep(vocab), rep(slot), rep(pos), rep(num), rep(mask).copy(), rep(glob)
+            for row, i in enumerate(active, start=1):
+                m2[row, i] = False
+            u2 = self.forward_arrays(v2, s2, p2, n2, m2, g2)
+            base = float(u2[0])
+            for row, i in enumerate(active, start=1):
+                contrib[i] = base - float(u2[row])
+        tokens = []
+        for i in range(vocab.shape[1]):
+            if not mask[0, i]:
+                continue
+            sid = int(slot[0, i])
+            name = self.token_label(vocab[0, i], sid)
+            if sid == 5:  # hero powers have no catalog names
+                hero = self.featurizer.kb.hero_names.get(obs.hero_id)
+                name = f"hero power {int(pos[0, i])}" + (f" ({hero})" if hero else "")
+            tokens.append(
+                {
+                    "index": i,
+                    "zone": self.SLOT_NAMES.get(sid, f"slot{sid}"),
+                    "name": name,
+                    "position": int(pos[0, i]),
+                    "contribution": float(contrib[i]),
+                }
+            )
+        return {
+            "ready": True,
+            "utility": float(util[0]),
+            "placement_probs": [float(x) for x in cap["placement_probs"][0]],
+            "growth": float(cap["growth"][0]),
+            "tokens": tokens,
+            "capture": cap,
+        }
 
 
 @lru_cache(maxsize=4)

@@ -15,6 +15,7 @@ import numpy as np
 import seaglass
 import torch
 import torch.nn.functional as F
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, pick_device
 
 from .apex_evaluator import ApexEvaluator
 from .apex_model import (
@@ -354,6 +355,7 @@ def train_apex_value_net(
     base_seed: int = 200_000,
     init_weights: str | None = None,
     out_path: Path = DEFAULT_APEX_NPZ_PATH,
+    device: str | None = None,
 ) -> None:
     t0 = time.perf_counter()
     jobs: List[Tuple[int, str, str | None]] = []
@@ -418,7 +420,7 @@ def train_apex_value_net(
     tr_idx = np.nonzero(~is_val)[0]
     va_idx = np.nonzero(is_val)[0]
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = pick_device(device)
     print(
         f"[ApexTrainer] Dataset ready: {len(tr_idx):,} train states, "
         f"{len(va_idx):,} val states | device={device}"
@@ -524,14 +526,21 @@ def train_apex_value_net(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train ApexValueNet Set-Transformer")
     parser.add_argument("--games", type=int, default=320)
-    parser.add_argument("--workers", type=int, default=14)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=14),
+        help="self-play worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 14)",
+    )
     parser.add_argument("--epochs", type=int, default=24)
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--lr", type=float, default=1.5e-3)
     parser.add_argument("--seed", type=int, default=200_000)
     parser.add_argument("--init", type=str, default=None)
     parser.add_argument("--out", type=str, default=str(DEFAULT_APEX_NPZ_PATH))
+    add_device_arg(parser)
     args = parser.parse_args()
+    torch.set_num_threads(default_threads())
 
     train_apex_value_net(
         num_games=args.games,
@@ -542,6 +551,7 @@ def main() -> None:
         base_seed=args.seed,
         init_weights=args.init,
         out_path=Path(args.out),
+        device=args.device,
     )
 
 

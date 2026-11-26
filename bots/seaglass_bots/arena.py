@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import time
 from typing import Dict, List, Protocol
@@ -17,13 +18,17 @@ from .search import ExpectimaxMctsBot, ShopEpochBeamBot
 from .sovereign_search import SovereignBot
 
 
+def _seats_meta(groups: Dict[int, str], seeds: Dict[int, int | None]) -> str:
+    """JSON for replay meta "seats": which bot (group name) and constructor seed sat in each seat."""
+    return json.dumps(
+        [{"seat": p, "bot": groups[p], "seed": seeds.get(p)} for p in sorted(groups)]
+    )
+
+
 class LobbyActor(Protocol):
     def act_in_lobby(
         self, lobby: seaglass.LobbyGame, player: int
     ) -> seaglass.TavernAction: ...
-
-
-MAX_ACTIONS_PER_TURN = 80
 
 
 def run_solo_benchmark(
@@ -57,11 +62,13 @@ def run_solo_benchmark(
         # Rotate seats across games to eliminate any seat-order bias.
         rot = g_idx % 8
         seat_to_group: Dict[int, str] = {}
+        seat_seed: Dict[int, int | None] = {}
         bots: Dict[int, LobbyActor] = {}
 
         for logical_idx in range(8):
             seat = (logical_idx + rot) % 8
             s_seed = seed + logical_idx * 13
+            seat_seed[seat] = s_seed
             if logical_idx in (0, 1):
                 seat_to_group[seat] = f"Search({bot_kind})"
                 if bot_kind == "architect":
@@ -93,15 +100,13 @@ def run_solo_benchmark(
             for p in list(lobby.active_players()):
                 is_search = seat_to_group[p].startswith("Search")
                 t0 = time.perf_counter() if (is_search and is_turn) else 0.0
-                steps = 0
-                while not lobby.is_done(p) and steps < MAX_ACTIONS_PER_TURN:
+                while not lobby.is_done(p):
                     act = bots[p].act_in_lobby(lobby, p)
                     if not lobby.is_legal(p, act):
                         lobby.force_end(p)
                         break
                     note = getattr(bots[p], "last_note", None)
                     lobby.step(p, act, note=note)
-                    steps += 1
                     if is_search and is_turn:
                         search_actions_count += 1
                 if not lobby.is_done(p):
@@ -123,6 +128,7 @@ def run_solo_benchmark(
                 f"solo_{bot_kind}_g{g_idx + 1}_seed{seed}_best{best_p}.replay.pb",
             )
             lobby.set_meta("bot", f"ShopEpochBeamBot({bot_kind})")
+            lobby.set_meta("seats", _seats_meta(seat_to_group, seat_seed))
             lobby.save(out_path)
             print(f"  -> saved {out_path}")
 
@@ -178,9 +184,13 @@ def run_duos_benchmark(
         our_team = g_idx % 4
         bots: Dict[int, LobbyActor] = {}
         names: List[str] = []
+        duo_groups: Dict[int, str] = {}
+        duo_seeds: Dict[int, int | None] = {}
         for t in range(4):
             for s in range(2):
                 p = 2 * t + s
+                duo_seeds[p] = seed + p
+                duo_groups[p] = our_label if t == our_team else ("SemiRandom" if t % 2 == 1 else "Tempo")
                 if t == our_team:
                     if bot_kind == "sovereign":
                         bots[p] = SovereignBot(catalog_name="duos", seed=seed + p)
@@ -200,15 +210,13 @@ def run_duos_benchmark(
             for p in list(lobby.active_players()):
                 is_ours = lobby.unit_of(p) == our_team
                 t0 = time.perf_counter() if (is_ours and is_turn) else 0.0
-                steps = 0
-                while not lobby.is_done(p) and steps < MAX_ACTIONS_PER_TURN:
+                while not lobby.is_done(p):
                     act = bots[p].act_in_lobby(lobby, p)
                     if not lobby.is_legal(p, act):
                         lobby.force_end(p)
                         break
                     note = getattr(bots[p], "last_note", None)
                     lobby.step(p, act, note=note)
-                    steps += 1
                 if not lobby.is_done(p):
                     lobby.force_end(p)
                 if is_ours and is_turn:
@@ -224,6 +232,7 @@ def run_duos_benchmark(
                 f"duos_{bot_kind}_g{g_idx + 1}_seed{seed}_team{our_team}_place{our_pl}.replay.pb",
             )
             lobby.set_meta("bot", our_label)
+            lobby.set_meta("seats", _seats_meta(duo_groups, duo_seeds))
             lobby.save(out_path)
             print(f"  -> saved {out_path}")
 
@@ -269,11 +278,13 @@ def run_head2head_benchmark(
         seed = base_seed + g_idx * 113
         rot = g_idx % 8
         seat_to_group: Dict[int, str] = {}
+        seat_seed: Dict[int, int | None] = {}
         bots: Dict[int, LobbyActor] = {}
 
         for logical_idx in range(8):
             seat = (logical_idx + rot) % 8
             s_seed = seed + logical_idx * 17
+            seat_seed[seat] = s_seed
             if logical_idx in (0, 1):
                 seat_to_group[seat] = "SearchV2"
                 bots[seat] = ShopEpochBeamBot(seed=s_seed, legacy_mode=False)
@@ -296,15 +307,13 @@ def run_head2head_benchmark(
             for p in list(lobby.active_players()):
                 is_v2 = seat_to_group[p] == "SearchV2"
                 t0 = time.perf_counter() if (is_v2 and is_turn) else 0.0
-                steps = 0
-                while not lobby.is_done(p) and steps < MAX_ACTIONS_PER_TURN:
+                while not lobby.is_done(p):
                     act = bots[p].act_in_lobby(lobby, p)
                     if not lobby.is_legal(p, act):
                         lobby.force_end(p)
                         break
                     note = getattr(bots[p], "last_note", None)
                     lobby.step(p, act, note=note)
-                    steps += 1
                 if not lobby.is_done(p):
                     lobby.force_end(p)
                 if is_v2 and is_turn:
@@ -323,6 +332,7 @@ def run_head2head_benchmark(
                 f"v2_head2head_g{g_idx + 1}_seed{seed}_best{best_p}.replay.pb",
             )
             lobby.set_meta("bot", "ShopEpochBeamBot_V2_NeuralPhysics")
+            lobby.set_meta("seats", _seats_meta(seat_to_group, seat_seed))
             lobby.save(out_path)
             print(f"  -> saved {out_path}")
 

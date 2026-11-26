@@ -41,6 +41,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from seaglass_rl import checkpoint as rl_ckpt
+from seaglass_rl.device import add_device_arg, default_threads, default_workers, empty_cache, pick_device
 from seaglass_rl.actions import (
     ACTION_KIND_IDS,
     ACTION_KINDS,
@@ -224,10 +225,11 @@ def train_awbc_cuda(
     no_reposition: bool = False,
     macro_balance: bool = False,
     seed: int = 2029,
+    device: str | None = None,
 ) -> None:
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(device)
 
     cols: Dict[str, List[np.ndarray]] = {
         k: [] for k in ("player_vec", "slot_card_ids", "slot_num_feats", "action_mask", "actions", "returns", "place")
@@ -295,12 +297,12 @@ def train_awbc_cuda(
         steps = 0
         for s0 in range(0, len(tr_idx), batch_size):
             idx = tr_idx[s0 : s0 + batch_size]
-            pv = torch.from_numpy(data["player_vec"][idx]).to(dev)
+            pv = torch.from_numpy(data["player_vec"][idx].astype(np.float32)).to(dev)
             ci = torch.from_numpy(data["slot_card_ids"][idx].astype(np.int64)).to(dev)
             nf = torch.from_numpy(data["slot_num_feats"][idx].astype(np.float32)).to(dev)
             mk = torch.from_numpy(data["action_mask"][idx]).to(dev)
             ac = torch.from_numpy(data["actions"][idx]).to(dev)
-            rt = torch.from_numpy(data["returns"][idx]).to(dev)
+            rt = torch.from_numpy(data["returns"][idx].astype(np.float32)).to(dev)
             pl = torch.from_numpy(data["place"][idx].astype(np.int64)).to(dev)
 
             logits, val = model(pv, ci, nf, mk)
@@ -323,7 +325,7 @@ def train_awbc_cuda(
         with torch.no_grad():
             for s0 in range(0, len(va_idx), batch_size):
                 idx = va_idx[s0 : s0 + batch_size]
-                pv = torch.from_numpy(data["player_vec"][idx]).to(dev)
+                pv = torch.from_numpy(data["player_vec"][idx].astype(np.float32)).to(dev)
                 ci = torch.from_numpy(data["slot_card_ids"][idx].astype(np.int64)).to(dev)
                 nf = torch.from_numpy(data["slot_num_feats"][idx].astype(np.float32)).to(dev)
                 mk = torch.from_numpy(data["action_mask"][idx]).to(dev)
@@ -376,7 +378,7 @@ def ppo_update_cuda(
     ref_kl_coef: float = 0.0,
 ) -> Dict[str, float]:
     n = batch["actions"].shape[0]
-    adv = batch["advantages"]
+    adv = batch["advantages"].float()
     adv = (adv - adv.mean()) / (adv.std() + 1e-8) if n > 1 else adv
     model.train()
     stats: Dict[str, List[float]] = {"pi": [], "v": [], "ent": [], "kl": [], "rkl": []}
@@ -385,13 +387,13 @@ def ppo_update_cuda(
         perm = torch.randperm(n)
         for s0 in range(0, n, minibatch_size):
             idx = perm[s0 : s0 + minibatch_size]
-            pv = batch["player_vec"][idx].to(dev)
+            pv = batch["player_vec"][idx].float().to(dev)
             ci = batch["slot_card_ids"][idx].to(dev)
             nf = batch["slot_num_feats"][idx].to(dev)
             mk = batch["action_mask"][idx].to(dev)
             ac = batch["actions"][idx].to(dev)
-            olp = batch["old_log_probs"][idx].to(dev)
-            ret = batch["returns"][idx].to(dev)
+            olp = batch["old_log_probs"][idx].float().to(dev)
+            ret = batch["returns"][idx].float().to(dev)
             a = adv[idx].to(dev)
 
             logits, values = model(pv, ci, nf, mk)
@@ -452,10 +454,11 @@ def run_ppo_cuda(
     no_reposition: bool = False,
     anchor_ckpts: Sequence[str] = (),
     seed: int = 2029,
+    device: str | None = None,
 ) -> None:
     import gc
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dev = pick_device(device)
     run = Path(run_dir)
     (run / "snapshots").mkdir(parents=True, exist_ok=True)
     model, _ = rl_ckpt.load(init_ckpt)
@@ -584,8 +587,7 @@ def run_ppo_cuda(
             del results, trajs, batch
             if it % 4 == 0:
                 gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                empty_cache(dev)
     finally:
         player.close()
 
@@ -597,7 +599,12 @@ def main() -> None:
     p.add_argument("--extra-datasets", type=str, nargs="*", default=[])
     p.add_argument("--teacher-mix", choices=["mixed", "architect", "sovereign"], default="mixed")
     p.add_argument("--games", type=int, default=80)
-    p.add_argument("--workers", type=int, default=10)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=default_workers(cap=10),
+        help="self-play/collection worker processes (default: $SEAGLASS_WORKERS, else half the cores, at most 10)",
+    )
     p.add_argument("--base-seed", type=int, default=500000)
     p.add_argument("--beam-width", type=int, default=12)
     p.add_argument("--out-ckpt", type=str, default="/tmp/policy_awbc.pt")
@@ -618,7 +625,9 @@ def main() -> None:
     p.add_argument("--no-reposition", action="store_true")
     p.add_argument("--macro-balance", action="store_true")
     p.add_argument("--anchor-ckpts", type=str, nargs="*", default=[])
+    add_device_arg(p)
     args = p.parse_args()
+    torch.set_num_threads(default_threads())
 
     if args.mode == "collect":
         collect_expert_dataset(
@@ -641,6 +650,7 @@ def main() -> None:
             lr=args.lr,
             no_reposition=args.no_reposition,
             macro_balance=args.macro_balance,
+            device=args.device,
         )
     elif args.mode == "ppo":
         run_ppo_cuda(
@@ -659,6 +669,7 @@ def main() -> None:
             gamma=args.gamma,
             no_reposition=args.no_reposition,
             anchor_ckpts=args.anchor_ckpts,
+            device=args.device,
         )
 
 

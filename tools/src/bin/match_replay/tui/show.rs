@@ -312,8 +312,8 @@ impl Source for ReplaySource {
                 .trinket_options
                 .iter()
                 .map(|o| {
-                    let name =
-                        trinkets::data(o.card_id).map_or_else(|| "?".to_string(), trinkets::display_name);
+                    let name = trinkets::data(o.card_id)
+                        .map_or_else(|| "?".to_string(), trinkets::display_name);
                     format!("{name} ({}g)", o.cost)
                 })
                 .collect();

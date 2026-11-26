@@ -23,9 +23,10 @@ pub fn run(args: &[String]) -> Result<ExitCode, String> {
     let start = app.frame;
     let explicit_file = args.first().filter(|a| !a.starts_with('-')).is_some();
     let input = super::resolve_path(args, USAGE)?;
-    let file = input
-        .file_name()
-        .map_or_else(|| input.display().to_string(), |f| f.to_string_lossy().into_owned());
+    let file = input.file_name().map_or_else(
+        || input.display().to_string(),
+        |f| f.to_string_lossy().into_owned(),
+    );
     let out = option(args, &["-o", "--output"]).map_or_else(
         || {
             let stem = file

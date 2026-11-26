@@ -35,6 +35,8 @@ action at a time and enforces the rules.
 | `first_fighter_switch_chance` | 0.75 | Duos (`duos_tavern.md` §4.3). |
 | `avoid_recent` | 3 | Pairings avoid a unit's last 3 opponents while they can (§3). |
 | `damage_caps` | on | Cap combat damage as the game does (§5). |
+| `turn_timer` | on | Give each turn a simulated clock (§2). |
+| `action_ms` | 250 | The simulated time one action takes (§2): 250 ms is 240 actions a minute. |
 | `tribes` | 5 | The minion types in the lobby, drawn at random from the 10 (`LOBBY_TRIBES`); 0: every type. |
 | `seed` | 0 | Seeds the shared pool and RNG, the hero offers and the pairings. |
 | `names`, `meta` | `p0`, `p1`, ... | The replay's player names and labels. |
@@ -80,6 +82,23 @@ Every phase is `begin_phase()`, then the players act, then `end_phase()`.
 
   Then every living player acts until they end their turn. A Duos player who has ended waits for
   their teammate.
+- **Turn timer.** With `turn_timer`, each turn has a simulated clock. Every action a player takes
+  costs `action_ms` (250 ms by default: 240 actions a minute); illegal actions and forced ones
+  (`force_end`) cost nothing. The budget is the turn's Recruit timer, in seconds, from turn 1 (later
+  turns use the last entry): `SOLO_TURN_SECONDS` and `DUOS_TURN_SECONDS`, both a flat 90 s. When a
+  player's clock runs out, their turn is ended for them (`force_end`, recorded as forced), and `step`
+  returns `true`; 90 s at 250 ms is exactly 360 actions. The hero phase has no clock. The clock is
+  simulated time, never the wall clock, so a game stays a pure function of its seed and actions.
+
+  **Why a flat 90 s.** In the game, the first Recruit phase is 60 s (counted from the hero choice),
+  each later one is 15 s longer, up to 120 s, and the timer starts with the combat, so a long combat
+  leaves less time to recruit. The engine models neither the ramp nor the combat time. Early turns
+  can't go on forever anyway (every action but Reposition and Toggle Freeze costs Gold or uses up a
+  card), and late turns lose time to longer combats. The timer is there so that a comp that cycles
+  for free (a Brann comp, say) can't take an endless turn. Duos is the same 90 s: the game gives Duos
+  more time for the teammates to talk, which a team of bots doesn't need. Both values, and
+  `action_ms`, may be tuned later (for example if cycling comps come out stronger or weaker than top
+  players can pilot them).
 - **`end_phase()` after a turn:**
   1. Forces any player still acting to end their turn.
   2. Delivers the lobby gifts.
@@ -171,21 +190,29 @@ After a turn's combats, every living unit at 0 Health or less is out:
 
 `seaglass.LobbyGame(players=8, duos=False, seed=0, max_turns=30, heroes=True, hero_offers=2,
 trinkets=True, dark_gifts=True, catalog=None, deity=None, first_fighter_switch_chance=0.75,
-avoid_recent=3, damage_caps=True, tribes=5, names=None, meta=None)`:
+avoid_recent=3, damage_caps=True, tribes=5, names=None, meta=None, turn_timer=True,
+action_ms=250)`:
 
 - **Properties:** `phase` (`"hero"`, `"turn"`, `"over"`), `turn`, `done`, `placements` (per unit,
   `None` while in), `alive` (per unit), `pairs` (the pairs, the ghost's fighter), `damage_cap`
   (this turn's, or `None`), `tribes` (the lobby's minion types), `num_players`, `num_units`,
-  `duos`.
+  `duos`, `turn_timer`, `action_ms`, `turn_seconds` (this turn's budget in seconds, or `None`).
 - **Units:** `unit_of(p)`, `unit_players(u)`, `unit_health(u)`.
 - **Phases:** `begin_phase()`, `end_phase()` (returns the units placed), `active_players()`,
   `is_done(p)`.
 - **Acting:** `observe(p)` (a `TavernObservation`, or a `DuosObservation` in Duos),
   `legal_actions(p)`, `is_legal(p, action)`, `step(p, action, note=None)` (note: a dict, see
-  `Match`), `force_end(p)`.
+  `Match`), `force_end(p)`, `time_left(p)` (seconds left on player `p`'s clock, or `None` without the
+  timer). The module function `seaglass.turn_seconds(turn, duos=False)` gives a turn's budget.
 - **The lobby:** `context(p)` returns a `LobbyContext` with `OpponentInfo`s.
 - **Replays:** `save(path)`, `replay_bytes()`, `timeline()`, `meta`, `set_meta(k, v)`.
-- **Lookahead:** `copy()` returns an independent copy.
+- **Lookahead:** `copy()` returns an independent copy. A copy replays the same future as the
+  original, because it carries the same RNG state. `reseed(seed)` deals the rest of the game from
+  another seed (the shop draws, Discovers, random effects, combats and pairings from here on) and
+  changes nothing already on the table. So copies of one lobby, each reseeded differently and
+  played on, are independent samples of how the game goes from that position
+  (`rl/scripts/phase_study.py` uses them). A reseeded lobby's replay does not re-simulate past the
+  reseed: the replay records no seed but the header's, and the header is labelled `reseeded`.
 
 ```python
 import seaglass

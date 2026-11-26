@@ -7,6 +7,9 @@ import numpy as np
 import seaglass
 
 from .actions import (
+    action_mask,
+    ACTION_SPACE_SIZE,
+    ACTIONS,
     MAX_BOARD,
     MAX_DISCOVER,
     MAX_HAND,
@@ -400,3 +403,119 @@ def _encode_lobby(
         for i, u in enumerate(o.seen_board[:MAX_BOARD]):
             slot = OPPONENT_BOARD_OFFSET + k * MAX_BOARD + i
             slot_card_ids[slot] = _encode_unit_into(u, slot_num_feats[slot])
+
+
+# -- The Rust encoder -------------------------------------------------------------------------------
+# `seaglass.Encoder` ports `encode_observation` and `actions.action_mask` to Rust, bit for bit: this
+# module stays the reference and the owner of the layout, and hands the vocabularies, the action
+# table and every offset and size to Rust in `encoder_spec`. Builds of the extension without an
+# `Encoder` keep working through the Python path.
+HAS_RUST_ENCODER: bool = hasattr(seaglass, "Encoder")
+
+_LAYOUT_NAMES = (
+    "MAX_BOARD", "MAX_HAND", "MAX_SHOP", "MAX_DISCOVER", "MAX_HERO_OPTIONS", "MAX_TRINKET_OPTIONS",
+    "MAX_WAITING", "MAX_TRINKETS", "HERO_OFFSET", "TEAMMATE_OFFSET", "OPPONENT_BOARD_OFFSET",
+    "TEAMMATE_SHOP_OFFSET", "OPPONENT_HERO_OFFSET", "CARD_COUNTER_OFFSET", "EFFECT_OFFSET",
+    "MAX_OPPONENTS_SLOTS", "MAX_CARD_COUNTERS", "MAX_EFFECTS", "NUM_SLOTS", "TAVERN_PLAYER_DIM",
+    "LOBBY_OFFSET", "LOBBY_DIM", "OPPONENTS_OFFSET", "MAX_OPPONENTS", "OPPONENT_DIM", "DUOS_OFFSET",
+    "DUOS_DIM", "PHASE_OFFSET", "COUNTERS_OFFSET", "COUNTERS_DIM", "PLAYER_DIM", "BASE_SLOT_NUM_DIM",
+    "NUM_TRINKET_TRIBES", "TRINKET_TRIBE_OFFSET", "END_OF_TURN_STATS_OFFSET", "TRIBES_OFFSET",
+    "COUNTER_OFFSET", "UNIT_EXTRA_OFFSET", "UNIT_EXTRA_DIM", "SLOT_NUM_DIM",
+)
+
+
+def encoder_spec() -> dict:
+    """What `seaglass.Encoder` is built from: the vocabularies, the action table (in index order) and
+    every constant of this module's layout."""
+    layout = {name: globals()[name] for name in _LAYOUT_NAMES}
+    layout["ACTION_SPACE_SIZE"] = ACTION_SPACE_SIZE
+    return {
+        "card_index": dict(CARD_ID_TO_IDX),
+        "dark_gift_index": dict(DARK_GIFT_TO_FEATURE),
+        "single_tribes": list(SINGLE_TRIBES),
+        "lobby_tribes": list(LOBBY_TRIBE_NAMES),
+        "actions": [(a.kind, *a.args) for a in ACTIONS],
+        "layout": layout,
+    }
+
+
+_RUST_ENCODER = None
+
+
+def rust_encoder():
+    """The shared `seaglass.Encoder` for this module's layout, or `None` if the installed extension
+    has none."""
+    global _RUST_ENCODER
+    if not HAS_RUST_ENCODER:
+        return None
+    if _RUST_ENCODER is None:
+        _RUST_ENCODER = seaglass.Encoder(encoder_spec())
+    return _RUST_ENCODER
+
+
+def fast_encode(
+    enc, game: seaglass.LobbyGame, player: int, arranging: bool = False, context: bool = True, sparse: bool = False
+) -> tuple:
+    """`encode_observation(game.observe(player), game.context(player) if context else None,
+    arranging)` through the Rust encoder: the same arrays (shapes, dtypes, bits), writable. With
+    `sparse`, also `idx` (uint16) and `val` (float32): the flat columns and values of the nonzeros
+    of `slot_num_feats`, in increasing order."""
+    if sparse:
+        pv, ids, nf, ix, vl = enc.encode(game, player, arranging, context, True)
+        return (
+            np.frombuffer(pv, dtype=np.float32),
+            np.frombuffer(ids, dtype=np.int64),
+            np.frombuffer(nf, dtype=np.float32).reshape(NUM_SLOTS, SLOT_NUM_DIM),
+            np.frombuffer(ix, dtype=np.uint16),
+            np.frombuffer(vl, dtype=np.float32),
+        )
+    pv, ids, nf = enc.encode(game, player, arranging, context)
+    return (
+        np.frombuffer(pv, dtype=np.float32),
+        np.frombuffer(ids, dtype=np.int64),
+        np.frombuffer(nf, dtype=np.float32).reshape(NUM_SLOTS, SLOT_NUM_DIM),
+    )
+
+
+def fast_mask(
+    enc,
+    game: seaglass.LobbyGame,
+    player: int,
+    allow_reposition: bool = False,
+    allow_freeze: bool = False,
+    prune_dominated: bool = False,
+) -> np.ndarray:
+    """`actions.action_mask` of a lobby seat through the Rust encoder (a writable bool array)."""
+    return np.frombuffer(
+        enc.mask(game, player, allow_reposition, allow_freeze, prune_dominated), dtype=np.bool_
+    )
+
+
+def fast_encode_tavern(enc, tavern: seaglass.TavernGame, context=None, arranging: bool = False) -> tuple:
+    """`encode_observation(tavern.observe(), context, arranging=arranging)` of a Solo `TavernGame` (a
+    belief Tavern, `LobbyGame.belief_tavern`) through the Rust encoder; the Python reference when the
+    extension has no `encode_tavern` (or `enc` is None)."""
+    if enc is None or not hasattr(enc, "encode_tavern"):
+        return encode_observation(tavern.observe(), context, arranging=arranging)
+    pv, ids, nf = enc.encode_tavern(tavern, context, arranging)
+    return (
+        np.frombuffer(pv, dtype=np.float32),
+        np.frombuffer(ids, dtype=np.int64),
+        np.frombuffer(nf, dtype=np.float32).reshape(NUM_SLOTS, SLOT_NUM_DIM),
+    )
+
+
+def fast_mask_tavern(
+    enc,
+    tavern: seaglass.TavernGame,
+    allow_reposition: bool = False,
+    allow_freeze: bool = False,
+    prune_dominated: bool = False,
+) -> np.ndarray:
+    """`actions.action_mask(tavern, ...)` of a Solo `TavernGame` through the Rust encoder; the Python
+    reference when the extension has no `mask_tavern` (or `enc` is None)."""
+    if enc is None or not hasattr(enc, "mask_tavern"):
+        return action_mask(tavern, allow_reposition, allow_freeze, prune_dominated)
+    return np.frombuffer(
+        enc.mask_tavern(tavern, allow_reposition, allow_freeze, prune_dominated), dtype=np.bool_
+    )

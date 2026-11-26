@@ -26,10 +26,14 @@ flowchart LR
 | `play.py` | `LobbyConfig` (the lobby settings) and `Seat` (one player with the `TavernGame` interface, so the bots and `action_mask` play Solo and Duos alike). `play_games`: plays many lobbies in lockstep with one batched forward pass per model, with a mix of controllers per unit (`"learner"`, `"heuristic"`, `"random"`, or a named model such as a checkpoint), and records the learner's decisions as trajectories. `Player` spreads games over worker processes. |
 | `ppo.py` | GAE with **per-turn discounting** and a minibatched, KL-limited PPO update. |
 | `train_lobby.py` | The trainer (below). |
-| `pretrain.py` | Behavior cloning on HeuristicBot games (policy cross-entropy + value regression), the starting point for PPO (`train_lobby.py --init`). |
+| `pretrain.py` | Behavior cloning on rule-bot games (policy cross-entropy + value loss), the starting point for PPO (`train_lobby.py --init`). |
 | `evaluate.py` | Average placement (with standard error, top-half and first-place rates) of a checkpoint against a fixed pool. |
+| `ladder.py` | Rates any agent on a fixed ladder of rule bots (paired seeds, clustered standard errors, behavior by turn) and compares two ratings. |
+| `positioning.py` | Board order by search: the environment orders a model's board at the end of each turn (`--auto-position`). |
+| `probe.py` | The per-turn board probe: the win rate of an end-of-turn board against a frozen library of reference boards from the same turn. |
 | `checkpoint.py` | `save` / `load`. A checkpoint stores the model's config and weights, the optimizer state, and the feature spec it was trained on; loading one with another feature spec fails. |
 | `features.py`, `actions.py`, `model.py` | The observation encoding, the 330 flat actions with their legality mask, and the network. |
+| `seaglass.Encoder` (`engine/src/python/encode.rs`) | The observation encoding and the legality mask, ported to Rust bit for bit (about 10x faster per call; a self-play core plays about 1.8x (transformer) to 2x (MLP) as many games per second). `features.py` and `actions.py` stay the reference and own the layout: `features.encoder_spec()` hands Rust the vocabularies, the action table and every offset, and the Rust code holds only the formulas (`tests/test_rust_encoder.py` checks every decision of whole lobbies for exact equality). `play_games` uses it by default for model and recorded-bot seats when the extension has it; `PlayOptions(rust_encoder=False)` switches back to the Python path. Rebuild the extension after changing the layout in `features.py`: a layout whose blocks do not add up is rejected at construction. |
 | `bots.py` | `RandomBot`, `HeuristicBot` (picks the best stats, plays everything, levels on curve), `PolicyBot`. |
 | `env.py`, `train_ppo.py` | **Legacy**: the earlier head-to-head 2-player env (`BattlegroundsEnv`) and its trainer. |
 | `replays.py` | Recorded matches as training arrays (`to_dataset`), e.g. for behavior cloning. |
@@ -39,7 +43,7 @@ flowchart LR
 ## Training (`train_lobby.py`)
 
 ```bash
-python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400                 # clone the HeuristicBots
+python -m seaglass_rl.pretrain --out runs/bc-solo.pt --games 400                 # clone 9kgamerbot
 python -m seaglass_rl.train_lobby --run-dir runs/solo --init runs/bc-solo.pt --lr 1e-4
 python -m seaglass_rl.train_lobby --run-dir runs/solo --iterations 500           # Solo, 8 players, from scratch
 python -m seaglass_rl.train_lobby --run-dir runs/duos --duos --iterations 500    # Duos, 4 teams
@@ -47,27 +51,96 @@ python -m seaglass_rl.train_lobby --run-dir runs/solo --resume runs/solo/latest.
 python -m seaglass_rl.evaluate runs/duos/latest.pt --duos --games 200
 ```
 
-**Start from behavior cloning.** From scratch, an untrained policy places last against HeuristicBots nearly every game, and a reward that arrives only at the end of the game is too weak to climb out from there. `pretrain.py` clones the bots in about a minute: 95% held-out action accuracy, average place 4.9 against them in Solo and 2.7 in Duos. PPO then starts from there (`--init`).
+**Start from behavior cloning.** From scratch, an untrained policy places last against rule bots nearly every game, and a reward that arrives only at the end of the game is too weak to climb out from there. `pretrain.py` clones a rule bot (`--teacher`: `9kgamerbot` by default, or `9kgamerbot-tempo` or `heuristic`) from games where every seat is that bot. It collects `--chunk` (40) games at a time to bound memory. With the old HeuristicBot teacher it took about a minute for 95% held-out action accuracy. PPO then starts from there (`--init`). Pretrain records and trains under the same move rules as the PPO run that follows: give it the same `--no-reposition`, `--no-freeze`, `--no-positioning-phase`, `--prune` and `--max-steps-per-turn`. They are saved in the checkpoint, so `ladder.py` rates it under them. The critic is not trained by default (`--value-epochs 0`): a cloned critic memorises its games' outcomes, and on whole held-out games it did worse than a uniform guess from the first epoch. With `--value-epochs N` it is trained like PPO's (below), with cross-entropy against the seat's final place. The held-out set is whole games. Bots shop, reposition and freeze in one go and never see the end-of-turn step (below), so each recorded End Turn is followed by a recorded End Turn in that step. Without it, a clone wanders in the step: the HeuristicBot clone made 12 actions a turn against its teacher's 6.
 
 The policy's logits get a **kind prior** (`model.py`, on for `train_lobby`): each is lowered by log(number of legal actions of its kind). An untrained policy then picks among Buy, Play, Reposition, End Turn and the rest evenly, instead of mostly Repositioning: there are 42 Reposition actions and 1 End Turn.
 
-Each iteration plays `--games` lobbies (64) across `--workers` processes (12):
-- **Who plays.** The learner controls `--learner-units` units: half by default, so 4 Solo players or 2 Duos teams. In Duos both teammates use the learner's policy, each acting on their own Tavern. Each other unit is a HeuristicBot (`--p-heuristic`, 30%) or a frozen snapshot of the learner. Snapshots are taken every `--snapshot-every` iterations, and the last `--pool-size` are kept.
+Each iteration plays `--games` lobbies (64) across `--workers` processes (default: half the cores):
+- **Who plays.** The learner controls `--learner-units` units: half by default, so 4 Solo players or 2 Duos teams. In Duos both teammates use the learner's policy, each acting on their own Tavern. Each other unit is, with chance `--p-bot` (30%), a rule bot drawn evenly from `--bots` (`9kgamerbot,9kgamerbot-tempo` by default), and otherwise a frozen snapshot of the learner. Before the first snapshot every opponent is a bot (with `--pure`, the learner fills every seat). Snapshots are taken every `--snapshot-every` iterations and all are kept on disk. Each iteration's snapshot opponents are the latest `--pool-recent` (4) plus `--pool-history` (4) drawn at random from the older ones, so the league keeps past selves in the field. A game only sends its workers the snapshots it uses.
 - **Reward.** The unit's **placement**: +1 for first down to -1 for last, linear (`play.placement_reward`). A Duos team's two players share it.
-- **Optional shaping.** `--shaping` (default 0.3) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier.
-- **Discounting.** `--gamma` (0.97) applies once per turn, not per action, so a 10-action turn isn't discounted ten times.
+- **Optional shaping.** `--shaping` (default 0, off) adds potential-based shaping, γ·Φ(s′) − Φ(s), with Φ = shaping × log1p(`env.compute_board_power`). Being potential-based, it changes no optimal policy; it only gives credit earlier. It is off because the stat-sum potential rewards buying stats now, and it is blind to scaling.
+- **Discounting and λ.** `--gamma` (1) applies once per turn, not per action. `--lam` (0.95) now applies once per turn too (`--lam-per turn`): the actions within a turn are one step of GAE, so credit decays by λ per turn, not per action. `--lam-per action` applies it at every action, as before.
+- **The critic.** `--value-head placement` (the default) makes the critic a distribution over the final place, 1 to 8 in Solo (`value_places` in the model's config). It is trained with cross-entropy against the unit's final place. The value PPO uses is its expectation over the placement rewards (+1 for first to -1 for last, linear). That equals the return only with `--gamma 1` and no shaping, so the trainer exits if you combine a placement critic with `--gamma` other than 1, `--shaping` or `--health-shaping`. `--value-head scalar` keeps the old scalar critic, which old checkpoints have. With `--init` or `--resume`, the head comes from the checkpoint.
 - **Actions.** Everything is unmasked, including Freeze. `--prune` restores the `prune_dominated` sell and refresh rules. A turn is force-ended after `--max-steps-per-turn` (30) actions.
 - **End-of-turn step.** A model's turn has two parts. **Shopping** covers everything but Reposition and Toggle Freeze; where a card is played still picks its slot. Choosing End Turn opens an **end-of-turn step** ("prepping the board for battle") when there is something to do in it. The only legal actions in the step are Reposition (at most board size − 1 moves, with 2+ minions), **one** Toggle Freeze, and End Turn. The turn ends once nothing is left to do. The observation flags the step (`features.PHASE_OFFSET`). `--no-positioning-phase` allows repositioning and freezing at any time. Without the step, the models made 6–12 moves a turn, and toggled Freeze on and off to pad turns.
 - **Damage caps.** Lobbies cap combat damage as the game does (`engine/docs/lobby_game.md` §5). `--no-damage-caps` turns this off.
+- **The old behavior.** `--gamma 0.97 --lam-per action --shaping 0.3 --value-head scalar --p-heuristic 0.3 --pool-size 10` restores the earlier defaults (HeuristicBots and the last ten snapshots). For `pretrain.py`, the old behavior is `--teacher heuristic --value-head scalar`.
+- **Auxiliary head (`--aux-coef`, `--aux-horizons`).** Placement arrives once a game, and levelling or buying a scaling engine costs strength now and pays a few turns later. With `--aux-coef` > 0 (default 0, off), the model gets one extra logit per horizon, predicting the board probe score (`probe.py`: an end-of-turn board's win rate against a fixed library of reference boards from the same turn, in [0, 1]; it names no cards) that many turns ahead (`--aux-horizons`, default `0,2,4`; 0 is this turn's board). The head is a linear layer on the trunk (the MLP's hidden features, the transformer's player token), trained with binary cross-entropy times `--aux-coef`, averaged over the targets that exist; a decision's target is missing when the seat was knocked out by then, the game ended, the library has no boards for that turn, or in the hero phase. Nothing else changes: the head is not used to act, and with the flag off the model and its checkpoints are unchanged. A model can't grow a head in place, so `--init` / `--resume` need a checkpoint trained with the same number of horizons (the trainer exits otherwise). `aux_loss` is logged per iteration. Cost: the rollout scores every recorded seat's board each turn (`PlayOptions.aux_probe`), about 10% more rollout time with 4 recorded seats of 8 on one core (measured), plus the one-time library build in each worker. Solo only.
 - **Update.** `--epochs` (4) passes of minibatches (`--minibatch` 4096). An epoch stops early once the approximate KL passes 1.5 × `--target-kl`.
 
-Every `--eval-every` iterations, the learner plays `--eval-games` lobbies alone against HeuristicBots, and `latest.pt` is saved. `runs/NAME/` holds:
+Every `--eval-every` iterations, the learner is rated on a ladder of rule bots (`--eval-ladder`: `fast`, the default in 8-player Solo, or `slow`; see "Rating agents" below) and `latest.pt` is saved. `--eval-games` sets the lobbies (default: the ladder's own, 500 fast or 100 slow), and `--no-eval-probe` skips the board probe. `--eval-ladder heuristic` keeps the older check: the learner alone against HeuristicBots (96 lobbies). The ladders need an 8-player Solo lobby, so Duos and smaller lobbies default to `heuristic`. `runs/NAME/` holds:
 - `args.json`;
-- `log.jsonl`, one line per iteration: the learner's average place, steps, losses, entropy, KL, explained variance, and the evaluation;
+- `log.jsonl`, one line per iteration: the learner's average place, steps, losses, entropy, KL, explained variance, and a summary of the evaluation (`eval`);
 - `latest.pt`;
-- `snapshots/iter_XXXXX.pt`.
+- `snapshots/iter_XXXXX.pt`;
+- `evals/iter_XXXXX.json`, the full ladder result of each evaluation.
 
 Evaluation. An agent as good as the field places `(units + 1) / 2` on average: 4.5 in Solo, 2.5 in Duos. Lower is better.
+
+**Automatic positioning (`--auto-position`).** The simulator can score a board order exactly, so the environment can order the board instead of the policy learning 42 Reposition logits from the final place. With `--auto-position` (meant for `--no-reposition`), just before a model seat's turn ends, `positioning.py` searches for a better order with the combat simulator. It scores each order by its win rate (a draw counts half) against up to 4 opponent boards: the boards this player has seen (the next opponent first, then the most recently seen), filled up from the probe library's reference boards for the turn. Every order uses the same fight seeds, 2 fights per opponent. The search is a first-improvement hill climb over swaps with a budget of 16 scored orders per turn, and knows nothing about cards. The moves are counted as `auto_position` actions and never enter a trajectory. It applies to model seats only, Solo only. Cost: about 0.4 ms per seat-turn with a 5-minion board and 0.8 ms with 6 (measured on the Mac mini, 4 opponents, whole search), plus the one-time library build (a few seconds) in each worker. `ladder.py` rates a checkpoint with it when it was trained with it; `rate --auto-position on|off` overrides that. **Measured gain: none so far.** On the fast ladder, the 150-game 9kgamerbot clone placed 5.22 without it, 5.21 with it, and 5.25 with a search 16 times larger (8 opponents, 8 fights each, 48 orders). Each is ± 0.13 at two sigma. So it is off by default; try it again once agents build boards where order matters more.
+
+### Rating agents (`ladder.py`)
+
+One command rates any agent (a checkpoint or a bot name) and compares two ratings:
+
+```bash
+python -m seaglass_rl.ladder rate runs/solo/latest.pt --out results/a.json
+python -m seaglass_rl.ladder rate 9kgamerbot --out results/9k.json
+python -m seaglass_rl.ladder rate runs/solo/latest.pt --ladder slow     # adds a SovereignBot seat; slow
+python -m seaglass_rl.ladder compare results/a.json results/b.json
+```
+
+- **Ladders.** The agent takes 2 of 8 Solo seats. The **fast** ladder fills the rest with two each of `9kgamerbot`, `9kgamerbot-tempo` and `heuristic`, and plays 500 lobbies (1,000 seat-games). The **slow** ladder swaps in one `sovereign` seat and plays 100 lobbies; SovereignBot costs 30 to 50 seconds of CPU per game, so run it rarely. The seeds and the seat shuffle are fixed and do not depend on the agent, so every agent on the same ladder and seed plays the same lobbies in the same seats.
+- **Reported.** Average place (4.5 is level, lower is better) with its standard error, clustered by lobby because the agent's two seats in a lobby are not independent. Also the top-4 and first-place rates, the same for each anchor, and behavior by turn: Tavern Tier, Gold left, health, board size and actions (buys, rolls, levels), next to the anchors' Tier. The result file records the commit, whether the tree was dirty, and a fingerprint of the engine build.
+- **The probe.** Placement arrives once per game and is noisy. The probe (`probe.py`) fights the agent's end-of-turn board against a frozen library of reference boards from the same turn, made by lobbies of the rule bots on fixed seeds, and reports the win rate by turn (a draw counts half). It is a dense signal: it shows whether an agent trades early strength for late strength. Its limits: the fights are board-only, so Hero Powers, trinkets and other effects outside the board are not included, and late turns have only survivors on both sides. The library is rebuilt at each start (a few seconds), not stored.
+- **Checkpoints** are rated under the move rules they were trained with (the step cap, if any, the end-of-turn step, `--no-reposition`, `--no-freeze`, `--prune`), read from the checkpoint's saved arguments.
+- **Comparing.** `compare` reports the difference in average place with its standard error, and whether it is within 2σ. If both results used the same seed, it also reports the paired difference per lobby. Pairing narrows the interval only a little (about 5% in the Stage 1 runs), because an agent's own play soon changes how a lobby goes. A difference inside 2σ is noise. Every claim that one agent beats another should cite the ladder result files it came from.
+
+### Search inside the turn (`search.py`)
+
+Inside a turn the simulator is exact, except for hidden randomness (refreshes, Discovers). So a model seat can search there, with its own policy to propose moves and its own critic to judge them. No play rules and no card knowledge go in.
+
+- **A line** is the rest of the turn. It starts with one root action. Then the policy plays on, sampling at `SearchSpec.temperature` (0 is greedy), under the same move rules as `play_games` (in the shopping step Reposition and Toggle Freeze are masked when the end-of-turn step is on). It ends when the policy picks End Turn, or after `max_line` actions.
+- **The score** of a line is the critic's value of its last state, encoded with `arranging=True`: the state the critic sees at a turn's last decision in training. The value is the expected placement reward, in [-1, 1]. There is no combat and no later turn.
+- **The belief Tavern.** Each line runs in `LobbyGame.belief_tavern(p, seed)`: the player's own state with a card pool rebuilt from what the player can see. The search never sees the true pool or the true shop to come. The live game is not touched. Lines use the same belief seeds for every candidate (common random numbers), so candidates are compared on the same futures.
+- **Choosing the root action.** Gumbel MuZero's sequential halving. The candidates are the top `top_m` legal actions by Gumbel noise plus logit (`gumbel_noise=False`, for play, means no noise). There are `ceil(log2(top_m))` phases. Each gives every remaining candidate `max(1, sims // (phases * remaining))` lines. Then the better half by `g + logit + sigma(Q)` goes on, where `Q` is the mean line score and `sigma(q) = (c_visit + max visits) * c_scale * (q + 1) / 2`. The last candidate is played. The lines run in all are at most `max(sims, sum of the candidates left over the phases)`. For `top_m=8, sims=16` that is 16 (`line_budget` gives the exact plan).
+- **Skipped.** With fewer than 2 legal actions, in the end-of-turn step, and in the hero phase, the plain policy plays.
+- **The targets.** `search_decision` also returns the improved policy `softmax(logit + sigma(completed Q))` over the legal actions (the candidates' `Q`, and `v_mix` for the rest) and the root value. With `PlayOptions.search` set and a searching seat recorded, `Trajectory.search_policy` keeps the target of every decision (float16 in `arrays()`; zeros where the decision was not searched). The recorded action, log-probability and value are the played action's under the plain policy and the critic's root value, so PPO data stays valid. Nothing trains on the targets yet.
+- **Cost.** About 100 ms per searched decision for the default `SearchSpec()` (8 candidates, 16 lines) with the 64-wide transformer on 2 CPU threads, and a few dozen batched forwards. Cost is about linear in `sims` (lines) and in the length of a line. `top_m` mostly changes how the lines are spread. Solo only. Searches are coroutines (`search_coroutine`) driven together by `run_searches`: in `play_games`, every searching seat of every lobby in a lockstep step runs at once, and each round makes one forward per model over all their rows (root, line steps and end-of-turn scoring). A seat-game therefore costs far fewer, much larger forwards (about 20 rows each instead of 4 in the 8-lobby, 2-seat measurement) and about a quarter less wall time on one core; the more lobbies and searching seats a worker plays at once, the bigger the batches. Batch composition can change float results in the last bits, so a search is reproducible for a given set of lobbies but not bit-identical to the same seat searched alone.
+- **Using it.** `PlayOptions(search=SearchSpec(), search_controllers=("agent",))`, or on the command line:
+
+```bash
+python -m seaglass_rl.ladder rate runs/solo/latest.pt --search --search-m 8 --search-sims 16
+python -m seaglass_rl.ladder versus runs/solo/latest.pt runs/solo/latest.pt --search-a --games 200 --out results/search.json
+```
+
+`versus` is the most sensitive check: agents `a` and `b` take 4 seats each in every Solo lobby (seats shuffled by the seed alone) and it reports `a`'s average place (4.5 is level) with its standard error clustered by lobby, top-4 and first-place rates for both, and the places by lobby. The two may be the same checkpoint, with only one searching. Both must play under the same move rules, and if both search they must use the same `SearchSpec`. `rate --search` rates the agent with search on the ladder; a bot cannot search.
+
+### Distilling search (`distill.py`)
+
+Expert iteration, offline: the network learns to play the way its own in-turn search does, then is checked against the network it started from. PPO can continue from the distilled network afterwards.
+
+```bash
+python -m seaglass_rl.distill generate --model runs/solo/latest.pt --lobbies 2000 --search-seats 2 --out runs/distill/data --workers 6
+python -m seaglass_rl.distill train --init runs/solo/latest.pt --data runs/distill/data --out runs/distill/student.pt
+```
+
+- **`generate`** plays Solo lobbies in which `--search-seats` seats (shuffled per lobby) are the model with search and Gumbel noise at the root (`searcher`) and the others the same checkpoint without search (`rival`), under the checkpoint's move rules. Only the searchers are recorded: one compressed `.npz` shard per `--chunk` lobbies with the packed observations, `actions`, `search_policy` (float16; zero rows where a decision was not searched, flagged by `searched`), `places` (0-based final place of each decision's seat) and `game` (the lobby index), plus `meta.json` (checkpoint, search spec, seeds, commit, engine fingerprint).
+- **`train`** starts from the checkpoint's weights and minimizes `policy + vf_coef * value + anchor_coef * anchor`: the cross-entropy of the masked log-softmax against `search_policy` on searched rows; the placement critic's cross-entropy against `places` on all rows (a scalar critic is refused); and KL(pi_init || pi_theta) on all rows against a frozen copy of the start, which keeps the network near a policy known to be strong. Whole games are held out; each epoch prints the held-out policy cross-entropy, `agree` (the searched rows where the network's argmax is the search's, next to the start's), value cross-entropy and the KL to the start. The saved checkpoint keeps the original `args` (so the ladder rates it under the same move rules) and adds `extra["distill"]`.
+- **The gate.** The distilled network, both without search, against the one it started from: `python -m seaglass_rl.ladder versus runs/distill/student.pt runs/solo/latest.pt --games 200`. It passes when `a`'s average place is below 4.5 by more than the standard error.
+
+### Packed trajectories
+
+The trainer and `pretrain.py` store trajectories packed (`PlayOptions(pack=True)`; `train_lobby.play_options` sets it, `pretrain --no-pack` keeps the dense format). A decision's `slot_num_feats` is over 97% zeros, so `Trajectory.arrays(pack=True)` returns it as CSR rows over the flattened `NUM_SLOTS * SLOT_NUM_DIM` values: `num_ptr` (int64, T+1), `num_idx` (uint16 columns), `num_val` (float16, the same numbers the dense float16 array holds). The action mask becomes `mask_bits` (`np.packbits`, uint8), `slot_card_ids` is uint16, and `packed` is True. A decision shrinks from about 21.5 KB to about 1.5 KB. `packing.py` has `pack_rows`, `concat_packed`, `unpack_rows` and `unpack_mask`; `ppo.build_batch` keeps a packed batch packed (it refuses a mix of packed and dense trajectories), and `ppo_update` and `pretrain.train` densify one minibatch at a time. The default, `pack=False`, is the dense format that `replays.py`, `train_ppo.py` and the bots expect. With the Rust encoder, `pack=True` never builds the dense float16 stack: `Encoder.encode(..., sparse=True)` (`fast_encode(..., sparse=True)`) returns each decision's nonzero columns and float32 values, `play.py` keeps them as uint16/float16 (dropping values that underflow to zero in float16) and `arrays(pack=True)` assembles the CSR rows from them, bit-identical to `pack_rows` and about 2.5x smaller in worker memory while a game runs.
+
+### Devices and CPU use
+
+Self-play always runs on the CPU, in `--workers` processes. Only the gradient updates (`train_lobby`, `pretrain`) move to `--device`: `auto` (the default) picks CUDA, then Apple's MPS, then the CPU. Evaluation stays on the CPU. Checkpoints always hold CPU tensors, so they load anywhere.
+
+Three environment variables set the defaults for the whole machine; a flag wins over them:
+`SEAGLASS_DEVICE` (`auto`, `cpu`, `mps`, `cuda`), `SEAGLASS_WORKERS` (self-play processes) and `SEAGLASS_THREADS` (torch threads in the trainer). Without them, workers and threads default to half the cores (threads at most 8). While another job shares the machine, turn things down: `SEAGLASS_WORKERS=3 SEAGLASS_THREADS=2 python -m seaglass_rl.train_lobby --run-dir runs/solo`, or add `--device cpu` to leave the GPU to it.
+
+How much the GPU helps depends on the model's size. On an M-series Mac (MPS), the update of a 224-wide, 6-layer transformer runs about 2x faster than on the CPU, but the default MLP and the default 64-wide transformer gain little. The first iterations are slower while MPS compiles each new batch shape.
 
 ### Simplifications compared with the real game
 - No damage cap (`engine/docs/deferred.md`).
@@ -203,9 +276,13 @@ rl/
 ├── seaglass_rl/
 │   ├── play.py          # Lockstep play of seaglass.LobbyGame with mixed controllers, trajectories
 │   ├── ppo.py           # Per-turn GAE and the minibatched PPO update
-│   ├── train_lobby.py   # The trainer (league of snapshots + HeuristicBots)
-│   ├── pretrain.py      # Behavior cloning on HeuristicBot games
+│   ├── train_lobby.py   # The trainer (league of snapshots + rule bots)
+│   ├── pretrain.py      # Behavior cloning on rule-bot games
 │   ├── evaluate.py      # Average placement against a fixed pool
+│   ├── ladder.py        # Rate an agent on the fixed bot ladders, compare ratings
+│   ├── positioning.py   # Board order by hill-climbing with the combat simulator
+│   ├── probe.py         # Per-turn board strength against reference boards
+│   ├── search.py        # Policy-guided search inside the turn, scored by the critic
 │   ├── checkpoint.py    # Save / load models with their feature spec
 │   ├── features.py      # Observation encoding
 │   ├── actions.py       # Action space and masks

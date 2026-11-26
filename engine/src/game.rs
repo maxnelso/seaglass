@@ -457,6 +457,21 @@ impl Match {
         &self.rngs
     }
 
+    /// Replace every RNG the match draws from, as if another seed dealt the rest of the game:
+    /// the shop draws, Discovers, random effects and combat seeds from here on. Nothing already
+    /// dealt changes. This is for looking ahead from a copy ([`crate::lobby_game::LobbyGame::reseed`]).
+    ///
+    /// The replay records no seed but the header's, so a reseeded match's replay does not
+    /// re-simulate past this point: the header is labelled `reseeded` to say so.
+    pub fn reseed(&mut self, seed: u64) {
+        for (i, rng) in self.rngs.iter_mut().enumerate() {
+            *rng = Rng::new(seed.wrapping_add(i as u64));
+        }
+        self.header
+            .meta
+            .insert("reseeded".to_string(), self.records.len().to_string());
+    }
+
     /// What the players know about each other ([`Self::set_pairs`]).
     pub fn lobby(&self) -> &Lobby {
         &self.lobby
