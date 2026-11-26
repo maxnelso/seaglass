@@ -66,12 +66,23 @@ class SearchSpec:
     # Actions in a line before it is scored anyway.
     max_line: int = 40
     seed: int = 0
+    # Where a line is scored. "end": the end-of-turn state, before combat (the critic sees it as the
+    # turn's last decision). "next_start": the line ends its turn, fights a sampled opponent board
+    # (`opponents`), starts the next turn (Gold, a new shop from the belief pool) and is scored there.
+    # "next_end": as "next_start", then the policy plays the next turn too and the line is scored at its
+    # end. A line whose combat knocks the player out is worth the place it would take.
+    horizon: str = "end"
+    # The opponent boards for the combats of the "next_*" horizons, by turn: a probe library
+    # (`probe.ProbeSpec`; with `model`, boards from that network's own games). None: the rule bots'.
+    opponents: Any = None
 
     def __post_init__(self) -> None:
         if self.top_m < 1 or self.sims < 1 or self.max_line < 1:
             raise ValueError("top_m, sims and max_line must be at least 1")
         if self.temperature < 0:
             raise ValueError("temperature must be >= 0")
+        if self.horizon not in ("end", "next_start", "next_end"):
+            raise ValueError(f"horizon must be end, next_start or next_end, not {self.horizon!r}")
 
 
 @dataclass
@@ -228,14 +239,67 @@ def _sample(logits: torch.Tensor, temperature: float, rng: np.random.Generator) 
 
 
 class _Line:
-    __slots__ = ("cand", "tavern", "steps", "end_enc", "score")
+    __slots__ = ("cand", "tavern", "steps", "end_enc", "score", "j", "phase", "dead")
 
-    def __init__(self, cand: int, tavern: Any) -> None:
+    def __init__(self, cand: int, tavern: Any, j: int = 0) -> None:
         self.cand = cand
         self.tavern = tavern
         self.steps = 0
         self.end_enc: tuple | None = None
         self.score = 0.0
+        # The line's index among its candidate's lines (its belief seed and its opponent board).
+        self.j = j
+        # 1 in the turn being searched; 2 in the next turn ("next_end").
+        self.phase = 1
+        # Knocked out in the line's combat: scored as the place it would take, not by the critic.
+        self.dead = False
+
+
+def _opponent_library(spec: SearchSpec) -> dict:
+    from .play import LobbyConfig
+    from .probe import ProbeSpec, library_for
+
+    return library_for(spec.opponents or ProbeSpec(), LobbyConfig())
+
+
+def _turn_over(ln: _Line, rust: Any, ctx: Any, spec: SearchSpec, seed: int, ended: bool = False) -> None:
+    """The line's policy ended its turn while shopping (`ended`: the engine already ended it). Score it
+    where `spec.horizon` says: set `ln.end_enc`, or mark it dead, or move it on to the next turn."""
+    if spec.horizon == "end" or ln.phase == 2:
+        ln.end_enc = _end_enc(rust, ln.tavern, ctx) if not ended else features.fast_encode_tavern(rust, ln.tavern, ctx, True)
+        return
+    if not ended:
+        try:
+            ln.tavern.end_turn()
+        except ValueError:
+            pass
+    library = _opponent_library(spec)
+    turn = ln.tavern.observe().turn
+    refs = library.get(turn)
+    if not refs and library:
+        refs = library[min(library, key=lambda t: abs(t - turn))]
+    if refs:
+        board, tier = refs[_mix(seed, ln.j, 101) % len(refs)]
+        ln.tavern.resolve_combat_against(list(board), tier, seed=_mix(seed, ln.j, 103) & (2**63 - 1))
+    obs = ln.tavern.observe()
+    if obs.health + obs.armor <= 0:
+        ln.dead = True
+        return
+    ln.tavern.start_turn()
+    if spec.horizon == "next_start":
+        ln.end_enc = features.fast_encode_tavern(rust, ln.tavern, ctx, False)
+    else:
+        ln.phase = 2
+        ln.steps = 0
+
+
+def _death_value(ctx: Any) -> float:
+    """The reward of being knocked out now: the last place among the units still in."""
+    if ctx is None:
+        return -1.0
+    units = max(2, int(ctx.units))
+    place = max(1, int(ctx.alive_units))
+    return 1.0 - 2.0 * (place - 1) / (units - 1)
 
 
 def _sigma(q: np.ndarray | float, max_n: int, spec: SearchSpec) -> np.ndarray | float:
@@ -334,24 +398,30 @@ def search_coroutine(
             for i in range(per):
                 j = visits[a] + i  # the same belief seed for every candidate's j-th line
                 tavern = game.belief_tavern(p, seed=_mix(spec.seed, seed, j) & (2**63 - 1))
-                line = _Line(a, tavern)
+                line = _Line(a, tavern, j)
                 if a == END_TURN_INDEX:
-                    line.end_enc = _end_enc(rust, tavern, ctx)
+                    _turn_over(line, rust, ctx, spec, seed)
                 else:
                     act = action_from_index(a)
                     if tavern.is_legal(act):
                         tavern.step(act)
                     line.steps = 1
                 lines.append(line)
-        forwards += yield from _run_lines(model_name, lines, ctx, rust, opts, spec, rng)
-        # Score the finished lines with one forward.
-        enc_end = [ln.end_enc for ln in lines]
-        only_end = np.zeros(ACTION_SPACE_SIZE, dtype=np.bool_)
-        only_end[END_TURN_INDEX] = True
-        _, vals = yield _request(model_name, enc_end, [only_end] * len(lines))
-        forwards += 1
-        for ln, v in zip(lines, vals.numpy()):
-            q_sum[ln.cand] += float(v)
+        forwards += yield from _run_lines(model_name, lines, ctx, rust, opts, spec, rng, seed)
+        # Score the finished lines with one forward (a knocked-out line is worth the place it takes).
+        scored = [ln for ln in lines if not ln.dead]
+        if scored:
+            only_end = np.zeros(ACTION_SPACE_SIZE, dtype=np.bool_)
+            only_end[END_TURN_INDEX] = True
+            _, vals = yield _request(model_name, [ln.end_enc for ln in scored], [only_end] * len(scored))
+            forwards += 1
+            for ln, v in zip(scored, vals.numpy()):
+                ln.score = float(v)
+        dead_v = _death_value(ctx)
+        for ln in lines:
+            if ln.dead:
+                ln.score = dead_v
+            q_sum[ln.cand] += ln.score
             visits[ln.cand] += 1
         lines_run += len(lines)
         max_n = max(visits.values())
@@ -394,12 +464,14 @@ def _run_lines(
     opts: "PlayOptions",
     spec: SearchSpec,
     rng: np.random.Generator,
+    seed: int = 0,
 ) -> Generator[ForwardRequest, ForwardResult, int]:
     """Play the lines to their ends in lockstep (one batched forward per step, yielded as a request);
-    each line's `end_enc` is set when it ends. Returns the forwards made."""
+    each line's `end_enc` is set when it ends (or it is marked dead, `spec.horizon`). Returns the
+    forwards made."""
     reposition, freeze = shopping_flags(opts)
     forwards = 0
-    running = [ln for ln in lines if ln.end_enc is None]
+    running = [ln for ln in lines if ln.end_enc is None and not ln.dead]
     while running:
         batch, encs, masks = [], [], []
         for ln in running:
@@ -419,16 +491,18 @@ def _run_lines(
         for ln, a in zip(batch, acts):
             a = int(a)
             if a == END_TURN_INDEX:
-                ln.end_enc = _end_enc(rust, ln.tavern, ctx)
-                continue
-            try:
-                done = ln.tavern.step(action_from_index(a))
-            except ValueError:
-                done = True
-            ln.steps += 1
-            if done:
-                ln.end_enc = _end_enc(rust, ln.tavern, ctx)
+                _turn_over(ln, rust, ctx, spec, seed)
             else:
+                try:
+                    done = ln.tavern.step(action_from_index(a))
+                except ValueError:
+                    # An action the belief Tavern refuses: score the line where it stands.
+                    ln.end_enc = _end_enc(rust, ln.tavern, ctx)
+                    continue
+                ln.steps += 1
+                if done:
+                    _turn_over(ln, rust, ctx, spec, seed, ended=True)
+            if ln.end_enc is None and not ln.dead:
                 running.append(ln)
     return forwards
 

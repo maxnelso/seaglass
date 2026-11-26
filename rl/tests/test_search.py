@@ -305,3 +305,43 @@ def test_play_games_batches_the_searching_seats() -> None:
             assert sorted(r.placements) == [1, 2, 3, 4] and r.trajectories
         counts[name] = n[0]
     assert counts["all"] * 1.3 <= counts["one at a time"]  # up to 3x: 3 lobbies share their batches
+
+
+@pytest.mark.parametrize("horizon", ["next_start", "next_end"])
+def test_search_past_the_turn_runs_and_is_deterministic(horizon: str) -> None:
+    from seaglass_rl.probe import ProbeSpec
+
+    spec = SearchSpec(top_m=3, sims=4, horizon=horizon, opponents=ProbeSpec(lobbies=4, per_turn=8, min_boards=4))
+    config = LobbyConfig()
+    specs = [GameSpec(seed=5, controllers=["a", "heuristic", "heuristic", "heuristic", "heuristic", "heuristic", "heuristic", "heuristic"])]
+    opts = PlayOptions(search=spec, search_controllers=("a",), allow_reposition=False)
+
+    def play():
+        # A fresh model each time: a model's sampling rng is consumed as it plays.
+        torch.manual_seed(0)
+        model = EntityTransformer(seed=0, kind_prior=True, value_places=8, **SMALL).eval()
+        return play_games(config, specs, {"a": model}, opts, record=())
+
+    (r1,) = play()
+    (r2,) = play()
+    assert r1.placements == r2.placements and sorted(r1.placements) == list(range(1, 9))
+
+
+def test_a_knocked_out_line_is_worth_the_last_place_left() -> None:
+    from types import SimpleNamespace
+
+    from seaglass_rl.search import _death_value
+
+    assert _death_value(SimpleNamespace(units=8, alive_units=8)) == -1.0
+    assert abs(_death_value(SimpleNamespace(units=8, alive_units=3)) - (1 - 2 * 2 / 7)) < 1e-12
+
+
+def test_a_probe_library_from_a_network(tmp_path) -> None:
+    from seaglass_rl import checkpoint
+    from seaglass_rl.probe import ProbeSpec, build_library
+
+    model = EntityTransformer(seed=0, kind_prior=True, value_places=8, **SMALL)
+    path = tmp_path / "m.pt"
+    checkpoint.save(path, model, iteration=0, args={"no_reposition": True})
+    lib = build_library(ProbeSpec(lobbies=2, per_turn=4, min_boards=2, model=str(path)), LobbyConfig())
+    assert lib and all(2 <= len(v) <= 4 for v in lib.values())
