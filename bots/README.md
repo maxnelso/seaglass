@@ -1,5 +1,7 @@
 # Seaglass Python Search Bots (`bots/`)
 
+> **Frozen as a reference** (Stage 5 of [`docs/neural-opponents-sprint.md`](../docs/neural-opponents-sprint.md)). These bots hard-code card knowledge, and part of it expires with each patch. They are kept for two jobs: SovereignBot is the slow ladder's top anchor (`python -m seaglass_rl.ladder rate ... --ladder slow`), and the bots are opponents and teachers to measure against. New learning work goes in `rl/`, whose training path names no card (`rl/tests/test_stage5.py`). The ladder fingerprints the anchors' sources (`anchors_fingerprint` in every result), so a change to them shows up when two results are compared.
+
 Standalone Python bot suite built on top of the Rust `seaglass` engine.
 All game rules, turn transitions, and batch combat simulations stay in Rust (`engine/`), while search, belief modeling, 1-turn physics rollouts, Set-Transformer synergy learning, positioning optimization, and ICM survival evaluation live in Python (`seaglass_bots/`).
 
